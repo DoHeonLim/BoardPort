@@ -1,15 +1,17 @@
 /**
-File Name : components/product/ProductForm
-Description : 제품 등록,편집 폼 컴포넌트
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2025.06.12  임도헌   Created
-2025.06.12  임도헌   Modified  제품 등록 폼 컴포넌트로 분리
-2025.06.15  임도헌   Modified  제품 편집 컴포넌트를 병합해서 등록, 편집 통합 폼으로 리팩토링 
-2025.09.10  임도헌   Modified  getUploadUrl 유니온 분기 처리로 TS 에러 해결 + File 타입 가드
-*/
+ * File Name : components/product/ProductForm
+ * Description : 제품 등록,편집 폼 컴포넌트
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.06.12  임도헌   Created
+ * 2025.06.12  임도헌   Modified  제품 등록 폼 컴포넌트로 분리
+ * 2025.06.15  임도헌   Modified  제품 편집 컴포넌트를 병합해서 등록, 편집 통합 폼으로 리팩토링
+ * 2025.06.18  임도헌   Modified  제품 등록 시 id를 zod에서 optional로 지정해서 오류 해결
+ * 2025.09.10  임도헌   Modified  getUploadUrl 유니온 분기 처리로 TS 에러 해결 + File 타입 가드
+ * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 폼 간격(gap-form-gap) 적용
+ */
 
 /** 제품 수정 컴포넌트 히스토리
 File Name : components/product/ProductEditForm
@@ -27,7 +29,6 @@ Date        Author   Status    Description
 2025.04.13  임도헌   Modified  condition 필드를 영어로 변경
 2025.04.13  임도헌   Modified  game_type 필드를 영어로 변경
 2025.06.15  임도헌   Modified  통합된 제품 폼으로 병합
-2025.06.18  임도헌   Modified  제품 등록 시 id를 zod에서 optional로 지정해서 오류 해결
  */
 "use client";
 
@@ -36,12 +37,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Category } from "@/generated/prisma/client";
-import { useImageUpload } from "@/hooks/useImageUpload";
-import ImageUploader from "@/components/image/ImageUploader";
-import Input from "@/components/common/Input";
-import Select from "@/components/common/Select";
-import Button from "@/components/common/Button";
-import TagInput from "@/components/common/TagInput";
+import { useImageUpload } from "@/hooks/common/useImageUpload";
+import ImageUploader from "@/components/global/ImageUploader";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import TagInput from "@/components/ui/TagInput";
 import Link from "next/link";
 import {
   COMPLETENESS_TYPES,
@@ -92,7 +93,6 @@ export default function ProductForm({
     number | null
   >(initialMainCategory);
 
-  // 대/소분류 옵션
   const mainCategories = useMemo(
     () => categories.filter((c) => !c.parentId),
     [categories]
@@ -155,10 +155,14 @@ export default function ProductForm({
     }
   }, [defaultValues.photos, setValue, setPreviews]);
 
+  // minPlayers 변경 시 maxPlayers 자동 조정
   const minPlayers = watch("min_players");
   const maxPlayers = watch("max_players");
+
   useEffect(() => {
-    if (minPlayers > maxPlayers) setValue("max_players", minPlayers);
+    if (minPlayers && maxPlayers && minPlayers > maxPlayers) {
+      setValue("max_players", minPlayers);
+    }
   }, [minPlayers, maxPlayers, setValue]);
 
   useEffect(() => {
@@ -235,10 +239,7 @@ export default function ProductForm({
           return;
         }
         if (key === "photos" || key === "id") return;
-
-        // 추가: 안전 가드
         if (value === undefined || value === null) return;
-
         formData.append(key, value.toString());
       });
       allPhotos.forEach((url) => formData.append("photos[]", url));
@@ -246,12 +247,12 @@ export default function ProductForm({
       const result = await action(formData);
       if (result?.success) {
         if (mode === "create") {
-          toast.success("🎉 제품 등록 완료!.");
+          toast.success("🎉 제품 등록 완료!");
           router.replace(`/products/view/${result.productId}`);
         } else if (mode === "edit") {
-          toast.success("🎉 제품 수정 완료!.");
+          toast.success("🎉 제품 수정 완료!");
           router.back();
-          router.refresh(); // ✨ hydration mismatch 방지 및 최신 데이터 강제 로딩
+          router.refresh();
         }
       } else if (result?.error) {
         toast.error("오류가 발생했습니다. 다시 시도해주세요.");
@@ -278,24 +279,32 @@ export default function ProductForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5 p-5">
-      <ImageUploader
-        previews={previews}
-        onImageChange={handleImageChange}
-        onDeleteImage={handleDeleteImage}
-        onDragEnd={handleDragEnd}
-        isOpen={isImageFormOpen}
-        onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
-        isUploading={isUploading}
-        optional={false}
-      />
-      {previews.length === 0 && mode === "create" && (
-        <p className="text-sm text-red-500 px-2">
-          최소 1개 이상의 이미지를 업로드해주세요.
-        </p>
-      )}
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col gap-form-gap px-page-x py-page-y"
+    >
+      {/* 이미지 업로더 */}
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-primary">상품 이미지</label>
+        <ImageUploader
+          previews={previews}
+          onImageChange={handleImageChange}
+          onDeleteImage={handleDeleteImage}
+          onDragEnd={handleDragEnd}
+          isOpen={isImageFormOpen}
+          onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
+          isUploading={isUploading}
+          optional={false}
+        />
+        {previews.length === 0 && mode === "create" && (
+          <p className="text-xs text-danger pl-1">
+            * 최소 1개 이상의 이미지를 업로드해주세요.
+          </p>
+        )}
+      </div>
 
       <Input
+        label="제품명"
         type="text"
         required
         placeholder="제품명을 입력해주세요"
@@ -303,8 +312,9 @@ export default function ProductForm({
         errors={[errors.title?.message ?? ""]}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-form-gap">
         <Select
+          label="게임 종류"
           {...register("game_type")}
           errors={[errors.game_type?.message ?? ""]}
         >
@@ -315,6 +325,7 @@ export default function ProductForm({
           ))}
         </Select>
         <Input
+          label="가격"
           type="number"
           required
           placeholder="가격을 입력해주세요"
@@ -323,33 +334,34 @@ export default function ProductForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-form-gap">
         <Input
+          label="최소 인원"
           type="number"
           required
-          placeholder="최저 인원"
-          min={1}
+          placeholder="2"
           {...register("min_players")}
           errors={[errors.min_players?.message ?? ""]}
         />
         <Input
+          label="최대 인원"
           type="number"
           required
-          placeholder="최대 인원"
-          min={minPlayers}
+          placeholder="4"
           {...register("max_players")}
           errors={[errors.max_players?.message ?? ""]}
         />
         <Input
+          label="플레이 시간"
           type="text"
           required
-          placeholder="ex) 30-60분"
+          placeholder="예: 30-60분"
           {...register("play_time")}
           errors={[errors.play_time?.message ?? ""]}
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-form-gap">
         <Select
           label="제품 상태"
           {...register("condition")}
@@ -375,25 +387,31 @@ export default function ProductForm({
         </Select>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 py-2">
         <input
+          id="has_manual"
           type="checkbox"
           {...register("has_manual")}
-          className="w-4 h-4 text-primary"
+          className="w-5 h-5 text-brand rounded border-border focus:ring-brand"
         />
-        <label className="dark:text-white">설명서 포함</label>
+        <label
+          htmlFor="has_manual"
+          className="text-sm font-medium text-primary cursor-pointer"
+        >
+          설명서 포함 여부
+        </label>
       </div>
 
       <Input
+        label="상세 설명"
         type="textarea"
         required
-        placeholder="제품에 대한 상세한 설명을 입력해주세요"
+        placeholder="제품의 상태, 특이사항 등을 자세히 적어주세요."
         {...register("description")}
         errors={[errors.description?.message ?? ""]}
-        className="p-2 input-primary min-h-[200px] resize-y"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-form-gap">
         <Select
           label="대분류"
           value={selectedMainCategory?.toString() || ""}
@@ -440,33 +458,35 @@ export default function ProductForm({
         resetSignal={resetSignal}
       />
 
-      <Button
-        text={
-          isUploading
-            ? mode === "edit"
-              ? "수정 중..."
-              : "업로드 중..."
-            : mode === "edit"
-              ? "수정하기"
-              : "등록하기"
-        }
-        disabled={isUploading}
-      />
+      <div className="pt-4 flex flex-col gap-3">
+        <Button
+          text={
+            isUploading
+              ? mode === "edit"
+                ? "수정 중..."
+                : "업로드 중..."
+              : mode === "edit"
+                ? "수정하기"
+                : "등록하기"
+          }
+          disabled={isUploading}
+        />
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={resetForm}
-          className="flex-1 h-10 font-semibold text-white bg-red-500 rounded-md hover:bg-red-600"
-        >
-          초기화
-        </button>
-        <Link
-          href={cancelHref}
-          className="flex-1 h-10 font-semibold text-white bg-neutral-500 rounded-md flex items-center justify-center hover:bg-neutral-600"
-        >
-          취소
-        </Link>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={resetForm}
+            className="h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
+          >
+            초기화
+          </button>
+          <Link
+            href={cancelHref}
+            className="flex items-center justify-center h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
+          >
+            취소
+          </Link>
+        </div>
       </div>
     </form>
   );

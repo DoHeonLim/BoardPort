@@ -7,6 +7,7 @@
  * 2025.07.31  임도헌   Created
  * 2025.09.09  임도헌   Modified  alert→toast, 복사 가드, a11y
  * 2025.09.15  임도헌   Modified  키 기본 숨김 + 개별 보기 토글, 아이콘형 복사 버튼(성공 피드백)
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 "use client";
 
@@ -19,6 +20,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { getStreamKey } from "@/lib/stream/getStreamKey";
+import { cn } from "@/lib/utils";
 
 interface StreamSecretInfoProps {
   /** Broadcast id */
@@ -45,17 +47,15 @@ function IconGhostButton({
       aria-label={title}
       disabled={disabled}
       onClick={onClick}
-      className="
-        inline-flex h-8 w-8 items-center justify-center rounded-md
-        border border-neutral-300/70 hover:bg-neutral-50
-        dark:border-neutral-700/70 dark:hover:bg-neutral-800
-        disabled:opacity-50
-      "
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+        "border border-border bg-surface hover:bg-surface-dim disabled:opacity-50"
+      )}
     >
       {showCheck ? (
-        <CheckIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <CheckIcon className="h-4 w-4 text-emerald-600" />
       ) : (
-        <ClipboardIcon className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
+        <ClipboardIcon className="h-4 w-4 text-muted" />
       )}
     </button>
   );
@@ -129,35 +129,30 @@ export default function StreamSecretInfo({
         setTimeout(() => setCopiedKey(false), 1200);
       }
     } catch {
-      toast.error("클립보드 복사에 실패했습니다.", {
-        description: "브라우저 권한을 확인하고 다시 시도해주세요.",
-      });
+      toast.error("복사 실패");
     }
   };
 
   return (
     <>
-      {/* 패널 토글 */}
       <button
         type="button"
         onClick={onTogglePanel}
-        className="
-          mb-2 inline-flex items-center gap-2 rounded-full
-          border border-neutral-300 px-3 py-1.5 text-sm font-semibold
-          text-neutral-800 hover:bg-neutral-50
-          dark:border-neutral-700 dark:text-neutral-100 dark:hover:bg-neutral-800
-        "
+        className={cn(
+          "mb-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+          "bg-surface-dim text-primary hover:bg-border"
+        )}
         aria-expanded={open}
         aria-controls={panelId}
       >
         {open ? (
           <>
-            <EyeSlashIcon className="h-5 w-5" />
+            <EyeSlashIcon className="h-4 w-4" />
             스트리밍 정보 숨기기
           </>
         ) : (
           <>
-            <EyeIcon className="h-5 w-5" />
+            <EyeIcon className="h-4 w-4" />
             스트리밍 정보 보기
           </>
         )}
@@ -166,75 +161,56 @@ export default function StreamSecretInfo({
       {open && (
         <div
           id={panelId}
-          role="region"
-          aria-label="스트리밍 비공개 정보"
-          className="
-            space-y-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-900
-            dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100
-          "
+          className="space-y-4 rounded-xl border border-border bg-surface-dim/30 p-4 text-sm"
         >
           {/* RTMP URL */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 font-bold">스트리밍 URL</span>
-            <code className="min-w-0 flex-1 break-all font-mono text-[13px]">
-              {effectiveRtmp}
-            </code>
-            <IconGhostButton
-              title={isPending ? "불러오는 중..." : "URL 복사"}
-              onClick={() => copy(effectiveRtmp, "URL")}
-              showCheck={copiedURL}
-              disabled={isPending}
-            />
+          <div className="flex flex-col gap-1.5">
+            <span className="font-medium text-muted text-xs">스트리밍 URL</span>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all rounded bg-surface border border-border p-2 font-mono text-[13px] text-primary">
+                {effectiveRtmp}
+              </code>
+              <IconGhostButton
+                title={isPending ? "로딩..." : "URL 복사"}
+                onClick={() => copy(effectiveRtmp, "URL")}
+                showCheck={copiedURL}
+                disabled={isPending}
+              />
+            </div>
           </div>
 
-          {/* Secret Key (기본 숨김, 개별 토글) */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="shrink-0 font-bold">Secret Key</span>
-            <code className="min-w-0 flex-1 break-all font-mono text-[13px]">
-              {reveal ? (streamKey ?? "") : maskedKey}
-            </code>
-
-            <button
-              type="button"
-              title={reveal ? "키 숨기기" : "키 보기"}
-              aria-label={reveal ? "키 숨기기" : "키 보기"}
-              onClick={() => {
-                if (!streamKey) fetchCreds();
-                setReveal((v) => !v);
-              }}
-              className="
-                inline-flex h-8 w-8 items-center justify-center rounded-md
-                border border-neutral-300/70 hover:bg-neutral-50
-                dark:border-neutral-700/70 dark:hover:bg-neutral-800
-              "
-              disabled={isPending}
-            >
-              {reveal ? (
-                <EyeSlashIcon className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
-              ) : (
-                <EyeIcon className="h-4 w-4 text-neutral-600 dark:text-neutral-300" />
-              )}
-            </button>
-
-            <IconGhostButton
-              title={isPending ? "불러오는 중..." : "Secret Key 복사"}
-              onClick={() => {
-                if (!streamKey) {
-                  toast.error(
-                    "키를 불러오고 있습니다. 잠시 후 다시 시도하세요."
-                  );
-                  return;
-                }
-                copy(streamKey, "Secret Key");
-              }}
-              showCheck={copiedKey}
-              disabled={isPending || !streamKey}
-            />
+          {/* Secret Key */}
+          <div className="flex flex-col gap-1.5">
+            <span className="font-medium text-muted text-xs">Secret Key</span>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all rounded bg-surface border border-border p-2 font-mono text-[13px] text-primary">
+                {reveal ? (streamKey ?? "") : maskedKey}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!streamKey) fetchCreds();
+                  setReveal((v) => !v);
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface hover:bg-surface-dim"
+              >
+                {reveal ? (
+                  <EyeSlashIcon className="h-4 w-4 text-muted" />
+                ) : (
+                  <EyeIcon className="h-4 w-4 text-muted" />
+                )}
+              </button>
+              <IconGhostButton
+                title={isPending ? "로딩..." : "Key 복사"}
+                onClick={() => streamKey && copy(streamKey, "Secret Key")}
+                showCheck={copiedKey}
+                disabled={isPending || !streamKey}
+              />
+            </div>
           </div>
 
-          <p className="pt-1 text-[12px] text-neutral-500 dark:text-neutral-400">
-            * 이 정보는 방송 소유자에게만 보입니다. 스트림 키는 외부에 공유하지
-            마세요.
+          <p className="text-[11px] text-rose-500 mt-2">
+            * 스트림 키는 외부에 절대 노출하지 마세요.
           </p>
         </div>
       )}

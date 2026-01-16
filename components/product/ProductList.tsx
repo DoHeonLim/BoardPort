@@ -23,20 +23,20 @@ Date        Author   Status    Description
 
 import { useRef, useState } from "react";
 import { Squares2X2Icon, ListBulletIcon } from "@heroicons/react/24/outline";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { useProductPagination } from "@/hooks/useProductPagination";
+import { useInfiniteScroll } from "@/hooks/common/useInfiniteScroll";
+import { useProductPagination } from "@/hooks/product/useProductPagination";
 import ProductCard from "./productCard";
 import type { Paginated, ProductType } from "@/types/product";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
+import { usePageVisibility } from "@/hooks/common/usePageVisibility";
+import { cn } from "@/lib/utils";
 
 type ProductListProps = {
   initialProducts: Paginated<ProductType>;
 };
 
 export default function ProductList({ initialProducts }: ProductListProps) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-
   const isVisible = usePageVisibility();
 
   const { products, isLoading, hasMore, loadMore } =
@@ -58,87 +58,80 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* 뷰 모드 전환 버튼 */}
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setViewMode("list")}
-          className={`p-2 rounded-lg transition-colors ${
-            viewMode === "list"
-              ? "bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light"
-              : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          }`}
-          aria-label="리스트 뷰"
-        >
-          <ListBulletIcon className="size-5" />
-        </button>
-        <button
-          onClick={() => setViewMode("grid")}
-          className={`p-2 rounded-lg transition-colors ${
-            viewMode === "grid"
-              ? "bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light"
-              : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          }`}
-          aria-label="그리드 뷰"
-        >
-          <Squares2X2Icon className="size-5" />
-        </button>
+    <div className="flex flex-col">
+      {/* View Mode Toggle & Count (Header) */}
+      <div className="flex items-center justify-between mb-4 px-1">
+        <span className="text-sm font-medium text-muted">
+          총 <span className="text-primary font-bold">{products.length}</span>
+          개의 상품 개의 상품
+        </span>
+
+        {/* View Toggle (Segmented Control Style) */}
+        <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
+          <button
+            onClick={() => setViewMode("list")}
+            className={cn(
+              "p-1.5 rounded-md transition-all",
+              viewMode === "list"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-brand dark:text-brand-light"
+                : "text-muted hover:text-primary"
+            )}
+            aria-label="리스트 뷰"
+          >
+            <ListBulletIcon className="size-5" />
+          </button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className={cn(
+              "p-1.5 rounded-md transition-all",
+              viewMode === "grid"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-brand dark:text-brand-light"
+                : "text-muted hover:text-primary"
+            )}
+            aria-label="그리드 뷰"
+          >
+            <Squares2X2Icon className="size-5" />
+          </button>
+        </div>
       </div>
 
+      {/* Product Grid/List */}
       {products.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 p-8 text-text/80 dark:text-text-dark/80">
-          <span className="text-4xl animate-float">🌊</span>
-          <p className="text-lg font-medium text-center">
-            아직 항해중인 보드게임이 없습니다
-          </p>
-          <p className="text-sm text-center">
-            첫 번째 보드게임을 등록하고 새로운 항해를 시작해보세요!
-          </p>
+        <div className="flex flex-col items-center justify-center py-20 text-muted">
+          <span className="text-6xl mb-4 animate-float">📦</span>
+          <p className="text-lg font-medium">등록된 상품이 없습니다</p>
+          <p className="text-sm mt-1">첫 번째 상품을 등록해보세요!</p>
         </div>
       ) : (
-        <>
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-2 gap-4 sm:gap-6"
-                : "flex flex-col gap-4"
-            }
-          >
-            {products.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                viewMode={viewMode}
-                isPriority={index < 3}
-              />
-            ))}
-          </div>
-
-          {hasMore && (
-            <button
-              ref={triggerRef}
-              type="button"
-              onClick={() => {
-                if (!isLoading) loadMore();
-              }}
-              disabled={isLoading}
-              aria-busy={isLoading || undefined}
-              aria-live="polite"
-              className="mb-96 text-sm font-medium bg-primary/10 dark:bg-primary-light/10 text-primary dark:text-primary-light w-fit mx-auto px-4 py-2 rounded-full hover:bg-primary/20 dark:hover:bg-primary-light/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin">🌊</span> 항해중...
-                </>
-              ) : (
-                <>
-                  <span>⚓</span> 더 많은 보드게임 찾기
-                </>
-              )}
-            </button>
+        <div
+          className={cn(
+            "grid gap-4",
+            viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
           )}
-        </>
+        >
+          {products.map((product, index) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              viewMode={viewMode}
+              isPriority={index < 4} // LCP 최적화를 위해 상위 4개 우선 로드
+            />
+          ))}
+        </div>
       )}
+
+      {/* Infinite Scroll Trigger */}
+      <div className="py-8 flex justify-center min-h-[40px]">
+        {hasMore && (
+          <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
+        )}
+        {isLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full">
+            <span className="size-4 border-2 border-muted border-t-transparent rounded-full animate-spin" />
+            <span>더 불러오는 중...</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

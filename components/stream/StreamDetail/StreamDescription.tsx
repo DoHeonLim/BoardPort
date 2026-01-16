@@ -8,10 +8,12 @@
  * 2025.09.09  임도헌   Modified  aria-expanded/controls, 개행 보존
  * 2025.09.15  임도헌   Modified  line-clamp 기반 접기/펼치기 + 페이드/피드백 버튼 UI
  * 2025.11.16  임도헌   Modified  compact/줄수/여백/className 확장
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 
 "use client";
 
+import { cn } from "@/lib/utils";
 import { useEffect, useId, useRef, useState } from "react";
 
 interface StreamDescriptionProps {
@@ -40,7 +42,6 @@ export default function StreamDescription({
   const [isOverflow, setIsOverflow] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // 접힌 상태에서 실제로 넘치는지 계산 → 짧으면 버튼 숨김
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -67,63 +68,38 @@ export default function StreamDescription({
           : "line-clamp-2";
 
   return (
-    <div className={compact ? "relative mb-2" : "relative mb-3"}>
-      {/* 본문 */}
+    <div className={cn(compact ? "mb-2" : "mb-3", "relative")}>
       <div
         id={contentId}
         ref={ref}
-        className={[
+        className={cn(
           "whitespace-pre-line break-words text-sm",
-          "text-neutral-800 dark:text-neutral-100",
+          "text-primary", // [Fix] text-neutral-800 -> text-primary
           expanded ? "" : clampClass,
-          className,
-        ].join(" ")}
+          className
+        )}
       >
         {desc}
       </div>
 
-      {/* 접힌 상태일 때만 페이드 */}
+      {/* 페이드 효과 (다크모드 대응) */}
       {!expanded && isOverflow && (
         <div
           aria-hidden
-          className="
-            pointer-events-none absolute inset-x-0 -bottom-0 h-8
-            bg-gradient-to-t from-white to-transparent
-            dark:from-neutral-900
-          "
+          className="pointer-events-none absolute inset-x-0 -bottom-0 h-8 bg-gradient-to-t from-surface to-transparent"
         />
       )}
 
-      {/* 액션 버튼(오른쪽 정렬, 작게) */}
       {isOverflow && (
-        <div
-          className={
-            compact ? "mt-1 flex justify-end" : "mt-2 flex justify-end"
-          }
-        >
+        <div className={cn("flex justify-end", compact ? "mt-1" : "mt-2")}>
           <button
             type="button"
             aria-expanded={expanded}
             aria-controls={contentId}
             onClick={() => setExpanded((v) => !v)}
-            className="
-              inline-flex items-center gap-1 rounded-full
-              border border-neutral-300 px-2.5 py-1 text-[11px] font-medium
-              text-neutral-700 hover:bg-neutral-50
-              dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800
-            "
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-primary transition-colors underline underline-offset-2"
           >
-            {expanded ? (
-              <>
-                {collapseLabel}
-                <span aria-hidden>▲</span>
-              </>
-            ) : (
-              <>
-                {expandLabel}
-                <span aria-hidden>▼</span>
-              </>
-            )}
+            {expanded ? collapseLabel : expandLabel}
           </button>
         </div>
       )}

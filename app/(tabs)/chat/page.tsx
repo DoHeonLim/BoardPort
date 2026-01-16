@@ -14,12 +14,19 @@
  * 2026.01.03  임도헌   Modified  force-dynamic 제거 + getCachedChatRooms로 통일(효율성 우선)
  */
 
+import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import { getCachedChatRooms } from "@/lib/chat/room/getChatRooms";
 import ChatRoomListContainer from "@/components/chat/ChatRoomListContainer";
 
 export default async function Chat() {
   const session = await getSession();
+
+  // 미들웨어에서 처리하지만 안전하게 한 번 더 체크
+  if (!session?.id) {
+    redirect("/login?callbackUrl=/chat");
+  }
+
   const userId = session.id!;
   const chatRooms = await getCachedChatRooms(userId);
 

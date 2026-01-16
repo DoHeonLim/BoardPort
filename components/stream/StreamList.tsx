@@ -11,16 +11,17 @@
  * 2025.09.17  임도헌   Modified  BroadcastSummary로 변경
  * 2026.01.03  임도헌   Modified  병합 로직 O(n²) 제거(Map 기반 O(n+m)으로 최적화)
  * 2026.01.04  임도헌   Modified  팔로우 즉시 반영: followDelta 구독으로 FOLLOWERS 잠금 카드 즉시 갱신
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 개선
  */
 
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { useInfiniteScroll } from "@/hooks/common/useInfiniteScroll";
 import { getMoreStreams } from "@/app/(tabs)/streams/actions/init";
 import StreamCard from "./StreamCard";
 import type { BroadcastSummary } from "@/types/stream";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
+import { usePageVisibility } from "@/hooks/common/usePageVisibility";
 import { onFollowDelta } from "@/lib/user/follow/followDeltaClient";
 
 type Scope = "all" | "following";
@@ -175,9 +176,8 @@ export default function StreamList({
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {items.map((s) => {
-          // 과거 호환: tags가 string[]로 들어오는 케이스 방어
           const tags =
             Array.isArray(s.tags) && s.tags.length > 0
               ? typeof (s.tags as any)[0] === "string"
@@ -219,21 +219,21 @@ export default function StreamList({
 
       {isLoading && (
         <div
-          className="px-4 pb-12 text-center text-neutral-500"
+          className="py-12 flex justify-center items-center gap-2 text-sm text-muted"
           role="status"
           aria-live="polite"
         >
-          불러오는 중...
+          <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+          <span>방송을 불러오는 중...</span>
         </div>
       )}
 
       {error && (
-        <div className="px-4 pb-6 text-center text-rose-500" role="alert">
+        <div className="py-6 text-center text-sm text-danger bg-danger/5 rounded-lg border border-danger/10 mx-4">
           {error}
         </div>
       )}
 
-      {/* 인터섹션 센티넬 */}
       <div ref={triggerRef} className="h-8" aria-hidden="true" tabIndex={-1} />
     </>
   );

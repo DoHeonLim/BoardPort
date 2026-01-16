@@ -28,19 +28,25 @@
  * 2025.11.26  임도헌   Modified   StreamCard에 vodIdForRecording Props 추가
  * 2025.11.29  임도헌   Modified   알림 설정 섹션 텍스트 정리 및 상세 설정 링크 추가
  * 2025.12.12  임도헌   Modified   상위 padding과 중복되는 mx 제거, 모달 조건부 렌더로 진짜 지연 로드
+ * 2026.01.15  임도헌   Modified   섹션 간격 및 스타일 통일
  */
 
 "use client";
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import ProfileHeader from "./ProfileHeader";
 import UserBadges from "./UserBadges";
 import StreamCard from "../stream/StreamCard";
-import { PushNotificationToggle } from "../common/PushNotificationToggle";
+import { PushNotificationToggle } from "../notification/PushNotificationToggle";
 
+import {
+  ChevronRightIcon,
+  ShoppingBagIcon,
+  TagIcon,
+} from "@heroicons/react/24/outline";
 import type { BroadcastSummary } from "@/types/stream";
 import type {
   Badge,
@@ -49,6 +55,7 @@ import type {
   UserProfile,
 } from "@/types/profile";
 
+// 동적 로딩
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
 });
@@ -84,276 +91,203 @@ export default function MyProfile({
   viewerId,
   logOut,
 }: Props) {
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
-  const [isEmailVerificationModalOpen, setIsEmailVerificationModalOpen] =
-    useState(false);
+  const [modalState, setModalState] = useState({
+    password: false,
+    review: false,
+    badge: false,
+    email: false,
+  });
 
-  // SettingsMenu(⚙️)에서 발행하는 커스텀 이벤트를 수신해 모달을 연다
+  const toggleModal = useCallback(
+    (key: keyof typeof modalState, open: boolean) => {
+      setModalState((prev) => ({ ...prev, [key]: open }));
+    },
+    []
+  );
+
   useEffect(() => {
-    const onOpenPassword = () => setIsPasswordModalOpen(true);
-    const onOpenEmail = () => setIsEmailVerificationModalOpen(true);
+    const onPass = () => toggleModal("password", true);
+    const onEmail = () => toggleModal("email", true);
 
-    window.addEventListener(
-      "open-password-modal",
-      onOpenPassword as unknown as EventListener
-    );
-    window.addEventListener(
-      "open-email-verification-modal",
-      onOpenEmail as unknown as EventListener
-    );
-
+    window.addEventListener("open-password-modal", onPass);
+    window.addEventListener("open-email-verification-modal", onEmail);
     return () => {
-      window.removeEventListener(
-        "open-password-modal",
-        onOpenPassword as unknown as EventListener
-      );
-      window.removeEventListener(
-        "open-email-verification-modal",
-        onOpenEmail as unknown as EventListener
-      );
+      window.removeEventListener("open-password-modal", onPass);
+      window.removeEventListener("open-email-verification-modal", onEmail);
     };
-  }, []);
+  }, [toggleModal]); // [Fix] 의존성 배열에 toggleModal 추가
 
   return (
-    <div className="flex flex-col gap-6 text-left">
-      {/* 헤더 */}
-      <div className="pt-2">
-        <ProfileHeader
-          ownerId={user.id}
-          ownerUsername={user.username}
-          createdAt={user.created_at}
-          averageRating={averageRating}
-          followerCount={user._count?.followers ?? 0}
-          followingCount={user._count?.following ?? 0}
-          viewerId={viewerId}
-          avatarUrl={user.avatar ?? null}
-          showFollowButton={false} // 내 프로필
-        />
-      </div>
+    <div className="flex flex-col gap-8 pb-10">
+      {/* 1. Header */}
+      <ProfileHeader
+        ownerId={user.id}
+        ownerUsername={user.username}
+        createdAt={user.created_at}
+        averageRating={averageRating}
+        followerCount={user._count?.followers ?? 0}
+        followingCount={user._count?.following ?? 0}
+        viewerId={viewerId}
+        avatarUrl={user.avatar ?? null}
+        showFollowButton={false}
+      />
 
-      {/* 알림 설정 */}
-      <section aria-labelledby="s-notify">
-        <div className="section-h">
-          <h2
-            id="s-notify"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
-          >
-            알림 설정
-          </h2>
+      {/* 2. Notification */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
             href="/profile/notifications"
-            className="btn-ghost text-[12px]"
-            aria-label="알림 상세 설정 페이지로 이동"
+            className="text-xs text-muted hover:text-brand transition-colors"
           >
             상세 설정
           </Link>
         </div>
-
-        <div className="panel mt-2">
-          <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <div className="min-w-0">
-              <h3 className="font-medium text-sm sm:text-base text-neutral-900 dark:text-neutral-100">
-                푸시 알림 받기
-              </h3>
-            </div>
-            <PushNotificationToggle />
-          </div>
+        <div className="panel p-4 flex items-center justify-between">
+          <span className="text-sm text-primary font-medium">
+            푸시 알림 받기
+          </span>
+          <PushNotificationToggle />
         </div>
       </section>
 
-      {/* 내 방송국 */}
-      <section aria-labelledby="s-channel">
-        <div className="section-h">
-          <h2
-            id="s-channel"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
+      {/* 3. Trade Info */}
+      <section>
+        <h2 className="text-sm font-bold text-primary mb-3">거래 정보</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/profile/my-sales"
+            className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
           >
-            🗼 내 방송국
-          </h2>
+            <div className="flex items-center gap-2 mb-2 text-brand">
+              <TagIcon className="size-5" />
+              <span className="text-sm font-semibold">판매 내역</span>
+            </div>
+            <p className="text-xs text-muted group-hover:text-primary transition-colors">
+              판매 중인 물품 관리
+            </p>
+          </Link>
+
+          <Link
+            href="/profile/my-purchases"
+            className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
+          >
+            <div className="flex items-center gap-2 mb-2 text-green-600">
+              <ShoppingBagIcon className="size-5" />
+              <span className="text-sm font-semibold">구매 내역</span>
+            </div>
+            <p className="text-xs text-muted group-hover:text-primary transition-colors">
+              구매한 물품 확인
+            </p>
+          </Link>
+        </div>
+      </section>
+
+      {/* 4. Channel */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-primary">내 방송국</h2>
           <Link
             href={`/profile/${user.username}/channel`}
-            className="btn-ghost text-[12px]"
+            className="text-xs text-muted hover:text-brand transition-colors flex items-center"
           >
-            전체 방송 보기
+            전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
           </Link>
         </div>
 
-        {(myStreams?.length ?? 0) === 0 ? (
-          <p className="mt-1 text-[12.5px] text-neutral-400">
-            아직 방송한 내역이 없습니다.
-          </p>
+        {!myStreams || myStreams.length === 0 ? (
+          <div className="text-center py-6 border border-dashed border-border rounded-xl bg-surface-dim/30">
+            <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
+          </div>
         ) : (
-          <div
-            className="
-              mt-2
-              -mx-4 sm:-mx-5 px-4 sm:px-5
-              flex gap-3 items-stretch
-              overflow-x-auto scrollbar pb-3
-              snap-x snap-mandatory
-              scroll-px-4 sm:scroll-px-5
-              overscroll-x-contain
-            "
-          >
-            {(myStreams ?? []).map((s) => (
-              <StreamCard
-                key={s.id}
-                id={s.id}
-                vodIdForRecording={s.latestVodId ?? undefined}
-                title={s.title}
-                thumbnail={s.thumbnail}
-                isLive={s.status === "CONNECTED"}
-                streamer={{
-                  username: s.user.username,
-                  avatar: s.user.avatar ?? undefined,
-                }}
-                startedAt={s.started_at ?? undefined}
-                category={
-                  s.category
-                    ? {
-                        id: s.category.id,
-                        kor_name: s.category.kor_name,
-                        icon: s.category.icon ?? undefined,
-                      }
-                    : undefined
-                }
-                tags={s.tags}
-                followersOnlyLocked={s.followersOnlyLocked}
-                requiresPassword={s.requiresPassword}
-                visibility={s.visibility}
-                isPrivateType={s.visibility === "PRIVATE"}
-                layout="rail"
-              />
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+            {myStreams.map((s) => (
+              <div key={s.id} className="w-[200px] shrink-0">
+                <StreamCard
+                  id={s.id}
+                  title={s.title}
+                  thumbnail={s.thumbnail}
+                  isLive={s.status === "CONNECTED"}
+                  streamer={{
+                    username: s.user.username,
+                    avatar: s.user.avatar ?? null,
+                  }}
+                  layout="rail"
+                  // compact mode
+                  shortDescription
+                />
+              </div>
             ))}
           </div>
         )}
       </section>
 
-      {/* 거래 정보 — 타일 */}
-      <section aria-labelledby="s-trade">
-        <h2
-          id="s-trade"
-          className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50 mb-2"
-        >
-          <span aria-hidden>⚓</span> 거래 정보
-        </h2>
-        <div className="grid grid-cols-2 gap-2">
-          <Link
-            href="/profile/my-sales"
-            className="tile-strong p-4"
-            aria-label="판매 제품 페이지로 이동"
-          >
-            <h3 className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
-              판매 제품
-            </h3>
-            <p className="mt-1 text-[12px] text-neutral-600 dark:text-neutral-400">
-              내가 판매중인 제품을 확인해보세요
-            </p>
-            <span className="mt-2 inline-flex text-[12px] text-[var(--link)]">
-              바로 가기 →
-            </span>
-          </Link>
+      {/* 5. Reviews & Badges (Combined for neatness) */}
+      <div className="grid grid-cols-1 gap-6">
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-primary">받은 거래 후기</h2>
+            <button
+              onClick={() => toggleModal("review", true)}
+              className="text-xs text-muted hover:text-brand"
+            >
+              전체 보기
+            </button>
+          </div>
+          {/* Preview or count can go here */}
+        </section>
 
-          <Link
-            href="/profile/my-purchases"
-            className="tile-strong p-4"
-            aria-label="구매 제품 페이지로 이동"
-          >
-            <h3 className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
-              구매 제품
-            </h3>
-            <p className="mt-1 text-[12px] text-neutral-600 dark:text-neutral-400">
-              내가 구매한 제품을 확인해보세요
-            </p>
-            <span className="mt-2 inline-flex text-[12px] text-[var(--link)]">
-              바로 가기 →
-            </span>
-          </Link>
-        </div>
-      </section>
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
+            <button
+              onClick={() => toggleModal("badge", true)}
+              className="text-xs text-muted hover:text-brand"
+            >
+              전체 보기
+            </button>
+          </div>
+          <UserBadges badges={userBadges} max={6} />
+        </section>
+      </div>
 
-      {/* 받은 거래 후기 */}
-      <section aria-labelledby="s-reviews">
-        <div className="section-h">
-          <h2
-            id="s-reviews"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
-          >
-            <span aria-hidden>📝</span> 받은 거래 후기
-          </h2>
-          <button
-            onClick={() => setIsReviewModalOpen(true)}
-            className="btn-ghost text-[12px]"
-            aria-label="받은 거래 후기 전체 보기"
-          >
-            전체 후기 보기
+      {/* Logout */}
+      <div className="pt-6 border-t border-border mt-2">
+        <form action={logOut}>
+          <button className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 transition-colors text-sm font-semibold">
+            로그아웃
           </button>
-        </div>
-      </section>
+        </form>
+      </div>
 
-      {/* 획득한 뱃지 */}
-      <section aria-labelledby="s-badges">
-        <div className="section-h">
-          <h2
-            id="s-badges"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
-          >
-            🎖️ 획득한 뱃지
-          </h2>
-          <button
-            onClick={() => setIsBadgeModalOpen(true)}
-            className="btn-ghost text-[12px]"
-          >
-            전체 뱃지 보기
-          </button>
-        </div>
-        <div className="mt-1">
-          <UserBadges badges={userBadges} max={5} />
-        </div>
-      </section>
-
-      {/* 로그아웃 */}
-      <form action={logOut}>
-        <button
-          type="submit"
-          className="w-full px-4 py-3 mt-2 text-[13px] rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium"
-        >
-          로그아웃
-        </button>
-      </form>
-
-      {/* 모달들: "열릴 때만" 렌더해서 진짜 지연 로드 */}
-      {isReviewModalOpen && (
+      {/* Modals */}
+      {modalState.review && (
         <ProfileReviewsModal
-          isOpen={isReviewModalOpen}
-          onClose={() => setIsReviewModalOpen(false)}
+          isOpen={modalState.review}
+          onClose={() => toggleModal("review", false)}
           reviews={initialReviews}
           userId={user.id}
         />
       )}
-
-      {isBadgeModalOpen && (
+      {modalState.badge && (
         <ProfileBadgesModal
-          isOpen={isBadgeModalOpen}
-          closeModal={() => setIsBadgeModalOpen(false)}
+          isOpen={modalState.badge}
+          closeModal={() => toggleModal("badge", false)}
           badges={badges}
           userBadges={userBadges}
         />
       )}
-
-      {isEmailVerificationModalOpen && (
+      {modalState.email && (
         <EmailVerificationModal
-          isOpen={isEmailVerificationModalOpen}
-          onClose={() => setIsEmailVerificationModalOpen(false)}
+          isOpen={modalState.email}
+          onClose={() => toggleModal("email", false)}
           email={user.email || ""}
         />
       )}
-
-      {isPasswordModalOpen && (
+      {modalState.password && (
         <PasswordChangeModal
-          isOpen={isPasswordModalOpen}
-          onClose={() => setIsPasswordModalOpen(false)}
+          isOpen={modalState.password}
+          onClose={() => toggleModal("password", false)}
         />
       )}
     </div>

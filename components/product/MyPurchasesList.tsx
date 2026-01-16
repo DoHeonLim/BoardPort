@@ -12,16 +12,20 @@
  * 2024.12.29  임도헌   Modified  구매 제품 리스트 컴포넌트 스타일 수정
  * 2025.10.17  임도헌   Modified  useProductPagination(profile PURCHASED) + useInfiniteScroll 적용
  * 2025.11.06  임도헌   Modified  아이템 단위 갱신(updateOne) 연동
+ * 2026.01.12  임도헌   Modified  레이아웃 수정
+ * 2026.01.16  임도헌   Modified  Empty State 및 Loading UI 개선
  */
 
 "use client";
 
 import { useRef } from "react";
-import { useProductPagination } from "@/hooks/useProductPagination";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
+import { useProductPagination } from "@/hooks/product/useProductPagination";
+import { useInfiniteScroll } from "@/hooks/common/useInfiniteScroll";
+import { usePageVisibility } from "@/hooks/common/usePageVisibility";
 import MyPurchasesProductItem from "./MyPurchasesProductItem";
 import type { MyPurchasedListItem, Paginated } from "@/types/product";
+import Link from "next/link";
+import { ShoppingBagIcon } from "@heroicons/react/24/outline";
 
 interface MyPurchasesListProps {
   userId: number;
@@ -40,9 +44,8 @@ export default function MyPurchasesList({
   });
 
   const products = purchased.products;
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  // 무한 스크롤 트리거
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const isVisible = usePageVisibility();
 
   useInfiniteScroll({
@@ -51,62 +54,54 @@ export default function MyPurchasesList({
     isLoading: purchased.isLoading,
     onLoadMore: purchased.loadMore,
     enabled: isVisible,
-    rootMargin: "1000px 0px 0px 0px",
-    threshold: 0.01,
+    rootMargin: "600px",
+    threshold: 0.1,
   });
 
-  return (
-    <div className="w-full mx-auto max-w-3xl flex flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      {products.length === 0 ? (
-        <div className="bg-white dark:bg-neutral-800 rounded-xl p-8 text-center">
-          <p className="text-neutral-500 dark:text-neutral-400">
-            구매한 제품이 없습니다.
-          </p>
-          <a
-            href="/products"
-            className="inline-block mt-4 text-primary dark:text-primary-light"
-          >
-            제품 보러가기
-          </a>
+  if (products.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in">
+        <div className="p-4 rounded-full bg-surface-dim mb-4">
+          <ShoppingBagIcon className="size-10 text-muted/50" />
         </div>
-      ) : (
-        <>
-          <div className="space-y-4">
-            {products.map((product) => (
-              <MyPurchasesProductItem
-                key={product.id}
-                product={product}
-                // 하위 아이템에서 리뷰 작성/삭제 후 리스트에 즉시 반영
-                onReviewChanged={(patch) =>
-                  purchased.updateOne(product.id, patch)
-                }
-              />
-            ))}
-          </div>
+        <h3 className="text-lg font-bold text-primary mb-1">
+          구매한 제품이 없습니다
+        </h3>
+        <p className="text-sm text-muted mb-6">
+          마음에 드는 게임을 찾아보세요!
+        </p>
+        <Link
+          href="/products"
+          className="btn-primary text-sm h-10 px-6 inline-flex items-center"
+        >
+          제품 둘러보기
+        </Link>
+      </div>
+    );
+  }
 
-          {purchased.hasMore && (
-            <button
-              ref={triggerRef}
-              type="button"
-              className="mb-[clamp(6rem,5vh,8rem)] pb-[env(safe-area-inset-bottom)] text-sm font-medium bg-primary/10 dark:bg-primary-light/10 text-primary dark:text-primary-light w-fit mx-auto px-4 py-2 rounded-full hover:bg-primary/20 dark:hover:bg-primary-light/20 active:scale-95 transition-all flex items-center gap-2"
-              aria-busy={purchased.isLoading}
-            >
-              {purchased.isLoading ? (
-                <>
-                  <span className="animate-spin" aria-hidden>
-                    🌊
-                  </span>{" "}
-                  항해중...
-                </>
-              ) : (
-                <>
-                  <span aria-hidden>⚓</span> 더 보기
-                </>
-              )}
-            </button>
-          )}
-        </>
-      )}
+  return (
+    <div className="flex flex-col px-page-x py-6 gap-4">
+      {products.map((product) => (
+        <MyPurchasesProductItem
+          key={product.id}
+          product={product}
+          onReviewChanged={(patch) => purchased.updateOne(product.id, patch)}
+        />
+      ))}
+
+      {/* Infinite Scroll Trigger & Loader */}
+      <div className="py-6 flex justify-center min-h-[40px]">
+        {purchased.hasMore && (
+          <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
+        )}
+        {purchased.isLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            <span>불러오는 중...</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

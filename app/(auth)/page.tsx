@@ -13,6 +13,7 @@ Date        Author   Status    Description
 2025.04.29  임도헌   Modified  UI 수정
 2025.05.30  임도헌   Modified  background 관련 컴포넌트 분리(Stars, Clouds, Seagulls, Waves)
 2025.05.30  임도헌   Modified  메인 콘텐츠, 버튼 영역 컴포넌트로 분리
+2026.01.10  임도헌   Modified  구조 개선
 */
 
 import AccountBox from "@/components/auth/AccountBox";
@@ -25,27 +26,24 @@ import HeroSection from "@/components/auth/HeroSection";
 export default function Main() {
   return (
     <div
-      className="flex flex-col items-center justify-between min-h-screen 
-                    bg-gradient-to-b from-secondary via-primary to-primary-dark 
-                    dark:from-secondary-dark dark:via-primary-dark dark:to-primary 
-                    overflow-hidden relative"
+      // [Design] Ocean Gradient Background
+      className="relative flex flex-col items-center justify-between min-h-[100dvh] w-full
+                 bg-gradient-to-b from-secondary via-brand to-brand-dark 
+                 dark:from-gray-900 dark:via-brand-dark dark:to-black 
+                 overflow-hidden"
     >
-      {/* 별(밤하늘) 효과 - 다크모드에서만 표시 */}
+      {/* 백그라운드 배경요소 - 별(밤하늘), 구름(lignt-white, dark-gray), 갈매기 */}
       <Stars />
-
-      {/* 구름 애니메이션 - 라이트모드에서는 하얀색, 다크모드에서는 어두운색 */}
       <Clouds />
-
-      {/* 갈매기 애니메이션 */}
       <Seagulls />
 
-      <div className="relative z-10 flex flex-1 flex-col items-center px-4 pt-10 pb-28 sm:pb-32">
-        {/* 메인 콘텐츠 */}
+      {/* 메인 콘텐츠 */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center w-full px-4 pt-10 pb-32">
         <HeroSection />
-        {/* 버튼 영역 */}
         <AccountBox />
       </div>
-      {/* 파도 애니메이션 */}
+
+      {/* 파도 */}
       <Waves />
     </div>
   );

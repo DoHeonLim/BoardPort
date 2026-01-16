@@ -1,17 +1,18 @@
 /**
-File Name : components/product/ProductCardMeta
-Description : 조회수, 좋아요, 생성일 등 제품 메타 정보 표시 컴포넌트
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2025.06.07  임도헌   Created   제품 메타 정보 분리
-*/
+ * File Name : components/product/ProductCardMeta
+ * Description : 조회수, 좋아요, 생성일 등 제품 메타 정보 표시 컴포넌트
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.06.07  임도헌   Created   제품 메타 정보 분리
+ * 2026.01.10  임도헌   Modified  아이콘과 텍스트를 text-muted로 통일
+ */
 
 "use client";
 
 import { EyeIcon, HeartIcon } from "@heroicons/react/24/solid";
-import TimeAgo from "@/components/common/TimeAgo";
+import TimeAgo from "@/components/ui/TimeAgo";
 
 interface ProductCardMetaProps {
   views: number;
@@ -25,16 +26,26 @@ export default function ProductCardMeta({
   createdAt,
 }: ProductCardMetaProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-      <div className="flex items-center gap-1 text-neutral-500 dark:text-neutral-400">
-        <EyeIcon className="size-3 sm:size-4" />
+    <div className="flex items-center text-[10px] sm:text-xs text-muted gap-2">
+      <div className="flex items-center gap-0.5">
+        <HeartIcon
+          className={`size-3 ${likes > 0 ? "text-rose-500" : "text-muted/70"}`}
+        />
+        <span>{likes}</span>
+      </div>
+
+      <div className="flex items-center gap-0.5">
+        <EyeIcon className="size-3 text-muted/70" />
         <span>{views}</span>
       </div>
-      <div className="flex items-center gap-1">
-        <HeartIcon className="size-3 sm:size-4 text-rose-600" />
-        <span className="text-neutral-500 dark:text-neutral-400">{likes}</span>
-      </div>
-      <TimeAgo date={createdAt.toString()} />
+
+      <span className="text-border dark:text-neutral-700">|</span>
+
+      {/* TimeAgo: whitespace-nowrap 추가로 줄바꿈 방지 */}
+      <TimeAgo
+        date={createdAt.toString()}
+        className="text-muted whitespace-nowrap"
+      />
     </div>
   );
 }

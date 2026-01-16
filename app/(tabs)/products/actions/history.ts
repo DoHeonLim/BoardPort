@@ -9,6 +9,7 @@
  2025.05.29  임도헌   Modified  app/(tabs)/products/actions.ts 파일을 기능별로 분리
  2025.05.29  임도헌   Modified  검색 기록 저장/업데이트 기능 분리
  2025.06.12  임도헌   Modified  타입 명시 추가
+ 2026.01.12  임도헌   Modified  누락된 인기 검색어 로직 추가
  */
 
 "use server";
@@ -38,39 +39,65 @@ export interface PopularSearchItem {
   count: number;
 }
 
-// 검색 기록 저장 (내부 로직)
+// 검색 기록 저장 (개인 기록 + 인기 검색어 집계)
 export const saveSearchHistory = async (
-  userId: number,
+  userId: number | null, // 비로그인 유저도 인기 검색어에는 기여할 수 있도록 null 허용 가능 (정책에 따라)
   searchData: SearchData
 ): Promise<void> => {
-  const existingSearch = await db.searchHistory.findFirst({
-    where: {
-      userId,
-      keyword: searchData.keyword,
-    },
-  });
+  const keyword = searchData.keyword.trim();
+  if (!keyword) return;
 
-  if (existingSearch) {
-    await db.searchHistory.update({
-      where: { id: existingSearch.id },
-      data: { updated_at: new Date() },
-    });
-  } else {
-    await db.searchHistory.create({
-      data: {
+  // 1. 개인 검색 기록 저장 (로그인 시)
+  if (userId) {
+    const existingSearch = await db.searchHistory.findFirst({
+      where: {
         userId,
-        ...searchData,
+        keyword,
       },
     });
+
+    if (existingSearch) {
+      await db.searchHistory.update({
+        where: { id: existingSearch.id },
+        data: { updated_at: new Date() },
+      });
+    } else {
+      await db.searchHistory.create({
+        data: {
+          userId,
+          ...searchData,
+          keyword,
+        },
+      });
+    }
+  }
+
+  // 2. 인기 검색어 집계 (누락된 부분 복구)
+  // 키워드가 있으면 count 증가, 없으면 생성 (upsert)
+  try {
+    await db.popularSearch.upsert({
+      where: { keyword },
+      update: {
+        count: { increment: 1 },
+        updated_at: new Date(),
+      },
+      create: {
+        keyword,
+        count: 1,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to update popular search:", error);
+    // 인기 검색어 집계 실패가 검색 자체를 막지 않도록 예외 무시
   }
 };
 
 // 클라이언트 호출용: 세션에서 유저 ID 자동 처리
 export const createSearchHistory = async (keyword: string): Promise<void> => {
   const session = await getSession();
-  if (!session?.id) return;
+  const userId = session?.id ?? null; // 비로그인도 허용하려면 null
 
-  await saveSearchHistory(session.id, { keyword });
+  await saveSearchHistory(userId, { keyword });
 };
 
 // 최근 검색 기록 가져오기

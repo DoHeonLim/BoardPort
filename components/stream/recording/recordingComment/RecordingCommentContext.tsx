@@ -13,7 +13,7 @@
 import { createContext, useContext } from "react";
 import { StreamComment } from "@/types/stream";
 
-interface RecordingCommentContextValue {
+interface RecordingCommentContextProps {
   comments: StreamComment[];
   isLoading: boolean;
   isFetchingNextPage: boolean;
@@ -24,7 +24,7 @@ interface RecordingCommentContextValue {
 }
 
 const RecordingCommentContext = createContext<
-  RecordingCommentContextValue | undefined
+  RecordingCommentContextProps | undefined
 >(undefined);
 
 export function useRecordingCommentContext() {

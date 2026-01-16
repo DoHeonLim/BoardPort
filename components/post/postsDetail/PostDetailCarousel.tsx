@@ -6,11 +6,13 @@
  * History
  * Date        Author   Status    Description
  * 2025.07.11  임도헌   Created   PostDetail Carousel 분리
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface-dim)
+ * 2026.01.13  임도헌   Modified  LCP 최적화를 위해 motion 애니메이션 제거 (즉시 렌더링)
  */
 "use client";
 
-import { motion } from "framer-motion";
-import Carousel from "@/components/common/Carousel";
+import Carousel from "@/components/ui/Carousel";
+import { cn } from "@/lib/utils";
 
 interface PostDetailCarouselProps {
   images: { id: number; url: string }[];
@@ -22,12 +24,13 @@ export default function PostDetailCarousel({
   if (images.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1, transition: { delay: 0.2 } }}
-      className="relative aspect-video w-full overflow-hidden mt-6 rounded-xl shadow"
+    <div
+      className={cn(
+        "relative aspect-video w-full overflow-hidden mt-6 rounded-2xl shadow-sm",
+        "bg-surface-dim border border-border"
+      )}
     >
       <Carousel images={images} className="w-full h-full" />
-    </motion.div>
+    </div>
   );
 }

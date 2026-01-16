@@ -33,6 +33,7 @@
  * 2025.12.23  임도헌   Modified  error stage(first/more) UI 분기 + more일 때 무한스크롤 루프 방지
  * 2026.01.05  임도헌   Modified  레이어링 명시(클릭 이슈 방지) + owner 기준 맞팔 분리(isMutualWithOwner) 도입
  * 2026.01.06  임도헌   Modified  Key Points/용어 정리: isMutualWithOwner 기준 단일화 + self 숨김 규칙 제거
+ * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 모바일 Full/데스크톱 Card 레이아웃 분기
  */
 
 "use client";
@@ -40,7 +41,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import FollowListItem from "./FollowListItem";
 import type { FollowListUser } from "@/types/profile";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { useInfiniteScroll } from "@/hooks/common/useInfiniteScroll";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { cn } from "@/lib/utils";
 
 type FollowListError =
   | { stage: "first"; message: string }
@@ -60,7 +63,6 @@ interface FollowListModalProps {
   onLoadMore: () => Promise<void>;
   loadingMore: boolean;
 
-  /** 컨트롤러 단일 책임 */
   onToggleItem?: (userId: number) => void | Promise<void>;
   isPendingById?: (id: number) => boolean;
 
@@ -101,33 +103,36 @@ export default function FollowListModal({
 
   // a11y & UX: 포커스 / ESC / body scroll lock
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previouslyFocused = useRef<HTMLElement | null>(null);
-
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // 1. 초기 포커스 저장 및 ESC 닫기, 스크롤 잠금
   useEffect(() => {
     if (!isOpen) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-    dialogRef.current?.focus();
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
+    // 모달에 포커스 이동 (스크린 리더가 인식하도록)
+    setTimeout(() => dialogRef.current?.focus(), 0);
 
-    const original = document.body.style.overflow;
+    const originalStyle = window.getComputedStyle(document.body).overflow;
     document.body.style.overflow = "hidden";
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = original;
+      document.body.style.overflow = originalStyle;
+      window.removeEventListener("keydown", handleKeyDown);
+      // 닫힐 때 이전 포커스 복원
       previouslyFocused.current?.focus?.();
     };
   }, [isOpen, onClose]);
 
-  // Tab 포커스 트랩
+  // 2. 포커스 트랩 (Tab 키 순환) - 복원됨
   useEffect(() => {
     if (!isOpen || !dialogRef.current) return;
 
@@ -158,7 +163,7 @@ export default function FollowListModal({
     return () => dialog.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
 
-  // more 에러 상태에서 sentinel이 계속 보이면 무한 재호출 루프 가능 → 자동 트리거 중단
+  // 무한 스크롤 연결
   useInfiniteScroll({
     triggerRef: sentinelRef,
     hasMore,
@@ -172,177 +177,153 @@ export default function FollowListModal({
 
   if (!isOpen) return null;
 
-  const titleId = `followlistmodal-title-${kind}`;
-  const mutualTitleId = `followlistmodal-mutual-title-${kind}`;
-  const restTitleId = `followlistmodal-rest-title-${kind}`;
-
+  const titleId = `followlist-title-${kind}`;
   const restLabel = kind === "followers" ? "추천" : "팔로잉";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" aria-hidden={!isOpen}>
-      {/* backdrop: z-0 */}
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 z-0 bg-black/25 dark:bg-black/40 transition-opacity"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
+        aria-hidden="true"
       />
 
-      {/* modal wrapper: z-10 */}
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-          tabIndex={-1}
-          className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-4 shadow-xl transition-all dark:bg-neutral-800"
-        >
-          <div className="mb-4">
-            <h3
-              id={titleId}
-              className="text-lg font-medium text-gray-900 dark:text-white"
-            >
-              {title}
-            </h3>
-
-            <p className="sr-only" aria-live="polite">
-              {isLoading
-                ? "목록을 불러오는 중입니다."
-                : loadingMore
-                  ? "더 불러오는 중입니다."
-                  : error
-                    ? "목록을 불러오지 못했습니다."
-                    : "목록이 준비되었습니다."}
-            </p>
-          </div>
-
-          {/* 더보기 실패 배너(리스트는 유지) */}
-          {isMoreError && (
-            <div className="mb-3 rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-700/50 dark:text-neutral-200">
-              <div className="flex items-center justify-between gap-3">
-                <span>{error?.message}</span>
-                {!!onRetry && (
-                  <button
-                    type="button"
-                    onClick={onRetry}
-                    className="shrink-0 rounded-md bg-primary px-3 py-1 text-xs font-semibold text-white hover:bg-primary/90"
-                  >
-                    다시 시도
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div
-            ref={scrollAreaRef}
-            className="mt-2 max-h-[60vh] overflow-y-auto"
+      {/* Modal Content */}
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={cn(
+          "relative w-full sm:max-w-md bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
+          // [Mobile] Bottom Sheet 느낌 (하단에서 올라옴, 상단 둥글게)
+          "h-[85vh] rounded-t-2xl animate-slide-up",
+          // [Desktop] Center Card (중앙 정렬, 전체 둥글게)
+          "sm:h-[600px] sm:rounded-2xl sm:animate-fade-in",
+          "border-t sm:border border-border"
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface shrink-0">
+          <h2 id={titleId} className="text-lg font-bold text-primary">
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            aria-label="닫기"
           >
-            {isLoading ? (
-              <p
-                className="py-4 text-center text-gray-500 dark:text-gray-400"
-                role="status"
-                aria-busy="true"
+            <XMarkIcon className="size-6" />
+          </button>
+        </div>
+
+        {/* Error Banner (Load More) */}
+        {isMoreError && (
+          <div className="px-4 py-2 bg-danger/10 text-danger text-sm text-center font-medium shrink-0">
+            {error?.message}
+            {!!onRetry && (
+              <button
+                onClick={onRetry}
+                className="ml-2 underline hover:text-red-700"
               >
-                불러오는 중...
-              </p>
-            ) : users.length === 0 ? (
-              isFirstError ? (
-                <div className="py-6 text-center">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {error?.message}
-                  </p>
-                  {!!onRetry && (
-                    <button
-                      type="button"
-                      onClick={onRetry}
-                      className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-                    >
+                다시 시도
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* List Area */}
+        <div
+          ref={scrollAreaRef}
+          className="flex-1 overflow-y-auto p-4 scrollbar-hide"
+        >
+          {isLoading ? (
+            <div className="py-10 flex justify-center">
+              <div className="size-6 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            </div>
+          ) : users.length === 0 ? (
+            <div className="py-12 text-center text-muted text-sm">
+              {isFirstError ? (
+                <div className="flex flex-col gap-2">
+                  <p>{error?.message}</p>
+                  {onRetry && (
+                    <button onClick={onRetry} className="underline text-brand">
                       다시 시도
                     </button>
                   )}
                 </div>
               ) : (
-                <p className="py-4 text-center text-gray-500 dark:text-gray-400">
+                <p>
                   {kind === "followers"
-                    ? "팔로워가 없습니다."
+                    ? "아직 팔로워가 없습니다."
                     : "팔로우 중인 사용자가 없습니다."}
                 </p>
-              )
-            ) : (
-              <div className="space-y-4">
-                {mutual.length > 0 && (
-                  <section aria-labelledby={mutualTitleId}>
-                    <div
-                      id={mutualTitleId}
-                      className="mb-2 text-[11px] font-semibold text-gray-700 dark:text-gray-200"
-                    >
-                      맞팔로잉
-                    </div>
-                    <div className="space-y-2">
-                      {mutual.map((u) => (
-                        <FollowListItem
-                          key={u.id}
-                          user={u}
-                          viewerId={viewerId}
-                          pending={isPendingById?.(u.id) ?? false}
-                          onToggle={onToggleItem}
-                          buttonVariant="primary"
-                          buttonSize="sm"
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* 맞팔 섹션 */}
+              {mutual.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3 px-1">
+                    맞팔로잉
+                  </h3>
+                  <div className="space-y-3">
+                    {mutual.map((u) => (
+                      <FollowListItem
+                        key={u.id}
+                        user={u}
+                        viewerId={viewerId}
+                        pending={isPendingById?.(u.id) ?? false}
+                        onToggle={onToggleItem}
+                        buttonVariant="primary"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
 
-                {rest.length > 0 && (
-                  <section aria-labelledby={restTitleId}>
-                    <div
-                      id={restTitleId}
-                      className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200"
-                    >
+              {/* 나머지 섹션 */}
+              {rest.length > 0 && (
+                <section>
+                  {mutual.length > 0 && (
+                    <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3 px-1">
                       {restLabel}
-                    </div>
-                    <div className="space-y-2">
-                      {rest.map((u) => (
-                        <FollowListItem
-                          key={u.id}
-                          user={u}
-                          viewerId={viewerId}
-                          pending={isPendingById?.(u.id) ?? false}
-                          onToggle={onToggleItem}
-                          buttonVariant="primary"
-                          buttonSize="sm"
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </div>
-            )}
+                    </h3>
+                  )}
+                  <div className="space-y-3">
+                    {rest.map((u) => (
+                      <FollowListItem
+                        key={u.id}
+                        user={u}
+                        viewerId={viewerId}
+                        pending={isPendingById?.(u.id) ?? false}
+                        onToggle={onToggleItem}
+                        buttonVariant="outline"
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
 
-            <div ref={sentinelRef} aria-hidden="true" className="h-8" />
+              {/* Infinite Scroll Trigger */}
+              <div
+                ref={sentinelRef}
+                className="h-4 w-full"
+                aria-hidden="true"
+              />
 
-            {loadingMore && (
-              <p
-                className="py-2 text-center text-gray-500 dark:text-gray-400"
-                role="status"
-                aria-busy="true"
-              >
-                더 불러오는 중...
-              </p>
-            )}
-          </div>
-
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-lg bg-primary py-2.5 px-4 font-medium text-white transition-colors hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary"
-            >
-              닫기
-            </button>
-          </div>
+              {loadingMore && (
+                <div className="py-4 flex justify-center">
+                  <div className="size-5 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+          )}
         </div>
+        {/* 하단 닫기 버튼 제거됨: 상단 X 버튼으로 대체 */}
       </div>
     </div>
   );

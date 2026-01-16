@@ -8,6 +8,7 @@
  * 2025.09.20  임도헌   Modified  VodAsset 단위 좋아요/댓글/조회수 설계 반영
  * 2025.09.22  임도헌   Modified  RecordingDetailStream 제거 → getVodDetail DTO에 정렬
  * 2025.11.26  임도헌   Modified  RecordingHeader → RecordingTitle, 작성자 정보는 Topbar로 이동
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 레이아웃 정리
  */
 
 "use client";
@@ -16,14 +17,10 @@ import RecordingTitle from "@/components/stream/recording/recordingDetail/Record
 import RecordingVideo from "@/components/stream/recording/recordingDetail/RecordingVideo";
 import RecordingMeta from "@/components/stream/recording/recordingDetail/RecordingMeta";
 import RecordingLikeButton from "@/components/stream/recording/recordingDetail/RecordingLikeButton";
-import { VodDetailDTO } from "@/lib/stream/getVodDetail";
-
-// 이제는 제목만 필요
-type BroadcastForRecording = Pick<VodDetailDTO["broadcast"], "title">;
 
 interface RecordingDetailProps {
   /** 방송 메타: 제목 + 소유자 */
-  broadcast: BroadcastForRecording;
+  broadcast: { title: string };
 
   /** VodAsset 식별/표시용 */
   vodId: number; // 좋아요/댓글/조회수는 VodAsset 기준
@@ -52,7 +49,7 @@ export default function RecordingDetail({
   viewCount = 0,
 }: RecordingDetailProps) {
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-4 rounded-2xl p-4">
+    <div className="flex w-full flex-col gap-5">
       <RecordingTitle title={broadcast.title} />
       <RecordingVideo uid={uid} />
       <RecordingMeta

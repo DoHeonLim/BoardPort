@@ -7,12 +7,16 @@
  * Date        Author   Status    Description
  * 2025.11.12  임도헌   Created   상단 우측 드롭다운 신설
  * 2025.11.12  임도헌   Modified  항목 간 구분선/포커스/키보드 내비게이션 보강
+ * 2026.01.10  임도헌   Modified  버튼  p-2.5 제거 -> size-10 (40px) 고정, flex 중앙 정렬
+ * 2026.01.14  임도헌   Modified  [Fix] 다크모드 배경색 및 테두리 시맨틱 토큰 적용
  */
 
 "use client";
 
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 
 type Props = {
   emailVerified?: boolean;
@@ -87,95 +91,70 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
         aria-haspopup="menu"
         aria-expanded={open}
         title="설정"
-        className="rounded-lg p-2.5 bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors shadow-sm"
+        className={cn(
+          "flex items-center justify-center size-10 rounded-xl transition-colors shadow-sm",
+          "bg-surface border border-border text-muted hover:text-primary hover:bg-surface-dim"
+        )}
       >
-        <span aria-hidden className="text-xl">
-          ⚙️
-        </span>
+        <Cog6ToothIcon className="size-5" />
       </button>
 
       {open && (
         <div
           role="menu"
           aria-label="프로필 설정"
-          className="absolute right-0 mt-2 w-52 rounded-xl border border-neutral-200 dark:border-neutral-800
-                     bg-white dark:bg-neutral-900 shadow-lg overflow-hidden z-50"
+          className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in bg-surface border border-border"
         >
           {/* 항목 1 */}
           <Link
             href="/profile/edit"
             role="menuitem"
-            data-menuitem="true"
-            tabIndex={0}
-            className="block px-3 py-2.5 text-sm text-neutral-900 dark:text-neutral-100
-                       hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none
-                       focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="block px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
             onClick={() => setOpen(false)}
           >
             프로필 수정
           </Link>
 
-          {/* 구분선 */}
-          <div
-            role="separator"
-            className="h-px bg-neutral-200 dark:bg-neutral-800"
-          />
+          <div className="h-px bg-border" role="separator" />
 
           {/* 항목 2 */}
           <button
             role="menuitem"
-            data-menuitem="true"
-            tabIndex={0}
             onClick={() => {
               setOpen(false);
               openPassword();
             }}
-            className="w-full text-left px-3 py-2.5 text-sm text-neutral-900 dark:text-neutral-100
-                       hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none
-                       focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
           >
-            비밀 항해 코드 수정
+            비밀 항해 코드 변경
           </button>
 
-          {/* 구분선 */}
-          <div
-            role="separator"
-            className="h-px bg-neutral-200 dark:bg-neutral-800"
-          />
+          <div role="separator" className="h-px bg-border" />
 
           {/* 항목 3 (이메일) */}
           {emailVerified ? (
             <div
               role="menuitem"
-              aria-disabled="true"
-              tabIndex={-1}
-              className="px-3 py-2.5 text-sm text-neutral-500 dark:text-neutral-400
-                         cursor-not-allowed select-none"
+              className="px-4 py-3 text-xs text-muted bg-surface-dim/50 cursor-default"
             >
               이메일 인증됨
             </div>
           ) : hasEmail ? (
             <button
               role="menuitem"
-              data-menuitem="true"
-              tabIndex={0}
               onClick={() => {
                 setOpen(false);
                 openEmailVerify();
               }}
-              className="w-full text-left px-3 py-2.5 text-sm text-neutral-900 dark:text-neutral-100
-                         hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none
-                         focus-visible:ring-2 focus-visible:ring-primary/60"
+              className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
             >
-              이메일 인증
+              이메일 인증하기
             </button>
           ) : (
             <Link
               href="/profile/edit"
               role="menuitem"
-              data-menuitem="true"
-              className="block px-3 py-2.5 text-sm text-neutral-900 dark:text-neutral-100
-               hover:bg-neutral-50 dark:hover:bg-neutral-800 focus-visible:ring-2"
+              className="block px-4 py-3 text-sm text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
               onClick={() => setOpen(false)}
             >
               이메일 설정 필요

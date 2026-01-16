@@ -7,13 +7,17 @@
  * Date        Author   Status    Description
  * 2025.08.05  임도헌   Created   녹화본 댓글 리스트 출력
  * 2025.09.10  임도헌   Modified  IntersectionObserver 안정화, rootMargin/threshold 조정, a11y/폴백 추가
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 로딩 인디케이터 및 Empty State 개선
  */
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import RecordingCommentItem from "@/components/stream/recording/recordingComment/RecordingCommentItem";
 import { useRecordingCommentContext } from "@/components/stream/recording/recordingComment/RecordingCommentContext";
+import { useInfiniteScroll } from "@/hooks/common/useInfiniteScroll";
+import { usePageVisibility } from "@/hooks/common/usePageVisibility";
+import { AnimatePresence } from "framer-motion";
 
 export default function RecordingCommentList({
   currentUserId,
@@ -22,70 +26,54 @@ export default function RecordingCommentList({
 }) {
   const { comments, isLoading, hasNextPage, loadMore, isFetchingNextPage } =
     useRecordingCommentContext();
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const isVisible = usePageVisibility();
 
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
-
-    const sentinel = bottomRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry.isIntersecting) loadMore();
-      },
-      { root: null, rootMargin: "400px 0px", threshold: 0 }
-    );
-
-    observer.observe(sentinel);
-    return () => {
-      observer.unobserve(sentinel);
-      observer.disconnect();
-    };
-  }, [hasNextPage, isFetchingNextPage, loadMore]);
+  useInfiniteScroll({
+    triggerRef,
+    hasMore: hasNextPage,
+    isLoading: isFetchingNextPage,
+    onLoadMore: loadMore,
+    enabled: isVisible,
+    rootMargin: "400px 0px 0px 0px",
+    threshold: 0.1,
+  });
 
   return (
-    <div
-      className="space-y-4 mt-6"
-      aria-busy={isLoading || isFetchingNextPage}
-      aria-live="polite"
-    >
-      {isLoading ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          댓글 불러오는 중...
-        </p>
-      ) : comments.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          첫 댓글을 남겨보세요.
-        </p>
-      ) : (
-        <ul className="space-y-4">
-          {comments.map((comment) => (
-            <li key={comment.id}>
-              <RecordingCommentItem
-                comment={comment}
-                currentUserId={currentUserId}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex flex-col mt-4">
+      <AnimatePresence initial={false} mode="popLayout">
+        {comments.map((comment) => (
+          <RecordingCommentItem
+            key={comment.id}
+            comment={comment}
+            currentUserId={currentUserId}
+          />
+        ))}
+      </AnimatePresence>
 
-      {hasNextPage && (
-        <div className="flex items-center justify-center pt-2">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={isFetchingNextPage}
-            className="px-3 py-1.5 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-60"
-          >
-            {isFetchingNextPage ? "불러오는 중…" : "더 보기"}
-          </button>
+      <div className="py-6 flex justify-center">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            <span>댓글을 불러오는 중...</span>
+          </div>
+        ) : isFetchingNextPage ? (
+          <span className="size-5 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
+        ) : !hasNextPage && comments.length > 0 ? (
+          <div className="text-xs text-muted/50 italic">
+            모든 댓글을 확인했습니다
+          </div>
+        ) : null}
+
+        <div ref={triggerRef} aria-hidden="true" className="h-1" />
+      </div>
+
+      {!isLoading && comments.length === 0 && (
+        <div className="py-10 text-center text-muted">
+          <p className="text-sm">아직 작성된 댓글이 없습니다.</p>
+          <p className="text-xs mt-1">첫 번째 댓글을 남겨보세요!</p>
         </div>
       )}
-      <div ref={bottomRef} className="h-6" />
     </div>
   );
 }

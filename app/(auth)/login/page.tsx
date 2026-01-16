@@ -12,10 +12,12 @@
  * 2024.12.24  임도헌   Modified  스타일 변경
  * 2025.04.29  임도헌   Modified  UI 수정
  * 2025.12.09  임도헌   Modified  callbackUrl sanitize 적용
+ * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
  */
 
 import LoginForm from "@/components/auth/form/LoginForm";
 import { sanitizeCallbackUrl } from "@/lib/auth/safeRedirect";
+import { LifebuoyIcon } from "@heroicons/react/24/outline";
 
 export default function LoginPage({
   searchParams,
@@ -26,16 +28,24 @@ export default function LoginPage({
   const callbackUrl = sanitizeCallbackUrl(raw);
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-8 px-4 sm:px-6 py-6 sm:py-8 bg-gradient-to-b from-background to-background/95 dark:from-background-dark dark:to-background-dark/95">
-      <div className="flex flex-col gap-2 items-center">
-        <h1 className="text-xl sm:text-2xl font-medium text-text dark:text-text-dark">
-          ⚓ 항해 준비
-        </h1>
-        <p className="text-base sm:text-lg text-text/80 dark:text-text-dark/80">
-          보드포트의 바다로 돌아오신 것을 환영합니다
-        </p>
+    <div className="flex flex-col min-h-screen px-page-x py-page-y bg-background transition-colors">
+      {/* Header Area */}
+      <div className="flex flex-col items-center gap-4 mt-10 mb-8">
+        <div className="p-3 bg-surface rounded-2xl shadow-sm border border-border">
+          <LifebuoyIcon className="size-8 text-brand dark:text-brand-light" />
+        </div>
+        <div className="text-center space-y-1">
+          <h1 className="text-2xl font-bold text-primary">항해 준비</h1>
+          <p className="text-sm text-muted">
+            이메일로 로그인하여 항해를 시작하세요
+          </p>
+        </div>
       </div>
-      <LoginForm callbackUrl={callbackUrl} />
+
+      {/* Form Area */}
+      <div className="w-full max-w-sm mx-auto">
+        <LoginForm callbackUrl={callbackUrl} />
+      </div>
     </div>
   );
 }

@@ -20,12 +20,13 @@
  * 2025.10.14  임도헌   Modified   FollowSection 도입: 팔로우/모달/페이지네이션 로직 제거
  * 2025.10.17  임도헌   Modified   useProductPagination(profile) + useInfiniteScroll/usePageVisibility 적용
  * 2025.10.22  임도헌   Modified   viewerInfo prop 제거(개인화 최소화 유지, 낙관 표시용은 클라 훅에서 해결)
- * 2025.11.12  임도헌   Modified  MyProfile UI와 통일(섹션 헤더/btn-ghost/타일)
- * 2025.11.26  임도헌   Modified  방송국 섹션에 StreamCard 추가
- * 2025.12.20  임도헌   Modified  헤더 팔로우 토글 상태(isFollowing) 로컬 동기화로 rail 잠금 즉시 반영
- *                                FOLLOWERS 잠금 CTA: 헤더 팔로우 버튼(id) 클릭 유도로 UX 통일
- *                                비로그인 시 /login?callbackUrl=... 리다이렉트 통일(onRequireLogin 공용)
- *                                PRIVATE 잠금은 팔로우로 해제되지 않으므로 서버 플래그(requiresPassword) 유지
+ * 2025.11.12  임도헌   Modified   MyProfile UI와 통일(섹션 헤더/btn-ghost/타일)
+ * 2025.11.26  임도헌   Modified   방송국 섹션에 StreamCard 추가
+ * 2025.12.20  임도헌   Modified   헤더 팔로우 토글 상태(isFollowing) 로컬 동기화로 rail 잠금 즉시 반영
+ *                                 FOLLOWERS 잠금 CTA: 헤더 팔로우 버튼(id) 클릭 유도로 UX 통일
+ *                                 비로그인 시 /login?callbackUrl=... 리다이렉트 통일(onRequireLogin 공용)
+ *                                 PRIVATE 잠금은 팔로우로 해제되지 않으므로 서버 플래그(requiresPassword) 유지
+ * 2026.01.15  임도헌   Modified   시맨틱 토큰 적용
  */
 "use client";
 
@@ -34,14 +35,20 @@ import { useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
+import { useInfiniteScroll } from "@/hooks/common/useInfiniteScroll";
+import { usePageVisibility } from "@/hooks/common/usePageVisibility";
+import { useProductPagination } from "@/hooks/product/useProductPagination";
+
 import ProfileHeader from "./ProfileHeader";
 import UserBadges from "./UserBadges";
 import ProductCard from "../product/productCard";
 import StreamCard from "../stream/StreamCard";
-import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
-const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
-  ssr: false,
-});
+import {
+  ListBulletIcon,
+  Squares2X2Icon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
+import { cn } from "@/lib/utils";
 
 import type { Paginated, ProductType, ViewMode } from "@/types/product";
 import type {
@@ -52,9 +59,9 @@ import type {
 } from "@/types/profile";
 import type { BroadcastSummary } from "@/types/stream";
 
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
-import { useProductPagination } from "@/hooks/useProductPagination";
+const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
+  ssr: false,
+});
 
 type ProductStatus = "selling" | "sold";
 
@@ -111,8 +118,9 @@ export default function UserProfile({
   const currentProducts = current.products as ProductType[];
 
   // 무한스크롤
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
+
   useInfiniteScroll({
     triggerRef,
     hasMore: current.hasMore,
@@ -157,8 +165,8 @@ export default function UserProfile({
   }, [viewerId, isFollowing, onRequireLogin]);
 
   return (
-    <div className="flex flex-col gap-6 text-left">
-      {/* 헤더 : 내 프로필과 동일 레이아웃, 팔로우 버튼 노출 */}
+    <div className="flex flex-col gap-8 pb-10">
+      {/* 1. Header */}
       <div className="pt-2">
         <ProfileHeader
           ownerId={user.id}
@@ -172,240 +180,180 @@ export default function UserProfile({
           avatarUrl={user.avatar ?? null}
           showFollowButton
           onRequireLogin={onRequireLogin}
-          // 헤더에서 팔로우 토글되면 UserProfile의 isFollowing도 동기화
           onFollowingChange={setIsFollowing}
-          // rail CTA가 헤더 버튼을 찾을 수 있도록 id 주입
           followButtonId={followButtonId}
         />
       </div>
 
-      {/* 채널 섹션 */}
-      <section aria-labelledby="s-channel">
-        <div className="section-h">
-          <h2
-            id="s-channel"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
-          >
-            🗼 방송국
-          </h2>
+      {/* 2. Channel Section */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-primary">방송국</h2>
           <Link
             href={`/profile/${user.username}/channel`}
-            className="btn-ghost text-[12px]"
+            className="text-xs text-muted hover:text-brand transition-colors flex items-center"
           >
-            전체 방송 보기
+            전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
           </Link>
         </div>
 
-        {(myStreams?.length ?? 0) === 0 ? (
-          <p className="mt-1 text-[12.5px] text-neutral-500 dark:text-neutral-400">
-            아직 방송한 내역이 없습니다.
-          </p>
+        {!myStreams || myStreams.length === 0 ? (
+          <div className="text-center py-6 border border-dashed border-border rounded-xl bg-surface-dim/30">
+            <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
+          </div>
         ) : (
-          <div
-            className="
-              mt-2
-              -mx-4 sm:-mx-5 px-4 sm:px-5
-              flex gap-3 items-stretch
-              overflow-x-auto scrollbar pb-3
-              snap-x snap-mandatory
-              scroll-px-4 sm:scroll-px-5
-              overscroll-x-contain
-            "
-          >
-            {(myStreams ?? []).map((s) => {
-              // FOLLOWERS 잠금은 서버 플래그가 아니라 "현재 팔로우 상태"로 즉시 반영
+          <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
+            {myStreams.map((s) => {
               const followersOnlyLocked =
                 s.visibility === "FOLLOWERS" && !isFollowing;
-
-              // PRIVATE는 팔로우로 풀리는 게 아니라 언락 흐름이므로 서버 플래그 유지
               const requiresPassword = !!s.requiresPassword;
-
               return (
-                <StreamCard
-                  key={s.id}
-                  id={s.id}
-                  vodIdForRecording={s.latestVodId ?? undefined}
-                  title={s.title}
-                  thumbnail={s.thumbnail}
-                  isLive={s.status === "CONNECTED"}
-                  streamer={{
-                    username: s.user.username,
-                    avatar: s.user.avatar ?? undefined,
-                  }}
-                  startedAt={s.started_at ?? undefined}
-                  category={
-                    s.category
-                      ? {
-                          id: s.category.id,
-                          kor_name: s.category.kor_name,
-                          icon: s.category.icon ?? undefined,
-                        }
-                      : undefined
-                  }
-                  tags={s.tags}
-                  followersOnlyLocked={followersOnlyLocked}
-                  requiresPassword={requiresPassword}
-                  visibility={s.visibility}
-                  isPrivateType={s.visibility === "PRIVATE"}
-                  // 잠겨있을 때만 CTA 제공 (없으면 클릭이 "아무 반응 없음"이 될 수 있음)
-                  onRequestFollow={
-                    followersOnlyLocked ? requestFollowFromRail : undefined
-                  }
-                  layout="rail"
-                />
+                <div key={s.id} className="w-[200px] shrink-0 snap-start">
+                  <StreamCard
+                    id={s.id}
+                    vodIdForRecording={s.latestVodId ?? undefined}
+                    title={s.title}
+                    thumbnail={s.thumbnail}
+                    isLive={s.status === "CONNECTED"}
+                    streamer={{
+                      username: s.user.username,
+                      avatar: s.user.avatar ?? undefined,
+                    }}
+                    startedAt={s.started_at ?? undefined}
+                    category={
+                      s.category
+                        ? {
+                            id: s.category.id,
+                            kor_name: s.category.kor_name,
+                            icon: s.category.icon ?? undefined,
+                          }
+                        : undefined
+                    }
+                    tags={s.tags}
+                    followersOnlyLocked={followersOnlyLocked}
+                    requiresPassword={requiresPassword}
+                    visibility={s.visibility}
+                    isPrivateType={s.visibility === "PRIVATE"}
+                    onRequestFollow={
+                      followersOnlyLocked ? requestFollowFromRail : undefined
+                    }
+                    layout="rail"
+                    shortDescription
+                  />
+                </div>
               );
             })}
           </div>
         )}
       </section>
 
-      {/* 받은 거래 후기 */}
-      <section aria-labelledby="s-reviews">
-        <div className="section-h">
-          <h2
-            id="s-reviews"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
-          >
-            📝 받은 거래 후기
-          </h2>
-          <button
-            onClick={() => setIsReviewModalOpen(true)}
-            className="btn-ghost text-[12px]"
-          >
-            전체 후기 보기
-          </button>
-        </div>
-      </section>
-
-      {/* 뱃지 */}
-      <section aria-labelledby="s-badges">
-        <div className="section-h">
-          <h2
-            id="s-badges"
-            className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50"
-          >
-            🎖️ 획득한 뱃지
-          </h2>
-        </div>
-        <div className="mt-1">
-          <UserBadges badges={userBadges} max={10} />
-        </div>
-      </section>
-
-      {/* 판매 제품 탭 */}
-      <section aria-labelledby="s-products">
-        <h2
-          id="s-products"
-          className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50 mb-2"
-        >
-          ⚓ 판매 목록
-        </h2>
-
-        <div className="panel p-4">
-          {/* 탭 */}
-          <div className="flex justify-center gap-3 mb-4">
+      {/* 3. Reviews & Badges */}
+      <div className="grid grid-cols-1 gap-6">
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold text-primary">받은 거래 후기</h2>
             <button
-              onClick={() => setActiveTab("selling")}
-              className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                activeTab === "selling"
-                  ? "bg-primary text-white dark:bg-primary-light"
-                  : "btn-quiet"
-              }`}
+              onClick={() => setIsReviewModalOpen(true)}
+              className="text-xs text-muted hover:text-brand"
             >
-              판매 중
-            </button>
-            <button
-              onClick={() => setActiveTab("sold")}
-              className={`px-4 py-2 rounded-lg text-sm transition-colors ${
-                activeTab === "sold"
-                  ? "bg-primary text-white dark:bg-primary-light"
-                  : "btn-quiet"
-              }`}
-            >
-              판매 완료
+              전체 보기
             </button>
           </div>
+          {/* Preview logic can be added here if needed */}
+        </section>
 
-          {/* 뷰 전환 */}
-          <div className="flex justify-end gap-2 mb-3">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg ${
-                viewMode === "list"
-                  ? "bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light"
-                  : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              }`}
-              aria-label="리스트 뷰"
-            >
-              <ListBulletIcon className="size-5" />
-            </button>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg ${
-                viewMode === "grid"
-                  ? "bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light"
-                  : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              }`}
-              aria-label="그리드 뷰"
-            >
-              <Squares2X2Icon className="size-5" />
-            </button>
+        <section>
+          <h2 className="text-sm font-bold text-primary mb-2">획득한 뱃지</h2>
+          {/* [Change] 모달 버튼 제거하고 바로 리스트 표시, max 갯수 늘림 */}
+          <UserBadges badges={userBadges} max={20} />
+        </section>
+      </div>
+
+      {/* 4. Sales Products */}
+      <section>
+        <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
+        <div className="panel p-4 bg-surface">
+          <div className="flex p-1 bg-surface-dim rounded-lg border border-border mb-4">
+            {(["selling", "sold"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "flex-1 py-2 text-sm font-medium rounded-md transition-all",
+                  activeTab === tab
+                    ? "bg-surface text-brand shadow-sm"
+                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
+                )}
+              >
+                {tab === "selling" ? "판매 중" : "판매 완료"}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex justify-end mb-3">
+            <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "p-1.5 rounded-md",
+                  viewMode === "list"
+                    ? "bg-surface text-brand shadow-sm"
+                    : "text-muted"
+                )}
+              >
+                <ListBulletIcon className="size-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={cn(
+                  "p-1.5 rounded-md",
+                  viewMode === "grid"
+                    ? "bg-surface text-brand shadow-sm"
+                    : "text-muted"
+                )}
+              >
+                <Squares2X2Icon className="size-4" />
+              </button>
+            </div>
           </div>
 
           {currentProducts.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-neutral-500 dark:text-neutral-400">
-                {activeTab === "selling"
-                  ? "판매 중인 제품이 없습니다."
-                  : "판매 완료한 제품이 없습니다."}
-              </p>
+            <div className="py-12 text-center text-muted text-sm border border-dashed border-border rounded-xl bg-surface-dim/30">
+              {activeTab === "selling"
+                ? "판매 중인 제품이 없습니다."
+                : "판매 완료한 제품이 없습니다."}
             </div>
           ) : (
-            <>
+            <div className="space-y-6">
               <div
-                className={
-                  viewMode === "grid"
-                    ? "grid grid-cols-2 gap-4 sm:gap-6"
-                    : "flex flex-col gap-4"
-                }
+                className={cn(
+                  "grid gap-4",
+                  viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
+                )}
               >
                 {currentProducts.map((product, i) => (
                   <ProductCard
                     key={product.id}
                     product={product}
                     viewMode={viewMode}
-                    isPriority={i < 3}
+                    isPriority={i < 4}
                   />
                 ))}
               </div>
-
-              {current.hasMore && (
-                <button
-                  ref={triggerRef}
-                  type="button"
-                  onClick={() => !current.isLoading && current.loadMore()}
-                  disabled={current.isLoading}
-                  aria-busy={current.isLoading || undefined}
-                  aria-live="polite"
-                  className="mt-4 text-sm font-medium bg-primary/10 dark:bg-primary-light/10 text-primary dark:text-primary-light w-fit mx-auto px-4 py-2 rounded-full hover:bg-primary/20 dark:hover:bg-primary-light/20 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {current.isLoading ? (
-                    <>
-                      <span className="animate-spin">🌊</span> 항해중...
-                    </>
-                  ) : (
-                    <>
-                      <span>⚓</span> 더 보기
-                    </>
-                  )}
-                </button>
-              )}
-            </>
+              <div className="flex justify-center pt-2 min-h-[30px]">
+                {current.hasMore && (
+                  <div ref={triggerRef} className="h-1 w-full" />
+                )}
+                {current.isLoading && (
+                  <div className="size-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+                )}
+              </div>
+            </div>
           )}
         </div>
       </section>
 
-      {/* 모달들 */}
+      {/* Review Modal */}
       {isReviewModalOpen && (
         <ProfileReviewsModal
           isOpen={isReviewModalOpen}

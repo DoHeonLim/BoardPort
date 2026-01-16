@@ -12,6 +12,7 @@
  * 2025.09.09  임도헌   Modified  join/leave 이벤트 반영, pagehide/visibility 이탈 처리,
  *                                중복 정리 가드(once), beforeunload await 제거
  * 2025.09.17  임도헌   Modified  join/leave API 호출 제거(완전 Presence 전용)
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 
 "use client";
@@ -19,6 +20,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { cn } from "@/lib/utils";
 
 interface LiveViewerCountProps {
   streamId: number;
@@ -33,7 +35,7 @@ export default function LiveViewerCount({
 }: LiveViewerCountProps) {
   const [viewerCount, setViewerCount] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const cleanedRef = useRef(false); // leave() 중복 실행 방지
+  const cleanedRef = useRef(false);
 
   useEffect(() => {
     if (!me) return;
@@ -57,10 +59,8 @@ export default function LiveViewerCount({
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         try {
-          // Presence 참여(현재 탭)
           await channel.track({ user_id: me });
         } catch {}
-        // 초기 카운트 즉시 반영
         recalc();
       }
     });
@@ -92,12 +92,15 @@ export default function LiveViewerCount({
   }, [streamId, me]);
 
   return (
-    <div className={`flex items-center gap-2 ${className}`} aria-live="polite">
-      <div className="relative flex h-2 w-2" aria-hidden="true">
+    <div
+      className={cn("flex items-center gap-2", className)}
+      aria-live="polite"
+    >
+      <div className="relative flex h-2.5 w-2.5" aria-hidden="true">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
       </div>
-      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <span className="text-sm font-bold text-white drop-shadow-md">
         {viewerCount}명 시청 중
       </span>
     </div>

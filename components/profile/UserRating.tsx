@@ -14,76 +14,79 @@
 "use client";
 
 import { StarIcon } from "@heroicons/react/24/solid";
+import { cn } from "@/lib/utils";
 
 interface UserRatingProps {
   average?: number;
   totalReviews?: number;
   size?: "sm" | "md" | "lg";
+  className?: string;
 }
 
 export default function UserRating({
-  average,
-  totalReviews,
+  average = 0,
+  totalReviews = 0,
   size = "md",
+  className,
 }: UserRatingProps) {
   // 안전 가드 + 소수점 1자리 표시
-  const avg = Math.min(5, Math.max(0, Number(average ?? 0)));
-  const displayAvg = (Math.round(avg * 10) / 10).toFixed(1);
-  const reviews = Number(totalReviews ?? 0);
+  const avg = Math.min(5, Math.max(0, Number(average)));
+  const displayAvg = avg.toFixed(1);
 
   const starSizes = {
-    sm: "w-4 h-4",
-    md: "w-5 h-5",
-    lg: "w-6 h-6",
-  } as const;
+    sm: "w-3.5 h-3.5",
+    md: "w-4 h-4",
+    lg: "w-5 h-5",
+  };
 
   const textSizes = {
-    sm: "text-sm",
-    md: "text-base",
-    lg: "text-lg",
-  } as const;
+    sm: "text-xs",
+    md: "text-sm",
+    lg: "text-base",
+  };
 
-  // i번째 별의 채움 비율(0~1)
+  // i번째 별의 채움 비율
   const fillFor = (i: number) => {
-    const v = avg - i; // 0-based
-    if (v >= 1) return 1;
+    const v = avg - i;
+    if (v >= 1) return 100;
     if (v <= 0) return 0;
-    return v; // 0~1 사이 → 부분 별
+    return Math.round(v * 100);
   };
 
   return (
     <div
-      className="flex items-center gap-2"
+      className={cn("flex items-center gap-1.5", className)}
       role="img"
-      aria-label={`평점 ${displayAvg}점, 후기 ${reviews}개`}
+      aria-label={`평점 ${displayAvg}점, 후기 ${totalReviews}개`}
     >
       <div className="flex gap-0.5">
         {[0, 1, 2, 3, 4].map((i) => {
-          const pct = Math.round(fillFor(i) * 100);
+          const pct = fillFor(i);
           return (
             <div
               key={i}
-              className={`relative ${starSizes[size]} inline-block`}
+              className={cn("relative inline-block", starSizes[size])}
               aria-hidden="true"
             >
               {/* 바탕(빈 별) */}
               <StarIcon
-                className={`absolute inset-0 ${starSizes[size]} text-gray-300`}
+                className={cn("absolute inset-0 text-border", starSizes[size])}
               />
               {/* 채움(노란 별) - 가로 클리핑 */}
               <div
                 className="absolute inset-0 overflow-hidden"
                 style={{ width: `${pct}%` }}
               >
-                <StarIcon className={`${starSizes[size]} text-yellow-500`} />
+                <StarIcon className={cn("text-yellow-400", starSizes[size])} />
               </div>
             </div>
           );
         })}
       </div>
-      <div className={`${textSizes[size]} text-neutral-600 dark:text-gray-300`}>
-        {displayAvg} ({reviews})
-      </div>
+      {/* 평점 갯수 */}
+      <span className={cn("font-medium text-muted", textSizes[size])}>
+        {displayAvg} <span className="text-muted/60">({totalReviews})</span>
+      </span>
     </div>
   );
 }

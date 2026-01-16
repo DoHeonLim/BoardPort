@@ -1,40 +1,60 @@
-/*2024-11-23 커스텀 스크롤바 추가*/
-/*2024-12-14 버튼, 카드, 인풋 디자인 변경*/
-/*2025-04-29 다크모드 전환 애니메이션 개선 및 구름 요소 반응형 추가*/
-/*2025-07-24 커스텀 스크롤바 수정 */
+/* History
+   2024.11.23  임도헌 - 커스텀 스크롤바 추가
+   2024.12.14  임도헌 - 버튼, 카드, 인풋 디자인 변경
+   2025.04.29  임도헌 - 다크모드 전환 애니메이션 개선 및 구름 요소 반응형 추가
+   2025.07.24  임도헌 - 커스텀 스크롤바 수정
+   2026.01.10  임도헌 - BoardPort Design Standard v1.1 (Semantic Variables) 적용
+*/
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 커스텀 스크롤바 스타일 */
+/* [기존 유지] 커스텀 스크롤바 스타일 */
 .scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #4338ca #ffffff;
 }
 .scrollbar::-webkit-scrollbar {
-  width: 12px;
+  width: 6px;
 }
 .scrollbar::-webkit-scrollbar-track {
-  background: #ffffff;
+  background: transparent;
 }
 .scrollbar::-webkit-scrollbar-thumb {
   background-color: #4338ca;
-  border-radius: 6px;
-  border: 3px solid #4338ca;
+  border-radius: 20px;
 }
 
 @layer base {
   :root {
-    /* 그라데이션 */
+    /* [핵심] 브라우저 강제 다크모드 방지 */
+    color-scheme: light dark;
+
+    /* [신규 v1.1] Semantic Color Roles */
+    /* 기본 테마: 깨끗한 화이트 & 슬레이트 그레이 */
+    --background: #f8fafc; /* slate-50 */
+    --background-dark: #020617; /* slate-950 */
+
+    /* 표면: 카드, 모달 등 */
+    --surface: #ffffff;
+    --surface-foreground: #0f172a; /* slate-900 */
+    --surface-dim: #f1f5f9; /* slate-100 */
+
+    /* 타이포그래피 */
+    --text-primary: #1e293b; /* slate-800 */
+    --text-muted: #64748b; /* slate-500 */
+
+    /* 테두리 */
+    --border: #e2e8f0; /* slate-200 */
+
+    /* [기존 유지] 그라데이션 및 그림자 변수 */
     --gradient-ocean: linear-gradient(to bottom, #60a5fa, #1e40af);
     --gradient-sunset: linear-gradient(to right, #fcd34d, #f97316);
 
-    /* 그림자 */
     --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-dropdown: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 
-    /* 둥근 모서리 */
     --radius-small: 0.375rem;
     --radius-medium: 0.5rem;
     --radius-large: 0.75rem;
@@ -43,16 +63,53 @@
     --panel-border: #e5e7eb;
     --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
     --link: #3b82f6;
+
+    /* [신규] Mobile Constraints */
+    --max-width-mobile: 640px;
+
+    /* [신규] Badge/Tag Colors (가시성 확보) */
+    /* Light: 연한 브랜드 컬러 배경 + 진한 텍스트 */
+    --badge-bg: #e0f2fe; /* sky-100 */
+    --badge-text: #0c4a6e; /* sky-900 */
   }
 
   .dark {
-    --panel: #0b0f14; /* 기존 다크 톤과 자연스럽게 */
+    /* [신규 v1.1] Dark Mode Overrides */
+    --background: #020617; /* slate-950 */
+
+    --surface: #0f172a; /* slate-900 */
+    --surface-foreground: #f8fafc; /* slate-50 */
+    --surface-dim: #1e293b; /* slate-800 */
+
+    --text-primary: #f1f5f9; /* slate-100 */
+    --text-muted: #94a3b8; /* slate-400 */
+
+    --border: #1e293b; /* slate-800 */
+
+    /* [기존 유지] */
+    --panel: #0b0f14;
     --panel-border: #1f2937;
     --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     --link: #60a5fa;
+
+    /* [신규] Badge/Tag Colors (가시성 확보) */
+    /* Dark: 반투명 흰색 배경 + 밝은 텍스트 (또는 진한 브랜드 배경) */
+    --badge-bg: #1e293b; /* slate-800 (Surface보다 약간 밝음) */
+    --badge-text: #e0f2fe; /* sky-100 */
   }
 
-  /* 다크모드 전환 애니메이션 */
+  /* [Rule 3.2] Global Reset */
+  html,
+  body {
+    @apply h-full w-full overflow-x-hidden;
+  }
+
+  body {
+    /* bg-background와 text-primary는 tailwind.config에서 정의한 시맨틱 클래스 */
+    @apply bg-background text-primary antialiased transition-colors duration-300;
+  }
+
+  /* [기존 유지] 다크모드 전환 애니메이션 */
   * {
     transition-property: color, background-color, border-color,
       text-decoration-color, fill, stroke;
@@ -62,48 +119,48 @@
 }
 
 @layer components {
+  /* [업데이트] Semantic Token 적용 */
   .btn-primary {
-    @apply bg-primary hover:bg-primary-dark dark:bg-primary-light dark:hover:bg-primary
-    text-white dark:text-text-dark
-    px-4 py-2 rounded-md transition-colors
+    @apply bg-brand hover:bg-brand-dark dark:bg-brand-light dark:hover:bg-brand
+    text-white dark:text-gray-900
+    px-4 py-2 rounded-xl transition-colors
     disabled:bg-neutral-400 dark:disabled:bg-neutral-600 
     disabled:text-neutral-300 dark:disabled:text-neutral-400 
     disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply bg-secondary hover:bg-secondary-dark dark:bg-secondary-light dark:hover:bg-secondary
-    text-white dark:text-text-dark
-    px-4 py-2 rounded-md transition-colors
-    disabled:bg-neutral-400 dark:disabled:bg-neutral-600 
-    disabled:text-neutral-300 dark:disabled:text-neutral-400 
-    disabled:cursor-not-allowed;
+    @apply bg-surface text-brand border border-brand
+    hover:bg-neutral-50 dark:bg-surface dark:text-brand-light dark:border-brand-light
+    px-4 py-2 rounded-xl transition-colors
+    disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .card {
-    @apply bg-white dark:bg-gray-800 
-    rounded-lg shadow-md p-4 
-    hover:shadow-lg transition-shadow
-    dark:shadow-gray-900;
+    @apply bg-surface text-primary
+    rounded-2xl shadow-sm border border-border p-4 
+    hover:shadow-md transition-shadow;
   }
 
   .input-primary {
     @apply w-full transition bg-transparent 
     border-none rounded-xl appearance-none
     focus:outline-none ring-2 focus:ring-4 
-    ring-neutral-200 dark:ring-neutral-700 
-    focus:ring-primary focus:dark:ring-primary-light 
-    placeholder:text-neutral-400 dark:placeholder:text-neutral-500 
-    text-text dark:text-text-dark;
+    ring-border dark:ring-neutral-700 
+    focus:ring-brand focus:dark:ring-brand-light 
+    placeholder:text-muted
+    text-primary;
   }
 
   /* 라이트/다크 공용 패널 */
   .panel {
-    @apply bg-[var(--panel)] border border-[var(--panel-border)] shadow-[var(--panel-shadow)] rounded-xl;
+    @apply bg-surface border border-border shadow-sm rounded-xl;
   }
+
   .btn-ghost {
-    @apply text-[var(--link)] px-2 py-1 rounded;
+    @apply text-brand dark:text-brand-light px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5;
   }
+
   .section-h {
     @apply flex items-center justify-between mb-2;
   }
@@ -114,7 +171,7 @@
            hover:bg-neutral-50 dark:hover:bg-white/5;
   }
   .tile-strong {
-    @apply panel hover:shadow-lg transition-shadow;
+    @apply panel border-neutral-700/80 hover:border-neutral-500/70 hover:bg-white/5 transition-colors;
   }
 
   /* 섹션 공통 여백(선택) */
@@ -125,14 +182,30 @@
     @apply mt-4;
   }
   .section-divider {
-    @apply border-t border-neutral-200 dark:border-neutral-800 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-6;
-  }
-
-  /* 타일 시각 강조(경계 + hover) */
-  .tile-strong {
-    @apply panel border-neutral-700/80 hover:border-neutral-500/70 hover:bg-white/5 transition-colors;
+    @apply border-t border-border -mx-4 sm:-mx-6 px-4 sm:px-6 pt-6;
   }
 }
+
+@layer utilities {
+  /* [Rule 3.2] 데스크톱 제약 래퍼 유틸리티 */
+  .layout-container {
+    @apply mx-auto min-h-[100dvh] w-full max-w-mobile bg-background shadow-2xl overflow-hidden;
+  }
+
+  /* 커스텀 스크롤바 숨김 (미니멀리즘) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ==========================================================================
+   [기존 애니메이션 코드 유지 - 삭제 금지] 
+   로그인/회원가입 페이지의 배경 효과(구름, 갈매기, 파도, 별)를 위해 필수적임
+   ========================================================================== */
 
 /* 구름 애니메이션 */
 .clouds {
@@ -530,9 +603,6 @@
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
   }
-
-  /* 필요하면 나중에 여기서 버튼 호버/로고 흔들림 같은 것만 더 줄이고,
-     배경(.cloud, .seagull, .wave, .star)은 건드리지 않는 방향으로 유지 */
 }
 
 /* Edge/IE 계열: password reveal / clear 버튼 숨기기 */
@@ -541,7 +611,7 @@ input[type="password"]::-ms-clear {
   display: none;
 }
 
-/* Chromium 계열에서 자동완성/credentials 버튼이 뜨는 경우 숨기기(있을 때만 영향) */
+/* Chromium 계열에서 자동완성/credentials 버튼이 뜨는 경우 숨기기 */
 input::-webkit-credentials-auto-fill-button {
   visibility: hidden;
   pointer-events: none;

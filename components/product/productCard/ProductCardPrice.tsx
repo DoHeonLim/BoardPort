@@ -1,12 +1,13 @@
 /**
-File Name : components/product/ProductCard/partials/ProductCardPrice
-Description : 제품 가격 및 판매 상태 뱃지 컴포넌트
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2025.06.07  임도헌   Created   제품 카드 가격/상태 파트 분리
-*/
+ * File Name : components/product/ProductCard/ProductCardPrice
+ * Description : 제품 가격 및 판매 상태 뱃지 컴포넌트
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.06.07  임도헌   Created   제품 카드 가격/상태 파트 분리
+ * 2026.01.10  임도헌   Modified  시맨틱 컬러 적용
+ */
 
 import { formatToWon } from "@/lib/utils";
 
@@ -21,19 +22,27 @@ export default function ProductCardPrice({
   purchase_userId,
   reservation_userId,
 }: ProductCardPriceProps) {
+  // 상태 뱃지 로직
+  const isSold = !!purchase_userId;
+  const isReserved = !!reservation_userId && !isSold;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-base sm:text-lg font-bold text-accent dark:text-accent-light">
-        💰 {formatToWon(price)}원
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-base sm:text-lg font-bold text-brand dark:text-brand-light">
+        {formatToWon(price)}
+        <span className="text-xs sm:text-sm font-normal ml-0.5 text-primary">
+          원
+        </span>
       </span>
-      {purchase_userId && (
-        <span className="px-2 py-0.5 text-xs sm:text-sm font-medium bg-neutral-500 text-white rounded-full">
-          ⚓ 판매완료
+
+      {/* 상태 뱃지 */}
+      {isSold && (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+          판매완료
         </span>
       )}
-      {reservation_userId && !purchase_userId && (
-        <span className="px-2 py-0.5 text-xs sm:text-sm font-medium bg-green-500 text-white rounded-full">
-          🛞 예약중
+      {isReserved && (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+          예약중
         </span>
       )}
     </div>

@@ -9,25 +9,27 @@
  * 2025.07.15  임도헌   Modified  UI 변경
  * 2025.11.13  임도헌   Modified  BackButton 도입, 앱바/접근성/다크모드 정합
  * 2025.12.02  임도헌   Modified  counterparty/미트볼 메뉴/채팅방 나가기/상품 상태 변경 기능 추가
+ * 2026.01.12  임도헌   Modified  [UI] 320px 대응 레이아웃 최적화 & 텍스트 배지 스타일 개선
+ * 2026.01.12  임도헌   Modified  [Interaction] 외부 클릭 시 메뉴 닫기 로직 추가
  */
-
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
-import UserAvatar from "../common/UserAvatar";
-import BackButton from "@/components/common/BackButton";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
+import UserAvatar from "../global/UserAvatar";
+import BackButton from "@/components/global/BackButton";
+import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { formatToWon } from "@/lib/utils";
 import type { ChatUser } from "@/types/chat";
 import { leaveChatRoomAction } from "@/app/chats/[id]/actions/room";
 import { updateProductStatus } from "@/lib/product/updateProductStatus";
 import { deleteAllProductReviews } from "@/lib/review/deleteAllProductReviews";
+import { cn } from "@/lib/utils";
 
 interface ChatHeaderProduct {
   id: number;
@@ -55,17 +57,17 @@ export default function ChatHeader({
   const router = useRouter();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null); // 메뉴 영역 참조
+  const buttonRef = useRef<HTMLButtonElement>(null); // 버튼 영역 참조
+
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [revertDialogOpen, setRevertDialogOpen] = useState(false);
-
   const [isLeaving, startLeaveTransition] = useTransition();
   const [isUpdatingStatus, startStatusTransition] = useTransition();
-
-  // 로컬에서 상품 상태 추적 (예약/판매완료 뱃지 업데이트용)
+  // 로컬에서 상품 상태 추적
   const [productState, setProductState] = useState<ChatHeaderProduct>(product);
 
   const img = productState.images?.[0]?.url ?? "";
-
   const isSeller = viewerId === productState.userId;
   const isReserved =
     !!productState.reservation_userId && !productState.purchase_userId;
@@ -77,20 +79,27 @@ export default function ChatHeader({
   const productHref = `/products/view/${productState.id}`;
   const profileHref = `/profile/${counterparty.username}`;
 
-  //채팅방 나가기
-  const handleLeaveRoom = () => {
-    startLeaveTransition(async () => {
-      const res = await leaveChatRoomAction(chatRoomId);
-      if (!res?.success) {
-        toast.error(res?.error ?? "채팅방 나가기 중 오류가 발생했습니다.");
-        return;
-      }
-      toast.success("대화방을 나갔어요.");
-      router.replace("/chat");
-    });
-  };
+  // 외부 클릭 감지 로직
+  useEffect(() => {
+    if (!menuOpen) return;
 
-  //상품 상태 변경 핸들러들 (판매자만 사용)
+    const handleClickOutside = (event: MouseEvent) => {
+      // 메뉴 내부나 버튼을 클릭한 경우는 무시
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuOpen]);
 
   // 판매중 → (이 유저를) 예약중
   const handleReserveCounterparty = () => {
@@ -124,7 +133,6 @@ export default function ChatHeader({
         return;
       }
 
-      // MySalesProductItem과 동일하게 리뷰도 정리
       await deleteAllProductReviews(productState.id).catch((err) =>
         console.error("deleteAllProductReviews error:", err)
       );
@@ -181,219 +189,202 @@ export default function ChatHeader({
     });
   };
 
+  //채팅방 나가기
+  const handleLeaveRoom = () => {
+    startLeaveTransition(async () => {
+      const res = await leaveChatRoomAction(chatRoomId);
+      if (!res?.success) {
+        toast.error(res?.error ?? "채팅방 나가기 중 오류가 발생했습니다.");
+        return;
+      }
+      toast.success("대화방을 나갔어요.");
+      router.replace("/chat");
+    });
+  };
+
   return (
-    <header
-      className="
-        sticky top-0 z-40
-        bg-white/80 dark:bg-neutral-900/80
-        backdrop-blur supports-[backdrop-filter]:bg-white/60
-        border-b border-neutral-200/70 dark:border-neutral-800
-      "
-    >
-      <div className="mx-auto w-full max-w-screen-sm px-2.5 sm:px-3">
-        <div className="h-11 sm:h-[52px] flex items-center gap-2 sm:gap-3">
-          {/* 1) 뒤로가기 */}
-          <BackButton fallbackHref="/chat" variant="appbar" />
+    <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-border shadow-sm">
+      <div className="mx-auto w-full px-2 h-14 flex items-center justify-between gap-2">
+        {/* 1. Left: Back + User Info */}
+        <div className="flex justify-center items-center gap-1 min-w-0 shrink-0 max-w-[35%]">
+          <BackButton
+            fallbackHref="/chat"
+            variant="appbar"
+            className="h-10 w-8 px-0 shrink-0"
+          />
+          <UserAvatar
+            avatar={counterparty.avatar}
+            username={counterparty.username}
+            showUsername={true}
+            size="sm"
+            className="shrink-0"
+            compact // 패딩 제거 버전
+          />
+        </div>
 
-          {/* 2) 상대 유저 (counterparty) */}
-          <button
-            type="button"
-            onClick={() => router.push(profileHref)}
-            className="flex items-center min-w-0 gap-1.5 sm:gap-2"
-            aria-label={`${counterparty.username} 프로필 보기`}
-          >
-            <UserAvatar
-              avatar={counterparty.avatar}
-              username={counterparty.username}
-              showUsername
-            />
-          </button>
-
-          {/* 3) 우측: 상품 미니 카드 */}
-          <Link
-            href={productHref}
-            className="ml-auto mr-1 flex items-center gap-2 min-w-0 group"
-            prefetch={false}
-            aria-label={`${productState.title} 상세로 이동`}
-          >
-            <div className="relative size-9 sm:size-11 rounded-lg overflow-hidden border border-neutral-200/60 dark:border-neutral-700 flex-shrink-0">
-              {img ? (
-                <Image
-                  src={`${img}/avatar`}
-                  alt={productState.title}
-                  sizes="48px"
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-neutral-200 dark:bg-neutral-800" />
-              )}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="truncate text-[12px] sm:text-[14px] font-medium text-neutral-900 dark:text-neutral-100">
-                {productState.title}
-              </span>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-[11px] sm:text-xs font-semibold text-primary dark:text-primary-light">
-                  💰 {formatToWon(productState.price)}원
-                </span>
-                {isReserved && (
-                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                    예약중
-                  </span>
-                )}
-                {isSold && (
-                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200">
-                    판매완료
-                  </span>
-                )}
-              </div>
-            </div>
-          </Link>
-
-          {/* 4) 우측: 미트볼 메뉴 */}
-          <div className="relative flex-shrink-0">
-            <button
-              type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              aria-label="채팅 옵션 열기"
-              onClick={() => setMenuOpen((prev) => !prev)}
-            >
-              <EllipsisHorizontalIcon className="h-5 w-5 text-neutral-600 dark:text-neutral-200" />
-            </button>
-
-            {menuOpen && (
-              <div
-                className="
-                  absolute right-0 mt-1 w-48 sm:w-52 origin-top-right rounded-lg
-                  bg-white shadow-lg ring-1 ring-black/5
-                  dark:bg-neutral-800 dark:ring-white/10
-                  text-[13px] sm:text-sm py-1 z-50
-                "
-              >
-                {/* 상대 프로필 보기 */}
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push(profileHref);
-                  }}
-                >
-                  상대 프로필 보기
-                </button>
-
-                {/* 상품 상세 보기 */}
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push(productHref);
-                  }}
-                >
-                  상품 상세 보기
-                </button>
-
-                {/* 판매자용 상태 변경 메뉴 */}
-                {isSeller && (
-                  <>
-                    <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-
-                    {isSelling && (
-                      <button
-                        type="button"
-                        className="block w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-60"
-                        onClick={handleReserveCounterparty}
-                        disabled={isUpdatingStatus}
-                      >
-                        {counterparty.username}님을 예약자로 지정
-                      </button>
-                    )}
-
-                    {isReserved && (
-                      <>
-                        {isCurrentReservationHolder ? (
-                          <>
-                            <button
-                              type="button"
-                              className="block w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-60"
-                              onClick={handleReservedToSelling}
-                              disabled={isUpdatingStatus}
-                            >
-                              예약 취소 후 판매중으로 변경
-                            </button>
-                            <button
-                              type="button"
-                              className="block w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-60"
-                              onClick={handleReservedToSold}
-                              disabled={isUpdatingStatus}
-                            >
-                              이 유저에게 판매완료 처리
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="block w-full px-3 py-1.5 text-left text-neutral-400 cursor-not-allowed"
-                            disabled
-                          >
-                            다른 유저가 예약 중입니다
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {isSold && (
-                      <button
-                        type="button"
-                        className="block w-full px-3 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 text-amber-600 dark:text-amber-300 disabled:opacity-60"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setRevertDialogOpen(true);
-                        }}
-                        disabled={isUpdatingStatus}
-                      >
-                        판매중으로 되돌리기
-                      </button>
-                    )}
-
-                    <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-                  </>
-                )}
-
-                {/* 대화방 나가기 */}
-                <button
-                  type="button"
-                  className="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setLeaveDialogOpen(true);
-                  }}
-                >
-                  대화방 나가기
-                </button>
-              </div>
+        {/* 2. Center: Product Info Card (Link) */}
+        <Link
+          href={productHref}
+          className={cn(
+            "flex-1 flex items-center justify-end gap-2 min-w-0",
+            "bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors",
+            "border border-transparent hover:border-border"
+          )}
+        >
+          {/* 상품 이미지: 화면이 340px 이상일 때만 표시 (xs:block) */}
+          <div className="relative size-8 shrink-0 rounded bg-surface border border-border overflow-hidden hidden xs:block">
+            {img ? (
+              <Image
+                src={`${img}/avatar`}
+                alt=""
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="bg-neutral-200 dark:bg-neutral-700 w-full h-full" />
             )}
           </div>
+
+          <div className="flex flex-col items-end min-w-0">
+            {/* 제목 Truncate */}
+            <span className="text-xs text-primary font-semibold truncate max-w-[120px]">
+              {productState.title}
+            </span>
+
+            {/* 가격 & 배지 */}
+            <div className="flex items-center gap-1.5">
+              {/* 텍스트 배지 유지 및 스타일 최적화 (9px 폰트) */}
+              {isReserved && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 whitespace-nowrap">
+                  예약중
+                </span>
+              )}
+              {isSold && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                  판매완료
+                </span>
+              )}
+              <span className="text-xs font-bold text-brand dark:text-brand-light">
+                {`${formatToWon(productState.price)}원`}
+              </span>
+            </div>
+          </div>
+        </Link>
+
+        {/* 3. Right: Menu Button */}
+        <div className="relative shrink-0">
+          <button
+            ref={buttonRef} // [Add] 버튼 Ref 연결
+            className="flex items-center justify-center size-9 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="메뉴 열기"
+          >
+            <EllipsisHorizontalIcon className="size-6" />
+          </button>
+
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              className="absolute right-0 mt-1 w-48 origin-top-right rounded-xl bg-surface shadow-xl border border-border text-sm py-1 z-50 animate-fade-in"
+            >
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push(profileHref);
+                }}
+                className="block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim"
+              >
+                상대 프로필
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  router.push(productHref);
+                }}
+                className="block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim"
+              >
+                상품 상세
+              </button>
+
+              {isSeller && (
+                <>
+                  <div className="border-t border-border my-1" />
+                  {isSelling && (
+                    <button
+                      className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-primary"
+                      onClick={handleReserveCounterparty}
+                      disabled={isUpdatingStatus}
+                    >
+                      예약자로 지정
+                    </button>
+                  )}
+
+                  {isReserved && (
+                    <>
+                      {isCurrentReservationHolder ? (
+                        <>
+                          <button
+                            className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-primary"
+                            onClick={handleReservedToSelling}
+                            disabled={isUpdatingStatus}
+                          >
+                            예약 취소 (판매중)
+                          </button>
+                          <button
+                            className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-primary font-medium"
+                            onClick={handleReservedToSold}
+                            disabled={isUpdatingStatus}
+                          >
+                            판매완료 처리
+                          </button>
+                        </>
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-muted">
+                          다른 유저가 예약 중입니다
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {isSold && (
+                    <button
+                      className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-amber-600 dark:text-amber-400"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setRevertDialogOpen(true);
+                      }}
+                      disabled={isUpdatingStatus}
+                    >
+                      판매중으로 되돌리기
+                    </button>
+                  )}
+                </>
+              )}
+              <div className="border-t border-border my-1" />
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setLeaveDialogOpen(true);
+                }}
+                className="block w-full px-4 py-2.5 text-left text-danger hover:bg-danger/10"
+              >
+                채팅방 나가기
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 채팅방 나가기 확인 모달 */}
+      {/* Dialogs */}
       <ConfirmDialog
         open={leaveDialogOpen}
-        onCancel={() => {
-          if (!isLeaving) setLeaveDialogOpen(false);
-        }}
-        onConfirm={handleLeaveRoom}
-        loading={isLeaving}
-        title="대화방을 나갈까요?"
+        title="채팅방 나가기"
+        description="대화 내용이 사라집니다."
         confirmLabel="나가기"
-        cancelLabel="취소"
-        description="대화방을 나가면 내 목록에서 사라집니다. 상대방에게는 기존 대화 내용이 남아 있을 수 있어요."
+        onConfirm={handleLeaveRoom}
+        onCancel={() => setLeaveDialogOpen(false)}
+        loading={isLeaving}
       />
-
-      {/* 판매완료 → 판매중 되돌리기 확인 모달 */}
       <ConfirmDialog
         open={revertDialogOpen}
         onCancel={() => {
@@ -404,7 +395,7 @@ export default function ChatHeader({
         title="판매 상태를 되돌릴까요?"
         confirmLabel="판매중으로 변경"
         cancelLabel="취소"
-        description="판매 완료를 취소하고 다시 '판매 중' 상태로 돌립니다. 이 제품에 작성된 모든 리뷰가 삭제됩니다."
+        description="판매 완료를 취소하고 다시 '판매 중' 상태로 돌립니다. 리뷰도 삭제됩니다."
       />
     </header>
   );

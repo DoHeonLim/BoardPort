@@ -11,6 +11,7 @@
  * 2025.09.09  임도헌   Modified  ConfirmDialog 연동 보강(ESC/백드롭 클릭 시 닫기), 포커스 트랩/바디 스크롤 잠금/오버레이 추가
  * 2025.09.22  임도헌   Modified  createdNewLiveInput 분기 제거, 삭제는 명시적 버튼 클릭 시에만 확인창 오픈
  * 2025.09.25  임도헌   Modified  복사버튼 클릭시 토스트 메세지 추가
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 
 "use client";
@@ -33,12 +34,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
+import ConfirmDialog from "@/components/global/ConfirmDialog";
 import {
   deleteLiveInputAction,
   rotateLiveInputKeyAction,
   deleteBroadcastAction,
 } from "@/app/streams/[id]/actions";
+import { cn } from "@/lib/utils";
 
 interface RTMPInfoModalProps {
   open: boolean;
@@ -152,9 +154,9 @@ export default function RTMPInfoModal({
         setCopiedKey(true);
         setTimeout(() => setCopiedKey(false), 1500);
       }
-      toast.success("클립보드 복사 성공");
+      toast.success("클립보드에 복사되었습니다.");
     } catch {
-      toast.error("클립보드 복사 실패", { description: "다시 시도해주세요." });
+      toast.error("복사에 실패했습니다.");
     }
   };
 
@@ -163,21 +165,15 @@ export default function RTMPInfoModal({
       try {
         const res = await rotateLiveInputKeyAction(liveInputId);
         if (!res?.success) {
-          toast.error("키 재발급에 실패했습니다.", {
-            description: res?.error || "잠시 후 다시 시도해주세요.",
-          });
+          toast.error(res?.error ?? "키 재발급 실패");
           return;
         }
         setRtmpUrlState(res.rtmpUrl!);
         setStreamKeyState(res.streamKey!);
         setShowKey(true); // 재발급 직후 확인 가능하게 표시
-        toast.success("스트림 키가 재발급되었습니다.", {
-          description: "새 키가 적용되었고 기존 키는 즉시 사용 불가입니다.",
-        });
+        toast.success("스트림 키가 재발급되었습니다.");
       } catch {
-        toast.error("키 재발급 중 오류가 발생했습니다.", {
-          description: "네트워크 또는 서버 오류일 수 있습니다.",
-        });
+        toast.error("오류가 발생했습니다.");
       }
     });
   };
@@ -187,9 +183,7 @@ export default function RTMPInfoModal({
       try {
         const res = await deleteLiveInputAction(liveInputId);
         if (!res?.success) {
-          toast.error("Live Input 삭제 실패", {
-            description: res?.error || "잠시 후 다시 시도해주세요.",
-          });
+          toast.error(res?.error ?? "삭제 실패");
           return;
         }
         toast.success("Live Input이 삭제되었습니다.");
@@ -217,13 +211,10 @@ export default function RTMPInfoModal({
           toast.success("생성된 방송이 취소되었습니다.");
           // 캐시 무효화 등은 서버 action 내부에서 처리됨
         } else {
-          toast.error("방송 취소에 실패했습니다.", {
-            description: res?.error || "잠시 후 다시 시도해주세요.",
-          });
+          toast.error("취소 실패");
         }
-      } catch (e) {
-        console.error("[RTMPInfoModal] deleteBroadcastAction failed", e);
-        toast.error("방송 취소 중 오류가 발생했습니다.");
+      } catch {
+        toast.error("오류가 발생했습니다.");
       } finally {
         onOpenChange(false);
       }
@@ -234,161 +225,137 @@ export default function RTMPInfoModal({
 
   return (
     <div
-      // 오버레이은 그대로 유지하되, 클릭으로 닫히지 않도록 onMouseDown 제거
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       aria-hidden={!open}
     >
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="rtmp-title"
-        className="relative mx-auto w-[min(680px,92vw)] rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900"
+        className={cn(
+          "relative mx-auto w-[min(640px,92vw)] rounded-2xl p-6 shadow-2xl",
+          "bg-surface border border-border"
+        )}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between">
-          <h2
-            id="rtmp-title"
-            className="text-xl font-semibold text-black dark:text-white"
-          >
-            방송 송출 정보 (RTMP)
-          </h2>
+        <div className="flex items-start justify-between mb-2">
+          <h2 className="text-xl font-bold text-primary">방송 송출 정보</h2>
           <button
             type="button"
             onClick={handleClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-black hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white dark:hover:bg-white/5"
-            aria-label="닫기"
+            className="p-1.5 text-muted hover:text-primary rounded-lg hover:bg-surface-dim transition-colors"
             disabled={isDeleting}
           >
-            <XMarkIcon
-              className={`h-5 w-5 ${isDeleting ? "animate-pulse opacity-70" : ""}`}
-            />
+            <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        <p
-          id="rtmp-desc"
-          className="mt-2 text-sm text-neutral-600 dark:text-neutral-400"
-        >
-          아래 정보를 방송 소프트웨어(OBS 등)에 입력하세요.{" "}
-          <span className="font-medium">스트림 키는 비공개</span>로 안전하게
-          보관하세요.
+        <p className="mb-6 text-sm text-muted">
+          아래 정보를 OBS 등 방송 소프트웨어에 입력하세요.{" "}
+          <span className="text-danger font-medium">
+            스트림 키는 절대 공유하지 마세요.
+          </span>
         </p>
 
         {/* RTMP URL */}
-        <div className="mt-5">
-          <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            RTMP URL
-          </label>
+        <div className="space-y-2 mb-4">
+          <label className="text-sm font-medium text-primary">RTMP URL</label>
           <div className="flex items-center gap-2">
-            <input
-              value={rtmpUrlState}
-              readOnly
-              className="w-full flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-mono text-neutral-900 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-100"
-              aria-describedby="rtmp-desc"
-            />
+            <code className="flex-1 rounded-lg bg-surface-dim border border-border px-3 py-2.5 text-sm font-mono text-primary break-all">
+              {rtmpUrlState}
+            </code>
             <button
               type="button"
               ref={firstFocusRef}
               onClick={() => copy(rtmpUrlState, "url")}
-              className="inline-flex items-center gap-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm text-black hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:text-white dark:hover:bg-white/5"
+              className="shrink-0 btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-primary"
             >
               {copiedUrl ? (
-                <>
-                  <CheckIcon className="h-4 w-4" />
-                  복사됨
-                </>
+                <span className="flex items-center gap-1 text-brand dark:text-brand-light">
+                  <CheckIcon className="size-4" /> 복사됨
+                </span>
               ) : (
-                <>
-                  <ClipboardIcon className="h-4 w-4" />
-                  복사
-                </>
+                <span className="flex items-center gap-1">
+                  <ClipboardIcon className="size-4" /> 복사
+                </span>
               )}
             </button>
           </div>
         </div>
 
         {/* Stream Key */}
-        <div className="mt-4">
-          <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            스트림 키
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={showKey ? streamKeyState : maskedKey}
-              readOnly
-              className="w-full flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-mono text-neutral-900 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-100"
-              aria-label="스트림 키"
-            />
-            <button
-              type="button"
-              onClick={() => setShowKey((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm text-black hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:text-white dark:hover:bg-white/5"
-              aria-pressed={showKey}
-              aria-label={showKey ? "키 숨기기" : "키 보기"}
-            >
-              {showKey ? (
-                <EyeSlashIcon className="h-4 w-4" />
-              ) : (
-                <EyeIcon className="h-4 w-4" />
-              )}
-              {showKey ? "숨기기" : "보기"}
-            </button>
-            <button
-              type="button"
-              onClick={() => copy(streamKeyState, "key")}
-              className="inline-flex items-center gap-1 rounded-xl border border-neutral-200 px-3 py-2 text-sm text-black hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:text-white dark:hover:bg-white/5"
-            >
-              {copiedKey ? (
-                <>
-                  <CheckIcon className="h-4 w-4" />
-                  복사됨
-                </>
-              ) : (
-                <>
-                  <ClipboardIcon className="h-4 w-4" />
-                  복사
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleRotate}
-              disabled={isRotating}
-              className="inline-flex items-center gap-2 rounded-xl border border-amber-300 px-3 py-2 text-sm text-amber-700 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 dark:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-500/10"
-              title="스트림 키 재발급"
-            >
-              <ArrowPathIcon
-                className={`h-4 w-4 ${isRotating ? "animate-spin" : ""}`}
-              />
-              {isRotating ? "재발급 중..." : "키 재발급"}
-            </button>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-primary">스트림 키</label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 flex items-center gap-2 rounded-lg bg-surface-dim border border-border px-3 py-2.5">
+              <code className="flex-1 text-sm font-mono text-primary break-all">
+                {showKey ? streamKeyState : maskedKey}
+              </code>
+              <button
+                type="button"
+                onClick={() => setShowKey((v) => !v)}
+                className="p-1 text-muted hover:text-primary transition-colors"
+                title={showKey ? "숨기기" : "보기"}
+              >
+                {showKey ? (
+                  <EyeSlashIcon className="size-5" />
+                ) : (
+                  <EyeIcon className="size-5" />
+                )}
+              </button>
+            </div>
+
+            <div className="flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => copy(streamKeyState, "key")}
+                className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-primary"
+              >
+                {copiedKey ? (
+                  <span className="flex items-center gap-1 text-brand dark:text-brand-light">
+                    <CheckIcon className="size-4" /> 복사됨
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <ClipboardIcon className="size-4" /> 복사
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRotate}
+                disabled={isRotating}
+                className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-amber-600 dark:text-amber-400"
+                title="키 재발급"
+              >
+                <ArrowPathIcon
+                  className={cn("size-4", isRotating && "animate-spin")}
+                />
+              </button>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            ⚠ 스트림 키가 유출되었다면 즉시 키를 교체하세요. (재발급 시 기존
-            키는 즉시 사용 불가)
+          <p className="text-xs text-muted">
+            * 키가 유출되었다면 재발급하세요. (기존 키 즉시 만료)
           </p>
         </div>
 
-        {/* 하단 버튼들 */}
-        <div className="mt-6 flex flex-wrap justify-between gap-2">
-          {/* 좌측: 위험 동작(삭제) */}
+        {/* Actions */}
+        <div className="mt-8 flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4 border-t border-border">
           <button
             type="button"
             onClick={() => setConfirmOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-500/10"
-            title="Live Input 삭제"
             disabled={isDeleting}
+            className="text-sm font-medium text-danger hover:text-red-600 hover:underline underline-offset-4 disabled:opacity-50 transition-colors py-2"
           >
             {isDeleting ? "삭제 중..." : "Live Input 삭제"}
           </button>
 
-          {/* 우측: 이동/닫기 */}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={handleClose}
-              className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-black hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:text-white dark:hover:bg-white/5"
+              className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-transparent bg-surface-dim hover:bg-border text-primary"
             >
               닫기
             </button>
@@ -397,33 +364,25 @@ export default function RTMPInfoModal({
               type="button"
               onClick={() => {
                 if (!broadcastId) return;
-                // 네비게이션 플래그 세팅: 이동 후 닫기 시 브로드캐스트 삭제를 하지 않음
                 navigatedToBroadcastRef.current = true;
                 onOpenChange(false);
                 router.push(`/streams/${broadcastId}`);
               }}
               disabled={!broadcastId}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-              title={
-                broadcastId
-                  ? "스트리밍 페이지로 이동"
-                  : "생성된 방송 ID가 없어 이동할 수 없습니다"
-              }
+              className="flex-1 sm:flex-none btn-primary h-11 text-sm flex items-center justify-center gap-2"
             >
-              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-              스트리밍 페이지로 이동
+              <span>방송 페이지로 이동</span>
+              <ArrowTopRightOnSquareIcon className="size-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* 확인 모달 — 명시적 삭제 버튼 클릭 시에만 오픈 */}
       <ConfirmDialog
         open={confirmOpen}
-        title="Live Input을 삭제할까요?"
-        description="삭제 후에는 다시 스트림 키를 발급해야 방송을 시작할 수 있습니다."
+        title="Live Input 삭제"
+        description="정말 삭제하시겠습니까? 방송 설정을 다시 해야 합니다."
         confirmLabel="삭제"
-        cancelLabel="취소"
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmOpen(false)}
         loading={isDeleting}

@@ -6,9 +6,12 @@
  * History
  * Date        Author   Status    Description
  * 2025.07.04  임도헌   Created   Tags 분리 및 축약
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 
 "use client";
+
+import { cn } from "@/lib/utils";
 
 interface PostCardTagsProps {
   tags: { name: string }[];
@@ -21,18 +24,21 @@ export default function PostCardTags({ tags }: PostCardTagsProps) {
   const hiddenCount = tags.length - visibleTags.length;
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
+    <div className="flex flex-wrap gap-1.5 mt-1">
       {visibleTags.map((tag, index) => (
         <span
           key={index}
-          className="px-1.5 py-0.5 text-[10px] sm:text-xs bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light rounded-full"
+          className={cn(
+            "px-2 py-0.5 text-[10px] font-medium rounded-md",
+            "bg-badge text-badge-text border border-transparent dark:border-white/10"
+          )}
         >
-          🏷️ {tag.name}
+          🏷️{tag.name}
         </span>
       ))}
       {hiddenCount > 0 && (
-        <span className="px-1.5 py-0.5 text-[10px] sm:text-xs bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-full">
-          +{hiddenCount}개
+        <span className="px-1.5 py-0.5 text-[10px] text-muted self-center">
+          +{hiddenCount}
         </span>
       )}
     </div>

@@ -6,11 +6,11 @@ Author : 임도헌
 History
 Date        Author   Status    Description
 2025.06.08  임도헌   Created   제품 상세 이미지 영역 분리 및 컴포넌트화
+2026.01.10  임도헌   Modified  시맨틱 토큰 적용
 */
-
 "use client";
 
-import Carousel from "@/components/common/Carousel";
+import Carousel from "@/components/ui/Carousel";
 import { EyeIcon } from "@heroicons/react/24/solid";
 
 interface ProductDetailImagesProps {
@@ -23,11 +23,14 @@ export default function ProductDetailImages({
   views,
 }: ProductDetailImagesProps) {
   return (
-    <div className="w-full h-[300px] relative">
+    // [Layout] 모바일에서는 가로폭 가득, 높이는 적절히 고정 (aspect-square or fixed height)
+    <div className="relative w-full aspect-square sm:aspect-[4/3] bg-surface-dim">
       <Carousel images={images} className="w-full h-full" />
-      <div className="absolute top-4 right-4 flex items-center gap-1 px-2 py-1 bg-black/50 rounded-full text-white text-sm">
-        <EyeIcon className="size-4" />
-        <span>{views}</span>
+
+      {/* 조회수 뱃지 (Overlay) */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-medium shadow-sm">
+        <EyeIcon className="size-3.5 text-white/90" />
+        <span>{views?.toLocaleString() ?? 0}</span>
       </div>
     </div>
   );

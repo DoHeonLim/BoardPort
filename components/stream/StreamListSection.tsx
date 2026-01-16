@@ -15,7 +15,7 @@
 "use client";
 
 import StreamList from "@/components/stream/StreamList";
-import { useFollowToggle } from "@/hooks/useFollowToggle";
+import { useFollowToggle } from "@/hooks/user/useFollowToggle";
 import type { BroadcastSummary } from "@/types/stream";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
@@ -33,8 +33,6 @@ type Props = {
 
 export default function StreamListSection(props: Props) {
   const { follow, isPending } = useFollowToggle();
-
-  // App Router 훅 사용
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

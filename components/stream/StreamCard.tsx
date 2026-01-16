@@ -22,6 +22,7 @@
  * 2025.11.23  임도헌   Modified  카드 하단 레이아웃을 제목/유저/메타 3단 구조로 재배치
  * 2025.11.26  임도헌   Modified  라이브/녹화용 id를 분리하도록 수정
  * 2025.12.20  임도헌   Modified  rail 레이아웃에서 FOLLOWERS 잠금 시 CTA 노출 + onRequestFollow 콜백 호출(프로필 헤더 팔로우 유도)
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 디자인 통일 (PostCard/ProductCard)
  */
 
 "use client";
@@ -29,8 +30,8 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import UserAvatar from "../common/UserAvatar";
-import { formatToTimeAgo } from "@/lib/utils";
+import UserAvatar from "../global/UserAvatar";
+import { cn, formatToTimeAgo } from "@/lib/utils";
 import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import PrivateAccessModal from "./PrivateAccessModal";
 import {
@@ -227,27 +228,28 @@ export default function StreamCard(props: StreamCardProps) {
     ? `${title} — 접근 제한(팔로워 전용 또는 비밀)`
     : title;
 
-  const layoutClass =
-    layout === "rail"
-      ? "w-[240px] sm:w-[260px] flex-none h-full snap-start"
-      : "w-full";
-
   return (
     <article
-      className={`relative flex flex-col overflow-hidden rounded-lg bg-white shadow dark:bg-neutral-900 ${layoutClass}`}
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300",
+        "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
+        layout === "rail"
+          ? "w-[240px] sm:w-[260px] flex-none h-full snap-start"
+          : "w-full"
+      )}
     >
-      {/* 썸네일/영상 영역 */}
       <Link
         href={computedHref}
-        className="group block"
+        className="group flex flex-col flex-1 h-full"
         onClick={handleStreamClick}
         onKeyDown={handleKeyDown}
         aria-label={ariaLabel}
         aria-disabled={lockMask || undefined}
         prefetch={false}
       >
+        {/* 썸네일 영역 */}
         <div
-          className="relative aspect-video w-full bg-neutral-100 dark:bg-neutral-900"
+          className="relative aspect-video w-full bg-surface-dim border-b border-border"
           data-preview={shouldRenderPreview ? "true" : "false"}
           onMouseEnter={startHover}
           onMouseLeave={endHover}
@@ -255,7 +257,7 @@ export default function StreamCard(props: StreamCardProps) {
           onBlur={endHover}
         >
           {shouldRenderPreview ? (
-            <div className="pointer-events-none absolute inset-0">
+            <div className="pointer-events-none absolute inset-0 bg-black">
               <iframe
                 src={`/streams/${id}/live-preview`}
                 className="h-full w-full"
@@ -273,84 +275,68 @@ export default function StreamCard(props: StreamCardProps) {
           ) : thumb && !thumbError ? (
             <Image
               src={thumb}
-              alt={title || (isLive ? "라이브 스트림 썸네일" : "녹화 썸네일")}
+              alt={title || (isLive ? "라이브 썸네일" : "녹화 썸네일")}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className={`object-cover transition-transform duration-300 group-hover:scale-[1.02] group-hover:brightness-95 ${
-                lockMask ? "blur-[1.5px] brightness-90" : ""
-              }`}
+              className={cn(
+                "object-cover transition-transform duration-300 group-hover:scale-105",
+                lockMask && "blur-[2px] brightness-75 scale-105"
+              )}
               loading="lazy"
               onError={() => {
-                console.warn("[StreamCard] thumb image failed:", id);
                 setThumbError(true);
                 if (shouldPreview) setIsHoveredOrFocused(true);
               }}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-neutral-400">
-              <PhotoIcon className="h-10 w-10" aria-hidden="true" />
+            <div className="flex h-full w-full items-center justify-center text-muted/40">
+              <PhotoIcon className="size-10" aria-hidden="true" />
             </div>
           )}
 
-          {/* 배지: 좌상단에 여러 개 나란히 표기 */}
-          <div className="absolute left-2 top-2 flex gap-2">
+          {/* 배지 영역 */}
+          <div className="absolute left-2 top-2 flex flex-wrap gap-1.5 z-10">
             {showLive && (
-              <span className="rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
-                <span className="sr-only">상태: </span>LIVE
+              <span className="rounded bg-danger/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-[2px]">
+                LIVE
               </span>
             )}
             {showReplay && (
-              <span className="rounded bg-neutral-900/80 px-2 py-1 text-xs font-semibold text-white">
-                <span className="sr-only">형식: </span>다시보기
+              <span className="rounded bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+                다시보기
               </span>
             )}
             {showFollowers && (
-              <span className="rounded bg-indigo-700 px-2 py-1 text-xs font-semibold text-white">
-                <span className="sr-only">접근: </span>팔로워
+              <span className="rounded bg-brand/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+                팔로워
               </span>
             )}
             {showPrivate && (
-              <span className="inline-flex items-center gap-1 rounded bg-amber-700 px-2 py-1 text-xs font-semibold text-white/95">
-                <LockClosedIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="sr-only">접근: </span>비밀
+              <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+                <LockClosedIcon className="size-3" aria-hidden="true" />
+                비밀
               </span>
             )}
           </div>
 
-          {/* FOLLOWERS 잠금 오버레이 (비팔로워) */}
+          {/* 잠금 오버레이 */}
           {followersOnlyLocked && (
             <div
-              className="absolute inset-0 flex items-center justify-center bg-black/55"
+              className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[1px] z-20"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onRequestFollow?.();
               }}
-              aria-label="팔로워 전용 잠금"
             >
               <div className="p-4 text-center">
-                <p id={`lock-msg-${id}`} className="mb-3 text-white">
-                  이 방송은 팔로워만 시청할 수 있습니다.
+                <p className="mb-3 text-sm font-medium text-white/90">
+                  팔로워 전용 방송입니다
                 </p>
                 {onRequestFollow && (
                   <button
                     type="button"
-                    role="button"
-                    aria-label="팔로우하기"
-                    aria-describedby={`lock-msg-${id}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onRequestFollow();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onRequestFollow?.();
-                      }
-                    }}
-                    className="rounded-lg bg-primary px-4 py-2 text-white hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-white/80"
+                    className="btn-primary h-8 text-xs bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black border-none"
                   >
                     팔로우하기
                   </button>
@@ -359,69 +345,52 @@ export default function StreamCard(props: StreamCardProps) {
             </div>
           )}
         </div>
+
+        {/* 정보 영역 */}
+        <div className="flex flex-1 flex-col justify-between p-3 gap-2">
+          <div className="space-y-1.5">
+            <h3 className="line-clamp-2 text-sm font-semibold text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors">
+              {title}
+            </h3>
+
+            <div className="flex items-center gap-2">
+              <UserAvatar
+                avatar={streamer.avatar ?? null}
+                username={streamer.username}
+                size="sm"
+                compact
+                className="pointer-events-none"
+              />
+              <span className="text-xs text-muted truncate">
+                {streamer.username}
+              </span>
+            </div>
+          </div>
+
+          {!shortDescription &&
+            (category || (tags?.length ?? 0) > 0 || startedAtIso) && (
+              <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted border-t border-border/50 pt-2 mt-auto">
+                {category && (
+                  <span className="flex items-center gap-1 shrink-0 font-medium text-primary/80">
+                    {category.icon} {category.kor_name}
+                  </span>
+                )}
+
+                {category && startedAtIso && (
+                  <span className="text-border">|</span>
+                )}
+
+                {startedAtIso && (
+                  <span className="truncate text-muted">
+                    {formatToTimeAgo(startedAtIso)} 시작
+                  </span>
+                )}
+              </div>
+            )}
+        </div>
       </Link>
 
-      {/* 하단 정보 영역: 1) 제목 2) 유저 3) 메타 */}
-      <div className="flex flex-col px-2 py-2">
-        {/* 1줄: 제목 */}
-        <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 dark:text-white">
-          {title}
-        </h3>
-
-        {/* 유저 아바타, 닉네임 */}
-        <UserAvatar
-          avatar={streamer.avatar ?? null}
-          username={streamer.username}
-          size="sm"
-          compact
-        />
-
-        {/* 3줄: 카테고리 • 태그 • 시간 */}
-        {!shortDescription &&
-          (category || (tags?.length ?? 0) > 0 || startedAtIso) && (
-            <div
-              className={`
-              mt-0.5 min-w-0 flex items-center gap-2 text-[11px]
-              text-neutral-600 dark:text-neutral-400 whitespace-nowrap
-            `}
-            >
-              {category && (
-                <span className="inline-flex shrink-0 items-center gap-1">
-                  {category.icon && (
-                    <span aria-hidden="true">{category.icon}</span>
-                  )}
-                  {category.kor_name}
-                </span>
-              )}
-
-              {Array.isArray(tags) && tags.length > 0 && (
-                <div className="flex min-w-0 items-center gap-1 overflow-hidden">
-                  {tags.slice(0, 2).map((tag) => (
-                    <span
-                      key={tag.name}
-                      className="shrink-0 rounded bg-neutral-200 px-1 dark:bg-neutral-700"
-                    >
-                      #{tag.name}
-                    </span>
-                  ))}
-                  {tags.length > 2 && (
-                    <span className="shrink-0 text-neutral-500 dark:text-neutral-400">
-                      +{tags.length - 2}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {startedAtIso && (
-                <span className="ml-auto shrink-0 whitespace-nowrap">
-                  {formatToTimeAgo(startedAtIso)}
-                </span>
-              )}
-            </div>
-          )}
-      </div>
-
-      {/* 공용 비밀번호 모달: redirectHref는 계산된 경로 사용 */}
+      {/* 공용 비밀번호 모달 */}
       {isModalOpen && (
         <PrivateAccessModal
           open={isModalOpen}

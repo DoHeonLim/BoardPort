@@ -6,8 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2025.06.21  임도헌   Created   filterTags useMemo를 분리한 칩 컴포넌트 생성
+ * 2026.01.11  임도헌   Modified  [Rule 5.1] 뱃지 전용 시맨틱 컬러(bg-badge) 적용
  */
-
 "use client";
 
 import {
@@ -17,7 +17,8 @@ import {
 } from "@/lib/constants";
 import { getCategoryName } from "@/lib/category/getCategoryName";
 import type { Category } from "@/generated/prisma/client";
-import clsx from "clsx";
+import { cn } from "@/lib/utils";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 interface SearchChipsProps {
   filters: FilterState;
@@ -40,83 +41,67 @@ export default function SearchChips({
 }: SearchChipsProps) {
   const chips: JSX.Element[] = [];
 
-  if (filters.minPrice || filters.maxPrice) {
-    chips.push(
-      <div
-        key="price"
-        className="flex items-center gap-1 px-3 py-1 text-sm bg-primary/10 dark:bg-primary-light/10 text-primary dark:text-primary-light rounded-full"
+  const renderChip = (key: string, label: string, onRemove: () => void) => (
+    <div
+      key={key}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors",
+        "bg-badge text-badge-text border border-transparent dark:border-white/10"
+      )}
+    >
+      <span>{label}</span>
+      <button
+        onClick={onRemove}
+        className="hover:text-primary transition-colors focus:outline-none"
+        aria-label={`${label} 필터 제거`}
       >
-        <span>
-          가격: {filters.minPrice ? `${filters.minPrice}원` : "0원"} ~{" "}
-          {filters.maxPrice ? `${filters.maxPrice}원` : "무제한"}
-        </span>
-        <button
-          onClick={() => {
-            setFilters((prev) => ({ ...prev, minPrice: "", maxPrice: "" }));
-            removeParams("minPrice", "maxPrice");
-            closeSearch();
-          }}
-          className="ml-1 text-primary/70 dark:text-primary-light/70 hover:text-primary dark:hover:text-primary-light"
-          aria-label="가격 필터 제거"
-        >
-          ×
-        </button>
-      </div>
+        <XMarkIcon className="size-3.5" />
+      </button>
+    </div>
+  );
+
+  // 가격 Filter
+  if (filters.minPrice || filters.maxPrice) {
+    const label = `가격: ${filters.minPrice || "0"} ~ ${filters.maxPrice || "∞"}`;
+    chips.push(
+      renderChip("price", label, () => {
+        setFilters((prev) => ({ ...prev, minPrice: "", maxPrice: "" }));
+        removeParams("minPrice", "maxPrice");
+        closeSearch();
+      })
     );
   }
 
+  // 그외 Filters
   Object.entries(filters).forEach(([key, value]) => {
     if (!value || key === "minPrice" || key === "maxPrice") return;
 
     let displayValue = value;
-    if (key === "game_type") {
+    if (key === "game_type")
       displayValue = GAME_TYPE_DISPLAY[value as keyof typeof GAME_TYPE_DISPLAY];
-    } else if (key === "condition") {
+    else if (key === "condition")
       displayValue = CONDITION_DISPLAY[value as keyof typeof CONDITION_DISPLAY];
-    } else if (key === "category") {
+    else if (key === "category")
       displayValue = getCategoryName(value, categories);
-    }
 
-    const label =
-      key === "game_type"
-        ? `게임 타입: ${displayValue}`
-        : key === "condition"
-          ? `상태: ${displayValue}`
-          : `카테고리: ${displayValue}`;
+    const labelMap: Record<string, string> = {
+      game_type: "게임",
+      condition: "상태",
+      category: "분류",
+    };
+
+    const label = `${labelMap[key] ?? key}: ${displayValue}`;
 
     chips.push(
-      <div
-        key={key}
-        className="flex items-center gap-1 px-3 py-1 text-sm bg-primary/10 dark:bg-primary-light/10 text-primary dark:text-primary-light rounded-full"
-      >
-        <span>{label}</span>
-        <button
-          onClick={() => {
-            setFilters((prev) => ({ ...prev, [key]: "" }));
-            removeParam(key);
-            closeSearch();
-          }}
-          className="ml-1 text-primary/70 dark:text-primary-light/70 hover:text-primary dark:hover:text-primary-light"
-          aria-label={`${key} 필터 제거`}
-        >
-          ×
-        </button>
-      </div>
+      renderChip(key, label, () => {
+        setFilters((prev) => ({ ...prev, [key]: "" }));
+        removeParam(key);
+        closeSearch();
+      })
     );
   });
 
-  return (
-    <div
-      className={clsx(
-        "flex flex-wrap gap-2",
-        {
-          "m-3": chips.length > 0,
-          "m-0": chips.length === 0,
-        },
-        className
-      )}
-    >
-      {chips}
-    </div>
-  );
+  if (chips.length === 0) return null;
+
+  return <div className={cn("flex flex-wrap gap-2", className)}>{chips}</div>;
 }

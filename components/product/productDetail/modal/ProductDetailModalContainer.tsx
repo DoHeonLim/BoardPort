@@ -8,13 +8,14 @@
  * 2025.06.08  임도헌   Created   모달 스타일을 적용한 제품 상세 컨테이너 래퍼
  * 2025.06.08  임도헌   Modified  어두운 배경과 중앙 정렬 레이아웃 추가
  * 2025.11.13  임도헌   Modified  CloseButton(returnTo) 적용, role="dialog" 등 접근성 보강
+ * 2026.01.10  임도헌   Modified  모바일 및 데스크톱 레이아웃 변경
  */
 "use client";
 
 import { useEffect, useRef } from "react";
 import ProductDetailContainer from "..";
 import type { ProductDetailType } from "@/types/product";
-import CloseButton from "@/components/common/CloseButton";
+import CloseButton from "@/components/global/CloseButton";
 import { useRouter, useSearchParams } from "next/navigation";
 
 interface ProductDetailProps {
@@ -64,7 +65,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
         aria-label="제품 상세"
         ref={dialogRef}
         tabIndex={-1}
-        className="w-full max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl max-h-[90vh] flex flex-col overflow-hidden outline-none"
+        className="w-full h-full max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl flex flex-col overflow-hidden outline-none"
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 모달 닫힘 방지
       >
         <div className="flex justify-end p-2">

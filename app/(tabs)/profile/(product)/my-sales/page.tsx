@@ -14,6 +14,7 @@
  * 2025.10.20  임도헌   Modified  탭별 개수 전달
  * 2025.10.23  임도헌   Modified  캐시 리팩토링 적용: per-id 태그 + lib 캐시 래퍼 사용
  * 2025.11.13  임도헌   Modified  뒤로가기 버튼 layout으로 이동
+ * 2026.01.16  임도헌   Modified  불필요한 Fragment 제거
  */
 
 import getSession from "@/lib/session";

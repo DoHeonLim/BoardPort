@@ -7,17 +7,18 @@
  * Date        Author   Status    Description
  * 2025.08.06  임도헌   Created   녹화 상세 메타 정보 표시 컴포넌트 생성
  * 2025.09.10  임도헌   Modified  TimeAgo에 Date 직접 전달, 공유 핸들러 보강, a11y/가독성 개선
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 아이콘 스타일 통일
  */
 
 "use client";
 
-import TimeAgo from "@/components/common/TimeAgo";
+import TimeAgo from "@/components/ui/TimeAgo";
 import { formatDuration } from "@/lib/utils";
 import {
   ChatBubbleBottomCenterTextIcon,
   EyeIcon,
   ShareIcon,
-} from "@heroicons/react/24/solid";
+} from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 
 interface RecordingMetaProps {
@@ -44,14 +45,12 @@ export default function RecordingMeta({
         await (navigator as any).share({ title: document.title, url });
         return;
       }
-
       // 2) Clipboard API
       if (url && typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(url);
         toast.success("링크가 복사되었습니다.");
         return;
       }
-
       // 3) 폴백
       toast.error("공유를 지원하지 않는 환경입니다.");
     } catch {
@@ -60,39 +59,37 @@ export default function RecordingMeta({
   };
 
   return (
-    <div className="flex items-center justify-between px-2 text-sm text-neutral-600 dark:text-neutral-300">
-      {/* 왼쪽: 생성일 + 영상 길이 */}
-      <div>
-        <TimeAgo date={created} /> • {formatDuration(duration)}
-      </div>
-
-      {/* 오른쪽: 좋아요/조회수/댓글/공유 */}
-      <div className="flex items-center gap-4">
-        {LikeButtonComponent}
-
-        <span className="flex items-center gap-1">
-          <EyeIcon className="size-6" aria-hidden="true" />
-          {viewCount.toLocaleString()}
-        </span>
-
-        <span className="flex items-center gap-1">
-          <ChatBubbleBottomCenterTextIcon
-            className="size-6"
-            aria-hidden="true"
-          />
-          {commentCount.toLocaleString()}
-        </span>
-
+    <div className="flex flex-col gap-4 border-b border-border pb-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs text-muted">
+          <TimeAgo date={created} />
+          <span className="text-border">|</span>
+          <span>{formatDuration(duration)}</span>
+        </div>
         <button
           type="button"
           onClick={handleCopyLink}
-          className="flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-primary transition-colors p-1.5 -mr-1.5 rounded-lg hover:bg-surface-dim"
           aria-label="링크 공유"
-          title="링크 공유"
         >
-          <ShareIcon className="size-6" aria-hidden="true" />
-          공유
+          <ShareIcon className="size-4" />
+          <span>공유</span>
         </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        {LikeButtonComponent}
+
+        <div className="flex items-center gap-4 text-xs text-muted">
+          <div className="flex items-center gap-1">
+            <EyeIcon className="size-4" />
+            <span>{viewCount.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <ChatBubbleBottomCenterTextIcon className="size-4" />
+            <span>{commentCount.toLocaleString()}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

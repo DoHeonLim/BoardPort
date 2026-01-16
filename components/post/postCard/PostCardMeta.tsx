@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2025.07.04  임도헌   Created
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 "use client";
 
@@ -14,7 +15,9 @@ import {
   HeartIcon,
   ChatBubbleLeftIcon,
 } from "@heroicons/react/24/solid";
-import TimeAgo from "@/components/common/TimeAgo";
+import TimeAgo from "@/components/ui/TimeAgo";
+import { cn } from "@/lib/utils";
+
 interface PostCardMetaProps {
   views: number;
   likes: number;
@@ -29,14 +32,30 @@ export default function PostCardMeta({
   createdAt,
 }: PostCardMetaProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
-      <EyeIcon className="size-3 sm:size-4" />
-      <span>{views}</span>
-      <HeartIcon className="size-3 sm:size-4 text-rose-600" />
-      <span>{likes}</span>
-      <ChatBubbleLeftIcon className="w-4 h-4" />
-      {comments}
-      <TimeAgo date={createdAt} />
+    <div className="flex items-center gap-2.5 text-[10px] sm:text-xs text-muted my-1.5">
+      <div className="flex items-center gap-0.5">
+        <HeartIcon
+          className={cn(
+            "size-3 sm:size-3.5",
+            likes > 0 ? "text-rose-500" : "text-muted/70"
+          )}
+        />
+        <span>{likes}</span>
+      </div>
+
+      <div className="flex items-center gap-0.5">
+        <ChatBubbleLeftIcon className="size-3 sm:size-3.5 text-muted/70" />
+        <span>{comments}</span>
+      </div>
+
+      <div className="flex items-center gap-0.5">
+        <EyeIcon className="size-3 sm:size-3.5 text-muted/70" />
+        <span>{views}</span>
+      </div>
+
+      <span className="text-border text-[8px] sm:text-[10px]">|</span>
+
+      <TimeAgo date={createdAt} className="text-muted whitespace-nowrap" />
     </div>
   );
 }

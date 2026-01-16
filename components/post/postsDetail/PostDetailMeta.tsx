@@ -6,12 +6,13 @@
  * History
  * Date        Author   Status    Description
  * 2025.07.11  임도헌   Created   PostDetail Meta 분리
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 아이콘/텍스트 색상 통일
  */
 "use client";
 
 import PostLikeButton from "@/components/post/PostLikeButton";
-import { EyeIcon } from "@heroicons/react/24/solid";
-import TimeAgo from "@/components/common/TimeAgo";
+import { EyeIcon } from "@heroicons/react/24/outline";
+import TimeAgo from "@/components/ui/TimeAgo";
 
 interface PostDetailMetaProps {
   postId: number;
@@ -20,7 +21,6 @@ interface PostDetailMetaProps {
   views: number;
   createdAt: string;
 }
-
 export default function PostDetailMeta({
   postId,
   isLiked,
@@ -29,11 +29,15 @@ export default function PostDetailMeta({
   createdAt,
 }: PostDetailMetaProps) {
   return (
-    <div className="flex justify-between items-center pt-2 border-t border-neutral-200 dark:border-neutral-700">
+    <div className="flex items-center justify-between">
       <PostLikeButton isLiked={isLiked} likeCount={likeCount} postId={postId} />
-      <div className="flex items-center gap-3 text-sm text-neutral-500 dark:text-neutral-400">
-        <EyeIcon className="size-4" />
-        <span>{views}</span>
+
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="flex items-center gap-1">
+          <EyeIcon className="size-4" />
+          <span>{views.toLocaleString()}</span>
+        </div>
+        <span className="text-border">|</span>
         <TimeAgo date={createdAt} />
       </div>
     </div>

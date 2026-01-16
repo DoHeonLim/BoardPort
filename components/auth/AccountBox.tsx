@@ -1,55 +1,43 @@
 /**
- File Name : components/auth/AccountBox
- Description : 계정 시작 링크 컴포넌트
- Author : 임도헌
- 
- History
- Date        Author   Status    Description
- 2025.05.30  임도헌   Created
- 2025.05.30  임도헌   Modified  회원가입, 로그인 링크 추가
+ * File Name : components\auth\AccountBox.tsx
+ * Description : 계정 시작 링크 컴포넌트
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.05.30  임도헌   Created
+ * 2025.05.30  임도헌   Modified  회원가입, 로그인 링크 추가
+ * 2026.01.10  임도헌   Modified  Glassmorphism UI 개선
  */
 
 import Link from "next/link";
+import { ArrowRightIcon } from "@heroicons/react/24/solid";
 
 export default function AccountBox() {
   return (
     <div className="mt-auto w-full max-w-md p-4 sm:p-6 z-20">
-      <div className="w-full bg-white/10 dark:bg-gray-800/10 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg">
-        {/* 회원가입 링크 */}
+      {/* Glassmorphism Container */}
+      <div className="w-full bg-white/20 dark:bg-black/30 backdrop-blur-md border border-white/20 rounded-2xl p-5 shadow-xl">
+        {/* 회원가입 (Primary Action) */}
         <Link
           href="/create-account"
-          aria-label="보드포트에 새로운 선원으로 회원가입하기"
-          className="w-full py-3 sm:py-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm 
-                 text-primary dark:text-secondary rounded-lg text-center font-semibold 
-                 hover:bg-white dark:hover:bg-gray-800 hover:scale-105 
-                 transition-all duration-300 shadow-lg
-                 flex items-center justify-center gap-2
-                 text-sm sm:text-base mb-3"
+          className="flex w-full items-center justify-center gap-2 h-14
+                     bg-white dark:bg-brand-dark text-brand dark:text-white 
+                     rounded-xl font-bold text-lg shadow-md
+                     hover:scale-[1.02] active:scale-[0.98] transition-all"
         >
-          <span>새로운 선원으로 등록하기</span>
-          <svg
-            className="w-4 h-4 sm:w-5 sm:h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17 8l4 4m0 0l-4 4m4-4H3"
-            />
-          </svg>
+          <span>새로운 선원으로 등록</span>
+          <ArrowRightIcon className="w-5 h-5" />
         </Link>
-        <div className="flex items-center justify-center gap-2 text-white dark:text-gray-200 text-sm sm:text-base">
-          <span>이미 선원이신가요?</span>
-          {/* 로그인 링크 */}
+
+        {/* 로그인 (Secondary Action) */}
+        <div className="mt-4 flex items-center justify-center gap-2 text-white/90 text-sm font-medium">
+          <span>이미 계정이 있으신가요?</span>
           <Link
             href="/login"
-            className="font-semibold text-primary-light hover:text-white transition-colors"
+            className="text-white underline decoration-2 underline-offset-4 hover:text-accent-light transition-colors"
           >
-            항해 계속하기
+            로그인하기
           </Link>
         </div>
       </div>

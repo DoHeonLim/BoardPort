@@ -19,23 +19,24 @@
  * 2025.09.16  임도헌   Modified  Broadcast 스키마 정렬(stream_id/stream_key optional)
  * 2025.09.17  임도헌   Modified  삭제 버튼을 녹화 페이지로 이동 (상세에서는 노출하지 않음)
  * 2025.11.16  임도헌   Modified  모든 정보 블록을 하나의 아코디언으로 접기/펼치기(모바일 기본 접힘)
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface, border-border)
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
-import clsx from "clsx";
 import LiveStatusButton from "@/components/stream/StreamDetail/LiveStatusButton";
-import TimeAgo from "@/components/common/TimeAgo";
+import TimeAgo from "@/components/ui/TimeAgo";
 import StreamEndedOverlay from "@/components/stream/StreamDetail/StreamEndedOverlay";
 import StreamCategoryTags from "@/components/stream/StreamDetail/StreamCategoryTags";
 import StreamDescription from "@/components/stream/StreamDetail/StreamDescription";
 import StreamSecretInfo from "@/components/stream/StreamDetail/StreamSecretInfo";
 import LiveViewerCount from "@/components/stream/StreamDetail/LiveViewerCount";
 import StreamTitle from "@/components/stream/StreamDetail/StreamTitle";
-import UserAvatar from "@/components/common/UserAvatar";
+import UserAvatar from "@/components/global/UserAvatar";
 import type { StreamDetailDTO } from "@/lib/stream/getBroadcastDetail";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
+import { cn } from "@/lib/utils";
 
 interface StreamDetailProps {
   stream: StreamDetailDTO;
@@ -99,18 +100,15 @@ export default function StreamDetail({
         {me != null && <LiveViewerCount streamId={streamId} me={me} />}
       </div>
 
-      {/* 라이브 상태 라벨 */}
       <LiveStatusButton status={stream.status} streamId={stream.stream_id} />
 
-      {/* 플레이어 */}
-      <div className="relative mb-1 aspect-video overflow-hidden bg-black">
+      <div className="relative mb-1 aspect-video overflow-hidden bg-black rounded-xl shadow-sm border border-black/10 dark:border-white/10">
         {(() => {
           const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
           if (!DOMAIN) {
             return (
               <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-red-300">
-                환경변수 <code>NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN</code>가
-                설정되지 않았습니다.
+                환경변수 미설정
               </div>
             );
           }
@@ -122,7 +120,7 @@ export default function StreamDetail({
           const src = `${DOMAIN}/${stream.stream_id}/iframe?${params.toString()}`;
           return (
             <iframe
-              title={`Live stream player • ${stream.title ?? stream.stream_id}`}
+              title={`Live stream player`}
               className="absolute inset-0 h-full w-full"
               src={src}
               allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
@@ -136,87 +134,81 @@ export default function StreamDetail({
         )}
       </div>
 
-      {/* ===== 전체 정보 단일 접힘 패널 ===== */}
+      {/* 정보 패널 */}
       <section
-        className={clsx(
-          "mb-1 overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900",
-          // 채팅 확대 모드일 때: 모바일/태블릿(<xl)에서는 숨기고,
-          // 데스크톱(≥xl)에서는 항상 보이게 유지
+        className={cn(
+          "mb-1 overflow-hidden rounded-xl border transition-colors",
+          "bg-surface border-border",
           hiddenByChat && "hidden xl:block"
         )}
       >
-        {/* 토글 헤더 */}
         <button
           type="button"
-          className="flex w-full items-center justify-between px-3 py-2 text-left"
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface-dim transition-colors"
           aria-expanded={opened}
           onClick={() => setOpened((v) => !v)}
         >
-          <span className="text-sm md:text-base font-semibold text-neutral-900 dark:text-neutral-100">
+          <span className="text-sm md:text-base font-semibold text-primary">
             방송 정보
           </span>
-          <div className="flex items-center gap-3">
-            {/* 열림/닫힘 상태 힌트 */}
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted">
               {opened ? "접기" : "펼치기"}
             </span>
             <ChevronDownIcon
-              className={`h-4 w-4 text-neutral-500 transition-transform ${
-                opened ? "rotate-180" : ""
-              }`}
+              className={cn(
+                "size-4 text-muted transition-transform",
+                opened && "rotate-180"
+              )}
               aria-hidden="true"
             />
           </div>
         </button>
 
-        {/* 본문(제목/메타/유저/설명/소유자 정보) */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+          className={cn(
+            "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
             opened ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-          }`}
+          )}
         >
           <div className="min-h-0 overflow-hidden px-4 pb-4">
-            {/* 제목 */}
-            <div className="pt-1">
+            <div className="pt-2">
               <StreamTitle title={stream.title} />
             </div>
 
-            {/* 메타(카테고리/태그/시작 시간) */}
-            <div
-              className="
-                mb-3 mt-2 flex flex-wrap items-center gap-2 text-xs
-                text-neutral-600 dark:text-neutral-300 [&>div]:mb-0 [&>div]:inline-flex
-              "
-            >
+            <div className="mb-4 mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
               <StreamCategoryTags
                 category={stream.category ?? undefined}
                 tags={stream.tags ?? undefined}
               />
               {stream.started_at && (
-                <span>
-                  시작: <TimeAgo date={stream.started_at} />
+                <span className="flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-border" />
+                  <TimeAgo
+                    date={stream.started_at}
+                    className="text-muted"
+                  />{" "}
+                  시작
                 </span>
               )}
             </div>
 
-            {/* 유저(아바타/이름) */}
-            <div className="mb-3 flex items-center gap-3">
+            <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-surface-dim/50 border border-border/50">
               <UserAvatar
                 avatar={stream.user.avatar}
                 username={stream.user.username}
+                size="md"
               />
             </div>
 
-            {/* 설명 */}
             {stream.description && (
-              <div className="mt-1">
+              <div className="mt-2 text-sm text-primary">
                 <StreamDescription description={stream.description} />
               </div>
             )}
 
-            {/* 소유자 전용 도구 */}
             {isOwner && (
-              <div className="mt-3">
+              <div className="mt-4 pt-4 border-t border-border">
                 <StreamSecretInfo broadcastId={streamId} />
               </div>
             )}

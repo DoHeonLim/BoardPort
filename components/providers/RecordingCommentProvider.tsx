@@ -12,7 +12,7 @@
 "use client";
 
 import React from "react";
-import { useRecordingComment } from "@/hooks/useRecordingComment";
+import { useRecordingComment } from "@/hooks/stream/useRecordingComment";
 import RecordingCommentContext from "../stream/recording/recordingComment/RecordingCommentContext";
 
 interface RecordingCommentProviderProps {

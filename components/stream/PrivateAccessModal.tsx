@@ -13,6 +13,7 @@
  * 2025.09.10  임도헌   Modified  진행 중 닫기 가드(ESC/배경/취소), a11y 보강(htmlFor/id, role="alert"), 라우팅 중복 정리
  * 2025.09.10  임도헌   Modified  열릴 때 현재 포커스 요소를 저장했다가 닫을 때 복귀
  * 2026.01.03  임도헌   Modified  actions/private 제거: 모달에서 lib/stream/unlockPrivateBroadcast 직접 호출로 단순화
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 
 "use client";
@@ -21,6 +22,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { unlockPrivateBroadcast } from "@/lib/stream/unlockPrivateBroadcast";
 import { unlockErrorMessage } from "@/types/stream";
+import { cn } from "@/lib/utils";
 
 interface PrivateAccessModalProps {
   open: boolean;
@@ -60,7 +62,6 @@ export default function PrivateAccessModal({
 
     // 열릴 때 현재 포커스 저장
     lastActiveElRef.current = document.activeElement as HTMLElement | null;
-
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const t = setTimeout(() => inputRef.current?.focus(), 0);
@@ -161,76 +162,59 @@ export default function PrivateAccessModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-labelledby={`private-modal-title-${streamId}`}
-      aria-busy={isPending || undefined}
-      onClick={() => {
-        if (!isPending) close();
-      }}
+      onClick={() => !isPending && close()}
     >
       <div
         ref={modalRef}
-        className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 dark:bg-neutral-800"
+        className={cn(
+          "w-full max-w-sm rounded-2xl p-6 shadow-xl mx-4",
+          "bg-surface border border-border"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3
-          id={`private-modal-title-${streamId}`}
-          className="mb-4 text-lg font-semibold text-neutral-900 dark:text-white"
-        >
-          비공개 스트리밍
-        </h3>
+        <h3 className="mb-4 text-lg font-bold text-primary">비공개 방송</h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label
-              htmlFor={`private-password-${streamId}`}
-              className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            >
+            <label className="mb-1.5 block text-sm font-medium text-primary">
               비밀번호
             </label>
             <input
-              id={`private-password-${streamId}`}
               ref={inputRef}
-              name="password"
               type="password"
-              autoComplete="current-password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                if (error) setError("");
+                setError("");
               }}
-              placeholder="비밀번호를 입력하세요"
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-neutral-600 dark:bg-neutral-700 dark:text-white"
-              aria-invalid={!!error || undefined}
-              aria-describedby={error ? `private-error-${streamId}` : undefined}
+              placeholder="비밀번호 입력"
+              className={cn(
+                "input-primary h-11 px-3 bg-surface-dim",
+                error && "ring-2 ring-danger/50"
+              )}
               disabled={isPending}
             />
             {error && (
-              <p
-                id={`private-error-${streamId}`}
-                role="alert"
-                className="mt-1 text-sm text-red-600 dark:text-red-400"
-              >
-                {error}
-              </p>
+              <p className="mt-1 text-xs text-danger font-medium">{error}</p>
             )}
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={close}
               disabled={isPending}
-              className="rounded-md bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-rose-700"
+              className="btn-secondary h-10 text-sm border-transparent hover:bg-black/5 dark:hover:bg-white/5"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary h-10 text-sm"
             >
               {isPending ? "확인 중..." : "입장하기"}
             </button>

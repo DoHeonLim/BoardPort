@@ -6,6 +6,7 @@ Author : 임도헌
 History
 Date        Author   Status    Description
 2025.06.08  임도헌   Created   제품 제목/가격/게임 유형 태그 분리
+2026.01.10  임도헌   Modified  시맨틱 토큰 적용
 */
 
 "use client";
@@ -26,22 +27,24 @@ export default function ProductDetailHeader({
   game_type,
 }: ProductDetailHeaderProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-3">
+      {/* 게임 타입 뱃지 */}
+      <div className="flex">
         <Link
           href={`/products?game_type=${game_type}`}
-          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light rounded-full hover:bg-primary/20 dark:hover:bg-primary-light/20 transition-all hover:scale-105 active:scale-95"
+          className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-brand-light hover:bg-brand/20 transition-colors"
         >
-          🎲 {GAME_TYPE_DISPLAY[game_type as keyof typeof GAME_TYPE_DISPLAY]}
+          🎲{" "}
+          {GAME_TYPE_DISPLAY[game_type as keyof typeof GAME_TYPE_DISPLAY] ||
+            game_type}
         </Link>
       </div>
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-text dark:text-text-dark">
-          🎲 {title}
-        </h1>
-        <span className="text-lg font-bold text-accent dark:text-accent-light">
-          💰 {formatToWon(price)}원
-        </span>
+
+      <h1 className="text-2xl font-bold text-primary leading-tight">{title}</h1>
+
+      <div className="text-xl font-bold text-brand dark:text-brand-light">
+        {formatToWon(price)}
+        <span className="text-base font-normal text-primary">원</span>
       </div>
     </div>
   );

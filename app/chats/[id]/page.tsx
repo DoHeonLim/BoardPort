@@ -32,6 +32,7 @@ import {
   readMessageUpdateAction,
 } from "./actions/messages";
 import { checkChatRoomAccessAction } from "./actions/room";
+import { cn } from "@/lib/utils";
 
 export default async function ChatRoom({ params }: { params: { id: string } }) {
   const chatRoomId = params.id;
@@ -58,12 +59,12 @@ export default async function ChatRoom({ params }: { params: { id: string } }) {
 
   return (
     <div
-      className="
-        flex flex-col h-screen overflow-hidden
-        bg-[url('/images/light-chat-bg.png')]
-        dark:bg-[url('/images/dark-chat-bg.png')]
-        bg-cover bg-center
-      "
+      className={cn(
+        "flex flex-col h-[100dvh] overflow-hidden",
+        "bg-[url('/images/light-chat-bg.png')]",
+        "dark:bg-[url('/images/dark-chat-bg.png')]",
+        "bg-cover bg-center"
+      )}
     >
       <ChatHeader
         chatRoomId={chatRoomId}

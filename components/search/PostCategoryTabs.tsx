@@ -1,17 +1,18 @@
 /**
-File Name : components/search/PostCategoryTabs
-Description : 게시글 카테고리 탭 컴포넌트
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2024.12.19  임도헌   Created
-2024.12.19  임도헌   Modified  게시글 카테고리 탭 컴포넌트 생성
-2024.12.20  임도헌   Modified  게시글 카테고리 탭 컴포넌트 다크모드 추가
-2025.04.18  임도헌   Modified  통일감 주기 위해서 refs 대문자로 변경
-2025.07.04  임도헌   Modified  모바일 환경 long-press 툴팁 표시 지원 추가
-2025.07.04  임도헌   Modified  PostCategoryTabs UI 버튼 사이즈 및 스크롤 UX 개선
-*/
+ * File Name : components/search/PostCategoryTabs
+ * Description : 게시글 카테고리 탭 (가로 스크롤)
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.12.19  임도헌   Created
+ * 2024.12.19  임도헌   Modified  게시글 카테고리 탭 컴포넌트 생성
+ * 2024.12.20  임도헌   Modified  게시글 카테고리 탭 컴포넌트 다크모드 추가
+ * 2025.04.18  임도헌   Modified  통일감 주기 위해서 refs 대문자로 변경
+ * 2025.07.04  임도헌   Modified  모바일 환경 long-press 툴팁 표시 지원 추가
+ * 2025.07.04  임도헌   Modified  PostCategoryTabs UI 버튼 사이즈 및 스크롤 UX 개선
+ * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 탭 스타일 및 스크롤 버튼 접근성 개선
+ */
 "use client";
 
 import { POST_CATEGORY } from "@/lib/constants";
@@ -20,6 +21,7 @@ import { useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { useFloating, offset, shift, flip } from "@floating-ui/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface IPostCategoryTabsProps {
   currentCategory?: string;
@@ -131,27 +133,27 @@ export default function PostCategoryTabs({
   };
 
   return (
-    <div className="relative">
+    <div className="relative group/scroll">
       {/* 왼쪽 스크롤 버튼 */}
       <button
         onClick={() => scroll("left")}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center size-6 sm:size-8 text-white bg-primary/80 dark:bg-primary-light/80 rounded-full shadow hover:bg-primary dark:hover:bg-primary-light transition-colors"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-0 group-hover/scroll:opacity-100"
         aria-label="scroll left"
       >
-        <ChevronLeftIcon className="size-4 sm:size-5" />
+        <ChevronLeftIcon className="size-4" />
       </button>
 
-      <div className="relative px-10">
+      <div className="relative px-0 sm:px-10">
         <div
           ref={scrollContainerRef}
-          className="flex gap-2 overflow-x-auto scroll-smooth scrollbar-none items-center h-10"
+          className="flex gap-2 overflow-x-auto scrollbar-hide items-center h-12 px-4 sm:px-0"
           style={{
             WebkitOverflowScrolling: "touch", // iOS 부드러운 스와이프
           }}
         >
           <div
             ref={tooltipRefs.ALL.refs.setReference} // 툴팁의 기준점이 될 요소 지정
-            className="relative flex-shrink-0"
+            className="shrink-0"
             onMouseEnter={() => !isTouchDevice && setActiveTooltip("ALL")}
             onMouseLeave={() => !isTouchDevice && setActiveTooltip(null)}
             onTouchStart={() => handleTouchStart("ALL")}
@@ -163,11 +165,12 @@ export default function PostCategoryTabs({
                 e.preventDefault();
                 handleCategoryClick();
               }}
-              className={`px-3 py-1 sm:px-4 sm:py-2 sm:text-sm md:text-md rounded-full text-xs whitespace-nowrap transition-all hover:scale-105 ${
+              className={cn(
+                "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
                 !currentCategory
-                  ? "bg-primary text-white shadow"
-                  : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-              }`}
+                  ? "bg-brand text-white shadow-md"
+                  : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
+              )}
             >
               ⚓ 전체
             </Link>
@@ -192,7 +195,7 @@ export default function PostCategoryTabs({
                 position: "fixed",
                 zIndex: 9999,
               }}
-              className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none"
+              className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none shadow-lg"
             >
               모든 항해 일지를 볼 수 있습니다
             </div>
@@ -209,7 +212,7 @@ export default function PostCategoryTabs({
               ref={
                 tooltipRefs[key as keyof typeof POST_CATEGORY].refs.setReference
               }
-              className="relative flex-shrink-0"
+              className="shrink-0"
               onMouseEnter={() => !isTouchDevice && setActiveTooltip(key)}
               onMouseLeave={() => !isTouchDevice && setActiveTooltip(null)}
               onTouchStart={() => handleTouchStart(key)} // 모바일 long press 시작
@@ -221,11 +224,12 @@ export default function PostCategoryTabs({
                   e.preventDefault();
                   handleCategoryClick(key);
                 }}
-                className={`px-3 py-1 sm:px-4 sm:py-2 sm:text-sm md:text-md rounded-full text-xs whitespace-nowrap transition-all hover:scale-105 ${
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
                   currentCategory === key
-                    ? "bg-primary text-white shadow"
-                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                }`}
+                    ? "bg-brand text-white shadow-md"
+                    : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
+                )}
               >
                 {value}
               </Link>
@@ -246,7 +250,7 @@ export default function PostCategoryTabs({
                     position: "fixed",
                     zIndex: 9999,
                   }}
-                  className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none"
+                  className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none shadow-lg"
                 >
                   {
                     CATEGORY_DESCRIPTIONS[
@@ -263,10 +267,10 @@ export default function PostCategoryTabs({
       {/* 오른쪽 스크롤 버튼 */}
       <button
         onClick={() => scroll("right")}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center size-6 sm:size-8 text-white bg-primary/80 dark:bg-primary-light/80 rounded-full shadow hover:bg-primary dark:hover:bg-primary-light transition-colors"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-0 group-hover/scroll:opacity-100"
         aria-label="scroll right"
       >
-        <ChevronRightIcon className="size-4 sm:size-5" />
+        <ChevronRightIcon className="size-4" />
       </button>
     </div>
   );

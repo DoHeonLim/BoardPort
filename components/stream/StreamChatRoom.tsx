@@ -21,23 +21,25 @@
  * 2025.11.16  임도헌   Modified  레이아웃 유연화: 부모 컨테이너 높이를 채울 수 있게 옵션/클래스 지원, 카메라 아이콘 Host 뱃지로 대체
  * 2025.11.21  임도헌   Modified  채널 중복 사용 제거
  * 2025.11.22  임도헌   Modified  내 클라이언트에 한해 낙관 렌더 재도입
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 Input 디자인 통일
+ * 2026.01.14  임도헌   Modified   주석 보강 및 코드 가독성 개선
  */
-
 "use client";
 
 import { useRef, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { StreamChatMessage } from "@/types/chat";
-import { useStreamChatSubscription } from "@/hooks/useStreamChatSubscription";
+import { useStreamChatSubscription } from "@/hooks/stream/useStreamChatSubscription";
 import { sendStreamMessageAction } from "@/app/streams/[id]/actions";
-import UserAvatar from "../common/UserAvatar";
-import TimeAgo from "@/components/common/TimeAgo";
+import TimeAgo from "@/components/ui/TimeAgo";
 import {
   PaperAirplaneIcon,
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon,
-} from "@heroicons/react/24/solid";
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import { cn } from "@/lib/utils";
 
 interface Props {
   initialStreamMessage: StreamChatMessage[]; // 최근 20개, ASC 정렬
@@ -45,19 +47,17 @@ interface Props {
   streamChatRoomhost: number; // 방송자 userId
   userId: number;
   username: string; // 내 유저명 (fallback)
-
   /** (모바일/본문영역) 부모 높이를 꽉 채워야 할 때 true */
   fillParent?: boolean;
   /** 바깥 래퍼에 추가 클래스(선택) */
   containerClassName?: string;
-
   /** 모바일 전용: 채팅 확대/축소 토글 */
   onToggleExpand?: () => void;
   isExpanded?: boolean;
   showExpandToggle?: boolean;
 }
 
-const MAX_ITEMS = 500;
+const MAX_ITEMS = 300; // 클라이언트 메모리 보호를 위한 최대 메시지 수
 
 export default function StreamChatRoom({
   initialStreamMessage,
@@ -71,79 +71,95 @@ export default function StreamChatRoom({
   isExpanded,
   showExpandToggle = false,
 }: Props) {
+  // --- State ---
   /** 메시지/입력 상태 */
   const [messages, setMessages] =
     useState<StreamChatMessage[]>(initialStreamMessage);
   const [message, setMessage] = useState("");
-
-  /** UI/스크롤 상태 */
-  const chatRef = useRef<HTMLDivElement | null>(null);
-  const atBottomRef = useRef<boolean>(true);
-  const seenIdsRef = useRef<Set<string | number>>(new Set());
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
-
   /** 열림/닫힘 — Topbar가 제어 (기본 true) */
   const [isOpen, setIsOpen] = useState(true);
 
-  // 다른 인스턴스/Topbar에서 보낸 상태 변경 이벤트를 구독
+  // --- Refs ---
+  const chatRef = useRef<HTMLDivElement | null>(null); // 채팅 스크롤 영역
+  const textareaRef = useRef<HTMLTextAreaElement>(null); // 입력창
+  const sendChannelRef = useRef<RealtimeChannel | null>(null); // 전송용 채널 인스턴스
+
+  // 스크롤 상태 추적: 사용자가 스크롤을 올려서 과거 메시지를 보고 있는지 여부
+  // true면 새 메시지 수신 시 자동 스크롤, false면 현재 위치 유지
+  const atBottomRef = useRef<boolean>(true);
+
+  // 중복 메시지 방지용 ID Set (React StrictMode 등에서의 중복 수신 방어)
+  const seenIdsRef = useRef<Set<string | number>>(new Set());
+
+  // --- 1. Topbar 연동 (열기/닫기 상태 동기화) ---
   useEffect(() => {
     const handleState = (event: Event) => {
       const { detail } = event as CustomEvent<{ open?: boolean }>;
-      if (typeof detail?.open === "boolean") {
-        setIsOpen(detail.open);
-      }
+      if (typeof detail?.open === "boolean") setIsOpen(detail.open);
     };
-
     window.addEventListener("stream:chat:state", handleState as EventListener);
+    // 최초 마운트 시 '열림' 상태로 동기화 신호를 보냄
+    window.dispatchEvent(
+      new CustomEvent("stream:chat:state", { detail: { open: true } })
+    );
 
-    return () => {
+    return () =>
       window.removeEventListener(
         "stream:chat:state",
         handleState as EventListener
       );
-    };
   }, []);
 
-  /** 최초 메시지/스크롤 초기화 */
+  // --- 2. 초기 데이터 세팅 (방 변경 시) ---
   useEffect(() => {
     setMessages(initialStreamMessage);
+
+    // 중복 방지 Set 초기화
     const s = new Set<string | number>();
     for (const m of initialStreamMessage) s.add(m.id);
     seenIdsRef.current = s;
+
+    // 방이 바뀌면 무조건 최하단으로 스크롤 & 바닥 상태로 리셋
     atBottomRef.current = true;
     requestAnimationFrame(() => {
-      const el = chatRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
+      if (chatRef.current)
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
     });
   }, [streamChatRoomId, initialStreamMessage]);
 
-  /** 전송용 채널 */
-  const sendChannelRef = useRef<RealtimeChannel | null>(null);
+  // --- 3. 새 메시지 수신 시 자동 스크롤 ---
+  useEffect(() => {
+    if (!chatRef.current) return;
+    // 사용자가 바닥에 붙어있을 때만(atBottomRef.current === true) 자동 스크롤
+    if (atBottomRef.current) {
+      requestAnimationFrame(() => {
+        if (chatRef.current)
+          chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      });
+    }
+  }, [messages]);
 
-  /** 스크롤 바닥 여부 추적 */
+  // --- 4. 최초 마운트 시 스크롤 하단 이동 (Safety) ---
+  useEffect(() => {
+    if (chatRef.current)
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, []);
+
+  // --- 5. 스크롤 위치 감지 (바닥 여부 업데이트) ---
   useEffect(() => {
     const el = chatRef.current;
     if (!el) return;
     const onScroll = () => {
-      const threshold = 16;
+      // 스크롤이 바닥에서 50px 이내면 '바닥에 있음'으로 간주
       atBottomRef.current =
-        el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+        el.scrollHeight - el.scrollTop - el.clientHeight <= 50;
     };
-    onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  /** 새 메시지 수신 시 바닥일 때만 자동 스크롤 */
-  useEffect(() => {
-    if (!chatRef.current || !atBottomRef.current) return;
-    requestAnimationFrame(() => {
-      const el = chatRef.current!;
-      el.scrollTop = el.scrollHeight;
-    });
-  }, [messages]);
-
-  /** 쿨다운 자동 해제 */
+  // --- 6. 쿨다운 타이머 (도배 방지) ---
   useEffect(() => {
     if (!cooldownUntil) return;
     const ms = cooldownUntil - Date.now();
@@ -155,14 +171,17 @@ export default function StreamChatRoom({
     return () => clearTimeout(t);
   }, [cooldownUntil]);
 
-  /** 실시간 구독(브로드캐스트 수신) */
+  // --- 7. 실시간 구독 (Supabase) ---
   const sendChannel = useStreamChatSubscription({
     streamChatRoomId,
     userId,
-    ignoreSelf: false,
-    onReceive: (msg: StreamChatMessage) => {
+    ignoreSelf: false, // 내가 보낸 메시지도 받아서(브로드캐스트) 상태를 동기화할 수 있음 (선택)
+    onReceive: (msg) => {
+      // 중복 수신 방지
       if (seenIdsRef.current.has(msg.id)) return;
       seenIdsRef.current.add(msg.id);
+
+      // 메시지 추가 (최대 개수 유지)
       setMessages((prev) => {
         const merged = [...prev, msg];
         return merged.length > MAX_ITEMS
@@ -172,18 +191,22 @@ export default function StreamChatRoom({
     },
   });
 
-  // 훅에서 생성한 채널을 전송용 ref로 공유
+  // 채널 인스턴스 저장 (전송용)
   useEffect(() => {
-    if (sendChannel) {
-      sendChannelRef.current = sendChannel;
-    }
+    if (sendChannel) sendChannelRef.current = sendChannel;
   }, [sendChannel]);
 
-  /** 전송 */
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (Date.now() < cooldownUntil) return;
+  // --- 8. 입력창 높이 자동 조절 ---
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto"; // 높이 초기화 후
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`; // scrollHeight에 맞춰 늘림 (최대 120px)
+  }, [message]);
 
+  // --- 9. 메시지 전송 핸들러 ---
+  const onSubmit = async () => {
+    if (Date.now() < cooldownUntil) return;
     const text = message.trim();
     if (!text) {
       toast.error("메시지를 입력해주세요.");
@@ -191,122 +214,103 @@ export default function StreamChatRoom({
     }
 
     try {
+      // Optimistic UI: 성공 가정하고 입력창 비움
+      setMessage("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+
       const res = await sendStreamMessageAction(text, streamChatRoomId);
+
       if (!res.success) {
-        const ERR_MAP: Record<string, string> = {
-          NOT_LOGGED_IN: "로그인이 필요합니다.",
-          EMPTY_MESSAGE: "메시지를 입력해주세요.",
-          MESSAGE_TOO_LONG: "메시지가 너무 깁니다. (최대 2000자)",
-          RATE_LIMITED:
-            "메시지를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요.",
-          CREATE_FAILED:
-            "메시지 전송에 실패했습니다. 잠시 후 다시 시도해주세요.",
-        };
-        toast.error(ERR_MAP[res.error] ?? "메시지 전송 실패");
+        // 실패 시 입력값 복구 (Rollback)
+        setMessage(text);
+
         if (res.error === "RATE_LIMITED") {
           setCooldownUntil(Date.now() + 2000);
+          toast.error("조금 천천히 보내주세요.");
+        } else {
+          toast.error("메시지 전송 실패");
         }
         return;
       }
 
       const sent = res.message;
 
-      // 1) 로컬에 먼저 추가 + seenIds에 등록해둔다 (이후 브로드캐스트 중복 방지)
+      // 로컬 리스트에 내 메시지 즉시 추가
       setMessages((prev) => {
         const next = [...prev, sent];
         seenIdsRef.current.add(sent.id);
-
-        if (next.length > MAX_ITEMS) {
-          return next.slice(next.length - MAX_ITEMS);
-        }
-        return next;
+        return next.length > MAX_ITEMS
+          ? next.slice(next.length - MAX_ITEMS)
+          : next;
       });
 
-      // 2) 다른 클라이언트에게 브로드캐스트
+      // 다른 클라이언트들에게 브로드캐스트
       await sendChannelRef.current?.send({
         type: "broadcast",
         event: "message",
         payload: sent,
       });
-
-      // 3) 입력창 리셋
-      setMessage("");
     } catch (err) {
-      console.error("메시지 전송 실패", err);
-      toast.error("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      setMessage(text); // Rollback
+      console.error(err);
+      toast.error("전송 오류");
     }
   };
 
-  /** ---- Topbar 연동: 이벤트 버스 ---- */
-  // Topbar가 보내는 "채팅 열기" 이벤트 수신
-  useEffect(() => {
-    const onOpen = () => {
-      setIsOpen(true);
-      window.dispatchEvent(
-        new CustomEvent("stream:chat:state", { detail: { open: true } })
-      );
-    };
-    window.addEventListener("stream:chat:open", onOpen);
-    // 최초 진입 시 상태 동기화(열림)
-    window.dispatchEvent(
-      new CustomEvent("stream:chat:state", { detail: { open: true } })
-    );
-    return () => window.removeEventListener("stream:chat:open", onOpen);
-  }, []);
+  // Enter 키 전송 (Shift+Enter는 줄바꿈)
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit();
+    }
+  };
 
-  // 닫기(헤더 버튼에서 호출)
   const closeChat = () => {
     setIsOpen(false);
+    // 닫힘 상태 전파
     window.dispatchEvent(
       new CustomEvent("stream:chat:state", { detail: { open: false } })
     );
   };
 
-  /** 전송 버튼 disabled 조건 */
   const sendDisabled =
     Date.now() < cooldownUntil || message.trim().length === 0;
 
-  /** 닫힘 상태면 렌더X — Topbar에서 "채팅 열기" 버튼만 노출 */
   if (!isOpen) return null;
 
   return (
     <div
-      className={[
-        "flex flex-col min-h-0 rounded-xl border bg-white text-neutral-900 shadow-lg",
-        "dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100",
-        "overflow-hidden max-h-full",
+      className={cn(
+        "flex flex-col min-h-0 overflow-hidden rounded-2xl border shadow-lg transition-colors",
+        "bg-surface border-border",
         "xl:h-[calc(100vh-96px)]",
-        // fillParent면 부모 높이 꽉 채우되, 위 max-h 제한 안에서만
         fillParent ? "h-full flex-1" : "sm:min-h-[40vh]",
-        containerClassName,
-      ].join(" ")}
+        containerClassName
+      )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-100 rounded-t-xl">
-        <div className="text-sm md:text-base font-semibold">채팅</div>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-dim/50">
+        <span className="text-sm font-bold text-primary">실시간 채팅</span>
         <div className="flex items-center gap-2">
           {showExpandToggle && (
             <button
-              type="button"
               onClick={onToggleExpand}
-              className="inline-flex xl:hidden items-center justify-center rounded-md bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 px-2 py-1 text-xs transition-colors"
-              aria-label={isExpanded ? "채팅 축소" : "채팅 확대"}
-              title={isExpanded ? "채팅 축소" : "채팅 확대"}
+              className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              title={isExpanded ? "축소" : "확대"}
             >
               {isExpanded ? (
-                <ArrowsPointingInIcon className="h-4 w-4" />
+                <ArrowsPointingInIcon className="size-4" />
               ) : (
-                <ArrowsPointingOutIcon className="h-4 w-4" />
+                <ArrowsPointingOutIcon className="size-4" />
               )}
             </button>
           )}
           <button
             onClick={closeChat}
-            className="text-xs md:text-sm px-2 py-1 rounded-md bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors"
-            title="채팅 닫기"
-            aria-label="채팅 닫기"
+            className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            title="닫기"
           >
-            닫기
+            <XMarkIcon className="size-5" />
           </button>
         </div>
       </div>
@@ -314,114 +318,80 @@ export default function StreamChatRoom({
       {/* Log */}
       <div
         ref={chatRef}
-        role="log"
-        aria-live="polite"
-        aria-relevant="additions"
-        className="flex-1 min-h-0 overflow-auto px-3 py-3 space-y-3 scrollbar bg-white dark:bg-neutral-900"
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 scrollbar-hide bg-surface"
       >
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-neutral-400 dark:text-neutral-500 text-sm md:text-base">
+          <div className="h-full flex items-center justify-center text-sm text-muted">
             아직 채팅이 없습니다.
           </div>
         ) : (
           messages.map((msg) => {
             const mine = msg.userId === userId;
             const host = msg.userId === streamChatRoomhost;
-
-            const avatarUrl = msg.user?.avatar ?? null;
             const uname = msg.user?.username ?? (mine ? username : "익명");
 
-            const AvatarEl = (
-              <UserAvatar
-                avatar={avatarUrl}
-                username={uname}
-                showUsername={false}
-                size="sm"
-                disabled
-                className="p-0"
-              />
-            );
-
             return (
-              <div
-                key={msg.id}
-                className={`flex w-full items-start gap-2 ${mine ? "justify-end" : "justify-start"}`}
-              >
-                {/* 상대 메시지 → 아바타 왼쪽 */}
-                {!mine && <div className="flex-shrink-0">{AvatarEl}</div>}
-
-                {/* 버블 */}
-                <div
-                  className={`max-w-[72%] md:max-w-[70%] flex flex-col ${mine ? "items-end" : "items-start"}`}
-                >
-                  <div className="flex items-center gap-2 text-xs">
-                    <span
-                      className={`font-medium ${
-                        mine
-                          ? "text-indigo-600 dark:text-indigo-300"
-                          : "text-emerald-700 dark:text-emerald-300"
-                      }`}
-                    >
-                      {uname}
-                      {host && (
-                        <span className="ml-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                          HOST
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                      <TimeAgo date={new Date(msg.created_at).toISOString()} />
-                    </span>
-                  </div>
-
-                  <div
-                    className={[
-                      "mt-1 whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm md:text-[0.95rem] leading-tight",
-                      mine
-                        ? "bg-indigo-600 text-white shadow-sm"
-                        : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700",
-                    ].join(" ")}
+              <div key={msg.id} className="flex flex-col items-start gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "text-xs font-semibold",
+                      mine ? "text-brand dark:text-brand-light" : "text-muted",
+                      host && "text-accent-dark"
+                    )}
                   >
-                    {msg.payload}
-                  </div>
+                    {uname}
+                  </span>
+                  {host && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent-dark font-bold">
+                      HOST
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted/60">
+                    <TimeAgo date={msg.created_at.toString()} />
+                  </span>
                 </div>
-
-                {/* 내 메시지 → 아바타 오른쪽 */}
-                {mine && <div className="flex-shrink-0">{AvatarEl}</div>}
+                <div className="text-sm text-primary break-words whitespace-pre-wrap leading-relaxed">
+                  {msg.payload}
+                </div>
               </div>
             );
           })
         )}
       </div>
 
-      {/* Input: 모바일 sticky */}
-      <form
-        className="p-3 border-t bg-neutral-50 dark:bg-neutral-900/60 dark:border-neutral-800 sticky bottom-0 z-10 xl:static"
-        onSubmit={onSubmit}
+      {/* Input */}
+      <div
+        className={cn(
+          "border-t border-border p-3 bg-surface",
+          "sticky bottom-0 z-10 xl:static" // 모바일 키보드 대응
+        )}
       >
-        <div className="relative">
-          <input
-            required
-            onChange={(e) => setMessage(e.target.value)}
-            value={message}
-            className="w-full h-10 md:h-12 rounded-lg bg-white text-neutral-900 placeholder:text-neutral-400 border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:border-neutral-700 dark:focus:ring-indigo-500 dark:focus:border-indigo-500 pr-12 px-3"
-            type="text"
-            name="message"
-            autoComplete="off"
-            placeholder="채팅을 입력해주세요 (Enter)"
-            aria-label="채팅 메시지 입력"
-          />
+        <div className="flex items-end gap-2">
+          <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors">
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="채팅에 참여하세요"
+              className="w-full bg-transparent border-none p-0 text-sm text-primary placeholder:text-muted resize-none max-h-[100px] focus:ring-0 leading-normal py-0.5"
+              rows={1}
+            />
+          </div>
           <button
-            type="submit"
+            onClick={onSubmit}
             disabled={sendDisabled}
-            aria-label="메시지 전송"
-            title={sendDisabled ? "잠시 후 다시 시도하세요" : "메시지 전송"}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-neutral-100 disabled:opacity-50 dark:hover:bg-neutral-700"
+            className={cn(
+              "shrink-0 size-10 rounded-full flex items-center justify-center transition-all",
+              "bg-brand text-white hover:bg-brand-light active:scale-95",
+              "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100"
+            )}
           >
-            <PaperAirplaneIcon className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <PaperAirplaneIcon className="size-5 pl-0.5" />
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

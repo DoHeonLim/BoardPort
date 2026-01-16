@@ -12,6 +12,7 @@
  * 2025.08.22  임도헌   Modified   visibility onChange를 register 옵션으로 이전
  * 2025.09.09  임도헌   Modified   Cloudflare Image URL에 variant(env) 추가, 소분류 초기화 resetField 적용, 타입/UX/a11y 보강
  * 2025.09.15  임도헌   Modified   LiveInput/Broadcast 모델 반영, 결과 모달 그대로 사용
+ * 2026.01.14  임도헌   Modified   Select 컴포넌트 적용 및 스타일 통일
  */
 "use client";
 
@@ -19,18 +20,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { useImageUpload } from "@/hooks/useImageUpload";
+import { useImageUpload } from "@/hooks/common/useImageUpload";
 import {
   streamFormSchema,
   StreamFormValues,
 } from "@/lib/stream/form/streamFormSchema";
 import type { CreateBroadcastResult } from "@/types/stream";
 
-import Input from "@/components/common/Input";
-import Button from "@/components/common/Button";
-import ImageUploader from "@/components/image/ImageUploader";
-import Select from "@/components/common/Select";
-import TagInput from "@/components/common/TagInput";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import ImageUploader from "@/components/global/ImageUploader";
+import Select from "@/components/ui/Select";
+import TagInput from "@/components/ui/TagInput";
 
 import { STREAM_VISIBILITY, STREAM_VISIBILITY_DISPLAY } from "@/lib/constants";
 import { StreamCategory } from "@/generated/prisma/client";
@@ -202,34 +203,30 @@ export default function StreamForm({
   };
 
   return (
-    <>
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="space-y-6"
-        aria-live="polite"
-      >
-        {/* 제목 */}
+    <div className="bg-background px-4 py-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+        {/* title */}
         <Input
-          placeholder="스트리밍 제목을 입력하세요 (5자 이상)"
+          label="방송 제목"
+          placeholder="방송 제목을 입력하세요 (5자 이상)"
           errors={errors.title?.message ? [errors.title.message] : []}
           {...register("title")}
         />
-
-        {/* 설명 */}
+        {/* description */}
         <Input
           type="textarea"
-          placeholder="스트리밍 설명을 입력하세요"
+          label="방송 설명"
+          placeholder="방송에 대해 설명해주세요"
           errors={
             errors.description?.message ? [errors.description.message] : []
           }
           {...register("description")}
+          className="min-h-[120px]"
         />
 
-        {/* 썸네일 업로더 */}
-        <div className="space-y-2">
-          <label className="block font-medium text-black dark:text-white">
-            썸네일
-          </label>
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-primary">썸네일</label>
+          {/* image */}
           <ImageUploader
             previews={previews}
             onImageChange={handleImageChange}
@@ -242,9 +239,8 @@ export default function StreamForm({
           />
         </div>
 
-        {/* 카테고리 (대/소분류) */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* 대분류 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* category */}
           <Select
             label="대분류"
             value={selectedMainCategory?.toString() || ""}
@@ -263,7 +259,6 @@ export default function StreamForm({
             ))}
           </Select>
 
-          {/* 소분류 */}
           <Select
             label="소분류"
             {...register("streamCategoryId")}
@@ -283,58 +278,51 @@ export default function StreamForm({
           </Select>
         </div>
 
-        {/* 태그 */}
+        {/* tags */}
         <TagInput name="tags" control={control} maxTags={5} />
 
-        {/* 공개 설정 + 비밀번호 */}
-        <div className="space-y-2">
-          <label className="block font-medium text-black dark:text-white">
-            공개 설정
-          </label>
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              {...register("visibility", {
-                onChange: (e) =>
-                  setValue(
-                    "visibility",
-                    e.target.value as StreamFormValues["visibility"]
-                  ),
-              })}
-            >
-              <option value={STREAM_VISIBILITY.PUBLIC}>
-                {STREAM_VISIBILITY_DISPLAY.PUBLIC}
-              </option>
-              <option value={STREAM_VISIBILITY.PRIVATE}>
-                {STREAM_VISIBILITY_DISPLAY.PRIVATE}
-              </option>
-              <option value={STREAM_VISIBILITY.FOLLOWERS}>
-                {STREAM_VISIBILITY_DISPLAY.FOLLOWERS}
-              </option>
-            </Select>
+        {/* visibility */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="공개 설정"
+            {...register("visibility", {
+              onChange: (e) =>
+                setValue(
+                  "visibility",
+                  e.target.value as StreamFormValues["visibility"]
+                ),
+            })}
+          >
+            <option value={STREAM_VISIBILITY.PUBLIC}>
+              {STREAM_VISIBILITY_DISPLAY.PUBLIC}
+            </option>
+            <option value={STREAM_VISIBILITY.PRIVATE}>
+              {STREAM_VISIBILITY_DISPLAY.PRIVATE}
+            </option>
+            <option value={STREAM_VISIBILITY.FOLLOWERS}>
+              {STREAM_VISIBILITY_DISPLAY.FOLLOWERS}
+            </option>
+          </Select>
 
-            {watchVisibility === STREAM_VISIBILITY.PRIVATE && (
-              <Input
-                type="password"
-                placeholder="비밀번호를 입력하세요"
-                {...register("password")}
-                errors={
-                  errors.password?.message ? [errors.password.message] : []
-                }
-                aria-label="비공개 스트리밍 비밀번호"
-              />
-            )}
-          </div>
+          {/* stream password */}
+          {watchVisibility === STREAM_VISIBILITY.PRIVATE && (
+            <Input
+              label="비밀번호"
+              type="password"
+              placeholder="비밀번호 입력"
+              {...register("password")}
+              errors={errors.password?.message ? [errors.password.message] : []}
+            />
+          )}
         </div>
 
-        {/* 제출 버튼 */}
         <Button
           disabled={isSubmitting}
-          text={mode === "create" ? "스트리밍 시작" : "스트리밍 수정"}
-          aria-busy={isSubmitting || undefined}
+          text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
         />
       </form>
 
-      {/* RTMP/스트림 키 안내 모달 */}
+      {/* stream Info 및 key Info*/}
       {showStreamInfo && streamInfo && (
         <RTMPInfoModal
           open={showStreamInfo}
@@ -345,6 +333,6 @@ export default function StreamForm({
           broadcastId={streamInfo.broadcastId ?? undefined}
         />
       )}
-    </>
+    </div>
   );
 }

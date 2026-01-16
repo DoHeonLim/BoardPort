@@ -8,13 +8,15 @@
  * 2025.08.04  임도헌   Created   댓글 아이템 렌더링 및 삭제 기능 추가
  * 2025.08.05  임도헌   Modified  삭제 로직 props 전달 방식으로 변경
  * 2025.08.05  임도헌   Modified  RecordingCommentDeleteButton 적용
+ * 2026.01.14  임도헌   Modified  Compact 레이아웃 및 forwardRef 적용
  */
 "use client";
 
+import { forwardRef } from "react";
 import { motion } from "framer-motion";
 import RecordingCommentDeleteButton from "@/components/stream/recording/recordingComment/RecordingCommentDeleteButton";
-import UserAvatar from "@/components/common/UserAvatar";
-import TimeAgo from "@/components/common/TimeAgo";
+import UserAvatar from "@/components/global/UserAvatar";
+import TimeAgo from "@/components/ui/TimeAgo";
 import { StreamComment } from "@/types/stream";
 
 interface RecordingCommentItemProps {
@@ -22,56 +24,57 @@ interface RecordingCommentItemProps {
   currentUserId: number;
 }
 
-export default function RecordingCommentItem({
-  comment,
-  currentUserId,
-}: RecordingCommentItemProps) {
+const RecordingCommentItem = forwardRef<
+  HTMLDivElement,
+  RecordingCommentItemProps
+>(({ comment, currentUserId }, ref) => {
   const isOwner = comment.user.id === currentUserId;
 
   return (
     <motion.div
+      ref={ref}
       layout
-      initial={{ x: -200, opacity: 0 }}
-      animate={{
-        x: 0,
-        opacity: 1,
-        transition: { type: "tween", ease: [0.25, 1, 0.5, 1], duration: 0.6 },
-      }}
-      exit={{
-        x: 200,
-        opacity: 0,
-        transition: { ease: [0.4, 0, 1, 1], duration: 0.4 },
-      }}
-      className="flex items-start gap-3 py-4 border-b border-neutral-200 dark:border-neutral-700"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      className="flex gap-3 py-3 border-b border-border last:border-none group"
     >
       <UserAvatar
         avatar={comment.user.avatar}
         username={comment.user.username}
         size="sm"
         showUsername={false}
+        className="mt-0.5 shrink-0"
+        compact
       />
 
       <div className="flex-1 min-w-0">
-        {/* 1행: 작성자 / 시간 / 삭제 */}
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-            {comment.user.username}
-          </span>
-          <span className="text-sm text-neutral-500 dark:text-neutral-400">
-            <TimeAgo date={comment.created_at} />
-          </span>
+        <div className="flex justify-between items-start leading-none">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-primary">
+              {comment.user.username}
+            </span>
+            <span className="text-xs text-muted">
+              <TimeAgo date={comment.created_at.toString()} />
+            </span>
+          </div>
+
           {isOwner && (
-            <div className="ml-auto">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1">
               <RecordingCommentDeleteButton commentId={comment.id} />
             </div>
           )}
         </div>
 
-        {/* 2행: 본문 */}
-        <p className="mt-2 text-neutral-800 dark:text-neutral-300 leading-relaxed break-words whitespace-pre-line select-text">
+        <p className="mt-1 text-sm text-primary leading-relaxed break-words whitespace-pre-wrap">
           {comment.payload}
         </p>
       </div>
     </motion.div>
   );
-}
+});
+
+RecordingCommentItem.displayName = "RecordingCommentItem";
+
+export default RecordingCommentItem;

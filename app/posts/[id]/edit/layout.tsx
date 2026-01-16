@@ -6,50 +6,44 @@
  * History
  * Date        Author   Status    Description
  * 2025.11.13  임도헌   Created   상단 고정 백 헤더/세이프에어리어/컨테이너 도입
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 헤더 통일
  */
 
 import type { ReactNode } from "react";
-import BackButton from "@/components/common/BackButton";
+import BackButton from "@/components/global/BackButton";
+import { cn } from "@/lib/utils";
 
-export default function Layout({
+export default function EditPostLayout({
   children,
   params,
 }: {
   children: ReactNode;
   params: { id: string };
 }) {
-  // 뒤로가기 기본 목적지는 상세 페이지(있으면), 없으면 리스트로 폴백
   const idNum = Number(params.id);
   const defaultHref =
     Number.isFinite(idNum) && idNum > 0 ? `/posts/${idNum}` : "/posts";
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-900">
-      {/* Sticky Back Header */}
+    <div className="min-h-screen bg-background transition-colors">
       <header
-        className="sticky top-0 z-40 backdrop-blur-md
-                   bg-white/70 dark:bg-neutral-900/70
-                   border-b border-neutral-200/70 dark:border-neutral-800
-                   px-2 sm:px-4"
+        className={cn(
+          "sticky top-0 z-40 h-14 w-full",
+          "bg-background/80 backdrop-blur-md border-b border-border",
+          "transition-colors"
+        )}
       >
-        <div className="mx-auto max-w-3xl h-12 sm:h-14 flex items-center">
-          <BackButton fallbackHref={defaultHref} />
-          {/* 가운데 타이틀(고정 텍스트) */}
-          <h1 className="ml-2 sm:ml-3 text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100">
-            게시글 수정
-          </h1>
-          {/* 우측 공간 정렬용 */}
-          <div className="ml-auto" />
+        <div className="mx-auto max-w-3xl h-full flex items-center px-3 sm:px-4 gap-3">
+          <BackButton
+            fallbackHref={defaultHref}
+            variant="inline"
+            className="px-0"
+          />
+          <h1 className="text-base font-semibold text-primary">게시글 수정</h1>
         </div>
       </header>
 
-      {/* Page body */}
-      <main className="mx-auto max-w-3xl px-4 py-6 pt-0 sm:px-6 lg:px-8">
-        {children}
-      </main>
-
-      {/* iOS safe area padding */}
-      <div className="pb-[env(safe-area-inset-bottom)]" />
+      <main className="mx-auto max-w-3xl pb-20">{children}</main>
     </div>
   );
 }

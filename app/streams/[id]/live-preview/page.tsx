@@ -8,6 +8,7 @@
  * 2025.09.23  임도헌   Modified  visibility 가드/언락/팔로워 검사 추가 + 404 대신 블랙 폴백
  * 2026.01.03  임도헌   Modified  PRIVATE 언락 체크에서 session 중복 조회 제거(isBroadcastUnlockedFromSession)
  * 2026.01.04  임도헌   Modified  robots 차단 + revalidate=0 명시 + iframe sandbox/referrerPolicy 보강
+ * 2026.01.14  임도헌   Modified  Fallback 배경색 명시 (bg-black)
  */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
@@ -25,8 +26,8 @@ export const metadata = {
 
 function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
   return (
-    <div className="relative h-screen w-screen bg-black">
-      {thumbnailUrl && (
+    <div className="relative h-screen w-screen bg-black flex items-center justify-center">
+      {thumbnailUrl ? (
         <Image
           src={thumbnailUrl}
           alt="Thumbnail"
@@ -34,6 +35,8 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
           className="object-cover"
           priority
         />
+      ) : (
+        <div className="text-neutral-500 text-sm">방송 준비 중</div>
       )}
     </div>
   );
@@ -97,13 +100,13 @@ export default async function LivePreviewPage({
   )}/iframe?autoplay=1&muted=1&preload=auto`;
 
   return (
-    <div className="h-screen w-screen bg-black relative">
+    <div className="h-screen w-screen bg-black relative overflow-hidden">
       {row.thumbnail && (
         <Image
           src={row.thumbnail}
           alt="Thumbnail"
           fill
-          className="object-cover"
+          className="object-cover -z-10"
           priority
         />
       )}
@@ -115,7 +118,7 @@ export default async function LivePreviewPage({
         loading="lazy"
         referrerPolicy="no-referrer"
         sandbox="allow-same-origin allow-scripts allow-presentation allow-popups"
-        className="h-full w-full relative"
+        className="h-full w-full relative z-10"
       />
     </div>
   );

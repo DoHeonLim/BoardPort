@@ -17,11 +17,9 @@ export default function ProductInfoItem({
   value: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1">
-      <h3 className="text-sm text-neutral-500 dark:text-neutral-400">
-        {label}
-      </h3>
-      <p className="text-text dark:text-text-dark">{value}</p>
+    <div className="flex flex-col gap-0.5">
+      <dt className="text-xs font-medium text-muted">{label}</dt>
+      <dd className="text-sm font-medium text-primary">{value}</dd>
     </div>
   );
 }

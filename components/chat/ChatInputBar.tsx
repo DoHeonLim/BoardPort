@@ -21,16 +21,18 @@
  * 2026.01.03  임도헌   Modified  textarea 전환(Enter=전송/Shift+Enter 줄바꿈),
  *                                전송 중 입력 허용(버튼만 비활성화),
  *                                전송 실패 시 텍스트 복원, autoFocus/포커스 복구 강화
+ * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
+ * 2026.01.12  임도헌   Modified  [UI/UX] 320px 대응을 위해 Floating에서 Solid Bar로 변경, 높이 자동 조절 textarea 적용
  */
-
 "use client";
 
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputBarProps {
-  isSubmitting: boolean; // 전송 진행 상태 (상위에서 관리)
-  onSubmit: (text: string) => Promise<void> | void; // 실패 시 throw(권장) 또는 reject
+  isSubmitting: boolean;
+  onSubmit: (text: string) => Promise<void> | void;
   autoFocus?: boolean;
 }
 
@@ -39,151 +41,76 @@ export default function ChatInputBar({
   onSubmit,
   autoFocus = false,
 }: ChatInputBarProps) {
-  /** 입력 값 */
   const [text, setText] = useState("");
-
-  /** IME(한글 등) 조합 상태 */
   const [isComposing, setIsComposing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  /** DOM ref */
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  /** 초단간 중복 제출 방지 */
-  const lastSubmitAtRef = useRef<number>(0);
-
-  /**
-   * 제출 직전에 입력값 스냅샷 저장
-   * - 전송 실패 시 복원하기 위해 사용
-   */
-  const pendingSnapshotRef = useRef<string>("");
-
-  /**
-   * autoFocus 처리
-   * - 마운트 시 포커스
-   * - isSubmitting이 false로 바뀌는 시점(전송 종료)에도 포커스 복구
-   */
+  // 높이 자동 조절
   useEffect(() => {
-    if (!autoFocus) return;
-    inputRef.current?.focus();
-  }, [autoFocus, isSubmitting]);
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`; // 최대 높이 제한
+  }, [text]);
 
-  /**
-   * "전송" 실행
-   * - onSubmit이 실패를 throw/reject로 표현한다는 전제(권장)
-   * - 성공 시: clear
-   * - 실패 시: snapshot 복원
-   */
   const submit = async () => {
-    // 1) IME 조합 중이면 제출 금지
-    if (isComposing) return;
-
-    // 2) 전송 중이면 제출 금지
-    if (isSubmitting) return;
-
-    // 3) 빈 문자열 금지
+    if (isComposing || isSubmitting) return;
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    // 4) 초단간 중복 제출 방지
-    const now = Date.now();
-    if (now - lastSubmitAtRef.current < 300) return;
-    lastSubmitAtRef.current = now;
-
-    // 5) 실패 대비 스냅샷 저장 후 optimistic clear
-    pendingSnapshotRef.current = text;
-    setText("");
-
     try {
+      // 전송 시도 전에 텍스트 초기화 (Optimistic feel)
+      setText("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
       await onSubmit(trimmed);
-
-      // 성공: snapshot 비움(명시)
-      pendingSnapshotRef.current = "";
-    } catch (err) {
-      // 실패: 입력 복원
-      setText(pendingSnapshotRef.current);
-      pendingSnapshotRef.current = "";
-
-      // 포커스 복구
-      requestAnimationFrame(() => inputRef.current?.focus());
-
-      throw err; // 상위에서 토스트 등을 띄우고 싶으면 유지
+    } catch {
+      // 실패 시 복구
+      setText(trimmed);
     }
+    textareaRef.current?.focus();
   };
 
-  /**
-   * Enter=전송 / Shift+Enter=줄바꿈
-   * - IME 조합 중 Enter는 전송이 아니라 조합 확정 용도로 쓰일 수 있어 방어
-   */
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key !== "Enter") return;
-
-    // IME 조합 중 Enter는 submit으로 처리하지 않음
-    if (isComposing) {
+    if (e.key === "Enter" && !e.shiftKey && !isComposing) {
       e.preventDefault();
-      return;
+      submit();
     }
-
-    // Shift+Enter는 줄바꿈 허용
-    if (e.shiftKey) return;
-
-    // Enter 단독 → 전송
-    e.preventDefault();
-    void submit();
   };
-
-  const isSendDisabled = isSubmitting || text.trim().length === 0;
 
   return (
     <div
-      className="
-        flex items-end gap-2
-        rounded-full border border-gray-300 dark:border-gray-700
-        px-3 py-1.5
-        bg-white/70 dark:bg-gray-800
-        focus-within:ring-2 focus-within:ring-primary
-        sm:px-4 sm:py-2
-      "
+      className={cn(
+        "w-full px-3 py-2 sm:px-4 transition-colors",
+        "flex items-end gap-2"
+      )}
     >
-      <textarea
-        ref={inputRef}
-        name="message"
-        placeholder="메세지 쓰기"
-        rows={1}
-        className="
-          flex-1 bg-transparent outline-none resize-none
-          text-sm sm:text-base
-          text-gray-800 dark:text-white
-          leading-5
-          py-1
-        "
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onCompositionStart={() => setIsComposing(true)}
-        onCompositionEnd={() => setIsComposing(false)}
-        onKeyDown={onKeyDown}
-        /**
-         * 전송 중에도 입력은 허용한다(UX 끊김 방지).
-         * - 버튼만 disabled 처리.
-         */
-        disabled={false}
-      />
+      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
+          placeholder="메시지를 입력하세요"
+          className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
+          rows={1}
+          autoFocus={autoFocus}
+        />
+      </div>
 
       <button
-        type="button"
-        aria-label="send_message"
-        onClick={() => void submit()}
-        disabled={isSendDisabled}
-        className="
-          flex items-center justify-center
-          rounded-full
-          p-2 sm:p-2.5
-          bg-blue-500 text-white hover:bg-blue-600
-          dark:bg-indigo-500 dark:hover:bg-indigo-600
-          transition-colors
-          disabled:opacity-60 disabled:cursor-not-allowed
-        "
+        onClick={submit}
+        disabled={isSubmitting || !text.trim()}
+        className={cn(
+          "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
+          "bg-brand-light dark:bg-brand text-white hover:bg-brand hover:dark:bg-brand-light active:scale-95",
+          // [Disabled State] 가시성 개선: 배경색을 명확하게, 아이콘은 muted로
+          "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
+        )}
+        aria-label="전송"
       >
-        <PaperAirplaneIcon className="size-6 text-white opacity-90" />
+        <PaperAirplaneIcon className="size-5 pl-0.5" />
       </button>
     </div>
   );

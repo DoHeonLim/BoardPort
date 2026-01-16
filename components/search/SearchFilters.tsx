@@ -1,6 +1,6 @@
 /**
  * File Name : components/search/SearchFilters
- * Description : 검색 필터 컴포넌트
+ * Description : 검색 필터 모음 (모바일 Bottom Sheet / 데스크톱 Dropdown)
  * Author : 임도헌
  *
  * History
@@ -11,6 +11,7 @@
  * 2025.06.12  임도헌   Modified  카테고리 평탄화
  * 2025.06.18  임도헌   Modified  useSearchParamsUtils 활용해 URL 갱신 통합
  * 2025.06.18  임도헌   Modified  각 필터 컴포넌트 분리
+ * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 다크모드 배경색(bg-surface) 적용
  */
 "use client";
 
@@ -18,12 +19,12 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import type { Category } from "@/generated/prisma/client";
 import { FilterState } from "@/lib/constants";
-import { useSearchParamsUtils } from "@/hooks/useSearchParamsUtils";
+import { useSearchParamsUtils } from "@/hooks/search/useSearchParamsUtils";
 import CategoryFilter from "./filters/CategoryFilter";
 import PriceFilter from "./filters/PriceFilter";
 import GameTypeFilter from "./filters/GameTypeFilter";
 import ConditionFilter from "./filters/ConditionFilter";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useIsMobile } from "@/hooks/common/useIsMobile";
 
 interface SearchFiltersProps {
   isOpen: boolean;
@@ -47,8 +48,9 @@ export default function SearchFilters({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
+  // 외부 클릭 닫기 (데스크톱만)
   useEffect(() => {
-    if (isMobile) return; // 모바일은 외부 클릭 무시
+    if (isMobile) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -66,6 +68,7 @@ export default function SearchFilters({
     };
   }, [isOpen, onClose, isMobile]);
 
+  // 필터 props 변경 시 로컬 상태 동기화
   useEffect(() => {
     setTempFilters(filters);
   }, [filters]);
@@ -117,172 +120,141 @@ export default function SearchFilters({
     [categories, selectedParentCategory]
   );
 
+  if (!isOpen) return null;
+
   return (
-    <>
-      {isOpen && (
-        <div>
-          {/* 모바일 버전 필터 UI */}
-          <div className="md:hidden">
-            <div className="fixed inset-0 z-50 bg-black/30">
-              <div
-                ref={wrapperRef}
-                className="fixed top-0 left-0 right-0 bottom-0 
-                        w-full h-full 
-                        p-4 
-                        bg-white/80 dark:bg-black
-                        border border-neutral-200/20 dark:border-primary-dark/30 
-                        overflow-y-auto"
-              >
-                <div className="space-y-4">
-                  {/* 모바일 헤더 - 닫기 버튼 */}
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold dark:text-white">
-                      필터
-                    </h3>
-                    <button
-                      onClick={onClose}
-                      className="p-2 text-black dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
-                      aria-label="필터 닫기"
-                    >
-                      <XMarkIcon className="size-6" />
-                    </button>
-                  </div>
-                  {/* 카테고리 필터 */}
-                  <CategoryFilter
-                    parentCategories={parentCategories}
-                    childCategories={childCategories}
-                    selectedParentCategory={selectedParentCategory}
-                    onParentChange={handleParentCategoryChange}
-                    selectedChildCategory={tempFilters.category}
-                    onChildChange={handleChildCategoryChange}
-                  />
-                  {/* 가격 범위 필터 */}
-                  <PriceFilter
-                    minPrice={tempFilters.minPrice}
-                    maxPrice={tempFilters.maxPrice}
-                    onChangeKeyValue={handlePriceChange}
-                  />
-                  {/* 게임 타입 필터 */}
-                  <GameTypeFilter
-                    value={tempFilters.game_type}
-                    onChange={(value) =>
-                      setTempFilters((prev) => ({
-                        ...prev,
-                        game_type: value,
-                      }))
-                    }
-                  />
-                  {/* 제품 상태 필터 */}
-                  <ConditionFilter
-                    value={tempFilters.condition}
-                    onChange={(value) =>
-                      setTempFilters((prev) => ({
-                        ...prev,
-                        condition: value,
-                      }))
-                    }
-                  />
-                  {/* 버튼 그룹 */}
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={handleResetFilters}
-                      className="flex-1 px-4 py-2 text-sm text-white dark:text-white hover:text-neutral-200 dark:hover:text-gray-300 bg-rose-600 dark:bg-rose-600 hover:bg-rose-500 dark:hover:bg-rose-700 rounded"
-                      aria-label="필터 초기화"
-                    >
-                      초기화
-                    </button>
-                    <button
-                      onClick={handleApplyFilters}
-                      className="flex-1 px-4 py-2 text-sm text-white bg-primary dark:bg-primary-light hover:bg-primary/90 dark:hover:bg-primary-light/90 rounded"
-                      aria-label="필터 적용"
-                    >
-                      적용
-                    </button>
-                  </div>
-                </div>
-              </div>
+    <div className="relative z-50">
+      {/* [Mobile] 바텀시트 / 전체화면 Overlay */}
+      <div className="md:hidden fixed inset-0 z-50">
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+        />
+        <div className="absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl max-h-[85vh] h-full flex flex-col animate-slide-up shadow-2xl">
+          {/* Header */}
+          <div className="flex justify-between items-center p-5 border-b border-border">
+            <h3 className="text-lg font-bold text-primary">필터 설정</h3>
+            <button
+              onClick={onClose}
+              className="p-2 -mr-2 text-muted hover:text-primary transition-colors rounded-full hover:bg-surface-dim"
+              aria-label="닫기"
+            >
+              <XMarkIcon className="size-6" />
+            </button>
+          </div>
+
+          {/* Content (스크롤) */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-8 pb-safe">
+            <CategoryFilter
+              parentCategories={parentCategories}
+              childCategories={childCategories}
+              selectedParentCategory={selectedParentCategory}
+              onParentChange={handleParentCategoryChange}
+              selectedChildCategory={tempFilters.category ?? ""}
+              onChildChange={handleChildCategoryChange}
+            />
+
+            <div className="space-y-6">
+              <PriceFilter
+                minPrice={tempFilters.minPrice ?? ""}
+                maxPrice={tempFilters.maxPrice ?? ""}
+                onChangeKeyValue={handlePriceChange}
+              />
+              <GameTypeFilter
+                value={tempFilters.game_type ?? ""}
+                onChange={(value) =>
+                  setTempFilters((prev) => ({ ...prev, game_type: value }))
+                }
+              />
+              <ConditionFilter
+                value={tempFilters.condition ?? ""}
+                onChange={(value) =>
+                  setTempFilters((prev) => ({ ...prev, condition: value }))
+                }
+              />
             </div>
           </div>
 
-          {/* PC 버전 필터 UI */}
-          <div className="hidden md:block">
-            <div
-              ref={wrapperRef}
-              className="absolute top-0 right-0 w-72 z-50
-                      bg-white dark:bg-background-dark 
-                      border border-neutral-200/20 dark:border-neutral-400
-                      rounded-lg shadow-lg"
+          {/* Footer (액션) */}
+          <div className="flex gap-3 p-5 border-t border-border bg-surface safe-area-pb">
+            <button
+              onClick={handleResetFilters}
+              className="flex-1 btn-secondary h-12 text-sm"
             >
-              <div className="p-4 space-y-4">
-                {/* PC 헤더 */}
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg dark:text-white font-semibold">
-                    필터
-                  </h3>
-                  <button
-                    onClick={onClose}
-                    className="p-2 text-black dark:text-neutral-400 hover:text-neutral-400 dark:hover:text-neutral-200"
-                    aria-label="필터 닫기"
-                  >
-                    <XMarkIcon className="size-6" />
-                  </button>
-                </div>
-                {/* 카테고리 필터 */}
-                <CategoryFilter
-                  parentCategories={parentCategories}
-                  childCategories={childCategories}
-                  selectedParentCategory={selectedParentCategory}
-                  onParentChange={handleParentCategoryChange}
-                  selectedChildCategory={tempFilters.category}
-                  onChildChange={handleChildCategoryChange}
-                />
-                <PriceFilter
-                  minPrice={tempFilters.minPrice}
-                  maxPrice={tempFilters.maxPrice}
-                  onChangeKeyValue={handlePriceChange}
-                />
-                {/* 가격 범위 필터 */}
-                <GameTypeFilter
-                  value={tempFilters.game_type}
-                  onChange={(value) =>
-                    setTempFilters((prev) => ({
-                      ...prev,
-                      game_type: value,
-                    }))
-                  }
-                />
-                {/* 제품 상태 필터 */}
-                <ConditionFilter
-                  value={tempFilters.condition}
-                  onChange={(value) =>
-                    setTempFilters((prev) => ({
-                      ...prev,
-                      condition: value,
-                    }))
-                  }
-                />
-                {/* 버튼 그룹 */}
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={handleResetFilters}
-                    className="flex-1 px-4 py-2 text-sm text-white dark:text-white hover:text-neutral-200 dark:hover:text-gray-300 bg-rose-600 dark:bg-rose-600 hover:bg-rose-500 dark:hover:bg-rose-700 rounded"
-                    aria-label="필터 초기화"
-                  >
-                    초기화
-                  </button>
-                  <button
-                    onClick={handleApplyFilters}
-                    className="flex-1 px-4 py-2 text-sm text-white bg-primary dark:bg-primary-light hover:bg-primary/90 dark:hover:bg-primary-light/90 rounded"
-                    aria-label="필터 적용"
-                  >
-                    적용
-                  </button>
-                </div>
-              </div>
-            </div>
+              초기화
+            </button>
+            <button
+              onClick={handleApplyFilters}
+              className="flex-1 btn-primary h-12 text-sm"
+            >
+              적용하기
+            </button>
           </div>
         </div>
-      )}
-    </>
+      </div>
+
+      {/* [Desktop] 드롭다운 */}
+      <div className="hidden md:block absolute top-full right-0 mt-2 w-80 z-50 origin-top-right">
+        <div
+          ref={wrapperRef}
+          className="bg-surface rounded-xl shadow-xl border border-border overflow-hidden animate-fade-in"
+        >
+          <div className="flex justify-between items-center px-4 py-3 border-b border-border bg-surface-dim">
+            <h3 className="font-semibold text-primary">상세 필터</h3>
+            <button
+              onClick={onClose}
+              className="text-muted hover:text-primary transition-colors"
+            >
+              <XMarkIcon className="size-5" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            <CategoryFilter
+              parentCategories={parentCategories}
+              childCategories={childCategories}
+              selectedParentCategory={selectedParentCategory}
+              onParentChange={handleParentCategoryChange}
+              selectedChildCategory={tempFilters.category ?? ""}
+              onChildChange={handleChildCategoryChange}
+            />
+            <PriceFilter
+              minPrice={tempFilters.minPrice ?? ""}
+              maxPrice={tempFilters.maxPrice ?? ""}
+              onChangeKeyValue={handlePriceChange}
+            />
+            <div className="grid grid-cols-1 gap-4">
+              <GameTypeFilter
+                value={tempFilters.game_type ?? ""}
+                onChange={(value) =>
+                  setTempFilters((prev) => ({ ...prev, game_type: value }))
+                }
+              />
+              <ConditionFilter
+                value={tempFilters.condition ?? ""}
+                onChange={(value) =>
+                  setTempFilters((prev) => ({ ...prev, condition: value }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border flex gap-3 bg-surface-dim">
+            <button
+              onClick={handleResetFilters}
+              className="flex-1 btn-secondary text-xs h-9"
+            >
+              초기화
+            </button>
+            <button
+              onClick={handleApplyFilters}
+              className="flex-1 btn-primary text-xs h-9"
+            >
+              적용
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

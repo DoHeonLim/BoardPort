@@ -11,7 +11,8 @@
  * 2025.08.14  임도헌   Modified  서버 전용 함수 직접 호출 제거 → API 폴링
  * 2025.08.23  임도헌   Modified  폴링 안정화: 지수 백오프 유틸(lib/utils/backoff)로 분리, 비가시성 휴면/지터
  * 2025.09.09  임도헌   Modified  a11y(role=status), prop→state 동기화, JSON 가드
- * 2025.09.14  임도헌   Modified  상태 변경 시 live-status 브로드캐스트 추가 (Supabase)
+ * 2025.09.14  임도헌   Modified  상태 변경 시 live-status 브로드캐스트 추가 (Supabase
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 디자인 통일)
  */
 
 "use client";
@@ -19,6 +20,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { StreamStatus } from "@/types/stream";
+import { cn } from "@/lib/utils";
 
 export default function LiveStatusButton({
   status,
@@ -41,7 +43,6 @@ export default function LiveStatusButton({
 
   useEffect(() => {
     mountedRef.current = true;
-
     // live-status 채널 구독: 서버에서 브로드캐스트(push)
     const channel = supabase.channel("live-status");
 
@@ -79,28 +80,25 @@ export default function LiveStatusButton({
           ? "방송 대기"
           : "상태 확인중";
 
-  return isLive ? (
+  const colorClass = isLive
+    ? "bg-indigo-500 text-white"
+    : "bg-red-500 text-white"; // 종료/대기 등은 빨강
+
+  return (
     <div
       role="status"
       aria-live="polite"
-      className="m-2 flex h-8 w-24 items-center justify-center rounded-md bg-indigo-500"
+      className={cn(
+        "m-2 flex h-8 w-24 items-center justify-center rounded-md font-semibold text-sm shadow-sm",
+        colorClass
+      )}
       data-stream-id={streamId}
       title={label}
     >
-      <span className="text-sm font-semibold text-white">
-        <span className="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-white align-middle" />
-        {label}
-      </span>
-    </div>
-  ) : (
-    <div
-      role="status"
-      aria-live="polite"
-      className="m-2 flex h-8 w-24 items-center justify-center rounded-md bg-red-500"
-      data-stream-id={streamId}
-      title={label}
-    >
-      <span className="text-sm font-semibold text-white">{label}</span>
+      {isLive && (
+        <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-white align-middle" />
+      )}
+      {label}
     </div>
   );
 }

@@ -28,7 +28,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import FollowListModal from "@/components/follow/FollowListModal";
-import { useFollowController } from "@/hooks/useFollowController";
+import { useFollowController } from "@/hooks/user/useFollowController";
 
 export type FollowSectionProps = {
   /** 타겟 유저 id */

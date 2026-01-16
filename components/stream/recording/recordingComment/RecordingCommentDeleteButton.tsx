@@ -13,14 +13,17 @@
  * 2025.08.23  임도헌   Modified  상태 비교를 CONNECTED로 통일(소문자 불일치 수정)
  * 2025.09.09  임도헌   Move      StreamDeleteButton에서 RecordingCommentDeleteButton으로 이동동
  * 2025.09.09  임도헌   Modified  ConfirmDialog/sonner 적용, 중복 클릭 방지, a11y 보강
+ * 2026.01.14  임도헌   Modified  ConfirmDialog 적용 및 스타일 통일
  */
 
 "use client";
 
 import { useState } from "react";
 import { useRecordingCommentContext } from "./RecordingCommentContext";
-import RecordingCommentDeleteModal from "./RecordingCommentDeleteModal";
-import { TrashIcon } from "@heroicons/react/24/solid";
+import ConfirmDialog from "@/components/global/ConfirmDialog";
+import { TrashIcon } from "@heroicons/react/24/outline";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function RecordingCommentDeleteButton({
   commentId,
@@ -28,14 +31,17 @@ export default function RecordingCommentDeleteButton({
   commentId: number;
 }) {
   const { deleteComment } = useRecordingCommentContext();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
       await deleteComment(commentId);
-      setIsModalOpen(false);
+      setIsConfirmOpen(false);
+      toast.success("댓글을 삭제했습니다.");
+    } catch {
+      toast.error("삭제 실패");
     } finally {
       setIsDeleting(false);
     }
@@ -46,18 +52,25 @@ export default function RecordingCommentDeleteButton({
       <button
         disabled={isDeleting}
         aria-label="댓글 삭제"
-        onClick={() => setIsModalOpen(true)}
-        className={`p-1.5 rounded-full text-black dark:text-white
-          ${isDeleting ? "opacity-50 cursor-not-allowed" : "hover:text-rose-600 dark:hover:text-rose-500"}
-          bg-transparent hover:bg-rose-500/10 transition-all duration-200`}
+        onClick={() => setIsConfirmOpen(true)}
+        className={cn(
+          "p-1.5 rounded-full transition-colors",
+          "text-muted hover:text-danger hover:bg-danger/10",
+          "disabled:opacity-50 disabled:cursor-not-allowed"
+        )}
       >
         <TrashIcon className="size-4" />
       </button>
-      <RecordingCommentDeleteModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+
+      <ConfirmDialog
+        open={isConfirmOpen}
+        title="댓글 삭제"
+        description="이 댓글을 정말 삭제하시겠습니까?"
+        confirmLabel="삭제"
+        cancelLabel="취소"
         onConfirm={handleDelete}
-        isLoading={isDeleting}
+        onCancel={() => setIsConfirmOpen(false)}
+        loading={isDeleting}
       />
     </>
   );

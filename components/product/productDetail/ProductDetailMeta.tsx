@@ -6,12 +6,12 @@ Author : 임도헌
 History
 Date        Author   Status    Description
 2025.06.08  임도헌   Created   판매자 프로필 및 생성일 컴포넌트 분리
+2026.01.10  임도헌   Modified  시맨틱 토큰 적용
 */
-
 "use client";
 
-import UserAvatar from "@/components/common/UserAvatar";
-import TimeAgo from "@/components/common/TimeAgo";
+import UserAvatar from "@/components/global/UserAvatar";
+import TimeAgo from "@/components/ui/TimeAgo";
 
 interface ProductDetailMetaProps {
   username: string;
@@ -25,12 +25,14 @@ export default function ProductDetailMeta({
   created_at,
 }: ProductDetailMetaProps) {
   return (
-    <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-neutral-500">⚓ 판매 선원</span>
+    <div className="flex items-center justify-between px-page-x py-3 border-b border-border bg-surface">
+      <div className="flex items-center gap-2.5">
+        <span className="text-xs text-muted">판매자</span>
         <UserAvatar avatar={avatar} username={username} size="sm" />
       </div>
-      <TimeAgo date={created_at} />
+      <div className="text-xs text-muted">
+        <TimeAgo date={created_at} />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * File Name : components/auth/CreateAccountForm
+ * File Name : components/auth/form/CreateAccountForm.tsx
  * Description : 유저 회원가입 폼 컴포넌트
  * Author : 임도헌
  *
@@ -11,6 +11,7 @@
  * 2025.12.09  임도헌   Modified  클라이언트 검증 모드(onBlur/onChange) 및 에러 메시지 표시 방식 개선
  * 2025.12.10  임도헌   Modified  서버 액션 결과 처리 방식 통일, 예외 토스트 추가 및 autoComplete/에러 전달 로직 개선
  * 2025.12.12  임도헌   Modified  password 표시/숨기기 버튼을 Input(passwordToggle)로 위임하여 중복 UI 제거
+ * 2026.01.10  임도헌   Modified  시맨틱 토큰 & 아이콘 적용
  */
 
 "use client";
@@ -19,17 +20,23 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
 import { submitCreateAccount } from "@/app/(auth)/create-account/actions";
-import Input from "@/components/common/Input";
-import Button from "@/components/common/Button";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants";
 import Link from "next/link";
-import SocialLogin from "@/components/common/SocialLogin";
+import SocialLogin from "@/components/auth/SocialLogin";
 import {
   createAccountSchema,
   type CreateAccountSchema,
 } from "@/lib/auth/create-account/createAccountSchema";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import {
+  UserIcon,
+  EnvelopeIcon,
+  LockClosedIcon,
+  KeyIcon,
+} from "@heroicons/react/24/solid";
 
 type FormData = CreateAccountSchema;
 
@@ -73,13 +80,10 @@ export default function CreateAccountForm() {
           return;
         }
 
-        toast.success("🪪 선원 등록 완료! 이제 당신의 항해를 시작해보세요.");
+        toast.success("환영합니다! 선원 등록이 완료되었습니다.");
         router.push("/profile");
       } catch {
-        // 네트워크/서버 예외 발생 시
-        toast.error(
-          "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-        );
+        toast.error("일시적인 오류가 발생했습니다.");
       }
     });
   };
@@ -87,67 +91,79 @@ export default function CreateAccountForm() {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-4 sm:gap-6"
+      className="flex flex-col gap-form-gap"
     >
-      <Input
-        {...register("username")}
-        placeholder="선원 닉네임(nickname)"
-        autoComplete="username"
-        errors={errors.username?.message ? [errors.username.message] : []}
-      />
-      <Input
-        {...register("email")}
-        type="email"
-        placeholder="선원 이메일(email)"
-        autoComplete="email"
-        errors={errors.email?.message ? [errors.email.message] : []}
-      />
-      <Input
-        {...register("password")}
-        type="password"
-        passwordToggle
-        placeholder="비밀 항해 코드(password)"
-        minLength={PASSWORD_MIN_LENGTH}
-        autoComplete="new-password"
-        errors={errors.password?.message ? [errors.password.message] : []}
+      <div className="flex flex-col gap-form-gap">
+        <Input
+          {...register("username")}
+          placeholder="선원 닉네임"
+          autoComplete="username"
+          icon={<UserIcon className="size-5" />}
+          errors={errors.username?.message ? [errors.username.message] : []}
+        />
+        <Input
+          {...register("email")}
+          type="email"
+          placeholder="이메일 주소"
+          autoComplete="email"
+          icon={<EnvelopeIcon className="size-5" />}
+          errors={errors.email?.message ? [errors.email.message] : []}
+        />
+        <Input
+          {...register("password")}
+          type="password"
+          passwordToggle
+          placeholder="비밀번호"
+          minLength={PASSWORD_MIN_LENGTH}
+          autoComplete="new-password"
+          icon={<LockClosedIcon className="size-5" />}
+          errors={errors.password?.message ? [errors.password.message] : []}
+        />
+        <Input
+          {...register("confirmPassword")}
+          type="password"
+          passwordToggle
+          placeholder="비밀번호 확인"
+          minLength={PASSWORD_MIN_LENGTH}
+          autoComplete="new-password"
+          icon={<KeyIcon className="size-5" />}
+          passwordToggleLabels={{
+            show: "비밀번호 확인 표시",
+            hide: "비밀번호 확인 숨기기",
+          }}
+          errors={
+            errors.confirmPassword?.message
+              ? [errors.confirmPassword.message]
+              : []
+          }
+        />
+      </div>
+
+      <Button
+        text={isPending ? "등록 중..." : "선원 등록하기"}
+        disabled={isPending}
+        className="mt-2"
       />
 
-      <Input
-        {...register("confirmPassword")}
-        type="password"
-        passwordToggle
-        placeholder="비밀 항해 코드 확인(confirmPassword)"
-        minLength={PASSWORD_MIN_LENGTH}
-        autoComplete="new-password"
-        errors={
-          errors.confirmPassword?.message
-            ? [errors.confirmPassword.message]
-            : []
-        }
-      />
-      <Button
-        text={isPending ? "등록 중..." : "선원 등록 하기"}
-        disabled={isPending}
-      />
-      <div className="text-center text-sm sm:text-base text-text dark:text-text-dark">
-        <span>이미 선원이신가요? </span>
+      <div className="mt-4 text-center text-sm text-muted">
+        이미 선원이신가요?{" "}
         <Link
           href="/login"
-          className="text-primary font-semibold hover:underline"
+          className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
         >
-          ⛵ 항해 시작하기
+          항해 시작하기
         </Link>
       </div>
-      <div className="relative pt-6">
+
+      <div className="relative py-4">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-text/10 dark:border-text-dark/10" />
+          <div className="w-full border-t border-border" />
         </div>
-        <div className="relative text-center text-sm">
-          <span className="px-2 bg-background dark:bg-background-dark text-text/50 dark:text-text-dark/50">
-            🌊 다른 방법으로 승선하기
-          </span>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted">또는</span>
         </div>
       </div>
+
       <SocialLogin />
     </form>
   );

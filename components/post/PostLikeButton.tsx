@@ -1,18 +1,19 @@
 /**
-File Name : components/post/PostLikeButton
-Description : 게시글 좋아요 버튼 컴포넌트
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2024.11.01  임도헌   Created
-2024.11.01  임도헌   Modified  좋아요 버튼 추가
-2024.11.06  임도헌   Modified  useOptimistic에 payload 사용하지 않아서 삭제
-2024.12.18  임도헌   Modified  sm:hidden 추가(모바일 반응형 추가)
-2024.12.24  임도헌   Modified  좋아요 버튼 아이콘 변경
-2025.05.10  임도헌   Modified  startTransition을 사용한 성능 최적화
-2025.07.06  임도헌   Modified  좋아요 함수 import 변경
-*/
+ * File Name : components/post/PostLikeButton
+ * Description : 게시글 좋아요 버튼 컴포넌트
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.11.01  임도헌   Created
+ * 2024.11.01  임도헌   Modified  좋아요 버튼 추가
+ * 2024.11.06  임도헌   Modified  useOptimistic에 payload 사용하지 않아서 삭제
+ * 2024.12.18  임도헌   Modified  sm:hidden 추가(모바일 반응형 추가)
+ * 2024.12.24  임도헌   Modified  좋아요 버튼 아이콘 변경
+ * 2025.05.10  임도헌   Modified  startTransition을 사용한 성능 최적화
+ * 2025.07.06  임도헌   Modified  좋아요 함수 import 변경
+ * 2026.01.13  임도헌   Modified  [UI] 아이콘 크기 조정 및 시맨틱 컬러 적용
+ */
 "use client";
 
 import { HeartIcon } from "@heroicons/react/24/solid";
@@ -20,6 +21,7 @@ import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
 import { useOptimistic, startTransition } from "react";
 import { toast } from "sonner";
 import { dislikePost, likePost } from "@/app/posts/[id]/actions/likes";
+import { cn } from "@/lib/utils";
 
 interface ILikeButtonProps {
   isLiked: boolean;
@@ -50,32 +52,31 @@ export default function PostLikeButton({
     try {
       if (isLiked) {
         await dislikePost(postId);
-        toast.error("좋아요를 취소했습니다."); // UI 디자인 때문에 error 사용
       } else {
         await likePost(postId);
         toast.success("좋아요를 눌렀습니다.");
       }
     } catch {
-      toast.error("오류가 발생했습니다. 다시 시도해주세요.");
+      toast.error("오류가 발생했습니다.");
     }
   };
 
   return (
     <button
       onClick={handleClick}
-      className={`flex items-center gap-1 transition-colors
-        ${
-          state.isLiked
-            ? "text-rose-500"
-            : "text-neutral-400 hover:text-rose-500"
-        }`}
+      className={cn(
+        "flex items-center gap-1.5 transition-colors p-1.5 -ml-1.5 rounded-lg hover:bg-surface-dim",
+        state.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500"
+      )}
+      aria-label={state.isLiked ? "좋아요 취소" : "좋아요"}
+      aria-pressed={state.isLiked}
     >
       {state.isLiked ? (
-        <HeartIcon aria-label="heart" className="size-10" />
+        <HeartIcon className="size-6" />
       ) : (
-        <OutlineHeartIcon aria-label="heart_outline" className="size-10" />
+        <OutlineHeartIcon className="size-6" />
       )}
-      <span>{state.likeCount}</span>
+      <span className="text-sm font-medium">{state.likeCount}</span>
     </button>
   );
 }

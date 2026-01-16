@@ -18,6 +18,7 @@
  * 2025.06.26  임도헌   Modified  PostList, PostCard 분리 및 검색 구조 개선
  * 2025.11.20  임도헌   Modified  게시글 페이지 동적으로 변경
  * 2026.01.03  임도헌   Modified  force-dynamic 제거(명시적 강제 제거), 캐시(nextCache + POST_LIST 태그)로 전환
+ * 2026.01.13  임도헌   Modified  [UI] Sticky Header 디자인 통일 및 시맨틱 토큰 적용
  */
 
 import PostList from "@/components/post/PostList";
@@ -46,19 +47,22 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     : await getInitialPosts();
 
   return (
-    <div className="flex flex-col min-h-screen bg-background dark:bg-background-dark">
-      {/* 검색창 */}
-      <div className="sticky top-0 z-10 p-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-700">
-        <PostCategoryTabs currentCategory={searchParams.category} />
-        <div className="mt-4 flex items-center justify-between gap-4">
+    <div className="flex flex-col min-h-screen bg-background transition-colors pb-24">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
+        <div className="flex flex-col gap-3 px-4 py-3">
+          <PostCategoryTabs currentCategory={searchParams.category} />
           <PostSearchBarWrapper />
         </div>
-      </div>
+      </header>
 
-      {/* 게시글 목록 or Empty 상태 */}
-      <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      {/* Content */}
+      <div className="flex-1 px-page-x py-6">
         {initialData.posts.length === 0 ? (
-          <PostEmptyState />
+          <PostEmptyState
+            keyword={searchParams.keyword}
+            category={searchParams.category}
+          />
         ) : (
           <PostList
             key={JSON.stringify(searchParams)}
@@ -68,7 +72,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
         )}
       </div>
 
-      {/* 게시글 추가 버튼 */}
+      {/* Add Button */}
       <AddPostButton />
     </div>
   );

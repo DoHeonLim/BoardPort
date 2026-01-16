@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2025.06.18  임도헌   Created
  * 2025.06.18  임도헌   Modified  서버컴포넌트에서 필터 상태를 클라이언트에서 다루기 위한 컴포넌트
+ * 2026.01.11  임도헌   Modified  시맨틱 토큰 적용 및 버튼 스타일 통일
+ * 2026.01.12  임도헌   Modified  height, padding 조정
  */
 "use client";
 
@@ -28,11 +30,12 @@ export default function ClientFilterWrapper({ categories, filters }: Props) {
     <div className="relative flex justify-end">
       <button
         onClick={() => setIsFilterOpen(true)}
-        className="flex gap-2 px-2 p-1 mb-1 text-black dark:text-white border border-neutral-200/20 dark:border-primary-dark/30 rounded-lg hover:bg-primary/50 dark:hover:bg-primary-light/50 transition-colors"
+        className="flex items-center gap-1.5 px-3 h-8 sm:h-9 text-xs sm:text-sm font-medium text-primary border border-border rounded-lg bg-surface hover:bg-surface-dim transition-colors shadow-sm"
       >
-        필터
-        <AdjustmentsHorizontalIcon className="size-6" />
+        <span>필터</span>
+        <AdjustmentsHorizontalIcon className="size-4" />
       </button>
+
       <SearchFilters
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}

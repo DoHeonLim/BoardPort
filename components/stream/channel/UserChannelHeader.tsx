@@ -8,12 +8,14 @@
  * 2025.09.09  임도헌   Modified  팔로우 버튼 클릭/대기상태 로깅
  * 2025.10.14  임도헌   Modified  FollowSection 내장, 콜백/상태 관리 제거
  * 2025.11.10  임도헌   Modified  변경된 FollowSection에 맞게 수정
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
 "use client";
 
 import Link from "next/link";
-import UserAvatar from "@/components/common/UserAvatar";
+import UserAvatar from "@/components/global/UserAvatar";
 import FollowSection from "@/components/follow/FollowSection";
+import { cn } from "@/lib/utils";
 
 interface Props {
   ownerId: number;
@@ -44,37 +46,51 @@ export default function UserChannelHeader({
   onFollowingChange,
 }: Props) {
   return (
-    <div className="mx-auto max-w-3xl px-4 pt-6 pb-4">
-      <div className="flex items-center gap-3">
-        <UserAvatar username={username} avatar={avatar} size="md" />
-        <div className="flex-1">
-          <div className="flex justify-center gap-3 mt-1">
-            <FollowSection
-              ownerId={ownerId}
-              ownerUsername={username}
-              initial={{
-                isFollowing: !!initialIsFollowing,
-                followerCount: initialFollowerCount,
-                followingCount: initialFollowingCount,
-              }}
-              viewer={{ id: viewerId }}
-              showButton={!isMe}
-              size="compact"
-              align="center"
-              onRequireLogin={onRequireLogin}
-              onFollowingChange={onFollowingChange}
-              followButtonId="channel-follow-button"
-            />
+    <div className="mx-auto max-w-3xl w-full px-4 pt-6 pb-6">
+      <div className="flex items-center gap-4 mb-6">
+        <UserAvatar
+          username={username}
+          avatar={avatar}
+          size="lg"
+          className="ring-2 ring-background shadow-sm"
+        />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-bold text-primary truncate">
+              {username}
+            </h1>
+            <div className="flex items-center gap-3">
+              <FollowSection
+                ownerId={ownerId}
+                ownerUsername={username}
+                initial={{
+                  isFollowing: !!initialIsFollowing,
+                  followerCount: initialFollowerCount,
+                  followingCount: initialFollowingCount,
+                }}
+                viewer={{ id: viewerId }}
+                showButton={!isMe}
+                size="compact"
+                align="start"
+                onRequireLogin={onRequireLogin}
+                onFollowingChange={onFollowingChange}
+                followButtonId="channel-follow-button"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-center mb-3">
+      <div className="flex justify-center">
         <Link
           href={`/profile/${username}`}
-          className="btn-primary w-full max-w-md text-center py-3"
+          className={cn(
+            "w-full max-w-sm flex items-center justify-center py-2.5 rounded-xl transition-colors",
+            "bg-surface text-sm font-medium text-primary border border-border hover:bg-surface-dim shadow-sm"
+          )}
         >
-          프로필로 가기
+          프로필 보러가기
         </Link>
       </div>
     </div>

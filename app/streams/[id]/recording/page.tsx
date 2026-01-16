@@ -23,9 +23,8 @@
  * 2026.01.04  임도헌   Modified  VOD(Recording) 상세는 force-dynamic 유지 — PRIVATE 언락/팔로우 직후 접근 가드의 캐시 오판 방지
  * 2026.01.04  임도헌   Modified  incrementVodViews wrapper 제거 → lib/views/incrementViews 직접 호출(단일 진입점)
  * 2026.01.04  임도헌   Modified  getVodDetail은 접근 제어 정확성 우선으로 nextCache 비적용(조회수는 didIncrement 기반 표시값만 보정)
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 배경색 및 레이아웃 정리
  */
-export const dynamic = "force-dynamic";
-
 /**
  * NOTE
  * - 이 페이지는 접근 가드(팔로우/PRIVATE 언락)에 강하게 의존한다.
@@ -33,6 +32,8 @@ export const dynamic = "force-dynamic";
  * - getVodDetail은 nextCache로 감싸지 않고(=비캐시) 요청 시점의 최신 상태로 가드를 평가한다.
  * - 조회수는 ViewThrottle(3분) 기반으로 incrementViews에서 처리하고, didIncrement=true일 때만 화면 표시값을 +1 보정한다.
  */
+
+export const dynamic = "force-dynamic";
 
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
@@ -70,9 +71,9 @@ export default async function RecordingVodPage({
 
   const broadcastId = base.broadcast.id;
   const owner = base.broadcast.owner;
+  const isOwner = viewerId === owner.id;
 
   // 2) 접근 가드
-  const isOwner = viewerId === owner.id;
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
     const guard = await checkBroadcastAccess(
@@ -116,16 +117,14 @@ export default async function RecordingVodPage({
 
   // 4) 좋아요 상태
   const like = await getRecordingLikeStatus(vodId, viewerId);
-
   // 표시값 정규화: readyAt 우선
   const created = new Date((vod.readyAt ?? vod.createdAt) as Date);
   const durationSec = Math.round(vod.durationSec ?? 0);
-
   const broadcastOwner = vod.broadcast.owner;
   const category = vod.broadcast.category ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col overflow-y-auto scrollbar bg-background dark:bg-neutral-950">
+    <div className="flex min-h-screen flex-col bg-background transition-colors">
       <RecordingTopbar
         backHref="/streams"
         username={broadcastOwner.username}
@@ -134,7 +133,7 @@ export default async function RecordingVodPage({
         categoryIcon={category?.icon ?? null}
       />
 
-      <main className="flex flex-col items-center gap-6 pb-10">
+      <main className="flex-1 flex flex-col items-center gap-6 pb-20 px-page-x py-6 w-full max-w-mobile mx-auto">
         <RecordingDetail
           broadcast={vod.broadcast}
           vodId={vodId}
@@ -148,7 +147,7 @@ export default async function RecordingVodPage({
         />
 
         {isOwner && (
-          <div className="w-full max-w-3xl px-4">
+          <div className="w-full">
             <RecordingDeleteButton
               broadcastId={vod.broadcast.id}
               liveInputUid={vod.broadcast.stream_id}
@@ -157,7 +156,12 @@ export default async function RecordingVodPage({
           </div>
         )}
 
-        <RecordingComment vodId={vodId} currentUserId={session.id!} />
+        <div className="w-full pt-4 border-t border-border">
+          <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+            <span className="text-xl">💬</span> 댓글
+          </h3>
+          <RecordingComment vodId={vodId} currentUserId={session.id!} />
+        </div>
       </main>
     </div>
   );

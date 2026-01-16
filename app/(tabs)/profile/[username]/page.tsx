@@ -19,6 +19,7 @@
  * 2025.11.22  임도헌   Modified  getIsFollowing 중복 호출 제거(getUserProfile.isFollowing만 사용)
  * 2025.11.26  임도헌   Modified  방송국 섹션에 최근 방송 목록 추가
  * 2026.01.04  임도헌   Modified  getSession 중복 호출 제거(getUserProfile.viewerId 재사용)로 RSC 부하 감소
+ * 2026.01.15  임도헌   Modified  레이아웃 패딩 조정
  */
 
 import { notFound } from "next/navigation";
@@ -79,8 +80,8 @@ export default async function UserProfilePage({
   ]);
 
   return (
-    <div className="min-h-screen bg-background dark:bg-neutral-950 transition-colors">
-      <div className="px-4 sm:px-5 pb-8">
+    <div className="min-h-screen bg-background transition-colors pb-24">
+      <div className="px-page-x py-8">
         <UserProfile
           user={user}
           initialReviews={initialReviews}
@@ -88,8 +89,8 @@ export default async function UserProfilePage({
           initialSoldProducts={initialSoldProducts}
           averageRating={averageRating}
           userBadges={userBadges}
-          viewerId={viewerId ?? undefined}
           myStreams={streams}
+          viewerId={viewerId ?? undefined}
         />
       </div>
     </div>

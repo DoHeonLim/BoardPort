@@ -23,14 +23,12 @@
  */
 
 import { notFound } from "next/navigation";
-
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import UserStreamsClient from "@/components/stream/UserStreamsClient";
+import UserChannelContainer from "@/components/stream/channel";
 import { getUserStreams } from "@/lib/stream/getUserStreams";
 import { getUserChannel } from "@/lib/user/getUserChannel";
 import { isBroadcastUnlockedFromSession } from "@/lib/stream/privateUnlockSession";
-
 import type { BroadcastSummary, ViewerRole, VodForGrid } from "@/types/stream";
 
 type Params = { username: string };
@@ -151,7 +149,7 @@ export default async function ChannelPage({ params }: { params: Params }) {
   }
 
   return (
-    <UserStreamsClient
+    <UserChannelContainer
       userStreams={streamsForUI}
       recordings={recordingsForGrid}
       userInfo={{ ...userInfo, isFollowing }}

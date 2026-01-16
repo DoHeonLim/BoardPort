@@ -22,7 +22,8 @@
  * 2025.11.15  임도헌   Modified   layout으로 back버튼 이동
  * 2025.12.09  임도헌   Modified   403 리다이렉트 파라미터 정리
  * 2026.01.02  임도헌   Modified   상세 캐시 wrapper를 base + 태그 주입 방식으로 정리
- * 2026.01.03  임도헌   Modified   getSession() 후 유저 조회를 getUserInfo() → getUserInfoById(session.id)로 변경(중복 세션 조회 제거)s
+ * 2026.01.03  임도헌   Modified   getSession() 후 유저 조회를 getUserInfo() → getUserInfoById(session.id)로 변경(중복 세션 조회 제거)
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 배경색 및 레이아웃 조정
  */
 
 export const dynamic = "force-dynamic";
@@ -64,7 +65,6 @@ export default async function StreamDetailPage({
   const broadcastId = Number(params.id);
   if (!Number.isFinite(broadcastId) || broadcastId <= 0) notFound();
 
-  // 상세 캐시 (태그로 무효화)
   const getCachedBroadcast = nextCache(
     () => _getCachedBroadcastBase(broadcastId),
     ["broadcast-detail-by-id"],
@@ -84,7 +84,6 @@ export default async function StreamDetailPage({
   if (!fetched) notFound();
 
   const initialBroadcast = fetched as StreamDetailDTO;
-
   const ownerId = initialBroadcast.userId ?? null;
   if (!ownerId) notFound();
 
@@ -92,7 +91,6 @@ export default async function StreamDetailPage({
 
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
-
     const guard = await checkBroadcastAccess(
       {
         userId: initialBroadcast.userId,
@@ -103,15 +101,11 @@ export default async function StreamDetailPage({
     );
 
     if (!guard.allowed) {
-      const ownerUsername = initialBroadcast.user.username;
-      const callbackUrl = `/streams/${broadcastId}`;
-
       redirect(
         `/403?reason=${guard.reason}` +
-          `&username=${encodeURIComponent(ownerUsername)}` +
-          `&callbackUrl=${encodeURIComponent(callbackUrl)}` +
-          `&sid=${broadcastId}` +
-          `&uid=${ownerId}`
+          `&username=${encodeURIComponent(initialBroadcast.user.username)}` +
+          `&callbackUrl=${encodeURIComponent(`/streams/${broadcastId}`)}` +
+          `&sid=${broadcastId}&uid=${ownerId}`
       );
     }
   }
@@ -127,15 +121,18 @@ export default async function StreamDetailPage({
   );
 
   return (
-    <main className="w-full">
+    <div className="flex flex-col min-h-screen bg-background transition-colors">
       <StreamTopbar
         visibility={initialBroadcast.visibility}
         backFallbackHref="/streams"
       />
-      <div className="xl:grid xl:grid-cols-[1fr,min(100%,900px),400px] ">
+
+      <div className="flex-1 xl:grid xl:grid-cols-[1fr,min(100%,1000px),360px] 2xl:grid-cols-[1fr,min(100%,1100px),400px] xl:gap-4 xl:p-4">
+        {/* Left Spacer (Grid Centering) */}
         <div className="hidden xl:block" />
 
-        <div className="mx-auto w-full">
+        {/* Main Content */}
+        <div className="w-full">
           <StreamDetail
             stream={initialBroadcast}
             me={session?.id ?? null}
@@ -143,21 +140,21 @@ export default async function StreamDetailPage({
           />
         </div>
 
-        <div
-          className="hidden xl:block xl:ml-2 h-[calc(100vh-96px)] max-w-[50vh]"
-          aria-label="stream chat panel"
-        >
+        {/* Chat Sidebar (Desktop) */}
+        <div className="hidden xl:block h-[calc(100vh-100px)] sticky top-20">
           <StreamChatRoom
             initialStreamMessage={initialStreamMessage}
             streamChatRoomId={streamChatRoom.id}
             streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
             userId={session.id!}
             username={user.username}
+            fillParent
           />
         </div>
       </div>
 
-      <div className="xl:hidden mt-1">
+      {/* Chat Section (Mobile) */}
+      <div className="xl:hidden flex-1 flex flex-col min-h-0 bg-background">
         <StreamMobileChatSection
           initialStreamMessage={initialStreamMessage}
           streamChatRoomId={streamChatRoom.id}
@@ -166,6 +163,6 @@ export default async function StreamDetailPage({
           username={user.username}
         />
       </div>
-    </main>
+    </div>
   );
 }

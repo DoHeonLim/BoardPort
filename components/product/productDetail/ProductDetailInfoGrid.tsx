@@ -6,6 +6,7 @@ Author : 임도헌
 History
 Date        Author   Status    Description
 2025.06.08  임도헌   Created   제품 상태/구성 정보 그리드 분리
+2026.01.10  임도헌   Modified  시맨틱 토큰 적용
 */
 
 "use client";
@@ -42,20 +43,17 @@ export default function ProductDetailInfoGrid({
   has_manual,
 }: ProductDetailInfoGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border border-neutral-200 dark:border-neutral-700">
+    <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-surface-dim border border-border">
       <ProductInfoItem
         label="📁 카테고리"
         value={
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 flex-wrap">
             {category.parent && (
-              <>
-                <span>
-                  {category.parent.icon} {category.parent.kor_name}
-                </span>
-                <span className="text-neutral-400">&gt;</span>
-              </>
+              <span className="text-muted">
+                {category.parent.icon} {category.parent.kor_name} &gt;
+              </span>
             )}
-            <span>
+            <span className="text-primary font-medium">
               {category.icon} {category.kor_name}
             </span>
           </span>

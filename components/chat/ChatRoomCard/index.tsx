@@ -17,6 +17,7 @@
  * 2025.07.15  임도헌   Modified  ChatRoomList컴포넌트에서 채팅방 카드 컴포넌트로 변경
  * 2025.07.16  임도헌   Modified  기능별 컴포넌트 분리
  * 2025.07.24  임도헌   Modified  BoardPort 스타일 완전 적용
+ * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface, border-border)
  */
 
 "use client";
@@ -27,6 +28,7 @@ import ChatRoomHeader from "./ChatRoomHeader";
 import ChatRoomLastMessage from "./ChatRoomLastMessage";
 import ChatRoomUnreadBadge from "./ChatRoomUnreadBadge";
 import { ChatRoom } from "@/types/chat";
+import { cn } from "@/lib/utils";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -37,28 +39,26 @@ export default function ChatRoomCard({ room, unreadCount }: ChatRoomCardProps) {
   return (
     <Link
       href={`/chats/${room.id}`}
-      className={`
-        group w-full flex items-center gap-4 px-4 py-3
-        rounded-xl bg-white dark:bg-neutral-800
-        border border-neutral-200 dark:border-neutral-900
-        shadow-md hover:shadow-lg
-        hover:bg-neutral-100 dark:hover:bg-neutral-900
-      `}
+      className={cn(
+        "group w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200",
+        "bg-surface border border-border shadow-sm",
+        "hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30 active:scale-[0.99]"
+      )}
     >
       {/* 썸네일 */}
       <ChatRoomThumbnail product={room.product} />
 
       {/* 유저 + 메시지 */}
-      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <ChatRoomHeader user={room.users[0]} />
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+        <div className="flex justify-between items-start">
+          <ChatRoomHeader user={room.users[0]} />
+          <ChatRoomUnreadBadge
+            count={unreadCount}
+            date={room.lastMessage?.created_at?.toString() ?? ""}
+          />
+        </div>
         <ChatRoomLastMessage message={room.lastMessage ?? undefined} />
       </div>
-
-      {/* 안읽은 뱃지 */}
-      <ChatRoomUnreadBadge
-        count={unreadCount}
-        date={room.lastMessage?.created_at?.toString() ?? ""}
-      />
     </Link>
   );
 }

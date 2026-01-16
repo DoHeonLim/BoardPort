@@ -7,12 +7,14 @@
  * 2024.12.03  임도헌   Created
  * 2024.12.29  임도헌   Modified  리뷰 상세 모달 스타일 수정
  * 2025.10.19  임도헌   Modified  onDelete 비동기/로딩 처리 + ESC/오버레이 닫기 + 접근성 보강
+ * 2026.01.12  임도헌   Modified   [Rule 5.1] 시맨틱 토큰 적용
  */
 
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StarIcon } from "@heroicons/react/24/solid";
+import { cn } from "@/lib/utils";
 
 interface ReviewDetailModalProps {
   isOpen: boolean;
@@ -39,7 +41,6 @@ export default function ReviewDetailModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ESC로 닫기
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -49,14 +50,11 @@ export default function ReviewDetailModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
-  // 삭제 처리(동기/비동기 대응)
   const handleDelete = useCallback(async () => {
     if (!onDelete) return;
     try {
       setIsDeleting(true);
       await onDelete();
-      // 삭제 성공 후 닫기는 호출측에서 해도 되고 여기서 닫아도 됨.
-      // 호출측(MySales/MyPurchases)에서 상태 갱신 후 닫도록 유지하는게 깔끔 → 여기서는 닫지 않음.
     } finally {
       setIsDeleting(false);
     }
@@ -71,37 +69,42 @@ export default function ReviewDetailModal({
       role="dialog"
       aria-labelledby="review-detail-title"
     >
-      {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Dialog */}
       <div
         ref={dialogRef}
-        className="relative bg-white dark:bg-neutral-800 w-full max-w-md rounded-xl shadow-xl animate-fade-in mx-4"
-        onClick={(e) => e.stopPropagation()} // 패널 클릭 시 닫힘 방지
+        className={cn(
+          "relative w-full max-w-md rounded-2xl shadow-2xl animate-fade-in mx-4 overflow-hidden",
+          "bg-surface border border-border"
+        )}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b dark:border-neutral-700">
-          <div className="flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-border bg-surface-dim/30">
+          <div className="flex items-center justify-between">
             <h3
               id="review-detail-title"
-              className="text-xl font-semibold text-primary dark:text-primary-light"
+              className="text-lg font-bold text-primary"
             >
               {title}
             </h3>
             {review && (
-              <div className="flex gap-1" aria-label={`별점 ${review.rate}점`}>
+              <div
+                className="flex gap-0.5"
+                aria-label={`별점 ${review.rate}점`}
+              >
                 {[1, 2, 3, 4, 5].map((star) => (
                   <StarIcon
                     key={star}
-                    className={`w-5 h-5 ${
+                    className={cn(
+                      "w-4 h-4",
                       star <= review.rate
-                        ? "text-yellow-500"
-                        : "text-neutral-300 dark:text-neutral-600"
-                    }`}
+                        ? "text-yellow-400"
+                        : "text-neutral-200 dark:text-neutral-700"
+                    )}
                   />
                 ))}
               </div>
@@ -110,37 +113,32 @@ export default function ReviewDetailModal({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4">
+        <div className="p-6 min-h-[80px] flex items-center">
           {review ? (
-            <p className="text-neutral-700 dark:text-neutral-200 whitespace-pre-wrap">
+            <p className="text-primary whitespace-pre-wrap leading-relaxed">
               {review.payload}
             </p>
           ) : (
-            <span className="text-neutral-500 dark:text-neutral-400">
+            <span className="text-muted text-sm w-full text-center block">
               {emptyMessage}
             </span>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t dark:border-neutral-700 flex justify-end space-x-2">
+        <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-end gap-2">
           {review && onDelete && (
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 
-                dark:bg-red-600 dark:hover:bg-red-500 
-                text-white rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/20 rounded-xl transition-colors disabled:opacity-50"
             >
               {isDeleting ? "삭제 중..." : "삭제"}
             </button>
           )}
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 
-              dark:bg-neutral-700 dark:hover:bg-neutral-600 
-              text-neutral-700 dark:text-neutral-200 
-              rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border rounded-xl transition-colors"
           >
             닫기
           </button>

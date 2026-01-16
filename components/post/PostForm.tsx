@@ -8,21 +8,34 @@
  * 2025.07.04  임도헌   Created   기존 add/page.tsx + PostEditForm 기능 통합
  * 2025.09.10  임도헌   Modified  getUploadUrl 유니온 분기 처리로 TS 에러 해결 + File 타입 가드
  */
+/**
+ * File Name : components/post/PostForm
+ * Description : 게시글 작성/수정 공통 폼 (add + edit)
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.07.04  임도헌   Created   기존 add/page.tsx + PostEditForm 기능 통합
+ * 2025.09.10  임도헌   Modified  getUploadUrl 유니온 분기 처리로 TS 에러 해결 + File 타입 가드
+ * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 Select 컴포넌트 교체
+ */
 "use client";
 
-import Input from "@/components/common/Input";
-import Button from "@/components/common/Button";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select"; // 공통 Select 사용
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
-import { useImageUpload } from "@/hooks/useImageUpload";
-import ImageUploader from "@/components/image/ImageUploader";
-import TagInput from "@/components/common/TagInput";
+import { useImageUpload } from "@/hooks/common/useImageUpload";
+import ImageUploader from "@/components/global/ImageUploader";
+import TagInput from "@/components/ui/TagInput";
 import { POST_CATEGORY } from "@/lib/constants";
 import { getUploadUrl } from "@/lib/cloudflare/getUploadUrl";
 import { useRouter } from "next/navigation";
 import { postFormSchema, PostFormValues } from "@/lib/post/form/postFormSchema";
+import { toast } from "sonner";
 
 interface PostFormProps {
   initialValues?: PostFormValues & { id?: number };
@@ -123,14 +136,11 @@ export default function PostForm({
         uploadedPhotoUrls.push(...urls);
       }
 
-      // previews 배열 순서 유지하며 URL 처리
       const allPhotoUrls = previews
         .map((preview) => {
           if (preview.includes("imagedelivery.net")) {
-            // 기존 Cloudflare 이미지
             return preview.replace("/public", "");
           } else if (preview.startsWith("blob:")) {
-            // 새로 업로드된 이미지 URL 매칭
             const index = previews
               .filter((p) => p.startsWith("blob:"))
               .indexOf(preview);
@@ -153,28 +163,46 @@ export default function PostForm({
       const result = await onSubmit(formData);
 
       if (result.success && result.postId) {
+        toast.success(
+          isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
+        );
         router.push(`/posts/${result.postId}`);
       } else if (result.error) {
-        alert(result.error);
+        toast.error(result.error);
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("게시글 처리에 실패했습니다.");
+      toast.error("게시글 처리에 실패했습니다.");
     } finally {
       setIsUploading(false);
     }
   });
 
   return (
-    <div>
-      <form onSubmit={submitHandler} className="flex flex-col gap-5 p-5 pt-0">
-        <select
+    <div className="bg-background">
+      <form
+        onSubmit={submitHandler}
+        className="flex flex-col gap-form-gap px-page-x py-page-y"
+      >
+        {/* Image Uploader */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-primary">이미지</label>
+          <ImageUploader
+            previews={previews}
+            onImageChange={handleImageChange}
+            onDeleteImage={handleDeleteImage}
+            onDragEnd={handleDragEnd}
+            isOpen={isImageFormOpen}
+            onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
+            isUploading={isUploading}
+          />
+        </div>
+
+        {/* Category Select */}
+        <Select
+          label="카테고리"
           {...register("category")}
-          className="w-full p-2 rounded-md
-          bg-neutral-200 text-neutral-800
-          dark:bg-neutral-700 dark:text-white
-          border border-neutral-300 dark:border-neutral-600
-          focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          errors={errors.category?.message ? [errors.category.message] : []}
         >
           <option value="">카테고리 선택</option>
           {Object.entries(POST_CATEGORY).map(([key, value]) => (
@@ -182,24 +210,23 @@ export default function PostForm({
               {value}
             </option>
           ))}
-        </select>
-        {errors.category && (
-          <p className="text-red-500">{errors.category.message}</p>
-        )}
+        </Select>
 
         <Input
+          label="제목"
           type="text"
-          placeholder="제목"
+          placeholder="제목을 입력해주세요"
           {...register("title")}
           errors={[errors.title?.message ?? ""]}
         />
 
         <Input
+          label="내용"
           type="textarea"
-          placeholder="내용"
+          placeholder="내용을 입력해주세요"
           {...register("description")}
           errors={[errors.description?.message ?? ""]}
-          className="p-2 input-primary min-h-[200px] resize-y"
+          className="min-h-[240px]"
         />
 
         <TagInput
@@ -209,37 +236,34 @@ export default function PostForm({
           resetSignal={resetSignal}
         />
 
-        <ImageUploader
-          previews={previews}
-          onImageChange={handleImageChange}
-          onDeleteImage={handleDeleteImage}
-          onDragEnd={handleDragEnd}
-          isOpen={isImageFormOpen}
-          onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
-          isUploading={isUploading}
-        />
+        <div className="pt-4 flex flex-col gap-3">
+          <Button
+            text={
+              isUploading
+                ? isEdit
+                  ? "수정 중..."
+                  : "업로드 중..."
+                : submitLabel
+            }
+            disabled={isUploading}
+          />
 
-        <Button
-          text={
-            isUploading ? (isEdit ? "수정 중..." : "업로드 중...") : submitLabel
-          }
-          disabled={isUploading}
-        />
-
-        <div className="flex gap-2 sm:text-sm md:text-md">
-          <button
-            type="reset"
-            onClick={resetForm}
-            className="flex-1 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors "
-          >
-            초기화
-          </button>
-          <Link
-            href={backUrl}
-            className="flex-1 py-2 bg-neutral-500 text-white rounded-md hover:bg-neutral-600 transition-colors text-center"
-          >
-            뒤로가기
-          </Link>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
+              disabled={isUploading}
+            >
+              초기화
+            </button>
+            <Link
+              href={backUrl}
+              className="flex items-center justify-center h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
+            >
+              취소
+            </Link>
+          </div>
         </div>
       </form>
     </div>

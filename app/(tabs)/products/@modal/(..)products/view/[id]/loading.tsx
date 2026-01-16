@@ -1,73 +1,77 @@
 /**
- File Name : app/(tabs)/products/@modal/(..)products/view/[id]/loading
- Description : 모달 제품 상세 페이지 로딩 스켈레톤
- Author : 임도헌
- 
- History
- Date        Author   Status    Description
- 2024.10.22  임도헌   Created
- 2024.10.22  임도헌   Modified  로딩 페이지 추가
- 2024.12.11  임도헌   Modified  캐러셀 스켈레톤 추가
- 2025.05.05  임도헌   Modified  로딩 UI 변경
- 2025.06.08  임도헌   Created   모달 상세 페이지 로딩 수정
- 2025.06.12  임도헌   Modified  app/(tabs)/products/@modal/(..)products/view/[id]/loading 로 이동
+ * File Name : app/(tabs)/products/@modal/(..)products/view/[id]/loading
+ * Description : 모달 제품 상세 페이지 로딩 스켈레톤
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.22  임도헌   Created
+ * 2024.10.22  임도헌   Modified  로딩 페이지 추가
+ * 2024.12.11  임도헌   Modified  캐러셀 스켈레톤 추가
+ * 2025.05.05  임도헌   Modified  로딩 UI 변경
+ * 2025.06.08  임도헌   Modified  모달 상세 페이지 로딩 수정
+ * 2025.06.12  임도헌   Modified  app/(tabs)/products/@modal/(..)products/view/[id]/loading 로 이동
+ * 2026.01.11  임도헌   Modified  [Rule 3.2] 반응형 스켈레톤 & 시맨틱 토큰 적용
  */
+
+import CloseButton from "@/components/global/CloseButton";
+import Skeleton from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 
 export default function Loading() {
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-      <div className="flex flex-col w-full max-w-screen-sm h-[90vh] bg-white dark:bg-neutral-900 rounded-lg overflow-hidden animate-pulse">
-        {/* 이미지 캐러셀 */}
-        <div className="w-full h-72 bg-neutral-200 dark:bg-neutral-700" />
-
-        {/* 사용자 정보 */}
-        <div className="flex items-center justify-between p-4 border-b border-neutral-300 dark:border-neutral-700">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-neutral-300 dark:bg-neutral-600" />
-            <div className="w-24 h-4 bg-neutral-300 dark:bg-neutral-600 rounded" />
-          </div>
-          <div className="w-14 h-4 bg-neutral-300 dark:bg-neutral-600 rounded" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      <div
+        className={cn(
+          "flex flex-col overflow-hidden bg-background shadow-2xl transition-all outline-none",
+          // [Mobile] Full Screen, [Desktop] Center Card
+          "w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-screen-sm sm:rounded-2xl sm:border sm:border-border"
+        )}
+      >
+        {/* Header (Close) */}
+        <div className="flex justify-end p-2 shrink-0">
+          <CloseButton className="pointer-events-none opacity-50" />
         </div>
 
-        {/* 스크롤 가능한 콘텐츠 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* 제목 및 가격 */}
-          <div className="flex justify-between items-center">
-            <div className="w-40 h-6 bg-neutral-300 dark:bg-neutral-600 rounded" />
-            <div className="w-24 h-6 bg-neutral-300 dark:bg-neutral-600 rounded" />
+        {/* Content (Scrollable) */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide pb-20">
+          {/* Image */}
+          <div className="w-full aspect-square sm:aspect-[4/3] bg-surface-dim animate-pulse border-b border-border" />
+
+          {/* Seller */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="h-3 w-8 rounded" />
+              <Skeleton className="size-8 rounded-full" />
+            </div>
+            <Skeleton className="h-3 w-16 rounded" />
           </div>
 
-          {/* 정보 그리드 */}
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded"
-              />
-            ))}
-          </div>
+          <div className="flex flex-col gap-6 p-6">
+            {/* Header */}
+            <div className="space-y-3">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-8 w-3/4 rounded-lg" />
+              <Skeleton className="h-7 w-1/3 rounded-lg" />
+            </div>
 
-          {/* 태그 */}
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-20 h-6 bg-neutral-300 dark:bg-neutral-600 rounded-full"
-              />
-            ))}
-          </div>
+            {/* Description */}
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
 
-          {/* 설명 */}
-          <div className="space-y-2">
-            <div className="w-24 h-4 bg-neutral-300 dark:bg-neutral-600 rounded" />
-            <div className="h-20 bg-neutral-200 dark:bg-neutral-700 rounded" />
+            {/* Info Grid */}
+            <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-surface-dim border border-border">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex flex-col gap-2">
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* 액션 바 */}
-        <div className="flex items-center justify-between p-4 border-t border-neutral-300 dark:border-neutral-700">
-          <div className="w-24 h-10 bg-neutral-300 dark:bg-neutral-600 rounded" />
-          <div className="w-24 h-10 bg-neutral-300 dark:bg-neutral-600 rounded" />
         </div>
       </div>
     </div>

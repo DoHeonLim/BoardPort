@@ -10,7 +10,7 @@
  */
 "use client";
 
-import UserAvatar from "@/components/common/UserAvatar";
+import UserAvatar from "@/components/global/UserAvatar";
 import { ChatUser } from "@/types/chat";
 
 interface ChatRoomHeaderProps {
@@ -19,12 +19,15 @@ interface ChatRoomHeaderProps {
 
 export default function ChatRoomHeader({ user }: ChatRoomHeaderProps) {
   return (
-    <UserAvatar
-      avatar={user.avatar}
-      username={user.username}
-      size="sm"
-      showUsername={true}
-      disabled={true}
-    />
+    <div className="flex items-center">
+      <UserAvatar
+        avatar={user.avatar}
+        username={user.username}
+        size="sm"
+        showUsername={true}
+        disabled={true} // 카드 전체가 링크이므로 내부 링크 비활성화
+        className="p-0 hover:bg-transparent" // 카드 내부 스타일 조정
+      />
+    </div>
   );
 }

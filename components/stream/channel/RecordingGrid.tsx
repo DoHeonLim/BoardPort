@@ -16,11 +16,13 @@
  *                                다시보기 메타 영역(길이/조회수) 높이 일관화
  * 2025.12.20  임도헌   Modified  FOLLOWERS/PRIVATE 잠금 정책 주석 보강(팔로우 vs 언락 플로우 구분)
  * 2026.01.04  임도헌   Modified  팔로우 즉시 반영: FOLLOWERS 잠금은 role/isFollowing을 SSOT로 계산
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  */
+
 "use client";
 
 import StreamCard from "@/components/stream/StreamCard";
-import TimeAgo from "@/components/common/TimeAgo";
+import TimeAgo from "@/components/ui/TimeAgo";
 import { formatDuration } from "@/lib/utils";
 import type { VodForGrid } from "@/types/stream";
 import RecordingEmptyState from "./RecordingEmptyState";
@@ -51,10 +53,8 @@ export default function RecordingGrid({
     );
 
   return (
-    <div className="mx-auto max-w-3xl px-4 mt-8">
-      <h2 className="text-black dark:text-white text-lg font-semibold mb-3">
-        다시보기
-      </h2>
+    <div className="mx-auto max-w-3xl px-4 w-full">
+      <h2 className="text-lg font-bold mb-3 text-primary">다시보기</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {recordings.map((rec) => {
@@ -99,7 +99,10 @@ export default function RecordingGrid({
           const key = `vod-${rec.vodId}`;
 
           return (
-            <div key={key} className="rounded-xl overflow-hidden shadow">
+            <div
+              key={key}
+              className="rounded-2xl overflow-hidden shadow-sm bg-surface border border-border"
+            >
               <StreamCard
                 id={unlockTargetId}
                 title={rec.title}
@@ -119,16 +122,24 @@ export default function RecordingGrid({
               />
 
               {(when || hasDuration || hasViews) && (
-                <div className="p-2">
-                  <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                <div className="px-3 pb-3 -mt-2">
+                  <div className="flex items-center gap-1 text-[11px] text-muted">
                     {when ? <TimeAgo date={when} /> : null}
-                    {when && (hasDuration || hasViews) ? " • " : ""}
+                    {when && (hasDuration || hasViews) ? (
+                      <span className="text-border mx-1">|</span>
+                    ) : (
+                      ""
+                    )}
 
                     {hasDuration ? formatDuration(rec.duration!) : null}
-                    {hasDuration && hasViews ? " • " : ""}
+                    {hasDuration && hasViews ? (
+                      <span className="text-border mx-1">|</span>
+                    ) : (
+                      ""
+                    )}
 
                     {hasViews
-                      ? `조회수 ${rec.viewCount!.toLocaleString()}`
+                      ? `조회 ${rec.viewCount!.toLocaleString()}`
                       : null}
                   </div>
                 </div>

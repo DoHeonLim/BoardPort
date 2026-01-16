@@ -1,12 +1,12 @@
 /**
- File Name : components/auth/background/Stars
- Description : 별 컴포넌트 - 다크모드에서만
- Author : 임도헌
- 
- History
- Date        Author   Status    Description
- 2025.05.27  임도헌   Created
- 2025.05.27  임도헌   Modified  별 컴포넌트 추가가
+ * File Name : components/auth/background/Stars.tsx
+ * Description : 별 컴포넌트 - 다크모드에서만
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.05.27  임도헌   Created
+ * 2025.05.27  임도헌   Modified  별 컴포넌트 추가
  */
 
 export default function Stars() {

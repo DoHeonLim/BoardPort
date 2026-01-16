@@ -6,12 +6,15 @@
  * History
  * Date        Author   Status    Description
  * 2025.06.21  임도헌   Created   SearchSection에서 최근 검색 UI 분리
+ * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 삭제 버튼 가시성 개선
+ * 2026.01.12  임도헌   Modified  검색 기록 없을때 안내 메세지 표시
  */
 
 "use client";
 
 import { XMarkIcon, ClockIcon, TrashIcon } from "@heroicons/react/24/solid";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface SearchHistoryBoxProps {
   history: { keyword: string; created_at: Date }[];
@@ -30,70 +33,65 @@ export default function SearchHistoryBox({
   basePath,
   isMobile = false,
 }: SearchHistoryBoxProps) {
-  if (!history || history.length === 0) return null;
+  const isEmpty = !history || history.length === 0;
 
   return (
-    <div className="p-4 flex-1">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+    <div className={cn("flex flex-col w-full", isMobile ? "px-0" : "p-0")}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted">
           <ClockIcon className="size-4" />
           최근 검색어
         </h3>
-        <button
-          onClick={onClear}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-          aria-label="전체 검색 기록 삭제"
-        >
-          <TrashIcon className="size-4" />
-          전체 삭제
-        </button>
+        {!isEmpty && (
+          <button
+            onClick={onClear}
+            className="text-xs text-muted hover:text-danger flex items-center gap-1 transition-colors"
+          >
+            <TrashIcon className="size-3" />
+            전체 삭제
+          </button>
+        )}
       </div>
 
-      {isMobile ? (
-        <div className="flex gap-4 ml-4">
-          {history.map((item, index) => (
-            <div key={index} className="relative group">
-              <Link
-                href={`${basePath}?keyword=${item.keyword}`}
-                onClick={() => onSearch(item.keyword)}
-                className="flex items-center gap-1 text-xs text-white dark:text-gray-300"
-              >
-                <div className="bg-neutral-500 px-2 py-1 border-1 border-neutral-600 rounded-md hover:bg-neutral-700">
-                  {item.keyword}
-                </div>
-              </Link>
-              <button
-                onClick={() => onRemove(item.keyword)}
-                className="absolute -top-2 -right-2 size-4 bg-gray-500 text-white rounded-full flex items-center justify-center opacity-0 hover:bg-neutral-800 group-hover:opacity-100 transition-opacity"
-                aria-label={`${item.keyword} 검색 기록 삭제`}
-              >
-                <XMarkIcon className="size-3" />
-              </button>
-            </div>
-          ))}
+      {isEmpty ? (
+        <div className="py-4 text-center text-sm text-muted/60 bg-surface-dim/30 rounded-lg">
+          최근 검색 기록이 없습니다.
         </div>
       ) : (
-        <div className="flex gap-2 ml-4">
+        <div
+          className={cn(
+            "flex gap-2",
+            // 모바일: 가로 스크롤, 패딩 추가하여 짤림 방지
+            isMobile
+              ? "flex-nowrap overflow-x-auto pb-2 scrollbar-hide w-full"
+              : "flex-wrap"
+          )}
+        >
           {history.map((item, index) => (
-            <div key={index} className="relative group">
-              <div className="flex items-center gap-1">
-                <Link
-                  href={`${basePath}?keyword=${item.keyword}`}
-                  onClick={() => onSearch(item.keyword)}
-                  className="text-sm text-white dark:text-gray-300"
-                >
-                  <div className="bg-neutral-500 px-2 py-1 border-1 border-neutral-600 rounded-md hover:bg-neutral-700">
-                    {item.keyword}
-                  </div>
-                </Link>
-                <button
-                  onClick={() => onRemove(item.keyword)}
-                  className="relative -top-3 right-3 size-4 bg-gray-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-neutral-800 transition-opacity"
-                  aria-label={`${item.keyword} 검색 기록 삭제`}
-                >
-                  <XMarkIcon className="size-3" />
-                </button>
-              </div>
+            <div
+              key={index}
+              className="group relative flex items-center shrink-0"
+            >
+              <Link
+                href={`${basePath}?keyword=${encodeURIComponent(item.keyword)}`}
+                onClick={() => onSearch(item.keyword)}
+                className={cn(
+                  "px-3 py-1.5 text-sm bg-surface-dim text-primary rounded-lg hover:bg-border transition-colors pr-7 border border-transparent",
+                  "whitespace-nowrap"
+                )}
+              >
+                {item.keyword}
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onRemove(item.keyword);
+                }}
+                className="absolute right-1 p-1 text-muted hover:text-danger rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                aria-label={`${item.keyword} 삭제`}
+              >
+                <XMarkIcon className="size-3.5" />
+              </button>
             </div>
           ))}
         </div>

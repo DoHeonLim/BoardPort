@@ -21,7 +21,8 @@
  * 2025.10.29  임도헌   Modified   Promise.all 튜플 타입 적용, 무효화 키 주석 추가
  * 2025.10.29  임도헌   Modified   비로그인 가드 리다이렉트 경로 수정(/login 등), revalidate 메모 보강
  * 2025.11.12  임도헌   Modified   내부 max-w 제거(중앙 정렬 체감↑), Harbor 배너/WaveDivider 추가,
- *                                설정 드롭다운(ProfileSettingMenu) 상단 우측 배치
+ *                                 설정 드롭다운(ProfileSettingMenu) 상단 우측 배치
+ * 2026.01.15  임도헌   Modified   상단 액션바 위치 조정 및 패딩 표준화
  */
 
 // revalidateTag 트리거 메모
@@ -86,31 +87,25 @@ export default async function ProfilePage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-background dark:bg-neutral-950 transition-colors">
-      {/* 상단 우측 도구 모음 */}
-      <div
-        className="px-4 sm:px-5 py-3 sm:py-4"
-        role="region"
-        aria-label="프로필 도구 모음"
-      >
-        <div className="flex justify-end gap-2">
-          <ProfileSettingMenu
-            emailVerified={!!user.emailVerified}
-            hasEmail={!!user.email}
-          />
-          <ThemeToggle />
-        </div>
+    <div className="min-h-screen bg-background transition-colors pb-24">
+      {/* Top Actions (Absolute or Flex header) */}
+      <div className="sticky top-0 z-30 flex justify-end gap-2 px-page-x py-3 bg-background/80 backdrop-blur-sm">
+        <ProfileSettingMenu
+          emailVerified={!!user.emailVerified}
+          hasEmail={!!user.email}
+        />
+        <ThemeToggle />
       </div>
 
-      {/* 본문 — AppWrapper가 폭을 고정하므로 추가 max-w 없이 좌우 여백만 */}
-      <div className="px-4 sm:px-5 pb-8">
+      {/* Main Content */}
+      <div className="px-page-x pt-2">
         <MyProfile
           user={user}
           initialReviews={initialReviews}
           averageRating={averageRating}
           badges={badgesPair.badges}
           userBadges={badgesPair.userBadges}
-          myStreams={streams}
+          myStreams={streams as BroadcastSummary[]}
           viewerId={user.id}
           logOut={logOut}
         />

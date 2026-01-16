@@ -42,11 +42,11 @@
 import { useEffect, useRef, useState } from "react";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInputBar from "./ChatInputBar";
-import useChatSubscription from "@/hooks/useChatSubscription";
+import useChatSubscription from "@/hooks/chat/useChatSubscription";
 import { ChatUser, ChatMessage } from "@/types/chat";
 import { checkQuickResponseBadgeAction } from "@/app/chats/[id]/actions/badge";
 import { sendMessageAction } from "@/app/chats/[id]/actions/messages";
-import useInfiniteMessages from "@/hooks/useInfiniteMessages";
+import useInfiniteMessages from "@/hooks/chat/useInfiniteMessages";
 
 interface ChatMessagesListProps {
   initialMessages: ChatMessage[];
@@ -235,7 +235,6 @@ export default function ChatMessagesList({
             message={message}
             isOwnMessage={message.user.id === user.id}
             showAvatar
-            showTail
           />
         ))}
 
@@ -279,13 +278,7 @@ export default function ChatMessagesList({
         "
       >
         <div className="pointer-events-auto w-full max-w-2xl px-3 sm:px-4">
-          <div
-            className="
-              rounded-full border border-white/10
-              bg-neutral-900/75 dark:bg-neutral-950/75
-              backdrop-blur-md shadow-lg
-            "
-          >
+          <div className="rounded-2xl mx-2 border border-white/10 bg-neutral-900/75 dark:bg-neutral-950/75 backdrop-blur-md shadow-lg">
             <ChatInputBar
               isSubmitting={isSending}
               onSubmit={onSubmit}

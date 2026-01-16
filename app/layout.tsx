@@ -4,7 +4,7 @@ import "./globals.css";
 import ThemeProvider from "@/components/providers/ThemeProvider";
 import { Toaster } from "sonner";
 import AppWrapper from "@/components/layout/AppWrapper";
-import NotificationBoot from "@/components/common/NotificationBoot";
+import NotificationBoot from "@/components/notification/NotificationBoot";
 
 const inter = Inter({ subsets: ["latin"] });
 

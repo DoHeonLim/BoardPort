@@ -108,6 +108,9 @@ export const CreateProduct = async (
       data: { count: { increment: 1 } },
     });
 
+    // 전체 제품 목록 캐시 무효화
+    revalidateTag(T.PRODUCT_LIST());
+
     // 프로필 판매 탭/카운트 및 제품 상세 캐시 무효화
     revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", session.id));
     revalidateTag(T.USER_PRODUCTS_COUNTS_ID(session.id));

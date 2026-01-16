@@ -22,13 +22,15 @@
  * 2025.06.18  임도헌   Modified  ProductList에 쿼리 문자열을 기준으로 key를 부여해서 제품 재렌더링
  * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
  * 2026.01.08  임도헌   Modified  URL 쿼리 파싱 시 NaN 방어 로직 추가 (minPrice, maxPrice)
+ * 2026.01.10  임도헌   Modified  헤더를 sticky로 고정하여 스크롤 시에도 접근성 확보, 레이아웃 재정리
  */
-
 import ProductList from "@/components/product/ProductList";
 import SearchResultSummary from "@/components/product/SearchResultSummary";
 import ProductEmptyState from "@/components/product/ProductEmptyState";
 import AddProductButton from "@/components/product/AddProductButton";
 import SearchSection from "@/components/search/SearchSection";
+import ClientFilterWrapper from "@/components/search/ClientFilterWrapper";
+import { SearchProvider } from "@/components/providers/SearchProvider";
 
 import { formatSearchSummary } from "@/lib/product/formatSearchParams";
 import { fetchProductCategories } from "@/lib/category/fetchProductCategories";
@@ -37,8 +39,6 @@ import { searchProducts } from "./actions/search";
 import { getInitialProducts } from "./actions/init";
 import { getPopularSearches, getUserSearchHistory } from "./actions/history";
 import { GAME_TYPE_DISPLAY } from "@/lib/constants";
-import ClientFilterWrapper from "@/components/search/ClientFilterWrapper";
-import { SearchProvider } from "@/components/providers/SearchProvider";
 
 interface ProductsPageProps {
   searchParams: {
@@ -98,28 +98,38 @@ export default async function Products({ searchParams }: ProductsPageProps) {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/95 dark:from-background-dark dark:to-background-dark/95">
-      {/* 검색 섹션*/}
+    // pb-24는 하단 탭바 + 플로팅 버튼 공간 확보용
+    <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
       <SearchProvider searchParams={searchParams}>
-        <SearchSection
-          categories={categories}
-          keyword={searchParams.keyword}
-          searchHistory={searchHistory}
-          popularSearches={popularSearches}
-          basePath="/products"
-        />
+        {/* [Sticky Header] 검색창과 필터가 스크롤 시에도 상단에 고정됨 */}
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
+          <SearchSection
+            categories={categories}
+            keyword={searchParams.keyword}
+            searchHistory={searchHistory}
+            popularSearches={popularSearches}
+            basePath="/products"
+          />
+        </header>
 
-        <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        {/* [Content Area] */}
+        <div className="flex-1 px-page-x py-6">
           <div
-            className={`flex ${hasSearchParams ? "justify-between" : "justify-end"}`}
+            className={`flex items-center mb-4 ${
+              hasSearchParams ? "justify-between" : "justify-end"
+            }`}
           >
             {/* 검색 결과 요약 */}
-            <SearchResultSummary
-              count={initialProducts.products.length}
-              summaryText={resultSearchParams}
-            />
+            {hasSearchParams ? (
+              <SearchResultSummary
+                count={initialProducts.products.length}
+                summaryText={resultSearchParams}
+              />
+            ) : (
+              <></>
+            )}
 
-            {/* 필터 섹션 */}
+            {/* 필터 버튼 (Client Component) */}
             <ClientFilterWrapper
               categories={categories}
               filters={searchParams}
@@ -128,8 +138,8 @@ export default async function Products({ searchParams }: ProductsPageProps) {
 
           {/* 제품 목록 */}
           {initialProducts.products.length > 0 ? (
-            // searchParams가 바뀌면 key도 바뀌어 재렌더됨
             <ProductList
+              // 검색 조건이 바뀌면 리스트를 완전히 새로 그림 (Scroll reset 등)
               key={JSON.stringify(searchParams)}
               initialProducts={initialProducts}
             />
@@ -139,7 +149,7 @@ export default async function Products({ searchParams }: ProductsPageProps) {
         </div>
       </SearchProvider>
 
-      {/* 제품 추가 버튼 */}
+      {/* 제품 추가 플로팅 버튼 */}
       <AddProductButton />
     </div>
   );

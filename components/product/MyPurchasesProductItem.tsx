@@ -19,6 +19,8 @@
  * 2025.11.02  임도헌   Modified  썸네일 안전화(빈 src 방지 + 스켈레톤), TimeAgo 타입 안전화, a11y 라벨 보강
  * 2025.11.06  임도헌   Modified  ConfirmDialog로 리뷰 삭제 일원화 + 삭제 로딩/닫힘 제어 + onReviewChanged 유지
  * 2025.12.31  임도헌   Modified  리뷰를 로컬 state로 관리하여 작성/삭제 patch를 최신 상태 기준으로 통일(스테일 patch 방지)
+ * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 & 반응형 레이아웃 적용
+ * 2026.01.16  임도헌   Modified  ProductCard 스타일 통일
  */
 
 "use client";
@@ -26,39 +28,37 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
 import { formatToWon } from "@/lib/utils";
-import TimeAgo from "../common/TimeAgo";
+import TimeAgo from "../ui/TimeAgo";
 import CreateReviewModal from "../profile/CreateReviewModal";
 import ReviewDetailModal from "../profile/ReviewDetailModal";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { useReview } from "@/hooks/useReview";
+import ConfirmDialog from "@/components/global/ConfirmDialog";
+import { useReview } from "@/hooks/review/useReview";
 import { deleteReview } from "@/lib/review/deleteReview";
 import type { MyPurchasedListItem, ProductReview } from "@/types/product";
-import UserAvatar from "../common/UserAvatar";
+import UserAvatar from "../global/UserAvatar";
 
 type Props = {
   product: MyPurchasedListItem;
   onReviewChanged?: (patch: Partial<MyPurchasedListItem>) => void;
 };
 
-// 로컬 헬퍼: /public 접미어 통일 적용
-function getPublicImageUrl(url?: string | null) {
-  if (!url) return null;
-  return url.endsWith("/public") ? url : `${url}/public`;
-}
-
 export default function MyPurchasesProductItem({
   product,
   onReviewChanged,
 }: Props) {
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [isBuyerReviewModalOpen, setIsBuyerReviewModalOpen] = useState(false);
-  const [isSellerReviewModalOpen, setIsSellerReviewModalOpen] = useState(false);
+  const [modalState, setModalState] = useState({
+    create: false,
+    viewMine: false,
+    viewSeller: false,
+    deleteConfirm: false,
+  });
 
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const toggleModal = (key: keyof typeof modalState, open: boolean) => {
+    setModalState((prev) => ({ ...prev, [key]: open }));
+  };
+
   const [isDeleting, setIsDeleting] = useState(false);
-
   /**
    * 리뷰는 로컬 state로 관리
    * - 작성/삭제 즉시 UI에 반영
@@ -85,7 +85,7 @@ export default function MyPurchasesProductItem({
     [reviews, buyerUserId]
   );
 
-  const { isLoading, error, submitReview } = useReview({
+  const { isLoading: isSubmitting, submitReview } = useReview({
     productId: product.id,
     type: "buyer",
     onSuccess: (newReview) => {
@@ -97,207 +97,154 @@ export default function MyPurchasesProductItem({
         onReviewChanged?.({ reviews: next });
         return next;
       });
-      setIsReviewModalOpen(false);
+      toggleModal("create", false);
     },
   });
 
-  const handleSubmitReview = async (
-    text: string,
-    rating: number
-  ): Promise<boolean> => {
-    const res = await submitReview(text, rating);
-    return res.ok;
-  };
-
-  // 삭제 버튼 클릭 → 확인 모달 오픈
-  const handleDeleteReview = () => {
-    if (!buyerReview?.id) return;
-    setIsDeleteConfirmOpen(true);
-  };
-
-  // 확인 모달에서 실제 삭제 실행
   const confirmDeleteReview = async () => {
-    const reviewId = buyerReview?.id;
-    if (!reviewId) {
-      setIsDeleteConfirmOpen(false);
-      return;
-    }
+    if (!buyerReview?.id) return;
     try {
       setIsDeleting(true);
-      await deleteReview(reviewId);
-
-      /**
-       * 삭제 patch도 로컬 최신(prev) 기준으로 생성
-       * props(product.reviews) 기반 필터링은 타이밍에 따라 stale 가능
-       */
+      await deleteReview(buyerReview.id);
       setReviews((prev) => {
-        const next = prev.filter((r) => r.id !== reviewId);
+        const next = prev.filter((r) => r.id !== buyerReview.id);
         onReviewChanged?.({ reviews: next });
         return next;
       });
-
-      setIsBuyerReviewModalOpen(false);
+      toggleModal("viewMine", false);
     } catch (e) {
-      console.error("리뷰 삭제 중 오류 발생:", e);
-      // ConfirmDialog로 일원화: 별도 alert/토스트는 여기서 추가하지 않는다
+      console.error(e);
     } finally {
       setIsDeleting(false);
-      setIsDeleteConfirmOpen(false);
+      toggleModal("deleteConfirm", false);
     }
   };
 
-  const purchasedAt = product.purchased_at
-    ? new Date(product.purchased_at)
-    : undefined;
-
   const sellerName = product.user?.username ?? "판매자";
-  const sellerAvatar = product.user?.avatar ?? null;
-
+  const thumbUrl = product.images?.[0]?.url
+    ? `${product.images[0].url}/public`
+    : null;
   const href = `/products/view/${product.id}`;
-  const thumbUrl = getPublicImageUrl(product.images?.[0]?.url);
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
-      <div className="flex gap-5">
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md">
+      <div className="flex p-4 gap-4">
+        {/* Thumbnail */}
         <Link
           href={href}
-          className="relative size-28 shrink-0 overflow-hidden rounded-xl ring-1 ring-black/10 dark:ring-white/10"
-          aria-label={`${product.title} 상세보기`}
+          className="relative shrink-0 size-24 sm:size-28 rounded-xl overflow-hidden bg-surface-dim"
         >
           {thumbUrl ? (
             <Image
               fill
               src={thumbUrl}
-              sizes="112px"
-              className="object-cover transition-transform duration-200 hover:scale-110"
               alt={product.title}
+              className="object-cover transition-transform group-hover:scale-105"
             />
           ) : (
-            <div className="absolute inset-0 animate-pulse bg-neutral-100 dark:bg-neutral-800" />
+            <div className="flex h-full items-center justify-center text-muted text-xs">
+              No Image
+            </div>
           )}
         </Link>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex items-start justify-between gap-3">
-            <Link href={href} className="min-w-0">
-              <h3 className="truncate text-lg font-semibold text-neutral-900 dark:text-white">
-                {product.title}
-              </h3>
-            </Link>
-
-            {/* 상태 + 판매자 표시 */}
-            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-              <UserAvatar
-                avatar={sellerAvatar}
-                username={sellerName}
-                size="sm"
-              />
-              <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white dark:bg-emerald-500">
-                구매 완료
+        {/* Info */}
+        <div className="flex flex-1 flex-col justify-between min-w-0">
+          <div>
+            <div className="flex justify-between items-start gap-2">
+              <Link href={href} className="min-w-0">
+                <h3 className="truncate text-base font-semibold text-primary leading-tight group-hover:text-brand transition-colors">
+                  {product.title}
+                </h3>
+              </Link>
+              <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                구매완료
               </span>
+            </div>
+            <div className="text-sm font-bold text-brand dark:text-brand-light mt-1">
+              {formatToWon(product.price)}원
             </div>
           </div>
 
-          {/* 가격 */}
-          <div className="text-base font-semibold text-primary dark:text-primary-light">
-            {formatToWon(product.price)}원
-          </div>
-
-          {/* 타임라인 */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <span className="text-neutral-400 dark:text-neutral-500">
-              · 구매: {purchasedAt ? <TimeAgo date={purchasedAt} /> : "—"}
-            </span>
+          <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted">판매자</span>
+              <UserAvatar
+                avatar={product.user?.avatar}
+                username={sellerName}
+                size="sm"
+                compact
+              />
+            </div>
+            {product.purchased_at && (
+              <span className="text-xs text-muted">
+                <TimeAgo date={product.purchased_at.toString()} />
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Actions */}
+      <div className="grid grid-cols-2 divide-x divide-border border-t border-border bg-surface-dim/30">
         {buyerReview ? (
           <button
-            onClick={() => setIsBuyerReviewModalOpen(true)}
-            className="btn-primary flex-1 py-2.5"
-            disabled={isLoading}
-            aria-disabled={isLoading}
+            onClick={() => toggleModal("viewMine", true)}
+            className="py-3 text-sm font-medium text-primary hover:bg-surface-dim transition-colors"
           >
-            내가 쓴 리뷰 보기
+            내 리뷰 보기
           </button>
         ) : (
           <button
-            onClick={() => setIsReviewModalOpen(true)}
-            className="btn-primary flex-1 py-2.5"
-            disabled={isLoading}
-            aria-disabled={isLoading}
+            onClick={() => toggleModal("create", true)}
+            disabled={isSubmitting}
+            className="py-3 text-sm font-medium text-brand dark:text-brand-light hover:bg-brand/5 transition-colors disabled:opacity-50"
           >
-            거래 후기 보내기
+            {isSubmitting ? "작성 중..." : "리뷰 작성하기"}
           </button>
         )}
 
         <button
-          onClick={() => setIsSellerReviewModalOpen(true)}
-          className="btn-secondary flex-1 py-2.5"
-          disabled={isLoading}
-          aria-disabled={isLoading}
+          onClick={() => toggleModal("viewSeller", true)}
+          className="py-3 text-sm font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors"
         >
-          {sellerName} 님의 리뷰 보기
+          판매자 리뷰
         </button>
       </div>
 
-      {error && (
-        <div className="mt-4 rounded-lg bg-red-100 p-4 text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="rounded-lg bg-white p-4 shadow-xl dark:bg-neutral-800">
-            <span className="text-neutral-900 dark:text-white">
-              리뷰를 등록하는 중...
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* 리뷰 작성 모달 (구매자) */}
+      {/* Modals */}
       <CreateReviewModal
-        isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
-        onSubmit={handleSubmitReview}
+        isOpen={modalState.create}
+        onClose={() => toggleModal("create", false)}
+        onSubmit={(text, rate) => submitReview(text, rate).then((r) => r.ok)}
         username={sellerName}
-        userAvatar={sellerAvatar}
+        userAvatar={product.user?.avatar ?? null}
       />
 
-      {/* 내가 쓴 리뷰(구매자) */}
       <ReviewDetailModal
-        isOpen={isBuyerReviewModalOpen}
-        onClose={() => setIsBuyerReviewModalOpen(false)}
+        isOpen={modalState.viewMine}
+        onClose={() => toggleModal("viewMine", false)}
         title="내가 쓴 리뷰"
         review={buyerReview}
-        onDelete={handleDeleteReview}
+        onDelete={() => toggleModal("deleteConfirm", true)}
       />
 
-      {/* 판매자가 남긴 리뷰 */}
       <ReviewDetailModal
-        isOpen={isSellerReviewModalOpen}
-        onClose={() => setIsSellerReviewModalOpen(false)}
+        isOpen={modalState.viewSeller}
+        onClose={() => toggleModal("viewSeller", false)}
         title={`${sellerName}님의 리뷰`}
         review={sellerReview}
-        emptyMessage={`${sellerName}님이 아직 리뷰를 보내지 않았습니다.`}
+        emptyMessage={`${sellerName}님이 아직 리뷰를 작성하지 않았습니다.`}
       />
 
-      {/* 리뷰 삭제 확인 모달 */}
       <ConfirmDialog
-        open={isDeleteConfirmOpen}
-        onCancel={() => {
-          if (!isDeleting) setIsDeleteConfirmOpen(false);
-        }}
+        open={modalState.deleteConfirm}
+        onCancel={() => toggleModal("deleteConfirm", false)}
         onConfirm={confirmDeleteReview}
         loading={isDeleting}
-        title="리뷰를 삭제할까요?"
+        title="리뷰 삭제"
+        description="작성한 리뷰를 삭제하시겠습니까?"
         confirmLabel="삭제"
-        cancelLabel="취소"
-        description="삭제 후에는 되돌릴 수 없습니다."
       />
     </div>
   );

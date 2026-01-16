@@ -8,12 +8,15 @@
  * 2025.07.14  임도헌   Created   ChatMessagesList에서 분리
  * 2025.07.16  임도헌   Modified  Telegram 스타일 말풍선 및 중앙 정렬
  * 2025.07.17  임도헌   Modified  시간/읽음 여부 말풍선 바깥으로 분리
+ * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
+ * 2026.01.12  임도헌   Modified  [UI] max-width 85%로 확장, 아바타/시간 여백 미세 조정
  */
 "use client";
 
-import UserAvatar from "../common/UserAvatar";
-import TimeAgo from "../common/TimeAgo";
+import UserAvatar from "../global/UserAvatar";
+import TimeAgo from "../ui/TimeAgo";
 import { ChatUser } from "@/types/chat";
+import { cn } from "@/lib/utils";
 
 interface ChatMessageBubbleProps {
   message: {
@@ -25,89 +28,82 @@ interface ChatMessageBubbleProps {
   };
   isOwnMessage: boolean;
   showAvatar: boolean;
-  showTail: boolean;
 }
 
 export default function ChatMessageBubble({
   message,
   isOwnMessage,
   showAvatar,
-  showTail,
 }: ChatMessageBubbleProps) {
   return (
     <div
-      className={`flex ${
+      className={cn(
+        "flex w-full animate-fade-in",
         isOwnMessage ? "justify-end" : "justify-start"
-      } items-end animate-fade-in`}
-    >
-      {/* 왼쪽 유저 아바타 */}
-      {!isOwnMessage && (
-        <div className="self-start w-10 sm:w-12">
-          {showAvatar && (
-            <UserAvatar
-              avatar={message.user.avatar}
-              username={message.user.username}
-              size="sm"
-              showUsername={false}
-            />
-          )}
-        </div>
       )}
-
-      {/* 말풍선 + 시간/읽음 레이아웃 */}
+    >
       <div
-        className={`flex ${
+        className={cn(
+          "flex max-w-[85%] sm:max-w-[75%] gap-1.5",
           isOwnMessage ? "flex-row-reverse" : "flex-row"
-        } gap-1 sm:gap-1.5 items-end`}
+        )}
       >
-        {/* 말풍선 */}
-        <div
-          className={`relative max-w-[76%] sm:max-w-[70%] ${
-            !isOwnMessage ? "ml-1.5 sm:ml-2" : "mr-1.5 sm:mr-2"
-          }`}
-        >
-          <div
-            className={`
-              relative rounded-2xl shadow
-              px-3 py-2.5 sm:px-4 sm:py-3
-              text-[13px] sm:text-sm leading-relaxed
-              ${
-                isOwnMessage
-                  ? "bg-primary text-white"
-                  : "bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-              }
-            `}
-          >
-            {message.payload}
-
-            {/* 꼬리 */}
-            {showTail && (
-              <span
-                className={`
-                  absolute w-3 h-3 bg-inherit rounded-br
-                  ${
-                    isOwnMessage
-                      ? "right-[-6px] top-1/2 -translate-y-1/2 rotate-45"
-                      : "left-[-6px] top-1/2 -translate-y-1/2 rotate-45"
-                  }
-                `}
+        {/* Avatar (Left Only) */}
+        {!isOwnMessage && (
+          <div className="shrink-0 w-8 sm:w-9 flex flex-col justify-start">
+            {showAvatar ? (
+              <UserAvatar
+                avatar={message.user.avatar}
+                username={message.user.username}
+                size="sm"
+                showUsername={false}
+                className="p-0"
               />
+            ) : (
+              <div className="w-8" />
             )}
           </div>
-        </div>
+        )}
 
-        {/* 시간 + 읽음 여부 */}
         <div
-          className={`
-            flex flex-col gap-0.5
-            text-[11px] sm:text-xs
-            text-neutral-700 dark:text-neutral-300
-            hover:text-neutral-800 dark:hover:text-neutral-400
-            ${isOwnMessage ? "items-start pr-1" : "items-end pl-1"}
-          `}
+          className={cn(
+            "flex flex-col",
+            isOwnMessage ? "items-end" : "items-start"
+          )}
         >
-          {isOwnMessage && <span>{message.isRead ? "읽음" : "안 읽음"}</span>}
-          <TimeAgo date={message.created_at.toString()} />
+          {/* Username (GroupChat only - optional, currently hidden for 1:1 context but good for structure) */}
+
+          <div
+            className={cn(
+              "flex items-end gap-1.5",
+              isOwnMessage ? "flex-row-reverse" : "flex-row"
+            )}
+          >
+            {/* Bubble */}
+            <div
+              className={cn(
+                "px-3 py-2 rounded-2xl text-sm leading-relaxed break-words shadow-sm relative",
+                isOwnMessage
+                  ? "bg-brand text-white rounded-br-none"
+                  : "bg-surface text-primary border border-border rounded-bl-none"
+              )}
+            >
+              {message.payload}
+            </div>
+
+            {/* Time & Read Status */}
+            <div className="flex flex-col text-[10px] text-muted/80 shrink-0 mb-0.5">
+              {isOwnMessage && (
+                <span className="text-brand dark:text-brand-light text-right">
+                  {message.isRead ? "" : "1"}
+                </span>
+              )}
+              <TimeAgo
+                date={message.created_at.toString()}
+                className="whitespace-nowrap"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -25,13 +25,12 @@ export default function PostSearchBarWrapper() {
     } else {
       params.delete("keyword");
     }
-
     router.push(`/posts?${params.toString()}`);
   };
 
   return (
     <SearchBar
-      placeholder="게시글 검색"
+      placeholder="게시글 검색..."
       value={searchParams.get("keyword") || ""}
       onSearch={handleSearch}
     />

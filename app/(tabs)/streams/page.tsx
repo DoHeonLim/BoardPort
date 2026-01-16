@@ -19,6 +19,7 @@
  * 2025.08.25  임도헌   Modified  URL 스코프 기반 초기 로딩 + 클라이언트 무한스크롤 연결
  * 2025.09.09  임도헌   Modified  a11y(nav/role=tablist), scope 정규화 변수, 주석 보강
  * 2025.11.21  임도헌   Modified  스트리밍 리스트 페이지 캐싱 제거(dynamic SSR로 변경)
+ * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 스코프 탭 스타일 통일
  */
 
 import Link from "next/link";
@@ -33,6 +34,7 @@ import StreamEmptyState from "@/components/stream/StreamEmptyState";
 import AddStreamButton from "@/components/stream/AddStreamButton";
 import StreamListSection from "@/components/stream/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/components/stream/LiveStatusRealtimeSubscriber";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic"; // 명시적으로 동적 페이지 선언
 
@@ -47,11 +49,9 @@ interface StreamsPageProps {
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const session = await getSession();
   const viewerId = session?.id ?? null;
-
   // 스코프 정규화
   const scope: "all" | "following" =
     searchParams.scope === "following" ? "following" : "all";
-
   // 검색/필터/스코프 여부
   const hasSearchParams =
     !!searchParams.keyword || !!searchParams.category || scope !== "all";
@@ -86,66 +86,41 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background dark:bg-background-dark">
-      {/* 같은 탭에서 라이브 상태 변동 시 즉시 새로고침 */}
+    <div className="flex min-h-screen flex-col bg-background transition-colors pb-24">
       <LiveStatusRealtimeSubscriber />
 
-      {/* 상단: 카테고리 탭 + 검색 + 스코프 탭 */}
-      <div
-        className="
-          sticky top-0 z-10 border-b border-neutral-200 
-         bg-white/80 backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/80
-          p-3 sm:p-4           
-        "
-      >
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4 shadow-sm">
         <StreamCategoryTabs currentCategory={searchParams.category} />
 
-        <div className="mt-3 sm:mt-4 flex items-center justify-between gap-3 sm:gap-4">
+        <div className="mt-4 flex items-center justify-between gap-4">
           <StreamSearchBarWrapper />
 
-          {/* 스코프 전환: 링크 탭 역할 */}
+          {/* Scope Tab (Segmented Control) */}
           <nav aria-label="스트리밍 보기 범위" role="tablist">
-            <div
-              className="
-                inline-flex items-center rounded-2xl border border-neutral-200/60
-                bg-white/50 backdrop-blur dark:border-neutral-700/60 dark:bg-neutral-900/40
-                p-[3px] sm:p-1                        
-              "
-            >
+            <div className="flex p-1 bg-surface-dim rounded-xl border border-border">
               <Link
                 href={buildHref("all")}
                 role="tab"
                 aria-selected={scope === "all"}
-                aria-current={scope === "all" ? "page" : undefined}
-                className={`
-                  inline-flex items-center justify-center rounded-xl
-                  h-9 min-w-[60px] px-3 text-xs sm:h-11 sm:min-w-[80px] sm:px-4 sm:text-sm
-                  font-semibold transition
-                  ${
-                    scope === "all"
-                      ? "bg-neutral-900 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] dark:bg-white dark:text-neutral-900"
-                      : "text-neutral-700 hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/5"
-                  }
-                `}
+                className={cn(
+                  "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap",
+                  scope === "all"
+                    ? "bg-surface text-brand shadow-sm"
+                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
+                )}
               >
                 전체
               </Link>
-
               <Link
                 href={buildHref("following")}
                 role="tab"
                 aria-selected={scope === "following"}
-                aria-current={scope === "following" ? "page" : undefined}
-                className={`
-                  inline-flex items-center justify-center rounded-xl
-                  h-9 min-w-[60px] px-3 text-xs sm:h-11 sm:min-w-[80px] sm:px-4 sm:text-sm
-                  font-semibold transitio80
-                  ${
-                    scope === "following"
-                      ? "bg-neutral-900 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] dark:bg-white dark:text-neutral-900"
-                      : "text-neutral-700 hover:bg-black/5 dark:text-neutral-300 dark:hover:bg-white/5"
-                  }
-                `}
+                className={cn(
+                  "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap",
+                  scope === "following"
+                    ? "bg-surface text-brand shadow-sm"
+                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
+                )}
               >
                 팔로잉
               </Link>
@@ -154,11 +129,10 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         </div>
       </div>
 
-      {/* 목록 or Empty */}
-      <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex-1 px-page-x py-6">
         {initial.streams.length > 0 ? (
           <StreamListSection
-            key={JSON.stringify(searchParams)} // 검색/탭 변경 시 클린 리마운트
+            key={JSON.stringify(searchParams)}
             scope={scope}
             searchParams={{
               category: searchParams.category ?? "",
@@ -177,7 +151,6 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         )}
       </div>
 
-      {/* 추가 버튼 */}
       <AddStreamButton />
     </div>
   );

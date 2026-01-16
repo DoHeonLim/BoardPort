@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2025.08.05  임도헌   Created   Provider 포함 전체 댓글 UI 통합 컴포넌트 구성
  * 2025.09.20  임도헌   Modified  VodAsset 전환(streamId → vodId), import 경로 정리
+ * 2026.01.14  임도헌   Modified  [UI] 스타일 통일
  */
 
 "use client";
@@ -27,10 +28,7 @@ export default function RecordingComment({
 }: RecordingCommentProps) {
   return (
     <RecordingCommentProvider vodId={vodId}>
-      <div className="mt-6 px-4 w-full max-w-3xl">
-        <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">
-          댓글
-        </h3>
+      <div className="w-full flex flex-col gap-4">
         <RecordingCommentForm vodId={vodId} />
         <RecordingCommentList currentUserId={currentUserId} />
       </div>

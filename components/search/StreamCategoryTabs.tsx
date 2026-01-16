@@ -8,6 +8,7 @@
  * 2025.05.22  임도헌   Modified  스트리밍 카테고리 탭 추가
  * 2025.09.10  임도헌   Modified  검색/스코프 파라미터 유지, a11y(aria-current) 보강
  * 2025.11.23  임도헌   Modified  모바일 UI 수정
+ * 2026.01.11  임도헌   Modified  시맨틱 탭 스타일(bg-brand / bg-surface-dim) 적용
  */
 "use client";
 
@@ -15,6 +16,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { STREAM_CATEGORY } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 interface StreamCategoryTabsProps {
   currentCategory?: string;
@@ -40,45 +42,35 @@ export default function StreamCategoryTabs({
 
   return (
     <nav
-      className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1.5 sm:pb-2"
+      className="flex gap-2 overflow-x-auto scrollbar-hide pb-1"
       aria-label="스트리밍 카테고리"
     >
       <Link
         href={buildHref(undefined)}
-        aria-current={!currentCategory ? "page" : undefined}
-        className={`
-        rounded-full whitespace-nowrap transition-colors
-        px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm  
-        ${
+        className={cn(
+          "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
           !currentCategory
-            ? "bg-primary text-white dark:bg-primary-light"
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-        }
-      `}
+            ? "bg-brand text-white shadow-md"
+            : "bg-surface-dim text-muted hover:text-primary hover:bg-surface border border-transparent hover:border-border"
+        )}
       >
         전체
       </Link>
-      {Object.entries(STREAM_CATEGORY).map(([key, label]) => {
-        const active = currentCategory === key;
-        return (
-          <Link
-            key={key}
-            href={buildHref(key)}
-            aria-current={active ? "page" : undefined}
-            className={`
-            rounded-full whitespace-nowrap transition-colors
-            px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm   
-            ${
-              active
-                ? "bg-primary text-white dark:bg-primary-light"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            }
-          `}
-          >
-            {label}
-          </Link>
-        );
-      })}
+
+      {Object.entries(STREAM_CATEGORY).map(([key, label]) => (
+        <Link
+          key={key}
+          href={buildHref(key)}
+          className={cn(
+            "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+            currentCategory === key
+              ? "bg-brand text-white shadow-md"
+              : "bg-surface-dim text-muted hover:text-primary hover:bg-surface border border-transparent hover:border-border"
+          )}
+        >
+          {label}
+        </Link>
+      ))}
     </nav>
   );
 }

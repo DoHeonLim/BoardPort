@@ -9,13 +9,14 @@
  * 2024.11.25  임도헌   Modified  프로필 페이지 레이아웃 추가
  * 2024.12.15  임도헌   Modified  다크모드 적용
  * 2025.10.08  임도헌   Modified  getUser 변경(getCurrentUserForProfileEdit)
- * 2025.10.31  임도헌  Modified  세션 없으면 /login 으로 redirect(callbackUrl 포함)
+ * 2025.10.31  임도헌   Modified  세션 없으면 /login 으로 redirect(callbackUrl 포함)
+ * 2026.01.15  임도헌   Modified  레이아웃 정리
  */
 
+import { redirect } from "next/navigation";
 import ProfileEditForm from "@/components/profile/ProfileEditForm";
 import { getCurrentUserForProfileEdit } from "@/lib/user/getCurrentUserForProfileEdit";
 import { editProfile } from "@/lib/profile/update/editProfile";
-import { redirect } from "next/navigation";
 
 export default async function EditProfilePage() {
   const user = await getCurrentUserForProfileEdit();
@@ -23,9 +24,5 @@ export default async function EditProfilePage() {
     redirect(`/login?callbackUrl=${encodeURIComponent("/profile/edit")}`);
   }
 
-  return (
-    <div className="min-h-screen dark:bg-neutral-900 bg-white transition-colors duration-200">
-      <ProfileEditForm user={user} action={editProfile} />
-    </div>
-  );
+  return <ProfileEditForm user={user} action={editProfile} />;
 }
