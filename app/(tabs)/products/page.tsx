@@ -24,17 +24,17 @@
  * 2026.01.08  임도헌   Modified  URL 쿼리 파싱 시 NaN 방어 로직 추가 (minPrice, maxPrice)
  * 2026.01.10  임도헌   Modified  헤더를 sticky로 고정하여 스크롤 시에도 접근성 확보, 레이아웃 재정리
  */
-import ProductList from "@/components/product/ProductList";
-import SearchResultSummary from "@/components/product/SearchResultSummary";
-import ProductEmptyState from "@/components/product/ProductEmptyState";
-import AddProductButton from "@/components/product/AddProductButton";
-import SearchSection from "@/components/search/SearchSection";
-import ClientFilterWrapper from "@/components/search/ClientFilterWrapper";
-import { SearchProvider } from "@/components/providers/SearchProvider";
+import ProductList from "@/features/product/components/ProductList";
+import SearchResultSummary from "@/features/product/components/SearchResultSummary";
+import ProductEmptyState from "@/features/product/components/ProductEmptyState";
+import AddProductButton from "@/features/product/components/AddProductButton";
+import SearchSection from "@/features/search/components/SearchSection";
+import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
+import { SearchProvider } from "@/components/global/providers/SearchProvider";
 
-import { formatSearchSummary } from "@/lib/product/formatSearchParams";
-import { fetchProductCategories } from "@/lib/category/fetchProductCategories";
-import { getCategoryName } from "@/lib/category/getCategoryName";
+import { formatSearchSummary } from "@/features/product/lib/formatSearchParams";
+import { fetchProductCategories } from "@/lib/categories";
+import { getCategoryName } from "@/lib/getCategoryName";
 import { searchProducts } from "./actions/search";
 import { getInitialProducts } from "./actions/init";
 import { getPopularSearches, getUserSearchHistory } from "./actions/history";

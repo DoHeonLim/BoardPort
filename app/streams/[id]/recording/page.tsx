@@ -38,16 +38,16 @@ export const dynamic = "force-dynamic";
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 
-import RecordingTopbar from "@/components/stream/recording/RecordingTopbar";
-import RecordingDetail from "@/components/stream/recording/recordingDetail";
-import RecordingComment from "@/components/stream/recording/recordingComment/RecordingComment";
-import RecordingDeleteButton from "@/components/stream/recording/recordingDetail/RecordingDeleteButton";
+import RecordingTopbar from "@/features/stream/components/recording/RecordingTopbar";
+import RecordingDetail from "@/features/stream/components/recording/recordingDetail";
+import RecordingComment from "@/features/stream/components/recording/recordingComment";
+import RecordingDeleteButton from "@/features/stream/components/recording/recordingDetail/RecordingDeleteButton";
 
 import { getRecordingLikeStatus } from "@/app/streams/[id]/recording/actions/likes";
-import { checkBroadcastAccess } from "@/lib/stream/checkBroadcastAccess";
-import { isBroadcastUnlockedFromSession } from "@/lib/stream/privateUnlockSession";
-import { getVodDetail } from "@/lib/stream/getVodDetail";
-import { incrementViews } from "@/lib/views/incrementViews";
+import { checkBroadcastAccess } from "@/features/stream/lib/checkBroadcastAccess";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
+import { getVodDetail } from "@/features/stream/lib/getVodDetail";
+import { incrementViews } from "@/lib/viewCounter";
 
 export default async function RecordingVodPage({
   params,

@@ -12,11 +12,11 @@
  */
 "use server";
 
-import { checkChatRoomAccess } from "@/lib/chat/room/checkChatRoomAccess";
-import { getChatRoomDetails } from "@/lib/chat/room/getChatRoomDetails";
-import { leaveChatRoom } from "@/lib/chat/room/leaveChatRoom";
+import { checkChatRoomAccess } from "@/features/chat/lib/room/checkChatRoomAccess";
+import { getChatRoomDetails } from "@/features/chat/lib/room/getChatRoomDetails";
+import { leaveChatRoom } from "@/features/chat/lib/room/leaveChatRoom";
 import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 /**
  * 채팅방 접근 권한 server action

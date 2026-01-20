@@ -11,7 +11,7 @@
  * 2026.01.03  임도헌   Modified  검색 초기 로딩을 POST_LIST 태그 기반 캐시(init 공용)로 연결
  */
 import { getInitialPostsBySearch } from "./init";
-import { PostSearchParams } from "@/lib/queries/getPostSearchCondition";
+import { PostSearchParams } from "@/features/post/lib/queries";
 import { Posts } from "@/types/post";
 
 export const searchPosts = async (params: PostSearchParams): Promise<Posts> => {

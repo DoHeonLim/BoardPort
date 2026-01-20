@@ -11,7 +11,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import BackButton from "@/components/global/BackButton";
-import { getProductTopbar } from "@/lib/product/getProductTopbar";
+import { getProductTopbar } from "@/features/product/lib/getProductTopbar";
 import { cn } from "@/lib/utils";
 
 export default async function ProductDetailLayout({

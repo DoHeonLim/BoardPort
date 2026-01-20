@@ -12,7 +12,7 @@
  * 2025.06.26  임도헌   Created   상단 필터 고정 + 스켈레톤 UI 적용
  * 2026.01.13  임도헌   Modified  [UI] 실제 페이지 레이아웃과 싱크 맞춤
  */
-import PostListSkeleton from "@/components/post/PostListSkeleton";
+import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {

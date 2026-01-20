@@ -25,7 +25,7 @@ import {
   unstable_cache as nextCache,
   revalidatePath,
 } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 /**
  * 게시글 상세 조회 (순수 쿼리, 부수효과 없음)

@@ -29,24 +29,24 @@
 export const dynamic = "force-dynamic";
 
 import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 import { notFound, redirect } from "next/navigation";
 
 import getSession from "@/lib/session";
-import { getUserInfoById } from "@/lib/user/getUserInfo";
+import { getUserInfoById } from "@/features/user/lib/getUserInfo";
 import {
   getBroadcastDetail,
   StreamDetailDTO,
-} from "@/lib/stream/getBroadcastDetail";
-import { getStreamChatRoom } from "@/lib/chat/room/getStreamChatRoom";
-import { isBroadcastUnlockedFromSession } from "@/lib/stream/privateUnlockSession";
-import { checkBroadcastAccess } from "@/lib/stream/checkBroadcastAccess";
-import { getInitialStreamMessages } from "@/lib/chat/messages/getInitialStreamMessages";
+} from "@/features/stream/lib/getBroadcastDetail";
+import { getStreamChatRoom } from "@/features/stream/lib/getStreamChatRoom";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
+import { checkBroadcastAccess } from "@/features/stream/lib/checkBroadcastAccess";
+import { getInitialStreamMessages } from "@/features/stream/lib/getInitialStreamMessages";
 import type { StreamVisibility } from "@/types/stream";
-import StreamDetail from "@/components/stream/StreamDetail";
-import StreamChatRoom from "@/components/stream/StreamChatRoom";
-import StreamTopbar from "@/components/stream/StreamTopBar";
-import StreamMobileChatSection from "@/components/stream/StreamMobileChatSection";
+import StreamDetail from "@/features/stream/components/StreamDetail";
+import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
+import StreamTopbar from "@/features/stream/components/StreamTopBar";
+import StreamMobileChatSection from "@/features/stream/components/StreamMobileChatSection";
 
 /** base: tags 없는 캐시 함수 */
 const _getCachedBroadcastBase = nextCache(

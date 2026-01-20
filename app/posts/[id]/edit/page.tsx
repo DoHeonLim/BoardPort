@@ -1,5 +1,5 @@
 /**
- * File Name : app/post/[id]/edit
+ * File Name : app/post/[id]/edit/page.tsx
  * Description : 게시글 편집 페이지
  * Author : 임도헌
  *
@@ -10,11 +10,12 @@
  * 2025.07.04  임도헌   Modified  게시글 등록, 편집 컴포넌트로 통합
  * 2025.11.13  임도헌   Modified  뒤로가기 버튼 layout으로 이동
  * 2025.11.20  임도헌   Modified  삭제 흐름 정리
+ * 2026.01.19  임도헌   Modified  getIsOwner 제거 및 직접 비교
  */
 import { notFound, redirect } from "next/navigation";
-import PostForm from "@/components/post/PostForm";
-import { updatePost } from "@/lib/post/update/updatePost";
-import { getIsOwner } from "@/lib/get-is-owner";
+import getSession from "@/lib/session";
+import { updatePost } from "@/features/post/lib/updatePost";
+import PostForm from "@/features/post/components/PostForm";
 import { deletePost, getPost } from "../actions/posts";
 
 export default async function PostEditPage({
@@ -28,7 +29,8 @@ export default async function PostEditPage({
   const post = await getPost(id);
   if (!post) return notFound();
 
-  const isOwner = await getIsOwner(post.userId);
+  const session = await getSession();
+  const isOwner = session?.id === post.userId;
   if (!isOwner) redirect("/home");
 
   const handleDeletePost = async () => {

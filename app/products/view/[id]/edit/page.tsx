@@ -18,13 +18,13 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 적용
  */
 import { notFound, redirect } from "next/navigation";
-import ProductForm from "@/components/product/ProductForm";
+import getSession from "@/lib/session";
+import ProductForm from "@/features/product/components/ProductForm";
 import { getCachedProduct } from "../actions/product";
-import { fetchProductCategories } from "@/lib/category/fetchProductCategories";
-import { convertProductToFormValues } from "@/lib/product/form/convertProductToFormValues";
-import { deleteProduct } from "@/lib/product/delete/deleteProduct";
+import { fetchProductCategories } from "@/lib/categories";
+import { convertProductToFormValues } from "@/features/product/lib/convertProductToFormValues";
+import { deleteProduct } from "@/features/product/lib/deleteProduct";
 import { updateProductAction } from "../actions/update";
-import { getIsOwner } from "@/lib/get-is-owner";
 
 export default async function EditPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
@@ -33,7 +33,8 @@ export default async function EditPage({ params }: { params: { id: string } }) {
   const product = await getCachedProduct(id);
   if (!product) return notFound();
 
-  const isOwner = await getIsOwner(product.userId);
+  const session = await getSession();
+  const isOwner = session?.id === product.userId;
   if (!isOwner) redirect("/products"); // 권한 없으면 목록으로
 
   const categories = await fetchProductCategories();

@@ -10,7 +10,7 @@
  * 2026.01.14  임도헌   Modified  탭/검색창/리스트 스켈레톤 적용
  */
 
-import StreamListSkeleton from "@/components/stream/StreamListSkeleton";
+import StreamListSkeleton from "@/features/stream/components/StreamListSkeleton";
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {

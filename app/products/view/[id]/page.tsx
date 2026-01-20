@@ -37,9 +37,9 @@ Date        Author   Status    Description
 */
 
 import { notFound } from "next/navigation";
-import { getProductDetailData } from "@/lib/product/getProductDetailData";
-import { getProductTitleForMetadata } from "@/lib/product/getProductTitleForMetadata";
-import ProductDetailContainer from "@/components/product/productDetail";
+import { getProductDetailData } from "@/features/product/lib/getProductDetailData";
+import { getProductTitleForMetadata } from "@/features/product/lib/getProductTitleForMetadata";
+import ProductDetailContainer from "@/features/product/components/productDetail";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

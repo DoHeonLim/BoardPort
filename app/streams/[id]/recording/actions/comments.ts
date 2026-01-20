@@ -14,8 +14,8 @@
 import getSession from "@/lib/session";
 import db from "@/lib/db";
 import { revalidateTag, unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cache/tags";
-import { streamCommentFormSchema } from "@/lib/stream/form/streamCommentFormSchema";
+import * as T from "@/lib/cacheTags";
+import { streamCommentFormSchema } from "@/features/stream/lib/streamCommentFormSchema";
 
 // 페이징 조회
 export const getRecordingComments = async (

@@ -16,12 +16,12 @@ Date        Author   Status    Description
 2026.01.10  임도헌   Modified  구조 개선
 */
 
-import AccountBox from "@/components/auth/AccountBox";
-import Clouds from "@/components/auth/background/Clouds";
-import Seagulls from "@/components/auth/background/Seagulls";
-import Stars from "@/components/auth/background/Stars";
-import Waves from "@/components/auth/background/Waves";
-import HeroSection from "@/components/auth/HeroSection";
+import AccountBox from "@/features/auth/components/AccountBox";
+import Clouds from "@/features/auth/components/background/Clouds";
+import Seagulls from "@/features/auth/components/background/Seagulls";
+import Stars from "@/features/auth/components/background/Stars";
+import Waves from "@/features/auth/components/background/Waves";
+import HeroSection from "@/features/auth/components/HeroSection";
 
 export default function Main() {
   return (

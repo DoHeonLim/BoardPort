@@ -9,8 +9,8 @@
  * 2025.11.13  임도헌   Modieifd  h1 삭제
  */
 
-import PostForm from "@/components/post/PostForm";
-import { createPost } from "@/lib/post/create/createPost";
+import PostForm from "@/features/post/components/PostForm";
+import { createPost } from "@/features/post/lib/createPost";
 
 export default function AddPostPage() {
   return (

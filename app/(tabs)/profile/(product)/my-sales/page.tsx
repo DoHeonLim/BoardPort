@@ -18,12 +18,12 @@
  */
 
 import getSession from "@/lib/session";
-import MySalesProductList from "@/components/product/MySalesProductList";
+import MySalesProductList from "@/features/product/components/MySalesProductList";
 // 커서 기반 공용 액션 (SELLING / RESERVED / SOLD)
 import {
   getCachedInitialUserProducts,
   getCachedUserTabCounts,
-} from "@/lib/product/getUserProducts";
+} from "@/features/product/lib/getUserProducts";
 import { redirect } from "next/navigation";
 
 export default async function MySalesPage() {

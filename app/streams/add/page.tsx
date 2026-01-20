@@ -17,8 +17,8 @@
  */
 
 import type { Metadata } from "next";
-import StreamForm from "@/components/stream/StreamForm";
-import { fetchStreamCategories } from "@/lib/category/fetchStreamCategories";
+import StreamForm from "@/features/stream/components/StreamForm";
+import { fetchStreamCategories } from "@/lib/categories";
 import { createBroadcastAction } from "./actions";
 
 /**

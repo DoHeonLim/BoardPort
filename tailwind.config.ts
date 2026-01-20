@@ -1,5 +1,6 @@
 // 2024.11.23  임도헌 tailwind 스크롤 바 커스텀
 // 2026.01.10  임도헌 BoardPort Design Standard v1.1 적용
+// 2026.01.19  임도헌 features 경로 추가
 
 import type { Config } from "tailwindcss";
 import formsPlugin from "@tailwindcss/forms";
@@ -12,6 +13,7 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./lib/**/*.{js,ts,jsx,tsx,mdx}",
+    "./features/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {

@@ -16,8 +16,8 @@
 
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
-import { getCachedChatRooms } from "@/lib/chat/room/getChatRooms";
-import ChatRoomListContainer from "@/components/chat/ChatRoomListContainer";
+import { getCachedChatRooms } from "@/features/chat/lib/room/getChatRooms";
+import ChatRoomListContainer from "@/features/chat/components/ChatRoomListContainer";
 
 export default async function Chat() {
   const session = await getSession();

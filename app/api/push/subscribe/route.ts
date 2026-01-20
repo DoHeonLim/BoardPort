@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import { sendPushNotification } from "@/lib/notification/push-notification";
+import { sendPushNotification } from "@/features/notification/lib/push-notification";
 
 export const runtime = "nodejs";
 

@@ -9,7 +9,7 @@
  */
 "use server";
 
-import { badgeChecks } from "@/lib/check-badge-conditions";
+import { badgeChecks } from "@/features/user/lib/badges";
 
 /**
  * web-push 라이브러리는 Node.js 환경에서만 동작

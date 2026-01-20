@@ -17,11 +17,11 @@
 "use server";
 
 import db from "@/lib/db";
-import { PRODUCT_SELECT } from "@/lib/constants/productSelect";
+import { PRODUCT_SELECT } from "@/features/product/lib/constants";
 import type { Paginated, ProductType } from "@/types/product";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
 import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
 

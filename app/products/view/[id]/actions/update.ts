@@ -15,7 +15,7 @@ Date        Author   Status    Description
 */
 "use server";
 
-import { updateProduct } from "@/lib/product/update/updateProduct";
+import { updateProduct } from "@/features/product/lib/updateProduct";
 
 export async function updateProductAction(formData: FormData) {
   return await updateProduct(formData);

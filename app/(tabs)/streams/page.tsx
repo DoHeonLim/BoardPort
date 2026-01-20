@@ -28,12 +28,12 @@ import getSession from "@/lib/session";
 import { getInitialStreams } from "./actions/init";
 import { searchStreams } from "./actions/search";
 
-import StreamCategoryTabs from "@/components/search/StreamCategoryTabs";
-import StreamSearchBarWrapper from "@/components/stream/StreamSearchBarWrapper";
-import StreamEmptyState from "@/components/stream/StreamEmptyState";
-import AddStreamButton from "@/components/stream/AddStreamButton";
-import StreamListSection from "@/components/stream/StreamListSection";
-import LiveStatusRealtimeSubscriber from "@/components/stream/LiveStatusRealtimeSubscriber";
+import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
+import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
+import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
+import AddStreamButton from "@/features/stream/components/AddStreamButton";
+import StreamListSection from "@/features/stream/components/StreamListSection";
+import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic"; // 명시적으로 동적 페이지 선언

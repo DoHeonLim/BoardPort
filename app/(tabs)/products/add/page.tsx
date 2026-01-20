@@ -28,8 +28,8 @@
  * 2026.01.11  임도헌   Modified  프래그먼트 태그 제거
  */
 
-import ProductForm from "@/components/product/ProductForm";
-import { fetchProductCategories } from "@/lib/category/fetchProductCategories";
+import ProductForm from "@/features/product/components/ProductForm";
+import { fetchProductCategories } from "@/lib/categories";
 import { createProductAction } from "../actions/create";
 
 export default async function AddPage() {

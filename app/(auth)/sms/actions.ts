@@ -19,11 +19,11 @@
 
 import db from "@/lib/db";
 import crypto from "crypto";
-import { sendSMS } from "@/lib/auth/sms/send";
-import { badgeChecks } from "@/lib/check-badge-conditions";
-import { phoneSchema, tokenSchema } from "@/lib/auth/sms/smsSchema";
-import { generateUniqueToken } from "@/lib/auth/sms/token";
-import { saveUserSession } from "@/lib/auth/saveUserSession";
+import { sendSMS } from "@/features/auth/lib/sms/send";
+import { badgeChecks } from "@/features/user/lib/badges";
+import { phoneSchema, tokenSchema } from "@/features/auth/lib/sms/smsSchema";
+import { generateUniqueToken } from "@/features/auth/lib/sms/token";
+import { saveUserSession } from "@/features/auth/lib/saveUserSession";
 
 export async function sendPhoneToken(formData: FormData) {
   const phone = formData.get("phone");

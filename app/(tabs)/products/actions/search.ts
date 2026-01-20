@@ -14,8 +14,8 @@
 "use server";
 
 import db from "@/lib/db";
-import { PRODUCT_SELECT } from "@/lib/constants/productSelect";
-import { getProductSearchCondition } from "@/lib/queries/getProductSearchCondition";
+import { PRODUCT_SELECT } from "@/features/product/lib/constants";
+import { getProductSearchCondition } from "@/features/product/lib/queries";
 import { ProductType } from "@/types/product";
 
 interface SearchParams {

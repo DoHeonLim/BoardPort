@@ -13,7 +13,7 @@
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import NotificationSettingsClient from "@/components/notification/NotificationSettingsClient";
+import NotificationSettingsClient from "@/features/notification/components/NotificationSettingsClient";
 import BackButton from "@/components/global/BackButton";
 
 export default async function NotificationSettingsPage() {

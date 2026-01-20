@@ -20,14 +20,14 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
-import { deleteBroadcast } from "@/lib/stream/delete/deleteBroadcast";
-import { deleteLiveInput } from "@/lib/stream/delete/deleteLiveInput";
+import { deleteBroadcast } from "@/features/stream/lib/deleteBroadcast";
+import { deleteLiveInput } from "@/features/stream/lib/deleteLiveInput";
 import { StreamChatMessage } from "@/types/chat";
 import db from "@/lib/db";
-import { createStreamMessage } from "@/lib/chat/messages/create/createStreamMessage";
-import { rotateLiveInputKey } from "@/lib/stream/rotateLiveInputKey";
+import { createStreamMessage } from "@/features/stream/lib/createStreamMessage";
+import { rotateLiveInputKey } from "@/features/stream/lib/rotateLiveInputKey";
 
 /**
  * 스트리밍 삭제 후 캐시 무효화

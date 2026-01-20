@@ -17,7 +17,7 @@ import db from "@/lib/db";
 import {
   checkPortFestivalBadge,
   checkBoardExplorerBadge,
-} from "@/lib/check-badge-conditions";
+} from "@/features/user/lib/badges";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic"; // Cron은 항상 동적 실행

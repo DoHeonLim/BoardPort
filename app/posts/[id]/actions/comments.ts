@@ -15,7 +15,7 @@
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import { PostComment } from "@/types/post";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 // 게시글 댓글 목록 조회
 export const getComments = async (

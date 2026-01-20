@@ -16,7 +16,7 @@
 import db from "@/lib/db";
 import { ProductDetailType } from "@/types/product";
 import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 /**
  * 제품 상세 정보를 가져오는 함수 (상세 화면 렌더링용: include가 많아도 됨)

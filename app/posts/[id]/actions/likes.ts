@@ -16,9 +16,9 @@ import getSession from "@/lib/session";
 import {
   checkBoardExplorerBadge,
   checkPopularWriterBadge,
-} from "@/lib/check-badge-conditions";
+} from "@/features/user/lib/badges";
 import { revalidateTag, unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 // 게시글 좋아요 상태 조회
 export const getLikeStatus = async (postId: number, userId: number) => {

@@ -14,8 +14,8 @@ import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import db from "@/lib/db";
 import getSession from "@/lib/session";
-import { checkBroadcastAccess } from "@/lib/stream/checkBroadcastAccess";
-import { isBroadcastUnlockedFromSession } from "@/lib/stream/privateUnlockSession";
+import { checkBroadcastAccess } from "@/features/stream/lib/checkBroadcastAccess";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

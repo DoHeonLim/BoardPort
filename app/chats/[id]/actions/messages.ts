@@ -25,14 +25,14 @@
 "use server";
 
 import getSession from "@/lib/session";
-import { getInitialMessages } from "@/lib/chat/messages/getInitialMessages";
-import { getMoreMessages } from "@/lib/chat/messages/getMoreMessages";
-import { createMessage } from "@/lib/chat/messages/create/createMessage";
-import { readMessageUpdate } from "@/lib/chat/messages/update/readMessageUpdate";
+import { getInitialMessages } from "@/features/chat/lib/messages/getInitialMessages";
+import { getMoreMessages } from "@/features/chat/lib/messages/getMoreMessages";
+import { createMessage } from "@/features/chat/lib/messages/createMessage";
+import { readMessageUpdate } from "@/features/chat/lib/messages/readMessageUpdate";
 import { supabase } from "@/lib/supabase";
 import db from "@/lib/db";
 import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 /**
  * 채팅 메시지 전송 server action

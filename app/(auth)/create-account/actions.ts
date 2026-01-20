@@ -13,8 +13,8 @@
  */
 "use server";
 
-import { createAccount } from "@/lib/auth/create-account/createAccount";
-import { createAccountSchema } from "@/lib/auth/create-account/createAccountSchema";
+import { createAccount } from "@/features/auth/lib/createAccount";
+import { createAccountSchema } from "@/features/auth/lib/createAccountSchema";
 import db from "@/lib/db";
 
 type SubmitCreateAccountResult =

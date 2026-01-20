@@ -15,7 +15,7 @@ import getSession from "@/lib/session";
 import {
   getInitialUserProducts,
   type UserProductsScope,
-} from "@/lib/product/getUserProducts";
+} from "@/features/product/lib/getUserProducts";
 
 export const runtime = "nodejs";
 

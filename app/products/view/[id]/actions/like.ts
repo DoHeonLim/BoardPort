@@ -13,7 +13,7 @@ Date        Author   Status    Description
 import db from "@/lib/db";
 import getSession from "@/lib/session";
 import { unstable_cache as nextCache, revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 /**
  * 좋아요 상태 확인 함수 (내부 전용)

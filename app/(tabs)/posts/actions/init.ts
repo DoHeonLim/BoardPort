@@ -17,15 +17,15 @@
 "use server";
 
 import db from "@/lib/db";
-import { POST_SELECT } from "@/lib/constants/postSelect";
+import { POST_SELECT } from "@/features/post/lib/constants";
 import { Posts } from "@/types/post";
 import {
   getPostSearchCondition,
   PostSearchParams,
-} from "@/lib/queries/getPostSearchCondition";
+} from "@/features/post/lib/queries";
 import { POSTS_PAGE_TAKE } from "@/lib/constants";
 import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 
 const TAKE = POSTS_PAGE_TAKE;
 

@@ -16,8 +16,8 @@
  */
 
 import getSession from "@/lib/session";
-import { getCachedInitialUserProducts } from "@/lib/product/getUserProducts";
-import MyPurchasesList from "@/components/product/MyPurchasesList";
+import { getCachedInitialUserProducts } from "@/features/product/lib/getUserProducts";
+import MyPurchasesList from "@/features/product/components/MyPurchasesList";
 import { redirect } from "next/navigation";
 
 export default async function MyPurchasesPage() {

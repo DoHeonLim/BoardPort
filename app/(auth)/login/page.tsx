@@ -15,8 +15,8 @@
  * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
  */
 
-import LoginForm from "@/components/auth/form/LoginForm";
-import { sanitizeCallbackUrl } from "@/lib/auth/safeRedirect";
+import LoginForm from "@/features/auth/components/form/LoginForm";
+import { sanitizeCallbackUrl } from "@/features/auth/lib/safeRedirect";
 import { LifebuoyIcon } from "@heroicons/react/24/outline";
 
 export default function LoginPage({

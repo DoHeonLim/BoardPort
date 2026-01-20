@@ -29,8 +29,8 @@
 import { notFound } from "next/navigation";
 import { getCachedPost, getUser } from "./actions/posts";
 import { getCachedLikeStatus } from "./actions/likes";
-import { incrementViews } from "@/lib/views/incrementViews";
-import PostDetailWrapper from "@/components/post/postsDetail";
+import { incrementViews } from "@/lib/viewCounter";
+import PostDetail from "@/features/post/components/postsDetail";
 
 export default async function PostDetailPage({
   params,
@@ -67,7 +67,7 @@ export default async function PostDetailPage({
   };
 
   return (
-    <PostDetailWrapper
+    <PostDetail
       post={mergedPost}
       user={user}
       likeCount={likeStatus.likeCount}

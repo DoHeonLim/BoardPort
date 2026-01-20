@@ -29,8 +29,8 @@
  */
 
 import { notFound } from "next/navigation";
-import { getProductDetailData } from "@/lib/product/getProductDetailData";
-import ProductDetailModalContainer from "@/components/product/productDetail/modal/ProductDetailModalContainer";
+import { getProductDetailData } from "@/features/product/lib/getProductDetailData";
+import ProductDetailModalContainer from "@/features/product/components/productDetail/modal/ProductDetailModalContainer";
 
 /**
  * NOTE:

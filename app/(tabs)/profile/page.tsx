@@ -33,19 +33,19 @@
 // - 방송(채널) 변경:  user-streams-id-${ownerId}
 
 import { redirect } from "next/navigation";
-import ThemeToggle from "@/components/theme/ThemeToggle";
-import MyProfile from "@/components/profile/MyProfile";
-import ProfileSettingMenu from "@/components/profile/ProfileSettingMenu";
+import ThemeToggle from "@/components/global/ThemeToggle";
+import MyProfile from "@/features/user/components/profile/MyProfile";
+import ProfileSettingMenu from "@/features/user/components/profile/ProfileSettingMenu";
 
-import { getUserProfile } from "@/lib/user/getUserProfile";
-import { getCachedInitialUserReviews } from "@/lib/user/getUserReviews";
-import { getCachedUserAverageRating } from "@/lib/user/getUserAverageRating";
+import { getUserProfile } from "@/features/user/lib/getUserProfile";
+import { getCachedInitialUserReviews } from "@/features/user/lib/getUserReviews";
+import { getCachedUserAverageRating } from "@/features/user/lib/getUserAverageRating";
 import {
   getCachedAllBadges,
   getCachedUserBadges,
-} from "@/lib/user/getUserBadges";
-import { getUserStreams } from "@/lib/stream/getUserStreams";
-import { logOut } from "@/lib/auth/logOut";
+} from "@/features/user/lib/getUserBadges";
+import { getUserStreams } from "@/features/stream/lib/getUserStreams";
+import { logOut } from "@/features/auth/lib/logOut";
 
 import type { BroadcastSummary } from "@/types/stream";
 import type {

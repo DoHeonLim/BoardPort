@@ -19,7 +19,7 @@
  */
 "use server";
 
-import { CreateProduct } from "@/lib/product/create/createProduct";
+import { CreateProduct } from "@/features/product/lib/createProduct";
 
 export async function createProductAction(formData: FormData) {
   return await CreateProduct(formData);

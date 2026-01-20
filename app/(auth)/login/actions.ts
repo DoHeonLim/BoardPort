@@ -14,9 +14,9 @@
  */
 "use server";
 
-import { verifyLogin } from "@/lib/auth/login/login";
-import { saveUserSession } from "@/lib/auth/saveUserSession";
-import { loginSchema } from "@/lib/auth/login/loginSchema";
+import { verifyLogin } from "@/features/auth/lib/login";
+import { saveUserSession } from "@/features/auth/lib/saveUserSession";
+import { loginSchema } from "@/features/auth/lib/loginSchema";
 import db from "@/lib/db";
 
 type LoginResult =

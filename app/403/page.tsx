@@ -12,8 +12,8 @@
  * 2026.01.13  임도헌   Modified   컴포넌트명 변경 반영 (AccessDeniedClient -> AccessDenied)
  */
 
-import AccessDenied from "@/components/stream/AccessDenied";
-import { sanitizeCallbackUrl } from "@/lib/auth/safeRedirect";
+import AccessDenied from "@/features/stream/components/AccessDenied";
+import { sanitizeCallbackUrl } from "@/features/auth/lib/safeRedirect";
 import getSession from "@/lib/session";
 
 export default async function AccessDeniedPage({

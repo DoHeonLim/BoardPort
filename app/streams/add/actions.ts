@@ -19,7 +19,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createBroadcast } from "@/lib/stream/create/createBroadcast";
+import { createBroadcast } from "@/features/stream/lib/createBroadcast";
 import type { CreateBroadcastResult } from "@/types/stream";
 
 /**

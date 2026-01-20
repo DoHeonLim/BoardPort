@@ -15,7 +15,7 @@
  * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
  */
 
-import SmsForm from "@/components/auth/form/SmsForm";
+import SmsForm from "@/features/auth/components/form/SmsForm";
 import Link from "next/link";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 

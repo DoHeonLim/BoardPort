@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ThemeProvider from "@/components/providers/ThemeProvider";
+import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import { Toaster } from "sonner";
-import AppWrapper from "@/components/layout/AppWrapper";
-import NotificationBoot from "@/components/notification/NotificationBoot";
+import AppWrapper from "@/components/global/AppWrapper";
+import NotificationBoot from "@/features/notification/components/NotificationBoot";
 
 const inter = Inter({ subsets: ["latin"] });
 

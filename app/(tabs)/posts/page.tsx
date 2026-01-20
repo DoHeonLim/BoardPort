@@ -21,13 +21,13 @@
  * 2026.01.13  임도헌   Modified  [UI] Sticky Header 디자인 통일 및 시맨틱 토큰 적용
  */
 
-import PostList from "@/components/post/PostList";
+import PostList from "@/features/post/components/PostList";
 import { getInitialPosts } from "./actions/init";
-import PostEmptyState from "@/components/post/PostEmptyState";
-import AddPostButton from "@/components/post/AddPostButton";
+import PostEmptyState from "@/features/post/components/PostEmptyState";
+import AddPostButton from "@/features/post/components/AddPostButton";
 import { searchPosts } from "./actions/search";
-import PostSearchBarWrapper from "@/components/post/PostSearchBarWrapper";
-import PostCategoryTabs from "@/components/search/PostCategoryTabs";
+import PostSearchBarWrapper from "@/features/post/components/PostSearchBarWrapper";
+import PostCategoryTabs from "@/features/search/components/PostCategoryTabs";
 
 interface PostsPageProps {
   searchParams: {

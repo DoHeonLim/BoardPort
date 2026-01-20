@@ -24,16 +24,16 @@
 
 import { notFound } from "next/navigation";
 
-import { getUserProfile } from "@/lib/user/getUserProfile";
-import { getCachedInitialUserReviews } from "@/lib/user/getUserReviews";
-import { getCachedUserAverageRating } from "@/lib/user/getUserAverageRating";
-import { getCachedUserBadges } from "@/lib/user/getUserBadges";
-import { getInitialUserProducts } from "@/lib/product/getUserProducts";
-import { getUserStreams } from "@/lib/stream/getUserStreams";
+import { getUserProfile } from "@/features/user/lib/getUserProfile";
+import { getCachedInitialUserReviews } from "@/features/user/lib/getUserReviews";
+import { getCachedUserAverageRating } from "@/features/user/lib/getUserAverageRating";
+import { getCachedUserBadges } from "@/features/user/lib/getUserBadges";
+import { getInitialUserProducts } from "@/features/product/lib/getUserProducts";
+import { getUserStreams } from "@/features/stream/lib/getUserStreams";
 
 import type { UserProfile as UserProfileType } from "@/types/profile";
 import type { BroadcastSummary } from "@/types/stream";
-import UserProfile from "@/components/profile/UserProfile";
+import UserProfile from "@/features/user/components/profile/UserProfile";
 
 export const dynamic = "force-dynamic";
 

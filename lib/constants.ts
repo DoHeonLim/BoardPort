@@ -1,17 +1,17 @@
 /**
-File Name : lib/constants
-Description : 상수 파일
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2024.10.04  임도헌   Created
-2024.10.04  임도헌   Modified  패스워드 관련 상수 추가
-2024.10.17  임도헌   Modified  이미지 최대 크기 상수 추가
-2024.12.10  임도헌   Modified  이미지 스켈레톤 상수 추가
-2025.04.13  임도헌   Modified  제품 관련 상수 추가
-2025.05.22  임도헌   Modified  스트리밍 접근 제어 상수 추가
-*/
+ * File Name : lib/constants
+ * Description : 상수 파일
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.04  임도헌   Created
+ * 2024.10.04  임도헌   Modified  패스워드 관련 상수 추가
+ * 2024.10.17  임도헌   Modified  이미지 최대 크기 상수 추가
+ * 2024.12.10  임도헌   Modified  이미지 스켈레톤 상수 추가
+ * 2025.04.13  임도헌   Modified  제품 관련 상수 추가
+ * 2025.05.22  임도헌   Modified  스트리밍 접근 제어 상수 추가
+ */
 
 // 패스워드 최소 값
 export const PASSWORD_MIN_LENGTH = 8;

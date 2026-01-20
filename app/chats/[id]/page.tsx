@@ -21,12 +21,12 @@
  * 2026.01.03  임도헌   Modified  current/byId 분리로 중복 getSession 방지
  */
 
-import ChatMessagesList from "@/components/chat/ChatMessagesList";
-import ChatHeader from "@/components/chat/ChatHeader";
+import ChatMessagesList from "@/features/chat/components/ChatMessagesList";
+import ChatHeader from "@/features/chat/components/ChatHeader";
 import { notFound } from "next/navigation";
-import { getCurrentUserInfo } from "@/lib/user/getUserInfo";
-import { getChatRoomDetails } from "@/lib/chat/room/getChatRoomDetails";
-import { getCounterpartyInChatRoom } from "@/lib/chat/room/getCounterpartyInChatRoom";
+import { getCurrentUserInfo } from "@/features/user/lib/getUserInfo";
+import { getChatRoomDetails } from "@/features/chat/lib/room/getChatRoomDetails";
+import { getCounterpartyInChatRoom } from "@/features/chat/lib/room/getCounterpartyInChatRoom";
 import {
   getInitialMessagesAction,
   readMessageUpdateAction,

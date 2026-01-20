@@ -25,10 +25,10 @@
 import { notFound } from "next/navigation";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import UserChannelContainer from "@/components/stream/channel";
-import { getUserStreams } from "@/lib/stream/getUserStreams";
-import { getUserChannel } from "@/lib/user/getUserChannel";
-import { isBroadcastUnlockedFromSession } from "@/lib/stream/privateUnlockSession";
+import UserChannelContainer from "@/features/stream/components/channel";
+import { getUserStreams } from "@/features/stream/lib/getUserStreams";
+import { getUserChannel } from "@/features/user/lib/getUserChannel";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
 import type { BroadcastSummary, ViewerRole, VodForGrid } from "@/types/stream";
 
 type Params = { username: string };

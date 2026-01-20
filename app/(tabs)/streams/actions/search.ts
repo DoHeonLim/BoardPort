@@ -14,7 +14,7 @@
 "use server";
 
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
-import { getStreams } from "@/lib/stream/getStreams";
+import { getStreams } from "@/features/stream/lib/getStreams";
 import type { BroadcastSummary } from "@/types/stream";
 
 export type StreamsSearchResult = {

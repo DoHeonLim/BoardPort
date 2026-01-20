@@ -14,9 +14,9 @@
  */
 
 import { redirect } from "next/navigation";
-import ProfileEditForm from "@/components/profile/ProfileEditForm";
-import { getCurrentUserForProfileEdit } from "@/lib/user/getCurrentUserForProfileEdit";
-import { editProfile } from "@/lib/profile/update/editProfile";
+import ProfileEditForm from "@/features/user/components/profile/ProfileEditForm";
+import { getCurrentUserForProfileEdit } from "@/features/user/lib/getCurrentUserForProfileEdit";
+import { editProfile } from "@/features/user/lib/profile/editProfile";
 
 export default async function EditProfilePage() {
   const user = await getCurrentUserForProfileEdit();

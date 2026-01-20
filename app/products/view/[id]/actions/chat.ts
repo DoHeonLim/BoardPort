@@ -11,10 +11,10 @@ Date        Author   Status    Description
 */
 "use server";
 
-import { createChatRoom } from "@/lib/chat/room/create/createChatRoom";
+import { createChatRoom } from "@/features/chat/lib/room/createChatRoom";
 import getSession from "@/lib/session";
 import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 import { redirect } from "next/navigation";
 
 /**

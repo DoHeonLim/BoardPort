@@ -12,7 +12,7 @@
  * 2025.04.29  임도헌   Modified  UI 수정
  * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
  */
-import CreateAccountForm from "@/components/auth/form/CreateAccountForm";
+import CreateAccountForm from "@/features/auth/components/form/CreateAccountForm";
 import { UserPlusIcon } from "@heroicons/react/24/outline"; // 신규 가입 아이콘
 
 export default function CreateAccountPage() {

@@ -17,11 +17,11 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 import crypto from "node:crypto";
 import db from "@/lib/db";
-import { sendLiveStatusFromServer } from "@/lib/stream/status/serverBroadcast";
-import { sendLiveStartNotifications } from "@/lib/notification/sendLiveStartNotifications";
+import { sendLiveStatusFromServer } from "@/features/stream/lib/serverBroadcast";
+import { sendLiveStartNotifications } from "@/features/notification/lib/sendLiveStartNotifications";
 
 export const runtime = "nodejs";
 

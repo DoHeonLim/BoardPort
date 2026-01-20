@@ -13,8 +13,11 @@
  * 2025.12.12  임도헌   Modified  NextResponse.redirect에 절대 URL 사용하도록 수정
  */
 
-import { getAccessToken, getGithubProfile } from "@/lib/auth/github/oauth";
-import { saveUserSession } from "@/lib/auth/saveUserSession";
+import {
+  getAccessToken,
+  getGithubProfile,
+} from "@/features/auth/lib/github/oauth";
+import { saveUserSession } from "@/features/auth/lib/saveUserSession";
 import db from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 

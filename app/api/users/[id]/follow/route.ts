@@ -27,7 +27,7 @@ import "server-only";
 
 import db from "@/lib/db";
 import getSession from "@/lib/session";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
