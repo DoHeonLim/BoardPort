@@ -8,6 +8,7 @@
  * 2025.09.10  임도헌   Modified  a11y(role/aria-live) 및 복구 링크(필터 초기화/전체 보기) 추가
  * 2026.01.14  임도헌   Modified  [UI] 공통 Empty State 디자인 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
@@ -18,6 +19,10 @@ interface Props {
   scope?: "all" | "following";
 }
 
+/**
+ * 스트리밍 목록이 비어있을 때 표시되는 UI
+ * 검색어, 카테고리, 팔로잉 스코프 여부에 따라 적절한 안내 메시지를 표시합니다.
+ */
 export default function StreamEmptyState({ keyword, category, scope }: Props) {
   const hasKeyword = !!keyword;
   const hasCategory = !!category;

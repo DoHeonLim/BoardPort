@@ -1,5 +1,5 @@
 /**
-File Name : app/(tabs)/layout
+File Name : app/(tabs)/layout.tsx
 Description : 탭 레이아웃
 Author : 임도헌
 

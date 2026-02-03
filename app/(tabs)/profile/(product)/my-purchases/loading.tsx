@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/profile/(product)/my-purchases/loading
+ * File Name : app/(tabs)/profile/(product)/my-purchases/loading.tsx
  * Description : 나의 구매 제품 페이지 로딩 스켈레톤
  * Author : 임도헌
  *

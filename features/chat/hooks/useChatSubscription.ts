@@ -17,21 +17,21 @@
  * 2026.01.03  임도헌   Modified  콜백 ref 패턴 도입(재구독 방지), cleanup 안정화, 읽음 처리 호출 폭주 방지(옵션)
  * 2026.01.16  임도헌   Moved     hooks -> hooks/chat
  * 2026.01.18  임도헌   Moved     hooks/chat -> features/chat/hooks
+ * 2026.01.28  임도헌   Modified  주석 보강
  */
 
 "use client";
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { ChatMessage, MessageReadPayload } from "@/types/chat";
-import { readMessageUpdateAction } from "@/app/chats/[id]/actions/messages";
+import { ChatMessage, MessageReadPayload } from "@/features/chat/types";
+import { readMessageUpdateAction } from "@/features/chat/actions/messages";
 
 interface UseChatSubscriptionOptions {
   chatRoomId: string; // Supabase 채널 식별용 채팅방 ID
   currentUserId: number; // 현재 로그인한 유저 ID
   onNewMessage: (message: ChatMessage) => void; // 메시지 수신 시 호출되는 콜백
   onMessagesRead: (readIds: number[]) => void; // 읽음 처리 시 호출되는 콜백
-
   /**
    * (옵션) 읽음 처리 호출 폭주 방지
    * - 상대방 메시지가 연속으로 들어올 때 매번 readMessageUpdateAction을 호출하면 서버/DB 부담이 커질 수 있다.
@@ -42,10 +42,14 @@ interface UseChatSubscriptionOptions {
 }
 
 /**
- * useChatSubscription
- * - Supabase를 통한 실시간 메시지 수신 및 읽음 처리 이벤트를 구독
- * - 상대방 메시지 수신 시 읽음 처리 API 호출
- * - 읽음 처리 결과를 다시 브로드캐스트로 수신하면 메시지 목록 상태 갱신
+ * 단일 채팅방에 대한 실시간 구독 훅
+ *
+ * [기능]
+ * 1. `message` 이벤트: 새 메시지 수신 시 콜백 호출. 내가 보낸 메시지가 아니면 읽음 처리 API를 호출합니다.
+ * 2. `message_read` 이벤트: 상대방이 메시지를 읽으면(서버에서 브로드캐스트) 콜백을 호출하여 UI를 갱신합니다.
+ * 3. 콜백 함수 변경 시 재구독을 방지하기 위해 `useRef` 패턴을 사용합니다.
+ *
+ * @param {UseChatSubscriptionOptions} options
  */
 export default function useChatSubscription({
   chatRoomId,
@@ -87,7 +91,6 @@ export default function useChatSubscription({
        * 1) 메시지 수신 브로드캐스트 핸들링
        */
       .on("broadcast", { event: "message" }, async ({ payload }) => {
-        // payload 구조가 서버와 동기화되어 있다는 전제(기존 동작 유지)
         const newMessage: ChatMessage = {
           id: payload.id,
           payload: payload.payload,

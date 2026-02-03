@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/[id]/recording/page
+ * File Name : app/streams/[id]/recording/page.tsx
  * Description : 라이브 스트리밍 녹화본 페이지 (Broadcast × VodAsset)
  * Author : 임도헌
  *
@@ -24,6 +24,8 @@
  * 2026.01.04  임도헌   Modified  incrementVodViews wrapper 제거 → lib/views/incrementViews 직접 호출(단일 진입점)
  * 2026.01.04  임도헌   Modified  getVodDetail은 접근 제어 정확성 우선으로 nextCache 비적용(조회수는 didIncrement 기반 표시값만 보정)
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 배경색 및 레이아웃 정리
+ * 2026.01.23  임도헌   Modified  Action 의존 제거 -> Service(like status) 직접 호출
+ * 2026.01.29  임도헌   Modified  주석 설명 보강
  */
 /**
  * NOTE
@@ -32,8 +34,7 @@
  * - getVodDetail은 nextCache로 감싸지 않고(=비캐시) 요청 시점의 최신 상태로 가드를 평가한다.
  * - 조회수는 ViewThrottle(3분) 기반으로 incrementViews에서 처리하고, didIncrement=true일 때만 화면 표시값을 +1 보정한다.
  */
-
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // 접근 가드 및 조회수 증가 로직 포함
 
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
@@ -43,12 +44,27 @@ import RecordingDetail from "@/features/stream/components/recording/recordingDet
 import RecordingComment from "@/features/stream/components/recording/recordingComment";
 import RecordingDeleteButton from "@/features/stream/components/recording/recordingDetail/RecordingDeleteButton";
 
-import { getRecordingLikeStatus } from "@/app/streams/[id]/recording/actions/likes";
-import { checkBroadcastAccess } from "@/features/stream/lib/checkBroadcastAccess";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
-import { getVodDetail } from "@/features/stream/lib/getVodDetail";
-import { incrementViews } from "@/lib/viewCounter";
+// Services
+import { checkBroadcastAccess } from "@/features/stream/service/access";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
+import { getVodDetail } from "@/features/stream/service/detail";
+import { getRecordingLikeStatus } from "@/features/stream/service/like";
+import { incrementViews } from "@/features/common/service/view";
 
+/**
+ * 녹화본 상세 페이지
+ *
+ * [기능]
+ * 1. 로그인 세션을 확인합니다.
+ * 2. VOD 상세 정보(방송, 소유자 포함)를 조회합니다.
+ * 3. 원본 방송의 접근 권한(Private/Followers)을 검증합니다.
+ *    - 권한이 없으면 `/403` 페이지로 리다이렉트합니다.
+ * 4. 조회수를 증가시킵니다. (3분 쿨다운 적용)
+ * 5. 좋아요 상태를 조회합니다.
+ * 6. `RecordingDetail` 및 댓글 섹션을 렌더링합니다.
+ *
+ * @param {Object} params - URL 파라미터 (id: VOD ID)
+ */
 export default async function RecordingVodPage({
   params,
 }: {
@@ -65,7 +81,7 @@ export default async function RecordingVodPage({
   }
   const viewerId = session?.id ?? null;
 
-  // 1) 가드용 1차 조회
+  // 1. 상세 조회
   const base = await getVodDetail(vodId);
   if (!base) return notFound();
 
@@ -73,7 +89,7 @@ export default async function RecordingVodPage({
   const owner = base.broadcast.owner;
   const isOwner = viewerId === owner.id;
 
-  // 2) 접근 가드
+  // 2. 접근 가드
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
     const guard = await checkBroadcastAccess(
@@ -93,12 +109,7 @@ export default async function RecordingVodPage({
     }
   }
 
-  /**
-   * 3) 조회수 증가(실패 무시)
-   * - getVodDetail 2회 호출을 피하기 위해 base를 그대로 렌더 데이터로 사용한다.
-   * - 증가가 "실제로 발생했을 때"만 화면 표시값을 +1 보정한다.
-   *   (쿨다운으로 막힌 경우 false → 보정 금지)
-   */
+  // 3. 조회수 증가 (표시값 보정용 didIncrement 반환)
   let didIncrement = false;
   try {
     didIncrement = await incrementViews({
@@ -115,9 +126,10 @@ export default async function RecordingVodPage({
     views: didIncrement ? (base.views ?? 0) + 1 : base.views,
   };
 
-  // 4) 좋아요 상태
+  // 4. 좋아요 상태 조회
   const like = await getRecordingLikeStatus(vodId, viewerId);
-  // 표시값 정규화: readyAt 우선
+
+  // 5. 렌더링 데이터 준비
   const created = new Date((vod.readyAt ?? vod.createdAt) as Date);
   const durationSec = Math.round(vod.durationSec ?? 0);
   const broadcastOwner = vod.broadcast.owner;

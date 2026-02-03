@@ -24,6 +24,9 @@
  * 2025.12.20  임도헌   Modified  rail 레이아웃에서 FOLLOWERS 잠금 시 CTA 노출 + onRequestFollow 콜백 호출(프로필 헤더 팔로우 유도)
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 디자인 통일 (PostCard/ProductCard)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.25  임도헌   Modified  녹화본 메타데이터(duration, viewCount) 내부 렌더링 지원 (UI 깨짐 수정)
+ * 2026.01.25  임도헌   Modified  카테고리를 썸네일 우측 상단 오버레이로 이동, 하단에 태그(#) 추가
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -31,55 +34,38 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { cn, formatToTimeAgo } from "@/lib/utils";
+import { cn, formatToTimeAgo, formatDuration } from "@/lib/utils";
 import UserAvatar from "@/components/global/UserAvatar";
 import PrivateAccessModal from "@/features/stream/components/PrivateAccessModal";
 import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
-import {
-  StreamCategory,
-  StreamVisibility,
-  STREAM_VISIBILITY,
-} from "@/types/stream";
+import { StreamCategory, StreamVisibility } from "@/features/stream/types";
+import { STREAM_VISIBILITY } from "@/features/stream/constants";
 
 interface StreamCardProps {
-  /** unlock 타깃(원본 streamId 권장) */
-  id: number;
-  /** 녹화본 페이지로 이동할 때 사용할 VodAsset id (없으면 id로 폴백) */
-  vodIdForRecording?: number;
+  id: number; /** unlock 타깃(원본 streamId 권장) */
+  vodIdForRecording?: number; /** 녹화본 페이지로 이동할 때 사용할 VodAsset id (없으면 id로 폴백) */
   title: string;
   thumbnail?: string | null;
-  /** 라이브 여부 (false면 다시보기 배지 표시) */
-  isLive: boolean;
+  isLive: boolean; /** 라이브 여부 (false면 다시보기 배지 표시) */
   streamer: { username: string; avatar?: string | null };
-
-  /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */
-  startedAt?: Date | string | null;
-
+  startedAt?:
+    | Date
+    | string
+    | null; /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */
   category?: StreamCategory | null;
   tags?: { name: string }[];
+  duration?: number; // 초 단위
+  viewCount?: number; // 조회수
   shortDescription?: boolean;
-
-  /** 직접 지정하면 우선 사용, 없으면 isLive 기준으로 기본 경로 계산 */
-  href?: string;
-
+  href?: string; /** 직접 지정하면 우선 사용, 없으면 isLive 기준으로 기본 경로 계산 */
   // 서버 플래그
-  /** PRIVATE 접근 필요 여부(언락 전). 언락 후 false가 될 수 있음 */
-  requiresPassword?: boolean;
-  /** FOLLOWERS 타입 여부(형식) — 전달 안 되면 visibility로 판정 */
-  isFollowersOnly?: boolean;
-  /** 비팔로워라 접근 잠금일 때 true (오버레이/CTA 트리거) */
-  followersOnlyLocked?: boolean;
-
-  /** visibility가 있으면 배지/잠금 보조 판별에 사용 가능 */
-  visibility?: StreamVisibility;
-
+  requiresPassword?: boolean; /** PRIVATE 접근 필요 여부(언락 전). 언락 후 false가 될 수 있음 */
+  isFollowersOnly?: boolean; /** FOLLOWERS 타입 여부(형식) — 전달 안 되면 visibility로 판정 */
+  followersOnlyLocked?: boolean; /** 비팔로워라 접근 잠금일 때 true (오버레이/CTA 트리거) */
+  visibility?: StreamVisibility; /** visibility가 있으면 배지/잠금 보조 판별에 사용 가능 */
   // 옵션: 언락 이후에도 '비밀' 배지를 계속 보여주고 싶다면 명시적으로 true 전달
-  /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비밀' 배지를 유지하고 싶을 때 사용) */
-  isPrivateType?: boolean;
-
-  // 옵션 액션
-  onRequestFollow?: () => void; // 팔로우 CTA
-
+  isPrivateType?: boolean; /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비밀' 배지를 유지하고 싶을 때 사용) */
+  onRequestFollow?: () => void; // 팔로우 CTA// 옵션 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
 }
@@ -90,6 +76,16 @@ function resolveThumbUrl(src?: string | null): string | null {
   return src;
 }
 
+/**
+ * 스트리밍 카드 컴포넌트
+ *
+ * [기능]
+ * 1. 라이브 및 녹화본(VOD) 정보를 카드 형태로 표시합니다.
+ * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 조회수 등)를 렌더링합니다.
+ * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공합니다.
+ * 4. 마우스 호버 시 라이브 미리보기(iframe)를 로드합니다.
+ * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행합니다.
+ */
 export default function StreamCard(props: StreamCardProps) {
   const {
     id,
@@ -101,6 +97,8 @@ export default function StreamCard(props: StreamCardProps) {
     startedAt,
     category,
     tags,
+    duration,
+    viewCount,
     shortDescription = false,
     href,
     requiresPassword = false,
@@ -113,7 +111,6 @@ export default function StreamCard(props: StreamCardProps) {
   } = props;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const thumb = useMemo(() => resolveThumbUrl(thumbnail), [thumbnail]);
 
   // 기본 라우팅: 라이브/녹화에 따라 자동 분기(직접 href 주면 우선)
@@ -229,6 +226,13 @@ export default function StreamCard(props: StreamCardProps) {
     ? `${title} — 접근 제한(팔로워 전용 또는 비밀)`
     : title;
 
+  // 태그 포맷팅 (#태그1 #태그2)
+  const formattedTags = useMemo(() => {
+    if (!tags || tags.length === 0) return null;
+    // 너무 길어지면 UI 깨지므로 2개까지만 노출하거나, css line-clamp로 처리
+    return tags.map((t) => `#${t.name}`).join(" ");
+  }, [tags]);
+
   return (
     <article
       className={cn(
@@ -295,7 +299,7 @@ export default function StreamCard(props: StreamCardProps) {
             </div>
           )}
 
-          {/* 배지 영역 */}
+          {/* [Left] 상태 배지 영역 */}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1.5 z-10">
             {showLive && (
               <span className="rounded bg-danger/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-[2px]">
@@ -319,6 +323,16 @@ export default function StreamCard(props: StreamCardProps) {
               </span>
             )}
           </div>
+
+          {/* [Right] 카테고리 배지 (New Position) */}
+          {category && (
+            <div className="absolute right-2 top-2 z-10">
+              <span className="flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+                {category.icon && <span>{category.icon}</span>}
+                {category.kor_name}
+              </span>
+            </div>
+          )}
 
           {/* 잠금 오버레이 */}
           {followersOnlyLocked && (
@@ -362,30 +376,59 @@ export default function StreamCard(props: StreamCardProps) {
                 compact
                 className="pointer-events-none"
               />
-              <span className="text-xs text-muted truncate">
-                {streamer.username}
-              </span>
             </div>
           </div>
 
+          {/* 하단 메타 정보 */}
           {!shortDescription &&
-            (category || (tags?.length ?? 0) > 0 || startedAtIso) && (
-              <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted border-t border-border/50 pt-2 mt-auto">
-                {category && (
-                  <span className="flex items-center gap-1 shrink-0 font-medium text-primary/80">
-                    {category.icon} {category.kor_name}
+            (formattedTags ||
+              startedAtIso ||
+              duration ||
+              viewCount != null) && (
+              <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted border-t border-border/50 pt-2 mt-auto overflow-hidden">
+                {/* 1. 태그 (존재하면 우선 표시) */}
+                {formattedTags ? (
+                  <span className="truncate font-medium text-brand dark:text-brand-light/80">
+                    {formattedTags}
                   </span>
-                )}
+                ) : null}
 
-                {category && startedAtIso && (
-                  <span className="text-border">|</span>
-                )}
+                {/* 태그가 있고 뒤에 내용이 더 있으면 구분선 */}
+                {formattedTags &&
+                  (startedAtIso || duration || viewCount != null) && (
+                    <span className="text-border shrink-0">|</span>
+                  )}
 
-                {startedAtIso && (
-                  <span className="truncate text-muted">
-                    {formatToTimeAgo(startedAtIso)} 시작
-                  </span>
-                )}
+                <div className="flex items-center gap-2 truncate">
+                  {/* 2. 시간 (시작시간 or 녹화일) */}
+                  {startedAtIso && (
+                    <span className="truncate">
+                      {formatToTimeAgo(startedAtIso)} {isLive ? "시작" : ""}
+                    </span>
+                  )}
+
+                  {/* 3. 녹화본 메타 (길이, 조회수) */}
+                  {!isLive && (
+                    <>
+                      {duration && duration > 0 && (
+                        <>
+                          <span className="text-border shrink-0">|</span>
+                          <span className="shrink-0">
+                            {formatDuration(duration)}
+                          </span>
+                        </>
+                      )}
+                      {typeof viewCount === "number" && (
+                        <>
+                          <span className="text-border shrink-0">|</span>
+                          <span className="shrink-0">
+                            조회 {viewCount.toLocaleString()}
+                          </span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
         </div>

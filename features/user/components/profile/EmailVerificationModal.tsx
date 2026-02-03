@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/EmailVerificationModal.tsx
- * Description : 이메일 인증 모달
+ * Description : 이메일 인증 모달 (쿨다운 관리 포함)
  * Author : 임도헌
  *
  * History
@@ -17,14 +17,15 @@
  * 2026.01.06  임도헌   Modified  쿨다운 UX를 localStorage로도 유지(재오픈/새로고침 즉시 복원) + 서버 응답으로 보정
  * 2026.01.15  임도헌   Modified  [Logic] 핵심 로직 주석 보강 및 디자인 시스템(Semantic Token) 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { verifyEmail } from "@/features/auth/lib/email/verifyEmail";
-import { initialEmailVerifyState } from "@/features/auth/lib/email/verifyEmailState";
+import { verifyEmail } from "@/features/auth/service/email";
+import { INITIAL_EMAIL_VERIFY_STATE } from "@/features/auth/constants";
 import { toast } from "sonner";
 import Input from "@/components/ui/Input";
 import { XMarkIcon, EnvelopeIcon, KeyIcon } from "@heroicons/react/24/outline";
@@ -37,29 +38,29 @@ interface EmailVerificationModalProps {
 }
 
 /**
- * [Inner Component 분리 이유]
- * useFormState는 컴포넌트가 마운트된 동안 상태를 유지합니다.
- * 모달을 닫았다가 다시 열었을 때, 이전 인증 상태(성공/실패/입력값)가 남아있지 않도록
- * 모달이 열릴 때마다 새로운 Key로 이 컴포넌트를 마운트하여 상태를 초기화합니다.
+ * 이메일 인증 모달 내부 컴포넌트
+ *
+ * [핵심 로직]
+ * 1. `useFormState`를 통해 인증 요청(`request`), 재전송(`resend`), 검증(`verify`) 상태를 관리합니다.
+ * 2. 쿨다운(3분) 로직:
+ *    - 서버 응답(`cooldownRemaining`)을 기준으로 로컬 타이머를 설정합니다.
+ *    - `localStorage`에 만료 시간을 저장하여 모달을 닫거나 새로고침해도 쿨다운을 유지합니다.
+ * 3. 인증 성공 시 페이지를 새로고침하여 변경된 인증 상태를 반영합니다.
  */
 function EmailVerificationModalInner({
   onClose,
   email,
 }: Omit<EmailVerificationModalProps, "isOpen">) {
   const router = useRouter();
-
-  // Server Action 상태 관리
-  const [state, action] = useFormState(verifyEmail, initialEmailVerifyState);
-
-  // UI 상태
+  const [state, action] = useFormState(verifyEmail, INITIAL_EMAIL_VERIFY_STATE);
   const [countdown, setCountdown] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // 중복 실행 방지 및 토스트 제어용 Refs
+  // 중복 토스트 방지
   const lastActionRef = useRef<"request" | "resend" | "verify" | null>(null);
   const successToastShown = useRef(false);
 
-  // 이메일 마스킹 (ex: te***@example.com)
+  // 이메일 마스킹 (te***@example.com)
   const maskedEmail = useMemo(() => {
     const [id, domain] = email.split("@");
     if (!domain) return email;
@@ -68,16 +69,9 @@ function EmailVerificationModalInner({
     return `${head}${"*".repeat(Math.max(1, id.length - 3))}${tail}@${domain}`;
   }, [email]);
 
-  // mm:ss 포맷터
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  /**
-   * [Logic: 쿨다운 지속성 관리]
-   * 사용자가 새로고침하거나 모달을 닫았다 열어도 재전송 쿨다운(3분)을 유지하기 위해
-   * localStorage에 '언제까지 쿨다운인가(timestamp)'를 저장합니다.
-   * Key는 이메일별로 유니크하게 생성합니다.
-   */
   const cooldownStorageKey = useMemo(
     () => `bp:email-verify:cooldown-until:${email}`,
     [email]
@@ -98,7 +92,7 @@ function EmailVerificationModalInner({
     }
   }, [cooldownStorageKey]);
 
-  // Storage에 만료 시간 쓰기 (서버 응답 기준)
+  // Storage에 만료 시간 쓰기
   const writeCooldownUntilToStorage = useCallback(
     (cooldownRemainingSeconds: number) => {
       if (typeof window === "undefined") return;
@@ -106,7 +100,7 @@ function EmailVerificationModalInner({
         const now = Date.now();
         const nextUntil = now + Math.max(0, cooldownRemainingSeconds) * 1000;
 
-        // 기존 값이 더 길게 남아있다면(클라이언트가 더 보수적이라면) 유지
+        // 기존 값이 더 길면 유지 (보수적 접근)
         const existingRaw = window.localStorage.getItem(cooldownStorageKey);
         const existingUntil = existingRaw ? Number(existingRaw) : 0;
         const finalUntil =
@@ -122,7 +116,6 @@ function EmailVerificationModalInner({
     [cooldownStorageKey]
   );
 
-  // 쿨다운 종료 시 Storage 정리
   const clearCooldownStorage = useCallback(() => {
     if (typeof window === "undefined") return;
     try {
@@ -130,27 +123,21 @@ function EmailVerificationModalInner({
     } catch {}
   }, [cooldownStorageKey]);
 
-  // [Effect] 마운트 시 로컬 스토리지 확인하여 타이머 복구
+  // 마운트 시 타이머 복구
   useEffect(() => {
     const remaining = readCooldownRemainingFromStorage();
     if (remaining > 0) setCountdown(remaining);
   }, [readCooldownRemainingFromStorage]);
 
-  /**
-   * [Effect] 서버 액션 응답 처리
-   * - 서버가 쿨다운 시간을 내려주면(cooldownRemaining), 로컬 타이머와 스토리지 동기화
-   * - 액션 종류(request/resend)에 따라 적절한 토스트 메시지 표시
-   */
+  // 서버 응답 처리 (쿨다운 동기화 & 토스트)
   useEffect(() => {
-    if (!state.token) return; // 아직 초기 상태
+    if (!state.token) return;
 
-    // 서버가 내려준 쿨다운 시간 동기화
     if (typeof state.cooldownRemaining === "number") {
       setCountdown(state.cooldownRemaining);
       writeCooldownUntilToStorage(state.cooldownRemaining);
     }
 
-    // 토스트 피드백
     if (lastActionRef.current === "resend") {
       if (state.sent) toast.success("인증 코드를 재전송했습니다.");
       else if ((state.cooldownRemaining ?? 0) > 0) {
@@ -168,39 +155,39 @@ function EmailVerificationModalInner({
     writeCooldownUntilToStorage,
   ]);
 
-  // [Effect] 1초마다 카운트다운 감소
+  // 타이머 작동
   useEffect(() => {
     if (countdown <= 0) return;
     const t = setTimeout(() => setCountdown((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [countdown]);
 
-  // [Effect] 카운트다운 종료 시 스토리지 정리
+  // 타이머 종료 시 스토리지 정리
   useEffect(() => {
     if (countdown > 0) return;
     clearCooldownStorage();
   }, [countdown, clearCooldownStorage]);
 
-  // [Effect] 에러 메시지 토스트 (Validation Error 등)
+  // 에러 처리
   useEffect(() => {
     if (state.error?.formErrors?.length) {
       toast.error(state.error.formErrors[0] ?? "인증에 실패했습니다.");
     }
   }, [state.error]);
 
-  // [Effect] 인증 성공 처리
+  // 성공 처리
   useEffect(() => {
     if (!state.success || successToastShown.current) return;
 
     successToastShown.current = true;
     toast.success("이메일 인증이 완료되었습니다.");
 
-    clearCooldownStorage(); // 성공했으므로 쿨다운 정보 삭제
-    onClose(); // 모달 닫기
-    router.refresh(); // 페이지 데이터 갱신 (인증 상태 반영)
+    clearCooldownStorage();
+    onClose();
+    router.refresh();
   }, [state.success, onClose, router, clearCooldownStorage]);
 
-  // [Effect] 컴포넌트 마운트 시 '최초 요청(request)' 자동 실행
+  // 최초 자동 요청 (request)
   useEffect(() => {
     const fd = new FormData();
     fd.append("email", email);
@@ -210,10 +197,6 @@ function EmailVerificationModalInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]);
 
-  /**
-   * 핸들러: 인증 코드 제출
-   * - 6자리가 입력되면 자동으로 호출되거나, 엔터키로 호출됨
-   */
   const handleVerify = useCallback(
     (token: string) => {
       const fd = new FormData();
@@ -226,9 +209,6 @@ function EmailVerificationModalInner({
     [action, email]
   );
 
-  /**
-   * 핸들러: 재전송 요청
-   */
   const handleResend = useCallback(() => {
     const fd = new FormData();
     fd.append("email", email);
@@ -237,20 +217,15 @@ function EmailVerificationModalInner({
     action(fd);
   }, [action, email]);
 
-  // [Effect] 접근성: 포커스 트랩 및 ESC 닫기, 스크롤 잠금
+  // 접근성 (포커스 & 스크롤락)
   useEffect(() => {
-    // 모달 진입 시 포커스 이동
     dialogRef.current?.focus();
-
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKey);
-
-    // Body 스크롤 잠금
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
       window.removeEventListener("keydown", handleKey);
       document.body.style.overflow = original;
@@ -259,37 +234,26 @@ function EmailVerificationModalInner({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
-
-      {/* Modal Content */}
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="email-verify-title"
         tabIndex={-1}
         className={cn(
           "relative w-full sm:max-w-md bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
-          // [Mobile] Bottom Sheet 스타일 (하단에서 올라옴, 상단 둥글게)
           "h-auto rounded-t-2xl sm:rounded-2xl animate-slide-up sm:animate-fade-in",
-          // [Border] 시맨틱 보더
           "border-t sm:border border-border"
         )}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h2
-              id="email-verify-title"
-              className="text-lg font-bold text-primary"
-            >
-              이메일 인증
-            </h2>
+            <h2 className="text-lg font-bold text-primary">이메일 인증</h2>
             <div className="flex items-center gap-1.5 mt-1 text-sm text-muted">
               <EnvelopeIcon className="size-4" />
               <span>{maskedEmail}</span>
@@ -320,7 +284,6 @@ function EmailVerificationModalInner({
                   icon={<KeyIcon className="size-5" />}
                   className="text-center text-lg tracking-widest font-mono"
                   autoFocus
-                  // 숫자만 입력받고 6자리 되면 자동 제출
                   onChange={(e) => {
                     const v =
                       e.target.value?.replace(/\D/g, "").slice(0, 6) ?? "";
@@ -333,7 +296,6 @@ function EmailVerificationModalInner({
                 </p>
               </div>
 
-              {/* 재전송 버튼 (타이머 연동) */}
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -353,7 +315,6 @@ function EmailVerificationModalInner({
               </div>
             </div>
           ) : (
-            // 로딩 상태 (초기 request 중)
             <div className="flex flex-col items-center justify-center py-10 gap-3">
               <div className="size-8 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
               <p className="text-sm text-muted">
@@ -368,9 +329,8 @@ function EmailVerificationModalInner({
 }
 
 /**
- * Wrapper Component
- * - 모달이 열릴 때마다 Key를 변경하여 Inner Component를 새로 마운트합니다.
- * - 이를 통해 useFormState와 내부 상태를 깔끔하게 초기화합니다.
+ * 이메일 인증 모달 (Wrapper)
+ * - 모달이 열릴 때마다 Key를 변경하여 내부 상태(`useFormState` 등)를 초기화합니다.
  */
 export default function EmailVerificationModal({
   isOpen,

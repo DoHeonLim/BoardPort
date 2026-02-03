@@ -15,6 +15,7 @@
  * 2026.01.13  임도헌   Modified  [UI] ConfirmDialog로 모달 교체 및 스타일 통일
  * 2026.01.16  임도헌   Renamed   CommentDeleteButton -> PostCommentDeleteButton
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -25,6 +26,11 @@ import { toast } from "sonner";
 import { TrashIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
+/**
+ * 댓글 삭제 버튼
+ * - 클릭 시 삭제 확인 다이얼로그(`ConfirmDialog`)를 띄웁니다.
+ * - 확인 시 Context의 `deleteComment`를 호출하여 삭제를 수행합니다.
+ */
 export default function PostCommentDeleteButton({
   commentId,
 }: {

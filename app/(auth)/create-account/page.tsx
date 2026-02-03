@@ -1,5 +1,5 @@
 /**
- * File Name : app/(auth)/create-account/page
+ * File Name : app/(auth)/create-account/page.tsx
  * Description : 회원가입 페이지
  * Author : 임도헌
  *
@@ -10,11 +10,19 @@
  * 2024.10.04  임도헌   Modified  폼 제출 유효성 검증 추가
  * 2024.12.14  임도헌   Modified  다른 방법의 로그인 링크 추가
  * 2025.04.29  임도헌   Modified  UI 수정
- * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
+ * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
-import CreateAccountForm from "@/features/auth/components/form/CreateAccountForm";
-import { UserPlusIcon } from "@heroicons/react/24/outline"; // 신규 가입 아이콘
 
+import { UserPlusIcon } from "@heroicons/react/24/outline";
+import CreateAccountForm from "@/features/auth/components/form/CreateAccountForm";
+
+/**
+ * 회원가입 페이지 컴포넌트
+ *
+ * - 신규 사용자 등록을 위한 페이지입니다.
+ * - 회원가입 폼(`CreateAccountForm`)을 렌더링합니다.
+ */
 export default function CreateAccountPage() {
   return (
     <div className="flex flex-col min-h-screen px-page-x py-page-y bg-background transition-colors">

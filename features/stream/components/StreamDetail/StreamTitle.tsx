@@ -10,6 +10,8 @@
  * 2025.11.16  임도헌   Modified  compact/size/className 확장, 여백 축소
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 (text-primary)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -27,6 +29,10 @@ interface StreamTitleProps {
   className?: string;
 }
 
+/**
+ * 방송 제목을 표시합니다.
+ * 긴 제목은 자동으로 줄바꿈(break-words) 및 말줄임(line-clamp) 처리됩니다.
+ */
 export default function StreamTitle({
   title,
   compact = false,

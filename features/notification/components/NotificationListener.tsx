@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 
 type NotiPayload = {
-  /** DB Notification id (있는 경우). 토스트 dedupe에 활용 */
+  /** DB Notification ID (토스트 중복 제거용 Key) */
   id?: number;
   userId: number;
   title: string;
@@ -35,6 +35,16 @@ type NotiPayload = {
   type?: "CHAT" | "TRADE" | "REVIEW" | "SYSTEM" | "BADGE" | "STREAM";
 };
 
+/**
+ * 실시간 알림 리스너
+ *
+ * - 로그인된 유저의 전용 채널(`user-${userId}-notifications`)을 구독합니다.
+ * - 새 알림(`notification` 이벤트) 수신 시 `sonner`를 사용하여 토스트를 띄웁니다.
+ * - 현재 보고 있는 페이지(`pathname`)와 관련된 알림(예: 채팅방)은 무시하여 중복 UX를 방지합니다.
+ * - 앱이 백그라운드(`document.hidden`)에 있을 때는 토스트를 띄우지 않습니다. (시스템 푸시가 처리함)
+ *
+ * @param userId - 현재 로그인된 유저 ID
+ */
 export default function NotificationListener({ userId }: { userId: number }) {
   const pathname = usePathname();
 
@@ -46,19 +56,19 @@ export default function NotificationListener({ userId }: { userId: number }) {
       .on("broadcast", { event: "notification" }, ({ payload }) => {
         const p = payload as Partial<NotiPayload>;
 
-        // 채널 자체가 user-${id} 스코프라 기본적으로는 안전하지만,
-        // 혹시 잘못된 payload가 들어오는 케이스를 방어한다.
-        // (과거 payload에 userId가 없던 케이스도 있기 때문에 "있을 때만" 검증)
+        // Payload 유효성 검사
         if (typeof p.userId === "number" && p.userId !== userId) return;
+
+        // 앱이 백그라운드 상태면 무시 (OS 푸시 알림이 대신함)
         if (typeof document !== "undefined" && document.hidden) return;
 
-        // 현재 보고 있는 페이지가 알림 링크와 같다면 토스트 무시 (채팅방 등)
-        // p.link 예: "/chats/cl..."
+        // 현재 페이지와 관련된 알림이면 무시 (예: 해당 채팅방에 있는 경우)
         if (p.link && pathname === p.link) {
           return;
         }
 
-        // id가 있으면 1:1로, 없으면 type+link로 dedupe (채팅/거래/방송은 link가 key 역할)
+        // 토스트 ID 생성 (중복 표시 방지)
+        // ID가 있으면 ID 사용, 없으면 타입+링크 조합 사용
         const toastId = p.id
           ? `noti:${p.id}`
           : `noti:${p.type ?? "SYSTEM"}:${p.link ?? ""}`;
@@ -86,7 +96,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       .subscribe();
 
     return () => {
-      // unsubscribe()만으로도 동작은 하지만, removeChannel까지 호출해 리소스 누수를 방지한다.
+      // 채널 구독 해제 및 제거 (리소스 누수 방지)
       channel.unsubscribe();
       supabase.removeChannel(channel);
     };

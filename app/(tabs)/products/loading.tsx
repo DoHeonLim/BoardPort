@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/products/loading
+ * File Name : app/(tabs)/products/loading.tsx
  * Description : 제품 로딩 페이지
  * Author : 임도헌
  *

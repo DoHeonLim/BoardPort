@@ -1,0 +1,105 @@
+/**
+ * File Name : features/user/service/phone.ts
+ * Description : 휴대폰 인증 서비스 (SMS 발송/검증)
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status     Description
+ * 2025.10.08  임도헌   Created    SMS 로그인 로직 재사용하여 프로필 수정용 검증 분리
+ * 2025.10.08  임도헌   Modified   토큰 삭제, 휴대폰 중복(Unique) 처리, 뱃지 체크
+ * 2025.12.07  임도헌   Modified   VERIFIED_SAILOR 뱃지 체크를 badgeChecks.onVerificationUpdate로 통일
+ * 2025.12.22  임도헌   Modified   Prisma 에러 가드 유틸로 변경
+ * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
+ * 2026.01.24  임도헌   Merged     lib/phone/*.ts 로직 이관
+ */
+
+import "server-only";
+import db from "@/lib/db";
+import * as T from "@/lib/cacheTags";
+import { revalidateTag, revalidatePath } from "next/cache";
+import { sendSMS } from "@/features/auth/utils/smsSender";
+import { generateUniqueSmsToken } from "@/features/auth/service/token";
+import { badgeChecks } from "./badge";
+import { isUniqueConstraintError } from "@/lib/errors";
+import type { ServiceResult } from "@/lib/types";
+
+/**
+ * 프로필 인증용 SMS 발송
+ */
+export async function sendProfilePhoneTokenService(
+  userId: number,
+  phone: string
+): Promise<ServiceResult> {
+  // 1. 이미 사용 중인 번호인지 확인 (본인 제외)
+  const taken = await db.user.findFirst({
+    where: { phone, NOT: { id: userId } },
+    select: { id: true },
+  });
+  if (taken) {
+    return { success: false, error: "이미 사용 중인 전화번호입니다." };
+  }
+
+  // 2. 기존 토큰 정리 (해당 번호 또는 유저에게 발송된 미사용 토큰 삭제)
+  await db.sMSToken.deleteMany({
+    where: { OR: [{ phone }, { userId }] },
+  });
+
+  // 3. 새 토큰 생성 및 저장
+  const token = await generateUniqueSmsToken();
+  await db.sMSToken.create({
+    data: { token, phone, userId },
+  });
+
+  // 4. SMS 발송
+  await sendSMS(phone, token);
+
+  return { success: true };
+}
+
+/**
+ * 프로필 인증번호 검증 및 전화번호 업데이트
+ */
+export async function verifyProfilePhoneTokenService(
+  userId: number,
+  phone: string,
+  token: string
+): Promise<ServiceResult> {
+  // 1. 토큰 조회 (번호, 토큰, 유저 일치 여부)
+  const verified = await db.sMSToken.findFirst({
+    where: { token, phone, userId },
+    select: { id: true },
+  });
+
+  if (!verified) {
+    return {
+      success: false,
+      error: "전화번호와 인증번호가 일치하지 않습니다.",
+    };
+  }
+
+  // 2. 토큰 소모 (삭제)
+  await db.sMSToken.delete({ where: { id: verified.id } });
+
+  try {
+    // 3. 유저 전화번호 업데이트
+    await db.user.update({
+      where: { id: userId },
+      data: { phone },
+    });
+  } catch (e) {
+    if (isUniqueConstraintError(e, ["phone"])) {
+      return { success: false, error: "이미 등록된 전화번호입니다." };
+    }
+    throw e;
+  }
+
+  // 4. 뱃지 체크 및 캐시 갱신
+  await badgeChecks.onVerificationUpdate(userId);
+
+  revalidateTag(T.USER_CORE_ID(userId));
+  revalidateTag(T.USER_BADGES_ID(userId));
+  revalidatePath("/profile");
+  revalidatePath("/profile/edit");
+
+  return { success: true };
+}

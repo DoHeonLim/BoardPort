@@ -8,19 +8,26 @@
  * 2025.07.04  임도헌   Created   썸네일 분리
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 No Image UI 개선
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강
  */
-
 "use client";
 
 import Image from "next/image";
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import type { PostImage } from "@/features/post/types";
 
 interface PostCardThumbnailProps {
-  images: { url: string }[];
+  images: PostImage[];
   viewMode: "list" | "grid";
 }
 
+/**
+ * 게시글의 대표 이미지를 렌더링합니다.
+ * - 이미지가 있으면 첫 번째 이미지를 표시합니다.
+ * - 이미지가 없으면 Placeholder 아이콘을 표시합니다.
+ * - 뷰 모드에 따라 적절한 레이아웃과 sizes 속성을 적용합니다.
+ */
 export default function PostCardThumbnail({
   images,
   viewMode,

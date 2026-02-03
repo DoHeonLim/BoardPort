@@ -10,32 +10,30 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 스타일 통일
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  */
-
 "use client";
 
 import Link from "next/link";
 import BackButton from "@/components/global/BackButton";
 import UserAvatar from "@/components/global/UserAvatar";
 import { PencilSquareIcon } from "@heroicons/react/24/solid";
-import { POST_CATEGORY } from "@/lib/constants";
+import { POST_CATEGORY, PostCategoryType } from "@/features/post/constants";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  /** 카테고리 코드 (예: "GENERAL") */
   category?: string | null;
-  /** 뒤로가기 기본 경로 (히스토리 없을 때 폴백) */
-  backHref?: string; // 기본: /posts
-
-  /** 작성자 정보 */
+  backHref?: string;
   authorUsername: string;
   authorAvatar?: string | null;
-
-  /** 소유자일 때 수정 버튼 노출 */
   canEdit?: boolean;
-  /** 수정 페이지 경로 (isOwner=true일 때만 사용) */
   editHref?: string;
 }
 
+/**
+ * 게시글 상세 상단바
+ * - 좌측: 뒤로가기 버튼 + 작성자 프로필 (Avatar + Name)
+ * - 우측: 카테고리 칩 + (작성자인 경우) 수정 버튼
+ * - 스크롤 시 상단에 고정(Sticky)됩니다.
+ */
 export default function PostDetailTopbar({
   category,
   backHref,
@@ -45,8 +43,7 @@ export default function PostDetailTopbar({
   editHref,
 }: Props) {
   const safeBack = backHref ?? "/posts";
-  const categoryLabel =
-    category && POST_CATEGORY[category as keyof typeof POST_CATEGORY];
+  const categoryLabel = category && POST_CATEGORY[category as PostCategoryType];
 
   return (
     <header

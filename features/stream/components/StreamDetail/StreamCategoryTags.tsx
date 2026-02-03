@@ -15,7 +15,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { StreamCategory, StreamTag } from "@/types/stream";
+import { StreamCategory, StreamTag } from "@/features/stream/types";
 import { cn } from "@/lib/utils";
 
 interface StreamCategoryTagsProps {
@@ -27,6 +27,10 @@ interface StreamCategoryTagsProps {
   compact?: boolean;
 }
 
+/**
+ * 방송 카테고리와 태그(#)를 뱃지 형태로 나열하는 컴포넌트
+ * 중복된 태그는 제거하고 정규화하여 표시합니다.
+ */
 export default function StreamCategoryTags({
   category,
   tags,

@@ -17,6 +17,11 @@ interface PostDetailDescriptionProps {
   description?: string | null;
 }
 
+/**
+ * 게시글 본문을 표시합니다.
+ * - 줄바꿈(whitespace-pre-wrap)을 보존합니다.
+ * - 긴 단어는 줄바꿈(break-words) 처리합니다.
+ */
 export default function PostDetailDescription({
   description,
 }: PostDetailDescriptionProps) {

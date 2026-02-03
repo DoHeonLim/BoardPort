@@ -10,6 +10,7 @@
  * 2025.11.22  임도헌   Modified  로그인 요구 시 callbackUrl 재진입 방지(loginRequired 플래그 도입)
  * 2026.01.14  임도헌   Modified  파일명 변경(Client 제거) 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -31,6 +32,13 @@ interface AccessDeniedProps {
   viewerId: number | null;
 }
 
+/**
+ * 권한 부족으로 접근이 차단되었을 때 표시되는 UI
+ *
+ * - PRIVATE: 비밀번호 입력 모달 열기 버튼 제공
+ * - FOLLOWERS_ONLY: 즉시 팔로우 및 입장 버튼 제공
+ * - UNKNOWN: 목록으로 돌아가기 버튼 제공
+ */
 export default function AccessDenied({
   reason,
   username,

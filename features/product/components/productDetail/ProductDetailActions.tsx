@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/components/productDetail/ProductDetailActions.tsx
- * Description : 제품 상세 좋아요 및 채팅 버튼 컴포넌트
+ * Description : 하단 고정 액션바 (좋아요, 채팅/수정)
  * Author : 임도헌
  *
  * History
@@ -8,6 +8,7 @@
  * 2025.06.08  임도헌   Created   좋아요 및 채팅 인터랙션 컴포넌트 분리
  * 2026.01.10  임도헌   Modified  시맨틱 토큰 적용 (bg-surface-dim, border-border)
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  */
 "use client";
 
@@ -22,6 +23,11 @@ interface ProductDetailActionsProps {
   isOwner: boolean;
 }
 
+/**
+ * 화면 하단에 고정되는 액션 버튼 영역입니다.
+ * - 소유자: 수정 버튼 표시
+ * - 방문자: 좋아요 버튼 + 채팅하기 버튼 표시
+ */
 export default function ProductDetailActions({
   productId,
   isLiked,
@@ -54,7 +60,6 @@ export default function ProductDetailActions({
           {isOwner ? (
             <Link
               href={`/products/view/${productId}/edit`}
-              // 수정 버튼 색상도 테마에 맞춰 미세 조정
               className="flex items-center justify-center w-full h-12 rounded-xl font-bold text-base bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-900 dark:hover:bg-brand transition-colors shadow-sm active:scale-[0.98]"
             >
               게시글 수정

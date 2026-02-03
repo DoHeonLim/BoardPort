@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/CreateReviewModal.tsx
- * Description : 리뷰 작성 모달 컴포넌트
+ * Description : 리뷰 작성 모달
  * Author : 임도헌
  *
  * History
@@ -13,6 +13,7 @@
  * 2025.10.19  임도헌   Modified  제출 성공 시에만 닫기 + 중복클릭 방지 + 폼 리셋
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface)
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -28,6 +29,14 @@ interface CreateReviewModalProps {
   userAvatar: string | null;
 }
 
+/**
+ * 거래 후기 작성 모달
+ *
+ * [기능]
+ * 1. 별점(1~5점) 선택 및 리뷰 내용 입력
+ * 2. 입력값이 유효할 때만 제출 버튼 활성화
+ * 3. 모달이 닫힐 때 폼 상태 초기화
+ */
 export default function CreateReviewModal({
   isOpen,
   onClose,
@@ -36,7 +45,7 @@ export default function CreateReviewModal({
   userAvatar,
 }: CreateReviewModalProps) {
   const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0); // 별점 호버 효과용
   const [reviewText, setReviewText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,7 +66,7 @@ export default function CreateReviewModal({
   const disabled = rating === 0 || reviewText.trim() === "" || isSubmitting;
 
   const handleBackdrop = () => {
-    if (isSubmitting) return;
+    if (isSubmitting) return; // 제출 중 닫기 방지
     onClose();
   };
 
@@ -77,6 +86,7 @@ export default function CreateReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={handleBackdrop}
@@ -88,10 +98,12 @@ export default function CreateReviewModal({
           "bg-surface border border-border"
         )}
       >
+        {/* Header */}
         <div className="px-6 py-4 border-b border-border bg-surface-dim/30">
           <h2 className="text-lg font-bold text-primary">거래 후기 작성</h2>
         </div>
 
+        {/* Body */}
         <div className="p-6 space-y-6">
           <div className="flex justify-center">
             <UserAvatar
@@ -104,6 +116,7 @@ export default function CreateReviewModal({
             />
           </div>
 
+          {/* Star Rating */}
           <div className="flex justify-center gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <StarIcon
@@ -122,6 +135,7 @@ export default function CreateReviewModal({
             ))}
           </div>
 
+          {/* Textarea */}
           <textarea
             value={reviewText}
             onChange={(e) => setReviewText(e.target.value)}
@@ -136,6 +150,7 @@ export default function CreateReviewModal({
           />
         </div>
 
+        {/* Footer */}
         <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-end gap-3">
           <button
             onClick={handleBackdrop}

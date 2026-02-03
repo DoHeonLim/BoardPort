@@ -9,6 +9,7 @@
  * 2025.06.21  임도헌   Modified  검색 기록 서버 저장 기능 추가 (createSearchHistory)
  * 2026.01.16  임도헌   Moved     hooks -> hooks/search
  * 2026.01.18  임도헌   Moved     hooks/search -> features/search/hooks
+ * 2026.01.28  임도헌   Modified  주석 및 로직 설명 보강
  */
 
 "use client";
@@ -19,39 +20,32 @@ import {
   deleteAllSearchHistory,
   getUserSearchHistory,
   createSearchHistory,
-} from "@/app/(tabs)/products/actions/history";
+} from "@/features/product/actions/history";
+import type { SearchHistoryItem } from "@/features/product/types";
 
 /**
- * 검색 기록 아이템 타입 정의
- */
-export interface SearchHistoryItem {
-  keyword: string;
-  created_at: Date;
-}
-
-/**
- * useSearchHistory
+ * 검색 기록 관리 훅
  *
- * 제품 검색 기록 상태를 관리하고 서버와 동기화하는 커스텀 훅
+ * [기능]
+ * 1. 초기 검색 기록(SSR/Props)을 상태로 관리합니다.
+ * 2. 검색어 추가 시 중복 제거 후 최신순으로 정렬하고 서버에 저장합니다.
+ * 3. 개별 삭제 및 전체 삭제 기능을 제공하며 서버와 동기화합니다.
  *
- * 주요 기능:
- * - 검색 기록 목록 저장 및 UI용 상태 관리
- * - 검색 기록 추가 (중복 제거 및 상위 5개 유지)
- * - 개별 기록 삭제, 전체 삭제 (서버 API 포함)
- *
- * @param initialHistory - 초기 검색 기록 목록 (SSR or CSR로 주입)
+ * @param {SearchHistoryItem[]} initialHistory - 초기 검색 기록 목록
  */
 export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
 
+  // 초기값 동기화
   useEffect(() => {
     setHistory(initialHistory);
   }, [initialHistory]);
 
   /**
-   * 검색 기록에 새로운 키워드를 추가하고 서버에도 저장
-   * 중복 제거 후 최신순 5개까지 유지
-   * @param keyword - 검색어
+   * 검색 기록 추가
+   * - 중복된 키워드가 있으면 제거하고 맨 앞에 추가합니다. (LRU 방식)
+   * - 최대 5개까지만 유지합니다.
+   * - 비동기로 서버 저장 액션을 호출합니다. (Fire & Forget)
    */
   const addHistory = useCallback(
     async (keyword: string) => {
@@ -63,22 +57,24 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
         created_at: new Date(),
       };
 
+      // 로컬 상태 즉시 업데이트 (Optimistic)
       const filtered = history.filter((item) => item.keyword !== trimmed);
       const updated = [newItem, ...filtered].slice(0, 5);
       setHistory(updated);
 
       try {
-        await createSearchHistory(trimmed); // 서버 저장 호출
+        await createSearchHistory(trimmed); // 서버 저장
       } catch (err) {
         console.error("검색 기록 저장 실패", err);
+        // 실패 시 롤백 처리는 생략 (검색 기록은 중요도가 낮음)
       }
     },
     [history]
   );
 
   /**
-   * 개별 검색 기록을 삭제하고 서버에서 동기화
-   * @param keyword - 삭제할 검색어
+   * 개별 검색 기록 삭제
+   * - 서버 삭제 액션 호출 후, 최신 목록을 다시 불러와 상태를 갱신합니다.
    */
   const removeHistory = useCallback(async (keyword: string) => {
     try {
@@ -92,7 +88,7 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
 
   /**
    * 전체 검색 기록 삭제
-   * 서버에서도 일괄 삭제
+   * - 서버 전체 삭제 액션 호출 후 로컬 상태를 비웁니다.
    */
   const clearHistory = useCallback(async () => {
     try {

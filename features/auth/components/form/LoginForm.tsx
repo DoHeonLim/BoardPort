@@ -13,24 +13,31 @@
  * 2025.12.12  임도헌   Modified  password 표시/숨기기 버튼을 Input(passwordToggle)로 위임하여 중복 UI 제거
  * 2026.01.10  임도헌   Modified  변경된 UI 컴포넌트 및 간격 적용
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
+ * 2026.01.20  임도헌   Modified  전역 에러 처리 추가
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
-import SocialLogin from "@/features/auth/components/SocialLogin";
-import { loginSchema, type LoginSchema } from "@/features/auth/lib/loginSchema";
-import { login } from "@/app/(auth)/login/actions";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { EnvelopeIcon, LockClosedIcon } from "@heroicons/react/24/solid";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import SocialLogin from "@/features/auth/components/SocialLogin";
+import { login } from "@/features/auth/actions/login";
+import { loginSchema, type LoginSchema } from "@/features/auth/schemas/login";
 
 type FormData = LoginSchema;
 
+/**
+ * 로그인 폼
+ * - 이메일/비밀번호 검증 및 로그인 액션 처리
+ * - 소셜 로그인 연동
+ */
 export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const {
     register,
@@ -39,7 +46,7 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(loginSchema),
-    mode: "onBlur",
+    mode: "onBlur", // UX: 입력 중엔 에러 숨기고 포커스 이동 시 검증
     reValidateMode: "onChange",
   });
 
@@ -53,19 +60,28 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         formData.append("email", data.email);
         formData.append("password", data.password);
 
+        // 1. 서버 액션 호출
         const result = await login(undefined, formData);
 
         if (!result.success) {
-          const fieldErrors = result.fieldErrors as Partial<
-            Record<keyof FormData, string[]>
-          >;
-          (Object.keys(fieldErrors) as (keyof FormData)[]).forEach((key) => {
-            const message = fieldErrors[key]?.[0];
-            if (message) setError(key, { message });
-          });
+          // 2. 필드 에러 처리 (Zod 검증 실패 등 특정 필드에 매핑)
+          if (result.fieldErrors) {
+            const fieldErrors = result.fieldErrors as Partial<
+              Record<keyof FormData, string[]>
+            >;
+            (Object.keys(fieldErrors) as (keyof FormData)[]).forEach((key) => {
+              const message = fieldErrors[key]?.[0];
+              if (message) setError(key, { message });
+            });
+          }
+          // 3. 전역 에러 처리 (계정 없음, 비밀번호 불일치 등)
+          if (result.error) {
+            toast.error(result.error);
+          }
           return;
         }
 
+        // 4. 성공 처리
         toast.success("돌아오신 것을 환영합니다! ⚓");
         router.push(callbackUrl);
       } catch {

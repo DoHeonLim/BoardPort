@@ -1,5 +1,5 @@
 /**
- * File Name : app/api/me/route
+ * File Name : app/api/me/route.ts
  * Description : 현재 로그인 유저 최소 정보 조회 API (세션 id 기반 → DB 조회)
  * Author : 임도헌
  *
@@ -15,19 +15,14 @@ import { NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
 
-/**
- * Prisma(Route Handler) 안전을 위해 Node.js 런타임 명시.
- * (Edge로 실행되면 Prisma가 동작하지 않거나 런타임 오류 가능)
- */
+// Prisma 호환성을 위해 Node.js 런타임 강제
 export const runtime = "nodejs";
 
-/**
- * 세션/쿠키 기반 응답 + 사용자 개인화 데이터 → 항상 동적
- * 또한 /api/me는 클라이언트 부팅(알림 등)에서 잦게 호출되므로 브라우저 캐시는 금지.
- */
+// 클라이언트 부팅 시(알림 등) 잦은 호출 & 개인화 데이터 -> 캐시 금지
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// 브라우저 캐싱 방지 헤더
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 
 export type MeResponse =
@@ -42,7 +37,15 @@ export type MeResponse =
     }
   | { ok: false; user: null; error: "UNAUTHORIZED" };
 
+/**
+ * GET /api/me
+ *
+ * - 쿠키 세션에서 userId를 추출합니다.
+ * - DB에서 해당 유저의 최신 기본 정보(username, avatar, emailVerified)를 조회합니다.
+ * - 로그인되지 않았거나 유저가 존재하지 않으면 401을 반환합니다.
+ */
 export async function GET() {
+  // 1. 세션 확인
   const session = await getSession();
   const userId = session?.id ?? null;
 
@@ -53,12 +56,13 @@ export async function GET() {
     );
   }
 
+  // 2. DB 조회 (세션 데이터는 낡을 수 있으므로 DB가 SSOT)
   const me = await db.user.findUnique({
     where: { id: userId },
     select: { id: true, username: true, avatar: true, emailVerified: true },
   });
 
-  // 세션은 있는데 유저가 없으면(삭제/정합성 깨짐) 401로 동일 처리
+  // 3. 유저 검증 (탈퇴/차단 등)
   if (!me) {
     return NextResponse.json<MeResponse>(
       { ok: false, user: null, error: "UNAUTHORIZED" },
@@ -66,6 +70,7 @@ export async function GET() {
     );
   }
 
+  // 4. 성공 응답
   return NextResponse.json<MeResponse>(
     {
       ok: true,

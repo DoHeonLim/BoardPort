@@ -14,6 +14,7 @@
  * 2025.09.17  임도헌   Modified  join/leave API 호출 제거(완전 Presence 전용)
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -29,6 +30,14 @@ interface LiveViewerCountProps {
   className?: string;
 }
 
+/**
+ * 실시간 시청자 수를 표시하는 컴포넌트
+ *
+ * [기능]
+ * - Supabase Presence를 사용하여 현재 방에 접속한 사용자 수를 실시간으로 집계합니다.
+ * - `join`, `leave`, `sync` 이벤트를 구독하여 카운트를 갱신합니다.
+ * - 페이지 이탈 시 `untrack` 및 구독 해제를 수행합니다.
+ */
 export default function LiveViewerCount({
   streamId,
   me,
@@ -101,7 +110,7 @@ export default function LiveViewerCount({
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
       </div>
-      <span className="text-sm font-bold text-white drop-shadow-md">
+      <span className="text-sm font-bold text-muted drop-shadow-md">
         {viewerCount}명 시청 중
       </span>
     </div>

@@ -13,20 +13,18 @@
 "use client";
 
 import useSWR from "swr";
-
-export type UserLite = {
-  id: number;
-  username: string | null;
-  avatar: string | null;
-} | null;
+import { UserLite } from "@/features/user/types";
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: "same-origin" }).then((r) => r.json());
 
 /**
- * 특정 userId의 최소 정보만 불러오기
- * - enabled=false면 호출 안 함
- * - SWR 캐시로 중복 호출 방지
+ * 특정 유저의 최소 정보(ID, 이름, 아바타)를 비동기로 가져옵니다.
+ * - 팔로워 리스트에 '나'를 낙관적으로 추가할 때 등,
+ *   클라이언트가 유저 상세 정보를 가지고 있지 않을 때 유용합니다.
+ *
+ * @param userId - 조회할 유저 ID
+ * @param enabled - 훅 활성화 여부
  */
 export function useUserLite(userId?: number, enabled: boolean = true) {
   const key = enabled && userId ? `/api/users/${userId}/info` : null;
@@ -36,6 +34,6 @@ export function useUserLite(userId?: number, enabled: boolean = true) {
     shouldRetryOnError: false,
   });
 
-  const user: UserLite = data?.ok ? data.user : null;
+  const user: UserLite | null = data?.ok ? data.user : null;
   return { user, isLoading, error, mutate };
 }

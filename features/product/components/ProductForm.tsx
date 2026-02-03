@@ -12,6 +12,7 @@
  * 2025.09.10  임도헌   Modified  getUploadUrl 유니온 분기 처리로 TS 에러 해결 + File 타입 가드
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 폼 간격(gap-form-gap) 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -46,7 +47,7 @@ import {
   COMPLETENESS_DISPLAY,
   CONDITION_DISPLAY,
   GAME_TYPE_DISPLAY,
-} from "@/lib/constants";
+} from "@/features/product/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
 import ImageUploader from "@/components/global/ImageUploader";
 import Input from "@/components/ui/Input";
@@ -54,23 +55,33 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import TagInput from "@/components/ui/TagInput";
 import Link from "next/link";
-
 import { toast } from "sonner";
-import {
-  productFormSchema,
-  productFormType,
-} from "@/features/product/lib/productFormSchema";
-import { ProductFormAction } from "@/types/product";
+import { productFormSchema, productFormType } from "@/features/product/schemas";
+import type { ProductFormAction } from "@/features/product/types";
 
 interface ProductFormProps {
   mode: "create" | "edit";
-  action: ProductFormAction;
+  action: ProductFormAction; // Server Action
   defaultValues?: Partial<productFormType>;
   categories: Category[];
   submitText?: string;
   cancelHref?: string;
 }
 
+const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+
+/**
+ * 제품 등록/수정 폼
+ *
+ * [기능]
+ * 1. 이미지 업로드 (Cloudflare Images 연동)
+ * 2. 카테고리 선택 (대분류 > 소분류 연동)
+ * 3. 제품 정보 입력 (제목, 가격, 인원, 상태 등)
+ * 4. 태그 입력
+ * 5. 폼 제출 및 서버 액션 호출
+ *
+ * @param {ProductFormProps} props - 폼 모드(create/edit), 초기값, 카테고리 데이터
+ */
 export default function ProductForm({
   mode,
   action,
@@ -82,6 +93,7 @@ export default function ProductForm({
   const [resetSignal, setResetSignal] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
+  // 대분류 초기값 설정 (수정 모드 시 소분류 ID로부터 역추적)
   const initialMainCategory = useMemo<number | null>(() => {
     if (!defaultValues?.categoryId) return null;
     return (
@@ -146,6 +158,7 @@ export default function ProductForm({
     resetImage,
   } = useImageUpload({ maxImages: 5, setValue, getValues });
 
+  // 초기 이미지 설정
   useEffect(() => {
     if (
       Array.isArray(defaultValues.photos) &&
@@ -156,7 +169,7 @@ export default function ProductForm({
     }
   }, [defaultValues.photos, setValue, setPreviews]);
 
-  // minPlayers 변경 시 maxPlayers 자동 조정
+  // minPlayers 변경 시 maxPlayers 자동 조정 (UX)
   const minPlayers = watch("min_players");
   const maxPlayers = watch("max_players");
 
@@ -166,6 +179,7 @@ export default function ProductForm({
     }
   }, [minPlayers, maxPlayers, setValue]);
 
+  // 카테고리 초기값 동기화
   useEffect(() => {
     if (defaultValues.categoryId && categories.length > 0) {
       const currentCategory = categories.find(
@@ -187,8 +201,14 @@ export default function ProductForm({
     setIsUploading(true);
     try {
       const newFiles = files.filter((file) => file instanceof File);
+      // 환경변수 누락 방어
+      if (newFiles.length > 0 && !CF_HASH) {
+        toast.error("이미지 업로드 설정 오류 (CF_HASH Missing)");
+        return;
+      }
       const uploadedPhotoUrls: string[] = [];
 
+      // 1. 신규 이미지 Cloudflare 업로드
       if (newFiles.length > 0) {
         const uploadPromises = newFiles.map(async (file) => {
           const res = await getUploadUrl();
@@ -216,6 +236,7 @@ export default function ProductForm({
         uploadedPhotoUrls.push(...urls);
       }
 
+      // 2. 최종 이미지 URL 리스트 조합 (기존 + 신규)
       const allPhotos: string[] = previews
         .map((preview) => {
           if (preview.includes("imagedelivery.net")) {
@@ -229,6 +250,7 @@ export default function ProductForm({
         })
         .filter((url): url is string => !!url);
 
+      // 3. 서버 액션 호출
       const formData = new FormData();
       if (mode === "edit") {
         const productId = defaultValues.id ? defaultValues.id.toString() : "0";
@@ -246,6 +268,7 @@ export default function ProductForm({
       allPhotos.forEach((url) => formData.append("photos[]", url));
 
       const result = await action(formData);
+
       if (result?.success) {
         if (mode === "create") {
           toast.success("🎉 제품 등록 완료!");

@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ProfileReviewsModal.tsx
- * Description : 유저 리뷰 모달 컴포넌트 (키셋 페이지네이션 + created_at 표시 대응)
+ * Description : 유저 리뷰 목록 모달 (무한 스크롤)
  * Author : 임도헌
  *
  * History
@@ -14,14 +14,14 @@
  * 2025.11.13  임도헌   Modified   긴 문장 가독성 개선: 읽기 폭 제한(max-w-2xl/ max-w-prose), overscroll-contain
  * 2026.01.15  임도헌   Modified   무한 스크롤 로직을 ReviewsList로 위임하고 레이아웃만 담당
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useEffect, useRef } from "react";
 import ReviewsList from "@/features/user/components/profile/ReviewsList";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import type { ProfileReview } from "@/types/profile";
+import type { ProfileReview } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
 interface ReviewModalProps {
@@ -31,6 +31,15 @@ interface ReviewModalProps {
   userId: number;
 }
 
+/**
+ * 리뷰 목록 모달
+ *
+ * [기능]
+ * 1. `ReviewsList` 컴포넌트를 렌더링하여 리뷰 목록을 표시합니다.
+ * 2. 모달 내부 스크롤(`scrollAreaRef`)을 기준으로 무한 스크롤이 동작하도록 합니다.
+ * 3. 반응형 레이아웃: 모바일(Bottom Sheet) / 데스크톱(Center Card).
+ * 4. 접근성: 초기 포커스, ESC 닫기, 배경 스크롤 잠금.
+ */
 export default function ProfileReviewsModal({
   isOpen,
   onClose,
@@ -40,16 +49,18 @@ export default function ProfileReviewsModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // 접근성 & 이벤트 리스너 (ESC 닫기, 스크롤 잠금)
+  // 접근성 & 이벤트 리스너
   useEffect(() => {
     if (!isOpen) return;
 
-    // 초기 포커스
+    // 초기 포커스 이동 (스크린 리더 접근성)
     setTimeout(() => dialogRef.current?.focus(), 0);
 
+    // Body 스크롤 잠금
     const originalStyle = window.getComputedStyle(document.body).overflow;
     document.body.style.overflow = "hidden";
 
+    // ESC 키 닫기
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -105,10 +116,7 @@ export default function ProfileReviewsModal({
           ref={scrollAreaRef}
           className="flex-1 overflow-y-auto p-6 scrollbar-hide"
         >
-          {/* 
-            ReviewsList에 scrollParentRef를 전달하여 
-            모달 내부 스크롤을 기준으로 무한 스크롤이 동작하게 함 
-          */}
+          {/* ReviewsList에 scrollParentRef 전달 -> 내부 무한 스크롤 트리거 기준 */}
           <ReviewsList
             userId={userId}
             initialReviews={initialReviews}

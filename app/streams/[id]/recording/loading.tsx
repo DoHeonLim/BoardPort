@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/[id]/recording/loading
+ * File Name : app/streams/[id]/recording/loading.tsx
  * Description : 녹화본 상세 로딩 스켈레톤
  * Author : 임도헌
  *

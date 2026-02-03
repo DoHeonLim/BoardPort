@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/SearchFilters.tsx
- * Description : 검색 필터 모음 (모바일 Bottom Sheet / 데스크톱 Dropdown)
+ * Description : 검색 상세 필터 UI (카테고리, 가격, 상태 등)
  * Author : 임도헌
  *
  * History
@@ -13,12 +13,13 @@
  * 2025.06.18  임도헌   Modified  각 필터 컴포넌트 분리
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 다크모드 배경색(bg-surface) 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { Category } from "@/generated/prisma/client";
-import { FilterState } from "@/lib/constants";
+import { FilterState } from "@/features/product/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
 import CategoryFilter from "@/features/search/components/filters/CategoryFilter";
@@ -34,6 +35,17 @@ interface SearchFiltersProps {
   filters: FilterState;
 }
 
+/**
+ * 상세 필터 설정 컴포넌트
+ *
+ * [반응형 레이아웃]
+ * - Mobile: 하단 Bottom Sheet 스타일
+ * - Desktop: 필터 버튼 하단 Dropdown 스타일
+ *
+ * [기능]
+ * - 임시 필터 상태(`tempFilters`)를 관리하며, '적용' 버튼 클릭 시 URL에 반영합니다.
+ * - '초기화' 버튼으로 모든 필터를 리셋할 수 있습니다.
+ */
 export default function SearchFilters({
   isOpen,
   onClose,

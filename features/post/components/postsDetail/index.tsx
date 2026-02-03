@@ -11,11 +11,21 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 배경색 및 패딩 조정
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.17  임도헌   Modified  PostDetailCarousel 컴포넌트 제거 후 Carousel 컴포넌트로 변경
+ * 2026.01.22  임도헌   Modified  user 타입 정의 완화 (User -> UserLite)
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * ===============================================================================================
+ * 이 폴더는 PostDetail (게시글 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ *
+ * - PostDetailTopbar.tsx      : 상단바 (뒤로가기, 카테고리 칩, 수정 버튼)
+ * - PostDetailTitle.tsx       : 게시글 제목
+ * - PostDetailDescription.tsx : 게시글 본문 내용
+ * - PostDetailMeta.tsx        : 작성일, 조회수, 좋아요 버튼 등 메타 정보
+ * - index.tsx                 : 위 컴포넌트들을 조합하고 애니메이션/댓글 섹션을 포함한 최종 컨테이너
+ * ===============================================================================================
  */
 "use client";
 
-import { PostDetail as PostDetailType } from "@/types/post";
-import { User } from "@/generated/prisma/client";
+import { PostDetail as PostDetailType } from "@/features/post/types";
 import { motion } from "framer-motion";
 import Carousel from "@/components/ui/Carousel";
 import PostDetailTitle from "@/features/post/components/postsDetail/PostDetailTitle";
@@ -24,20 +34,36 @@ import PostDetailMeta from "@/features/post/components/postsDetail/PostDetailMet
 import PostDetailTopbar from "@/features/post/components/postsDetail/PostDetailTopbar";
 import PostComment from "@/features/post/components/postComment";
 
+interface UserLite {
+  id: number;
+  username: string;
+  avatar: string | null;
+}
+
 interface PostDetailProps {
   post: PostDetailType;
-  user: User;
+  user: UserLite;
   likeCount: number;
   isLiked: boolean;
 }
 
+/**
+ * 게시글 상세 페이지 컨테이너
+ *
+ * [구조]
+ * 1. 상단바 (Topbar)
+ * 2. 본문 영역 (제목 -> 설명 -> 이미지 캐러셀 -> 메타 정보)
+ * 3. 댓글 섹션 (PostComment)
+ *
+ * Framer Motion을 사용하여 본문 영역에 진입 애니메이션 적용
+ */
 export default function PostDetail({
   post,
   user,
   likeCount,
   isLiked,
 }: PostDetailProps) {
-  const canEdit = post.user.id === user.id; // 숫자 PK 비교
+  const canEdit = post.user.id === user.id;
 
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">

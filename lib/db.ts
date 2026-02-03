@@ -1,5 +1,5 @@
 /**
- * File Name : lib/db
+ * File Name : lib/db.ts
  * Description : 프리즈마 클라이언트
  * Author : 임도헌
  *
@@ -8,7 +8,7 @@
  * 2024.10.06  임도헌   Created   프리즈마 클라이언트 생성
  * 2025.11.28  임도헌   Modified  Prisma 7 + adapter-better-sqlite3 적용
  * 2025.11.29  임도헌   Modified  PrismaClient 싱글톤 + DATABASE_URL 기본값 추가
- * 2025.12.XX  임도헌   Modified  PostgreSQL(Supabase)용 PrismaPg 어댑터 적용
+ * 2025.12.20  임도헌   Modified  PostgreSQL(Supabase)용 PrismaPg 어댑터 적용
  */
 
 import { PrismaClient } from "@/generated/prisma/client";

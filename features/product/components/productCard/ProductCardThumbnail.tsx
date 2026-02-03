@@ -7,22 +7,30 @@
  * 2025.06.07  임도헌   Created   제품 썸네일 전용 컴포넌트 분리
  * 2026.01.10  임도헌   Modified  레이아웃 및 오버레이 가시성 향상
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  */
 "use client";
 
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { PhotoIcon } from "@heroicons/react/24/outline";
+import type { ViewMode } from "@/features/product/types";
 
 interface ProductCardThumbnailProps {
   imageUrl?: string;
-  viewMode: "grid" | "list";
+  viewMode: ViewMode;
   title: string;
   isPriority?: boolean;
   reservation_userId: number | null;
   purchase_userId: number | null;
 }
 
+/**
+ * 제품 썸네일을 렌더링합니다.
+ * - 이미지가 없을 경우 Placeholder 아이콘을 표시합니다.
+ * - 판매 완료/예약 중 상태일 경우 오버레이 배지를 표시합니다.
+ * - Grid/List 뷰에 따라 최적화된 이미지 사이즈(sizes prop)를 적용합니다.
+ */
 export default function ProductCardThumbnail({
   imageUrl,
   viewMode,
@@ -35,7 +43,6 @@ export default function ProductCardThumbnail({
   const isReserved = !!reservation_userId && !isSold;
 
   return (
-    // bg-surface-dim (부드러운 회색)을 깔아서 이미지가 로딩되거나 투명할 때도 형태 유지
     <div className="relative h-full w-full bg-surface-dim flex items-center justify-center overflow-hidden">
       {imageUrl ? (
         <Image
@@ -48,15 +55,12 @@ export default function ProductCardThumbnail({
               ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               : "160px"
           }
-          // object-cover로 강제 채움 (작은 이미지도 확대됨)
-          // 만약 원본 비율이 중요하면 object-contain으로 바꾸고 p-2 추가
           className={cn(
             "object-cover transition-transform duration-500 group-hover:scale-105",
-            (isSold || isReserved) && "opacity-60 grayscale-[0.5]" // 상태 있을 때 흐림 처리 강화
+            (isSold || isReserved) && "opacity-60 grayscale-[0.5]"
           )}
         />
       ) : (
-        // 이미지가 없을 때 Placeholder
         <div className="flex flex-col items-center justify-center text-muted/50 gap-1">
           <PhotoIcon className="w-8 h-8" />
           <span className="text-[10px] font-medium">No Image</span>

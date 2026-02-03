@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/components/HeroSection.tsx
- * Description : 메인 콘텐츠 컴포넌트
+ * Description : 메인 페이지 히어로 섹션 (로고 및 인트로)
  * Author : 임도헌
  *
  * History
@@ -9,6 +9,7 @@
  * 2025.05.30  임도헌   Modified  인트로 문구, 로고 추가
  * 2026.01.11  임도헌   Modified  텍스트 가독성 개선, 애니메이션 유지
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 
 import Logo from "@/components/ui/Logo";

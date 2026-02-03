@@ -29,6 +29,7 @@
  * 2026.01.15  임도헌   Modified   시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  */
+
 "use client";
 
 import { useMemo, useRef, useState, useCallback } from "react";
@@ -48,15 +49,20 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-import type { Paginated, ProductType, ViewMode } from "@/types/product";
+import type {
+  Paginated,
+  ProductType,
+  ViewMode,
+} from "@/features/product/types";
 import type {
   Badge,
   ProfileAverageRating,
   ProfileReview,
   UserProfile as UserProfileType,
-} from "@/types/profile";
-import type { BroadcastSummary } from "@/types/stream";
+} from "@/features/user/types";
+import type { BroadcastSummary } from "@/features/stream/types";
 
+// 리뷰 모달은 필요한 시점에 로드 (Chunk 분리)
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
 });
@@ -74,6 +80,15 @@ interface Props {
   viewerId?: number;
 }
 
+/**
+ * 타인 프로필 페이지 메인 UI
+ *
+ * [주요 섹션]
+ * 1. ProfileHeader: 기본 정보 및 팔로우 액션
+ * 2. 방송국 (Rail): 해당 유저의 최근 방송 목록 (팔로우 상태에 따라 잠금 UI 연동)
+ * 3. 받은 거래 후기 및 뱃지
+ * 4. 판매 목록: 판매 중 / 판매 완료 탭과 무한 스크롤 리스트
+ */
 export default function UserProfile({
   user,
   initialReviews,
@@ -90,15 +105,17 @@ export default function UserProfile({
   const qs = searchParams.toString();
   const next = useMemo(() => pathname + (qs ? `?${qs}` : ""), [pathname, qs]);
 
-  // 팔로우 상태(클라) — 헤더 토글 후 rail 잠금/CTA가 즉시 반영되도록
+  // 1. 팔로우 상태 관리 (Local State)
+  // - 헤더에서 팔로우 버튼을 누르면 이 상태가 변경됩니다.
+  // - 이 상태는 하단의 '방송국' 섹션 내 '팔로워 전용 방송' 카드의 잠금 해제 여부에 즉시 영향을 줍니다.
   const [isFollowing, setIsFollowing] = useState<boolean>(!!user.isFollowing);
 
-  // 뷰/탭/모달
+  // 2. 뷰 및 탭 상태
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeTab, setActiveTab] = useState<ProductStatus>("selling");
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-  // 탭별 페이지네이션 훅 (profile 모드)
+  // 3. 판매 목록 페이지네이션 설정 (각 탭별 독립 훅)
   const selling = useProductPagination<ProductType>({
     mode: "profile",
     scope: { type: "SELLING", userId: user.id },
@@ -115,7 +132,7 @@ export default function UserProfile({
   const current = activeTab === "selling" ? selling : sold;
   const currentProducts = current.products as ProductType[];
 
-  // 무한스크롤
+  // 4. 무한 스크롤 설정
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
 
@@ -129,8 +146,11 @@ export default function UserProfile({
     threshold: 0.01,
   });
 
-  // StreamCard 잠금 CTA → 헤더 팔로우 버튼 클릭 유도
-  // (ProfileHeader에 followButtonId를 심어두는 방식)
+  /**
+   * [Interaction] 방송 레일에서 팔로우 유도 시
+   * - 비로그인 시 로그인 페이지로 안내
+   * - 로그인 시 헤더에 있는 팔로우 버튼을 자동으로 찾아 스크롤 및 클릭을 유도함
+   */
   const followButtonId = "user-profile-follow-btn";
 
   const onRequireLogin = useCallback(() => {
@@ -138,7 +158,7 @@ export default function UserProfile({
   }, [router, next]);
 
   const requestFollowFromRail = useCallback(() => {
-    // 비로그인 → 로그인으로
+    // 비로그인 -> 로그인으로
     if (!viewerId) {
       onRequireLogin();
       return;
@@ -164,7 +184,7 @@ export default function UserProfile({
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      {/* 1. Header */}
+      {/* 1. Header (기본 정보 + 팔로우) */}
       <div className="pt-2">
         <ProfileHeader
           ownerId={user.id}
@@ -178,12 +198,12 @@ export default function UserProfile({
           avatarUrl={user.avatar ?? null}
           showFollowButton
           onRequireLogin={onRequireLogin}
-          onFollowingChange={setIsFollowing}
+          onFollowingChange={setIsFollowing} // 헤더의 상태 변화를 본 컴포넌트의 state와 동기화
           followButtonId={followButtonId}
         />
       </div>
 
-      {/* 2. Channel Section */}
+      {/* 2. 방송국 (최근 방송 Rail) */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-primary">방송국</h2>
@@ -202,9 +222,12 @@ export default function UserProfile({
         ) : (
           <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
             {myStreams.map((s) => {
+              // 2-1. 팔로워 전용 잠금 로직 (isFollowing state와 실시간 연동)
               const followersOnlyLocked =
                 s.visibility === "FOLLOWERS" && !isFollowing;
+              // 2-2. 비밀번호 잠금은 세션 기반으로 서버에서 판단한 결과를 따름
               const requiresPassword = !!s.requiresPassword;
+
               return (
                 <div key={s.id} className="w-[200px] shrink-0 snap-start">
                   <StreamCard
@@ -218,15 +241,7 @@ export default function UserProfile({
                       avatar: s.user.avatar ?? undefined,
                     }}
                     startedAt={s.started_at ?? undefined}
-                    category={
-                      s.category
-                        ? {
-                            id: s.category.id,
-                            kor_name: s.category.kor_name,
-                            icon: s.category.icon ?? undefined,
-                          }
-                        : undefined
-                    }
+                    category={s.category}
                     tags={s.tags}
                     followersOnlyLocked={followersOnlyLocked}
                     requiresPassword={requiresPassword}
@@ -245,7 +260,7 @@ export default function UserProfile({
         )}
       </section>
 
-      {/* 3. Reviews & Badges */}
+      {/* 3. 후기 및 뱃지 섹션 */}
       <div className="grid grid-cols-1 gap-6">
         <section>
           <div className="flex items-center justify-between mb-2">
@@ -257,20 +272,19 @@ export default function UserProfile({
               전체 보기
             </button>
           </div>
-          {/* Preview logic can be added here if needed */}
         </section>
 
         <section>
           <h2 className="text-sm font-bold text-primary mb-2">획득한 뱃지</h2>
-          {/* [Change] 모달 버튼 제거하고 바로 리스트 표시, max 갯수 늘림 */}
           <UserBadges badges={userBadges} max={20} />
         </section>
       </div>
 
-      {/* 4. Sales Products */}
+      {/* 4. 판매 목록 (Tabs) */}
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
         <div className="panel p-4 bg-surface">
+          {/* 탭 전환 버튼 */}
           <div className="flex p-1 bg-surface-dim rounded-lg border border-border mb-4">
             {(["selling", "sold"] as const).map((tab) => (
               <button
@@ -288,6 +302,7 @@ export default function UserProfile({
             ))}
           </div>
 
+          {/* 뷰 모드 및 리스트 */}
           <div className="flex justify-end mb-3">
             <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
               <button
@@ -338,6 +353,7 @@ export default function UserProfile({
                   />
                 ))}
               </div>
+              {/* 무한 스크롤 트리거 */}
               <div className="flex justify-center pt-2 min-h-[30px]">
                 {current.hasMore && (
                   <div ref={triggerRef} className="h-1 w-full" />
@@ -351,7 +367,7 @@ export default function UserProfile({
         </div>
       </section>
 
-      {/* Review Modal */}
+      {/* 5. 리뷰 모달 */}
       {isReviewModalOpen && (
         <ProfileReviewsModal
           isOpen={isReviewModalOpen}

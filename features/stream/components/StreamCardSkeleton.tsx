@@ -7,10 +7,15 @@ x * Description : 스트리밍 카드 스켈레톤
  * Date        Author   Status    Description
  * 2026.01.13  임도헌   Created   StreamCard 구조에 맞춘 스켈레톤 생성
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
+/**
+ * 스트리밍 카드 로딩 상태 UI
+ * - 썸네일(16:9), 제목, 아바타, 메타 정보 영역의 스켈레톤을 표시합니다.
+ */
 export default function StreamCardSkeleton() {
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden border border-border bg-surface shadow-sm h-full">

@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/[id]/live-preview/page
+ * File Name : app/streams/[id]/live-preview/page.tsx
  * Description : 라이브 미니 프리뷰(iframe 전용) — Broadcast 스키마 + 접근 가드
  * Author : 임도헌
  *
@@ -9,13 +9,15 @@
  * 2026.01.03  임도헌   Modified  PRIVATE 언락 체크에서 session 중복 조회 제거(isBroadcastUnlockedFromSession)
  * 2026.01.04  임도헌   Modified  robots 차단 + revalidate=0 명시 + iframe sandbox/referrerPolicy 보강
  * 2026.01.14  임도헌   Modified  Fallback 배경색 명시 (bg-black)
+ * 2026.01.29  임도헌   Modified  주석 설명 보강
  */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import db from "@/lib/db";
 import getSession from "@/lib/session";
-import { checkBroadcastAccess } from "@/features/stream/lib/checkBroadcastAccess";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
+import { checkBroadcastAccess } from "@/features/stream/service/access";
+import { StreamVisibility } from "@/features/stream/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -42,6 +44,13 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
   );
 }
 
+/**
+ * 라이브 미리보기 페이지 (Iframe Embed용)
+ *
+ * - 카드 호버 시 로드되는 미니 플레이어입니다.
+ * - 접근 권한을 체크하여 권한이 없으면 썸네일(Fallback)을 보여줍니다.
+ * - Cloudflare Player를 전체 화면으로 렌더링합니다.
+ */
 export default async function LivePreviewPage({
   params,
 }: {
@@ -57,6 +66,7 @@ export default async function LivePreviewPage({
   const session = await getSession();
   const viewerId = session?.id ?? null;
 
+  // DB 직접 조회 (최소 필드)
   const row = await db.broadcast.findUnique({
     where: { id: broadcastId },
     select: {
@@ -80,10 +90,11 @@ export default async function LivePreviewPage({
   const ownerId = row.liveInput.userId;
   const isOwner = !!viewerId && viewerId === ownerId;
 
+  // 권한 체크
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
     const guard = await checkBroadcastAccess(
-      { userId: ownerId, visibility: row.visibility },
+      { userId: ownerId, visibility: row.visibility as StreamVisibility },
       viewerId,
       { isPrivateUnlocked: isUnlocked }
     );

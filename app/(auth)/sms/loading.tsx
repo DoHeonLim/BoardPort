@@ -1,5 +1,5 @@
 /**
- * File Name : app/(auth)/sms/loading
+ * File Name : app/(auth)/sms/loading.tsx
  * Description : SMS 로그인 페이지 로딩 스켈레톤
  * Author : 임도헌
  *
@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.01.14  임도헌   Created
  */
+
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {

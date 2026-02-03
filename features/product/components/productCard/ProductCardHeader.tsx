@@ -9,8 +9,10 @@
  * 2026.01.10  임도헌   Modified  시맨틱 클래스 추가
  * 2026.01.12  임도헌   Modified  모바일/좁은 화면에서 부모 카테고리를 렌더링 하지 않게 수정
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  */
-import { GAME_TYPE_DISPLAY } from "@/lib/constants";
+
+import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
 
 interface ProductCardHeaderProps {
   gameType: string;
@@ -24,6 +26,10 @@ interface ProductCardHeaderProps {
   };
 }
 
+/**
+ * 카드 상단에 게임 타입(보드게임/TRPG 등)과 카테고리 경로를 표시합니다.
+ * 좁은 화면에서는 부모 카테고리를 숨겨 공간을 확보합니다.
+ */
 export function ProductCardHeader({
   gameType,
   category,
@@ -39,14 +45,13 @@ export function ProductCardHeader({
         <>
           <span className="text-border dark:text-neutral-700">|</span>
           <span className="truncate max-w-[140px] sm:max-w-none text-muted flex items-center gap-0.5">
-            {/* 부모 카테고리는 sm 이상에서만 노출 (모바일 숨김) */}
+            {/* 부모 카테고리는 sm 이상에서만 노출 */}
             {category.parent && (
               <span className="hidden sm:inline">
                 {category.parent.icon} {category.parent.kor_name} &gt;
               </span>
             )}
-
-            {/* 자식(현재) 카테고리는 항상 노출 */}
+            {/* 자식 카테고리는 항상 노출 */}
             <span>
               {category.icon} {category.kor_name}
             </span>

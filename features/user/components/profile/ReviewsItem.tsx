@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ReviewsItem.tsx
- * Description : 유저 리뷰 컴포넌트 (작성일 표기 + payload/content 호환)
+ * Description : 리뷰 리스트 아이템 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -15,6 +15,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (border, text color)
  * 2026.01.15  임도헌   Modified   [Rule 5.1] 시맨틱 토큰 및 레이아웃 개선
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -22,24 +23,32 @@ import { useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import TimeAgo from "@/components/ui/TimeAgo";
 import { StarIcon } from "@heroicons/react/24/outline";
-import type { ProfileReview } from "@/types/profile";
+import type { ProfileReview } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
 interface IReviewItemProps {
   review: ProfileReview;
 }
 
+/**
+ * 개별 리뷰 아이템
+ *
+ * [기능]
+ * 1. 작성자 정보, 별점, 작성일, 구매한 상품명 표시
+ * 2. 리뷰 내용이 길 경우(3줄 초과) '더 보기' 버튼을 노출하여 확장 기능 제공
+ * 3. `useRef`와 `scrollHeight`를 비교하여 오버플로우 여부를 자동 감지
+ */
 export default function ReviewItem({ review }: IReviewItemProps) {
   const text = review.payload ?? "";
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 컴포넌트 내부에서만 넘침 체크 (짧은 리뷰는 페이드/버튼 숨김)
+  // 텍스트가 변경될 때마다 넘침 체크
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
-    // 3줄(약 4.5rem = 72px) 이상이면 더보기 표시
+    // 실제 높이가 클라이언트 높이보다 크면 넘치는 것으로 판단
     setOverflowing(el.scrollHeight > el.clientHeight);
   }, [text]);
 
@@ -83,7 +92,7 @@ export default function ReviewItem({ review }: IReviewItemProps) {
             </div>
           </div>
 
-          {/* Product Link Context (Optional improvement) */}
+          {/* Product Link Context */}
           <div className="mt-2 text-xs text-muted flex items-center gap-1">
             <span className="shrink-0">구매한 상품:</span>
             <span className="font-medium text-primary truncate max-w-[200px]">
@@ -91,7 +100,7 @@ export default function ReviewItem({ review }: IReviewItemProps) {
             </span>
           </div>
 
-          {/* Content */}
+          {/* Content (Expandable) */}
           <div className="mt-3 relative">
             <p
               ref={contentRef}

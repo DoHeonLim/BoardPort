@@ -11,6 +11,7 @@
  * 2024.12.12  임도헌   Modified  리뷰가 없을 경우 0으로 나오게 수정
  * 2025.10.29  임도헌   Modified  부분 별(소수점) 렌더링 도입, 0~5 클램프, 텍스트 1자리 고정, a11y 강화
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -24,13 +25,21 @@ interface UserRatingProps {
   className?: string;
 }
 
+/**
+ * 유저 평점 표시 컴포넌트
+ *
+ * [기능]
+ * 1. 5점 만점의 별점을 표시합니다.
+ * 2. 소수점 단위의 평점을 시각적으로 표현하기 위해 '부분 채움(clipping)' 로직을 사용합니다.
+ * 3. 별 크기(sm, md, lg)를 조절할 수 있습니다.
+ */
 export default function UserRating({
   average = 0,
   totalReviews = 0,
   size = "md",
   className,
 }: UserRatingProps) {
-  // 안전 가드 + 소수점 1자리 표시
+  // 안전 가드 (0~5 범위 제한)
   const avg = Math.min(5, Math.max(0, Number(average)));
   const displayAvg = avg.toFixed(1);
 
@@ -46,7 +55,13 @@ export default function UserRating({
     lg: "text-base",
   };
 
-  // i번째 별의 채움 비율
+  /**
+   * i번째 별의 채움 비율(%)을 계산합니다.
+   * 예: 평점 3.7일 때
+   * - 0, 1, 2번째 별: 100% (꽉 참)
+   * - 3번째 별: 70% (0.7 * 100)
+   * - 4번째 별: 0% (빈 별)
+   */
   const fillFor = (i: number) => {
     const v = avg - i;
     if (v >= 1) return 100;

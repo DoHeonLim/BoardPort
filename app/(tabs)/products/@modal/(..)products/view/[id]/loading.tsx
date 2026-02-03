@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/products/@modal/(..)products/view/[id]/loading
+ * File Name : app/(tabs)/products/@modal/(..)products/view/[id]/loading.tsx
  * Description : 모달 제품 상세 페이지 로딩 스켈레톤
  * Author : 임도헌
  *

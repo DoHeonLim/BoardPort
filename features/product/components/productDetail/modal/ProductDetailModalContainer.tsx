@@ -1,6 +1,6 @@
 /**
- * File Name : components/productDetail/modal/ProductDetailModalContainer
- * Description : 제품 상세 페이지 모달 컨테이너
+ * File Name : components/productDetail/modal/ProductDetailModalContainer.tsx
+ * Description : 제품 상세 모달 컨테이너 (Intercepting Route용)
  * Author : 임도헌
  *
  * History
@@ -17,7 +17,8 @@ import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProductDetailContainer from "@/features/product/components/productDetail";
 import CloseButton from "@/components/global/CloseButton";
-import type { ProductDetailType } from "@/types/product";
+import type { ProductDetailType } from "@/features/product/types";
+import { cn } from "@/lib/utils";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -27,12 +28,18 @@ interface ProductDetailProps {
   isLiked: boolean;
 }
 
+/**
+ * 제품 상세 페이지를 모달 형태로 띄우는 래퍼 컴포넌트
+ * - 목록 페이지에서 상세로 이동 시, 전체 페이지 전환 대신 모달로 띄워 UX를 향상시킵니다. (Next.js Parallel Routes)
+ * - 배경 스크롤 잠금, 포커스 트랩, ESC 닫기 등 모달 필수 기능을 제공합니다.
+ * - 닫기 시 `returnTo` 쿼리 파라미터를 사용하여 이전 목록 상태를 유지하며 복귀합니다.
+ */
 export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // 스크롤 잠금
+  // Body 스크롤 잠금
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -41,7 +48,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     };
   }, []);
 
-  // 포커스 트랩(간단 버전: 진입 시 모달에 포커스)
+  // 초기 포커스 이동 (접근성)
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
@@ -49,8 +56,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const returnTo = sp.get("returnTo") || "/products";
 
   const handleOverlayClick = () => {
-    // CloseButton 로직과 동일하게 처리되도록 router.push 대신 CloseButton 사용
-    // 여기서는 안전하게 returnTo로 이동
+    // 배경 클릭 시 닫기: router.push(returnTo)로 복귀
     router.push(returnTo);
   };
 
@@ -66,13 +72,18 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
         aria-label="제품 상세"
         ref={dialogRef}
         tabIndex={-1}
-        className="w-full h-full max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl flex flex-col overflow-hidden outline-none"
-        onClick={(e) => e.stopPropagation()} // 내부 클릭 시 모달 닫힘 방지
+        className={cn(
+          "w-full h-full max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl flex flex-col overflow-hidden outline-none",
+          // 모바일에서는 전체 화면, 데스크톱에서는 중앙 모달 형태 유지
+          "sm:h-[85vh] sm:rounded-2xl"
+        )}
+        onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >
-        <div className="flex justify-end p-2">
+        <div className="flex justify-end p-2 bg-surface border-b border-border shrink-0">
           <CloseButton fallbackHref="/products" returnTo={returnTo} />
         </div>
-        <div className="flex-1 overflow-y-auto">
+
+        <div className="flex-1 overflow-y-auto bg-background">
           <ProductDetailContainer {...props} />
         </div>
       </div>

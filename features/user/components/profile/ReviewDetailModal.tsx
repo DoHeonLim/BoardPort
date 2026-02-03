@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ReviewDetailModal.tsx
- * Description : 리뷰 상세 모달 컴포넌트(구매자, 판매자)
+ * Description : 단일 리뷰 상세 보기 모달
  * Author : 임도헌
  *
  * History
@@ -9,28 +9,33 @@
  * 2025.10.19  임도헌   Modified  onDelete 비동기/로딩 처리 + ESC/오버레이 닫기 + 접근성 보강
  * 2026.01.12  임도헌   Modified   [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
+import type { ProfileReview } from "@/features/user/types";
 
 interface ReviewDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  review?: {
-    id: number;
-    rate: number;
-    payload: string;
-  };
-
+  review?: Pick<ProfileReview, "id" | "rate" | "payload">;
   onDelete?: () => void | Promise<void>;
   emptyMessage?: string;
 }
 
+/**
+ * 단일 리뷰 상세 내용 보기 모달
+ *
+ * [기능]
+ * 1. 리뷰 내용, 별점, 작성자 정보를 표시합니다.
+ * 2. 삭제 권한이 있는 경우(`onDelete` prop 존재 시) 삭제 버튼을 노출합니다.
+ * 3. 리뷰 데이터가 없는 경우 `emptyMessage`를 표시합니다.
+ * 4. 접근성(ESC 닫기) 및 삭제 로딩 상태를 관리합니다.
+ */
 export default function ReviewDetailModal({
   isOpen,
   onClose,
@@ -42,6 +47,7 @@ export default function ReviewDetailModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // ESC 키로 닫기
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -51,11 +57,13 @@ export default function ReviewDetailModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
+  // 삭제 핸들러 (비동기 처리 & 로딩 상태 관리)
   const handleDelete = useCallback(async () => {
     if (!onDelete) return;
     try {
       setIsDeleting(true);
       await onDelete();
+      // 성공 후 처리는 상위 컴포넌트(MySalesProductItem 등)에서 담당
     } finally {
       setIsDeleting(false);
     }
@@ -70,11 +78,13 @@ export default function ReviewDetailModal({
       role="dialog"
       aria-labelledby="review-detail-title"
     >
+      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
+      {/* Modal Content */}
       <div
         ref={dialogRef}
         className={cn(

@@ -1,16 +1,16 @@
 /**
-File Name : app/products/view/[id]/loading
-Description : 제품 상세 로딩 페이지
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2024.10.14  임도헌   Created
-2024.10.14  임도헌   Modified  제품 상세 로딩 페이지 추가
-2024.12.23  임도헌   Modified  제품 상세 로딩 페이지 아이콘 변경
-2025.06.08  임도헌   Modified  제품 상세 로딩 수정
-2026.01.11  임도헌   Modified  ProductDetailContainer와 동일한 UI 배치 
-*/
+ * File Name : app/products/view/[id]/loading.tsx
+ * Description : 제품 상세 로딩 페이지
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.14  임도헌   Created
+ * 2024.10.14  임도헌   Modified  제품 상세 로딩 페이지 추가
+ * 2024.12.23  임도헌   Modified  제품 상세 로딩 페이지 아이콘 변경
+ * 2025.06.08  임도헌   Modified  제품 상세 로딩 수정
+ * 2026.01.11  임도헌   Modified  ProductDetailContainer와 동일한 UI 배치
+ */
 
 import Skeleton from "@/components/ui/Skeleton";
 

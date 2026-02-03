@@ -1,5 +1,5 @@
 /**
- File Name : lib/supabase
+ File Name : lib/supabase.ts
  Description : supabase 클라이언트 코드
  Author : 임도헌
  

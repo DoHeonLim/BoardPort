@@ -35,8 +35,8 @@
  * 2026.01.06  임도헌   Modified  Key Points/용어 정리: isMutualWithOwner 기준 단일화 + self 숨김 규칙 제거
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 모바일 Full/데스크톱 Card 레이아웃 분기
  * 2026.01.17  임도헌   Moved     components/follow -> features/user/components/follow
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
@@ -44,7 +44,7 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import FollowListItem from "@/features/user/components/follow/FollowListItem";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-import type { FollowListUser } from "@/types/profile";
+import type { FollowListUser } from "@/features/user/types";
 
 type FollowListError =
   | { stage: "first"; message: string }
@@ -72,6 +72,16 @@ interface FollowListModalProps {
   onRetry?: () => void | Promise<void>;
 }
 
+/**
+ * 팔로우 목록 모달
+ *
+ * [기능]
+ * 1. 팔로워 또는 팔로잉 유저 목록을 렌더링합니다.
+ * 2. '맞팔로잉' 유저와 그 외 유저를 섹션으로 분리하여 표시합니다. (`isMutualWithOwner` 기준)
+ * 3. 무한 스크롤(`useInfiniteScroll`)을 지원합니다.
+ * 4. 모바일에서는 Bottom Sheet, 데스크톱에서는 중앙 모달 형태로 반응형 레이아웃을 제공합니다.
+ * 5. 접근성(Focus Trap, ESC 닫기, Scroll Lock)을 지원합니다.
+ */
 export default function FollowListModal({
   isOpen,
   onClose,

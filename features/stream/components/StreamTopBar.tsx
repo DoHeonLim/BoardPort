@@ -8,6 +8,7 @@
  * 2025.11.15  임도헌   Modified  채팅 열기 버튼(닫힘 상태에서만 노출) - 이벤트 버스 연동
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -16,8 +17,7 @@ import { useEffect, useState } from "react";
 import {
   STREAM_VISIBILITY,
   STREAM_VISIBILITY_DISPLAY,
-  type StreamVisibility,
-} from "@/lib/constants";
+} from "@/features/stream/constants";
 import BackButton from "@/components/global/BackButton";
 import { toast } from "sonner";
 import {
@@ -28,10 +28,11 @@ import {
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import type { StreamVisibility } from "@/features/stream/types";
 
 type Props = {
   /** 접근 정책 (PUBLIC | PRIVATE | FOLLOWERS) */
-  visibility: string;
+  visibility: StreamVisibility;
   /** 뒤로가기 폴백 경로 (기본 /streams) */
   backFallbackHref?: string;
   /** sticky 해제 옵션 */
@@ -40,6 +41,15 @@ type Props = {
   className?: string;
 };
 
+/**
+ * 스트리밍 상세 페이지 상단바
+ *
+ * [기능]
+ * 1. 뒤로가기 버튼
+ * 2. 방송 공개 상태(Public/Private/Followers) 뱃지 표시
+ * 3. 공유 버튼 (링크 복사/Web Share API)
+ * 4. 채팅 열기 버튼 (채팅이 닫혀있을 때만 노출)
+ */
 export default function StreamTopbar({
   visibility,
   backFallbackHref = "/streams",
@@ -121,7 +131,7 @@ export default function StreamTopbar({
         <div className="flex items-center gap-2">
           <BackButton
             fallbackHref={backFallbackHref}
-            variant="inline"
+            variant="appbar"
             className="px-0"
           />
           {!chatOpen && (

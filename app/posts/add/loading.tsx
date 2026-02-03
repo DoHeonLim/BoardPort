@@ -1,5 +1,5 @@
 /**
- * File Name : app/posts/add/loading
+ * File Name : app/posts/add/loading.tsx
  * Description : 게시글 작성 로딩 스켈레톤
  * Author : 임도헌
  *

@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/components/SocialLogin.tsx
- * Description : 소셜 로그인 컴포넌트
+ * Description : 소셜 로그인 버튼 모음 (GitHub, SMS 등)
  * Author : 임도헌
  *
  * History
@@ -10,14 +10,14 @@
  * 2026.01.10  임도헌   Modified  [Rule 3.1] Secondary Button Style 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/auth
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 
-import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import Link from "next/link";
+import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
 export default function SocialLogin() {
-  // 공통 버튼 스타일 (Secondary / Outline)
   const buttonClass = cn(
     "flex w-full items-center justify-center h-input-md gap-2.5",
     "rounded-xl border border-border bg-surface text-primary",
@@ -31,7 +31,7 @@ export default function SocialLogin() {
       <a
         aria-label="GitHub로 계속하기"
         className={buttonClass}
-        href="/api/auth/github/start" // GitHub Login Route
+        href="/api/auth/github/start"
       >
         <svg
           className="size-5"

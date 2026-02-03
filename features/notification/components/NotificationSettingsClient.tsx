@@ -21,7 +21,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
-import { updateNotificationPreferences } from "@/app/(tabs)/profile/notifications/actions";
+import { updateNotificationPreferences } from "@/features/notification/actions/preference"; // 경로 수정됨
 
 type NotificationPreferencesProps = {
   id: number;
@@ -47,6 +47,17 @@ type Props = {
   prefs: NotificationPreferencesProps;
 };
 
+/**
+ * 알림 설정 클라이언트 컴포넌트
+ *
+ * [기능]
+ * 1. 전역 푸시 알림 토글 (`PushNotificationToggle`)
+ * 2. 알림 유형별(채팅, 거래 등) 수신 동의 체크박스
+ * 3. 방해 금지 시간 설정 (Start ~ End Time)
+ * 4. `updateNotificationPreferences` 액션을 통해 설정을 DB에 저장
+ *
+ * @param prefs - 초기 설정값 (DB 데이터)
+ */
 export default function NotificationSettingsClient({ prefs }: Props) {
   const router = useRouter();
   const [state, formAction] = useFormState(
@@ -81,7 +92,7 @@ export default function NotificationSettingsClient({ prefs }: Props) {
         </div>
       </section>
 
-      {/* 2. 알림 종류 */}
+      {/* 2. 알림 종류 설정 */}
       <section className="space-y-2">
         <h2 className="text-sm font-bold text-primary px-1">알림 종류</h2>
         <div className="panel divide-y divide-border overflow-hidden">
@@ -117,7 +128,7 @@ export default function NotificationSettingsClient({ prefs }: Props) {
         </div>
       </section>
 
-      {/* 3. 방해 금지 시간대 */}
+      {/* 3. 방해 금지 시간대 설정 */}
       <section className="space-y-2">
         <h2 className="text-sm font-bold text-primary px-1">방해 금지 시간</h2>
         <div className="panel p-4">
@@ -132,6 +143,7 @@ export default function NotificationSettingsClient({ prefs }: Props) {
                 name="quietHoursStart"
                 defaultValue={prefs.quietHoursStart ?? ""}
                 className="input-primary h-12 text-center"
+                aria-label="시작 시간"
               />
             </div>
             <span className="text-muted font-medium">~</span>
@@ -141,6 +153,7 @@ export default function NotificationSettingsClient({ prefs }: Props) {
                 name="quietHoursEnd"
                 defaultValue={prefs.quietHoursEnd ?? ""}
                 className="input-primary h-12 text-center"
+                aria-label="종료 시간"
               />
             </div>
           </div>
@@ -160,6 +173,7 @@ export default function NotificationSettingsClient({ prefs }: Props) {
   );
 }
 
+// 알림 유형 데이터
 const rows = [
   {
     name: "chat",

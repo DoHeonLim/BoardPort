@@ -1,5 +1,5 @@
 /**
- * File Name : app/offline/page
+ * File Name : app/offline/page.tsx
  * Description : 오프라인 상태 안내 페이지(PWA fallback)
  * Author : 임도헌
  *
@@ -7,13 +7,23 @@
  * Date        Author   Status    Description
  * 2025.11.29  임도헌   Created   오프라인 전용 안내 페이지 추가
  * 2025.11.29  임도헌   Modified  보트포트 컨셉에 맞는 UI 및 안내 텍스트 정리
- * 2026.01.14  임도헌   Modifeid  [Rule 5.1] 시멘틱 토큰 적용용
+ * 2026.01.14  임도헌   Modifeid  시멘틱 토큰 적용
+ * 2026.02.02  임도헌   Modified  주석 상세 설명 보강
  */
 import Link from "next/link";
 import { SignalSlashIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
-export default function OfflinePage() {
+/**
+ * PWA 오프라인 폴백(Fallback) 페이지입니다.
+ *
+ * - 인터넷 연결이 끊겼을 때 Service Worker가 이 페이지를 서빙합니다.
+ * - 사용자에게 오프라인 상태임을 알리고, 재시도(새로고침) 가이드를 제공합니다.
+ * - `next-pwa` 설정(`fallbacks: { document: "/offline" }`)에 의해 매핑됩니다.
+ *
+ * @returns {JSX.Element} 오프라인 안내 UI
+ */
+export default function OfflinePage(): JSX.Element {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-6 bg-background transition-colors text-center">
       {/* Icon Area (Floating Effect) */}

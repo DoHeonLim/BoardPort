@@ -7,12 +7,12 @@
  * Date        Author   Status    Description
  * 2025.08.05  임도헌   Created   댓글 Context 정의
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { createContext, useContext } from "react";
-import { StreamComment } from "@/types/stream";
+import { StreamComment } from "@/features/stream/types";
 
 interface RecordingCommentContextProps {
   comments: StreamComment[];
@@ -28,6 +28,10 @@ const RecordingCommentContext = createContext<
   RecordingCommentContextProps | undefined
 >(undefined);
 
+/**
+ * 녹화본 댓글 Context 사용 훅
+ * Provider 내부가 아닐 경우 에러를 발생시킵니다.
+ */
 export function useRecordingCommentContext() {
   const context = useContext(RecordingCommentContext);
   if (!context) {

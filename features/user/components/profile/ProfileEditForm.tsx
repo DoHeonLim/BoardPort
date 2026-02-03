@@ -21,8 +21,8 @@
  * 2025.12.23  임도헌   Modified  window.confirm 제거 → ConfirmDialog 공용 모달로 변경
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 아바타/전화번호 UI 개선, 에러 핸들링 보강
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -32,16 +32,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { MAX_PHOTO_SIZE } from "@/lib/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
-import { sendProfilePhoneToken } from "@/features/user/lib/phone/sendProfilePhoneToken";
-import { verifyProfilePhoneToken } from "@/features/user/lib/phone/verifyProfilePhoneToken";
 import {
-  profileEditFormSchema,
-  type ProfileEditType,
-} from "@/features/user/lib/profile/profileEditFormSchema";
+  sendProfilePhoneTokenAction,
+  verifyProfilePhoneTokenAction,
+} from "@/features/user/actions/phone";
+import {
+  profileEditSchema,
+  type ProfileEditDTO,
+} from "@/features/user/schemas";
 import type {
-  EditProfileAction,
-  EditProfileActionResult,
-} from "@/features/user/lib/profile/editProfile";
+  EditProfileActionState,
+  CurrentUserForEdit,
+} from "@/features/user/types";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { toast } from "sonner";
@@ -56,30 +58,31 @@ import {
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
-interface ProfileEditFormProps {
-  user: {
-    id: number;
-    username: string;
-    email: string | null;
-    avatar: string | null;
-    phone: string | null;
-    github_id: string | null;
-    created_at: Date;
-    updated_at: Date;
-    emailVerified: boolean;
+type EditProfileAction = (
+  formData: FormData
+) => Promise<EditProfileActionState>;
 
-    needsEmailSetup: boolean;
-    needsPasswordSetup: boolean;
-  };
+interface ProfileEditFormProps {
+  user: CurrentUserForEdit;
   action: EditProfileAction;
 }
 
+/**
+ * 프로필 편집 폼
+ *
+ * [기능]
+ * 1. 기본 정보 수정: 닉네임, 아바타, 이메일(최초설정), 비밀번호(최초설정)
+ * 2. 아바타 관리: 업로드(Cloudflare), 미리보기, 삭제
+ * 3. 전화번호 인증: 인증번호 발송/검증 프로세스 내장 (수정 시 인증 필수)
+ * 4. 서버 액션 연동: 중복 체크 및 업데이트 처리
+ */
 export default function ProfileEditForm({
   user,
   action,
 }: ProfileEditFormProps) {
   const router = useRouter();
 
+  // --- State ---
   const [preview, setPreview] = useState("");
   const [uploadUrl, setUploadUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -96,14 +99,12 @@ export default function ProfileEditForm({
   const [originalPhone, setOriginalPhone] = useState((user.phone || "").trim());
 
   const [submitting, setSubmitting] = useState(false);
-
-  // 아바타 삭제 ConfirmDialog 상태 관리
   const [avatarConfirmOpen, setAvatarConfirmOpen] = useState(false);
-  const closeAvatarConfirm = () => setAvatarConfirmOpen(false);
 
+  // --- Schema ---
   const schema = useMemo(
     () =>
-      profileEditFormSchema({
+      profileEditSchema({
         needsEmailSetup: user.needsEmailSetup,
         needsPasswordSetup: user.needsPasswordSetup,
         hasVerifiedPhone: !!originalPhone,
@@ -120,7 +121,7 @@ export default function ProfileEditForm({
     reset: rhfReset,
     clearErrors,
     formState: { errors },
-  } = useForm<ProfileEditType>({
+  } = useForm<ProfileEditDTO>({
     resolver: zodResolver(schema),
     defaultValues: {
       username: user.username,
@@ -139,8 +140,9 @@ export default function ProfileEditForm({
   const avatarValue = watch("avatar");
   const hasAnyAvatar = !!currentPhoto || preview !== "" || !!avatarValue;
 
-  // 전화번호 변경 감지 및 인증 상태 초기화
-  // 사용자가 전화번호를 수정하면 인증 상태를 풀어서 다시 인증하도록 유도.
+  // --- Effects ---
+
+  // 전화번호 변경 감지: 수정 시 인증 해제
   useEffect(() => {
     if (normalizedPhone === originalPhone) {
       setPhoneVerified(!!originalPhone);
@@ -153,14 +155,14 @@ export default function ProfileEditForm({
     setPhoneVerificationSent(false);
   }, [normalizedPhone, originalPhone]);
 
-  // Cleanup blob URL
+  // Blob URL 정리
   useEffect(() => {
     return () => {
       if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
     };
   }, [preview]);
 
-  // Initial Avatar Setup
+  // 초기 아바타 설정
   useEffect(() => {
     if (user.avatar) {
       setPreview(user.avatar + "/public");
@@ -173,7 +175,8 @@ export default function ProfileEditForm({
     }
   }, [user.avatar, setValue]);
 
-  // 아바타 변경 핸들러 (유효성 검사 강화)
+  // --- Handlers ---
+
   const handleImageChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -204,7 +207,7 @@ export default function ProfileEditForm({
     setPreview(url);
     setFile(nextFile);
 
-    // Cloudflare Upload URL 발급 실패 시 에러 처리 및 상태 롤백 로직 보강
+    // Cloudflare Upload URL 요청
     const res = await getUploadUrl();
     if (!res.success) {
       URL.revokeObjectURL(url);
@@ -228,7 +231,6 @@ export default function ProfileEditForm({
     );
   };
 
-  // 아바타 삭제 ConfirmDialog 연동
   const requestClearAvatar = () => {
     if (submitting) return;
     if (!hasAnyAvatar) return;
@@ -247,7 +249,7 @@ export default function ProfileEditForm({
     clearErrors("avatar");
     if (fileInputRef.current) fileInputRef.current.value = "";
 
-    closeAvatarConfirm();
+    setAvatarConfirmOpen(false);
     toast.success("아바타를 제거했습니다.");
   };
 
@@ -285,7 +287,7 @@ export default function ProfileEditForm({
     try {
       const form = new FormData();
       form.append("phone", normalized);
-      const res = await sendProfilePhoneToken(form);
+      const res = await sendProfilePhoneTokenAction(form);
       if (res.success) {
         setPhoneVerificationSent(true);
         setPhoneVerificationError("");
@@ -314,13 +316,13 @@ export default function ProfileEditForm({
       const form = new FormData();
       form.append("phone", normalized);
       form.append("token", phoneToken);
-      const res = await verifyProfilePhoneToken(form);
+      const res = await verifyProfilePhoneTokenAction(form);
       if (res.success) {
         setPhoneVerified(true);
         setPhoneVerificationSent(false);
         setPhoneToken("");
         setPhoneVerificationError("");
-        setOriginalPhone(normalized);
+        setOriginalPhone(normalized); // 인증 성공 시 원본 갱신
         setValue("phone", normalized, {
           shouldValidate: true,
           shouldDirty: false,
@@ -335,7 +337,7 @@ export default function ProfileEditForm({
   };
 
   // 폼 제출 핸들러 (유효성 검사 및 서버 액션 호출)
-  const onValid = async (data: ProfileEditType) => {
+  const onValid = async (data: ProfileEditDTO) => {
     if (submitting) return;
     setSubmitting(true);
 
@@ -387,21 +389,25 @@ export default function ProfileEditForm({
       }
       fd.append("avatar", data.avatar ?? "");
 
-      // action 결과 처리 보강 (에러 메시지 매핑)
-      const result = (await action(fd)) as EditProfileActionResult;
+      const result = await action(fd);
 
-      if (result?.success === false && result.errors) {
+      if (!result.success) {
         // 전역 에러(formErrors)는 Toast로, 필드 에러(fieldErrors)는 Input 하단에 표시
-        const formMsg = result.errors.formErrors?.[0];
-        if (formMsg) toast.error(formMsg);
-        Object.entries(result.errors.fieldErrors ?? {}).forEach(([k, arr]) => {
-          const msg = Array.isArray(arr) ? arr[0] : undefined;
-          if (msg)
-            setError(k as keyof ProfileEditType, {
-              type: "server",
-              message: msg,
-            });
-        });
+        if (result.errors) {
+          const formMsg = result.errors.formErrors?.[0];
+          if (formMsg) toast.error(formMsg);
+
+          Object.entries(result.errors.fieldErrors ?? {}).forEach(
+            ([k, arr]) => {
+              const msg = Array.isArray(arr) ? arr[0] : undefined;
+              if (msg)
+                setError(k as keyof ProfileEditDTO, {
+                  type: "server",
+                  message: msg,
+                });
+            }
+          );
+        }
         return;
       }
 
@@ -422,7 +428,7 @@ export default function ProfileEditForm({
         프로필 수정
       </h1>
 
-      {/* 아바타 업로드 영역 (원형 미리보기 + 오버레이 + 삭제 버튼) */}
+      {/* 아바타 업로드 영역 */}
       <div className="flex flex-col items-center mb-8">
         <div className="relative group cursor-pointer">
           <label
@@ -472,6 +478,7 @@ export default function ProfileEditForm({
         )}
       </div>
 
+      {/* 폼 영역 */}
       <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
         {/* Username */}
         <Input
@@ -494,7 +501,7 @@ export default function ProfileEditForm({
           </div>
         )}
 
-        {/* Email (Conditional) */}
+        {/* Email */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-primary">이메일</label>
           {user.needsEmailSetup ? (
@@ -515,7 +522,7 @@ export default function ProfileEditForm({
           )}
         </div>
 
-        {/* Password Setup (Conditional) */}
+        {/* Password Setup */}
         {user.needsPasswordSetup && (
           <div className="space-y-4 pt-2 border-t border-border mt-2">
             <Input
@@ -538,7 +545,7 @@ export default function ProfileEditForm({
           </div>
         )}
 
-        {/* 전화번호 인증 섹션 (Panel 스타일로 그룹화) */}
+        {/* Phone Verification */}
         <div className="space-y-3 pt-4 border-t border-border">
           <label className="text-sm font-medium text-primary">
             전화번호 (선택)
@@ -561,6 +568,7 @@ export default function ProfileEditForm({
                   }}
                   onBlur={(e) => {
                     phoneReg.onBlur(e);
+                    // 삭제 방지: 인증된 번호를 지우려 하면 원복
                     const v = e.target.value.trim();
                     if (!!originalPhone && v === "") {
                       setValue("phone", originalPhone);
@@ -650,7 +658,7 @@ export default function ProfileEditForm({
         description="프로필 사진을 기본 이미지로 변경하시겠습니까?"
         confirmLabel="삭제"
         onConfirm={confirmClearAvatar}
-        onCancel={closeAvatarConfirm}
+        onCancel={() => setAvatarConfirmOpen(false)}
         loading={submitting}
       />
     </div>

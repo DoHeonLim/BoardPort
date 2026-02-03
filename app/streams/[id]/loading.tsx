@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/[id]/loading
+ * File Name : app/streams/[id]/loading.tsx
  * Description : 라이브 상세 로딩 스켈레톤
  * Author : 임도헌
  *

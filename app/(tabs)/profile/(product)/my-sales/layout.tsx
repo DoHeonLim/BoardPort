@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/profile/(product)/my-sales/layout
+ * File Name : app/(tabs)/profile/(product)/my-sales/layout.tsx
  * Description : '나의 판매 제품' 섹션 공통 레이아웃(상단 앱바 + BackButton)
  * Author : 임도헌
  *
@@ -27,7 +27,7 @@ export default function MySalesLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
           <BackButton
             fallbackHref="/profile"
-            variant="inline"
+            variant="appbar"
             className="px-0"
           />
           <h1 className="text-base font-semibold text-primary">판매 내역</h1>

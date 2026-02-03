@@ -13,6 +13,7 @@
  * 2025.09.25  임도헌   Modified  복사버튼 클릭시 토스트 메세지 추가
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -25,11 +26,6 @@ import React, {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import {
-  deleteLiveInputAction,
-  rotateLiveInputKeyAction,
-  deleteBroadcastAction,
-} from "@/app/streams/[id]/actions";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import {
@@ -42,6 +38,11 @@ import {
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import {
+  deleteBroadcastAction,
+  deleteLiveInputAction,
+} from "@/features/stream/actions/delete";
+import { rotateLiveInputKeyAction } from "@/features/stream/actions/key";
 
 interface RTMPInfoModalProps {
   open: boolean;
@@ -52,6 +53,15 @@ interface RTMPInfoModalProps {
   broadcastId?: number;
 }
 
+/**
+ * OBS 설정 정보(RTMP URL, Stream Key)를 표시하는 모달
+ *
+ * [기능]
+ * 1. RTMP URL 및 스트림 키 복사 기능
+ * 2. 스트림 키 재발급(Rotate) 기능
+ * 3. Live Input(채널) 삭제 기능
+ * 4. 모달 닫기 시 "방송 페이지로 이동"을 안 했다면 생성된 방송을 취소(삭제)하는 로직 포함
+ */
 export default function RTMPInfoModal({
   open,
   onOpenChange,
@@ -165,14 +175,17 @@ export default function RTMPInfoModal({
     startRotate(async () => {
       try {
         const res = await rotateLiveInputKeyAction(liveInputId);
-        if (!res?.success) {
-          toast.error(res?.error ?? "키 재발급 실패");
-          return;
+
+        if (res.success) {
+          // 성공 타입으로 좁혀짐 (rtmpUrl, streamKey 존재)
+          setRtmpUrlState(res.rtmpUrl);
+          setStreamKeyState(res.streamKey);
+          setShowKey(true);
+          toast.success("스트림 키가 재발급되었습니다.");
+        } else {
+          // 실패 타입 (error 존재)
+          toast.error(res.error ?? "키 재발급 실패");
         }
-        setRtmpUrlState(res.rtmpUrl!);
-        setStreamKeyState(res.streamKey!);
-        setShowKey(true); // 재발급 직후 확인 가능하게 표시
-        toast.success("스트림 키가 재발급되었습니다.");
       } catch {
         toast.error("오류가 발생했습니다.");
       }

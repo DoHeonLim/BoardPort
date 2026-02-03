@@ -12,6 +12,8 @@
  * 2026.01.12  임도헌   Modified  [UI] 320px 대응 레이아웃 최적화 & 텍스트 배지 스타일 개선
  * 2026.01.12  임도헌   Modified  [Interaction] 외부 클릭 시 메뉴 닫기 로직 추가
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
+ * 2026.01.24  임도헌   Modified  deleteAllProductReviewsAction Import 및 호출
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -21,15 +23,14 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, useEffect, useRef } from "react";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
-
 import UserAvatar from "@/components/global/UserAvatar";
 import BackButton from "@/components/global/BackButton";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { formatToWon } from "@/lib/utils";
-import type { ChatUser } from "@/types/chat";
-import { leaveChatRoomAction } from "@/app/chats/[id]/actions/room";
-import { updateProductStatus } from "@/features/product/lib/updateProductStatus";
-import { deleteAllProductReviews } from "@/features/review/lib/deleteAllProductReviews";
+import type { ChatUser } from "@/features/chat/types";
+import { leaveChatRoomAction } from "@/features/chat/actions/room";
+import { updateProductStatusAction } from "@/features/product/actions/status";
+import { deleteAllProductReviewsAction } from "@/features/review/actions/delete";
 import { cn } from "@/lib/utils";
 
 interface ChatHeaderProduct {
@@ -49,6 +50,15 @@ interface ChatHeaderProps {
   product: ChatHeaderProduct;
 }
 
+/**
+ * 채팅방 상단 헤더
+ *
+ * [기능]
+ * 1. 뒤로가기 및 상대방 프로필 표시
+ * 2. 거래 중인 제품 정보(제목, 가격, 상태) 요약 표시
+ * 3. 판매자 전용 액션 메뉴 (예약자 지정, 판매완료 처리, 상태 되돌리기)
+ * 4. 채팅방 나가기 기능
+ */
 export default function ChatHeader({
   chatRoomId,
   viewerId,
@@ -106,7 +116,7 @@ export default function ChatHeader({
   const handleReserveCounterparty = () => {
     setMenuOpen(false);
     startStatusTransition(async () => {
-      const res = await updateProductStatus(
+      const res = await updateProductStatusAction(
         productState.id,
         "reserved",
         counterparty.id
@@ -128,14 +138,14 @@ export default function ChatHeader({
   const handleReservedToSelling = () => {
     setMenuOpen(false);
     startStatusTransition(async () => {
-      const res = await updateProductStatus(productState.id, "selling");
+      const res = await updateProductStatusAction(productState.id, "selling");
       if (!res?.success) {
         toast.error(res?.error ?? "판매중으로 변경하지 못했어요.");
         return;
       }
 
-      await deleteAllProductReviews(productState.id).catch((err) =>
-        console.error("deleteAllProductReviews error:", err)
+      await deleteAllProductReviewsAction(productState.id).catch((err) =>
+        console.error("deleteAllProductReviewsAction error:", err)
       );
 
       toast.success("판매 중으로 변경했어요. 관련 리뷰가 초기화되었습니다.");
@@ -151,7 +161,7 @@ export default function ChatHeader({
   const handleReservedToSold = () => {
     setMenuOpen(false);
     startStatusTransition(async () => {
-      const res = await updateProductStatus(productState.id, "sold");
+      const res = await updateProductStatusAction(productState.id, "sold");
       if (!res?.success) {
         toast.error(res?.error ?? "판매완료로 변경하지 못했어요.");
         return;
@@ -168,14 +178,14 @@ export default function ChatHeader({
   // 판매완료 → 판매중 (리뷰 삭제 + ConfirmDialog에서 호출)
   const handleSoldToSelling = () => {
     startStatusTransition(async () => {
-      const res = await updateProductStatus(productState.id, "selling");
+      const res = await updateProductStatusAction(productState.id, "selling");
       if (!res?.success) {
         toast.error(res?.error ?? "판매중으로 되돌리지 못했어요.");
         return;
       }
 
-      await deleteAllProductReviews(productState.id).catch((err) =>
-        console.error("deleteAllProductReviews error:", err)
+      await deleteAllProductReviewsAction(productState.id).catch((err) =>
+        console.error("deleteAllProductReviewsAction error:", err)
       );
 
       toast.success(

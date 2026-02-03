@@ -19,6 +19,16 @@
  * 2025.07.24  임도헌   Modified  BoardPort 스타일 완전 적용
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface, border-border)
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * ===============================================================================================
+ * 이 폴더는 ChatRoomCard (채팅방 목록 아이템)를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ *
+ * - ChatRoomThumbnail.tsx     : 제품 썸네일 이미지
+ * - ChatRoomHeader.tsx        : 상대방 유저 이름 및 아바타
+ * - ChatRoomLastMessage.tsx   : 마지막 대화 내용 (Truncated)
+ * - ChatRoomUnreadBadge.tsx   : 읽지 않은 메시지 수 뱃지 및 시간
+ * - index.tsx                 : 위 컴포넌트들을 조합한 최종 카드
+ * ===============================================================================================
  */
 
 "use client";
@@ -28,7 +38,7 @@ import ChatRoomThumbnail from "@/features/chat/components/ChatRoomCard/ChatRoomT
 import ChatRoomHeader from "@/features/chat/components/ChatRoomCard/ChatRoomHeader";
 import ChatRoomLastMessage from "@/features/chat/components/ChatRoomCard/ChatRoomLastMessage";
 import ChatRoomUnreadBadge from "@/features/chat/components/ChatRoomCard/ChatRoomUnreadBadge";
-import { ChatRoom } from "@/types/chat";
+import { ChatRoom } from "@/features/chat/types";
 import { cn } from "@/lib/utils";
 
 interface ChatRoomCardProps {
@@ -36,6 +46,9 @@ interface ChatRoomCardProps {
   unreadCount: number;
 }
 
+/**
+ * 채팅방 목록 아이템 카드
+ */
 export default function ChatRoomCard({ room, unreadCount }: ChatRoomCardProps) {
   return (
     <Link

@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/PostCategoryTabs.tsx
- * Description : 게시글 카테고리 탭 (가로 스크롤)
+ * Description : 게시글 카테고리 탭
  * Author : 임도헌
  *
  * History
@@ -13,12 +13,16 @@
  * 2025.07.04  임도헌   Modified  PostCategoryTabs UI 버튼 사이즈 및 스크롤 UX 개선
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 탭 스타일 및 스크롤 버튼 접근성 개선
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { POST_CATEGORY } from "@/lib/constants";
+import {
+  POST_CATEGORY,
+  POST_CATEGORY_DESCRIPTIONS,
+} from "@/features/post/constants";
 import Link from "next/link";
 import { useFloating, offset, shift, flip } from "@floating-ui/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
@@ -28,17 +32,15 @@ interface IPostCategoryTabsProps {
   currentCategory?: string;
 }
 
-// 카테고리 설명
-const CATEGORY_DESCRIPTIONS = {
-  FREE: "자유롭게 이야기를 나눌 수 있는 공간입니다",
-  CREW: "함께 보드게임을 즐길 모험대원을 모집하는 공간입니다",
-  LOG: "보드게임 플레이 후기와 리뷰를 공유하는 공간입니다",
-  MAP: "보드게임의 규칙과 공략을 공유하는 공간입니다",
-  COMPASS: "보드게임에 대한 질문과 답변을 나누는 공간입니다",
-} as const;
+const LONG_PRESS_DURATION = 600;
 
-const LONG_PRESS_DURATION = 600; // ms (꾹 누르기 기준)
-
+/**
+ * 게시글 카테고리 필터 탭
+ *
+ * - 가로 스크롤 가능한 탭 목록을 렌더링합니다.
+ * - PC에서는 좌우 화살표, 모바일에서는 터치 스크롤을 지원합니다.
+ * - PC 호버 또는 모바일 롱프레스 시 카테고리 설명을 툴팁으로 표시합니다.
+ */
 export default function PostCategoryTabs({
   currentCategory,
 }: IPostCategoryTabsProps) {
@@ -254,8 +256,8 @@ export default function PostCategoryTabs({
                   className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none shadow-lg"
                 >
                   {
-                    CATEGORY_DESCRIPTIONS[
-                      key as keyof typeof CATEGORY_DESCRIPTIONS
+                    POST_CATEGORY_DESCRIPTIONS[
+                      key as keyof typeof POST_CATEGORY_DESCRIPTIONS
                     ]
                   }
                 </div>

@@ -22,6 +22,7 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 & 반응형 레이아웃 적용
  * 2026.01.16  임도헌   Modified  ProductCard 스타일 통일
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  */
 
 "use client";
@@ -29,30 +30,44 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useReview } from "@/features/review/hooks/useReview";
+import { toast } from "sonner";
 import { formatToWon } from "@/lib/utils";
-import { deleteReview } from "@/features/review/lib/deleteReview";
+import { useReview } from "@/features/review/hooks/useReview";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import CreateReviewModal from "@/features/user/components/profile/CreateReviewModal";
 import ReviewDetailModal from "@/features/user/components/profile/ReviewDetailModal";
-import type { MyPurchasedListItem, ProductReview } from "@/types/product";
+import { deleteReviewAction } from "@/features/review/actions/delete";
+import type { MyPurchasedListItem } from "@/features/product/types";
+import type { ProductReview } from "@/features/review/types";
 
 type Props = {
   product: MyPurchasedListItem;
   onReviewChanged?: (patch: Partial<MyPurchasedListItem>) => void;
 };
 
+/**
+ * 내 구매 목록의 개별 아이템 카드
+ *
+ * [기능]
+ * 1. 구매한 제품 정보(제목, 가격, 썸네일) 및 판매자 정보 표시
+ * 2. 판매자 리뷰 관련 기능 제공:
+ *    - 리뷰 작성 (구매자 -> 판매자)
+ *    - 내 리뷰 보기/삭제
+ *    - 판매자가 남긴 리뷰 보기
+ * 3. 각종 모달(작성, 상세, 삭제확인) 상태 관리
+ */
 export default function MyPurchasesProductItem({
   product,
   onReviewChanged,
 }: Props) {
+  // 모달 상태 관리
   const [modalState, setModalState] = useState({
-    create: false,
-    viewMine: false,
-    viewSeller: false,
-    deleteConfirm: false,
+    create: false, // 리뷰 작성 모달
+    viewMine: false, // 내 리뷰 보기 모달
+    viewSeller: false, // 판매자 리뷰 보기 모달
+    deleteConfirm: false, // 삭제 확인 다이얼로그
   });
 
   const toggleModal = (key: keyof typeof modalState, open: boolean) => {
@@ -60,61 +75,69 @@ export default function MyPurchasesProductItem({
   };
 
   const [isDeleting, setIsDeleting] = useState(false);
-  /**
-   * 리뷰는 로컬 state로 관리
-   * - 작성/삭제 즉시 UI에 반영
-   * - onReviewChanged patch도 항상 "최신(prev)" 기반으로 생성(스테일 방지)
-   */
+
+  // 리뷰 목록 로컬 상태 관리 (실시간 반영용)
   const [reviews, setReviews] = useState<ProductReview[]>(
     product.reviews ?? []
   );
 
-  // 상위 리스트(updateOne)나 서버 리페치 등으로 product.reviews가 갱신되면 동기화
+  // 상위에서 props가 갱신되면 로컬 상태 동기화
   useEffect(() => {
     setReviews(product.reviews ?? []);
   }, [product.reviews]);
 
   const buyerUserId = product.purchase_userId;
 
+  // 내가 쓴 리뷰 (구매자 리뷰)
   const buyerReview = useMemo(
     () => reviews.find((r) => r.userId === buyerUserId),
     [reviews, buyerUserId]
   );
 
+  // 판매자가 쓴 리뷰
   const sellerReview = useMemo(
     () => reviews.find((r) => r.userId !== buyerUserId),
     [reviews, buyerUserId]
   );
 
+  // 리뷰 작성 훅 사용
   const { isLoading: isSubmitting, submitReview } = useReview({
     productId: product.id,
-    type: "buyer",
+    type: "buyer", // 구매자 입장에서 작성
     onSuccess: (newReview) => {
       setReviews((prev) => {
+        // 기존 내 리뷰 제거하고 새 리뷰 추가 (덮어쓰기)
         const next = [
           newReview,
           ...prev.filter((r) => r.userId !== buyerUserId),
         ];
-        onReviewChanged?.({ reviews: next });
+        onReviewChanged?.({ reviews: next }); // 리스트 상위 컴포넌트에 알림
         return next;
       });
       toggleModal("create", false);
     },
   });
 
+  // 리뷰 삭제 핸들러
   const confirmDeleteReview = async () => {
     if (!buyerReview?.id) return;
     try {
       setIsDeleting(true);
-      await deleteReview(buyerReview.id);
-      setReviews((prev) => {
-        const next = prev.filter((r) => r.id !== buyerReview.id);
-        onReviewChanged?.({ reviews: next });
-        return next;
-      });
-      toggleModal("viewMine", false);
+      const res = await deleteReviewAction(buyerReview.id);
+      if (res.success) {
+        setReviews((prev) => {
+          const next = prev.filter((r) => r.id !== buyerReview.id);
+          onReviewChanged?.({ reviews: next });
+          return next;
+        });
+        toast.success("리뷰를 삭제했습니다.");
+        toggleModal("viewMine", false); // 상세 모달도 같이 닫기
+      } else {
+        toast.error(res.error || "삭제 실패");
+      }
     } catch (e) {
       console.error(e);
+      toast.error("오류가 발생했습니다.");
     } finally {
       setIsDeleting(false);
       toggleModal("deleteConfirm", false);
@@ -129,6 +152,7 @@ export default function MyPurchasesProductItem({
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md">
+      {/* 제품 정보 영역 (클릭 시 상세 이동) */}
       <div className="flex p-4 gap-4">
         {/* Thumbnail */}
         <Link
@@ -186,7 +210,7 @@ export default function MyPurchasesProductItem({
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Actions (리뷰 관리) */}
       <div className="grid grid-cols-2 divide-x divide-border border-t border-border bg-surface-dim/30">
         {buyerReview ? (
           <button
@@ -214,6 +238,8 @@ export default function MyPurchasesProductItem({
       </div>
 
       {/* Modals */}
+
+      {/* 1. 리뷰 작성 */}
       <CreateReviewModal
         isOpen={modalState.create}
         onClose={() => toggleModal("create", false)}
@@ -222,6 +248,7 @@ export default function MyPurchasesProductItem({
         userAvatar={product.user?.avatar ?? null}
       />
 
+      {/* 2. 내 리뷰 상세/삭제 */}
       <ReviewDetailModal
         isOpen={modalState.viewMine}
         onClose={() => toggleModal("viewMine", false)}
@@ -230,6 +257,7 @@ export default function MyPurchasesProductItem({
         onDelete={() => toggleModal("deleteConfirm", true)}
       />
 
+      {/* 3. 판매자 리뷰 조회 */}
       <ReviewDetailModal
         isOpen={modalState.viewSeller}
         onClose={() => toggleModal("viewSeller", false)}
@@ -238,6 +266,7 @@ export default function MyPurchasesProductItem({
         emptyMessage={`${sellerName}님이 아직 리뷰를 작성하지 않았습니다.`}
       />
 
+      {/* 4. 삭제 확인 다이얼로그 */}
       <ConfirmDialog
         open={modalState.deleteConfirm}
         onCancel={() => toggleModal("deleteConfirm", false)}

@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/UserBadges.tsx
- * Description : 유저가 보유한 뱃지 컴포넌트
+ * Description : 유저 보유 뱃지 목록 (가로 스크롤)
  * Author : 임도헌
  *
  * History
@@ -15,16 +15,26 @@
  * 2025.05.06  임도헌   Modified  그리드/리스트 뷰 모드 추가
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰(bg-brand/5) 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 import Image from "next/image";
-import { getBadgeKoreanName } from "@/lib/utils";
-import type { Badge } from "@/types/profile";
+import { getBadgeKoreanName } from "@/features/user/utils/badge";
+import type { Badge } from "@/features/user/types";
 
 interface UserBadgesProps {
   badges?: Badge[];
   max?: number;
 }
+
+/**
+ * 유저 뱃지 목록 컴포넌트
+ *
+ * [기능]
+ * 1. 유저가 획득한 뱃지들을 가로 스크롤 가능한 리스트로 표시합니다.
+ * 2. `max` prop으로 표시 개수를 제한할 수 있습니다. (기본 5개)
+ * 3. 뱃지 이름(Code)을 한글 이름으로 변환하여 표시합니다 (`getBadgeKoreanName`).
+ * 4. 획득한 뱃지가 없을 경우 안내 메시지를 표시합니다.
+ */
 export default function UserBadges({ badges = [], max = 5 }: UserBadgesProps) {
   if (!badges || badges.length === 0) {
     return (

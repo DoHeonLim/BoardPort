@@ -1,5 +1,5 @@
 /**
- * File Name : lib/utils/beacon
+ * File Name : lib/utils/beacon.ts
  * Description : 언로드 시 신뢰도 높은 전송을 위한 유틸 (sendBeacon / fetch keepalive)
  * Author : 임도헌
  *
@@ -9,65 +9,66 @@
  */
 
 export interface PostOnUnloadOptions {
-  maxBytes?: number; // 기본 60KB
-  contentType?: string; // 기본 application/json (빈 본문이면 생략)
+  /** 최대 허용 바이트 수 (기본 60KB) */
+  maxBytes?: number;
+  /** Content-Type 헤더 */
+  contentType?: string;
 }
 
 /**
- * postOnUnload
- * - 같은 출처(same-origin)에서 페이지가 닫히거나 이동할 때도 전송을 최대한 보장
- * - 우선 navigator.sendBeacon 사용, 실패/미지원 시 fetch keepalive로 폴백
- * - payload가 크면(>maxBytes) 본문을 생략하여 전송 성공률을 높임
+ * 페이지가 닫히거나 이동할 때 데이터를 서버로 안전하게 전송합니다.
+ * - 1순위: `navigator.sendBeacon` 사용 (비동기, 메인 스레드 비차단)
+ * - 2순위: `fetch` + `keepalive` 옵션 사용 (폴백)
+ *
+ * @param url - 전송 대상 API 엔드포인트
+ * @param payload - 전송할 데이터 객체
+ * @param opts - 옵션
  */
 export async function postOnUnload(
   url: string,
   payload?: unknown,
   opts: PostOnUnloadOptions = {}
 ): Promise<void> {
-  const maxBytes = opts.maxBytes ?? 60 * 1024; // 60KB
+  const maxBytes = opts.maxBytes ?? 60 * 1024;
   let bodyStr = "";
 
   if (payload !== undefined && payload !== null) {
     try {
       bodyStr = JSON.stringify(payload);
     } catch {
-      // 직렬화 실패 시 본문 생략
       bodyStr = "";
     }
   }
 
-  // 본문이 너무 크면 과감히 생략(언로드 신뢰도↑)
+  // 데이터 크기 제한 체크 (브라우저 비콘 큐 한계 방어)
   if (bodyStr.length > maxBytes) {
     bodyStr = "";
   }
 
-  // 1) sendBeacon 시도 (동일 출처를 가정)
+  // 1) sendBeacon 시도
   if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
     try {
-      // 헤더를 커스텀할 수 없어 text/plain 으로 전송
       const blob = new Blob([bodyStr], { type: "text/plain" });
-      const queued = navigator.sendBeacon(url, blob);
-      if (queued) return; // 큐에 성공적으로 올림
+      if (navigator.sendBeacon(url, blob)) return;
     } catch {
-      // fallthrough to keepalive fetch
+      // ignore
     }
   }
 
-  // 2) keepalive fetch 폴백
+  // 2) fetch keepalive 폴백
   try {
-    const headers =
-      bodyStr.length > 0
-        ? { "Content-Type": opts.contentType ?? "application/json" }
-        : undefined; // 빈 본문이면 헤더 생략(서버 유연성↑)
     await fetch(url, {
       method: "POST",
       body: bodyStr.length > 0 ? bodyStr : undefined,
-      headers,
+      headers:
+        bodyStr.length > 0
+          ? { "Content-Type": opts.contentType ?? "application/json" }
+          : undefined,
       keepalive: true,
       credentials: "same-origin",
       cache: "no-store",
     });
   } catch {
-    // 마지막 시도 실패: 언로드 상황에서 재시도 여지 없음
+    // 실패 시 언로드 상황이므로 재시도 불가
   }
 }

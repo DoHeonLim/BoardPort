@@ -73,10 +73,14 @@ export default function TabBar() {
   ];
 
   // [Rule 4.1.2] 최상위 루트 경로가 아니면 TabBar 숨김
-  // pathname이 탭 목록에 있는 경로 중 하나와 정확히 일치하는지 확인
+  // 1. pathname이 탭 목록에 있는 경로 중 하나와 정확히 일치하는지 확인
   const isMainTab = tabs.some((tab) => tab.href === pathname);
+  
+  // 2. 예외 처리: 프로필 경로('/profile')로 시작하는 경우 (서브 페이지 포함)
+  const isProfileSection = pathname.startsWith("/profile");
 
-  if (!isMainTab) return null;
+  // 메인 탭 경로와 정확히 일치하지 않고, 프로필 섹션도 아니라면 탭바를 숨김
+  if (!isMainTab && !isProfileSection) return null;
 
   return (
     <nav

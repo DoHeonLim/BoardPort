@@ -3,11 +3,6 @@
  * Description : 실시간 방송 히어로 섹션 (FOLLOWERS/PRIVATE 가드 + Cloudflare live iframe)
  * Author : 임도헌
  *
- * Key Points
- * - FOLLOWERS 잠금: 팔로우로 풀리는 잠금 → 클라이언트(role)로 즉시 전환 가능한 UX가 중요하다.
- * - PRIVATE 잠금: 팔로우로 풀리지 않음(비밀번호 언락/세션 기반) → 서버가 계산해 준 requiresPassword를 SSOT로 사용한다.
- *   (언락 후 back/forward 복원에서도 잠금 표시가 즉시 해제되도록)
- *
  * History
  * Date        Author   Status    Description
  * 2025.08.09  임도헌   Created   히어로 섹션 분리
@@ -19,6 +14,7 @@
  *                                언락 후 back/forward 복원에서도 히어로 잠금 표시 정합성 보장
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -26,16 +22,23 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import StreamCategoryTags from "@/features/stream/components/StreamDetail/StreamCategoryTags";
-import type { BroadcastSummary } from "@/types/stream";
-
-type Role = "OWNER" | "FOLLOWER" | "VISITOR";
+import type { BroadcastSummary, ViewerRole } from "@/features/stream/types";
 
 interface Props {
   stream?: BroadcastSummary;
-  role: Role;
+  role: ViewerRole;
   onFollow?: () => void;
 }
 
+/**
+ * 채널 최상단에 현재 진행 중인 라이브 방송을 크게 보여주는 컴포넌트
+ *
+ * [기능]
+ * 1. 방송이 없을 경우 Empty State 표시
+ * 2. 방송이 있을 경우 Cloudflare Player(iframe) 렌더링
+ * 3. 접근 권한(Private, Followers Only)에 따라 잠금 화면(Teaser/Overlay) 표시
+ * 4. 팔로워 전용 방송일 경우 팔로우 버튼으로 유도하는 CTA 제공
+ */
 export default function LiveNowHero({ stream, role, onFollow }: Props) {
   return (
     <section className="mx-auto max-w-3xl px-4 w-full">
@@ -67,7 +70,7 @@ function HeroMedia({
   onFollow,
 }: {
   stream: BroadcastSummary;
-  role: Role;
+  role: ViewerRole;
   onFollow?: () => void;
 }) {
   /**
@@ -142,6 +145,13 @@ function HeroMedia({
 
 /* -------------------- Meta/태그 영역 -------------------- */
 
+function getCategoryIcon(
+  category: BroadcastSummary["category"]
+): string | null {
+  if (!category) return null;
+  return category.icon ?? null;
+}
+
 function HeroMeta({ stream }: { stream: BroadcastSummary }) {
   return (
     <div className="p-4 bg-surface">
@@ -155,11 +165,11 @@ function HeroMeta({ stream }: { stream: BroadcastSummary }) {
             stream.category
               ? {
                   kor_name: stream.category.kor_name,
-                  icon: (stream.category as any).icon ?? null,
+                  icon: getCategoryIcon(stream.category),
                 }
               : undefined
           }
-          tags={coerceTagsToNameArray(stream.tags)}
+          tags={stream.tags}
         />
       </div>
     </div>
@@ -167,28 +177,6 @@ function HeroMeta({ stream }: { stream: BroadcastSummary }) {
 }
 
 /* -------------------- Sub components -------------------- */
-
-/** stream.tags 가 string[] | {name:string}|mixed 인 경우를 안전하게 {name}[] 로 치환 */
-function coerceTagsToNameArray(tags: unknown): { name: string }[] {
-  if (!Array.isArray(tags)) return [];
-  const names = tags
-    .map((t) => {
-      if (typeof t === "string") return t;
-      if (t && typeof t === "object") {
-        const anyT = t as Record<string, unknown>;
-        return (
-          (typeof anyT.name === "string" && anyT.name) ||
-          (typeof anyT.kor_name === "string" && anyT.kor_name) ||
-          (typeof anyT.tag === "string" && anyT.tag) ||
-          ""
-        );
-      }
-      return "";
-    })
-    .filter(Boolean) as string[];
-
-  return names.map((name) => ({ name }));
-}
 
 function PlayableLive({
   liveInputUid,

@@ -1,5 +1,5 @@
 /**
- * File Name : app/(auth)/github/complete/route
+ * File Name : app/(auth)/github/complete/route.ts
  * Description : 깃허브 소셜 로그인 기능
  * Author : 임도헌
  *
@@ -11,73 +11,54 @@
  * 2025.12.09  임도헌   Modified  OAuth state 검증 및 세션에 유저 ID 저장 로직 직접 처리
  * 2025.12.12  임도헌   Modified  state를 쿠키 기반으로 검증하고, 완료 후 쿠키 제거
  * 2025.12.12  임도헌   Modified  NextResponse.redirect에 절대 URL 사용하도록 수정
+ * 2026.01.20  임도헌   Modified  Service 로직 분리, 에러 핸들링 강화, 리다이렉트 헬퍼 적용
  */
 
-import {
-  getAccessToken,
-  getGithubProfile,
-} from "@/features/auth/lib/github/oauth";
-import { saveUserSession } from "@/features/auth/lib/saveUserSession";
-import db from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  findOrCreateGitHubUser,
+  getGitHubAccessToken,
+  getGitHubUserProfile,
+} from "@/features/auth/service/github";
+import { saveUserSession } from "@/features/auth/service/authSession";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
-  const stateCookie = request.cookies.get("gh_oauth_state")?.value ?? null;
+  const storedState = request.cookies.get("gh_oauth_state")?.value;
 
-  // 공통 리다이렉트 헬퍼 (절대 URL + state 쿠키 삭제)
-  const redirectWithStateClear = (pathWithQuery: string) => {
-    const url = new URL(pathWithQuery, request.url); // 절대 URL로 변환
+  // 에러 발생 시 로그인 페이지로 리다이렉트하는 헬퍼 함수
+  const returnToLogin = (errorType: string) => {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("error", errorType);
     const res = NextResponse.redirect(url);
-    res.cookies.delete("gh_oauth_state");
+    res.cookies.delete("gh_oauth_state"); // 쿠키 정리
     return res;
   };
 
-  // code 없음 → GitHub에서 정상적으로 돌아온 요청이 아님
-  if (!code) {
-    return redirectWithStateClear("/login?error=github_code");
-  }
+  // 1. 필수 파라미터 검증
+  if (!code) return returnToLogin("github_code_missing");
 
-  // state 불일치 또는 누락 → CSRF/잘못된 요청으로 간주
-  if (!state || !stateCookie || state !== stateCookie) {
-    return redirectWithStateClear("/login?error=github_state");
+  // 2. CSRF 공격 방지 (State 검증)
+  if (!state || !storedState || state !== storedState) {
+    return returnToLogin("github_state_mismatch");
   }
 
   try {
-    const accessToken = await getAccessToken(code);
-    const { id, avatar_url, login } = await getGithubProfile(accessToken);
+    // 3. Service 호출 (토큰 -> 프로필 -> 유저 DB 처리)
+    const accessToken = await getGitHubAccessToken(code);
+    const profile = await getGitHubUserProfile(accessToken);
+    const userId = await findOrCreateGitHubUser(profile);
 
-    const existingUser = await db.user.findUnique({
-      where: { github_id: String(id) },
-      select: { id: true },
-    });
-
-    let userId: number;
-
-    if (existingUser) {
-      userId = existingUser.id;
-    } else {
-      const newUser = await db.user.create({
-        data: {
-          username: `${login}-gh`,
-          github_id: String(id),
-          avatar: avatar_url,
-        },
-        select: { id: true },
-      });
-      userId = newUser.id;
-    }
-
+    // 4. 세션 저장 (로그인 처리)
     await saveUserSession(userId);
 
-    // 성공 시 /profile로 이동 (절대 URL)
-    const profileUrl = new URL("/profile", request.url);
-    const res = NextResponse.redirect(profileUrl);
-    res.cookies.delete("gh_oauth_state");
-    return res;
+    // 5. 성공 리다이렉트 (/profile)
+    const response = NextResponse.redirect(new URL("/profile", request.url));
+    response.cookies.delete("gh_oauth_state"); // 사용된 state 쿠키 삭제
+    return response;
   } catch (error) {
-    console.error("GitHub OAuth error:", error);
-    return redirectWithStateClear("/login?error=github_oauth");
+    console.error("GitHub Login Error:", error);
+    return returnToLogin("github_login_failed");
   }
 }

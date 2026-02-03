@@ -1,6 +1,6 @@
 /**
- * File Name : app/(tabs)/profile/[username]/page
- * Description : 유저 프로필 페이지 (MyProfile와 통일된 레이아웃/모달 on-demand)
+ * File Name : app/(tabs)/profile/[username]/page.tsx
+ * Description : 타인 프로필 상세 페이지
  * Author : 임도헌
  *
  * History
@@ -20,41 +20,56 @@
  * 2025.11.26  임도헌   Modified  방송국 섹션에 최근 방송 목록 추가
  * 2026.01.04  임도헌   Modified  getSession 중복 호출 제거(getUserProfile.viewerId 재사용)로 RSC 부하 감소
  * 2026.01.15  임도헌   Modified  레이아웃 패딩 조정
+ * 2026.01.29  임도헌   Modified   타인 프로필 페이지 주석 보강 및 구조 설명 추가
  */
 
-import { notFound } from "next/navigation";
-
-import { getUserProfile } from "@/features/user/lib/getUserProfile";
-import { getCachedInitialUserReviews } from "@/features/user/lib/getUserReviews";
-import { getCachedUserAverageRating } from "@/features/user/lib/getUserAverageRating";
-import { getCachedUserBadges } from "@/features/user/lib/getUserBadges";
-import { getInitialUserProducts } from "@/features/product/lib/getUserProducts";
-import { getUserStreams } from "@/features/stream/lib/getUserStreams";
-
-import type { UserProfile as UserProfileType } from "@/types/profile";
-import type { BroadcastSummary } from "@/types/stream";
+import { notFound, redirect } from "next/navigation";
+import getSession from "@/lib/session";
+import {
+  getUserProfile,
+  resolveUserIdByUsername,
+} from "@/features/user/service/profile";
+import { getCachedInitialUserReviews } from "@/features/user/service/review";
+import { getCachedUserAverageRating } from "@/features/user/service/metric";
+import { getCachedUserBadges } from "@/features/user/service/badge";
+import { getInitialUserProducts } from "@/features/product/service/userList";
+import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
 import UserProfile from "@/features/user/components/profile/UserProfile";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 타인 프로필 페이지
+ *
+ * [기능]
+ * 1. URL의 `username`을 기반으로 `userId`를 식별합니다.
+ * 2. 현재 로그인한 사용자(Viewer)와의 관계(팔로우 여부 등)를 포함한 프로필 정보를 로드합니다.
+ * 3. 대상 유저의 평점, 리뷰, 뱃지, 판매 중/완료 상품, 최근 방송(공개) 목록을 병렬로 조회합니다.
+ * 4. 본인의 username인 경우 `/profile`로 리다이렉트합니다.
+ */
 export default async function UserProfilePage({
   params,
 }: {
   params: { username: string };
 }) {
-  // 프로필 조회 (본인이면 /profile로 redirect)
-  const user = (await getUserProfile({
-    username: params.username,
-    redirectIfSelfToProfile: true,
-  })) as UserProfileType | null;
+  // 1. Username -> ID 변환
+  const targetId = await resolveUserIdByUsername(params.username);
+  if (!targetId) return notFound();
 
-  if (!user) return notFound();
+  // 2. Viewer(Session) 확인
+  const session = await getSession();
+  const viewerId = session?.id ?? null;
 
-  // getUserProfile이 session을 이미 읽어 viewerId를 주입한다.
-  // 동일 요청 내 중복 getSession 호출을 피하기 위해 user.viewerId를 재사용한다.
-  const viewerId = user.viewerId ?? null;
+  // 본인이면 내 프로필로 이동
+  if (viewerId === targetId) {
+    redirect("/profile");
+  }
 
-  // 공용 데이터는 캐시, 개인화는 최소(팔로우 여부는 getUserProfile.isFollowing 사용)
+  // 3. 프로필 기본 정보 로드
+  const userProfile = await getUserProfile(targetId, viewerId);
+  if (!userProfile) return notFound();
+
+  // 4. 데이터 병렬 로딩
   const [
     averageRating,
     initialReviews,
@@ -63,27 +78,19 @@ export default async function UserProfilePage({
     userBadges,
     streams,
   ] = await Promise.all([
-    getCachedUserAverageRating(user.id),
-    getCachedInitialUserReviews(user.id),
-    getInitialUserProducts({ type: "SELLING", userId: user.id }),
-    getInitialUserProducts({ type: "SOLD", userId: user.id }),
-    getCachedUserBadges(user.id),
-    (async () => {
-      const { items } = await getUserStreams({
-        ownerId: user.id,
-        viewerId,
-        take: 6,
-        includeViewerRole: false,
-      });
-      return items as BroadcastSummary[];
-    })(),
+    getCachedUserAverageRating(userProfile.id),
+    getCachedInitialUserReviews(userProfile.id),
+    getInitialUserProducts({ type: "SELLING", userId: userProfile.id }),
+    getInitialUserProducts({ type: "SOLD", userId: userProfile.id }),
+    getCachedUserBadges(userProfile.id),
+    getCachedRecentBroadcasts(userProfile.id, 6, false), // 타인이므로 비공개 방송 제외
   ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
       <div className="px-page-x py-8">
         <UserProfile
-          user={user}
+          user={userProfile}
           initialReviews={initialReviews}
           initialSellingProducts={initialSellingProducts}
           initialSoldProducts={initialSoldProducts}

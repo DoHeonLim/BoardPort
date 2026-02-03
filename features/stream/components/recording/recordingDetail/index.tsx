@@ -10,6 +10,17 @@
  * 2025.11.26  임도헌   Modified  RecordingHeader → RecordingTitle, 작성자 정보는 Topbar로 이동
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 레이아웃 정리
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * ===============================================================================================
+ * 이 폴더는 RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ *
+ * - RecordingTitle.tsx      : 녹화본 제목
+ * - RecordingVideo.tsx      : 녹화 영상 플레이어 (Cloudflare Iframe)
+ * - RecordingMeta.tsx       : 조회수, 좋아요, 작성일, 공유 버튼 등 메타 정보
+ * - RecordingLikeButton.tsx : 좋아요 버튼 (Optimistic UI)
+ * - RecordingDeleteButton.tsx : 삭제 버튼 (소유자 전용)
+ * - index.tsx               : 위 컴포넌트들을 조합한 최종 컨테이너
+ * ===============================================================================================
  */
 
 "use client";
@@ -38,6 +49,14 @@ interface RecordingDetailProps {
   viewCount?: number;
 }
 
+/**
+ * 녹화본 상세 정보 컨테이너
+ *
+ * [구조]
+ * 1. 제목 (Title)
+ * 2. 영상 플레이어 (Video)
+ * 3. 메타 정보 및 좋아요/공유 버튼 (Meta)
+ */
 export default function RecordingDetail({
   broadcast,
   vodId,

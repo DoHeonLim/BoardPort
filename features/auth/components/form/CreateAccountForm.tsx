@@ -13,34 +13,40 @@
  * 2025.12.12  임도헌   Modified  password 표시/숨기기 버튼을 Input(passwordToggle)로 위임하여 중복 UI 제거
  * 2026.01.10  임도헌   Modified  시맨틱 토큰 & 아이콘 적용
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
+ * 2026.01.20  임도헌   Modified  전역 에러(toast) 처리 추가
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
-
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition } from "react";
-import { submitCreateAccount } from "@/app/(auth)/create-account/actions";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import { PASSWORD_MIN_LENGTH } from "@/lib/constants";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
-import SocialLogin from "@/features/auth/components/SocialLogin";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import {
+  EnvelopeIcon,
+  KeyIcon,
+  LockClosedIcon,
+  UserIcon,
+} from "@heroicons/react/24/solid";
+import { PASSWORD_MIN_LENGTH } from "@/lib/constants";
 import {
   createAccountSchema,
   type CreateAccountSchema,
-} from "@/features/auth/lib/createAccountSchema";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import {
-  UserIcon,
-  EnvelopeIcon,
-  LockClosedIcon,
-  KeyIcon,
-} from "@heroicons/react/24/solid";
+} from "@/features/auth/schemas/register";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import SocialLogin from "@/features/auth/components/SocialLogin";
+import { submitCreateAccount } from "@/features/auth/actions/register";
 
 type FormData = CreateAccountSchema;
 
+/**
+ * 회원가입 폼
+ * - 닉네임/이메일/비밀번호 입력 및 검증
+ * - 중복 검사 결과 처리 및 가입 액션 호출
+ */
 export default function CreateAccountForm() {
   const {
     register,
@@ -49,8 +55,8 @@ export default function CreateAccountForm() {
     setError,
   } = useForm<FormData>({
     resolver: zodResolver(createAccountSchema),
-    mode: "onBlur", // 처음 에러는 blur 시점에
-    reValidateMode: "onChange", // 한번 에러난 필드는 타이핑하면 바로 재검증
+    mode: "onBlur",
+    reValidateMode: "onChange",
   });
 
   const [isPending, startTransition] = useTransition();
@@ -65,22 +71,28 @@ export default function CreateAccountForm() {
         formData.append("password", data.password);
         formData.append("confirmPassword", data.confirmPassword);
 
+        // 1. 서버 액션 호출
         const result = await submitCreateAccount(null, formData);
 
         if (!result.success) {
-          const fieldErrors = result.fieldErrors as Partial<
-            Record<keyof FormData, string[]>
-          >;
-
-          (Object.keys(fieldErrors) as (keyof FormData)[]).forEach((key) => {
-            const message = fieldErrors[key]?.[0];
-            if (message) {
-              setError(key, { message });
-            }
-          });
+          // 2. 필드 에러 처리 (닉네임/이메일 중복 등)
+          if (result.fieldErrors) {
+            const fieldErrors = result.fieldErrors as Partial<
+              Record<keyof FormData, string[]>
+            >;
+            (Object.keys(fieldErrors) as (keyof FormData)[]).forEach((key) => {
+              const message = fieldErrors[key]?.[0];
+              if (message) setError(key, { message });
+            });
+          }
+          // 3. 전역 에러 처리
+          if (result.error) {
+            toast.error(result.error);
+          }
           return;
         }
 
+        // 4. 성공 시 이동
         toast.success("환영합니다! 선원 등록이 완료되었습니다.");
         router.push("/profile");
       } catch {

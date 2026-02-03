@@ -15,8 +15,8 @@
  * 2025.09.09  임도헌   Modified  ConfirmDialog/sonner 적용, 중복 클릭 방지, a11y 보강
  * 2026.01.14  임도헌   Modified  ConfirmDialog 적용 및 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useState } from "react";
@@ -26,6 +26,11 @@ import { TrashIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+/**
+ * 댓글 삭제 버튼
+ * - 클릭 시 `ConfirmDialog`를 띄워 삭제 여부를 확인합니다.
+ * - 확인 시 Context의 `deleteComment`를 호출하여 삭제를 수행합니다.
+ */
 export default function RecordingCommentDeleteButton({
   commentId,
 }: {

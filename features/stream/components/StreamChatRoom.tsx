@@ -24,12 +24,13 @@
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 Input 디자인 통일
  * 2026.01.14  임도헌   Modified   주석 보강 및 코드 가독성 개선
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useRef, useEffect, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { sendStreamMessageAction } from "@/app/streams/[id]/actions";
+import { sendStreamMessageAction } from "@/features/stream/actions/chat";
 import TimeAgo from "@/components/ui/TimeAgo";
 import { toast } from "sonner";
 import useStreamChatSubscription from "@/features/stream/hooks/useStreamChatSubscription";
@@ -39,7 +40,7 @@ import {
   ArrowsPointingInIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import type { StreamChatMessage } from "@/types/chat";
+import type { StreamChatMessage } from "@/features/chat/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -60,6 +61,16 @@ interface Props {
 
 const MAX_ITEMS = 300; // 클라이언트 메모리 보호를 위한 최대 메시지 수
 
+/**
+ * 스트리밍 실시간 채팅방
+ *
+ * [기능]
+ * 1. 초기 메시지 로드 및 실시간 메시지 수신 (Supabase)
+ * 2. 메시지 전송 (Server Action) 및 Optimistic UI 처리
+ * 3. 자동 스크롤 (사용자가 바닥에 있을 때만)
+ * 4. 도배 방지 쿨다운 적용
+ * 5. 모바일/데스크톱 반응형 레이아웃 지원
+ */
 export default function StreamChatRoom({
   initialStreamMessage,
   streamChatRoomId,

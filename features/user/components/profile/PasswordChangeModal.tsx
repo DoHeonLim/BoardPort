@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/PasswordChangeModal.tsx
- * Description : 비밀번호 변경 모달 컴포넌트
+ * Description : 비밀번호 변경 모달
  * Author : 임도헌
  *
  * History
@@ -17,8 +17,9 @@
  *                                 password 표시/숨기기 버튼을 Input(passwordToggle)로 위임하여 중복 UI 제거
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰, 반응형 레이아웃 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.24  임도헌   Modified  Action 연결 및 타입 호환성 수정
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -26,9 +27,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   passwordChangeSchema,
-  type PasswordUpdateType,
-} from "@/features/user/lib/profile/passwordChangeSchema";
-import { changePassword } from "@/features/user/lib/profile/changePassword";
+  type PasswordChangeDTO,
+} from "@/features/user/schemas";
+import { changePasswordAction } from "@/features/user/actions/profile";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { toast } from "sonner";
@@ -44,6 +45,15 @@ type PasswordChangeModalProps = {
   onClose: () => void;
 };
 
+/**
+ * 비밀번호 변경 모달
+ *
+ * [기능]
+ * 1. 현재 비밀번호 확인 및 새 비밀번호 입력
+ * 2. 비밀번호 일치 및 유효성 검사 (Zod)
+ * 3. 변경 성공 시 Toast 알림 및 폼 초기화
+ * 4. 접근성 (ESC 닫기, 포커스 관리, 스크롤 잠금)
+ */
 export default function PasswordChangeModal({
   isOpen,
   onClose,
@@ -57,7 +67,7 @@ export default function PasswordChangeModal({
     setError,
     reset,
     formState: { errors },
-  } = useForm<PasswordUpdateType>({
+  } = useForm<PasswordChangeDTO>({
     resolver: zodResolver(passwordChangeSchema),
     defaultValues: {
       currentPassword: "",
@@ -68,31 +78,38 @@ export default function PasswordChangeModal({
     reValidateMode: "onChange",
   });
 
-  // 제출 중에는 UX 혼선을 막기 위해 닫기 방지
   const doClose = () => {
-    if (submitting) return;
-    reset();
+    if (submitting) return; // 제출 중 닫기 방지
+    reset(); // 폼 초기화
     onClose();
   };
 
+  // 1. 접근성 및 이벤트 리스너 설정
   useEffect(() => {
     if (!isOpen) return;
+
+    // 초기 포커스 이동
     dialogRef.current?.focus();
+
+    // ESC 키로 닫기
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") doClose();
     };
     window.addEventListener("keydown", handleKey);
+
+    // Body 스크롤 잠금
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
       window.removeEventListener("keydown", handleKey);
       document.body.style.overflow = original;
     };
-    // doClose는 submitting 의존이라서, isOpen/submitting으로 충분히 안정화
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, submitting]);
 
-  const onSubmit = handleSubmit(async (data: PasswordUpdateType) => {
+  // 2. 폼 제출 핸들러
+  const onSubmit = handleSubmit(async (data: PasswordChangeDTO) => {
     if (submitting) return;
     setSubmitting(true);
 
@@ -102,20 +119,31 @@ export default function PasswordChangeModal({
       formData.append("password", data.password);
       formData.append("confirmPassword", data.confirmPassword);
 
-      const response = await changePassword(formData);
+      // 서버 액션 호출
+      const response = await changePasswordAction(formData);
 
       if (!response.success) {
+        // 에러 핸들링
         if (response.errors) {
           const { _, ...fieldErrors } = response.errors;
-          Object.entries(fieldErrors).forEach(([field, messages]) => {
-            const message = Array.isArray(messages) ? messages[0] : messages;
-            if (!message) return;
-            setError(field as keyof PasswordUpdateType, {
-              type: "manual",
-              message,
-            });
-          });
-          if (_ && _.length > 0) toast.error(_[0]);
+
+          // 전역 에러 (Toast)
+          if (_ && _.length > 0) {
+            toast.error(_[0]);
+          }
+
+          // 필드 에러 매핑 (Input 하단 표시)
+          (Object.keys(fieldErrors) as Array<keyof typeof fieldErrors>).forEach(
+            (key) => {
+              const messages = fieldErrors[key];
+              if (messages && messages.length > 0) {
+                setError(key as keyof PasswordChangeDTO, {
+                  type: "server",
+                  message: messages[0],
+                });
+              }
+            }
+          );
         } else {
           toast.error("비밀번호 변경에 실패했습니다.");
         }
@@ -136,6 +164,7 @@ export default function PasswordChangeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={doClose}

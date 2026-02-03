@@ -1,5 +1,5 @@
 /**
- * File Name : app/products/view/[id]/edit/page
+ * File Name : app/products/view/[id]/edit/page.tsx
  * Description : 제품 편집 페이지
  * Author : 임도헌
  *
@@ -16,33 +16,48 @@
  * 2025.07.06  임도헌   Modified  getIsOwner함수 lib로 이동
  * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 적용
+ * 2026.01.22  임도헌   Modified  Service 직접 호출로 최적화
+ * 2026.01.26  임도헌   Modified  주석 설명 보강
  */
+
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import ProductForm from "@/features/product/components/ProductForm";
-import { getCachedProduct } from "../actions/product";
-import { fetchProductCategories } from "@/lib/categories";
-import { convertProductToFormValues } from "@/features/product/lib/convertProductToFormValues";
-import { deleteProduct } from "@/features/product/lib/deleteProduct";
-import { updateProductAction } from "../actions/update";
+import { fetchProductCategories } from "@/features/product/service/category";
+import { convertProductToFormValues } from "@/features/product/utils/converter";
+import { updateProductAction } from "@/features/product/actions/update";
+import { deleteProductAction } from "@/features/product/actions/delete";
+import { getCachedProduct } from "@/features/product/service/detail";
 
+/**
+ * 제품 수정 페이지
+ *
+ * [기능]
+ * 1. 제품 정보를 조회하고 소유권을 검증합니다. (비소유자 -> 목록 리다이렉트)
+ * 2. 기존 제품 정보를 폼 데이터 형식으로 변환(`convertProductToFormValues`)합니다.
+ * 3. `ProductForm`을 'edit' 모드로 렌더링합니다.
+ * 4. 제품 삭제 기능(Server Action Form)을 별도로 제공합니다.
+ */
 export default async function EditPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (isNaN(id)) return notFound();
 
+  // 1. 제품 조회 및 권한 확인
   const product = await getCachedProduct(id);
   if (!product) return notFound();
 
   const session = await getSession();
   const isOwner = session?.id === product.userId;
-  if (!isOwner) redirect("/products"); // 권한 없으면 목록으로
+  if (!isOwner) redirect("/products");
 
+  // 2. 데이터 준비
   const categories = await fetchProductCategories();
   const defaultValues = convertProductToFormValues(product);
 
+  // 3. 삭제 핸들러 (Server Action Wrapper)
   const handleDeleteProduct = async () => {
     "use server";
-    await deleteProduct(id);
+    await deleteProductAction(id);
     redirect("/products");
   };
 

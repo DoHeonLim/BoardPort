@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/channel/RecordingGrid.tsx
- * Description : 다시보기 2열 그리드 (FOLLOWERS Teaser 포함) - StreamCard 재사용
+ * Description : 녹화본 목록 그리드
  * Author : 임도헌
  *
  * History
@@ -18,25 +18,31 @@
  * 2026.01.04  임도헌   Modified  팔로우 즉시 반영: FOLLOWERS 잠금은 role/isFollowing을 SSOT로 계산
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.25  임도헌   Modified  UI 깨짐 수정: StreamCard 내부 렌더링 위임 (duration, viewCount 전달)
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
 
-import { formatDuration } from "@/lib/utils";
-import TimeAgo from "@/components/ui/TimeAgo";
 import StreamCard from "@/features/stream/components/StreamCard";
 import RecordingEmptyState from "@/features/stream/components/channel/RecordingEmptyState";
-import type { VodForGrid } from "@/types/stream";
-
-type Role = "OWNER" | "FOLLOWER" | "VISITOR";
+import type { ViewerRole, VodForGrid } from "@/features/stream/types";
 
 interface Props {
   recordings: VodForGrid[]; // VOD 중심 (readyAt/duration/viewCount 포함)
-  role: Role;
+  role: ViewerRole;
   isFollowing: boolean;
   onFollow?: () => void;
 }
 
+/**
+ * 지난 방송(녹화본) 목록을 2열 그리드로 표시하는 컴포넌트
+ *
+ * [기능]
+ * 1. 녹화본 목록(`recordings`)을 순회하며 `StreamCard`로 렌더링합니다.
+ * 2. 각 카드의 접근 권한(Private, Followers)을 뷰어 역할(Role)에 따라 계산하여 전달합니다.
+ * 3. 목록이 비어있을 경우 `RecordingEmptyState`를 표시합니다.
+ */
 export default function RecordingGrid({
   recordings,
   role,
@@ -113,6 +119,9 @@ export default function RecordingGrid({
                   username: rec.user.username,
                   avatar: rec.user.avatar ?? null,
                 }}
+                startedAt={when}
+                duration={hasDuration ? rec.duration : undefined}
+                viewCount={hasViews ? rec.viewCount : undefined}
                 href={href}
                 requiresPassword={requiresPassword}
                 isFollowersOnly={isFollowersOnly}
@@ -121,30 +130,6 @@ export default function RecordingGrid({
                 isPrivateType={rec.visibility === "PRIVATE"}
                 layout="grid"
               />
-
-              {(when || hasDuration || hasViews) && (
-                <div className="px-3 pb-3 -mt-2">
-                  <div className="flex items-center gap-1 text-[11px] text-muted">
-                    {when ? <TimeAgo date={when} /> : null}
-                    {when && (hasDuration || hasViews) ? (
-                      <span className="text-border mx-1">|</span>
-                    ) : (
-                      ""
-                    )}
-
-                    {hasDuration ? formatDuration(rec.duration!) : null}
-                    {hasDuration && hasViews ? (
-                      <span className="text-border mx-1">|</span>
-                    ) : (
-                      ""
-                    )}
-
-                    {hasViews
-                      ? `조회 ${rec.viewCount!.toLocaleString()}`
-                      : null}
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}

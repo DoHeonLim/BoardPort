@@ -8,14 +8,20 @@
  * 2025.06.07  임도헌   Created   태그 리스트 컴포넌트로 분리
  * 2025.01.10  임도헌   Modified  태그 갯수 제한(3개)
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  */
 
 import { cn } from "@/lib/utils";
+import type { ProductTag } from "@/features/product/types";
 
 interface ProductCardTagsProps {
-  tags: { name: string }[];
+  tags: ProductTag[];
 }
 
+/**
+ * 제품 태그를 뱃지 형태로 표시합니다.
+ * 최대 3개까지만 보여주고 나머지는 "+N"으로 축약합니다.
+ */
 export function ProductCardTags({ tags }: ProductCardTagsProps) {
   if (!tags || tags.length === 0) return null;
 

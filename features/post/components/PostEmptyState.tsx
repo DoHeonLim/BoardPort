@@ -9,10 +9,11 @@
  * 2025.07.04  임도헌   Modified  검색 조건별 안내 메시지 개선
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 디자인 통일
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
-import { POST_CATEGORY } from "@/lib/constants";
+import { POST_CATEGORY, PostCategoryType } from "@/features/post/constants";
 import {
   PlusIcon,
   DocumentMagnifyingGlassIcon,
@@ -24,6 +25,11 @@ interface PostEmptyStateProps {
   category?: string;
 }
 
+/**
+ * 게시글 목록이 비어있을 때 표시되는 UI
+ * - 검색어, 카테고리 필터 여부에 따라 적절한 안내 메시지를 표시합니다.
+ * - 게시글 작성 버튼을 제공합니다.
+ */
 export default function PostEmptyState({
   keyword,
   category,
@@ -35,7 +41,7 @@ export default function PostEmptyState({
     message = `'${keyword}' 검색 결과가 없습니다.`;
     subMessage = "다른 키워드로 검색해보세요.";
   } else if (category) {
-    message = `'${POST_CATEGORY[category as keyof typeof POST_CATEGORY]}'에 게시글이 없습니다.`;
+    message = `'${POST_CATEGORY[category as PostCategoryType]}'에 게시글이 없습니다.`;
     subMessage = "이 카테고리의 첫 글을 작성해보세요!";
   }
 

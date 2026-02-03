@@ -1,0 +1,131 @@
+/**
+ * File Name : features/user/types.ts
+ * Description : 유저 도메인 공통 타입 (types/profile.ts 통합)
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2026.01.24  임도헌   Created   types/profile.ts 내용 통합 및 ServiceResult 추가
+ */
+
+// =============================================================================
+// 1. Entity / UI Types
+// =============================================================================
+
+/** 유저 최소 정보 (Lite) */
+export type UserLite = {
+  id: number;
+  username: string;
+  avatar: string | null;
+};
+
+/** 프로필 조회 결과 (상세) */
+export interface UserProfile {
+  id: number;
+  username: string;
+  avatar: string | null;
+  email: string | null;
+  created_at: Date;
+  emailVerified: boolean;
+  _count: {
+    followers: number;
+    following: number;
+  };
+  // Viewer Context
+  isMe: boolean;
+  isFollowing: boolean; // viewer → target
+  viewerId?: number | null;
+}
+
+/**
+ * 팔로우 리스트 아이템
+ * - 버튼 상태 및 섹션 분리용 필드 포함
+ */
+export type FollowListUser = {
+  id: number;
+  username: string;
+  avatar: string | null;
+
+  /** 버튼(토글) 상태 SSOT: viewer -> rowUser */
+  isFollowedByViewer: boolean;
+
+  /**
+   * 섹션 분리용 SSOT: owner 기준 맞팔 여부
+   * (followers: owner->row, following: row->owner)
+   */
+  isMutualWithOwner: boolean;
+};
+
+/** 팔로우 리스트 커서 */
+export type FollowListCursor = { lastId: number } | null;
+
+/** 프로필 리뷰 아이템 */
+export interface ProfileReview {
+  id: number;
+  rate: number;
+  payload?: string | null;
+  created_at: Date;
+  user?: {
+    id: number;
+    username: string;
+    avatar: string | null;
+  };
+  product: {
+    id: number;
+    title: string;
+  };
+}
+
+/** 리뷰 리스트 커서 */
+export type ReviewCursor = { lastCreatedAt: Date; lastId: number } | null;
+
+/** 유저 평점 요약 */
+export interface ProfileAverageRating {
+  averageRating: number; // 0~5
+  reviewCount: number;
+}
+
+/** 뱃지 정보 */
+export type Badge = {
+  id: number;
+  name: string;
+  icon: string;
+  description: string;
+};
+
+/** 프로필 편집용 현재 유저 정보 */
+export type CurrentUserForEdit = {
+  id: number;
+  username: string;
+  email: string | null;
+  avatar: string | null;
+  phone: string | null;
+  github_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+  emailVerified: boolean;
+  needsEmailSetup: boolean;
+  needsPasswordSetup: boolean;
+};
+
+// =============================================================================
+// 2. Action Response Types (Form State)
+// =============================================================================
+
+export type EditProfileActionState = {
+  success: boolean;
+  errors?: {
+    fieldErrors?: Record<string, string[]>;
+    formErrors?: string[];
+  };
+};
+
+export type ChangePasswordActionState = {
+  success: boolean;
+  errors?: {
+    currentPassword?: string[];
+    password?: string[];
+    confirmPassword?: string[];
+    _?: string[]; // 전역 에러
+  };
+};

@@ -16,6 +16,7 @@
  * 2026.01.11  임도헌   Modified  시맨틱 인풋 스타일 적용 및 로딩 인디케이터 개선
  * 2026.01.12  임도헌   Modified  height, font size 조정
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -31,8 +32,14 @@ interface SearchBarProps {
   onSearch: (keyword: string) => void;
 }
 
+/**
+ * 검색어 입력 및 제출을 담당하는 컴포넌트
+ *
+ * - 입력값을 로컬 상태로 관리하고, 외부(`value` prop) 변경 시 동기화합니다.
+ * - 폼 제출 시 `onSearch` 콜백을 호출하며, 잠시 로딩 스피너를 표시합니다.
+ */
 export default function SearchBar({
-  placeholder = "검색", // Placeholder 짧게 (모바일 공간 확보)
+  placeholder = "검색",
   value,
   className = "",
   autoFocus = false,
@@ -41,7 +48,6 @@ export default function SearchBar({
   const [keyword, setKeyword] = useState(value);
   const [isPending, setIsPending] = useState(false);
 
-  // URL query value 변경 시 로컬 상태 동기화
   useEffect(() => {
     setKeyword(value);
   }, [value]);
@@ -51,7 +57,7 @@ export default function SearchBar({
     const trimmed = keyword.trim();
     setIsPending(true);
     onSearch(trimmed);
-    setTimeout(() => setIsPending(false), 500); // 로딩 애니메이션용
+    setTimeout(() => setIsPending(false), 500); // 최소 로딩 표시
   };
 
   return (

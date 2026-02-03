@@ -24,7 +24,10 @@
  * 2026.01.03  임도헌   Modified  purchase_userId 기반 구매자 지연 조회를 getUserInfo(id) → getUserInfoById(id)로 변경(세션 불필요 경로 명확화)
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 & 반응형 레이아웃 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.24  임도헌   Modified  deleteReviewAction 사용 및 import 경로 수정
+ * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  */
+
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -32,12 +35,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import { formatToWon } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import {
+  GAME_TYPE_DISPLAY,
+  PRODUCT_STATUS_LABEL,
+} from "@/features/product/constants";
 import { useReview } from "@/features/review/hooks/useReview";
-import { GAME_TYPE_DISPLAY } from "@/lib/constants";
-import { getUserInfoById } from "@/features/user/lib/getUserInfo";
-import { updateProductStatus } from "@/features/product/lib/updateProductStatus";
-import { deleteReview } from "@/features/review/lib/deleteReview";
-import { deleteAllProductReviews } from "@/features/review/lib/deleteAllProductReviews";
+import { getUserInfoAction } from "@/features/user/actions/profile";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
@@ -46,22 +50,32 @@ import CreateReviewModal from "@/features/user/components/profile/CreateReviewMo
 import ReviewDetailModal from "@/features/user/components/profile/ReviewDetailModal";
 import ReservationUserInfo from "@/features/user/components/profile/ReservationUserInfo";
 import { EyeIcon, HeartIcon } from "@heroicons/react/24/solid";
-import type { MySalesListItem, ProductReview } from "@/types/product";
-import { cn } from "@/lib/utils";
-
-type Tab = "selling" | "reserved" | "sold";
+import type {
+  MySalesListItem,
+  ProductStatus,
+  GameType,
+} from "@/features/product/types";
+import type { ProductReview } from "@/features/review/types";
+import { updateProductStatusAction } from "@/features/product/actions/status";
+import {
+  deleteReviewAction,
+  deleteAllProductReviewsAction,
+} from "@/features/review/actions/delete";
 
 interface ProductItemProps {
   product: MySalesListItem;
-  type?: Tab;
-  userId: number;
+  type?: ProductStatus; // 현재 탭 상태
+  userId: number; // 판매자(나) ID
   onOptimisticMove?: (p: {
-    from: Tab;
-    to: Tab;
+    from: ProductStatus;
+    to: ProductStatus;
     product: MySalesListItem;
     modifiedProduct?: MySalesListItem;
   }) => () => void;
-  onMoveFailed?: (p: { from: Tab; to: Tab }) => Promise<void>;
+  onMoveFailed?: (p: {
+    from: ProductStatus;
+    to: ProductStatus;
+  }) => Promise<void>;
   onReviewChanged?: (patch: Partial<MySalesListItem>) => void;
 }
 
@@ -70,17 +84,13 @@ interface PurchaseUserInfo {
   avatar: string | null;
 }
 
-function StatusPill({ tab }: { tab?: Tab }) {
+// 상태 뱃지 UI
+function StatusPill({ tab }: { tab?: ProductStatus }) {
   if (!tab) return null;
   const styles = {
     selling: "bg-brand text-white",
     reserved: "bg-accent text-accent-foreground",
     sold: "bg-neutral-500 text-white",
-  };
-  const labels = {
-    selling: "판매 중",
-    reserved: "예약 중",
-    sold: "판매 완료",
   };
   return (
     <span
@@ -89,7 +99,7 @@ function StatusPill({ tab }: { tab?: Tab }) {
         styles[tab]
       )}
     >
-      {labels[tab]}
+      {PRODUCT_STATUS_LABEL[tab]}
     </span>
   );
 }
@@ -116,6 +126,18 @@ function Metric({
   );
 }
 
+/**
+ * 판매 상품 아이템 컴포넌트
+ *
+ * [기능]
+ * 1. 상품 정보 렌더링 (제목, 가격, 상태, 조회수 등)
+ * 2. 현재 상태(탭)에 따른 액션 버튼 제공
+ *    - 판매 중: 예약자 선택
+ *    - 예약 중: 예약 취소, 판매 완료
+ *    - 판매 완료: 판매 중으로 되돌리기, 리뷰 작성/보기
+ * 3. Optimistic Update를 위한 상위 콜백 호출
+ * 4. 리뷰 작성/삭제 및 각종 모달 연동
+ */
 export default function MySalesProductItem({
   product,
   type,
@@ -124,13 +146,14 @@ export default function MySalesProductItem({
   onMoveFailed,
   onReviewChanged,
 }: ProductItemProps) {
+  // 모달 상태 관리
   const [modalState, setModalState] = useState({
-    reservation: false,
-    reviewCreate: false,
-    reviewSeller: false, // 내가 쓴 리뷰 (판매자 -> 구매자)
-    reviewBuyer: false, // 구매자가 쓴 리뷰
-    warning: false,
-    deleteConfirm: false,
+    reservation: false, // 예약자 선택
+    reviewCreate: false, // 리뷰 작성
+    reviewSeller: false, // 내 리뷰 보기
+    reviewBuyer: false, // 구매자 리뷰 보기
+    warning: false, // 상태 변경 경고 (리뷰 삭제 등)
+    deleteConfirm: false, // 리뷰 삭제 확인
   });
 
   const toggleModal = (key: keyof typeof modalState, open: boolean) => {
@@ -140,49 +163,51 @@ export default function MySalesProductItem({
   const [opLoading, setOpLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // 구매자 정보 (판매완료 탭에서 표시)
   const [purchaseUserInfo, setPurchaseUserInfo] = useState<PurchaseUserInfo>({
     username: product.purchase_user?.username ?? "",
     avatar: product.purchase_user?.avatar ?? null,
   });
 
+  // 리뷰 상태 관리
   const [reviews, setReviews] = useState<ProductReview[]>(
     product.reviews ?? []
   );
 
-  // 내가 쓴 리뷰 (판매자 -> 구매자)
   const sellerReviews = reviews.filter((r) => r.userId === userId);
-  // 구매자가 쓴 리뷰 (구매자 -> 판매자)
   const buyerReviews = reviews.filter(
     (r) => r.userId === (product.purchase_userId ?? -1)
   );
 
+  // 리뷰 작성 훅
   const { isLoading: reviewLoading, submitReview } = useReview({
     productId: product.id,
-    type: "seller",
+    type: "seller", // 판매자 입장에서 리뷰 작성
     onSuccess: (newReview) => {
       setReviews((prev) => {
         const next = [newReview, ...prev.filter((r) => r.userId !== userId)];
-        onReviewChanged?.({ reviews: next });
+        onReviewChanged?.({ reviews: next }); // 상위 리스트 업데이트
         return next;
       });
       toggleModal("reviewCreate", false);
     },
   });
 
+  // Props 변경 시 리뷰 상태 동기화
   useEffect(() => {
     if (product.reviews && product.reviews !== reviews) {
       setReviews(product.reviews);
     }
   }, [product.reviews, reviews]);
 
-  // 구매자 정보 로딩
+  // 구매자 정보 비동기 로딩 (필요시)
   useEffect(() => {
     const pUser = product.purchase_user;
     if (pUser) {
       setPurchaseUserInfo({ username: pUser.username, avatar: pUser.avatar });
     } else if (product.purchase_userId) {
       let mounted = true;
-      getUserInfoById(product.purchase_userId).then((info) => {
+      getUserInfoAction(product.purchase_userId).then((info) => {
         if (mounted && info) setPurchaseUserInfo(info);
       });
       return () => {
@@ -196,33 +221,39 @@ export default function MySalesProductItem({
     return !!res.ok;
   };
 
+  // 리뷰 삭제
   const confirmDeleteReview = async () => {
     try {
       const reviewId = sellerReviews[0]?.id;
       if (!reviewId) return;
 
       setIsDeleting(true);
-      await deleteReview(reviewId);
+      const res = await deleteReviewAction(reviewId);
 
-      setReviews((prev) => {
-        const next = prev.filter((r) => r.id !== reviewId);
-        onReviewChanged?.({ reviews: next });
-        return next;
-      });
-      toggleModal("reviewSeller", false);
-      toast.success("리뷰를 삭제했습니다.");
+      if (res.success) {
+        setReviews((prev) => {
+          const next = prev.filter((r) => r.id !== reviewId);
+          onReviewChanged?.({ reviews: next });
+          return next;
+        });
+        toggleModal("reviewSeller", false);
+        toast.success("리뷰를 삭제했습니다.");
+      } else {
+        toast.error(res.error || "삭제 실패");
+      }
     } catch (e) {
       console.error(e);
+      toast.error("오류가 발생했습니다.");
     } finally {
       setIsDeleting(false);
       toggleModal("deleteConfirm", false);
     }
   };
 
-  // 낙관적 업데이트 로직 (간소화)
+  // Optimistic Move 실행기
   const runWithOptimistic = useCallback(
     async (
-      to: Tab,
+      to: ProductStatus,
       action: () => Promise<any>,
       modifiedProduct?: MySalesListItem
     ) => {
@@ -234,6 +265,7 @@ export default function MySalesProductItem({
           setOpLoading(false);
         }
       }
+      // UI 먼저 업데이트
       const rollback = onOptimisticMove?.({
         from: type,
         to,
@@ -246,7 +278,7 @@ export default function MySalesProductItem({
         if (!res?.success) throw new Error(res?.error || "실패");
         return res;
       } catch {
-        rollback?.();
+        rollback?.(); // 실패 시 롤백
         await onMoveFailed?.({ from: type, to });
         toast.error("상태 변경 실패");
       } finally {
@@ -256,14 +288,18 @@ export default function MySalesProductItem({
     [onOptimisticMove, onMoveFailed, product, type]
   );
 
+  // 예약중 -> 판매완료
   const handleUpdateToSold = () =>
-    runWithOptimistic("sold", () => updateProductStatus(product.id, "sold"));
+    runWithOptimistic("sold", () =>
+      updateProductStatusAction(product.id, "sold")
+    );
 
+  // 판매완료/예약중 -> 판매중 (리뷰 삭제 경고 후 실행)
   const updateToSelling = async () => {
     await runWithOptimistic("selling", async () => {
-      const res = await updateProductStatus(product.id, "selling");
+      const res = await updateProductStatusAction(product.id, "selling");
       if (res?.success) {
-        await deleteAllProductReviews(product.id);
+        await deleteAllProductReviewsAction(product.id);
         toast.success("판매중으로 변경되었습니다.");
         setReviews([]);
         onReviewChanged?.({ reviews: [] });
@@ -278,6 +314,7 @@ export default function MySalesProductItem({
     else updateToSelling();
   };
 
+  // 예약자 선택 완료
   const handleReserveConfirm = async (rid: number) => {
     const nextProd = {
       ...product,
@@ -287,7 +324,7 @@ export default function MySalesProductItem({
     const res = await runWithOptimistic(
       "reserved",
       async () => {
-        const r = await updateProductStatus(product.id, "reserved", rid);
+        const r = await updateProductStatusAction(product.id, "reserved", rid);
         if (r?.success) toast.success("예약 상태로 변경했습니다.");
         return r;
       },
@@ -302,14 +339,16 @@ export default function MySalesProductItem({
   const href = `/products/view/${product.id}`;
   const gameChips = useMemo(() => {
     const chips = [];
-    const gt = product.game_type as keyof typeof GAME_TYPE_DISPLAY;
+    const gt = product.game_type as GameType;
     if (gt && GAME_TYPE_DISPLAY[gt]) chips.push(GAME_TYPE_DISPLAY[gt]);
     return chips;
   }, [product]);
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md">
+      {/* 1. 상단 정보 영역 */}
       <div className="flex p-4 gap-4">
+        {/* Thumbnail */}
         <Link
           href={href}
           className="relative shrink-0 size-24 sm:size-28 rounded-xl overflow-hidden bg-surface-dim"
@@ -328,6 +367,7 @@ export default function MySalesProductItem({
           )}
         </Link>
 
+        {/* Info */}
         <div className="flex flex-1 flex-col justify-between min-w-0">
           <div>
             <div className="flex justify-between items-start gap-2">
@@ -336,6 +376,7 @@ export default function MySalesProductItem({
                   {product.title}
                 </h3>
               </Link>
+              {/* 상태/유저 배지 */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <StatusPill tab={type} />
                 {type === "reserved" && (
@@ -383,7 +424,7 @@ export default function MySalesProductItem({
         </div>
       </div>
 
-      {/* Action Bar */}
+      {/* 2. Actions (상태별 분기) */}
       <div className="grid grid-flow-col auto-cols-fr border-t border-border divide-x divide-border bg-surface-dim/30">
         {type === "selling" && (
           <button
@@ -448,6 +489,8 @@ export default function MySalesProductItem({
       </div>
 
       {/* Modals */}
+
+      {/* 1. 리뷰 작성 */}
       <CreateReviewModal
         isOpen={modalState.reviewCreate}
         onClose={() => toggleModal("reviewCreate", false)}
@@ -455,6 +498,8 @@ export default function MySalesProductItem({
         username={purchaseUserInfo.username}
         userAvatar={purchaseUserInfo.avatar}
       />
+
+      {/* 2. 내 리뷰 상세/삭제 */}
       <ReviewDetailModal
         isOpen={modalState.reviewSeller}
         onClose={() => toggleModal("reviewSeller", false)}
@@ -462,6 +507,8 @@ export default function MySalesProductItem({
         review={sellerReviews[0]}
         onDelete={() => toggleModal("deleteConfirm", true)}
       />
+
+      {/* 3. 구매자 리뷰 조회 */}
       <ReviewDetailModal
         isOpen={modalState.reviewBuyer}
         onClose={() => toggleModal("reviewBuyer", false)}
@@ -469,6 +516,8 @@ export default function MySalesProductItem({
         review={buyerReviews[0]}
         emptyMessage="아직 작성된 리뷰가 없습니다."
       />
+
+      {/* 4. 유저 예약자 선택 */}
       <SelectUserModal
         productId={product.id}
         isOpen={modalState.reservation}
@@ -476,6 +525,7 @@ export default function MySalesProductItem({
         onConfirm={handleReserveConfirm}
       />
 
+      {/* 5. 상태 변경 확인 다이얼로그 */}
       <ConfirmDialog
         open={modalState.warning}
         onCancel={() => toggleModal("warning", false)}
@@ -485,6 +535,8 @@ export default function MySalesProductItem({
         confirmLabel="변경"
         description="판매 중으로 변경하면 작성된 리뷰가 모두 삭제됩니다."
       />
+
+      {/* 6. 삭제 확인 다이얼로그 */}
       <ConfirmDialog
         open={modalState.deleteConfirm}
         onCancel={() => toggleModal("deleteConfirm", false)}

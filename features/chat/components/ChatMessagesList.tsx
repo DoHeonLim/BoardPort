@@ -29,24 +29,17 @@
  * 2026.01.03  임도헌   Modified  자동 스크롤 정책 개선(바닥 근처일 때만), unseenCount 버튼 추가,
  *                                전송/로딩 상태 분리(isSending 도입), 강제 점프/무한스크롤 충돌 방지
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-//  Key Points
-//  - 무한 스크롤: 과거 메시지는 상단 sentinel 관측으로 로드하며, prepend 시 scrollHeight diff 기반으로 위치를 유지한다.
-//  - 실시간 구독: Supabase broadcast(message/message_read) 수신 → 메시지 append / readIds 반영.
-//  - 자동 스크롤 UX:
-//    - 사용자가 "바닥 근처"에 있을 때만 자동 스크롤한다.
-//    - 사용자가 과거 메시지를 보는 중이면 강제 점프하지 않고, '새 메시지 N개 보기' 버튼으로 유도한다.
-//  - 전송 상태 분리:
-//    - 과거 메시지 로딩(isFetching)과 메시지 전송(isSending)을 분리하여, 로딩 중에도 전송이 가능하도록 한다.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import ChatMessageBubble from "@/features/chat/components/ChatMessageBubble";
 import ChatInputBar from "@/features/chat/components/ChatInputBar";
 import useChatSubscription from "@/features/chat/hooks/useChatSubscription";
-import { ChatUser, ChatMessage } from "@/types/chat";
-import { checkQuickResponseBadgeAction } from "@/app/chats/[id]/actions/badge";
-import { sendMessageAction } from "@/app/chats/[id]/actions/messages";
+import { ChatUser, ChatMessage } from "@/features/chat/types";
+import { checkQuickResponseBadgeAction } from "@/features/chat/actions/badge";
+import { sendMessageAction } from "@/features/chat/actions/messages";
 import useInfiniteMessages from "@/features/chat/hooks/useInfiniteMessages";
 
 interface ChatMessagesListProps {
@@ -56,9 +49,14 @@ interface ChatMessagesListProps {
 }
 
 /**
- * ChatMessagesList
- * - 채팅방 메시지 리스트 + 입력창 UI
- * - 무한 스크롤, 실시간 메시지 구독, 메시지 전송 기능 포함
+ * 채팅방 메시지 리스트 및 입력창 컴포넌트
+ *
+ * [기능]
+ * 1. 무한 스크롤 (`useInfiniteMessages`): 스크롤 상단 도달 시 과거 메시지 로드
+ * 2. 실시간 구독 (`useChatSubscription`): 새 메시지 수신 및 읽음 처리 반영
+ * 3. 메시지 전송 (`sendMessageAction`): 텍스트 전송 및 뱃지 조건 체크
+ * 4. 자동 스크롤: 새 메시지 도착 시 스크롤이 하단에 있다면 자동으로 내림
+ * 5. 새 메시지 알림: 스크롤이 위에 있을 때 새 메시지가 오면 버튼 표시
  */
 export default function ChatMessagesList({
   initialMessages,

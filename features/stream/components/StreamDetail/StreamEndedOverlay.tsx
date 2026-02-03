@@ -9,6 +9,7 @@
  * 2025.09.09  임도헌   Modified  a11y(role=status/aria-live) 및 링크 자동 포커스, username 가드/인코딩
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -21,6 +22,10 @@ interface StreamEndedOverlayProps {
   username: string;
 }
 
+/**
+ * 방송이 종료(ENDED)되었을 때 플레이어 위에 덮어씌우는 안내 화면
+ * - 해당 스트리머의 채널 페이지(녹화본 목록)로 이동하는 버튼을 제공합니다.
+ */
 export default function StreamEndedOverlay({
   username,
 }: StreamEndedOverlayProps) {

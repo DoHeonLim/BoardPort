@@ -11,12 +11,13 @@
  * 2025.11.17  임도헌   Modified  레이아웃 이벤트 기반 높이 재계산
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
-import type { StreamChatMessage } from "@/types/chat";
+import type { StreamChatMessage } from "@/features/chat/types";
 
 interface Props {
   initialStreamMessage: StreamChatMessage[];
@@ -26,6 +27,14 @@ interface Props {
   username: string;
 }
 
+/**
+ * 모바일 환경에서 사용되는 채팅 섹션 래퍼
+ *
+ * [기능]
+ * 1. 채팅 영역의 높이를 동적으로 계산하여 키보드 활성화 시에도 UI가 깨지지 않도록 합니다.
+ * 2. 채팅 확대/축소 기능을 제공하며, 상태 변경 시 이벤트를 발생시켜 상단 영상/정보 영역을 제어합니다.
+ * 3. `StreamChatRoom` 컴포넌트를 렌더링합니다.
+ */
 export default function StreamMobileChatSection({
   initialStreamMessage,
   streamChatRoomId,

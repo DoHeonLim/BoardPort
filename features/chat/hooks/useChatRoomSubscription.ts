@@ -11,26 +11,27 @@
  * 2025.11.21  임도헌   Modified  unreadCount 서버 계산 기반으로 초기화
  * 2026.01.16  임도헌   Moved     hooks -> hooks/chat
  * 2026.01.18  임도헌   Moved     hooks/chat -> features/chat/hooks
+ * 2026.01.22  임도헌   Modified  Utils 경로 수정 (subscribeToRoomUpdates)
+ * 2026.01.28  임도헌   Modified  주석 보강
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChatMessage, ChatRoom } from "@/types/chat";
-import { subscribeToRoomUpdates } from "@/features/chat/lib/room/subscribeToRoomUpdates";
+import { ChatMessage, ChatRoom } from "@/features/chat/types";
+import { subscribeToRoomUpdates } from "@/features/chat/utils/realtime";
 
 /**
- * useChatRoomSubscription
- * - 서버에서 전달된 initialRooms(rooms + unreadCount)를 상태로 관리
- * - Supabase 실시간 채널을 통해 각 채팅방의 메시지/읽음 이벤트를 구독
- * - 새로운 메시지:
- *   - 해당 채팅방의 lastMessage 갱신
- *   - 해당 방 unreadCount + 1
- * - 읽음 이벤트:
- *   - 해당 방 unreadCount = 0
+ * 채팅방 목록 페이지용 실시간 구독 훅
  *
- * @param userId       현재 로그인된 사용자 ID
- * @param initialRooms 서버에서 조회한 채팅방 목록 (unreadCount 포함)
+ * [기능]
+ * 1. 초기 채팅방 목록(SSR 데이터)을 상태로 관리합니다.
+ * 2. `subscribeToRoomUpdates` 유틸을 사용하여 모든 채팅방의 이벤트를 구독합니다.
+ * 3. 새 메시지 수신 시 해당 방의 `lastMessage`와 `unreadCount`를 갱신합니다.
+ * 4. 읽음 이벤트 수신 시 해당 방의 `unreadCount`를 0으로 초기화합니다.
+ *
+ * @param {number} userId - 현재 사용자 ID
+ * @param {ChatRoom[]} initialRooms - 초기 채팅방 목록
  */
 export default function useChatRoomSubscription(
   userId: number,
@@ -49,7 +50,7 @@ export default function useChatRoomSubscription(
     }
   );
 
-  // initialRooms 변경 시 rooms / unreadCounts도 동기화
+  // 초기값 변경 시 동기화
   useEffect(() => {
     setRooms(initialRooms);
     setUnreadCounts(() => {
@@ -69,7 +70,7 @@ export default function useChatRoomSubscription(
       userId,
       roomIds: initialRooms.map((room) => room.id),
 
-      // 메시지 수신 시 콜백
+      // 메시지 수신: 마지막 메시지 갱신 및 카운트 증가
       onMessage: (message: ChatMessage) => {
         // lastMessage 갱신
         setRooms((prevRooms) =>
@@ -88,7 +89,7 @@ export default function useChatRoomSubscription(
         }));
       },
 
-      // 메시지 읽음 수신 시 콜백
+      // 읽음 처리: 카운트 초기화
       onMessageRead: (roomId: string) => {
         setUnreadCounts((prev) => ({
           ...prev,

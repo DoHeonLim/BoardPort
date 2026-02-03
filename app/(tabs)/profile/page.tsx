@@ -1,6 +1,6 @@
 /**
- * File Name : app/(tabs)/profile/page
- * Description : 프로필 페이지
+ * File Name : app/(tabs)/profile/page.tsx
+ * Description : 내 프로필 메인 페이지
  * Author : 임도헌
  *
  * History
@@ -23,6 +23,8 @@
  * 2025.11.12  임도헌   Modified   내부 max-w 제거(중앙 정렬 체감↑), Harbor 배너/WaveDivider 추가,
  *                                 설정 드롭다운(ProfileSettingMenu) 상단 우측 배치
  * 2026.01.15  임도헌   Modified   상단 액션바 위치 조정 및 패딩 표준화
+ * 2026.01.24  임도헌   Modified   Service 경로 수정 및 타입 정합성
+ * 2026.01.29  임도헌   Modified   내 프로필 페이지 주석 보강 및 구조 설명 추가
  */
 
 // revalidateTag 트리거 메모
@@ -33,33 +35,48 @@
 // - 방송(채널) 변경:  user-streams-id-${ownerId}
 
 import { redirect } from "next/navigation";
+import getSession from "@/lib/session";
 import ThemeToggle from "@/components/global/ThemeToggle";
 import MyProfile from "@/features/user/components/profile/MyProfile";
 import ProfileSettingMenu from "@/features/user/components/profile/ProfileSettingMenu";
-
-import { getUserProfile } from "@/features/user/lib/getUserProfile";
-import { getCachedInitialUserReviews } from "@/features/user/lib/getUserReviews";
-import { getCachedUserAverageRating } from "@/features/user/lib/getUserAverageRating";
+import { getUserProfile } from "@/features/user/service/profile";
+import { getCachedInitialUserReviews } from "@/features/user/service/review";
+import { getCachedUserAverageRating } from "@/features/user/service/metric";
 import {
   getCachedAllBadges,
   getCachedUserBadges,
-} from "@/features/user/lib/getUserBadges";
-import { getUserStreams } from "@/features/stream/lib/getUserStreams";
-import { logOut } from "@/features/auth/lib/logOut";
-
-import type { BroadcastSummary } from "@/types/stream";
+} from "@/features/user/service/badge";
+import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
+import { logOut } from "@/features/auth/service/logout";
+import type { BroadcastSummary } from "@/features/stream/types";
 import type {
   Badge,
   ProfileAverageRating,
   ProfileReview,
-} from "@/types/profile";
+} from "@/features/user/types";
 
-export const dynamic = "force-dynamic"; // 개인화 페이지 → 전체 응답 캐시 회피
+export const dynamic = "force-dynamic"; // 개인화 페이지 캐시 회피
 
+/**
+ * 내 프로필 페이지
+ *
+ * [기능]
+ * 1. 세션을 확인하여 로그인 여부를 검증합니다.
+ * 2. 내 프로필 정보(Core), 평점, 리뷰, 뱃지, 최근 방송 목록을 병렬로 로드합니다.
+ * 3. `MyProfile` 컴포넌트를 통해 전체 UI를 구성합니다.
+ */
 export default async function ProfilePage() {
-  const user = await getUserProfile();
-  if (!user) redirect(`/login?callbackUrl=${encodeURIComponent("/profile")}`);
+  // 1. 세션 및 유저 확인
+  const session = await getSession();
+  if (!session?.id) {
+    redirect(`/login?callbackUrl=${encodeURIComponent("/profile")}`);
+  }
+  const userId = session.id;
 
+  const user = await getUserProfile(userId, userId);
+  if (!user) redirect("/login");
+
+  // 2. 대량 데이터 병렬 로딩 (성능 최적화)
   const [initialReviews, averageRating, badgesPair, streams]: [
     ProfileReview[],
     ProfileAverageRating | null,
@@ -75,20 +92,12 @@ export default async function ProfilePage() {
       ]);
       return { badges, userBadges };
     })(),
-    (async () => {
-      const { items } = await getUserStreams({
-        ownerId: user.id,
-        viewerId: user.id, // OWNER 버킷 히트
-        take: 6,
-        includeViewerRole: false,
-      });
-      return items;
-    })(),
+    getCachedRecentBroadcasts(user.id, 6, true), // 본인이므로 비공개 방송 포함
   ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
-      {/* Top Actions (Absolute or Flex header) */}
+      {/* 상단 액션바: 설정 메뉴 및 테마 토글 */}
       <div className="sticky top-0 z-30 flex justify-end gap-2 px-page-x py-3 bg-background/80 backdrop-blur-sm">
         <ProfileSettingMenu
           emailVerified={!!user.emailVerified}
@@ -97,7 +106,6 @@ export default async function ProfilePage() {
         <ThemeToggle />
       </div>
 
-      {/* Main Content */}
       <div className="px-page-x pt-2">
         <MyProfile
           user={user}
@@ -105,7 +113,7 @@ export default async function ProfilePage() {
           averageRating={averageRating}
           badges={badgesPair.badges}
           userBadges={badgesPair.userBadges}
-          myStreams={streams as BroadcastSummary[]}
+          myStreams={streams}
           viewerId={user.id}
           logOut={logOut}
         />

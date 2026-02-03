@@ -1,50 +1,54 @@
-// File Name : prisma/schema.prisma
-// Description : 프리즈마 설정
-// Author : 임도헌
-
-// History
-// Date        Author   Status    Description
-// 2024.10.06  임도헌   Created
-// 2024.10.06  임도헌   Modified   유저 모델 추가
-// 2024.10.11  임도헌   Modified   SMS토큰 모델 추가
-// 2024.10.14  임도헌   Modified   제품 모델 추가
-// 2024.11.01  임도헌   Modified   게시글 모델 추가
-// 2024.11.01  임도헌   Modified   좋아요 모델 추가
-// 2024.11.01  임도헌   Modified   댓글 모델 추가
-// 2024.11.08  임도헌   Modified   채팅방 모델 추가
-// 2024.11.08  임도헌   Modified   채팅 메세지 모델 추가
-// 2024.11.12  임도헌   Modified   라이브 스트리밍 모델 추가
-// 2024.11.15  임도헌   Modified   채팅 메시지 읽음 여부 추가
-// 2024.11.15  임도헌   Modified   채팅방에 제품Id도 추가(어떤 제품의 채팅방인가? 체크)
-// 2024.11.21  임도헌   Modified   chatroom을 ProductChatRoom 으로 이름 변경
-// 2024.11.21  임도헌   Modified   StreamChatRoom 및 StreamMessage 모델 추가
-// 2024.12.10  임도헌   Modified   PostImage 모델 추가
-// 2024.12.11  임도헌   Modified   ProductImage 모델 추가
-// 2024.12.11  임도헌   Modified   ProductLike 모델 추가
-// 2024.12.14  임도헌   Modified   badge 모델 추가
-// 2024.12.14  임도헌   Modified   Notification 모델 추가
-// 2024.12.14  임도헌   Modified   PushSubscription 모델 추가
-// 2024.12.14  임도헌   Modified   NotificationPreferences 모델 추가
-// 2024.12.14  임도헌   Modified   SearchHistory 모델 추가
-// 2024.12.14  임도헌   Modified   SearchTag 모델 추가
-// 2024.12.14  임도헌   Modified   PopularSearch 모델 추가
-// 2024.12.15  임도헌   Modified   Category 모델 추가
-// 2024.12.16  임도헌   Modified   SearchHistory updated_at 추가
-// 2024.12.18  임도헌   Modified   PostTag 모델 추가
-// 2024.12.23  임도헌   Modified   Badge 모델 수정(일대일 관계 -> 다대다 관계)
-// 2024.12.31  임도헌   Modified   User 모델 수정(last_badge_check 추가)
-// 2024.12.31  임도헌   Modified   PushSubscription 제약조건 추가
-// 2025.04.18  임도헌   Modified   User 모델에 이메일 인증 여부 추가
-// 2025.04.18  임도헌   Modified   EmailToken 모델 추가
-// 2025.05.18  임도헌   Modified   streamr관련 모델 전체 수정
-// 2025.05.22  임도헌   Modified   Follow 모델 추가
-// 2025.09.06  임도헌   Modified   StreamMessage모델에 인덱스를 추가
-// 2025.09.15  임도헌   Modified   라이브 스트리밍 관련 모델 전면 재구성
-// 2025.10.29  임도헌   Modified   Follow 키셋 페이지네이션 최적화용 복합 인덱스 추가([followerId,id], [followingId,id])
-// 2025.11.28  임도헌   Modified   Prisma 7로 업그레이드
-// 2026.01.03  임도헌   Modified   조회수 쿨다운을 위해서 ViewThrottle 모델 추가
-// 2026.01.09  임도헌   Modified   성능 최적화: Product/Broadcast 모델에 커서 페이징용 복합 인덱스 추가
-
+/**
+ * File Name : prisma/schema.prisma
+ * Description : 프리즈마 스키마 정의 (PostgreSQL 최적화 적용)
+ * Author : 임도헌
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.06  임도헌   Created
+ * 2024.10.06  임도헌   Modified  유저 모델 추가
+ * 2024.10.11  임도헌   Modified  SMS토큰 모델 추가
+ * 2024.10.14  임도헌   Modified  제품 모델 추가
+ * 2024.11.01  임도헌   Modified  게시글 모델 추가
+ * 2024.11.01  임도헌   Modified  좋아요 모델 추가
+ * 2024.11.01  임도헌   Modified  댓글 모델 추가
+ * 2024.11.08  임도헌   Modified  채팅방 모델 추가
+ * 2024.11.08  임도헌   Modified  채팅 메세지 모델 추가
+ * 2024.11.12  임도헌   Modified  라이브 스트리밍 모델 추가
+ * 2024.11.15  임도헌   Modified  채팅 메시지 읽음 여부 추가
+ * 2024.11.15  임도헌   Modified  채팅방에 제품Id도 추가(어떤 제품의 채팅방인가? 체크)
+ * 2024.11.21  임도헌   Modified  chatroom을 ProductChatRoom 으로 이름 변경
+ * 2024.11.21  임도헌   Modified  StreamChatRoom 및 StreamMessage 모델 추가
+ * 2024.12.10  임도헌   Modified  PostImage 모델 추가
+ * 2024.12.11  임도헌   Modified  ProductImage 모델 추가
+ * 2024.12.11  임도헌   Modified  ProductLike 모델 추가
+ * 2024.12.14  임도헌   Modified  badge 모델 추가
+ * 2024.12.14  임도헌   Modified  Notification 모델 추가
+ * 2024.12.14  임도헌   Modified  PushSubscription 모델 추가
+ * 2024.12.14  임도헌   Modified  NotificationPreferences 모델 추가
+ * 2024.12.14  임도헌   Modified  SearchHistory 모델 추가
+ * 2024.12.14  임도헌   Modified  SearchTag 모델 추가
+ * 2024.12.14  임도헌   Modified  PopularSearch 모델 추가
+ * 2024.12.15  임도헌   Modified  Category 모델 추가
+ * 2024.12.16  임도헌   Modified  SearchHistory updated_at 추가
+ * 2024.12.18  임도헌   Modified  PostTag 모델 추가
+ * 2024.12.23  임도헌   Modified  Badge 모델 수정(일대일 관계 -> 다대다 관계)
+ * 2024.12.31  임도헌   Modified  User 모델 수정(last_badge_check 추가)
+ * 2024.12.31  임도헌   Modified  PushSubscription 제약조건 추가
+ * 2025.04.18  임도헌   Modified  User 모델에 이메일 인증 여부 추가
+ * 2025.04.18  임도헌   Modified  EmailToken 모델 추가
+ * 2025.05.18  임도헌   Modified  streamr관련 모델 전체 수정
+ * 2025.05.22  임도헌   Modified  Follow 모델 추가
+ * 2025.09.06  임도헌   Modified  StreamMessage모델에 인덱스를 추가
+ * 2025.09.15  임도헌   Modified  라이브 스트리밍 관련 모델 전면 재구성
+ * 2025.10.29  임도헌   Modified  Follow 키셋 페이지네이션 최적화용 복합 인덱스 추가([followerId,id], [followingId,id])
+ * 2025.11.28  임도헌   Modified  Prisma 7로 업그레이드
+ * 2026.01.03  임도헌   Modified  조회수 쿨다운을 위해서 ViewThrottle 모델 추가
+ * 2026.01.09  임도헌   Modified  성능 최적화: Product/Broadcast 모델에 커서 페이징용 복합 인덱스 추가
+ * 2026.01.20  임도헌   Modified  PostgreSQL 쿼리 최적화를 위한 복합 인덱스(Composite Index) 전면 재구성
+ * 2026.01.20  임도헌   Modified  각 모델 및 필드에 상세 비즈니스 로직 주석 정리
+ * 2026.01.20  임도헌   Modified  유저 차단 및 신고 모델 추가
+ * 2026.01.20  임도헌   Modified  Product 조회 성능을 위한 복합/단일 인덱스 추가
+ */
 generator client {
   provider = "prisma-client"
   // 프로젝트 루트 기준: ./generated/prisma
@@ -52,204 +56,220 @@ generator client {
   output   = "../generated/prisma"
 }
 
-// // URL은 prisma.config.ts + .env에서 관리
-// datasource db {
-//   provider = "sqlite"
-// }
-
 // URL은 prisma.config.ts + .env에서 관리
 datasource db {
   provider = "postgresql"
 }
 
-// 유저 모델
+// -----------------------------------------------------------------------------
+// User Domain (사용자 및 인증)
+// -----------------------------------------------------------------------------
+
+/// 사용자 정보 모델
 model User {
-  id                   Int               @id @default(autoincrement())
-  username             String            @unique //유저 이름
-  email                String?           @unique //유저 이메일
-  emailVerified        Boolean           @default(false) // 이메일 인증 여부
-  password             String? //유저 비밀번호
-  phone                String?           @unique //유저 전화번호
-  github_id            String?           @unique //유저 깃허브 아이디
-  avatar               String? //유저 아바타
-  created_at           DateTime          @default(now()) //유저 생성 시간
-  updated_at           DateTime          @updatedAt //유저 정보 업데이트 시간  
-  last_badge_check     DateTime? // 마지막 뱃지 체크 시간 추가
-  tokens               SMSToken[] //유저 SMS 토큰
-  products             Product[]         @relation("Seller") //유저가 판매자로서 등록한 제품
-  product_chat_rooms   ProductChatRoom[] //유저가 참여한 제품 채팅방
-  product_messages     ProductMessage[] //유저가 제품 채팅방에 보낸 메세지
-  product_likes        ProductLike[] //유저가 제품에 좋아요 누른 것
-  purchased_products   Product[]         @relation("PurchaseUser") //유저가 구매한 제품
-  reservation_products Product[]         @relation("ReservationUser") //유저가 구매한 제품
-  posts                Post[] //유저가 작성한 게시글
-  post_likes           PostLike[] //유저가 게시글에 좋아요 누른 것
-  comments             Comment[] //유저가 게시글에 댓글 작성
-  stream_messages      StreamMessage[] //유저가 라이브 스트리밍 채팅방에 보낸 메세지
-  reviews              Review[] //유저가 제품에 리뷰 작성
-  badges               Badge[] //유저가 가지고 있는 뱃지
+  id               Int       @id @default(autoincrement())
+  username         String    @unique // 유저 닉네임 (표시용 이름)
+  email            String?   @unique // 이메일 (로그인 ID)
+  emailVerified    Boolean   @default(false) // 이메일 인증 여부
+  password         String? // 비밀번호 (해시값)
+  phone            String?   @unique // 휴대폰 번호 (SMS 인증용)
+  github_id        String?   @unique // GitHub 소셜 로그인 ID
+  avatar           String? // 프로필 이미지 URL
+  created_at       DateTime  @default(now()) // 가입일
+  updated_at       DateTime  @updatedAt // 정보 수정일
+  last_badge_check DateTime? // 뱃지 자동 부여 크론잡(Rolling Batch) 체크 시점
 
-  notifications            Notification[] //유저가 받은 알림
-  push_subscriptions       PushSubscription[] //유저가 푸시 구독
-  notification_preferences NotificationPreferences? //유저가 알림 설정
-  search_histories         SearchHistory[] //유저가 검색한 기록
-  emailTokens              EmailToken[] // 유저 이메일 토큰
-  followers                Follow[]                 @relation("Followers") // 나를 팔로우하는 사람들
-  following                Follow[]                 @relation("Following") // 내가 팔로우하는 사람들
-  recordingLikes           RecordingLike[] // 녹화 좋아요
-  recordingComments        RecordingComment[] // 녹화 댓글
-  liveInputs               LiveInput? // 
-  viewThrottles            ViewThrottle[]
+  // --- Relations ---
+  tokens               SMSToken[] // SMS 인증 토큰 목록
+  products             Product[]         @relation("Seller") // 판매 등록한 상품들
+  product_chat_rooms   ProductChatRoom[] // 참여 중인 상품 채팅방
+  product_messages     ProductMessage[] // 상품 채팅 메시지
+  product_likes        ProductLike[] // 찜한 상품 목록
+  purchased_products   Product[]         @relation("PurchaseUser") // 구매한 상품 목록
+  reservation_products Product[]         @relation("ReservationUser") // 예약 중인 상품 목록
 
-  @@index([username]) // 사용자명 검색용
+  posts           Post[] // 작성한 커뮤니티 게시글
+  post_likes      PostLike[] // 좋아요한 게시글
+  comments        Comment[] // 작성한 댓글
+  stream_messages StreamMessage[] // 라이브 채팅 메시지
+  reviews         Review[] // 작성한 거래 후기
+  badges          Badge[] // 획득한 뱃지 목록
+
+  notifications            Notification[] // 수신한 알림
+  push_subscriptions       PushSubscription[] // PWA 푸시 구독 정보
+  notification_preferences NotificationPreferences? // 알림 수신 설정
+  search_histories         SearchHistory[] // 검색 기록
+  emailTokens              EmailToken[] // 이메일 인증 토큰
+
+  followers Follow[] @relation("Followers") // 나를 팔로우하는 사람들
+  following Follow[] @relation("Following") // 내가 팔로우하는 사람들
+
+  recordingLikes    RecordingLike[] // 녹화본 좋아요
+  recordingComments RecordingComment[] // 녹화본 댓글
+  liveInputs        LiveInput? // 스트리밍 송출 정보 (1인 1채널)
+  viewThrottles     ViewThrottle[] // 조회수 어뷰징 방지 기록
+  blocked_users     Block[]            @relation("Blocker") // 내가 차단한 사람들
+  blocked_by        Block[]            @relation("Blocked") // 나를 차단한 사람들
+  reports_made      Report[] // 내가 한 신고들
+
+  @@index([username]) // 유저 검색 최적화
 }
 
-// 뱃지 모델
-model Badge {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique //뱃지 이름
-  icon        String //뱃지 아이콘
-  description String //뱃지 설명
-  users       User[] //뱃지를 가지고 있는 유저
-  created_at  DateTime @default(now()) //뱃지 생성 시간
-}
+// -----------------------------------------------------------------------------
+// Auth & Verification (인증 토큰)
+// -----------------------------------------------------------------------------
 
-// 제품 리뷰 모델
-// Prisma에서 enum 사용 불가능 하기때문에 서버쪽에 제약조건 추가
-model Review {
-  id         Int      @id @default(autoincrement())
-  user       User     @relation(fields: [userId], references: [id]) //작성자
-  userId     Int
-  product    Product  @relation(fields: [productId], references: [id]) // 어떤 제품에 리뷰 했는가?
-  productId  Int
-  payload    String //리뷰 내용
-  rate       Int //리뷰 별점
-  created_at DateTime @default(now())
-
-  @@unique([userId, productId]) //  한 유저가 한 상품에 리뷰 1개만 허용
-  @@index([productId]) // 제품별 리뷰
-  @@index([userId]) // 사용자별 리뷰
-  @@index([rate]) // 평점 기준 정렬
-  @@index([created_at])
-}
-
-// SMS 인증 모델
+/// SMS 인증 번호 저장소
 model SMSToken {
   id         Int      @id @default(autoincrement())
-  token      String   @unique //SMS 인증 토큰
-  phone      String?  @unique //SMS 인증 전화번호
-  created_at DateTime @default(now()) //SMS 인증 생성 시간
-  updated_at DateTime @updatedAt //SMS 인증 업데이트 시간
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade) //SMS 인증 유저
-  userId     Int
+  token      String   @unique // 6자리 인증 번호
+  phone      String?  @unique // 대상 전화번호
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
 }
 
-// EMAIL 인증 모델
+/// 이메일 인증 토큰 저장소
 model EmailToken {
   id         String   @id @default(cuid())
-  token      String   @unique // EMAIL 인증 토큰
-  email      String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     Int
+  token      String   @unique // 6자리 인증 번호
+  email      String // 대상 이메일
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   expires_at DateTime // 토큰 만료 시간
 
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+
   @@index([userId])
 }
 
-// 팔로우 모델
-model Follow {
+// -----------------------------------------------------------------------------
+// Social & Profile (뱃지, 팔로우)
+// -----------------------------------------------------------------------------
+
+/// 업적/뱃지 정보
+model Badge {
   id          Int      @id @default(autoincrement())
-  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
-  followerId  Int
-  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
-  followingId Int
+  name        String   @unique // 뱃지 내부 식별자 (예: EARLY_SAILOR)
+  icon        String // 뱃지 아이콘 URL
+  description String // 뱃지 설명
   created_at  DateTime @default(now())
 
-  @@unique([followerId, followingId]) // 한 유저는 다른 유저를 한 번만 팔로우할 수 있음
-  @@index([followerId])
-  @@index([followingId])
-  // 키셋 커서 최적화
+  users User[] // 이 뱃지를 획득한 유저들
+}
+
+/// 유저 간 팔로우 관계
+model Follow {
+  id         Int      @id @default(autoincrement())
+  created_at DateTime @default(now())
+
+  follower   User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId Int // 팔로우를 하는 사람 (Viewer)
+
+  following   User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId Int // 팔로우를 받는 사람 (Target)
+
+  @@unique([followerId, followingId]) // 중복 팔로우 방지
+  // [Optimization] 팔로워/팔로잉 목록 조회 + 커서 페이지네이션 최적화
   @@index([followerId, id])
   @@index([followingId, id])
 }
 
-// 제품 모델
-// 판매 제품에 산 유저(purchaseUser) 추가해야되고, 판매 시간(purchaseDate) 추가, 판매 시간으로 제품 판매 여부 체크
-// 판매여부는 판매 시간으로 추정이 가능하다.
-model Product {
-  id                 Int               @id @default(autoincrement())
-  title              String //제품 이름
-  price              Float //제품 가격
-  description        String //제품 설명
-  images             ProductImage[] // 이미지 관계 추가
-  created_at         DateTime          @default(now()) //제품 생성 시간
-  updated_at         DateTime          @updatedAt //제품 업데이트 시간
-  user               User              @relation("Seller", fields: [userId], references: [id], onDelete: Cascade)
-  userId             Int
-  chat_rooms         ProductChatRoom[]
-  // 구매 관련 속성 추가
-  reservation_at     DateTime? // 예약한 시간 (null이면 판매 상태로 간주)
-  reservation_user   User?             @relation("ReservationUser", fields: [reservation_userId], references: [id], onDelete: SetNull)
-  reservation_userId Int? // 예약한 유저의 ID (초기에는 null)
-  purchase_user      User?             @relation("PurchaseUser", fields: [purchase_userId], references: [id], onDelete: SetNull)
-  purchase_userId    Int? // 구매한 유저의 ID (초기에는 null)
-  purchased_at       DateTime? // 제품 판매 시간 (null이면 미판매 상태로 간주)
-  reviews            Review[] // 제품 리뷰
-  product_likes      ProductLike[]
+// -----------------------------------------------------------------------------
+// Commerce Domain (중고 거래)
+// -----------------------------------------------------------------------------
 
-  game_type    String // 보드게임, TRPG, 카드게임
-  min_players  Int // 최소 플레이어 수
-  max_players  Int // 최대 플레이어 수
+/// 중고 거래 상품 모델
+model Product {
+  id          Int            @id @default(autoincrement())
+  title       String // 상품명
+  price       Float // 가격
+  description String // 상세 설명
+  images      ProductImage[] // 상품 이미지들
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user   User @relation("Seller", fields: [userId], references: [id], onDelete: Cascade)
+  userId Int // 판매자 ID
+
+  chat_rooms ProductChatRoom[] // 이 상품에 대한 채팅방들
+
+  // --- Transaction State (거래 상태) ---
+  // 판매중: reservation_userId == null && purchase_userId == null
+  // 예약중: reservation_userId != null
+  // 판매완료: purchase_userId != null
+
+  reservation_at     DateTime? // 예약 시점
+  reservation_user   User?     @relation("ReservationUser", fields: [reservation_userId], references: [id], onDelete: SetNull)
+  reservation_userId Int? // 예약자 ID
+
+  purchase_user   User?     @relation("PurchaseUser", fields: [purchase_userId], references: [id], onDelete: SetNull)
+  purchase_userId Int? // 구매자 ID
+  purchased_at    DateTime? // 판매 완료 시점
+
+  reviews       Review[] // 거래 후기
+  product_likes ProductLike[] // 찜하기
+
+  // --- Meta Info ---
+  game_type    String // 게임 종류 (보드게임, TRPG, 카드게임)
+  min_players  Int // 최소 인원
+  max_players  Int // 최대 인원
   play_time    String // 플레이 시간
-  condition    String // 새제품급, 거의새것, 사용감있음, 많이사용됨
-  completeness String // "구성품전체", "부품일부없음", "호환품포함"
-  has_manual   Boolean // 사용설명서 포함 여부
+  condition    String // 상품 상태 (새상품, 사용감 있음 등)
+  completeness String // 구성품 상태 (전체 보유, 일부 분실 등)
+  has_manual   Boolean // 설명서 유무
   views        Int     @default(0) // 조회수
 
-  category    Category    @relation(fields: [categoryId], references: [id]) // 카테고리
+  category    Category    @relation(fields: [categoryId], references: [id])
   categoryId  Int
-  search_tags SearchTag[] // 제품 검색 태그
+  search_tags SearchTag[] // 검색용 태그
 
-  @@index([title]) // 제품명 검색용
-  @@index([created_at]) // 최신순 정렬용
-  @@index([price]) // 가격 필터링용
-  @@index([categoryId]) // 카테고리 필터링용
-  // [성능 최적화] 커서 기반 페이지네이션용 복합 인덱스
-  // 1. 판매 내역: 특정 유저의 상품을 최신순(id desc)으로 조회
-  @@index([userId, id])
-  // 2. 구매 내역: 특정 유저가 구매한 상품을 최신순(id desc)으로 조회
-  @@index([purchase_userId, id])
+  @@index([created_at(sort: Desc)]) // 최신순 정렬 (필수)
+  @@index([price]) // 가격 범위 검색
+  @@index([game_type]) // 게임 타입 필터
+  @@index([condition]) // 상태 필터
+  // 복합 인덱스 (자주 사용되는 조회 패턴 최적화)
+  @@index([userId, created_at(sort: Desc)]) // "내 판매 상품" 최신순
+  @@index([categoryId, created_at(sort: Desc)]) // "카테고리별" 최신순
 }
 
-// 카테고리 모델
+/// 상품 카테고리 (계층 구조 지원)
 model Category {
-  id          Int        @id @default(autoincrement())
-  eng_name    String // 영어 이름
-  kor_name    String // 한글 이름
-  icon        String? // 카테고리 아이콘
-  description String?
-  products    Product[]
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  parentId    Int?
-  children    Category[] @relation("CategoryHierarchy")
+  id          Int     @id @default(autoincrement())
+  eng_name    String // 영문명 (코드용)
+  kor_name    String // 한글명 (표시용)
+  icon        String? // 아이콘 이모지
+  description String? // 카테고리 설명
 
-  @@index([parentId]) // 부모 카테고리 조회
+  products Product[]
+
+  // 계층 구조 (대분류 > 소분류)
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  parentId Int?
+  children Category[] @relation("CategoryHierarchy")
+
+  @@index([parentId])
 }
 
-// 제품 이미지 모델
+/// 상품 이미지
 model ProductImage {
   id         Int      @id @default(autoincrement())
-  url        String //이미지 주소
-  order      Int      @default(0) // 이미지 순서
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade) //제품 이미지
-  productId  Int
-  created_at DateTime @default(now()) //이미지 생성 시간
-  updated_at DateTime @updatedAt //이미지 업데이트 시간
+  url        String // 이미지 URL (Cloudflare)
+  order      Int      @default(0) // 표시 순서 (0번이 대표 이미지)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  @@index([productId])
 }
 
-// 제품 좋아요 모델 추가
+/// 상품 찜하기 (Like)
 model ProductLike {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -260,352 +280,367 @@ model ProductLike {
   userId    Int
   productId Int
 
-  @@id(name: "id", [userId, productId])
+  @@id(name: "id", [userId, productId]) // 복합 키
 }
 
-// 제품 채팅방 모델
-model ProductChatRoom {
-  id       String           @id @default(cuid())
-  users    User[] //채팅방 참여 유저
-  messages ProductMessage[] //채팅방 메세지
-
-  created_at DateTime @default(now()) //채팅방 생성 시간
-  updated_at DateTime @updatedAt //채팅방 업데이트 시간
-
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId Int
-}
-
-// 제품 채팅 메세지 모델
-model ProductMessage {
-  id      Int     @id @default(autoincrement())
-  payload String
-  isRead  Boolean @default(false) //읽음 여부
-
-  created_at DateTime @default(now()) //메세지 생성 시간
-  updated_at DateTime @updatedAt //메세지 업데이트 시간
-
-  room              ProductChatRoom? @relation(fields: [productChatRoomId], references: [id], onDelete: Cascade)
-  user              User             @relation(fields: [userId], references: [id])
-  userId            Int
-  productChatRoomId String?
-}
-
-// 게시글 모델
-model Post {
-  id          Int         @id @default(autoincrement())
-  title       String //게시글 제목
-  description String? //게시글 설명
-  category    String //교역소, 선원모집, 항해일지, 해도, 나침반
-  views       Int         @default(0) //게시글 조회수
-  created_at  DateTime    @default(now()) //게시글 생성 시간
-  updated_at  DateTime    @updatedAt //게시글 업데이트 시간
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade) //게시글 작성자
-  userId      Int
-  comments    Comment[] //게시글 댓글
-  post_likes  PostLike[] //게시글 좋아요
-  images      PostImage[] // 이미지 관계 추가
-  tags        PostTag[] // 게시글 태그 추가
-
-  @@index([category])
-  @@index([created_at])
-  @@index([userId])
-  @@index([title]) // 제목 검색을 위한 인덱스
-}
-
-// export const POST_CATEGORY = {
-//   CREW: '모험대원 모집',      
-//   LOG: '항해 일지',          
-//   MAP: '보물지도',           
-//   COMPASS: '나침반'         
-// } as const;
-// 모험대원 모집: "새로운 모험을 함께할 대원을 찾습니다!" (게임 모임/파티 모집)
-// 항해 일지: "우리의 게임 항해를 기록합니다" (게임 후기/리뷰)
-// 보물지도: "게임 공략의 지도를 함께 그립니다" (규칙 설명/공략)
-// 나침반: "길을 잃었다면 여기서 물어보세요" (질문과 답변)
-
-// 게시글 이미지 모델
-model PostImage {
+/// 거래 후기 (Review)
+model Review {
   id         Int      @id @default(autoincrement())
-  url        String //이미지 주소
-  order      Int      @default(0) //이미지 순서
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade) //게시글 이미지
-  postId     Int
-  created_at DateTime @default(now()) //이미지 생성 시간
-  updated_at DateTime @updatedAt //이미지 업데이트 시간
-}
-
-// 게시글 좋아요 모델 이름 변경
-model PostLike {
-  created_at DateTime @default(now()) //좋아요 생성 시간
-  updated_at DateTime @updatedAt //좋아요 업데이트 시간
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade) //좋아요 유저
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade) //좋아요 게시글
-  userId     Int //좋아요 유저 아이디
-  postId     Int //좋아요 게시글 아이디
-
-  //composite ID를 사용해서 고유한 ID 생성
-  //like는 Post에 한개만 가능
-  //A라는 아이디로 B라는 포스트에 Like를 했을 경우
-  //A와 B를 합치게되면 고유한 ID를 만들 수 있게 된다.
-  @@id(name: "id", [userId, postId])
-}
-
-// 게시글 태그 모델
-model PostTag {
-  id         Int      @id @default(autoincrement())
-  name       String   @unique // 태그명
-  count      Int      @default(0) // 사용 횟수
-  posts      Post[] // 이 태그가 달린 게시글들
+  payload    String // 후기 내용
+  rate       Int // 별점 (1~5)
   created_at DateTime @default(now())
 
-  @@index([name]) // 태그명 검색
-  @@index([count]) // 인기 태그 정렬
+  user   User @relation(fields: [userId], references: [id]) // 작성자
+  userId Int
+
+  product   Product @relation(fields: [productId], references: [id]) // 대상 상품
+  productId Int
+
+  @@unique([userId, productId]) // 한 상품당 1개의 리뷰만 작성 가능
+  // [Optimization] 리뷰 목록 조회 최적화
+  @@index([productId, created_at]) // 상품 상세 > 리뷰 목록 (최신순)
+  @@index([userId, created_at]) // 프로필 > 받은 후기 (최신순)
+  @@index([rate]) // 별점 통계용
 }
 
-// 게시글 댓글 모델
-model Comment {
+// -----------------------------------------------------------------------------
+// Community Domain (항해일지 게시판)
+// -----------------------------------------------------------------------------
+
+/// 게시글 모델
+model Post {
+  id          Int      @id @default(autoincrement())
+  title       String // 제목
+  description String? // 본문 내용
+  category    String // 게시판 카테고리 (자유, 공략, 후기 등)
+  views       Int      @default(0) // 조회수
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+
+  comments   Comment[] // 댓글
+  post_likes PostLike[] // 좋아요
+  images     PostImage[] // 첨부 이미지
+  tags       PostTag[] // 태그
+
+  // [Optimization] 게시글 목록 조회
+  @@index([category, created_at]) // 카테고리별 최신순
+  @@index([userId, created_at]) // 유저별 작성글
+  @@index([created_at]) // 전체 최신순
+  @@index([title]) // 제목 검색
+}
+
+/// 게시글 이미지
+model PostImage {
   id         Int      @id @default(autoincrement())
-  payload    String //댓글 내용
-  created_at DateTime @default(now()) //댓글 생성 시간
-  updated_at DateTime @updatedAt //댓글 업데이트 시간
+  url        String
+  order      Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId Int
+
+  @@index([postId])
+}
+
+/// 게시글 좋아요
+model PostLike {
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId Int
   postId Int
+
+  @@id(name: "id", [userId, postId])
 }
 
-// 알림 모델
+/// 게시글 태그 (Many-to-Many via implicit relation)
+model PostTag {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique // 태그명 (중복 불가)
+  count      Int      @default(0) // 사용 횟수 (인기 태그용)
+  posts      Post[]
+  created_at DateTime @default(now())
+
+  @@index([name])
+  @@index([count])
+}
+
+/// 게시글 댓글
+model Comment {
+  id         Int      @id @default(autoincrement())
+  payload    String // 댓글 내용
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId Int
+  postId Int
+
+  // [Optimization] 댓글 목록 조회
+  @@index([postId, created_at])
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// Chat Domain (1:1 상품 문의)
+// -----------------------------------------------------------------------------
+
+/// 상품 채팅방
+model ProductChatRoom {
+  id         String   @id @default(cuid()) // CUID 사용
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt // 마지막 메시지 시간으로 갱신됨
+
+  users    User[] // 참여자 (N:M)
+  messages ProductMessage[]
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId Int
+
+  @@index([updated_at]) // 채팅방 목록 정렬 (최신 대화순)
+  @@index([productId])
+}
+
+/// 채팅 메시지
+model ProductMessage {
+  id      Int     @id @default(autoincrement())
+  payload String // 메시지 내용
+  isRead  Boolean @default(false) // 읽음 여부
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  room              ProductChatRoom? @relation(fields: [productChatRoomId], references: [id], onDelete: Cascade)
+  productChatRoomId String?
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+
+  // [Optimization] 메시지 내역 조회 & 안 읽은 메시지 카운트
+  @@index([productChatRoomId, created_at])
+  @@index([productChatRoomId, isRead, userId]) // 안 읽은 개수 집계용
+}
+
+// -----------------------------------------------------------------------------
+// Notification Domain (알림 시스템)
+// -----------------------------------------------------------------------------
+
+/// 인앱 알림
 model Notification {
   id     Int  @id @default(autoincrement())
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId Int
+  userId Int // 수신자
 
-  title String // 알림 제목
-  body  String // 알림 내용
-  image String? // 알림 이미지 (선택)
+  title String
+  body  String
+  image String?
+  type  String // CHAT, TRADE, REVIEW, BADGE, SYSTEM, STREAM
+  link  String? // 클릭 시 이동 경로
 
-  type String // "CHAT", "TRADE", "REVIEW", "BADGE", "SYSTEM" 등
-  link String? // 알림 클릭시 이동할 링크
-
-  isRead     Boolean  @default(false) // 읽음 여부
+  isRead     Boolean  @default(false)
   created_at DateTime @default(now())
 
-  // 푸시 알림 전송 상태 추적
-  isPushSent Boolean   @default(false) // 푸시 발송 여부
-  sentAt     DateTime? // 푸시 발송 시간
+  isPushSent Boolean   @default(false) // 푸시 발송 성공 여부
+  sentAt     DateTime? // 발송 시간
 
-  @@index([userId, created_at]) // 사용자별 최근 알림
-  @@index([isRead]) // 읽지 않은 알림 필터링
+  @@index([userId, created_at]) // 내 알림함
+  @@index([userId, isRead]) // 안 읽은 알림 필터
 }
 
-// PWA 푸시 구독 정보 모델
+/// Web Push 구독 정보 (PWA)
 model PushSubscription {
   id     Int  @id @default(autoincrement())
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
 
-  endpoint  String // 푸시 서비스 엔드포인트
-  p256dh    String // 공개키
-  auth      String // 인증키
-  userAgent String? // 사용자 기기 정보
+  endpoint  String // 브라우저 엔드포인트
+  p256dh    String // 암호화 키
+  auth      String // 인증 키
+  userAgent String?
 
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
-  last_used  DateTime? // 마지막 푸시 발송 시간
+  last_used  DateTime? // 마지막 발송 성공 시간
+  isActive   Boolean   @default(true) // 구독 활성 상태
 
-  // 구독 상태 관리
-  isActive Boolean @default(true)
-
-  @@unique([endpoint, userId], name: "endpoint_userId") // endpoint와 userId의 조합이 unique
-  @@index([userId]) // 사용자별 구독 조회용
-  @@index([isActive]) // 활성 구독 필터링
+  @@unique([endpoint, userId], name: "endpoint_userId")
+  @@index([userId, isActive])
 }
 
-// 알림 설정 모델(유저가 어떤 타입의 알림을 받길 원하는지)
+/// 사용자 알림 설정
 model NotificationPreferences {
   id     Int  @id @default(autoincrement())
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int  @unique
 
-  // 알림 유형별 설정
-  chat   Boolean @default(true) // 채팅 알림
-  trade  Boolean @default(true) // 거래 알림
-  review Boolean @default(true) // 리뷰 알림
-  badge  Boolean @default(true) // 뱃지 알림
-  system Boolean @default(true) // 시스템 알림
-  stream Boolean @default(true) // 방송 알림
+  // 알림 종류별 ON/OFF
+  chat   Boolean @default(true)
+  trade  Boolean @default(true)
+  review Boolean @default(true)
+  badge  Boolean @default(true)
+  system Boolean @default(true)
+  stream Boolean @default(true)
 
-  // 푸시 알림 설정
-  pushEnabled Boolean @default(true) // 푸시 알림 전체 설정
+  pushEnabled Boolean @default(true) // 전체 푸시 ON/OFF
 
-  // 알림 시간 설정
-  quietHoursStart String? // 방해금지 시작 시간 (예: "22:00")
-  quietHoursEnd   String? // 방해금지 종료 시간 (예: "08:00")
+  // 방해 금지 시간
+  quietHoursStart String? // "22:00"
+  quietHoursEnd   String? // "08:00"
 }
 
-// 검색 기록 모델
+// -----------------------------------------------------------------------------
+// Search Domain
+// -----------------------------------------------------------------------------
+
+/// 유저 최근 검색어
 model SearchHistory {
-  id         Int      @id @default(autoincrement()) // 검색 기록 고유 아이디
-  userId     Int // 검색 기록 유저 아이디
-  keyword    String // 검색 기록 키워드
-  category   String? // 검색 기록 카테고리
-  minPrice   Int? // 검색 기록 최소 가격
-  maxPrice   Int? // 검색 기록 최대 가격
-  game_type  String? // 검색 기록 게임 유형
-  condition  String? // 검색 기록 상태
-  created_at DateTime @default(now()) // 검색 기록 생성 시간
-  updated_at DateTime @updatedAt // 검색 기록 업데이트 시간
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade) // 검색 기록 유저
-
-  @@index([userId])
-  @@index([keyword]) // 검색어 기반 조회
-}
-
-// 검색 태그 모델
-model SearchTag {
-  id         Int       @id @default(autoincrement())
-  name       String    @unique // 태그명
-  count      Int       @default(0) // 사용 횟수
-  products   Product[] // 이 태그가 달린 상품들
-  created_at DateTime  @default(now())
-
-  @@index([name]) // 태그명 검색
-  @@index([count]) // 인기 태그 정렬
-}
-
-// 인기 검색어 모델
-model PopularSearch {
   id         Int      @id @default(autoincrement())
-  keyword    String   @unique
-  count      Int      @default(0)
+  keyword    String
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  @@index([count(sort: Desc)]) // 인기 검색어 정렬
+  // 필터 조건 저장 (선택)
+  category  String?
+  minPrice  Int?
+  maxPrice  Int?
+  game_type String?
+  condition String?
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+
+  @@index([userId, updated_at]) // 최근 검색어 정렬
+  @@index([keyword])
 }
 
-// ================================================ 스트리밍 전면 재구성 =============================================
-// 라이브 스트리밍 모델
-// ---------------------------------------------------------------------
-// LiveInput / Broadcast / VodAsset
-// ---------------------------------------------------------------------
+/// 검색 태그 (상품 태그)
+model SearchTag {
+  id         Int       @id @default(autoincrement())
+  name       String    @unique
+  count      Int       @default(0) // 사용 횟수
+  products   Product[]
+  created_at DateTime  @default(now())
 
-/// 한 유저는 한개의 LiveInput(송출 파이프/채널)을 가질 수 있음.
+  @@index([name])
+  @@index([count])
+}
+
+/// 인기 검색어 (집계용)
+model PopularSearch {
+  id         Int      @id @default(autoincrement())
+  keyword    String   @unique
+  count      Int      @default(0) // 검색 횟수
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([count(sort: Desc)]) // 인기순 정렬
+}
+
+// -----------------------------------------------------------------------------
+// Streaming Domain (라이브 & 녹화)
+// -----------------------------------------------------------------------------
+
+/// 송출 채널 (1인 1채널) - Cloudflare Live Input과 1:1 매핑
 model LiveInput {
   id     Int  @id @default(autoincrement())
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
 
-  /// Cloudflare Live Input UID (예: "8af4...") - 외부 자원과 1:1 매핑
-  provider_uid String @unique
+  provider_uid String  @unique // Cloudflare Live Input UID
+  stream_key   String // OBS 송출 키 (RTMPS)
+  name         String?
 
-  /// RTMPS / stream key (UI에서는 마스킹해서 노출)
-  stream_key String
-
-  /// 구분용 이름
-  name String?
-
-  /// CF 설정과 동기화를 위한 필드(선택)
-  /// - 자동 녹화 삭제 일수: CF의 deleteRecordingAfterDays
+  // CF 설정 동기화
   deleteAfterDays     Int?
-  /// - 재생에 서명 URL 필요 여부
   requireSignedURLs   Boolean @default(false)
-  /// - 라이브 뷰어 카운트 숨김
   hideLiveViewerCount Boolean @default(false)
 
-  /// 최근 상태 캐시(옵션): CONNECTED / READY / ENDED ...
-  status String?
+  status String? // 현재 연결 상태 캐시 (CONNECTED / DISCONNECTED)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  /// 이 입력으로 송출된 모든 방송 세션(=Broadcast)
-  broadcasts Broadcast[]
+  broadcasts Broadcast[] // 이 채널로 송출한 방송 이력
 
-  @@unique([userId]) // 1인 1 LiveInput 정책을 DB로 강제
+  @@unique([userId])
   @@index([userId])
 }
 
-/// Broadcast = 한 번의 송출 세션(OBS 연결~종료)
-/// 과거 LiveStream이 담당하던 "제목/설명/상태/시간/카테고리/태그/시청자/채팅"을
-/// 세션 단위로 옮김. 다시보기(VOD)는 VodAsset으로 분리.
+enum StreamVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+/// 방송 세션 (OBS 연결 ~ 종료까지의 1회 방송)
 model Broadcast {
   id Int @id @default(autoincrement())
 
-  // 어떤 LiveInput(채널)로 송출했는지
   liveInput   LiveInput @relation(fields: [liveInputId], references: [id], onDelete: Cascade)
   liveInputId Int
 
-  // 세션 메타
-  title       String
-  description String?
-  thumbnail   String?
+  title       String // 방송 제목
+  description String? // 방송 설명
+  thumbnail   String? // 썸네일 이미지
 
-  visibility String  @default("PUBLIC") // PUBLIC | PRIVATE | FOLLOWERS
-  password   String?
+  visibility StreamVisibility // PUBLIC, FOLLOWERS, PRIVATE
+  password   String? // PRIVATE일 경우 비밀번호 (해시)
 
-  // 상태 & 타임라인
-  status     String // CONNECTED | ENDED | ...
-  started_at DateTime?
-  ended_at   DateTime?
+  status     String // CONNECTED, ENDED, DISCONNECTED
+  started_at DateTime? // 방송 시작 시간
+  ended_at   DateTime? // 방송 종료 시간
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  // 카테고리/태그
   category         StreamCategory? @relation(fields: [streamCategoryId], references: [id])
   streamCategoryId Int?
   tags             StreamTag[]     @relation("BroadcastTags")
 
-  // 채팅방(세션별 1개)
-  chatRoom StreamChatRoom?
+  chatRoom  StreamChatRoom? // 방송 채팅방
+  vodAssets VodAsset[] // 녹화본 (VOD)
 
-  // 이 세션에서 생성된 다시보기(녹화본) 목록
-  vodAssets VodAsset[]
-
-  // [성능 최적화] 커서 기반 페이지네이션용 복합 인덱스
-  // 1. 유저 채널 방송 목록: 특정 채널의 방송을 최신순(id desc)으로 조회
-  @@index([liveInputId, id])
-  // 2. 메인 스트리밍 목록: 상태별(CONNECTED 등) 방송을 최신순(id desc)으로 조회
-  @@index([status, id])
+  // [Optimization] 방송 목록 조회 인덱스
+  @@index([liveInputId, id]) // 유저 채널 목록
+  @@index([status, id]) // 라이브 중인 방송 목록
   @@index([started_at])
   @@index([streamCategoryId])
 }
 
-/// VodAsset = Cloudflare의 개별 비디오(녹화본) 자원
-/// 하나의 Broadcast(세션)에서 1개 이상 생성될 수 있음(중단/재개 등 특수케이스 대비)
+/// 녹화본 (VOD) - Cloudflare Video
 model VodAsset {
   id          Int       @id @default(autoincrement())
   broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
-  broadcastId Int
+  broadcastId Int // 원본 방송 ID
 
-  provider_asset_id String    @unique
+  provider_asset_id String    @unique // Cloudflare Video UID
   playback_hls      String?
   playback_dash     String?
   thumbnail_url     String?
-  duration_sec      Int?
-  ready_at          DateTime?
+  duration_sec      Int? // 영상 길이 (초)
+  ready_at          DateTime? // 처리 완료 시간
 
-  views Int @default(0)
+  views Int @default(0) // 조회수
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  recordingLikes    RecordingLike[]
-  recordingComments RecordingComment[]
+  recordingLikes    RecordingLike[] // 녹화본 좋아요
+  recordingComments RecordingComment[] // 녹화본 댓글
 
   @@index([broadcastId])
   @@index([ready_at])
-  @@index([views]) // (선택) 랭킹/정렬용
+  @@index([views])
 }
 
-/// ---------------------------------------------------------------------
-/// 기존 주변 모델들(관계만 교체)
-/// ---------------------------------------------------------------------
-
-/// 태그: Broadcast 중심으로 연결
+/// 방송 태그
 model StreamTag {
   id         Int      @id @default(autoincrement())
   name       String   @unique
@@ -617,7 +652,7 @@ model StreamTag {
   @@index([name])
 }
 
-/// 카테고리: 세션(=Broadcast) 단위로 귀속
+/// 방송 카테고리
 model StreamCategory {
   id          Int     @id @default(autoincrement())
   eng_name    String
@@ -634,7 +669,7 @@ model StreamCategory {
   @@index([parentId])
 }
 
-/// 채팅방: 세션 1개당 채팅방 1개
+/// 방송 채팅방 (세션 1개당 1개)
 model StreamChatRoom {
   id         Int      @id @default(autoincrement())
   created_at DateTime @default(now())
@@ -646,7 +681,7 @@ model StreamChatRoom {
   stream_messages StreamMessage[]
 }
 
-/// 채팅 메시지
+/// 방송 채팅 메시지
 model StreamMessage {
   id         Int      @id @default(autoincrement())
   payload    String
@@ -658,11 +693,12 @@ model StreamMessage {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
 
-  @@index([userId, streamChatRoomId, created_at])
+  // [Optimization] 채팅 기록 조회 (시간순)
   @@index([streamChatRoomId, created_at])
+  @@index([userId])
 }
 
-/// 녹화 좋아요: VOD에 귀속
+/// 녹화본 좋아요
 model RecordingLike {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -676,7 +712,7 @@ model RecordingLike {
   @@id([userId, vodId], name: "id")
 }
 
-/// 녹화 댓글: VOD에 귀속
+/// 녹화본 댓글
 model RecordingComment {
   id         Int      @id @default(autoincrement())
   payload    String
@@ -688,17 +724,21 @@ model RecordingComment {
   userId Int
   vodId  Int
 
+  // [Optimization] 댓글 조회 (시간순)
   @@index([vodId, created_at])
 }
 
-// 조회수 타입
+// -----------------------------------------------------------------------------
+// Utils & Analytics (조회수 제어)
+// -----------------------------------------------------------------------------
+
 enum ViewTargetType {
   POST
   PRODUCT
   VOD
 }
 
-// 조회수
+/// 조회수 어뷰징 방지 (쓰로틀링)
 model ViewThrottle {
   id           Int            @id @default(autoincrement())
   userId       Int
@@ -708,7 +748,60 @@ model ViewThrottle {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, targetType, targetId])
+  @@unique([userId, targetType, targetId]) // 유저-타입-ID 조합 유니크
   @@index([targetType, targetId])
   @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// Safety & Moderation (안전 및 운영)
+// -----------------------------------------------------------------------------
+
+/// 차단 모델
+model Block {
+  id        Int  @id @default(autoincrement())
+  blocker   User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockerId Int
+
+  blocked   User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  blockedId Int
+
+  created_at DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+}
+
+/// 신고 사유 Enum
+enum ReportReason {
+  SPAM // 스팸/광고
+  INAPPROPRIATE // 부적절한 콘텐츠
+  ABUSIVE // 욕설/비하
+  SCAM // 사기 의심
+  OTHER // 기타
+}
+
+/// 신고 모델
+model Report {
+  id Int @id @default(autoincrement())
+
+  reporter   User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId Int
+
+  // 신고 대상 (어떤 것을 신고했는지)
+  targetUserId    Int?
+  targetProductId Int?
+  targetPostId    Int?
+  targetCommentId Int?
+  targetStreamId  Int? // Broadcast ID
+
+  reason      ReportReason // 신고 사유 (Enum)
+  description String? // 상세 설명 (선택)
+
+  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([reporterId])
+  @@index([status])
 }

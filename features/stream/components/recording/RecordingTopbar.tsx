@@ -8,6 +8,7 @@
  * 2025.11.26  임도헌   Created   녹화본 상세 상단바 분리(뒤로가기/유저/카테고리)
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -27,6 +28,12 @@ interface RecordingTopbarProps {
   categoryIcon?: string | null;
 }
 
+/**
+ * 녹화본 상세 페이지 상단바
+ * - 좌측: 뒤로가기 버튼 + 작성자 프로필(아바타)
+ * - 우측: 카테고리 칩 (선택적)
+ * - 스크롤 시 상단에 고정(Sticky)됩니다.
+ */
 export default function RecordingTopbar({
   backHref,
   username,

@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/posts/loading
+ * File Name : app/(tabs)/posts/loading.tsx
  * Description : 항해일지 로딩 페이지
  * Author : 임도헌
  *

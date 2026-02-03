@@ -14,15 +14,24 @@
  * 2025.07.24  임도헌   Modified  리스트형 UI 리팩토링 및 스타일 개선
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 Empty State 디자인 개선
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
 
 import useChatRoomSubscription from "@/features/chat/hooks/useChatRoomSubscription";
 import ChatRoomCard from "@/features/chat/components/ChatRoomCard";
-import type { ChatRoom } from "@/types/chat";
+import type { ChatRoom } from "@/features/chat/types";
 import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/outline";
 
+/**
+ * 채팅방 목록 컨테이너
+ *
+ * [기능]
+ * 1. `useChatRoomSubscription` 훅을 통해 실시간 업데이트(새 메시지, 읽음 상태)를 구독합니다.
+ * 2. 채팅방 목록(`ChatRoomCard`)을 렌더링하며, 각 방의 안 읽은 메시지 수를 전달합니다.
+ * 3. 채팅방이 없을 경우 빈 상태(Empty State)를 표시합니다.
+ */
 export default function ChatRoomListContainer({
   initialRooms,
   userId,

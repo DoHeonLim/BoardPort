@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/products/add/layout
+ * File Name : app/(tabs)/products/add/layout.tsx
  * Description : 제품 등록 레이아웃(상단바: 뒤로가기 + 제목, 본문 컨테이너)
  * Author : 임도헌
  *

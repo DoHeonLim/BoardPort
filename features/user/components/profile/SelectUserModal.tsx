@@ -15,24 +15,30 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 디자인 시스템 통일
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  */
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getProductChatUsers,
-  type ChatUser,
-} from "@/features/product/lib/getProductChatUsers";
 import UserAvatar from "@/components/global/UserAvatar";
 import { cn } from "@/lib/utils";
+import { getProductChatUsersAction } from "@/features/product/actions/chat";
+import { ChatUser } from "@/features/chat/types";
 
 interface SelectUserModalProps {
   productId: number;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  // 상위에서 서버 처리 후, 닫아도 되는지(true) 아닌지(false) 결정
+  /** 상위에서 서버 처리(상태 변경) 후, 닫아도 되는지(true/false)를 결정하는 콜백 */
   onConfirm?: (reservationUserId: number) => Promise<boolean> | boolean;
 }
+
+/**
+ * 예약자 선택 모달
+ *
+ * [기능]
+ * 1. 특정 제품에 대해 판매자와 채팅을 나눈 유저 목록을 조회합니다.
+ * 2. 판매자가 목록 중 한 명을 선택하여 '예약자'로 지정할 수 있게 합니다.
+ * 3. 중복 선택 방지 및 로딩/에러 상태를 처리합니다.
+ */
 export default function SelectUserModal({
   productId,
   isOpen,
@@ -41,11 +47,11 @@ export default function SelectUserModal({
 }: SelectUserModalProps) {
   const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isProcessingId, setIsProcessingId] = useState<number | null>(null);
+  const [isProcessingId, setIsProcessingId] = useState<number | null>(null); // 현재 처리 중인 유저 ID
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // ESC로 닫기
+  // 1. ESC 키 이벤트 리스너 (모달 닫기)
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -55,7 +61,7 @@ export default function SelectUserModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onOpenChange]);
 
-  // 열릴 때만 채팅 유저 로드
+  // 2. 모달 오픈 시 채팅 참여 유저 목록 로드 (Lazy Loading)
   useEffect(() => {
     if (!isOpen) return;
     let mounted = true;
@@ -64,7 +70,8 @@ export default function SelectUserModal({
       setIsLoading(true);
       setError(null);
       try {
-        const users = await getProductChatUsers(productId);
+        // 서버 액션을 통해 해당 상품의 채팅 참여자 목록을 가져옴
+        const users = await getProductChatUsersAction(productId);
         if (mounted) setChatUsers(users);
       } catch (e) {
         console.error("Failed to fetch chat users:", e);
@@ -79,20 +86,22 @@ export default function SelectUserModal({
     };
   }, [isOpen, productId]);
 
+  /**
+   * 유저 선택 핸들러
+   * - `onConfirm` 콜백을 호출하여 부모 컴포넌트에서 비즈니스 로직(상태 변경 등)을 수행하도록 위임합니다.
+   */
   const handleUserSelect = useCallback(
     async (selectUserId: number) => {
-      if (isProcessingId !== null) return;
+      if (isProcessingId !== null) return; // 중복 클릭 방지
       setIsProcessingId(selectUserId);
       setError(null);
       try {
         const ok = await onConfirm?.(selectUserId);
+        // 부모의 처리가 성공적이면 모달을 닫음
         if (ok) onOpenChange(false);
-        onOpenChange(false);
       } catch (e) {
         console.error("예약 처리 중 오류:", e);
-        setError(
-          "예약 처리에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요."
-        );
+        setError("예약 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
       } finally {
         setIsProcessingId(null);
       }
@@ -115,7 +124,7 @@ export default function SelectUserModal({
         onClick={() => onOpenChange(false)}
       />
 
-      {/* Dialog */}
+      {/* Dialog Content */}
       <div
         ref={dialogRef}
         className={cn(
@@ -134,7 +143,7 @@ export default function SelectUserModal({
           </p>
         </div>
 
-        {/* Body */}
+        {/* Body (User List) */}
         <div className="p-6">
           {isLoading ? (
             <div className="text-center text-sm text-muted py-8">

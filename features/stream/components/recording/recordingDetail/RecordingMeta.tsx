@@ -30,6 +30,11 @@ interface RecordingMetaProps {
   LikeButtonComponent?: React.ReactNode;
 }
 
+/**
+ * 녹화본 메타 정보 영역
+ * - 상단: 작성일, 영상 길이, 공유 버튼
+ * - 하단: 좋아요 버튼(주입됨), 조회수, 댓글 수
+ */
 export default function RecordingMeta({
   created,
   duration,
@@ -61,6 +66,7 @@ export default function RecordingMeta({
 
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-4">
+      {/* 1. 시간 및 공유 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-muted">
           <TimeAgo date={created} />
@@ -78,6 +84,7 @@ export default function RecordingMeta({
         </button>
       </div>
 
+      {/* 2. 통계 및 좋아요 */}
       <div className="flex items-center justify-between">
         {LikeButtonComponent}
 

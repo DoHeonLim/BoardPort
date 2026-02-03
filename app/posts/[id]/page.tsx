@@ -1,6 +1,6 @@
 /**
- * File Name : app/posts/[id]/page
- * Description : 동네생활 게시글 페이지
+ * File Name : app/posts/[id]/page.tsx
+ * Description : 게시글 상세 페이지
  * Author : 임도헌
  *
  * History
@@ -24,14 +24,29 @@
  * 2026.01.03  임도헌   Modified  좋아요 상태 조회(getCachedLikeStatus)도 병렬 처리로 최적화
  * 2026.01.04  임도헌   Modified  incrementPostViews(didIncrement:boolean) 기반 조회수 표시 보정(+1)으로 통일
  * 2026.01.04  임도헌   Modified  incrementPostViews wrapper 제거 → lib/views/incrementViews 직접 호출로 단일 진입점 고정
+ * 2026.01.22  임도헌   Modified  Service 직접 호출 최적화
+ * 2026.01.27  임도헌   Modified  주석 보강
  */
 
-import { notFound } from "next/navigation";
-import { getCachedPost, getUser } from "./actions/posts";
-import { getCachedLikeStatus } from "./actions/likes";
-import { incrementViews } from "@/lib/viewCounter";
+import { notFound, redirect } from "next/navigation";
+import { incrementViews } from "@/features/common/service/view";
 import PostDetail from "@/features/post/components/postsDetail";
+import { getUserInfoById } from "@/features/user/service/profile";
+import getSession from "@/lib/session";
+import { getCachedPost } from "@/features/post/service/post";
+import { getCachedPostLikeStatus } from "@/features/post/service/like";
 
+/**
+ * 게시글 상세 페이지
+ *
+ * [기능]
+ * 1. 로그인 여부를 확인합니다. (비로그인 시 로그인 페이지로 리다이렉트)
+ * 2. 게시글 정보, 좋아요 상태, 유저 정보를 병렬로 로드합니다.
+ * 3. 조회수를 증가시킵니다. (3분 쿨다운 적용)
+ * 4. `PostDetail` 컴포넌트를 렌더링합니다.
+ *
+ * @param {Object} params - URL 파라미터 (id: 게시글 ID)
+ */
 export default async function PostDetailPage({
   params,
 }: {
@@ -40,29 +55,38 @@ export default async function PostDetailPage({
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
 
-  const user = await getUser();
+  // 1. 세션 확인
+  const session = await getSession();
+  const userId = session?.id ?? null;
 
-  /**
-   * 상세 데이터/조회수 증가/좋아요 상태를 병렬 처리한다.
-   * - getCachedPost: 캐시된 상세 (태그 기반)
-   * - incrementViews: 부수효과(조회수) + 3분 쿨다운 (단일 진입점)
-   * - getCachedLikeStatus: 좋아요/카운트 캐시
-   */
-  const [post, didIncrement, likeStatus] = await Promise.all([
+  if (!userId) {
+    // 비로그인 시 로그인 페이지로 리다이렉트 (돌아올 URL 포함)
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/posts/${id}`)}`);
+  }
+
+  // 2. 병렬 데이터 로딩 (상세조회 + 조회수증가 + 좋아요상태 + 유저정보)
+  const [post, didIncrement, likeStatus, user] = await Promise.all([
     getCachedPost(id),
     incrementViews({
       target: "POST",
       targetId: id,
-      viewerId: user?.id ?? null,
+      viewerId: userId,
     }),
-    getCachedLikeStatus(id),
+    getCachedPostLikeStatus(id, userId),
+    getUserInfoById(userId),
   ]);
 
+  // 3. 데이터 검증
   if (!post) return notFound();
 
+  // 로그인된 세션 ID로 유저를 못 찾으면(계정 삭제 등) 비정상 상태 -> 로그인 유도
+  if (!user) {
+    redirect("/login");
+  }
+
+  // 조회수 증가분 반영 (쿨다운이 아니라면 +1)
   const mergedPost = {
     ...post,
-    // didIncrement=true일 때만 화면 표시값을 +1 보정한다. (쿨다운이면 보정 금지)
     views: (post.views ?? 0) + (didIncrement ? 1 : 0),
   };
 

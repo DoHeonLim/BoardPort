@@ -8,6 +8,7 @@
  * 2025.07.04  임도헌   Created
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강
  */
 "use client";
 
@@ -26,6 +27,10 @@ interface PostCardMetaProps {
   createdAt: string;
 }
 
+/**
+ * 게시글의 통계 정보(좋아요, 댓글, 조회수)와 작성 시간을 표시합니다.
+ * 좋아요가 있는 경우 아이콘 색상을 강조합니다.
+ */
 export default function PostCardMeta({
   views,
   likes,

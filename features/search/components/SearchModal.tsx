@@ -8,26 +8,27 @@
  * 2025.06.21  임도헌   Created   검색 모달 UI 분리 (PC/모바일 공통)
  * 2026.01.11  임도헌   Modified  모바일 전체화면/데스크톱 드롭다운 분기 및 다크모드 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.20  임도헌   Modified  타입 경로 수정 및 Import 정렬
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
-import type {
-  UserSearchHistoryItem,
-  PopularSearchItem,
-} from "@/app/(tabs)/products/actions/history";
 import SearchBar from "@/features/search/components/SearchBar";
 import SearchHistoryBox from "@/features/search/components/SearchHistoryBox";
 import PopularSearchesBox from "@/features/search/components/PopularSearchesBox";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import type {
+  SearchHistoryItem,
+  PopularSearchItem,
+} from "@/features/product/types";
 
 interface SearchModalProps {
   isOpen: boolean;
   isMobile: boolean;
   keyword: string | undefined;
   basePath: string;
-  searchHistory: UserSearchHistoryItem[];
+  searchHistory: SearchHistoryItem[];
   popularSearches: PopularSearchItem[];
   onSearch: (keyword: string) => void;
   onClose: () => void;
@@ -35,6 +36,18 @@ interface SearchModalProps {
   onClearHistory: () => void;
 }
 
+/**
+ * 검색 모달 컴포넌트
+ *
+ * [반응형 레이아웃]
+ * - Mobile: 전체 화면(Full Screen)을 덮는 오버레이 형태
+ * - Desktop: 검색바 하단에 열리는 드롭다운(Dropdown) 형태
+ *
+ * [기능]
+ * - 검색어 입력 (`SearchBar`)
+ * - 최근 검색어 목록 및 관리 (`SearchHistoryBox`)
+ * - 인기 검색어 목록 (`PopularSearchesBox`)
+ */
 export default function SearchModal({
   isOpen,
   isMobile,
@@ -49,16 +62,15 @@ export default function SearchModal({
 }: SearchModalProps) {
   if (!isOpen) return null;
 
-  // controlled value로 전달 (undefined일 경우 빈 문자열)
   const value = keyword ?? "";
 
-  // [모바일 Layout] Full Screen Fixed
+  // [Mobile Layout] Full Screen Fixed
   if (isMobile) {
     return (
       <div
         className={cn(
           "fixed inset-0 z-50 flex flex-col animate-fade-in",
-          "bg-background" // [Fix] bg-white/dark:bg-neutral-950 -> bg-background
+          "bg-background"
         )}
       >
         {/* Header */}
@@ -98,7 +110,7 @@ export default function SearchModal({
     );
   }
 
-  // [Desktop 레이아웃] Dropdown Overlay
+  // [Desktop Layout] Dropdown Overlay
   return (
     <>
       <div

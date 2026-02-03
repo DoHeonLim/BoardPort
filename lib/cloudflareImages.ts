@@ -8,7 +8,7 @@
  * 2025.06.12  임도헌   Created
  * 2025.06.12  임도헌   Modified  Cloudflare 이미지 업로드용 URL 요청 함수를 lib로 옮김
  * 2025.08.22  임도헌   Modified  DirectUploadURLResult 타입 도입 및 응답 표준화, 검증 로직 추가
- * 2026.01.16  임도헌   Renamed   [Refactor] lib/cloudflare/getUploadUrl -> lib/cloudflareImages.ts
+ * 2026.01.16  임도헌   Renamed   lib/cloudflare/getUploadUrl -> lib/cloudflareImages.ts
  */
 "use server";
 

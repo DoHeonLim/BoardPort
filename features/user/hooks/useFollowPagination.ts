@@ -18,18 +18,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { FollowListUser, FollowListCursor } from "@/types/profile";
+import type { FollowListUser, FollowListCursor } from "@/features/user/types";
 
-/** 서버 fetch 함수 시그니처 타입 */
 type Fetcher = (
   username: string,
-  opts: { cursor?: FollowListCursor; limit?: number }
+  cursor: FollowListCursor
 ) => Promise<{ users: FollowListUser[]; nextCursor: FollowListCursor }>;
 
 interface useFollowPaginationParams {
   username: string;
   fetcher: Fetcher;
-  limit?: number; // 기본 20
 }
 
 type FollowPaginationError =
@@ -37,34 +35,41 @@ type FollowPaginationError =
   | { stage: "more"; message: string };
 
 /**
- * 팔로워/팔로잉 리스트 공용 훅
- * - 최초 open 시 loadFirst() 1회
- * - loadMore() 시 중복 제거
- * - upsertLocal(): 기존이면 제자리 교체, 신규면 append(뒤에 추가)
- * - error(stage): first/more 구분 → UI에서 재시도/무한스크롤 루프 방지 처리 가능
+ * 팔로워/팔로잉 목록 페이지네이션 훅
+ *
+ * [기능]
+ * 1. 키셋 커서(Keyset Cursor) 기반의 무한 스크롤 상태를 관리합니다.
+ * 2. `dedupMerge` 로직을 통해 중복 데이터를 제거하며 리스트를 병합합니다.
+ * 3. 초기 로딩(`loadFirst`)과 추가 로딩(`loadMore`)을 분리하여 에러 핸들링을 세분화합니다.
+ * 4. `upsertLocal` 및 `removeLocal` 메서드를 제공하여, 서버 재요청 없이 리스트 아이템을 즉시 갱신할 수 있습니다.
+ *
+ * @param {useFollowPaginationParams} params - 데이터 Fetcher 함수 및 유저명
  */
 export function useFollowPagination({
   username,
   fetcher,
-  limit = 20,
 }: useFollowPaginationParams) {
   const [users, setUsers] = useState<FollowListUser[]>([]);
   const [cursor, setCursor] = useState<FollowListCursor>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+  const [loaded, setLoaded] = useState(false); // 초기 로딩 완료 여부
+  const [loading, setLoading] = useState(false); // 현재 로딩 중 여부
   const [error, setError] = useState<FollowPaginationError | null>(null);
-  const clearError = useCallback(() => setError(null), []);
 
+  // 중복 제거 병합 헬퍼
   const dedupMerge = useCallback(
     (prev: FollowListUser[], incoming: FollowListUser[]) => {
       const map = new Map(prev.map((u) => [u.id, u]));
       for (const u of incoming) map.set(u.id, u);
+      // Map은 삽입 순서를 유지하므로, 기존 순서 + 신규 순서가 됨 (단, 기존 키는 위치 유지)
+      // 여기선 간단히 값만 추출. 엄격한 정렬이 필요하면 별도 로직 필요.
       return Array.from(map.values());
     },
     []
   );
 
+  /**
+   * 초기 목록 로딩 (모달 열릴 때 1회)
+   */
   const loadFirst = useCallback(async () => {
     if (loaded || loading) return;
 
@@ -72,7 +77,7 @@ export function useFollowPagination({
     setError(null);
 
     try {
-      const res = await fetcher(username, { cursor: null, limit });
+      const res = await fetcher(username, null);
       setUsers(res.users);
       setCursor(res.nextCursor);
       setLoaded(true);
@@ -82,14 +87,18 @@ export function useFollowPagination({
         stage: "first",
         message: "목록을 불러오지 못했습니다. 다시 시도해주세요.",
       });
+      // 에러 시 상태 초기화
       setUsers([]);
       setCursor(null);
       setLoaded(false);
     } finally {
       setLoading(false);
     }
-  }, [fetcher, username, limit, loaded, loading]);
+  }, [fetcher, username, loaded, loading]);
 
+  /**
+   * 추가 목록 로딩 (무한 스크롤)
+   */
   const loadMore = useCallback(async () => {
     if (loading || !cursor) return;
 
@@ -97,7 +106,7 @@ export function useFollowPagination({
     setError(null);
 
     try {
-      const res = await fetcher(username, { cursor, limit });
+      const res = await fetcher(username, cursor);
       setUsers((prev) => dedupMerge(prev, res.users));
       setCursor(res.nextCursor);
     } catch (e) {
@@ -109,31 +118,18 @@ export function useFollowPagination({
     } finally {
       setLoading(false);
     }
-  }, [cursor, dedupMerge, fetcher, limit, loading, username]);
+  }, [cursor, dedupMerge, fetcher, loading, username]);
 
   /**
-   * UI용 재시도
-   * - 최초 로딩 실패: loadFirst 재시도
-   * - 더보기 실패: loadMore 재시도
-   */
-  const retry = useCallback(async () => {
-    if (!error) return;
-    if (error.stage === "first") return loadFirst();
-    return loadMore();
-  }, [error, loadFirst, loadMore]);
-
-  /**
-   * 로컬 upsert
-   * - 기존 유저: 현재 위치(index) 유지한 채 객체만 교체
-   * - 신규 유저: append(뒤에 추가) → 정렬/스크롤 안정성 우선
+   * 로컬 상태 업데이트 (Optimistic UI용)
+   * - 팔로우 토글 시 리스트 내 아이템 상태만 변경할 때 사용
    */
   const upsertLocal = useCallback((user: FollowListUser) => {
     setUsers((prev) => {
       const idx = prev.findIndex((u) => u.id === user.id);
-      if (idx === -1) return [...prev, user];
-
+      if (idx === -1) return [...prev, user]; // 없으면 추가
       const next = prev.slice();
-      next[idx] = user;
+      next[idx] = user; // 있으면 교체
       return next;
     });
   }, []);
@@ -141,6 +137,13 @@ export function useFollowPagination({
   const removeLocal = useCallback((id: number) => {
     setUsers((prev) => prev.filter((u) => u.id !== id));
   }, []);
+
+  // 에러 재시도
+  const retry = useCallback(async () => {
+    if (!error) return;
+    if (error.stage === "first") return loadFirst();
+    return loadMore();
+  }, [error, loadFirst, loadMore]);
 
   return {
     users,
@@ -152,9 +155,7 @@ export function useFollowPagination({
     hasMore: !!cursor,
     upsertLocal,
     removeLocal,
-
     error,
-    clearError,
     retry,
   };
 }

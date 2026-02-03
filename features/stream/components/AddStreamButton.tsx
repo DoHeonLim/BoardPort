@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/AddStreamButton.tsx
- * Description : 스트리밍 추가(생성) 플로팅 버튼 (우측 하단 고정)
+ * Description : 스트리밍 추가(생성) 플로팅 버튼
  * Author : 임도헌
  *
  * History
@@ -15,6 +15,10 @@ import Link from "next/link";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
+/**
+ * 화면 우측 하단에 고정된 스트리밍 시작 버튼 (FAB)
+ * 클릭 시 `/streams/add`로 이동합니다.
+ */
 export default function AddStreamButton() {
   return (
     <Link

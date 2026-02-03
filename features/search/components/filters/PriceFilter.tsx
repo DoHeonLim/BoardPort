@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/filters/PriceFilter.tsx
- * Description : 검색 필터 - 가격 범위 필터 컴포넌트
+ * Description : 가격 범위(최소~최대) 입력 필터
  * Author : 임도헌
  *
  * History

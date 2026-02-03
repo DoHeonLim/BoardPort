@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/channel/index.tsx
- * Description : 유저 방송국 client
+ * Description : 유저 방송국(채널) 메인 컨테이너
  * Author : 임도헌
  *
  * History
@@ -19,6 +19,16 @@
  * 2025.01.06  임도헌   Modified  LiveNowHero에 onFollow 연결
  * 2026.01.14  임도헌   Modified  [Refactor] UserStreamsClient -> index.tsx, 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * ===============================================================================================
+ * 이 폴더는 User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ *
+ * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 통계)
+ * - LiveNowHero.tsx       : 현재 진행 중인 라이브 방송 (최상단 노출)
+ * - RecordingGrid.tsx     : 지난 방송(녹화본) 목록 그리드
+ * - RecordingEmptyState.tsx : 녹화본이 없을 때 빈 상태 UI
+ * - index.tsx             : 위 컴포넌트들을 조합한 최종 채널 페이지 컨테이너
+ * ===============================================================================================
  */
 "use client";
 
@@ -27,7 +37,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import UserChannelHeader from "@/features/stream/components/channel/UserChannelHeader";
 import LiveNowHero from "@/features/stream/components/channel/LiveNowHero";
 import RecordingGrid from "@/features/stream/components/channel/RecordingGrid";
-import type { BroadcastSummary, ViewerRole, VodForGrid } from "@/types/stream";
+import type {
+  BroadcastSummary,
+  ViewerRole,
+  VodForGrid,
+} from "@/features/stream/types";
 
 type ExtendedUserInfo = {
   id: number;
@@ -39,17 +53,27 @@ type ExtendedUserInfo = {
 
 type MeProp = boolean | { id: number } | undefined;
 
+/**
+ * 유저 방송국 페이지 컨테이너
+ *
+ * [구조]
+ * 1. 헤더: 유저 정보 및 팔로우 액션
+ * 2. 라이브 히어로: 현재 진행 중인 방송이 있다면 최상단에 크게 표시
+ * 3. 녹화본 그리드: 지난 방송 목록
+ *
+ * [기능]
+ * - 팔로우 상태를 로컬 state로 관리하여 즉각적인 UI 반응성을 제공합니다.
+ * - 로그인되지 않은 경우 로그인 페이지로 리다이렉트하는 콜백을 헤더에 전달합니다.
+ */
 export default function UserChannelContainer({
-  userStreams,
-  recordings,
   liveNow,
+  recordings,
   userInfo,
   me,
   viewerId,
 }: {
-  userStreams?: BroadcastSummary[];
-  recordings?: VodForGrid[];
   liveNow?: BroadcastSummary | null;
+  recordings?: VodForGrid[];
   userInfo: ExtendedUserInfo;
   me?: MeProp;
   viewerId?: number;
@@ -62,7 +86,6 @@ export default function UserChannelContainer({
     [pathname, searchParams]
   );
 
-  // 본인 여부 및 팔로우 상태(초기값)
   const isMe =
     typeof me === "boolean"
       ? me
@@ -71,7 +94,8 @@ export default function UserChannelContainer({
   const [isFollowing, setIsFollowing] = useState<boolean>(
     !!userInfo.isFollowing
   );
-  // 채널용 역할 계산 (isFollowing이 바뀌면 재계산)
+
+  // 현재 뷰어의 역할 계산 (Owner / Follower / Visitor)
   const role: ViewerRole = isMe
     ? "OWNER"
     : isFollowing
@@ -80,10 +104,7 @@ export default function UserChannelContainer({
 
   const liveStream = useMemo<BroadcastSummary | undefined>(() => {
     if (liveNow) return liveNow || undefined;
-    if (Array.isArray(userStreams))
-      return userStreams.find((s) => s.status === "CONNECTED");
-    return undefined;
-  }, [liveNow, userStreams]);
+  }, [liveNow]);
 
   const recordingsMemo = useMemo(() => recordings ?? [], [recordings]);
 

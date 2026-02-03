@@ -21,6 +21,19 @@
  * 2025.11.16  임도헌   Modified  모든 정보 블록을 하나의 아코디언으로 접기/펼치기(모바일 기본 접힘)
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface, border-border)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * ===============================================================================================
+ * 이 폴더는 StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ *
+ * - LiveViewerCount.tsx    : 실시간 시청자 수 (Supabase Presence)
+ * - LiveStatusButton.tsx   : 방송 상태 뱃지 (ON/OFF/READY)
+ * - StreamEndedOverlay.tsx : 방송 종료 시 플레이어 위 오버레이
+ * - StreamTitle.tsx        : 방송 제목
+ * - StreamCategoryTags.tsx : 카테고리 및 태그 뱃지
+ * - StreamDescription.tsx  : 방송 설명 (더보기/접기)
+ * - StreamSecretInfo.tsx   : 소유자 전용 OBS 송출 정보 (URL/Key)
+ * - index.tsx              : 위 컴포넌트들을 조합한 최종 컨테이너 (아코디언 UI 포함)
+ * ===============================================================================================
  */
 
 "use client";
@@ -36,17 +49,26 @@ import StreamSecretInfo from "@/features/stream/components/StreamDetail/StreamSe
 import LiveViewerCount from "@/features/stream/components/StreamDetail/LiveViewerCount";
 import StreamTitle from "@/features/stream/components/StreamDetail/StreamTitle";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import type { StreamDetailDTO } from "@/features/stream/lib/getBroadcastDetail";
+import { StreamDetailDTO } from "@/features/stream/service/detail";
 import { cn } from "@/lib/utils";
 
 interface StreamDetailProps {
   stream: StreamDetailDTO;
-  /** 현재 로그인 유저 id */
-  me: number | null;
-  /** Broadcast id */
-  streamId: number;
+  me: number | null; // 현재 로그인 유저 id
+  streamId: number; // Broadcast id
 }
 
+/**
+ * 스트리밍 상세 페이지 컨테이너
+ *
+ * [구조]
+ * 1. 플레이어 영역 (iframe + 오버레이 + 시청자 수 + 상태 뱃지)
+ * 2. 정보 패널 (제목, 태그, 스트리머, 설명, OBS 정보)
+ *
+ * [기능]
+ * - 아코디언 형태의 정보 패널 (모바일 기본 접힘, 데스크톱 기본 펼침)
+ * - 모바일에서 채팅 확대 시 정보 패널 숨김 처리 (`stream:chat:expand` 이벤트 수신)
+ */
 export default function StreamDetail({
   stream,
   me,
@@ -104,6 +126,7 @@ export default function StreamDetail({
       <LiveStatusButton status={stream.status} streamId={stream.stream_id} />
 
       <div className="relative mb-1 aspect-video overflow-hidden bg-black rounded-xl shadow-sm border border-black/10 dark:border-white/10">
+        {/* Cloudflare Player Iframe */}
         {(() => {
           const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
           if (!DOMAIN) {
@@ -135,7 +158,7 @@ export default function StreamDetail({
         )}
       </div>
 
-      {/* 정보 패널 */}
+      {/* 정보 패널 (아코디언) */}
       <section
         className={cn(
           "mb-1 overflow-hidden rounded-xl border transition-colors",

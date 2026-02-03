@@ -19,6 +19,7 @@
  * 2025.06.07  임도헌   Modified  ProductCard 기반으로 구조 정리
  * 2025.08.26  임도헌   Modified  usePageVisibility + 새 useInfiniteScroll 옵션 추가
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  */
 "use client";
 
@@ -28,18 +29,28 @@ import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import ProductCard from "@/features/product/components/productCard";
 import { Squares2X2Icon, ListBulletIcon } from "@heroicons/react/24/outline";
-import type { Paginated, ProductType } from "@/types/product";
+import type { Paginated, ProductType } from "@/features/product/types";
 import { cn } from "@/lib/utils";
 
 type ProductListProps = {
   initialProducts: Paginated<ProductType>;
 };
 
+/**
+ * 제품 목록 컴포넌트
+ *
+ * [기능]
+ * 1. 제품 카드 리스트 렌더링
+ * 2. 무한 스크롤 (useProductPagination 훅 사용)
+ * 3. 뷰 모드 전환 (리스트 ↔ 그리드)
+ * 4. 빈 상태 UI 처리 (데이터 없을 때)
+ */
 export default function ProductList({ initialProducts }: ProductListProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
 
+  // 커서 기반 페이지네이션 훅 사용
   const { products, isLoading, hasMore, loadMore } =
     useProductPagination<ProductType>({
       mode: "product",
@@ -47,27 +58,26 @@ export default function ProductList({ initialProducts }: ProductListProps) {
       initialCursor: initialProducts.nextCursor,
     });
 
+  // 무한 스크롤 관찰자 연결
   useInfiniteScroll({
     triggerRef,
     hasMore,
     isLoading,
     onLoadMore: loadMore,
     enabled: isVisible,
-    // 상품 카드는 이미지가 커서 넉넉하게 미리 불러온다.
-    rootMargin: "1400px 0px 0px 0px",
+    rootMargin: "1400px 0px 0px 0px", // 조기 프리패치 여유
     threshold: 0.01,
   });
 
   return (
     <div className="flex flex-col">
-      {/* View Mode Toggle & Count (Header) */}
+      {/* 뷰 모드 토글 및 카운트 (헤더) */}
       <div className="flex items-center justify-between mb-4 px-1">
         <span className="text-sm font-medium text-muted">
           총 <span className="text-primary font-bold">{products.length}</span>
-          개의 상품 개의 상품
+          개의 상품
         </span>
 
-        {/* View Toggle (Segmented Control Style) */}
         <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
           <button
             onClick={() => setViewMode("list")}
@@ -96,7 +106,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
         </div>
       </div>
 
-      {/* Product Grid/List */}
+      {/* 목록 렌더링 */}
       {products.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted">
           <span className="text-6xl mb-4 animate-float">📦</span>
@@ -115,13 +125,13 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               key={product.id}
               product={product}
               viewMode={viewMode}
-              isPriority={index < 4} // LCP 최적화를 위해 상위 4개 우선 로드
+              isPriority={index < 4} // LCP 최적화
             />
           ))}
         </div>
       )}
 
-      {/* Infinite Scroll Trigger */}
+      {/* 무한 스크롤 트리거 */}
       <div className="py-8 flex justify-center min-h-[40px]">
         {hasMore && (
           <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />

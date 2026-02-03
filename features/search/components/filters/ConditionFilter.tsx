@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/filters/ConditionFilter.tsx
- * Description : 제품 상태 필터
+ * Description : 제품 상태(새상품/중고 등) 필터 Select
  * Author : 임도헌
  *
  * History
@@ -12,7 +12,10 @@
 "use client";
 
 import Select from "@/components/ui/Select";
-import { CONDITION_TYPES, CONDITION_DISPLAY } from "@/lib/constants";
+import {
+  CONDITION_TYPES,
+  CONDITION_DISPLAY,
+} from "@/features/product/constants";
 
 interface ConditionFilterProps {
   value: string;

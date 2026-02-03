@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/profile/[username]/channel/loading
+ * File Name : app/(tabs)/profile/[username]/channel/loading.tsx
  * Description : 유저 방송국 페이지 로딩 스켈레톤
  * Author : 임도헌
  *

@@ -1,5 +1,5 @@
 /**
- * File Name : app/(auth)/sms/page
+ * File Name : app/(auth)/sms/page.tsx
  * Description : SMS 로그인 페이지
  * Author : 임도헌
  *
@@ -12,13 +12,20 @@
  * 2024.12.14  임도헌   Modified  다른 방법의 로그인 링크 추가
  * 2024.12.24  임도헌   Modified  스타일 변경
  * 2025.04.29  임도헌   Modified  UI 수정
- * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
+ * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 
-import SmsForm from "@/features/auth/components/form/SmsForm";
 import Link from "next/link";
 import { SparklesIcon } from "@heroicons/react/24/outline";
+import SmsForm from "@/features/auth/components/form/SmsForm";
 
+/**
+ * SMS 로그인 페이지 컴포넌트
+ *
+ * - 휴대폰 번호를 이용한 간편 로그인/회원가입을 지원합니다.
+ * - SMS 인증 폼(`SmsForm`)을 렌더링합니다.
+ */
 export default function SMSLoginPage() {
   return (
     <div className="flex flex-col min-h-screen px-page-x py-page-y bg-background transition-colors">

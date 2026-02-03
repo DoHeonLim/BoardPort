@@ -8,12 +8,17 @@
  * 2025.06.26  임도헌   Created   게시글 추가 버튼 생성
  * 2026.01.13  임도헌   Modified  [UI] AddProductButton과 스타일 통일
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 import Link from "next/link";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
+/**
+ * 화면 우측 하단에 고정된 게시글 추가 버튼 (FAB)
+ * 클릭 시 `/posts/add`로 이동합니다.
+ */
 export default function AddPostButton() {
   return (
     <Link

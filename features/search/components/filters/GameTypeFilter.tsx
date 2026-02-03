@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/filters/GameTypeFilter.tsx
- * Description : 게임 타입 필터
+ * Description : 게임 타입(보드게임/TRPG 등) 필터 Select
  * Author : 임도헌
  *
  * History
@@ -12,7 +12,7 @@
 "use client";
 
 import Select from "@/components/ui/Select";
-import { GAME_TYPES, GAME_TYPE_DISPLAY } from "@/lib/constants";
+import { GAME_TYPES, GAME_TYPE_DISPLAY } from "@/features/product/constants";
 
 interface GameTypeFilterProps {
   value: string;

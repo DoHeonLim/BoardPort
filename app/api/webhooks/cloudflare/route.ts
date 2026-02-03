@@ -1,6 +1,6 @@
 /**
- * File Name : app/api/webhooks/cloudflare/route
- * Description : Cloudflare Stream 웹훅 수신 → Broadcast/VodAsset 갱신 (WebCrypto HMAC 검증)
+ * File Name : app/api/webhooks/cloudflare/route.ts
+ * Description : Cloudflare Stream 웹훅 수신 -> Broadcast/VodAsset 갱신 (WebCrypto HMAC 검증)
  * Author : 임도헌
  *
  * History
@@ -20,8 +20,8 @@ import { revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import crypto from "node:crypto";
 import db from "@/lib/db";
-import { sendLiveStatusFromServer } from "@/features/stream/lib/serverBroadcast";
-import { sendLiveStartNotifications } from "@/features/notification/lib/sendLiveStartNotifications";
+import { sendLiveStatusFromServer } from "@/features/stream/service/realtime";
+import { sendLiveStartNotifications } from "@/features/notification/service/live";
 
 export const runtime = "nodejs";
 
@@ -45,7 +45,6 @@ const STREAM_SECRET = (
  */
 const subtle = (crypto.webcrypto ?? globalThis.crypto).subtle;
 const te = new TextEncoder();
-
 /** 웹훅 타임스탬프 허용 편차(초) — 5분 */
 const MAX_SKEW_SEC = 300;
 

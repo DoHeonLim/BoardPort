@@ -10,6 +10,7 @@
  * 2025.09.20  임도헌   Modified  streamId → vodId 전환, actions 호출부 정합성
  * 2026.01.16  임도헌   Moved     hooks -> hooks/stream
  * 2026.01.18  임도헌   Moved     hooks/stream -> features/stream/hooks
+ * 2026.01.28  임도헌   Modified  주석 및 로직 설명 보강
  */
 
 "use client";
@@ -20,24 +21,36 @@ import {
   getRecordingComments,
   createRecordingComment as createCommentAPI,
   deleteRecordingComment as deleteCommentAPI,
-} from "@/app/streams/[id]/recording/actions/comments";
+} from "@/features/stream/actions/comments";
 import { toast } from "sonner";
-import { StreamComment } from "@/types/stream";
+import type { StreamComment } from "@/features/stream/types";
 
+/**
+ * 녹화본 댓글 관리 훅
+ *
+ * [기능]
+ * 1. 초기 댓글 로딩(Cached) 및 커서 기반 추가 로딩
+ * 2. 댓글 작성 및 삭제 (성공 후 목록 리프레시)
+ * 3. 로딩 상태 관리
+ *
+ * @param {number} vodId - VOD ID
+ * @param {number} pageSize - 페이지당 로드 개수
+ */
 export function useRecordingComment(vodId: number, pageSize = 10) {
   const [comments, setComments] = useState<StreamComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(true);
 
+  /**
+   * 댓글 목록 조회
+   */
   const fetchComments = useCallback(
     async (cursor?: number) => {
       try {
         if (cursor == null) {
-          // 초기 캐시된 첫 페이지 (limit 전달)
           return await getCachedRecordingComments(vodId, pageSize);
         }
-        // 커서 기반 다음 페이지
         return await getRecordingComments(vodId, cursor, pageSize);
       } catch (error) {
         console.error("댓글 불러오기 실패:", error);
@@ -47,6 +60,9 @@ export function useRecordingComment(vodId: number, pageSize = 10) {
     [vodId, pageSize]
   );
 
+  /**
+   * 추가 데이터 로드 (Load More)
+   */
   const loadMore = useCallback(async () => {
     if (!hasNextPage || isFetchingNextPage || isLoading) return;
     setIsFetchingNextPage(true);
@@ -67,6 +83,9 @@ export function useRecordingComment(vodId: number, pageSize = 10) {
     pageSize,
   ]);
 
+  /**
+   * 댓글 목록 초기화 (리프레시)
+   */
   const refreshComments = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -78,6 +97,9 @@ export function useRecordingComment(vodId: number, pageSize = 10) {
     }
   }, [fetchComments, pageSize]);
 
+  /**
+   * 댓글 작성 핸들러
+   */
   const createComment = useCallback(
     async (formData: FormData): Promise<void> => {
       try {
@@ -106,6 +128,9 @@ export function useRecordingComment(vodId: number, pageSize = 10) {
     [refreshComments]
   );
 
+  /**
+   * 댓글 삭제 핸들러
+   */
   const deleteComment = useCallback(
     async (commentId: number): Promise<void> => {
       try {

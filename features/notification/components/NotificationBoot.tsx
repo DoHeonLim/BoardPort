@@ -18,6 +18,14 @@ import { useEffect, useState } from "react";
 import NotificationListener from "@/features/notification/components/NotificationListener";
 import type { MeResponse } from "@/app/api/me/route";
 
+/**
+ * 알림 시스템 부트스트랩 컴포넌트
+ *
+ * - `RootLayout`에 배치되어 앱이 로드될 때 실행됩니다.
+ * - `/api/me`를 호출하여 현재 로그인된 유저 ID를 확인합니다. (캐시 방지를 위해 `no-store` 사용)
+ * - 유저 ID가 확인되면 `NotificationListener`를 렌더링하여 실시간 알림 구독을 시작합니다.
+ * - 비로그인 상태이거나 에러 발생 시 아무것도 렌더링하지 않습니다.
+ */
 export default function NotificationBoot() {
   const [userId, setUserId] = useState<number | null>(null);
 
@@ -31,32 +39,30 @@ export default function NotificationBoot() {
           credentials: "include",
         });
 
-        // 401이어도 JSON을 파싱해서 UNAUTHORIZED를 확실히 분기
+        // 401(Unauthorized) 응답도 JSON으로 파싱하여 정확한 에러 타입 확인
         let data: MeResponse | null = null;
         try {
           data = (await res.json()) as MeResponse;
         } catch {
-          // JSON이 아니거나 빈 바디면 실패로 처리
+          // JSON 파싱 실패 시 (예: 서버 에러 페이지 등)
           data = null;
         }
 
         if (!mounted) return;
 
-        if (!data) return; // 예기치 않은 응답(네트워크/서버 에러 등)
+        if (!data) return;
 
         if (data.ok) {
           setUserId(data.user.id);
           return;
         }
 
-        // 여기서 명확히 "로그인 안 됨"을 확정
-        // 현재 요구사항: 조용히 무시(알림 부팅 안 함)
-        // 필요하면 추후 로그/메트릭을 여기서만 추가하면 됨.
+        // 로그인되지 않은 경우
         if (data.error === "UNAUTHORIZED") {
           setUserId(null);
         }
       } catch {
-        // 네트워크 오류는 조용히 무시 (알림 부팅만 실패)
+        // 네트워크 오류 등 발생 시 조용히 무시 (알림 시스템만 비활성)
       }
     })();
 

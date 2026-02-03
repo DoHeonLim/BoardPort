@@ -5,16 +5,17 @@
  *
  * History
  * 2025.07.31  임도헌   Created
- * 2025.09.09  임도헌   Modified  alert→toast, 복사 가드, a11y
+ * 2025.09.09  임도헌   Modified  alert -> toast, 복사 가드, a11y
  * 2025.09.15  임도헌   Modified  키 기본 숨김 + 개별 보기 토글, 아이콘형 복사 버튼(성공 피드백)
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useId, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { getStreamKey } from "@/features/stream/lib/getStreamKey";
+import { getStreamKeyAction } from "@/features/stream/actions/key";
 import {
   EyeIcon,
   EyeSlashIcon,
@@ -30,6 +31,12 @@ interface StreamSecretInfoProps {
   initialStreamKey?: string | null;
 }
 
+/**
+ * 방송 소유자에게만 보이는 OBS 송출 정보 패널
+ * - RTMP URL과 Stream Key를 표시하고 복사할 수 있습니다.
+ * - 보안을 위해 기본적으로는 숨겨져 있으며, '보기' 버튼 클릭 시 로드합니다.
+ * - Key 재발급 기능도 포함합니다.
+ */
 function IconGhostButton({
   title,
   onClick,
@@ -94,8 +101,12 @@ export default function StreamSecretInfo({
 
   const fetchCreds = () =>
     startTransition(async () => {
-      const res = await getStreamKey(broadcastId);
-      if (!res.success) {
+      const res = await getStreamKeyAction(broadcastId);
+
+      if (res.success) {
+        setRtmpUrl(res.rtmpUrl);
+        setStreamKey(res.streamKey);
+      } else {
         const msg =
           res.error === "FORBIDDEN"
             ? "권한이 없습니다."
@@ -103,10 +114,7 @@ export default function StreamSecretInfo({
               ? "방송을 찾을 수 없습니다."
               : "로그인이 필요합니다.";
         toast.error(msg);
-        return;
       }
-      setRtmpUrl(res.rtmpUrl);
-      setStreamKey(res.streamKey);
     });
 
   const onTogglePanel = () => {

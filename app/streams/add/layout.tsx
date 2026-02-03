@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/add/layout
+ * File Name : app/streams/add/layout.tsx
  * Description : 스트리밍 생성 페이지 레이아웃 (공통 헤더 적용)
  * Author : 임도헌
  *
@@ -29,7 +29,7 @@ export default function AddStreamLayout({
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
           <BackButton
             fallbackHref="/streams"
-            variant="inline"
+            variant="appbar"
             className="px-0"
           />
           <h1 className="text-base font-semibold text-primary">

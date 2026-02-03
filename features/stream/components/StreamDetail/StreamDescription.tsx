@@ -10,6 +10,7 @@
  * 2025.11.16  임도헌   Modified  compact/줄수/여백/className 확장
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -29,6 +30,11 @@ interface StreamDescriptionProps {
   className?: string;
 }
 
+/**
+ * 긴 텍스트 설명을 접고 펼칠 수 있는 컴포넌트
+ * - 내용이 `collapsedLines`를 초과할 때만 더보기 버튼을 노출합니다.
+ * - 접힌 상태에서는 하단에 그라데이션 페이드 효과를 적용합니다.
+ */
 export default function StreamDescription({
   description,
   collapsedLines = 2,

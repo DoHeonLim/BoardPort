@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/MyProfile.tsx
- * Description : 내 프로필 클라이언트 코드
+ * Description : 내 프로필 클라이언트
  * Author : 임도헌
  *
  * History
@@ -30,8 +30,8 @@
  * 2025.12.12  임도헌   Modified   상위 padding과 중복되는 mx 제거, 모달 조건부 렌더로 진짜 지연 로드
  * 2026.01.15  임도헌   Modified   섹션 간격 및 스타일 통일
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -41,21 +41,20 @@ import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
 import StreamCard from "@/features/stream/components/StreamCard";
-
 import {
   ChevronRightIcon,
   ShoppingBagIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
-import type { BroadcastSummary } from "@/types/stream";
+import type { BroadcastSummary } from "@/features/stream/types";
 import type {
   Badge,
   ProfileAverageRating,
   ProfileReview,
   UserProfile,
-} from "@/types/profile";
+} from "@/features/user/types";
 
-// 동적 로딩
+// Dynamic Imports (Modals)
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
 });
@@ -81,6 +80,17 @@ type Props = {
   logOut: () => Promise<void>;
 };
 
+/**
+ * 내 프로필 페이지 UI
+ *
+ * [구조]
+ * 1. 헤더: 프로필 정보, 설정 메뉴, 테마 토글
+ * 2. 알림 설정: 푸시 알림 간편 토글
+ * 3. 거래 정보: 판매/구매 내역 바로가기 타일
+ * 4. 내 방송국: 최근 방송 목록 (Rail)
+ * 5. 리뷰 및 뱃지: 요약 정보 및 전체보기 모달
+ * 6. 로그아웃 버튼
+ */
 export default function MyProfile({
   user,
   initialReviews,
@@ -105,6 +115,7 @@ export default function MyProfile({
     []
   );
 
+  // 설정 메뉴(ProfileSettingMenu)로부터 발생하는 이벤트 수신
   useEffect(() => {
     const onPass = () => toggleModal("password", true);
     const onEmail = () => toggleModal("email", true);
@@ -115,7 +126,7 @@ export default function MyProfile({
       window.removeEventListener("open-password-modal", onPass);
       window.removeEventListener("open-email-verification-modal", onEmail);
     };
-  }, [toggleModal]); // [Fix] 의존성 배열에 toggleModal 추가
+  }, [toggleModal]);
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -129,7 +140,7 @@ export default function MyProfile({
         followingCount={user._count?.following ?? 0}
         viewerId={viewerId}
         avatarUrl={user.avatar ?? null}
-        showFollowButton={false}
+        showFollowButton={false} // 내 프로필이므로 숨김
         className=""
       />
 
@@ -214,7 +225,6 @@ export default function MyProfile({
                     avatar: s.user.avatar ?? null,
                   }}
                   layout="rail"
-                  // compact mode
                   shortDescription
                 />
               </div>
@@ -223,7 +233,7 @@ export default function MyProfile({
         )}
       </section>
 
-      {/* 5. Reviews & Badges (Combined for neatness) */}
+      {/* 5. Reviews & Badges */}
       <div className="grid grid-cols-1 gap-6">
         <section>
           <div className="flex items-center justify-between mb-2">
@@ -235,7 +245,6 @@ export default function MyProfile({
               전체 보기
             </button>
           </div>
-          {/* Preview or count can go here */}
         </section>
 
         <section>

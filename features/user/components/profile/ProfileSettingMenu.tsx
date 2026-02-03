@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ProfileSettingMenu.tsx
- * Description : 프로필 설정 드롭다운(프로필 수정 / 비밀 항해 코드 수정 / 이메일 인증)
+ * Description : 프로필 설정 드롭다운 메뉴(프로필 수정 / 비밀 항해 코드 수정 / 이메일 인증)
  * Author : 임도헌
  *
  * History
@@ -10,8 +10,8 @@
  * 2026.01.10  임도헌   Modified  버튼  p-2.5 제거 -> size-10 (40px) 고정, flex 중앙 정렬
  * 2026.01.14  임도헌   Modified  [Fix] 다크모드 배경색 및 테두리 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -24,11 +24,21 @@ type Props = {
   hasEmail?: boolean;
 };
 
+/**
+ * 프로필 설정 드롭다운
+ *
+ * [기능]
+ * 1. 설정 메뉴 토글 (클릭/키보드)
+ * 2. 메뉴 항목: 프로필 수정, 비밀번호 변경, 이메일 인증
+ * 3. 외부 클릭(Outside Click) 및 ESC 키 닫기 지원
+ * 4. 키보드 네비게이션(Arrow Up/Down, Home/End) 지원
+ * 5. 모달 열기 이벤트(`open-password-modal`, `open-email-verification-modal`) 발행
+ */
 export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // 바깥 클릭/ESC 닫기
+  // 1. 바깥 클릭 및 ESC 닫기
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (!ref.current) return;
@@ -45,40 +55,47 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
     };
   }, []);
 
-  // 키보드 내비게이션(↑/↓/Home/End)
+  // 2. 키보드 네비게이션 (Accessibility)
   useEffect(() => {
     if (!open || !ref.current) return;
     const menu = ref.current.querySelector<HTMLDivElement>('[role="menu"]');
     if (!menu) return;
+
+    // 포커스 가능한 메뉴 아이템 수집
     const focusables = Array.from(
       menu.querySelectorAll<HTMLElement>(
         '[data-menuitem="true"]:not([aria-disabled="true"])'
       )
     );
 
-    if (focusables.length === 0) return; // 가드 추가
+    if (focusables.length === 0) return;
 
     const onKey = (e: KeyboardEvent) => {
       if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
       e.preventDefault();
+
       const active = document.activeElement as HTMLElement | null;
       let idx = focusables.findIndex((el) => el === active);
+
+      // 순환 네비게이션 로직
       if (e.key === "ArrowDown")
         idx = (idx + 1 + focusables.length) % focusables.length;
       if (e.key === "ArrowUp")
         idx = (idx - 1 + focusables.length) % focusables.length;
       if (e.key === "Home") idx = 0;
       if (e.key === "End") idx = focusables.length - 1;
+
       focusables[idx]?.focus();
     };
 
     menu.addEventListener("keydown", onKey as unknown as EventListener);
-    focusables[0]?.focus();
+    focusables[0]?.focus(); // 메뉴 열리면 첫 항목 포커스
+
     return () =>
       menu.removeEventListener("keydown", onKey as unknown as EventListener);
   }, [open]);
 
-  // MyProfile에서 모달을 열도록 이벤트 발행
+  // 3. 모달 오픈 이벤트 핸들러
   const openPassword = () =>
     window.dispatchEvent(new CustomEvent("open-password-modal"));
   const openEmailVerify = () =>
@@ -106,10 +123,11 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
           aria-label="프로필 설정"
           className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in bg-surface border border-border"
         >
-          {/* 항목 1 */}
+          {/* 항목 1: 프로필 수정 */}
           <Link
             href="/profile/edit"
             role="menuitem"
+            data-menuitem="true"
             className="block px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
             onClick={() => setOpen(false)}
           >
@@ -118,9 +136,10 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
 
           <div className="h-px bg-border" role="separator" />
 
-          {/* 항목 2 */}
+          {/* 항목 2: 비밀번호 변경 */}
           <button
             role="menuitem"
+            data-menuitem="true"
             onClick={() => {
               setOpen(false);
               openPassword();
@@ -132,7 +151,7 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
 
           <div role="separator" className="h-px bg-border" />
 
-          {/* 항목 3 (이메일) */}
+          {/* 항목 3: 이메일 인증 (상태에 따라 다르게 표시) */}
           {emailVerified ? (
             <div
               role="menuitem"
@@ -143,6 +162,7 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
           ) : hasEmail ? (
             <button
               role="menuitem"
+              data-menuitem="true"
               onClick={() => {
                 setOpen(false);
                 openEmailVerify();
@@ -155,6 +175,7 @@ export default function ProfileSettingMenu({ emailVerified, hasEmail }: Props) {
             <Link
               href="/profile/edit"
               role="menuitem"
+              data-menuitem="true"
               className="block px-4 py-3 text-sm text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
               onClick={() => setOpen(false)}
             >

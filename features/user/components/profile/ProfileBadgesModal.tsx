@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ProfileBadgesModal.tsx
- * Description : 뱃지 모달
+ * Description : 뱃지 목록 모달 (전체 뱃지 목록 및 획득 상태)
  * Author : 임도헌
  *
  * History
@@ -14,13 +14,13 @@
  * 2025.10.29  임도헌   Modified  tooltip 고유 ID 적용, userBadges→Set으로 성능 개선, dialog a11y/스크롤락/포커스 복원, 이미지 경로 정리
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 반응형 모달 레이아웃 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
-import { getBadgeKoreanName } from "@/lib/utils";
+import { getBadgeKoreanName } from "@/features/user/utils/badge";
 import {
   useFloating,
   offset,
@@ -36,13 +36,7 @@ import {
 } from "@floating-ui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-
-type Badge = {
-  id: number;
-  name: string;
-  icon: string;
-  description: string;
-};
+import type { Badge } from "@/features/user/types";
 
 interface ProfileBadgesModalProps {
   isOpen: boolean;
@@ -51,33 +45,35 @@ interface ProfileBadgesModalProps {
   userBadges: Badge[];
 }
 
+/**
+ * 개별 뱃지 아이템 (Tooltip 포함)
+ */
 function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [arrowRef, setArrowRef] = useState<SVGSVGElement | null>(null);
 
-  // Floating UI 설정
+  // 1. Floating UI 설정: 툴팁 위치 및 동작 제어
   const { refs, floatingStyles, context } = useFloating({
-    open: isOpen, // 툴팁 열림/닫힘 상태
-    onOpenChange: setIsOpen, // 상태 변경 핸들러
-    placement: "bottom" as Placement, // 툴팁 위치 (아래쪽)
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    placement: "bottom" as Placement,
     middleware: [
-      offset(10), // 타겟으로부터 10px 거리 유지
-      flip({ padding: 10 }), // 공간 부족시 반대로 뒤집기
-      shift({ padding: 10 }), // 화면 벗어날 경우 이동
-      arrow({ element: arrowRef }), // 화살표 위치 조정
+      offset(10), // 타겟과 10px 간격
+      flip({ padding: 10 }), // 화면 밖으로 나가면 반전
+      shift({ padding: 10 }), // 화면 안으로 이동
+      arrow({ element: arrowRef }),
     ],
   });
-  // 인터랙션 설정
+
+  // 2. 인터랙션 훅 결합 (Hover, Dismiss, Role)
   const hover = useHover(context, {
-    move: false, // 마우스 이동 시 반응하지 않음
+    move: false,
     delay: { open: 100, close: 200 },
     restMs: 40,
   });
   const dismiss = useDismiss(context);
-  const role = useRole(context, {
-    role: "tooltip", // 명시적으로 tooltip 역할 지정
-  });
-  // 인터랙션 props 결합
+  const role = useRole(context, { role: "tooltip" });
+
   const { getReferenceProps, getFloatingProps } = useInteractions([
     hover,
     dismiss,
@@ -86,10 +82,10 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
 
   return (
     <>
-      {/* 뱃지 아이템 */}
+      {/* 뱃지 아이콘 */}
       <div
-        ref={refs.setReference} // 툴팁의 기준점 설정
-        {...getReferenceProps()} // 인터랙션 props 적용
+        ref={refs.setReference}
+        {...getReferenceProps()}
         className={cn(
           "flex flex-col items-center justify-center p-3 rounded-xl border transition-all aspect-square",
           isEarned
@@ -97,7 +93,6 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
             : "bg-surface-dim/30 border-border opacity-50 grayscale"
         )}
       >
-        {/* 뱃지 이미지 */}
         <div className="relative w-12 h-12 mb-2">
           <Image
             src={`${badge.icon}/public`}
@@ -106,7 +101,6 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
             className="object-contain"
           />
         </div>
-        {/* 뱃지 이름 */}
         <span
           className={cn(
             "text-[11px] text-center font-medium leading-tight",
@@ -117,12 +111,12 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
         </span>
       </div>
 
-      {/* 툴팁 (열려있을 때만 표시) */}
+      {/* 툴팁 (Hover 시 표시) */}
       {isOpen && (
         <div
-          ref={refs.setFloating} // 툴팁 요소 참조
-          {...getFloatingProps()} // 툴팁 인터랙션 props
-          style={{ ...floatingStyles, zIndex: 9999 }} // 위치 스타일
+          ref={refs.setFloating}
+          {...getFloatingProps()}
+          style={{ ...floatingStyles, zIndex: 9999 }}
           className="max-w-[240px] bg-neutral-900 text-white p-3 rounded-xl text-xs leading-relaxed shadow-xl animate-fade-in"
         >
           <div className="font-bold mb-1 text-accent-light">
@@ -140,6 +134,14 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
   );
 }
 
+/**
+ * 뱃지 목록 모달
+ *
+ * [기능]
+ * 1. 전체 뱃지 목록을 그리드 형태로 렌더링합니다.
+ * 2. 사용자가 획득한 뱃지는 활성화 상태로 표시됩니다.
+ * 3. 각 뱃지에 마우스를 올리면 상세 설명 툴팁을 보여줍니다.
+ */
 export default function ProfileBadgesModal({
   isOpen,
   closeModal,
@@ -148,6 +150,7 @@ export default function ProfileBadgesModal({
 }: ProfileBadgesModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // 접근성 (포커스 & 스크롤락 & ESC 닫기)
   useEffect(() => {
     if (!isOpen) return;
     dialogRef.current?.focus();
@@ -163,6 +166,7 @@ export default function ProfileBadgesModal({
     };
   }, [isOpen, closeModal]);
 
+  // 획득 뱃지 Set (빠른 조회를 위해)
   const earnedSet = useMemo(
     () => new Set(userBadges.map((b) => b.id)),
     [userBadges]

@@ -11,6 +11,7 @@
  * 2025.08.26  임도헌   Modified  UI 충돌 수정(grid + flex 동시 적용 가능성)
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 뷰 모드 토글 스타일 통일
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -23,7 +24,7 @@ import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import PostCard from "@/features/post/components/postCard";
 import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
-import { PostDetail } from "@/types/post";
+import { PostDetail } from "@/features/post/types";
 import { cn } from "@/lib/utils";
 
 interface PostListProps {

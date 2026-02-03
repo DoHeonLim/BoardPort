@@ -6,13 +6,14 @@
  * History
  * 2025.09.13  임도헌   Created   실시간 상태 반영(푸시 기반)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
-import { getRealtimeClientToken } from "@/features/stream/lib/getRealtimeClientToken";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { getRealtimeClientToken } from "@/features/stream/utils/clientToken";
 
 interface Props {
   /** 동일 탭에서 내가 보낸 이벤트는 새로고침 생략 */
@@ -21,6 +22,12 @@ interface Props {
   minIntervalMs?: number;
 }
 
+/**
+ * 전역적인 방송 상태 변경 이벤트를 구독하여 페이지를 새로고침(refresh)하는 컴포넌트
+ * - 주로 목록 페이지나 상세 페이지 상단에 배치하여 실시간성을 보장합니다.
+ * - `live-status` 채널을 구독합니다.
+ * - 디바운스 및 가시성 체크를 통해 불필요한 새로고침을 방지합니다.
+ */
 export default function LiveStatusRealtimeSubscriber({
   ignoreSelf = true,
   minIntervalMs = 250,

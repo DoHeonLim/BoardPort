@@ -44,7 +44,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {children}
           </select>
 
-          {/* Custom Chevron Icon (Pointer events none to pass clicks) */}
+          {/* Custom Chevron Icon */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted flex items-center justify-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"

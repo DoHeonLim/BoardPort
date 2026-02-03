@@ -10,12 +10,13 @@
  * 2025.11.23  임도헌   Modified  모바일 UI 수정
  * 2026.01.11  임도헌   Modified  시맨틱 탭 스타일(bg-brand / bg-surface-dim) 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { STREAM_CATEGORY } from "@/lib/constants";
+import { STREAM_CATEGORY } from "@/features/stream/constants";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,10 @@ interface StreamCategoryTabsProps {
   currentCategory?: string;
 }
 
+/**
+ * 스트리밍 목록용 카테고리 필터 탭
+ * - 기존 검색어(keyword)나 스코프(scope) 파라미터를 유지하면서 카테고리만 변경합니다.
+ */
 export default function StreamCategoryTabs({
   currentCategory,
 }: StreamCategoryTabsProps) {

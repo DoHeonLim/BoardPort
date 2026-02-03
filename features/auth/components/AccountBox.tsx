@@ -1,6 +1,6 @@
 /**
- * File Name : features\auth\components\AccountBox.tsx
- * Description : 계정 시작 링크 컴포넌트
+ * File Name : features/auth/components/AccountBox.tsx
+ * Description : 메인 페이지 계정 시작(로그인/회원가입) 링크 박스
  * Author : 임도헌
  *
  * History
@@ -9,6 +9,7 @@
  * 2025.05.30  임도헌   Modified  회원가입, 로그인 링크 추가
  * 2026.01.10  임도헌   Modified  Glassmorphism UI 개선
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 
 import Link from "next/link";

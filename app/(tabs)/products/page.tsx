@@ -1,6 +1,6 @@
 /**
- * File Name : app/(tabs)/products/page
- * Description : 제품 페이지
+ * File Name : app/(tabs)/products/page.tsx
+ * Description : 제품 목록 및 검색 페이지
  * Author : 임도헌
  *
  * History
@@ -23,22 +23,29 @@
  * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
  * 2026.01.08  임도헌   Modified  URL 쿼리 파싱 시 NaN 방어 로직 추가 (minPrice, maxPrice)
  * 2026.01.10  임도헌   Modified  헤더를 sticky로 고정하여 스크롤 시에도 접근성 확보, 레이아웃 재정리
+ * 2026.01.20  임도헌   Modified  formatSearchSummary 개선 적용 및 import 경로 수정
+ * 2026.01.26  임도헌   Modified  주석 설명 보강
  */
+
+import getSession from "@/lib/session";
+import { fetchProductCategories } from "@/features/product/service/category";
+import { getCategoryName } from "@/lib/getCategoryName";
+import { SearchProvider } from "@/components/global/providers/SearchProvider";
+import AddProductButton from "@/features/product/components/AddProductButton";
+import ProductEmptyState from "@/features/product/components/ProductEmptyState";
 import ProductList from "@/features/product/components/ProductList";
 import SearchResultSummary from "@/features/product/components/SearchResultSummary";
-import ProductEmptyState from "@/features/product/components/ProductEmptyState";
-import AddProductButton from "@/features/product/components/AddProductButton";
-import SearchSection from "@/features/search/components/SearchSection";
 import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
-import { SearchProvider } from "@/components/global/providers/SearchProvider";
-
-import { formatSearchSummary } from "@/features/product/lib/formatSearchParams";
-import { fetchProductCategories } from "@/lib/categories";
-import { getCategoryName } from "@/lib/getCategoryName";
-import { searchProducts } from "./actions/search";
-import { getInitialProducts } from "./actions/init";
-import { getPopularSearches, getUserSearchHistory } from "./actions/history";
-import { GAME_TYPE_DISPLAY } from "@/lib/constants";
+import SearchSection from "@/features/search/components/SearchSection";
+import { formatSearchSummary } from "@/features/product/utils/format";
+import {
+  getUserSearchHistory,
+  getPopularSearches,
+} from "@/features/product/service/history";
+import {
+  getCachedProducts,
+  getProducts,
+} from "@/features/product/service/list";
 
 interface ProductsPageProps {
   searchParams: {
@@ -57,17 +64,32 @@ function parseNumberParam(val: string | undefined): number | undefined {
   return Number.isNaN(num) ? undefined : num;
 }
 
+/**
+ * 제품 목록 페이지
+ *
+ * [기능]
+ * 1. 검색 조건(쿼리 파라미터)에 따라 제품 목록을 조회합니다.
+ *    - 초기 로딩(필터 없음): 캐시된 데이터 사용 (`getCachedProducts`)
+ *    - 검색/필터 적용: 실시간 데이터 조회 (`getProducts`)
+ * 2. 카테고리, 검색 기록, 인기 검색어 데이터를 병렬로 로드합니다.
+ * 3. 검색바(SearchSection)와 필터(ClientFilterWrapper)를 제공합니다.
+ * 4. 결과 목록(ProductList) 또는 빈 상태(ProductEmptyState)를 렌더링합니다.
+ */
 export default async function Products({ searchParams }: ProductsPageProps) {
+  const session = await getSession();
+  const userId = session?.id ?? null;
+
   const hasSearchParams = Object.keys(searchParams).length > 0;
 
-  // 안전한 숫자 파싱
+  // 안전한 숫자 파싱 (가격 필터)
   const minPrice = parseNumberParam(searchParams.minPrice);
   const maxPrice = parseNumberParam(searchParams.maxPrice);
 
+  // 1. 데이터 병렬 로딩 (Service 직접 호출)
   const [initialProducts, categories, searchHistory, popularSearches] =
     await Promise.all([
       hasSearchParams
-        ? searchProducts({
+        ? getProducts({
             keyword: searchParams.keyword,
             category: searchParams.category,
             minPrice,
@@ -75,33 +97,28 @@ export default async function Products({ searchParams }: ProductsPageProps) {
             game_type: searchParams.game_type,
             condition: searchParams.condition,
           })
-        : getInitialProducts(),
+        : getCachedProducts({}), // 초기 로딩 최적화 (Cache)
       fetchProductCategories(),
-      getUserSearchHistory(),
+      userId ? getUserSearchHistory(userId) : Promise.resolve([]),
       getPopularSearches(),
     ]);
 
+  // 검색 요약 텍스트 생성
   const categoryName = searchParams.category
     ? getCategoryName(searchParams.category, categories)
     : "";
 
-  const gameType = searchParams.game_type
-    ? GAME_TYPE_DISPLAY[
-        searchParams.game_type as keyof typeof GAME_TYPE_DISPLAY
-      ]
-    : undefined;
-
   const resultSearchParams = formatSearchSummary(
     categoryName,
-    gameType,
+    searchParams.game_type,
     searchParams.keyword
   );
 
   return (
-    // pb-24는 하단 탭바 + 플로팅 버튼 공간 확보용
+    // pb-24: 하단 탭바 + FAB 공간 확보
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
       <SearchProvider searchParams={searchParams}>
-        {/* [Sticky Header] 검색창과 필터가 스크롤 시에도 상단에 고정됨 */}
+        {/* Sticky Header: 검색창 및 필터 */}
         <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
           <SearchSection
             categories={categories}
@@ -112,21 +129,19 @@ export default async function Products({ searchParams }: ProductsPageProps) {
           />
         </header>
 
-        {/* [Content Area] */}
+        {/* Content Area */}
         <div className="flex-1 px-page-x py-6">
           <div
             className={`flex items-center mb-4 ${
               hasSearchParams ? "justify-between" : "justify-end"
             }`}
           >
-            {/* 검색 결과 요약 */}
-            {hasSearchParams ? (
+            {/* 검색 결과 요약 (조건이 있을 때만 표시) */}
+            {hasSearchParams && (
               <SearchResultSummary
                 count={initialProducts.products.length}
                 summaryText={resultSearchParams}
               />
-            ) : (
-              <></>
             )}
 
             {/* 필터 버튼 (Client Component) */}
@@ -136,10 +151,10 @@ export default async function Products({ searchParams }: ProductsPageProps) {
             />
           </div>
 
-          {/* 제품 목록 */}
+          {/* 제품 목록 렌더링 */}
           {initialProducts.products.length > 0 ? (
             <ProductList
-              // 검색 조건이 바뀌면 리스트를 완전히 새로 그림 (Scroll reset 등)
+              // 검색 조건 변경 시 스크롤/상태 초기화를 위해 key 부여
               key={JSON.stringify(searchParams)}
               initialProducts={initialProducts}
             />
@@ -149,7 +164,7 @@ export default async function Products({ searchParams }: ProductsPageProps) {
         </div>
       </SearchProvider>
 
-      {/* 제품 추가 플로팅 버튼 */}
+      {/* 제품 추가 플로팅 버튼 (FAB) */}
       <AddProductButton />
     </div>
   );

@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/products/add/page
+ * File Name : app/(tabs)/products/add/page.tsx
  * Description : 제품 업로드 페이지
  * Author : 임도헌
  *
@@ -26,12 +26,19 @@
  * 2025.06.15  임도헌   Modified  제품 등록 및 편집 폼 통합
  * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
  * 2026.01.11  임도헌   Modified  프래그먼트 태그 제거
+ * 2026.01.26  임도헌   Modified  주석 설명 보강
  */
 
 import ProductForm from "@/features/product/components/ProductForm";
-import { fetchProductCategories } from "@/lib/categories";
-import { createProductAction } from "../actions/create";
+import { fetchProductCategories } from "@/features/product/service/category";
+import { createProductAction } from "@/features/product/actions/create";
 
+/**
+ * 제품 등록 페이지
+ *
+ * - 카테고리 목록을 서버에서 미리 로드하여 폼에 주입합니다.
+ * - `ProductForm`을 'create' 모드로 렌더링합니다.
+ */
 export default async function AddPage() {
   const categories = await fetchProductCategories();
 

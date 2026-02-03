@@ -16,22 +16,25 @@
  * 2026.01.03  임도헌   Modified  IntersectionObserver root 지정, 스크롤 보정(diff 기반)으로 안정화
  * 2026.01.16  임도헌   Moved     hooks -> hooks/chat
  * 2026.01.18  임도헌   Moved     hooks/chat -> features/chat/hooks
+ * 2026.01.28  임도헌   Modified  주석 보강
  */
 
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { ChatMessage } from "@/types/chat";
-import { getMoreMessagesAction } from "@/app/chats/[id]/actions/messages";
+import { ChatMessage } from "@/features/chat/types";
+import { getMoreMessagesAction } from "@/features/chat/actions/messages";
 
 /**
- * useInfiniteMessages
- * - 초기 메시지를 기반으로 상태 관리
- * - IntersectionObserver를 활용한 상단 무한스크롤 구현
- * - 메시지 추가, 교체, 스크롤 위치 유지 등의 기능 포함
+ * 채팅방 메시지 무한 스크롤 (역방향 페이징)
  *
- * initialMessages - 최초 서버사이드로 전달된 메시지 목록
- * chatRoomId - 채팅방 고유 ID (더 불러오기용)
+ * [기능]
+ * 1. 초기 메시지 목록을 상태로 관리합니다.
+ * 2. 스크롤이 상단(`sentinelRef`)에 닿으면 `IntersectionObserver`가 감지하여 이전 메시지를 로드합니다.
+ * 3. 메시지 추가(`prepend`) 시 스크롤 위치가 튀지 않도록 `scrollHeight` 차이를 계산하여 보정합니다.
+ *
+ * @param {ChatMessage[]} initialMessages - 초기 메시지
+ * @param {string} chatRoomId - 채팅방 ID
  */
 export default function useInfiniteMessages(
   initialMessages: ChatMessage[],
@@ -42,7 +45,7 @@ export default function useInfiniteMessages(
   const [isFetching, setIsFetching] = useState(false); // 로딩 상태
   const [hasMore, setHasMore] = useState(true); // 더 불러올 메시지가 있는지 여부
 
-  /** DOM 참조 */
+  /** DOM Refs */
   const containerRef = useRef<HTMLDivElement>(null); // 전체 스크롤 영역
   const sentinelRef = useRef<HTMLDivElement>(null); // 무한스크롤 트리거 요소(상단)
   const messagesEndRef = useRef<HTMLDivElement>(null); // 스크롤 최하단 위치
@@ -87,7 +90,7 @@ export default function useInfiniteMessages(
       return;
     }
 
-    // prepend
+    // 메시지 합치기 (과거 + 현재)
     setMessages((prev) => [...incoming, ...prev]);
 
     // DOM 반영 이후 스크롤 보정: (새 scrollHeight - 이전 scrollHeight) 만큼 scrollTop을 더해준다
@@ -126,8 +129,7 @@ export default function useInfiniteMessages(
       {
         root: rootEl,
         threshold: 0,
-        // 상단 근처에서 미리 로딩되도록 약간의 여유를 둔다
-        rootMargin: "80px 0px 0px 0px",
+        rootMargin: "80px 0px 0px 0px", // 상단 여유
       }
     );
 

@@ -22,8 +22,8 @@
  * 2025.12.23  임도헌   Modified  상위 동기화(onFollowingChange) 초기 1회 스킵(ref) 추가
  * 2026.01.05  임도헌   Modified  맞팔로잉 분리 기준을 owner 기준(isMutualWithOwner)으로 일원화(모달/서버와 합의)
  * 2026.01.17  임도헌   Moved     components/follow -> features/user/components/follow
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,6 +72,15 @@ export type FollowSectionProps = {
   followButtonId?: string;
 };
 
+/**
+ * 팔로우 섹션 컴포넌트
+ *
+ * [기능]
+ * 1. 팔로워/팔로잉 수 표시 (클릭 시 모달 오픈)
+ * 2. 팔로우/언팔로우 버튼 제공 (본인이 아닐 경우)
+ * 3. `useFollowController`를 통해 전체 상태(카운트, 버튼, 모달 데이터)를 통합 관리
+ * 4. 상위 컴포넌트(`ProfileHeader`, `UserChannelHeader`)에서 사용됨
+ */
 export default function FollowSection({
   ownerId,
   ownerUsername,

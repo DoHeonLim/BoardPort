@@ -10,8 +10,8 @@
  * 2025.09.20  임도헌   Modified  VodAsset 전환(streamId → vodId), RHF defaultValues 정합성 유지
  * 2026.01.14  임도헌   Modified  [UI] ChatInputBar/CommentForm 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useRef, useState, useEffect } from "react";
@@ -20,6 +20,14 @@ import { toast } from "sonner";
 import { useRecordingCommentContext } from "@/features/stream/components/recording/recordingComment/RecordingCommentContext";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 
+/**
+ * 댓글 작성 폼 컴포넌트
+ *
+ * [기능]
+ * 1. 자동 높이 조절 Textarea 사용
+ * 2. Enter 키 전송 지원 (Shift+Enter는 줄바꿈)
+ * 3. Optimistic UI 패턴: 전송 시 입력창을 즉시 비우고, 실패 시 복원합니다.
+ */
 export default function RecordingCommentForm({ vodId }: { vodId: number }) {
   const { createComment } = useRecordingCommentContext();
   const [text, setText] = useState("");

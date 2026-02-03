@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/streams/loading
+ * File Name : app/(tabs)/streams/loading.tsx
  * Description : 스트리밍 탭 로딩
  * Author : 임도헌
  *

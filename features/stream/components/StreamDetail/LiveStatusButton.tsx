@@ -14,15 +14,23 @@
  * 2025.09.14  임도헌   Modified  상태 변경 시 live-status 브로드캐스트 추가 (Supabase
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 디자인 통일)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { StreamStatus } from "@/types/stream";
+import { StreamStatus } from "@/features/stream/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * 방송 상태(CONNECTED/ENDED/DISCONNECTED)를 표시하는 뱃지
+ *
+ * [기능]
+ * - 초기값은 SSR로 받지만, 이후 `live-status` 채널 이벤트를 통해 실시간으로 상태를 갱신합니다.
+ * - 상태에 따라 색상과 텍스트를 변경합니다.
+ */
 export default function LiveStatusButton({
   status,
   streamId, // CF Live Input UID (provider_uid)

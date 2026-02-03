@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/chat/loading
+ * File Name : app/(tabs)/chat/loading.tsx
  * Description : 채팅 목록 로딩 스켈레톤
  * Author : 임도헌
  *

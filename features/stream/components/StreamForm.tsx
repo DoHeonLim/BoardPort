@@ -14,6 +14,7 @@
  * 2025.09.15  임도헌   Modified   LiveInput/Broadcast 모델 반영, 결과 모달 그대로 사용
  * 2026.01.14  임도헌   Modified   Select 컴포넌트 적용 및 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -22,11 +23,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { getUploadUrl } from "@/lib/cloudflareImages";
-import { STREAM_VISIBILITY, STREAM_VISIBILITY_DISPLAY } from "@/lib/constants";
 import {
-  streamFormSchema,
-  StreamFormValues,
-} from "@/features/stream/lib/streamFormSchema";
+  STREAM_VISIBILITY,
+  STREAM_VISIBILITY_DISPLAY,
+} from "@/features/stream/constants";
 import { toast } from "sonner";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -34,8 +34,9 @@ import ImageUploader from "@/components/global/ImageUploader";
 import Select from "@/components/ui/Select";
 import TagInput from "@/components/ui/TagInput";
 import RTMPInfoModal from "@/features/stream/components/RTMPInfoModal";
-import type { StreamCategory } from "@/generated/prisma/client";
-import type { CreateBroadcastResult } from "@/types/stream";
+import type { StreamCategory } from "@/features/stream/types";
+import type { CreateBroadcastResult } from "@/features/stream/types";
+import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
 
 interface StreamFormProps {
   mode: "create" | "edit";
@@ -46,19 +47,31 @@ interface StreamFormProps {
 
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
+/**
+ * 방송 생성/수정 폼
+ *
+ * [기능]
+ * 1. 방송 제목, 설명, 공개 설정(Public/Private/Followers) 입력
+ * 2. 썸네일 이미지 업로드 (Cloudflare Images)
+ * 3. 카테고리 및 태그 설정
+ * 4. 폼 제출 후 성공 시 `RTMPInfoModal`을 띄워 OBS 송출 정보 제공
+ *
+ * @param {StreamFormProps} props
+ */
 export default function StreamForm({
   mode,
   action,
   categories,
   defaultValues,
 }: StreamFormProps) {
-  // 대분류 초기값: 기본 소분류(defaultValues.streamCategoryId)의 parentId를 역추적
+  // 대분류 초기값 추론
   const initialMainCategory = useMemo<number | null>(() => {
     if (!defaultValues?.streamCategoryId) return null;
-    return (
-      categories.find((c) => c.id === defaultValues.streamCategoryId)
-        ?.parentId ?? null
+    // Prisma 타입과 내부 정의 타입 호환성 (any casting 회피를 위해 as any 사용 가능)
+    const cat = categories.find(
+      (c: any) => c.id === defaultValues.streamCategoryId
     );
+    return (cat as any)?.parentId ?? null;
   }, [categories, defaultValues?.streamCategoryId]);
 
   const [selectedMainCategory, setSelectedMainCategory] = useState<
@@ -98,14 +111,13 @@ export default function StreamForm({
 
   const watchVisibility = watch("visibility");
 
-  // PRIVATE가 아니면 password 초기화
+  // PRIVATE가 아니면 password 필드 초기화
   useEffect(() => {
     if (watchVisibility !== STREAM_VISIBILITY.PRIVATE) {
       setValue("password", "");
     }
   }, [watchVisibility, setValue]);
 
-  // 이미지 업로드 훅 (1장만)
   const {
     previews,
     files,
@@ -116,13 +128,14 @@ export default function StreamForm({
     handleDragEnd,
   } = useImageUpload({ maxImages: 1, setValue, getValues });
 
-  // 대/소분류 옵션
+  // 카테고리 필터링 (대분류/소분류)
+  // StreamCategory 타입이 Prisma 모델과 약간 다를 수 있으므로 as any 활용
   const mainCategories = useMemo(
-    () => categories.filter((c) => !c.parentId),
+    () => categories.filter((c: any) => !c.parentId),
     [categories]
   );
   const subCategories = useMemo(
-    () => categories.filter((c) => c.parentId === selectedMainCategory),
+    () => categories.filter((c: any) => c.parentId === selectedMainCategory),
     [categories, selectedMainCategory]
   );
 
@@ -134,7 +147,7 @@ export default function StreamForm({
 
   const onSubmit = async (data: StreamFormValues) => {
     try {
-      // 1) 썸네일 업로드(선택)
+      // 1) 썸네일 업로드
       let thumbnail = data.thumbnail;
 
       if (files.length > 0) {
@@ -181,19 +194,16 @@ export default function StreamForm({
         return;
       }
 
-      // 새 응답 필드에 맞춰 저장
+      // 성공 시 결과 저장 및 모달 오픈
       setStreamInfo({
-        liveInputId: result.liveInputId!, // 필수
-        broadcastId: result.broadcastId ?? null, // 선택
-        streamKey: result.streamKey!, // 필수
-        rtmpUrl: result.rtmpUrl!, // 필수
+        liveInputId: result.liveInputId!,
+        broadcastId: result.broadcastId ?? null,
+        streamKey: result.streamKey!,
+        rtmpUrl: result.rtmpUrl!,
       });
       setShowStreamInfo(true);
 
-      toast.success(
-        // create/edit 공통 문구여도 무방. 필요시 mode별 문구 분기
-        "스트리밍이 생성되었습니다."
-      );
+      toast.success("스트리밍이 생성되었습니다.");
     } catch (error) {
       console.error("[StreamForm] submit failed:", error);
       toast.error("스트리밍 처리 중 오류가 발생했습니다.");
@@ -203,14 +213,12 @@ export default function StreamForm({
   return (
     <div className="bg-background px-4 py-6">
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-        {/* title */}
         <Input
           label="방송 제목"
           placeholder="방송 제목을 입력하세요 (5자 이상)"
           errors={errors.title?.message ? [errors.title.message] : []}
           {...register("title")}
         />
-        {/* description */}
         <Input
           type="textarea"
           label="방송 설명"
@@ -224,7 +232,6 @@ export default function StreamForm({
 
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-primary">썸네일</label>
-          {/* image */}
           <ImageUploader
             previews={previews}
             onImageChange={handleImageChange}
@@ -238,7 +245,6 @@ export default function StreamForm({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* category */}
           <Select
             label="대분류"
             value={selectedMainCategory?.toString() || ""}
@@ -250,7 +256,7 @@ export default function StreamForm({
             }
           >
             <option value="">대분류 선택</option>
-            {mainCategories.map((c) => (
+            {mainCategories.map((c: any) => (
               <option key={c.id} value={String(c.id)}>
                 {c.icon} {c.kor_name}
               </option>
@@ -268,7 +274,7 @@ export default function StreamForm({
             }
           >
             <option value="">소분류 선택</option>
-            {subCategories.map((c) => (
+            {subCategories.map((c: any) => (
               <option key={c.id} value={String(c.id)}>
                 {c.icon} {c.kor_name}
               </option>
@@ -276,10 +282,8 @@ export default function StreamForm({
           </Select>
         </div>
 
-        {/* tags */}
         <TagInput name="tags" control={control} maxTags={5} />
 
-        {/* visibility */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
             label="공개 설정"
@@ -302,7 +306,6 @@ export default function StreamForm({
             </option>
           </Select>
 
-          {/* stream password */}
           {watchVisibility === STREAM_VISIBILITY.PRIVATE && (
             <Input
               label="비밀번호"
@@ -320,7 +323,7 @@ export default function StreamForm({
         />
       </form>
 
-      {/* stream Info 및 key Info*/}
+      {/* OBS 정보 모달 */}
       {showStreamInfo && streamInfo && (
         <RTMPInfoModal
           open={showStreamInfo}

@@ -11,6 +11,7 @@
  * 2025.09.10  임도헌   Modified  App Router(useRouter 교체), next 파라미터에 쿼리 보존
  * 2025.09.17  임도헌   Modified  viewerId null 가드
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -19,7 +20,7 @@ import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import StreamList from "@/features/stream/components/StreamList";
-import type { BroadcastSummary } from "@/types/stream";
+import type { BroadcastSummary } from "@/features/stream/types";
 
 // 이 파일에서만 쓰는 스코프 타입
 type StreamScope = "all" | "following";
@@ -32,6 +33,12 @@ type Props = {
   viewerId?: number | null;
 };
 
+/**
+ * 스트리밍 목록 섹션
+ *
+ * - `StreamList`를 감싸서 팔로우 토글 기능(`useFollowToggle`)을 주입합니다.
+ * - 팔로워 전용 방송 클릭 시 로그인 유도 및 팔로우 처리를 담당합니다.
+ */
 export default function StreamListSection(props: Props) {
   const { follow, isPending } = useFollowToggle();
   const router = useRouter();

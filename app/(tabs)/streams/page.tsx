@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/streams/page
+ * File Name : app/(tabs)/streams/page.tsx
  * Description : 라이브 스트리밍 탭 페이지 (URL 기반 탭 + 검색 + 무한스크롤)
  * Author : 임도헌
  *
@@ -20,23 +20,22 @@
  * 2025.09.09  임도헌   Modified  a11y(nav/role=tablist), scope 정규화 변수, 주석 보강
  * 2025.11.21  임도헌   Modified  스트리밍 리스트 페이지 캐싱 제거(dynamic SSR로 변경)
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 스코프 탭 스타일 통일
+ * 2026.01.23  임도헌   Modified  Action Wrapper 제거 -> Service(getStreams) 직접 호출
+ * 2026.01.29  임도헌   Modified  주석 설명 보강
  */
-
 import Link from "next/link";
 import getSession from "@/lib/session";
-
-import { getInitialStreams } from "./actions/init";
-import { searchStreams } from "./actions/search";
-
+import { cn } from "@/lib/utils";
+import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
 import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
 import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
 import AddStreamButton from "@/features/stream/components/AddStreamButton";
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
-import { cn } from "@/lib/utils";
+import { getStreams } from "@/features/stream/service/list";
 
-export const dynamic = "force-dynamic"; // 명시적으로 동적 페이지 선언
+export const dynamic = "force-dynamic";
 
 interface StreamsPageProps {
   searchParams: {
@@ -46,40 +45,49 @@ interface StreamsPageProps {
   };
 }
 
+/**
+ * 스트리밍 목록 페이지
+ *
+ * [기능]
+ * 1. 검색 조건(키워드, 카테고리, 스코프)에 따라 방송 목록을 조회합니다. (`getStreams` Service)
+ * 2. `LiveStatusRealtimeSubscriber`를 통해 실시간 상태 갱신을 구독합니다.
+ * 3. 카테고리 탭과 검색바를 상단에 고정 표시합니다.
+ * 4. 목록(`StreamListSection`) 또는 빈 상태(`StreamEmptyState`)를 렌더링합니다.
+ * 5. 우측 하단에 방송 시작 버튼(`AddStreamButton`)을 표시합니다.
+ */
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const session = await getSession();
   const viewerId = session?.id ?? null;
-  // 스코프 정규화
-  const scope: "all" | "following" =
-    searchParams.scope === "following" ? "following" : "all";
-  // 검색/필터/스코프 여부
-  const hasSearchParams =
-    !!searchParams.keyword || !!searchParams.category || scope !== "all";
 
-  /**
-   * 리스트 페이지는 캐시 미사용
-   * - 스트리밍 상태/팔로우 상태 등 실시간/개인화 의존도가 높음
-   * - Supabase Realtime + router.refresh()로 최신 상태 반영
-   */
-  const initial = hasSearchParams
-    ? await searchStreams({
-        scope,
-        category: searchParams.category,
-        keyword: searchParams.keyword,
-        viewerId,
-      })
-    : await getInitialStreams({
-        scope: "all",
-        category: undefined,
-        keyword: undefined,
-        viewerId,
-      });
+  // 파라미터 정규화
+  const scope = searchParams.scope === "following" ? "following" : "all";
+  const category = searchParams.category?.trim() || undefined;
+  const keyword = searchParams.keyword?.trim() || undefined;
 
-  // 탭 링크 빌더(기존 파라미터 유지)
+  const TAKE = STREAMS_PAGE_TAKE;
+
+  // Service 직접 호출 (Action Wrapper 제거)
+  const allItems = await getStreams({
+    scope,
+    category,
+    keyword,
+    viewerId,
+    cursor: null,
+    take: TAKE + 1, // 다음 페이지 존재 확인용 +1
+    // * 리스트에서 팔로우 전용 방송의 잠금 상태(lock UI)를 표시하기 위해 팔로우 여부 조인이 필요함
+    // * getStreams 내부에서 viewerId가 있으면 followers 조인을 수행하도록 구현되어 있음
+  });
+
+  // Cursor 계산
+  const hasMore = allItems.length > TAKE;
+  const streams = hasMore ? allItems.slice(0, TAKE) : allItems;
+  const nextCursor = hasMore ? streams[streams.length - 1].id : null;
+
+  // 탭 링크 빌더
   const buildHref = (nextScope: "all" | "following") => {
     const sp = new URLSearchParams();
-    if (searchParams.category) sp.set("category", searchParams.category);
-    if (searchParams.keyword) sp.set("keyword", searchParams.keyword);
+    if (category) sp.set("category", category);
+    if (keyword) sp.set("keyword", keyword);
     if (nextScope !== "all") sp.set("scope", nextScope);
     const q = sp.toString();
     return q ? `/streams?${q}` : `/streams`;
@@ -87,15 +95,17 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background transition-colors pb-24">
+      {/* 실시간 상태 구독 */}
       <LiveStatusRealtimeSubscriber />
 
+      {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4 shadow-sm">
-        <StreamCategoryTabs currentCategory={searchParams.category} />
+        <StreamCategoryTabs currentCategory={category} />
 
         <div className="mt-4 flex items-center justify-between gap-4">
           <StreamSearchBarWrapper />
 
-          {/* Scope Tab (Segmented Control) */}
+          {/* Scope Tab (All / Following) */}
           <nav aria-label="스트리밍 보기 범위" role="tablist">
             <div className="flex p-1 bg-surface-dim rounded-xl border border-border">
               <Link
@@ -129,23 +139,24 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         </div>
       </div>
 
+      {/* Content */}
       <div className="flex-1 px-page-x py-6">
-        {initial.streams.length > 0 ? (
+        {streams.length > 0 ? (
           <StreamListSection
             key={JSON.stringify(searchParams)}
             scope={scope}
             searchParams={{
-              category: searchParams.category ?? "",
-              keyword: searchParams.keyword ?? "",
+              category: category ?? "",
+              keyword: keyword ?? "",
             }}
-            initialItems={initial.streams}
-            initialCursor={initial.nextCursor}
+            initialItems={streams}
+            initialCursor={nextCursor}
             viewerId={viewerId}
           />
         ) : (
           <StreamEmptyState
-            keyword={searchParams.keyword}
-            category={searchParams.category}
+            keyword={keyword}
+            category={category}
             scope={scope}
           />
         )}

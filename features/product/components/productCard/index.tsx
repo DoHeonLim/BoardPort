@@ -26,18 +26,21 @@
  * 2026.01.10  임도헌   Modified  [Rule 7.1] Card Contract & 디자인 토큰 적용
  * 2026.01.11  임도헌   Modified  썸네일 width 조정
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * ===============================================================================================
  * 이 폴더는 ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당합니다:
  *
- * - ProductCardHeader.tsx : 게임 타입 및 카테고리 경로 표시
- * - ProductCardTitle.tsx : 제품 제목 표시
- * - ProductCardPrice.tsx : 가격 및 판매/예약 상태 뱃지
- * - ProductCardMeta.tsx : 조회수, 좋아요 수, 작성 시간
- * - ProductCardTags.tsx : 제품 관련 태그 목록
+ * - ProductCardHeader.tsx    : 게임 타입 및 카테고리 경로 표시
+ * - ProductCardTitle.tsx     : 제품 제목 표시
+ * - ProductCardPrice.tsx     : 가격 및 판매/예약 상태 뱃지
+ * - ProductCardMeta.tsx      : 조회수, 좋아요 수, 작성 시간
+ * - ProductCardTags.tsx      : 제품 관련 태그 목록
  * - ProductCardThumbnail.tsx : 대표 이미지 및 오버레이 렌더링
- * - index.tsx : 위 컴포넌트들을 조합한 최종 ProductCard
+ * - index.tsx                : 위 컴포넌트들을 조합한 최종 ProductCard
+ * ===============================================================================================
  */
+
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import ProductCardThumbnail from "@/features/product/components/productCard/ProductCardThumbnail";
@@ -46,9 +49,18 @@ import { ProductCardTitle } from "@/features/product/components/productCard/Prod
 import ProductCardPrice from "@/features/product/components/productCard/ProductCardPrice";
 import ProductCardMeta from "@/features/product/components/productCard/ProductCardMeta";
 import { ProductCardTags } from "@/features/product/components/productCard/ProductCardTags";
-import type { ProductCardProps } from "@/types/product";
+import type { ProductCardProps } from "@/features/product/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * 제품 카드 (ProductCard)
+ *
+ * - 목록(List) 및 그리드(Grid) 뷰 모드를 지원합니다.
+ * - 썸네일, 헤더(카테고리), 제목, 가격, 태그, 메타 정보를 조합하여 렌더링합니다.
+ * - 클릭 시 상세 페이지로 이동하며, `returnTo` 쿼리를 포함하여 목록 복귀를 지원합니다.
+ *
+ * @param {ProductCardProps} props - 제품 데이터 및 뷰 모드 설정
+ */
 export default function ProductCard({
   product,
   viewMode,
@@ -105,7 +117,7 @@ export default function ProductCard({
       {/* 정보 영역 */}
       <div
         className={cn(
-          "flex flex-1 flex-col justify-between p-3 sm:p-4 min-w-0", // min-w-0는 flex 자식의 text truncation을 위해 필수
+          "flex flex-1 flex-col justify-between p-3 sm:p-4 min-w-0",
           isGrid ? "gap-2" : "gap-1"
         )}
       >
@@ -123,7 +135,7 @@ export default function ProductCard({
         </div>
 
         <div className="flex flex-col gap-2 mt-auto">
-          {/* List View에서만 태그 표시 (화면이 너무 작으면 숨김) */}
+          {/* List View에서만 태그 표시 (공간 확보) */}
           {!isGrid && (
             <div className="hidden sm:block">
               <ProductCardTags tags={search_tags} />

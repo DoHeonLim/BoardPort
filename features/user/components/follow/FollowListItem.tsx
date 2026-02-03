@@ -13,12 +13,13 @@
  * 2026.01.05  임도헌   Modified  a11yProps.className 병합 + "나" 뱃지 조건 정교화
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 버튼 스타일 세분화 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/follow -> features/user/components/follow
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
 
 import UserAvatar from "@/components/global/UserAvatar";
-import type { FollowListUser } from "@/types/profile";
+import type { FollowListUser } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
 interface FollowListItemProps {
@@ -33,6 +34,14 @@ interface FollowListItemProps {
   buttonVariant?: "primary" | "outline";
 }
 
+/**
+ * 팔로우 목록의 개별 유저 아이템
+ *
+ * - 유저 아바타와 이름을 표시합니다.
+ * - 본인이 아닐 경우 팔로우/언팔로우 버튼을 노출합니다.
+ * - 본인일 경우 '나' 뱃지를 표시합니다.
+ * - 버튼 상태는 `user.isFollowedByViewer`를 기준으로 렌더링됩니다.
+ */
 export default function FollowListItem({
   user,
   viewerId,

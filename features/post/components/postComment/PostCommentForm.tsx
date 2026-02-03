@@ -15,6 +15,7 @@
  * 2026.01.13  임도헌   Modified  [UI/UX] ChatInputBar 스타일로 통일 (Textarea, Auto-height, Enter-submit)
  * 2026.01.16  임도헌   Renamed   CommentForm -> PostCommentForm
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -24,14 +25,21 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+/**
+ * 댓글 작성 폼 컴포넌트
+ *
+ * - 자동 높이 조절 Textarea를 사용합니다.
+ * - Enter 키로 전송(Shift+Enter는 줄바꿈)을 지원합니다.
+ * - 전송 중 로딩 상태를 표시하고 중복 전송을 방지합니다.
+ */
 export default function PostCommentForm({ postId }: { postId: number }) {
   const { createComment } = usePostCommentContext();
   const [text, setText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isComposing, setIsComposing] = useState(false);
+  const [isComposing, setIsComposing] = useState(false); // IME 입력 중 여부
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 높이 자동 조절
+  // Textarea 높이 자동 조절
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -50,7 +58,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
     }
 
     setIsLoading(true);
-    setText("");
+    setText(""); // Optimistic Clear
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     try {
@@ -59,7 +67,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
       formData.append("postId", postId.toString());
       await createComment(formData);
     } catch (e) {
-      setText(trimmed);
+      setText(trimmed); // Rollback
       console.error(e);
     } finally {
       setIsLoading(false);
@@ -101,7 +109,6 @@ export default function PostCommentForm({ postId }: { postId: number }) {
         className={cn(
           "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
           "bg-brand-light dark:bg-brand text-white hover:bg-brand hover:dark:bg-brand-light active:scale-95",
-          // 가시성 개선: 배경색을 명확하게, 아이콘은 muted로
           "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         )}
         aria-label="댓글 등록"

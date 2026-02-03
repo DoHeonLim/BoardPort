@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/hooks/useFollowController.ts
- * Description : 프로필/채널 공용 팔로우 컨트롤러(헤더 상태 + 모달 페이징 + 토글/델타 동기화)
+ * Description : 팔로우 기능 통합 컨트롤러 훅(헤더 상태 + 모달 페이징 + 토글/델타 동기화)
  * Author : 임도헌
  *
  * Key Points
@@ -28,19 +28,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import { useFollowPagination } from "@/features/user/hooks/useFollowPagination";
 import { useUserLite } from "@/features/user/hooks/useUserLite";
-
-import { fetchFollowers } from "@/features/user/lib/follow/fetchFollowers";
-import { fetchFollowing } from "@/features/user/lib/follow/fetchFollowing";
+import {
+  getFollowersAction,
+  getFollowingAction,
+} from "@/features/user/actions/follow";
 import {
   onFollowDelta,
   getCachedViewerFollowingCount,
   getCachedTargetFollowersCount,
   getCachedIsFollowing,
-} from "@/features/user/lib/follow/followDeltaClient";
+} from "@/features/user/utils/delta";
 
 type ControllerParams = {
   ownerId: number;
@@ -52,6 +52,17 @@ type ControllerParams = {
   onRequireLogin?: () => void;
 };
 
+/**
+ * 팔로우 기능 통합 컨트롤러 훅
+ *
+ * [기능]
+ * 1. 팔로우 버튼(헤더)과 팔로워/팔로잉 목록(모달)의 상태를 통합 관리합니다.
+ * 2. `useFollowToggle`을 사용하여 팔로우/언팔로우 액션을 처리하고, 낙관적 업데이트를 수행합니다.
+ * 3. `useFollowPagination`을 사용하여 팔로워/팔로잉 목록을 무한 스크롤로 로드합니다.
+ * 4. `onFollowDelta` 이벤트를 구독하여, 다른 컴포넌트(예: 리스트 아이템)에서 발생한 팔로우 변경 사항을 헤더 카운트에 실시간으로 반영합니다.
+ *
+ * @param {ControllerParams} params - 초기 상태(isFollowing, counts) 및 소유자 정보
+ */
 export function useFollowController({
   ownerId,
   ownerUsername,
@@ -62,16 +73,16 @@ export function useFollowController({
   onRequireLogin,
 }: ControllerParams) {
   const { toggle, isPending } = useFollowToggle();
+  // Viewer 정보 비동기 로드 (목록에 '나' 추가 시 표시용)
   const { user: viewerLite } = useUserLite(viewerId, !!viewerId);
 
-  // isOwnerSelf:
-  // - 내 프로필에서는 "내 팔로잉 수/팔로잉 리스트"가 viewer 액션으로 바뀌므로 직접 갱신한다.
-  // - 타인 프로필에서는 followingList가 '오너의 팔로잉'이므로 viewer 토글로 조작하면 안 된다.
+  // 내 프로필인지 확인 (내 프로필이면 팔로잉 카운트도 실시간 반영 대상)
   const isOwnerSelf = useMemo(
     () => !!viewerId && viewerId === ownerId,
     [viewerId, ownerId]
   );
 
+  // --- State (헤더/버튼용) ---
   const [isFollowing, setIsFollowing] = useState<boolean>(initialIsFollowing);
   const [followerCount, setFollowerCount] =
     useState<number>(initialFollowerCount);
@@ -79,16 +90,17 @@ export function useFollowController({
     initialFollowingCount
   );
 
+  // --- Pagination Hooks (모달용) ---
   const followersList = useFollowPagination({
     username: ownerUsername,
-    fetcher: fetchFollowers,
+    fetcher: getFollowersAction,
   });
   const followingList = useFollowPagination({
     username: ownerUsername,
-    fetcher: fetchFollowing,
+    fetcher: getFollowingAction,
   });
 
-  // 최신 users 스냅샷(ref)
+  // 리스트 스냅샷 (이벤트 핸들러 내에서 최신 상태 참조용)
   const followersUsersRef = useRef(followersList.users);
   const followingUsersRef = useRef(followingList.users);
 
@@ -101,18 +113,15 @@ export function useFollowController({
   }, [followingList.users]);
 
   /**
-   * owner 기준 맞팔(섹션 분리) best-effort 계산
-   * - followers 모달에서 viewer row를 "삽입"할 때 필요:
-   *   viewer가 owner를 팔로우하는 것은 확정(delta>0)이고,
-   *   mutual은 owner가 viewer를 팔로우하는지(owner -> viewer)를 뜻한다.
-   * - 서버 SSOT가 최종이지만, followingList(오너의 팔로잉)가 이미 로드된 경우 즉시 추론 가능.
+   * 맞팔 여부 추론 (Best Effort)
+   * - 팔로잉 목록이 이미 로드되어 있다면, 그 안에 rowUser가 있는지 확인하여 맞팔 여부를 판단합니다.
+   * - 서버 데이터를 기다리지 않고 UI를 즉시 갱신하기 위함입니다.
    */
   const getMutualWithOwnerBestEffort = useCallback((rowUserId: number) => {
-    // followingList(오너의 팔로잉)가 로드되어 있고, 거기에 rowUser가 있으면 owner -> rowUser
     return followingUsersRef.current.some((u) => u.id === rowUserId);
   }, []);
 
-  // back/forward 복원 보정
+  // --- Initialization (Back/Forward Cache Restore) ---
   useEffect(() => {
     const cachedFollowers = getCachedTargetFollowersCount(ownerId);
     if (cachedFollowers != null) setFollowerCount(cachedFollowers);
@@ -130,6 +139,7 @@ export function useFollowController({
 
   const isPendingById = useCallback((id: number) => isPending(id), [isPending]);
 
+  // 모달 열기 (데이터 Lazy Loading)
   const openFollowers = useCallback(async () => {
     await followersList.loadFirst();
   }, [followersList]);
@@ -138,8 +148,7 @@ export function useFollowController({
     await followingList.loadFirst();
   }, [followingList]);
 
-  // SSOT(users[].isFollowedByViewer)만 갱신:
-  // - 로딩된 리스트에 존재하는 row만 업데이트한다.
+  // 리스트 내 특정 유저의 팔로우 상태 업데이트 (버튼 토글 시)
   const updateViewerFollowFlagInLoadedLists = useCallback(
     (userId: number, now: boolean) => {
       const inFollowers = followersUsersRef.current.find(
@@ -157,26 +166,11 @@ export function useFollowController({
     [followersList, followingList]
   );
 
-  // viewerLite 늦게 로딩 시, 팔로워 리스트에 삽입된 "나" row를 실제 username/avatar로 보정
-  useEffect(() => {
-    if (!viewerId) return;
-    if (!viewerLite?.username) return;
+  // --- Action Handlers ---
 
-    const row = followersUsersRef.current.find((u) => u.id === viewerId);
-    if (!row) return;
-
-    const patchName = row.username === "나" || row.username.trim() === "";
-    const patchAvatar = row.avatar == null && viewerLite.avatar != null;
-    if (!patchName && !patchAvatar) return;
-
-    followersList.upsertLocal({
-      ...row,
-      username: patchName ? viewerLite.username : row.username,
-      avatar: patchAvatar ? viewerLite.avatar : row.avatar,
-    });
-  }, [viewerId, viewerLite?.username, viewerLite?.avatar, followersList]);
-
-  // 헤더 팔로우 토글(viewer -> owner)
+  /**
+   * 헤더 팔로우 버튼 토글 (Viewer -> Owner)
+   */
   const onToggleFollow = useCallback(async () => {
     if (!viewerId) return onRequireLogin?.();
 
@@ -187,22 +181,24 @@ export function useFollowController({
       viewerId,
       refresh: false,
       onRequireLogin,
-
       optimisticNextIsFollowing: optimisticNext,
 
+      // 1. 낙관적 업데이트
       onOptimistic: () => setIsFollowing(optimisticNext),
+
+      // 2. 롤백 (에러 시)
       onRollback: () => setIsFollowing(was),
 
+      // 3. 성공 시 처리 (카운트 및 리스트 반영)
       onFollowersChange: (delta) => {
         setFollowerCount((c) => Math.max(0, c + delta));
 
         if (delta > 0) setIsFollowing(true);
         else if (delta < 0) setIsFollowing(false);
 
-        // 팔로워 모달에서 "나" row를 삽입/삭제(로딩된 리스트에만 영향)
+        // 팔로워 리스트에 '나'를 추가/제거
         if (delta > 0) {
           const mutual = getMutualWithOwnerBestEffort(viewerId);
-
           followersList.upsertLocal({
             id: viewerId,
             username: viewerLite?.username ?? "나",
@@ -215,11 +211,11 @@ export function useFollowController({
         }
       },
 
+      // 4. 서버 데이터 정합 (SSOT)
       onReconcileServerState: ({ isFollowing, counts }) => {
         setIsFollowing(isFollowing);
         if (counts?.targetFollowers != null)
           setFollowerCount(counts.targetFollowers);
-
         if (isOwnerSelf && counts?.viewerFollowing != null) {
           setFollowingCount(counts.viewerFollowing);
         }
@@ -232,13 +228,14 @@ export function useFollowController({
     toggle,
     ownerId,
     followersList,
-    viewerLite?.username,
-    viewerLite?.avatar,
+    viewerLite,
     isOwnerSelf,
     getMutualWithOwnerBestEffort,
   ]);
 
-  // 모달 row 토글
+  /**
+   * 리스트 아이템 팔로우 토글
+   */
   const toggleItem = useCallback(
     async (userId: number) => {
       if (!viewerId) return onRequireLogin?.();
@@ -260,29 +257,31 @@ export function useFollowController({
 
         onOptimistic: () => {
           updateViewerFollowFlagInLoadedLists(userId, now);
-
-          if (!isOwnerSelf) return;
-
-          if (now) {
-            followingList.upsertLocal({ ...base, isFollowedByViewer: true });
-            setFollowingCount((c) => Math.max(0, c + 1));
-          } else {
-            followingList.removeLocal(userId);
-            setFollowingCount((c) => Math.max(0, c - 1));
+          // 내 프로필이면 팔로잉 목록/카운트도 즉시 반영
+          if (isOwnerSelf) {
+            if (now) {
+              followingList.upsertLocal({ ...base, isFollowedByViewer: true });
+              setFollowingCount((c) => Math.max(0, c + 1));
+            } else {
+              followingList.removeLocal(userId);
+              setFollowingCount((c) => Math.max(0, c - 1));
+            }
           }
         },
 
         onRollback: () => {
           updateViewerFollowFlagInLoadedLists(userId, was);
-
-          if (!isOwnerSelf) return;
-
-          if (now) {
-            followingList.removeLocal(userId);
-            setFollowingCount((c) => Math.max(0, c - 1));
-          } else {
-            followingList.upsertLocal({ ...base, isFollowedByViewer: true });
-            setFollowingCount((c) => Math.max(0, c + 1));
+          if (isOwnerSelf) {
+            // 롤백 로직 (생략 - 위와 반대)
+            if (now) {
+              // 추가 실패 -> 제거
+              followingList.removeLocal(userId);
+              setFollowingCount((c) => Math.max(0, c - 1));
+            } else {
+              // 삭제 실패 -> 복구
+              followingList.upsertLocal({ ...base, isFollowedByViewer: true });
+              setFollowingCount((c) => Math.max(0, c + 1));
+            }
           }
         },
 
@@ -291,15 +290,9 @@ export function useFollowController({
           counts,
         }) => {
           updateViewerFollowFlagInLoadedLists(userId, serverIsFollowing);
-
-          if (isOwnerSelf) {
-            if (serverIsFollowing) {
-              followingList.upsertLocal({ ...base, isFollowedByViewer: true });
-            } else {
-              followingList.removeLocal(userId);
-            }
-            if (counts?.viewerFollowing != null)
-              setFollowingCount(counts.viewerFollowing);
+          if (isOwnerSelf && counts?.viewerFollowing != null) {
+            setFollowingCount(counts.viewerFollowing);
+            // 목록 정합성도 필요하면 여기서 추가 처리
           }
         },
       });
@@ -314,10 +307,11 @@ export function useFollowController({
     ]
   );
 
-  // 전역 델타 구독
+  // --- Global Event Subscription ---
   useEffect(() => {
     const off = onFollowDelta(
       ({ targetUserId, viewerId: deltaViewerId, delta, server }) => {
+        // 1. 현재 보고 있는 프로필 주인의 팔로워 수/상태 갱신
         if (targetUserId === ownerId) {
           if (server?.counts?.targetFollowers != null)
             setFollowerCount(server.counts.targetFollowers);
@@ -326,11 +320,10 @@ export function useFollowController({
           if (server?.isFollowing != null) setIsFollowing(server.isFollowing);
           else if (delta !== 0) setIsFollowing(delta > 0);
 
-          // "나 row" 동기화는 오직 "내가 일으킨 델타"일 때만 수행한다.
+          // 내가 액션을 취했다면 리스트 내 '나' 항목 갱신
           if (viewerId && deltaViewerId === viewerId) {
             if (delta > 0) {
               const mutual = getMutualWithOwnerBestEffort(viewerId);
-
               followersList.upsertLocal({
                 id: viewerId,
                 username: viewerLite?.username ?? "나",
@@ -344,6 +337,7 @@ export function useFollowController({
           }
         }
 
+        // 2. 내 프로필이라면 내 팔로잉 수 갱신
         if (isOwnerSelf && viewerId && deltaViewerId === viewerId) {
           if (server?.counts?.viewerFollowing != null)
             setFollowingCount(server.counts.viewerFollowing);
@@ -359,8 +353,7 @@ export function useFollowController({
     viewerId,
     isOwnerSelf,
     followersList,
-    viewerLite?.username,
-    viewerLite?.avatar,
+    viewerLite,
     getMutualWithOwnerBestEffort,
   ]);
 
@@ -369,14 +362,11 @@ export function useFollowController({
     followerCount,
     followingCount,
     isPending: isPending(ownerId),
-
     onToggleFollow,
-
     openFollowers,
     openFollowing,
     followersList,
     followingList,
-
     toggleItem,
     isPendingById,
   };

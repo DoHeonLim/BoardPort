@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ProfileHeader.tsx
- * Description : 내/다른 유저 공용 프로필 헤더 — MyProfile 스타일로 통일
+ * Description : 프로필 상단 헤더 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -12,6 +12,7 @@
  * 2025.12.20  임도헌   Modified   rail CTA 지원: followButtonId prop 추가 → FollowSection 버튼 id 주입
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 레이아웃 그리드화, 반응형 사이즈 조정
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -21,7 +22,7 @@ import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import UserRating from "@/features/user/components/profile/UserRating";
 import FollowSection from "@/features/user/components/follow/FollowSection";
-import type { ProfileAverageRating } from "@/types/profile";
+import type { ProfileAverageRating } from "@/features/user/types";
 
 type Props = {
   ownerId: number;
@@ -40,6 +41,14 @@ type Props = {
   followButtonId?: string; // 팔로우 버튼 DOM id(rail에서 클릭 유도용)
 };
 
+/**
+ * 프로필/채널 상단 헤더
+ *
+ * [기능]
+ * 1. 유저 기본 정보(아바타, 이름, 가입일)를 표시합니다.
+ * 2. `FollowSection`을 포함하여 팔로워/팔로잉 통계 및 버튼을 제공합니다.
+ * 3. 반응형 디자인: 화면 크기(sm breakpoint)에 따라 아바타 및 평점 크기를 조절합니다.
+ */
 export default function ProfileHeader({
   ownerId,
   ownerUsername,
@@ -58,26 +67,29 @@ export default function ProfileHeader({
 }: Props) {
   const [isLargeScreen, setIsLargeScreen] = useState(false);
 
+  // 반응형 체크 (sm: 640px 이상)
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 640px)"); // sm breakpoint
+    const mq = window.matchMedia("(min-width: 640px)");
     const apply = () => setIsLargeScreen(mq.matches);
-    apply();
+    apply(); // 초기값 설정
+
+    // 이벤트 리스너 등록
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const avatarSize = isLargeScreen ? "lg" : "md"; // 80px vs 48px
+  const avatarSize = isLargeScreen ? "lg" : "md";
   const ratingSize = isLargeScreen ? "md" : "sm";
 
   return (
     <div className={className}>
       <div className="flex items-start gap-4">
+        {/* 1. 아바타 영역 */}
         <div className="my-auto">
-          {/* 1. 아바타 */}
           <UserAvatar
             avatar={avatarUrl ?? undefined}
             username={ownerUsername}
-            size={avatarSize} // lg or md
+            size={avatarSize}
             showUsername={false}
             disabled
             className="ring-1 ring-border shadow-sm bg-surface shrink-0"
@@ -106,7 +118,7 @@ export default function ProfileHeader({
               />
             </div>
 
-            {/* 2-3. 팔로우 섹션 (여기로 통합!) */}
+            {/* 2-3. 팔로우 섹션 (통계 + 버튼) */}
             <div className="mt-1">
               <FollowSection
                 ownerId={ownerId}
@@ -123,15 +135,12 @@ export default function ProfileHeader({
                 onRequireLogin={onRequireLogin}
                 onFollowingChange={onFollowingChange}
                 followButtonId={followButtonId}
-                // [수정] 간격 조정을 위한 클래스 추가
                 className="gap-x-4 gap-y-2"
               />
             </div>
           </div>
         </div>
       </div>
-
-      {/* 기존 하단 분리된 div는 삭제 */}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/[id]/page
+ * File Name : app/streams/[id]/page.tsx
  * Description : 라이브 스트리밍 개별 페이지 (Broadcast 스키마 기준)
  * Author : 임도헌
  *
@@ -24,31 +24,34 @@
  * 2026.01.02  임도헌   Modified   상세 캐시 wrapper를 base + 태그 주입 방식으로 정리
  * 2026.01.03  임도헌   Modified   getSession() 후 유저 조회를 getUserInfo() → getUserInfoById(session.id)로 변경(중복 세션 조회 제거)
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 배경색 및 레이아웃 조정
+ * 2026.01.29  임도헌   Modified  주석 설명 보강
  */
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
 
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { notFound, redirect } from "next/navigation";
 
 import getSession from "@/lib/session";
-import { getUserInfoById } from "@/features/user/lib/getUserInfo";
-import {
-  getBroadcastDetail,
-  StreamDetailDTO,
-} from "@/features/stream/lib/getBroadcastDetail";
-import { getStreamChatRoom } from "@/features/stream/lib/getStreamChatRoom";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/lib/privateUnlockSession";
-import { checkBroadcastAccess } from "@/features/stream/lib/checkBroadcastAccess";
-import { getInitialStreamMessages } from "@/features/stream/lib/getInitialStreamMessages";
-import type { StreamVisibility } from "@/types/stream";
+import { getUserInfoById } from "@/features/user/service/profile";
+import type { StreamVisibility } from "@/features/stream/types";
 import StreamDetail from "@/features/stream/components/StreamDetail";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import StreamTopbar from "@/features/stream/components/StreamTopBar";
 import StreamMobileChatSection from "@/features/stream/components/StreamMobileChatSection";
+import {
+  getBroadcastDetail,
+  StreamDetailDTO,
+} from "@/features/stream/service/detail";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
+import { checkBroadcastAccess } from "@/features/stream/service/access";
+import {
+  getInitialStreamMessages,
+  getStreamChatRoom,
+} from "@/features/stream/service/chat";
 
-/** base: tags 없는 캐시 함수 */
+// Base Cache Function (Tags 생략)
 const _getCachedBroadcastBase = nextCache(
   getBroadcastDetail,
   ["broadcast-detail-by-id"],
@@ -57,6 +60,19 @@ const _getCachedBroadcastBase = nextCache(
   }
 );
 
+/**
+ * 라이브 방송 상세 페이지
+ *
+ * [기능]
+ * 1. 로그인 세션을 확인합니다.
+ * 2. 방송 정보를 조회하고, 접근 권한(Private/Followers)을 검증합니다.
+ *    - 권한이 없으면 `/403` 페이지로 리다이렉트합니다.
+ * 3. 채팅방 정보 및 초기 메시지를 조회합니다.
+ * 4. 데스크톱(사이드바)과 모바일(하단)에 맞는 채팅 UI를 렌더링합니다.
+ * 5. `StreamDetail` 컴포넌트로 방송 화면 및 정보를 표시합니다.
+ *
+ * @param {Object} params - URL 파라미터 (id: 방송 ID)
+ */
 export default async function StreamDetailPage({
   params,
 }: {
@@ -65,6 +81,7 @@ export default async function StreamDetailPage({
   const broadcastId = Number(params.id);
   if (!Number.isFinite(broadcastId) || broadcastId <= 0) notFound();
 
+  // 방송 상세 조회 (Cached + Tag)
   const getCachedBroadcast = nextCache(
     () => _getCachedBroadcastBase(broadcastId),
     ["broadcast-detail-by-id"],
@@ -89,6 +106,7 @@ export default async function StreamDetailPage({
 
   const isOwner = !!session?.id && session.id === ownerId;
 
+  // 접근 권한 체크
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
     const guard = await checkBroadcastAccess(
@@ -110,6 +128,7 @@ export default async function StreamDetailPage({
     }
   }
 
+  // 채팅방 및 유저 정보 조회
   const [streamChatRoom, user] = await Promise.all([
     getStreamChatRoom(broadcastId),
     getUserInfoById(session.id!),

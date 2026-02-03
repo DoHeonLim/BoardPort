@@ -1,5 +1,5 @@
 /**
- * File Name : app/posts/add/layout
+ * File Name : app/posts/add/layout.tsx
  * Description : 게시글 작성 레이아웃(상단바: 뒤로가기 + 제목)
  * Author : 임도헌
  *
@@ -24,7 +24,7 @@ export default function AddPostLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="mx-auto max-w-3xl h-full flex items-center px-3 sm:px-4 gap-3">
-          <BackButton fallbackHref="/posts" variant="inline" className="px-0" />
+          <BackButton fallbackHref="/posts" variant="appbar" className="px-0" />
           <h1 className="text-base font-semibold text-primary">게시글 작성</h1>
         </div>
       </header>

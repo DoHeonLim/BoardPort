@@ -11,12 +11,13 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.12  임도헌   Modified  [UI] max-width 85%로 확장, 아바타/시간 여백 미세 조정
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import UserAvatar from "@/components/global/UserAvatar";
 import TimeAgo from "@/components/ui/TimeAgo";
-import { ChatUser } from "@/types/chat";
+import { ChatUser } from "@/features/chat/types";
 import { cn } from "@/lib/utils";
 
 interface ChatMessageBubbleProps {
@@ -31,6 +32,11 @@ interface ChatMessageBubbleProps {
   showAvatar: boolean;
 }
 
+/**
+ * 개별 메시지 말풍선
+ * - 본인 메시지는 우측, 상대 메시지는 좌측 정렬
+ * - 시간 및 읽음 확인(1) 표시
+ */
 export default function ChatMessageBubble({
   message,
   isOwnMessage,

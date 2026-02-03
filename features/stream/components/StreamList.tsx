@@ -13,6 +13,7 @@
  * 2026.01.04  임도헌   Modified  팔로우 즉시 반영: followDelta 구독으로 FOLLOWERS 잠금 카드 즉시 갱신
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 개선
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
@@ -20,10 +21,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
-import { getMoreStreams } from "@/app/(tabs)/streams/actions/init";
-import { onFollowDelta } from "@/features/user/lib/follow/followDeltaClient";
+import { onFollowDelta } from "@/features/user/utils/delta";
 import StreamCard from "@/features/stream/components/StreamCard";
-import type { BroadcastSummary } from "@/types/stream";
+import { getMoreStreams } from "@/features/stream/actions/list";
+import type { BroadcastSummary } from "@/features/stream/types";
 
 type Scope = "all" | "following";
 
@@ -36,6 +37,15 @@ interface StreamListProps {
   viewerId?: number | null;
 }
 
+/**
+ * 스트리밍 목록 렌더링 컴포넌트
+ *
+ * [기능]
+ * 1. 초기 방송 목록을 렌더링합니다.
+ * 2. `useInfiniteScroll`을 사용하여 무한 스크롤을 처리합니다.
+ * 3. `onFollowDelta` 이벤트를 구독하여 팔로우 상태 변경 시 해당 카드의 잠금 상태를 즉시 갱신합니다.
+ * 4. 중복 데이터 병합 로직을 통해 리스트 정합성을 유지합니다.
+ */
 export default function StreamList({
   scope,
   searchParams,
@@ -53,7 +63,7 @@ export default function StreamList({
   /**
    * 검색 파라미터/초기값 변경 시 리스트 상태 리셋
    * - page.tsx에서 key={JSON.stringify(searchParams)}로 리마운트를 유도하고 있지만,
-   *   혹시나 재사용되는 경우에도 안전하게 동작하도록 방어적으로 유지한다.
+   *   혹시나 재사용되는 경우에도 안전하게 동작하도록 방어적으로 유지합니다.
    */
   useEffect(() => {
     setItems(initialItems);
@@ -66,7 +76,7 @@ export default function StreamList({
    * 팔로우 즉시 반영(리스트):
    * - FollowSection이 아닌 곳에서는 followersOnlyLocked가 서버 플래그로만 남기 쉬움.
    * - 같은 탭에서 내가 팔로우/언팔한 결과를 followDelta로 구독해
-   *   해당 스트리머의 FOLLOWERS 방송 카드 잠금을 즉시 갱신한다.
+   *   해당 스트리머의 FOLLOWERS 방송 카드 잠금을 즉시 갱신합니다.
    */
   useEffect(() => {
     if (!viewerId) return;
@@ -179,12 +189,7 @@ export default function StreamList({
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {items.map((s) => {
-          const tags =
-            Array.isArray(s.tags) && s.tags.length > 0
-              ? typeof (s.tags as any)[0] === "string"
-                ? (s.tags as any).map((name: string) => ({ name }))
-                : s.tags
-              : [];
+          const tags = s.tags ?? [];
 
           return (
             <StreamCard
@@ -199,7 +204,7 @@ export default function StreamList({
               }}
               startedAt={s.started_at}
               category={s.category}
-              tags={tags as { name: string }[]}
+              tags={tags}
               requiresPassword={s.requiresPassword}
               isFollowersOnly={s.visibility === "FOLLOWERS"}
               followersOnlyLocked={s.followersOnlyLocked}

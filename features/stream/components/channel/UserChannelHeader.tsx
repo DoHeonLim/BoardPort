@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/channel/UserChannelHeader.tsx
- * Description : 유저 방송국 상단 헤더 (FollowSection 포함)
+ * Description : 방송국 헤더 (프로필 + 팔로우 섹션)
  * Author : 임도헌
  *
  * History
@@ -10,6 +10,7 @@
  * 2025.11.10  임도헌   Modified  변경된 FollowSection에 맞게 수정
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -34,6 +35,13 @@ interface Props {
   onFollowingChange?: (now: boolean) => void;
 }
 
+/**
+ * 방송국 상단 헤더 컴포넌트
+ *
+ * - 스트리머의 프로필 정보(아바타, 이름)를 표시합니다.
+ * - `FollowSection`을 포함하여 팔로워 수/팔로우 버튼을 제공합니다.
+ * - 일반 프로필 페이지로 이동하는 링크를 제공합니다.
+ */
 export default function UserChannelHeader({
   ownerId,
   username,

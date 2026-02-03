@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/products/add/loading
+ * File Name : app/(tabs)/products/add/loading.tsx
  * Description : 제품 등록 페이지 로딩 스켈레톤
  * Author : 임도헌
  *

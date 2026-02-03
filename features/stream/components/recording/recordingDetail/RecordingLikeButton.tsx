@@ -18,7 +18,7 @@ import { useEffect, useState, useTransition } from "react";
 import {
   likeRecording,
   dislikeRecording,
-} from "@/app/streams/[id]/recording/actions/likes";
+} from "@/features/stream/actions/likes";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -30,13 +30,20 @@ interface RecordingLikeButtonProps {
   vodId: number;
 }
 
+/**
+ * 녹화본 좋아요 버튼 컴포넌트
+ * - 낙관적 업데이트(Optimistic UI)를 적용하여 즉각적인 반응을 제공합니다.
+ * - 서버 액션 실패 시 상태를 롤백합니다.
+ */
 export default function RecordingLikeButton({
   isLiked,
   likeCount,
   vodId,
 }: RecordingLikeButtonProps) {
+  // 로컬 상태 (낙관적 업데이트용)
   const [local, setLocal] = useState({ isLiked, likeCount });
 
+  // Props 변경 시 동기화
   useEffect(() => {
     setLocal({ isLiked, likeCount });
   }, [isLiked, likeCount]);
@@ -62,7 +69,6 @@ export default function RecordingLikeButton({
 
         if (res && "success" in res) {
           if (res.success) {
-            // 서버 응답으로 동기화 (필요시)
             setLocal({ isLiked: res.isLiked, likeCount: res.likeCount });
             toast.success(
               optimistic.isLiked ? "좋아요를 눌렀습니다." : "좋아요 취소"

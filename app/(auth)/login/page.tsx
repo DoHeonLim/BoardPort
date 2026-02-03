@@ -1,5 +1,5 @@
 /**
- * File Name : app/(auth)/login/page
+ * File Name : app/(auth)/login/page.tsx
  * Description : 로그인 페이지
  * Author : 임도헌
  *
@@ -12,19 +12,32 @@
  * 2024.12.24  임도헌   Modified  스타일 변경
  * 2025.04.29  임도헌   Modified  UI 수정
  * 2025.12.09  임도헌   Modified  callbackUrl sanitize 적용
- * 2026.01.10  임도헌   Modified  [Philosophy] Harbor Minimalism Theme 적용
+ * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 
-import LoginForm from "@/features/auth/components/form/LoginForm";
-import { sanitizeCallbackUrl } from "@/features/auth/lib/safeRedirect";
 import { LifebuoyIcon } from "@heroicons/react/24/outline";
+import LoginForm from "@/features/auth/components/form/LoginForm";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
+/**
+ * 로그인 페이지 컴포넌트
+ *
+ * - `callbackUrl` 쿼리 파라미터를 받아 로그인 후 이동할 경로를 결정합니다.
+ * - `sanitizeCallbackUrl`을 통해 외부 도메인이나 악성 스크립트가 포함된 URL을 내부 경로로 정화합니다.
+ * - 로그인 폼(`LoginForm`)을 렌더링합니다.
+ *
+ * @param {Object} searchParams - URL 쿼리 파라미터
+ * @param {string} searchParams.callbackUrl - 로그인 후 이동할 경로 (Optional)
+ */
 export default function LoginPage({
   searchParams,
 }: {
   searchParams?: { callbackUrl?: string };
 }) {
   const raw = searchParams?.callbackUrl ?? "/profile";
+
+  // Open Redirect 방지: 외부 도메인이나 악성 스크립트가 포함된 URL을 내부 경로로 정화
   const callbackUrl = sanitizeCallbackUrl(raw);
 
   return (

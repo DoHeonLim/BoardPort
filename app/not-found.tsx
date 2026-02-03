@@ -1,5 +1,5 @@
 /**
- * File Name : app/not-found
+ * File Name : app/not-found.tsx
  * Description : 전역 404 Not Found 페이지 (보드포트 컨셉)
  * Author : 임도헌
  *

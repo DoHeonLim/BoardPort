@@ -1,16 +1,16 @@
 /**
- File Name : app/(tabs)/products/@modal/(..)products/view/[id]/not-found
- Description : 모달 제품 상세 페이지 Not Found UI
- Author : 임도헌
- 
- History
- Date        Author   Status    Description
- 2024.11.05  임도헌   Created
- 2024.11.05  임도헌   Modified  notFound 페이지 추가
- 2025.06.08  임도헌   Modified  상세 페이지 Not Found UI 추가
- 2025.06.08  임도헌   Modified  모달 제품 상세 페이지 Not Found UI 공통 컴포넌트 적용
- 2025.06.12  임도헌   Modified  app/(tabs)/products/@modal/(..)products/view/[id]/not-found 로 이동
- 2026.01.11  임도헌   Modified  시맨틱 토큰 적용 및 모달 스타일의 NotFound 페이지로 변경
+ * File Name : app/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx
+ * Description : 모달 제품 상세 페이지 Not Found UI
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.11.05  임도헌   Created
+ * 2024.11.05  임도헌   Modified  notFound 페이지 추가
+ * 2025.06.08  임도헌   Modified  상세 페이지 Not Found UI 추가
+ * 2025.06.08  임도헌   Modified  모달 제품 상세 페이지 Not Found UI 공통 컴포넌트 적용
+ * 2025.06.12  임도헌   Modified  app/(tabs)/products/@modal/(..)products/view/[id]/not-found 로 이동
+ * 2026.01.11  임도헌   Modified  시맨틱 토큰 적용 및 모달 스타일의 NotFound 페이지로 변경
  */
 "use client";
 

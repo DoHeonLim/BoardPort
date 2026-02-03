@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/filters/CategoryFilter.tsx
- * Description : 카테고리 필터 (대분류/소분류)
+ * Description : 카테고리(대분류/소분류) 필터 Select
  * Author : 임도헌
  *
  * History

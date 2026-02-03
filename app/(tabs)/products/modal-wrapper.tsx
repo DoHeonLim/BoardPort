@@ -1,14 +1,14 @@
 /**
-File Name : app/(tabs)/products/modal-wrapper
-Description : 제품 모달 레이아웃
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2025.05.05  임도헌   Created
-2025.05.05  임도헌   Modified  제품 모달 레이아웃 추가
-2025.06.08  임도헌   Modified  제품 모달 레이아웃 수정
-*/
+ * File Name : app/(tabs)/products/modal-wrapper.tsx
+ * Description : 제품 모달 레이아웃
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.05.05  임도헌   Created
+ * 2025.05.05  임도헌   Modified  제품 모달 레이아웃 추가
+ * 2025.06.08  임도헌   Modified  제품 모달 레이아웃 수정
+ */
 "use client";
 
 import { usePathname } from "next/navigation";

@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/components/form/SmsForm.tsx
- * Description : 유저 SMS 로그인 폼 컴포넌트
+ * Description : SMS 로그인/인증 폼 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -12,30 +12,37 @@
  * 2025.12.12  임도헌   Modified  서버 액션(success/error) 구조에 맞춰 에러 표시 로직 정리
  * 2026.01.10  임도헌   Modified  시맨틱 토큰 & 아이콘 적용
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
+ * 2026.01.20  임도헌   Modified  ActionState 타입 대응 (result.success 체크)
+ * 2026.01.25  임도헌   Modified  주석 보강
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
 // react-hook-form은 zodResolver에서 z.object({}) 구조만 허용
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useTransition } from "react";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import { sendPhoneToken, verifyPhoneToken } from "@/app/(auth)/sms/actions";
-import { phoneSchema, tokenSchema } from "@/features/auth/lib/sms/smsSchema";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import {
-  DevicePhoneMobileIcon,
   ChatBubbleBottomCenterTextIcon,
+  DevicePhoneMobileIcon,
 } from "@heroicons/react/24/solid";
+import { phoneSchema, tokenSchema } from "@/features/auth/schemas/sms";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { sendPhoneToken, verifyPhoneToken } from "@/features/auth/actions/sms";
 
 type Phase = "phone" | "token";
 type FormValues = { phone?: string; token?: string };
 
+/**
+ * SMS 로그인/인증 폼
+ * - Phase 1: 전화번호 입력 및 인증번호 발송 요청
+ * - Phase 2: 인증번호 입력 및 검증 (로그인)
+ */
 export default function SmsForm() {
   const [phase, setPhase] = useState<Phase>("phone");
   const [phone, setPhone] = useState<string | null>(null);
@@ -43,7 +50,7 @@ export default function SmsForm() {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // 동적 스키마 적용
+  // 단계별 동적 스키마 적용 (Phase 1: Phone, Phase 2: Token)
   const schema = z.object(
     phase === "phone" ? { phone: phoneSchema } : { token: tokenSchema }
   );
@@ -68,13 +75,13 @@ export default function SmsForm() {
         formData.append("phone", data.phone);
         const res = await sendPhoneToken(formData);
 
-        if (res?.error) {
-          setFormError(res.error);
+        if (!res.success) {
+          setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
         } else {
           setPhone(data.phone);
-          setPhase("token");
+          setPhase("token"); // 다음 단계로 전환
           toast.success("인증번호가 발송되었습니다. 📨");
-          reset(); // 인풋 초기화 (인증번호 입력 위해)
+          reset(); // 입력 필드 초기화 (토큰 입력 준비)
         }
       }
 
@@ -85,8 +92,8 @@ export default function SmsForm() {
         formData.append("phone", phone);
         const res = await verifyPhoneToken(formData);
 
-        if (res?.error) {
-          setFormError(res.error);
+        if (!res.success) {
+          setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
         } else {
           toast.success("인증 성공! 항해를 시작합니다. ⚓");
           router.push("/profile");
@@ -95,17 +102,14 @@ export default function SmsForm() {
     });
   };
 
-  // 에러 메시지 병합 (React Hook Form 에러 + 서버 에러)
-  const phoneError = errors.phone?.message
-    ? [errors.phone.message]
-    : formError && phase === "phone"
-      ? [formError]
-      : [];
-  const tokenError = errors.token?.message
-    ? [errors.token.message]
-    : formError && phase === "token"
-      ? [formError]
-      : [];
+  const getErrorMsg = (fieldError: string | undefined, phaseError: boolean) => {
+    if (fieldError) return [fieldError];
+    if (phaseError && formError) return [formError];
+    return [];
+  };
+
+  const phoneError = getErrorMsg(errors.phone?.message, phase === "phone");
+  const tokenError = getErrorMsg(errors.token?.message, phase === "token");
 
   return (
     <form
@@ -127,7 +131,6 @@ export default function SmsForm() {
       ) : (
         <div className="flex flex-col gap-form-gap animate-fade-in">
           <div className="text-sm text-center text-muted mb-2">
-            {/* [수정] 강조 텍스트 다크모드 대응 */}
             <span className="font-semibold text-brand dark:text-brand-light">
               {phone}
             </span>

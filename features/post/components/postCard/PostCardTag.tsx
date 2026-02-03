@@ -8,16 +8,23 @@
  * 2025.07.04  임도헌   Created   Tags 분리 및 축약
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강
  */
 
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { PostTag } from "@/features/post/types";
 
 interface PostCardTagsProps {
-  tags: { name: string }[];
+  tags: PostTag[];
 }
 
+/**
+ * 게시글 태그를 표시합니다.
+ * 최대 2개까지만 보여주고, 나머지는 "+N" 형태로 축약합니다.
+ * (카드 내 공간 효율을 위해 제한)
+ */
 export default function PostCardTags({ tags }: PostCardTagsProps) {
   if (!tags.length) return null;
 

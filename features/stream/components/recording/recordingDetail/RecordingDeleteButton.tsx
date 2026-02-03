@@ -9,7 +9,6 @@
  * 2026.01.14  임도헌   Modified  [UI] ConfirmDialog 연동 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  */
-
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -19,13 +18,16 @@ import { cn } from "@/lib/utils";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 
 interface RecordingDeleteButtonProps {
-  /** Broadcast id */
   broadcastId: number;
-  /** Cloudflare LiveInput UID */
   liveInputUid: string;
   username: string;
 }
 
+/**
+ * 녹화본 삭제 버튼
+ * - 클릭 시 삭제 확인 다이얼로그(`ConfirmDialog`)를 띄웁니다.
+ * - 확인 시 삭제 API를 호출하고 채널 페이지로 이동합니다.
+ */
 export default function RecordingDeleteButton({
   broadcastId,
   liveInputUid,

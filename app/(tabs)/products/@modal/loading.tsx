@@ -1,14 +1,14 @@
 /**
-File Name : app/(tabs)/products/@modal/loading
-Description : 모달 loading 파일
-Author : 임도헌
-
-History
-Date        Author   Status    Description
-2024.10.22  임도헌   Created
-2024.10.22  임도헌   Modified  loading 추가
-2025.06.08  임도헌   Created   모달 로딩 시 기본 백드롭 적용
-*/
+ * File Name : app/(tabs)/products/@modal/loading.tsx
+ * Description : 모달 loading 파일
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.22  임도헌   Created
+ * 2024.10.22  임도헌   Modified  loading 추가
+ * 2025.06.08  임도헌   Created   모달 로딩 시 기본 백드롭 적용
+ */
 
 export default function Loading() {
   return (

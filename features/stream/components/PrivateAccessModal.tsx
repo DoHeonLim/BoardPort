@@ -15,26 +15,32 @@
  * 2026.01.03  임도헌   Modified  actions/private 제거: 모달에서 lib/stream/unlockPrivateBroadcast 직접 호출로 단순화
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { unlockPrivateBroadcast } from "@/features/stream/lib/unlockPrivateBroadcast";
-import { unlockErrorMessage } from "@/types/stream";
+import { unlockPrivateBroadcastAction } from "@/features/stream/actions/access";
+import { unlockErrorMessage } from "@/features/stream/types";
 import { cn } from "@/lib/utils";
 
 interface PrivateAccessModalProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   streamId: number;
-  /** 성공 시 이동할 경로(옵션). 없으면 상세(`/streams/{id}`)로 이동 */
   redirectHref?: string;
-  /** 성공 시 추가 작업(옵션). redirect 전에 호출 */
   onSuccess?: () => void;
 }
 
+/**
+ * 비공개 방송 접근을 위한 비밀번호 입력 모달
+ *
+ * - 비밀번호 검증 서버 액션(`unlockPrivateBroadcastAction`) 호출
+ * - 성공 시 세션에 언락 정보 저장 및 리다이렉트
+ * - 에러 코드별 적절한 메시지 표시 또는 로그인 페이지 이동
+ */
 export default function PrivateAccessModal({
   open,
   onOpenChange,
@@ -120,11 +126,11 @@ export default function PrivateAccessModal({
     setError("");
 
     startTransition(async () => {
-      const res = await unlockPrivateBroadcast(streamId, pwd);
+      const res = await unlockPrivateBroadcastAction(streamId, pwd);
 
       if (!res.success) {
         const code = res.error;
-        const msg = unlockErrorMessage[code] ?? "접근에 실패했습니다.";
+        const msg = code ? unlockErrorMessage[code] : "접근에 실패했습니다.";
 
         switch (code) {
           case "NOT_LOGGED_IN": {

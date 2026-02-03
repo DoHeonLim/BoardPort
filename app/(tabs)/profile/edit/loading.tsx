@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/profile/edit/loading
+ * File Name : app/(tabs)/profile/edit/loading.tsx
  * Description : 프로필 수정 페이지 로딩 스켈레톤
  * Author : 임도헌
  *

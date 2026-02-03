@@ -9,41 +9,59 @@
  * 2025.09.10  임도헌   Modified  getUploadUrl 유니온 분기 처리로 TS 에러 해결 + File 타입 가드
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 Select 컴포넌트 교체
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.01  임도헌   Modified  Prop rename: onSubmit -> action
+ */
+/**
+ * File Name : features/post/components/PostForm.tsx
+ * Description : 게시글 작성/수정 공통 폼
+ * Author : 임도헌
+ *
+ * History
+ * 2025.07.04  임도헌   Created
+ * 2026.01.24  임도헌   Modified  주석 표준화 및 타입 Import 수정
  */
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
-import Link from "next/link";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { useState, useEffect } from "react";
-import { useImageUpload } from "@/hooks/useImageUpload";
-import ImageUploader from "@/components/global/ImageUploader";
 import TagInput from "@/components/ui/TagInput";
-import { POST_CATEGORY } from "@/lib/constants";
-import { getUploadUrl } from "@/lib/cloudflareImages";
-import { useRouter } from "next/navigation";
-import {
-  postFormSchema,
-  PostFormValues,
-} from "@/features/post/lib/postFormSchema";
+import ImageUploader from "@/components/global/ImageUploader";
 import { toast } from "sonner";
+import { useImageUpload } from "@/hooks/useImageUpload";
+import { POST_CATEGORY } from "@/features/post/constants";
+import { getUploadUrl } from "@/lib/cloudflareImages";
+import { postFormSchema, PostFormValues } from "@/features/post/schemas";
+import type { PostActionResponse } from "@/features/post/types";
 
 interface PostFormProps {
   initialValues?: PostFormValues & { id?: number };
-  onSubmit: (
-    formData: FormData
-  ) => Promise<{ success: boolean; postId?: number; error?: string }>;
+  action: (formData: FormData) => Promise<PostActionResponse>;
   backUrl: string;
   submitLabel?: string;
   isEdit?: boolean;
 }
 
+/**
+ * 게시글 작성/수정 폼
+ *
+ * [기능]
+ * 1. 이미지 업로드 (최대 5장, Cloudflare Images)
+ * 2. 카테고리 선택 및 태그 입력
+ * 3. 게시글 제목/내용 입력 및 Zod 검증
+ * 4. 폼 제출 및 서버 액션 호출 (성공 시 상세 페이지 이동)
+ *
+ * @param {PostFormProps} props - 초기값, 액션 핸들러, 모드 설정 등
+ */
 export default function PostForm({
   initialValues,
-  onSubmit,
+  action,
   backUrl,
   submitLabel = "작성 완료",
   isEdit = false,
@@ -104,6 +122,7 @@ export default function PostForm({
       const newFiles = files.filter((f): f is File => f instanceof File);
       const uploadedPhotoUrls: string[] = [];
 
+      // 1. 신규 이미지 업로드
       if (newFiles.length > 0) {
         const uploadPromises = newFiles.map(async (file) => {
           const res = await getUploadUrl();
@@ -130,6 +149,7 @@ export default function PostForm({
         uploadedPhotoUrls.push(...urls);
       }
 
+      // 2. 최종 이미지 URL 조합 (기존 + 신규)
       const allPhotoUrls = previews
         .map((preview) => {
           if (preview.includes("imagedelivery.net")) {
@@ -144,6 +164,7 @@ export default function PostForm({
         })
         .filter(Boolean);
 
+      // 3. 서버 액션 호출
       const formData = new FormData();
       if (isEdit && initialValues?.id) {
         formData.append("id", initialValues.id.toString());
@@ -154,7 +175,7 @@ export default function PostForm({
       data.tags?.forEach((tag) => formData.append("tags[]", tag));
       allPhotoUrls.forEach((url) => formData.append("photos[]", url));
 
-      const result = await onSubmit(formData);
+      const result = await action(formData);
 
       if (result.success && result.postId) {
         toast.success(

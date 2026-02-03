@@ -10,6 +10,7 @@
  * 2025.08.05  임도헌   Modified  RecordingCommentDeleteButton 적용
  * 2026.01.14  임도헌   Modified  Compact 레이아웃 및 forwardRef 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -18,13 +19,20 @@ import { motion } from "framer-motion";
 import UserAvatar from "@/components/global/UserAvatar";
 import TimeAgo from "@/components/ui/TimeAgo";
 import RecordingCommentDeleteButton from "@/features/stream/components/recording/recordingComment/RecordingCommentDeleteButton";
-import { StreamComment } from "@/types/stream";
+import { StreamComment } from "@/features/stream/types";
 
 interface RecordingCommentItemProps {
   comment: StreamComment;
   currentUserId: number;
 }
 
+/**
+ * 개별 댓글 아이템
+ *
+ * - 작성자 정보, 시간, 내용을 표시합니다.
+ * - 본인이 작성한 댓글일 경우 삭제 버튼을 노출합니다.
+ * - `AnimatePresence` 동작을 위해 `forwardRef`를 사용합니다.
+ */
 const RecordingCommentItem = forwardRef<
   HTMLDivElement,
   RecordingCommentItemProps

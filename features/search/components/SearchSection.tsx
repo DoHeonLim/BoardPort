@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/SearchSection.tsx
- * Description : 검색 섹션 컴포넌트
+ * Description : 검색 섹션 메인 컴포넌트 (검색바 + 필터 칩 + 모달 제어)
  * Author : 임도헌
  *
  * History
@@ -19,32 +19,46 @@
  * 2025.06.21  임도헌   Modified  SearchModal 컴포넌트로 모달 구조 분리
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 스타일 및 다크모드 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.20  임도헌   Modified  타입 경로 수정 및 Import 정렬
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
-import type { Category } from "@/generated/prisma/client";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useSearchContext } from "@/components/global/providers/SearchProvider";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSearchHistory } from "@/features/search/hooks/useSearchHistory";
 import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
-import type {
-  UserSearchHistoryItem,
-  PopularSearchItem,
-} from "@/app/(tabs)/products/actions/history";
 import ProductCategoryDropdown from "@/features/search/components/ProductCategoryDropdown";
 import SearchChips from "@/features/search/components/SearchChips";
 import SearchModal from "@/features/search/components/SearchModal";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import type { Category } from "@/generated/prisma/client";
+import type {
+  SearchHistoryItem,
+  PopularSearchItem,
+} from "@/features/product/types";
 
 interface SearchSectionProps {
   categories: Category[];
   keyword: string | undefined;
-  searchHistory: UserSearchHistoryItem[];
+  searchHistory: SearchHistoryItem[];
   popularSearches: PopularSearchItem[];
   basePath: string;
 }
 
+/**
+ * 검색 섹션 컨테이너
+ *
+ * [구조]
+ * 1. 상단 바: 카테고리 드롭다운 + 검색 트리거 버튼
+ * 2. 필터 칩 영역: 현재 적용된 필터를 보여주고 삭제 기능 제공
+ * 3. 검색 모달: 검색어 입력, 최근 검색어, 인기 검색어 표시
+ *
+ * [동작]
+ * - 검색 트리거 버튼 클릭 시 `SearchModal`이 열립니다.
+ * - 모달에서 검색어를 입력하거나 기록을 클릭하면 `handleSearch`가 호출되어 URL을 업데이트합니다.
+ */
 export default function SearchSection({
   categories,
   keyword,
@@ -72,7 +86,7 @@ export default function SearchSection({
 
   return (
     <div className="bg-background transition-colors">
-      {/* 상단 바 (검색 트리거) */}
+      {/* 1. 상단 바 (검색 트리거) */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <ProductCategoryDropdown
           categories={categories}
@@ -102,7 +116,7 @@ export default function SearchSection({
         </div>
       </div>
 
-      {/* 필터 칩 (검색창이 닫혀있을 때만 노출) */}
+      {/* 2. 필터 칩 (검색창이 닫혀있을 때만 노출) */}
       <div
         className={cn(
           "transition-all duration-300 ease-in-out overflow-hidden",
@@ -116,11 +130,11 @@ export default function SearchSection({
           removeParam={removeParam}
           removeParams={removeParams}
           closeSearch={() => setIsSearchOpen(false)}
-          className="p-4" // 패딩 조정
+          className="p-4"
         />
       </div>
 
-      {/* 검색 모달 (Overlay) */}
+      {/* 3. 검색 모달 (Overlay) */}
       <SearchModal
         isOpen={isSearchOpen}
         isMobile={isMobile}

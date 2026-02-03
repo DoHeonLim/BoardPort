@@ -19,61 +19,46 @@
  * 2026.01.06  임도헌   Modified  rollback 기준을 delta가 아닌 SSOT(isFollowing)로 단순화(SSOT 확정 후 되돌림 방지)
  * 2026.01.16  임도헌   Moved     hooks -> hooks/user
  * 2026.01.18  임도헌   Moved     hooks/user -> features/user/hooks
+ * 2026.01.24  임도헌   Modified  Server Action 전환 (API Route 제거)
  */
 
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { emitFollowDelta } from "@/features/user/lib/follow/followDeltaClient";
+import { emitFollowDelta } from "@/features/user/utils/delta";
 import { toast } from "sonner";
+import { toggleFollowAction } from "@/features/user/actions/follow";
 
 type Counts = { viewerFollowing?: number; targetFollowers?: number };
 
 type Opts = {
   viewerId?: number | null;
-
-  /** 낙관 업데이트(선택): 호출자가 헤더/리스트를 즉시 바꾸고 싶을 때 사용 */
   onOptimistic?(): void;
-  /** 롤백(선택): 네트워크/서버 오류 또는 "낙관 결과가 서버 SSOT와 다를 때"만 호출 */
   onRollback?(): void;
-
-  /** 기본 false: 모달 UX 보호(스크롤/포커스/무한스크롤 상태 유지). 필요 시 상위에서만 true */
-  refresh?: boolean;
-
+  refresh?: boolean; // 성공 후 router.refresh() 여부
   onRequireLogin?(): void;
-
-  /**
-   * 카운트 변화(선택):
-   * - 서버 delta를 그대로 전달한다(멱등/경합이면 0)
-   * - 호출자는 이 delta를 기반으로 followerCount/followersList 등을 업데이트한다.
-   */
   onFollowersChange?(delta: number): void;
-
-  /**
-   * 낙관 결과(선택):
-   * - 호출자가 전달하지 않으면 기본은 "!isFollowingNow"로 간주한다.
-   * - 서버 SSOT(isFollowing)와 다를 때만 rollback을 호출한다.
-   */
   optimisticNextIsFollowing?: boolean;
-
-  /** 서버 기준 정합성 보정(선택) */
   onReconcileServerState?(payload: {
     isFollowing: boolean;
     counts?: Counts;
   }): void;
 };
 
-async function readJSON(r: Response) {
-  try {
-    return await r.json();
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * 팔로우/언팔로우 토글 훅
+ *
+ * [기능]
+ * 1. 팔로우/언팔로우 API를 호출하고, 결과를 처리합니다.
+ * 2. 낙관적 업데이트(Optimistic Update)를 지원하여 UI 반응성을 높입니다.
+ * 3. 실패 시 롤백(Rollback) 로직을 수행합니다.
+ * 4. 성공 시 `emitFollowDelta` 이벤트를 발행하여 전역 상태(다른 컴포넌트)를 동기화합니다.
+ * 5. 중복 요청 방지(Pending 상태 관리)를 수행합니다.
+ */
 export function useFollowToggle() {
   const router = useRouter();
+  // 중복 요청 방지 (ID별)
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
 
   const setPending = useCallback((userId: number, v: boolean) => {
@@ -90,117 +75,80 @@ export function useFollowToggle() {
     [pendingIds]
   );
 
-  const doFollow = useCallback(async (userId: number) => {
-    const r = await fetch(`/api/users/${userId}/follow`, {
-      method: "POST",
-      cache: "no-store",
-    });
-    if (r.status === 401) return { auth: false, delta: 0 as number };
-    if (!r.ok) throw new Error(`FOLLOW_FAILED(${r.status})`);
-    const data = await readJSON(r);
-    return {
-      auth: true,
-      delta: Number(data?.delta ?? 0),
-      isFollowing: !!data?.isFollowing,
-      counts: data?.counts as Counts | undefined,
-    };
-  }, []);
-
-  const doUnfollow = useCallback(async (userId: number) => {
-    const r = await fetch(`/api/users/${userId}/follow`, {
-      method: "DELETE",
-      cache: "no-store",
-    });
-    if (r.status === 401) return { auth: false, delta: 0 as number };
-    if (!r.ok) throw new Error(`UNFOLLOW_FAILED(${r.status})`);
-    const data = await readJSON(r);
-    return {
-      auth: true,
-      delta: Number(data?.delta ?? 0),
-      isFollowing: !!data?.isFollowing,
-      counts: data?.counts as Counts | undefined,
-    };
-  }, []);
-
+  /**
+   * 팔로우 상태 토글
+   */
   const toggle = useCallback(
     async (userId: number, isFollowingNow: boolean, opts?: Opts) => {
-      // 같은 대상(userId)에 대한 동시 요청을 막아 "중복 클릭/경합"을 최소화한다.
       if (isPending(userId)) return;
       setPending(userId, true);
 
-      // 낙관 결과:
-      // - 호출자가 명시하지 않으면 "현재 상태의 반대"라고 가정한다.
+      // 낙관적 상태 계산
       const optimisticNext =
         typeof opts?.optimisticNextIsFollowing === "boolean"
           ? opts.optimisticNextIsFollowing
           : !isFollowingNow;
 
-      // 낙관 업데이트(선택)
+      // 1. UI 즉시 반영 (Optimistic)
       opts?.onOptimistic?.();
 
       try {
-        const { auth, delta, isFollowing, counts } = isFollowingNow
-          ? await doUnfollow(userId)
-          : await doFollow(userId);
+        const intent = isFollowingNow ? "unfollow" : "follow";
 
-        if (!auth) {
-          // 401: 낙관 상태 원복 + 상위에서 로그인 유도
-          opts?.onRollback?.();
-          opts?.onRequireLogin?.();
-          toast.error("로그인이 필요합니다.");
+        // 2. 서버 요청
+        const res = await toggleFollowAction(userId, intent);
+
+        if (!res.success) {
+          if (res.code === "UNAUTHORIZED") {
+            opts?.onRollback?.();
+            opts?.onRequireLogin?.();
+            toast.error("로그인이 필요합니다.");
+          } else {
+            throw new Error(res.error);
+          }
           return;
         }
 
-        const serverIsFollowing = !!isFollowing;
+        const { changed, delta, isFollowing, counts } = res;
 
-        // Step 1) 서버 delta 기반 사용자 피드백/로컬 카운트 반영
-        if (delta > 0) toast.success("팔로우 했습니다.");
-        else if (delta < 0) toast.success("언팔로우 했습니다.");
-        else {
-          // 멱등: 상황에 맞게 안내(선택)
+        // 3. 결과 알림
+        if (changed) {
+          toast.success(
+            intent === "follow" ? "팔로우 했습니다." : "언팔로우 했습니다."
+          );
+        } else {
+          // 이미 상태가 변경된 경우 (멱등성)
           toast(
-            serverIsFollowing
-              ? "이미 팔로우 중입니다."
-              : "이미 언팔로우 상태입니다."
+            isFollowing ? "이미 팔로우 중입니다." : "이미 언팔로우 상태입니다."
           );
         }
+
+        // 4. 콜백 호출 (카운트 갱신 등)
         opts?.onFollowersChange?.(delta);
+        opts?.onReconcileServerState?.({ isFollowing, counts });
 
-        // Step 2) SSOT로 최종 확정(항상)
-        opts?.onReconcileServerState?.({
-          isFollowing: serverIsFollowing,
-          counts,
-        });
-
-        // Step 3) 롤백(필요할 때만):
-        // - delta가 아니라 "서버 SSOT vs 낙관 결과"로 판단한다.
-        // - SSOT 확정 후 rollback이 상태를 다시 뒤집는 일을 방지한다.
-        if (serverIsFollowing !== optimisticNext) {
+        // 낙관적 결과와 서버 결과가 다르면 롤백
+        if (isFollowing !== optimisticNext) {
           opts?.onRollback?.();
         }
 
-        // Step 4) 전역 델타 이벤트 발행(성공 흐름에서 1회)
+        // 5. 전역 이벤트 발행 (다른 컴포넌트 동기화)
         emitFollowDelta({
           targetUserId: userId,
           viewerId: opts?.viewerId ?? null,
-          delta: (delta > 0 ? 1 : delta < 0 ? -1 : 0) as 1 | -1 | 0,
-          server: { isFollowing: serverIsFollowing, counts },
+          delta: delta as 1 | -1 | 0,
+          server: { isFollowing, counts },
         });
       } catch (e) {
         console.error(e);
-        // 네트워크/서버 오류: 낙관 상태 원복
-        opts?.onRollback?.();
+        opts?.onRollback?.(); // 에러 시 롤백
         toast.error("요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
         setPending(userId, false);
-
-        // refresh:
-        // - 기본 false(모달 UX 보호)
-        // - 필요 시 상위(헤더 단독 화면)에서만 opt-in
         if (opts?.refresh === true) router.refresh();
       }
     },
-    [doFollow, doUnfollow, isPending, router, setPending]
+    [isPending, router, setPending]
   );
 
   const follow = useCallback(

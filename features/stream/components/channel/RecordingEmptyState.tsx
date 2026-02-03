@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/channel/RecordingEmptyState.tsx
- * Description : 다시보기 비어있을 때 보여줄 카드형 빈 상태
+ * Description : 녹화본 없음 빈 상태 UI
  * Author : 임도헌
  *
  * History
@@ -9,22 +9,27 @@
  * 2025.08.10  임도헌   Modified  팔로우 상태일 경우 CTA 버튼 숨김
  * 2026.01.14  임도헌   Modified  [UI] 공통 Empty State 스타일 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 
 "use client";
 
 import Link from "next/link";
 import { VideoCameraSlashIcon } from "@heroicons/react/24/outline";
+import { ViewerRole } from "@/features/stream/types";
 import { cn } from "@/lib/utils";
 
-type Role = "OWNER" | "FOLLOWER" | "VISITOR";
-
+/**
+ * 녹화본 목록이 비어있을 때 표시되는 UI
+ * - 소유자(Owner)에게는 방송 시작 버튼을 노출합니다.
+ * - 방문자(Visitor)에게는 팔로우 버튼을 노출합니다.
+ */
 export default function RecordingEmptyState({
   role,
   isFollowing,
   onFollow,
 }: {
-  role: Role;
+  role: ViewerRole;
   isFollowing?: boolean;
   onFollow?: () => void;
 }) {

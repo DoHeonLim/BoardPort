@@ -1,5 +1,5 @@
 /**
- * File Name : app/posts/[id]/edit/layout
+ * File Name : app/posts/[id]/edit/layout.tsx
  * Description : 게시글 편집 레이아웃(상단 공통 BackHeader + 컨테이너)
  * Author : 임도헌
  *
@@ -36,7 +36,7 @@ export default function EditPostLayout({
         <div className="mx-auto max-w-3xl h-full flex items-center px-3 sm:px-4 gap-3">
           <BackButton
             fallbackHref={defaultHref}
-            variant="inline"
+            variant="appbar"
             className="px-0"
           />
           <h1 className="text-base font-semibold text-primary">게시글 수정</h1>

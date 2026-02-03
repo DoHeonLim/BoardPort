@@ -9,8 +9,8 @@
  * 2025.09.10  임도헌   Modified  IntersectionObserver 안정화, rootMargin/threshold 조정, a11y/폴백 추가
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 로딩 인디케이터 및 Empty State 개선
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import { useRef } from "react";
@@ -20,6 +20,13 @@ import { AnimatePresence } from "framer-motion";
 import { useRecordingCommentContext } from "@/features/stream/components/recording/recordingComment/RecordingCommentContext";
 import RecordingCommentItem from "@/features/stream/components/recording/recordingComment/RecordingCommentItem";
 
+/**
+ * 댓글 목록 렌더링 컴포넌트
+ *
+ * - `AnimatePresence`를 통해 댓글 추가/삭제 시 애니메이션을 적용합니다.
+ * - `useInfiniteScroll`을 사용하여 무한 스크롤 로딩을 처리합니다.
+ * - 로딩 및 빈 상태에 대한 UI를 제공합니다.
+ */
 export default function RecordingCommentList({
   currentUserId,
 }: {

@@ -1,6 +1,6 @@
 /**
  * File Name : components/ui/NotFound.tsx
- * Description : 공통 Not Found 컴포넌트
+ * Description : 공통 Not Found(404) UI 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -8,6 +8,7 @@
  * 2025.06.08  임도헌   Created   Not Found 공통 컴포넌트 생성
  * 2026.01.11  임도헌   Modified  시맨틱 토큰 적용 및 레이아웃 재정리
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
+ * 2026.02.02  임도헌   Modified  주석 상세 설명 및 Props 타입 정의 보강
  */
 
 "use client";
@@ -17,16 +18,30 @@ import { LifebuoyIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
 interface NotFoundProps {
+  /** 페이지 제목 (기본값: "항로를 이탈했습니다") */
   title?: string;
+  /** 상세 설명 텍스트 또는 노드 */
   description?: React.ReactNode;
+  /** 리다이렉트 버튼 텍스트 (기본값: "항구로 돌아가기") */
   redirectText?: string;
+  /** 리다이렉트 경로 (기본값: "/products") */
   redirectHref?: string;
-  /** 모달 내부 등에서 상단 여백이나 높이를 조정할 때 사용 */
+  /** 컨테이너 추가 스타일 (상단 여백/높이 조정 등) */
   className?: string;
-  /** 버튼 대신 커스텀 액션을 넣고 싶을 때 (예: 뒤로가기 버튼) */
+  /** 기본 버튼 대신 사용할 커스텀 액션 요소 (예: 뒤로가기 버튼) */
   action?: React.ReactNode;
 }
 
+/**
+ * 404 Not Found 또는 데이터 없음 상황을 표시하는 공통 UI 컴포넌트입니다.
+ *
+ * - 아이콘(LifebuoyIcon)과 둥둥 떠다니는 애니메이션(float)을 포함합니다.
+ * - 제목, 설명, 리다이렉트 버튼을 props로 커스터마이징할 수 있습니다.
+ * - `action` prop을 통해 기본 버튼 대신 커스텀 버튼을 주입할 수 있습니다.
+ *
+ * @param {NotFoundProps} props - 컴포넌트 설정 값
+ * @returns {JSX.Element} Not Found UI
+ */
 export default function NotFound({
   title = "항로를 이탈했습니다",
   description = "요청하신 페이지가 지도에 존재하지 않습니다.\n삭제되었거나 주소가 변경되었을 수 있어요.",

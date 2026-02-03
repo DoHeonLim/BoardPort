@@ -1,6 +1,6 @@
 /**
  * File Name : app/(tabs)/profile/(product)/my-sales/loading
- * Description : 나의 판매 제품 페이지 로딩 스켈레톤
+ * Description : 나의 판매 제품 페이지 로딩 스켈레톤.tsx
  * Author : 임도헌
  *
  * History

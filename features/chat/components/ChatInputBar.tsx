@@ -24,6 +24,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.12  임도헌   Modified  [UI/UX] 320px 대응을 위해 Floating에서 Solid Bar로 변경, 높이 자동 조절 textarea 적용
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -37,6 +38,15 @@ interface ChatInputBarProps {
   autoFocus?: boolean;
 }
 
+/**
+ * 채팅 입력바
+ *
+ * [기능]
+ * - Textarea 자동 높이 조절
+ * - Enter 키 전송 (Shift+Enter 줄바꿈)
+ * - IME 입력 중(한글 조합 등) 전송 방지
+ * - Optimistic UI 패턴: 전송 시도 시 입력창 즉시 비움 (실패 시 복원 로직은 상위에서 처리)
+ */
 export default function ChatInputBar({
   isSubmitting,
   onSubmit,

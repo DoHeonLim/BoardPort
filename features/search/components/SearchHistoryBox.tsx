@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/SearchHistoryBox.tsx
- * Description : 최근 검색어 목록 컴포넌트 (PC 및 모바일 공통)
+ * Description : 최근 검색어 목록 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -9,16 +9,17 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 삭제 버튼 가시성 개선
  * 2026.01.12  임도헌   Modified  검색 기록 없을때 안내 메세지 표시
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
-
 "use client";
 
 import Link from "next/link";
 import { XMarkIcon, ClockIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
+import type { SearchHistoryItem } from "@/features/product/types";
 
 interface SearchHistoryBoxProps {
-  history: { keyword: string; created_at: Date }[];
+  history: SearchHistoryItem[];
   onSearch: (keyword: string) => void;
   onRemove: (keyword: string) => void;
   onClear: () => void;
@@ -26,6 +27,12 @@ interface SearchHistoryBoxProps {
   isMobile?: boolean;
 }
 
+/**
+ * 최근 검색어 목록을 표시합니다.
+ * - 검색어 클릭 시 해당 키워드로 검색을 수행합니다.
+ * - 개별 삭제 및 전체 삭제 기능을 제공합니다.
+ * - 모바일에서는 가로 스크롤, 데스크톱에서는 래핑(Wrap) 레이아웃을 사용합니다.
+ */
 export default function SearchHistoryBox({
   history,
   onSearch,

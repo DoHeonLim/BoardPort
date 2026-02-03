@@ -22,6 +22,7 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 로딩 인디케이터 및 텍스트 스타일 개선
  * 2026.01.16  임도헌   Renamed   CommentList -> PostCommentList
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
@@ -32,10 +33,19 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { AnimatePresence } from "framer-motion";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 
+/**
+ * 댓글 목록 렌더링 컴포넌트
+ *
+ * [기능]
+ * 1. Context에서 댓글 데이터를 받아와 렌더링합니다.
+ * 2. `useInfiniteScroll`을 사용하여 스크롤 끝에 도달하면 추가 댓글을 로드합니다.
+ * 3. `AnimatePresence`를 사용하여 댓글 추가/삭제 시 애니메이션을 적용합니다.
+ * 4. 로딩 상태 및 빈 상태(Empty State) UI를 처리합니다.
+ */
 export default function PostCommentList({
   currentUser,
 }: {
-  currentUser: { id: number; username: string };
+  currentUser: { id: number; username: string; avatar: string | null };
 }) {
   const isVisible = usePageVisibility();
   const { comments, isLoading, isFetchingNextPage, hasNextPage, loadMore } =
@@ -48,7 +58,6 @@ export default function PostCommentList({
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible,
-    // 코멘트는 카드 높이가 낮으니 여유를 조금 줄인다.
     rootMargin: "400px 0px 0px 0px",
     threshold: 0.1,
   });

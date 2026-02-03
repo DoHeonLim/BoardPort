@@ -8,6 +8,7 @@
  * 2025.06.07  임도헌   Created   최초 생성
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.01.27  임도헌   Modified  주석 설명 보강
  */
 
 interface SearchResultSummaryProps {
@@ -15,6 +16,10 @@ interface SearchResultSummaryProps {
   summaryText: string;
 }
 
+/**
+ * 검색 결과 수와 요약 텍스트(필터 조건 등)를 표시하는 컴포넌트
+ * 목록 상단에 위치합니다.
+ */
 export default function SearchResultSummary({
   count,
   summaryText,

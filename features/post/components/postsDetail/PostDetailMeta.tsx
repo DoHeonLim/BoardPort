@@ -22,6 +22,12 @@ interface PostDetailMetaProps {
   views: number;
   createdAt: string;
 }
+
+/**
+ * 게시글 하단의 메타 정보 영역입니다.
+ * - 좌측: 좋아요 버튼 (PostLikeButton)
+ * - 우측: 조회수 및 작성 시간 (TimeAgo)
+ */
 export default function PostDetailMeta({
   postId,
   isLiked,

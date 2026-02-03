@@ -1,5 +1,5 @@
 /**
- * File Name : app/products/view/[id]/edit/loading
+ * File Name : app/products/view/[id]/edit/loading.tsx
  * Description : 제품 수정 로딩 스켈레톤
  * Author : 임도헌
  *

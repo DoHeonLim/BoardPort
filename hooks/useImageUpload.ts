@@ -10,6 +10,8 @@
  * 2025.04.28  임도헌   Modified  toast UI로 변경
  * 2025.05.26  임도헌   Modified  .tsx → .ts 확장자 변경
  * 2025.06.15  임도헌   Modified  주석 추가
+ * 2026.01.25  임도헌   Modified  .ico 파일 업로드 차단 및 에러 메세지 구체화
+ * 2026.02.02  임도헌   Modified  주석 보강
  */
 
 import { useState } from "react";
@@ -19,19 +21,23 @@ import { UseFormGetValues, UseFormSetValue } from "react-hook-form";
 import { toast } from "sonner";
 
 interface UseImageUploadProps {
-  maxImages?: number; // 최대 업로드 가능한 이미지 수
-  maxSize?: number; // 개별 이미지 최대 크기 (기본 3MB)
-  setValue: UseFormSetValue<any>; // react-hook-form의 setValue
-  getValues: UseFormGetValues<any>; // react-hook-form의 getValues
+  maxImages?: number; // 최대 업로드 가능한 이미지 수 (기본: 5)
+  maxSize?: number; // 개별 이미지 최대 크기 (기본: 3MB)
+  setValue: UseFormSetValue<any>; // react-hook-form의 setValue 함수
+  getValues: UseFormGetValues<any>; // react-hook-form의 getValues 함수
 }
 
 /**
- * useImageUpload
- * 이미지 업로드를 위한 커스텀 훅으로, 다음과 같은 기능을 제공한다:
- * - 이미지 유효성 검증 (개수, 타입, 크기)
- * - 이미지 미리보기 URL 생성 및 상태 저장
- * - react-hook-form의 photos 필드와 연동
- * - 이미지 삭제 및 정렬 변경 기능 제공 (Drag & Drop 기반)
+ * 이미지 업로드 관리 훅
+ *
+ * [기능]
+ * 1. 이미지 선택 시 유효성 검증(타입, 크기, 개수)을 수행합니다.
+ * 2. 선택된 이미지의 미리보기(Blob URL)를 생성하고 상태를 관리합니다.
+ * 3. react-hook-form의 `photos` 필드와 상태를 동기화합니다.
+ * 4. Drag & Drop(`@hello-pangea/dnd`)을 통한 이미지 순서 변경을 지원합니다.
+ * 5. 이미지 삭제 기능을 제공합니다.
+ *
+ * @param props - 설정값 및 Form 핸들러
  */
 export function useImageUpload({
   maxImages = 5,
@@ -40,13 +46,15 @@ export function useImageUpload({
   getValues,
 }: UseImageUploadProps) {
   const [previews, setPreviews] = useState<string[]>([]); // 이미지 미리보기 URL 배열
-  const [files, setFiles] = useState<File[]>([]); // 업로드할 이미지 파일 배열
-  const [isImageFormOpen, setIsImageFormOpen] = useState(false); // 이미지 업로드 폼 열림 여부
-  const [isUploading, setIsUploading] = useState(false); // 업로드 중 상태
+  const [files, setFiles] = useState<File[]>([]); // 업로드할 실제 File 객체 배열
+  const [isImageFormOpen, setIsImageFormOpen] = useState(false); // 업로드 UI 토글 상태
+  const [isUploading, setIsUploading] = useState(false); // 업로드 진행 중 여부
 
   /**
-   * handleImageChange
-   * - 이미지 선택 시 유효성 검증 후 미리보기 및 상태 업데이트
+   * 이미지 파일 선택 핸들러
+   * - input[type="file"] 변경 시 호출됩니다.
+   * - 유효성 검증 실패 시 Toast를 띄우고 중단합니다.
+   * - 성공 시 Blob URL을 생성하여 미리보기에 추가합니다.
    */
   const handleImageChange = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -56,6 +64,7 @@ export function useImageUpload({
 
     setIsUploading(true);
     try {
+      // 1. 개수 제한 검사
       if (previews.length + newFiles.length > maxImages) {
         toast.error(`이미지는 최대 ${maxImages}개까지만 업로드할 수 있습니다.`);
         event.target.value = "";
@@ -63,11 +72,27 @@ export function useImageUpload({
       }
 
       for (const file of Array.from(newFiles)) {
+        // 2. 파일 타입 검사 (이미지만 허용)
         if (!file.type.startsWith("image/")) {
           toast.error("이미지 파일만 업로드할 수 있습니다.");
           event.target.value = "";
           return;
         }
+
+        // 3. .ico 파일 차단 (Cloudflare Images 미지원)
+        if (
+          file.type === "image/x-icon" ||
+          file.type === "image/vnd.microsoft.icon" ||
+          file.name.toLowerCase().endsWith(".ico")
+        ) {
+          toast.error(
+            ".ico 파일은 지원하지 않습니다. (jpg, png, webp 등 사용)"
+          );
+          event.target.value = "";
+          return;
+        }
+
+        // 4. 용량 제한 검사
         if (file.size > maxSize) {
           toast.error("이미지는 3MB 이하로 올려주세요.");
           event.target.value = "";
@@ -75,12 +100,15 @@ export function useImageUpload({
         }
       }
 
+      // 5. 미리보기 생성 및 상태 업데이트
       const newPreviews = Array.from(newFiles).map((file) =>
         URL.createObjectURL(file)
       );
 
       setPreviews((prev) => [...prev, ...newPreviews]);
       setFiles((prev) => [...prev, ...Array.from(newFiles)]);
+
+      // RHF 필드 동기화 (기존 값 + 새 값)
       setValue("photos", [...(getValues("photos") || []), ...newPreviews]);
     } catch (error) {
       console.error(error);
@@ -91,8 +119,9 @@ export function useImageUpload({
   };
 
   /**
-   * handleDeleteImage
-   * - 특정 인덱스의 이미지를 삭제하고 상태 동기화
+   * 이미지 삭제 핸들러
+   * - 특정 인덱스의 이미지를 미리보기 목록과 파일 목록에서 제거합니다.
+   * - RHF 필드 값도 동기화합니다.
    */
   const handleDeleteImage = (index: number) => {
     const currentPhotos: string[] = getValues("photos");
@@ -105,8 +134,8 @@ export function useImageUpload({
   };
 
   /**
-   * handleDragEnd
-   * - Drag & Drop으로 이미지 순서를 변경할 때 실행
+   * 드래그 앤 드롭 종료 핸들러
+   * - 이미지 순서 변경 결과를 반영합니다.
    */
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -126,8 +155,7 @@ export function useImageUpload({
   };
 
   /**
-   * resetImage
-   * - 이미지 상태 초기화
+   * 이미지 상태 초기화 (Reset)
    */
   const resetImage = () => {
     setPreviews([]);

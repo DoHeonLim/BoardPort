@@ -1,5 +1,5 @@
 /**
- * File Name : app/products/view/[id]/layout
+ * File Name : app/products/view/[id]/layout.tsx
  * Description : 제품 상세 상단바 레이아웃(뒤로가기 + 카테고리 칩 + (소유자) 편집)
  * Author : 임도헌
  *
@@ -11,7 +11,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import BackButton from "@/components/global/BackButton";
-import { getProductTopbar } from "@/features/product/lib/getProductTopbar";
+import { getProductTopbar } from "@/features/product/service/detail";
 import { cn } from "@/lib/utils";
 
 export default async function ProductDetailLayout({

@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/profile/notifications/loading
+ * File Name : app/(tabs)/profile/notifications/loading.tsx
  * Description : 알림 설정 페이지 로딩 스켈레톤
  * Author : 임도헌
  *

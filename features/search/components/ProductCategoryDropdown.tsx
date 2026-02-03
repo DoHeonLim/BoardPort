@@ -1,6 +1,6 @@
 /**
  * File Name : features/search/components/ProductCategoryDropdown.tsx
- * Description : 제품 카테고리 드롭다운 컴포넌트
+ * Description : 제품 카테고리 선택 드롭다운 (검색 섹션 좌측)
  * Author : 임도헌
  *
  * History
@@ -15,12 +15,13 @@
  * 2026.01.11  임도헌   Modified  다크모드 가시성 확보 및 시맨틱 토큰 적용
  * 2026.01.12  임도헌   Modified  height, font size 조정
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GAME_TYPE_DISPLAY, GAME_TYPES } from "@/lib/constants";
+import { GAME_TYPE_DISPLAY, GAME_TYPES } from "@/features/product/constants";
 import { XMarkIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,10 @@ interface CategoryDropdownProps {
   onCategorySelect?: () => void;
 }
 
+/**
+ * 검색바 좌측의 카테고리 빠른 선택 드롭다운
+ * - 게임 타입(보드게임/TRPG/카드) 및 대분류 카테고리를 바로 선택하여 이동합니다.
+ */
 export default function ProductCategoryDropdown({
   categories,
   onCategorySelect,
