@@ -9,6 +9,7 @@
  * 2026.01.20  임도헌   Modified  ServiceResult 제네릭 개선, EmailVerifyState 추가
  * 2026.01.24  임도헌   Moved     root/types/auth.ts -> features/auth/types.ts
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.24  임도헌   Modified  카카오 프로필 정보(KakaoProfile) 타입 추가
  */
 
 /** 서버 액션 공통 응답 (Form State) */
@@ -24,6 +25,22 @@ export interface GitHubProfile {
   avatar_url: string;
   login: string;
   email?: string | null;
+}
+
+/**
+ * 카카오 프로필 정보
+ * - 사용자가 '선택 동의'를 하지 않은 경우 kakao_account 내부 필드가 없을 수 있음
+ */
+export interface KakaoProfile {
+  id: number; // 카카오 고유 식별자
+  kakao_account?: {
+    email?: string;
+    profile?: {
+      nickname?: string;
+      profile_image_url?: string;
+      is_default_image?: boolean;
+    };
+  };
 }
 
 /** 이메일 인증 상태 (useFormState용) */

@@ -41,10 +41,10 @@ interface StreamListProps {
  * 스트리밍 목록 렌더링 컴포넌트
  *
  * [기능]
- * 1. 초기 방송 목록을 렌더링합니다.
- * 2. `useInfiniteScroll`을 사용하여 무한 스크롤을 처리합니다.
- * 3. `onFollowDelta` 이벤트를 구독하여 팔로우 상태 변경 시 해당 카드의 잠금 상태를 즉시 갱신합니다.
- * 4. 중복 데이터 병합 로직을 통해 리스트 정합성을 유지합니다.
+ * 1. 초기 방송 목록을 렌더링
+ * 2. `useInfiniteScroll`을 사용하여 무한 스크롤을 처리
+ * 3. `onFollowDelta` 이벤트를 구독하여 팔로우 상태 변경 시 해당 카드의 잠금 상태를 즉시 갱신
+ * 4. 중복 데이터 병합 로직을 통해 리스트 정합성을 유지
  */
 export default function StreamList({
   scope,
@@ -63,7 +63,7 @@ export default function StreamList({
   /**
    * 검색 파라미터/초기값 변경 시 리스트 상태 리셋
    * - page.tsx에서 key={JSON.stringify(searchParams)}로 리마운트를 유도하고 있지만,
-   *   혹시나 재사용되는 경우에도 안전하게 동작하도록 방어적으로 유지합니다.
+   *   혹시나 재사용되는 경우에도 안전하게 동작하도록 방어적으로 유지
    */
   useEffect(() => {
     setItems(initialItems);
@@ -76,7 +76,7 @@ export default function StreamList({
    * 팔로우 즉시 반영(리스트):
    * - FollowSection이 아닌 곳에서는 followersOnlyLocked가 서버 플래그로만 남기 쉬움.
    * - 같은 탭에서 내가 팔로우/언팔한 결과를 followDelta로 구독해
-   *   해당 스트리머의 FOLLOWERS 방송 카드 잠금을 즉시 갱신합니다.
+   *   해당 스트리머의 FOLLOWERS 방송 카드 잠금을 즉시 갱신
    */
   useEffect(() => {
     if (!viewerId) return;

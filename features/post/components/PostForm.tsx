@@ -11,15 +11,7 @@
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.01  임도헌   Modified  Prop rename: onSubmit -> action
- */
-/**
- * File Name : features/post/components/PostForm.tsx
- * Description : 게시글 작성/수정 공통 폼
- * Author : 임도헌
- *
- * History
- * 2025.07.04  임도헌   Created
- * 2026.01.24  임도헌   Modified  주석 표준화 및 타입 Import 수정
+ * 2026.02.14  임도헌   Modified  지도 기능 추가
  */
 "use client";
 
@@ -33,12 +25,15 @@ import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import TagInput from "@/components/ui/TagInput";
 import ImageUploader from "@/components/global/ImageUploader";
+import LocationPicker from "@/features/map/components/LocationPicker";
+import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { POST_CATEGORY } from "@/features/post/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
 import { postFormSchema, PostFormValues } from "@/features/post/schemas";
 import type { PostActionResponse } from "@/features/post/types";
+import type { LocationData } from "@/features/map/types";
 
 interface PostFormProps {
   initialValues?: PostFormValues & { id?: number };
@@ -53,7 +48,7 @@ interface PostFormProps {
  *
  * [기능]
  * 1. 이미지 업로드 (최대 5장, Cloudflare Images)
- * 2. 카테고리 선택 및 태그 입력
+ * 2. 카테고리 선택, 태그, 장소 입력
  * 3. 게시글 제목/내용 입력 및 Zod 검증
  * 4. 폼 제출 및 서버 액션 호출 (성공 시 상세 페이지 이동)
  *
@@ -73,6 +68,7 @@ export default function PostForm({
   const {
     register,
     handleSubmit,
+    watch,
     setValue,
     control,
     formState: { errors },
@@ -86,6 +82,7 @@ export default function PostForm({
       category: "",
       photos: [],
       tags: [],
+      location: null,
     },
   });
 
@@ -95,10 +92,11 @@ export default function PostForm({
     isImageFormOpen,
     setIsImageFormOpen,
     handleImageChange,
+    handleImageDrop,
     handleDeleteImage,
     handleDragEnd,
     setPreviews,
-    resetImage: resetImages,
+    resetImage,
   } = useImageUpload({ maxImages: 5, setValue, getValues });
 
   // 초기 이미지 설정 (수정 모드)
@@ -110,9 +108,19 @@ export default function PostForm({
   }, [isEdit, initialValues?.photos, setValue, setPreviews]);
 
   const resetForm = () => {
-    resetImages();
+    resetImage();
     reset();
     setResetSignal((prev) => prev + 1);
+  };
+
+  // 위치 관련 상태
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const location = watch("location");
+
+  // 위치 선택 핸들러
+  const handleLocationSelect = (data: LocationData) => {
+    setValue("location", data, { shouldDirty: true });
+    setIsMapOpen(false);
   };
 
   const submitHandler = handleSubmit(async (data: PostFormValues) => {
@@ -169,6 +177,10 @@ export default function PostForm({
       if (isEdit && initialValues?.id) {
         formData.append("id", initialValues.id.toString());
       }
+      // 위치 데이터(LocationData 객체)는 FormData에 바로 담을 수 없으므로 JSON 문자열로 직렬화하여 전송
+      if (data.location) {
+        formData.append("location", JSON.stringify(data.location));
+      }
       formData.append("title", data.title);
       formData.append("description", data.description);
       formData.append("category", data.category);
@@ -205,11 +217,13 @@ export default function PostForm({
           <ImageUploader
             previews={previews}
             onImageChange={handleImageChange}
+            onImageDrop={handleImageDrop}
             onDeleteImage={handleDeleteImage}
             onDragEnd={handleDragEnd}
             isOpen={isImageFormOpen}
             onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
             isUploading={isUploading}
+            optional={false}
           />
         </div>
 
@@ -250,6 +264,61 @@ export default function PostForm({
           maxTags={5}
           resetSignal={resetSignal}
         />
+        {/* 위치 추가 섹션 */}
+        <div className="flex flex-col gap-2 pt-2">
+          <label className="text-sm font-medium text-primary flex items-center gap-1">
+            <MapPinIcon className="size-4" />
+            장소 태그{" "}
+            <span className="text-muted font-normal">
+              (모임 장소, 후기 위치 등)
+            </span>
+          </label>
+
+          {location ? (
+            <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-brand/10 rounded-full text-brand">
+                  <MapPinIcon className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-primary">
+                    {location.locationName}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {location.region1} {location.region2} {location.region3}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMapOpen(true)}
+                  className="text-xs font-medium text-muted hover:text-primary px-2 py-1"
+                >
+                  변경
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setValue("location", null, { shouldDirty: true })
+                  }
+                  className="text-muted hover:text-danger p-1"
+                >
+                  <XMarkIcon className="size-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsMapOpen(true)}
+              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 transition-all"
+            >
+              <MapPinIcon className="size-5" />
+              <span className="text-sm">지도에서 위치 찾기</span>
+            </button>
+          )}
+        </div>
 
         <div className="pt-4 flex flex-col gap-3">
           <Button
@@ -281,6 +350,14 @@ export default function PostForm({
           </div>
         </div>
       </form>
+      {/*  지도 모달 */}
+      {isMapOpen && (
+        <LocationPicker
+          onClose={() => setIsMapOpen(false)}
+          onSelect={handleLocationSelect}
+          initialData={location ?? undefined}
+        />
+      )}
     </div>
   );
 }

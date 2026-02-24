@@ -22,6 +22,7 @@
  * 2026.01.22  임도헌   Modified  Service 직접 호출로 최적화 (Action 의존 제거)
  * 2026.01.24  임도헌   Modified  getSession 추가 및 getUserInfoById 호출 수정
  * 2026.01.28  임도헌   Modified  주석 보강
+ * * 2026.02.04  임도헌   Modified  채팅방 상세 진입 시 양방향 차단 가드 로직 적용
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -29,7 +30,6 @@ import { revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { cn } from "@/lib/utils";
 import getSession from "@/lib/session";
-
 import ChatMessagesList from "@/features/chat/components/ChatMessagesList";
 import ChatHeader from "@/features/chat/components/ChatHeader";
 import { getUserInfoById } from "@/features/user/service/profile";
@@ -42,18 +42,20 @@ import {
   getInitialMessages,
   markMessagesAsRead,
 } from "@/features/chat/service/message";
+import { checkBlockRelation } from "@/features/user/service/block";
 
 /**
  * 채팅방 상세 페이지
  *
- * [기능]
- * 1. 로그인 세션 및 사용자 정보를 확인합니다.
- * 2. 해당 채팅방에 대한 접근 권한을 검증합니다.
- * 3. 제품 정보, 상대방 정보, 초기 메시지를 병렬로 로드합니다.
- * 4. 상대방이 보낸 메시지들을 읽음 처리하고 캐시를 갱신합니다.
- * 5. `ChatHeader`와 `ChatMessagesList`를 렌더링합니다.
+ * [보안 및 접근 제어]
+ * 1. 로그인 세션을 확인하여 권한 없는 접근을 차단
+ * 2. `checkChatRoomAccess`를 통해 해당 사용자가 실제 방의 참여자인지 검증
+ * 3. `checkBlockRelation`을 통해 참여자 간에 차단 관계가 설정되어 있는지 확인
+ *    - 차단된 경우 공용 접근 거부 페이지(`/403?reason=BLOCKED`)로 리다이렉트
  *
- * @param {Object} params - URL 파라미터 (id: 채팅방 ID)
+ * [데이터 처리]
+ * - 제품 정보, 상대방 정보, 메시지 내역을 병렬로 로드하여 로딩 속도를 최적화
+ * - 페이지 진입과 동시에 상대방이 보낸 메시지들을 읽음 처리하고 관련 알림 캐시를 갱신
  */
 export default async function ChatRoom({ params }: { params: { id: string } }) {
   const chatRoomId = params.id;
@@ -83,7 +85,19 @@ export default async function ChatRoom({ params }: { params: { id: string } }) {
 
   if (!product || !counterparty) return notFound();
 
-  // 5. 읽음 처리 (Service 직접 호출)
+  // 5. 차단 관계 확인
+  if (!counterparty.hasLeft) {
+    const isBlocked = await checkBlockRelation(viewer.id, counterparty.id);
+    if (isBlocked) {
+      redirect(
+        `/403?reason=BLOCKED&username=${encodeURIComponent(
+          counterparty.username
+        )}&callbackUrl=${encodeURIComponent(`/chats/${chatRoomId}`)}`
+      );
+    }
+  }
+
+  // 6. 읽음 처리 (Service 직접 호출)
   // 진입 시점의 읽지 않은 메시지를 모두 읽음 처리
   const readResult = await markMessagesAsRead(chatRoomId, viewer.id);
   if (
@@ -114,6 +128,7 @@ export default async function ChatRoom({ params }: { params: { id: string } }) {
         productChatRoomId={chatRoomId}
         user={viewer}
         initialMessages={initialMessages}
+        isCounterpartyLeft={counterparty.hasLeft}
       />
     </div>
   );

@@ -24,7 +24,7 @@ interface PopularSearchesBoxProps {
 }
 
 /**
- * 서비스 전체 인기 검색어 Top 5를 표시합니다.
+ * 서비스 전체 인기 검색어 Top 5를 표시
  */
 export default function PopularSearchesBox({
   popularSearches,

@@ -13,6 +13,8 @@
  * 2026.01.21  임도헌   Moved     features/product/lib -> features/product/constants.ts
  * 2026.01.24  임도헌   Modified  lib/constants.ts에서 제품 Enum 및 Display Map 이관 및 통합
  * 2026.01.25  임도헌   Modified  PRODUCT_STATUS_LABEL 및 PRODUCT_STATUS_TYPES 추가 및 주석 보강
+ * 2026.02.03  임도헌   Modifeid  PRODUCT_SELECT에 refreshed_at, bump_count 필드 추가
+ * 2026.02.15  임도헌   Modified  [Feature] PRODUCT_SELECT 및 PROFILE_SALES_UNIFIED_SELECT에 위치 정보(region) 필드 추가
  */
 
 // =============================================================================
@@ -27,6 +29,10 @@ export const COMPLETENESS_TYPES = [
   "INCOMPLETE",
 ] as const;
 export const PRODUCT_STATUS_TYPES = ["selling", "reserved", "sold"] as const;
+
+// [끌어올리기]
+export const BUMP_COOLDOWN_HOURS = 24;
+export const MAX_BUMP_COUNT = 5;
 
 // =============================================================================
 // 2. Display Maps (UI 표시용 라벨)
@@ -69,11 +75,15 @@ export const PRODUCT_SELECT = {
   title: true,
   price: true,
   created_at: true,
+  refreshed_at: true,
   views: true,
   reservation_userId: true,
   purchase_userId: true,
   game_type: true,
-
+  bump_count: true,
+  region1: true,
+  region2: true,
+  region3: true,
   // 이미지 (대표 이미지 1장)
   images: {
     where: { order: 0 },
@@ -128,6 +138,10 @@ export const PROFILE_SALES_UNIFIED_SELECT = {
   created_at: true,
   updated_at: true,
 
+  // 위치 정보
+  region1: true,
+  region2: true,
+  region3: true,
   // 대표 이미지 1장
   images: { where: { order: 0 }, take: 1, select: { url: true, order: true } },
 

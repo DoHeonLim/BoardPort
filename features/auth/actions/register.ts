@@ -20,11 +20,11 @@ import { createAccount } from "@/features/auth/service/register";
 import type { ActionState } from "@/features/auth/types";
 
 /**
- * 회원가입 폼 제출을 처리합니다.
+ * 회원가입 폼 제출을 처리
  *
- * 1. Zod 스키마를 사용하여 입력값을 검증합니다.
- * 2. Service 계층을 호출하여 계정을 생성합니다.
- * 3. 생성된 유저 ID로 세션을 저장하여 자동 로그인 처리합니다.
+ * 1. Zod 스키마를 사용하여 입력값을 검증
+ * 2. Service 계층을 호출하여 계정을 생성
+ * 3. 생성된 유저 ID로 세션을 저장하여 자동 로그인 처리
  *
  * @param {any} _prevState - 이전 상태 (useFormState)
  * @param {FormData} formData - 폼 데이터

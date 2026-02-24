@@ -6,13 +6,14 @@
  * History
  * Date        Author   Status    Description
  * 2025.06.26  임도헌   Created   게시글 카드 컴포넌트 분리
- * 2025.07.04  임도헌   Modified   PostCard 컴포넌트 기능별 분리
+ * 2025.07.04  임도헌   Modified  PostCard 컴포넌트 기능별 분리
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 Card Contract 준수
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.15  임도헌   Modified  PostCardMeta에 region 정보 전달
  * ===============================================================================================
- * 이 폴더는 PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
- * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당합니다:
+ * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
+ * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
  *
  * - PostCardHeader.tsx    : 게시글 카테고리 뱃지 표시
  * - PostCardTitle.tsx     : 게시글 제목 표시 (리스트/그리드 모드 지원)
@@ -41,9 +42,9 @@ interface PostCardProps {
 /**
  * 게시글 카드 (PostCard)
  *
- * - 목록(List) 및 그리드(Grid) 뷰 모드를 지원합니다.
- * - 썸네일, 헤더(카테고리), 제목, 태그, 메타 정보를 조합하여 렌더링합니다.
- * - 클릭 시 게시글 상세 페이지(`/posts/[id]`)로 이동합니다.
+ * - 목록(List) 및 그리드(Grid) 뷰 모드를 지원
+ * - 썸네일, 헤더(카테고리), 제목, 태그, 메타 정보를 조합하여 렌더링
+ * - 클릭 시 게시글 상세 페이지(`/posts/[id]`)로 이동
  */
 export default function PostCard({ post, viewMode }: PostCardProps) {
   const isGrid = viewMode === "grid";
@@ -54,7 +55,6 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
       className={cn(
         "group relative flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
-        // List View 높이 축소: h-32 -> h-28 (112px), 패딩 p-3
         isGrid ? "flex-col h-full" : "flex-row h-28 w-full"
       )}
     >
@@ -82,6 +82,8 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
             likes={post._count.post_likes}
             comments={post._count.comments}
             createdAt={post.created_at.toString()}
+            region2={post.region2}
+            region3={post.region3}
           />
         </div>
       </div>

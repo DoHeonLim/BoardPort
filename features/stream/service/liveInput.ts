@@ -30,14 +30,13 @@ const DEFAULT_RTMPS_URL =
   "rtmps://live.cloudflare.com:443/live/";
 
 /**
- * 유저의 LiveInput(채널)을 보장합니다. (Ensure)
+ * 유저의 LiveInput(채널)을 보장
  *
- * 1. DB에서 기존 LiveInput을 조회하여 존재하면 반환합니다.
- * 2. 없으면 Cloudflare API를 호출하여 새 LiveInput을 생성합니다.
- * 3. 생성된 CF 정보를 DB에 저장합니다.
- * 4. [예외 처리] DB 저장 시 `userId` 중복 에러(P2002)가 발생하면:
- *    - 동시 요청으로 인해 다른 프로세스가 먼저 생성한 경우입니다.
- *    - 생성했던 CF 리소스를 정리(삭제)하고, DB를 다시 조회하여 반환합니다.
+ * 1. DB에서 기존 LiveInput을 조회하여 존재하면 즉시 반환
+ * 2. 없으면 Cloudflare API를 호출하여 새 LiveInput 생성을 요청
+ * 3. 생성된 CF 정보를 DB에 저장
+ * 4. [Concurrency] DB 저장 시 `userId` 중복 에러(P2002)가 발생하면,
+ *    동시 요청에 의해 이미 생성된 것으로 간주하여 롤백(CF 삭제) 후 DB를 재조회
  *
  * @param userId - 유저 ID
  * @param nameHint - 채널 이름 힌트
@@ -85,7 +84,7 @@ export async function ensureLiveInput(userId: number, nameHint: string) {
       }
     );
 
-    const data = await res.json().catch(() => ({}) as any);
+    const data = await res.json().catch(() => ({} as any));
     if (!res.ok || !data?.result) {
       throw new Error(`Cloudflare Live Input 생성 실패 (${res.status})`);
     }
@@ -145,8 +144,8 @@ export async function ensureLiveInput(userId: number, nameHint: string) {
 
 /**
  * LiveInput 삭제
- * 방송 중(CONNECTED)이거나 방송 이력이 있으면 삭제를 차단합니다.
- * Cloudflare 리소스도 함께 삭제합니다.
+ * 방송 중(CONNECTED)이거나 방송 이력이 있으면 삭제를 차단
+ * Cloudflare 리소스도 함께 삭제
  */
 export async function deleteLiveInput(liveInputId: number, userId: number) {
   if (!CF_ACCOUNT_ID || !CF_TOKEN)
@@ -194,7 +193,7 @@ export async function deleteLiveInput(liveInputId: number, userId: number) {
 }
 
 /**
- * 방송 소유자에게 스트림 키 정보를 반환합니다.
+ * 방송 소유자에게 스트림 키 정보를 반환
  */
 export async function getStreamKey(
   broadcastId: number,
@@ -222,9 +221,9 @@ export async function getStreamKey(
  * 스트림 키 재발급 (Rotate)
  *
  * [보안 정책]
- * - 기존 키를 무효화하기 위해, 기존 CF LiveInput을 삭제하고 새로 생성합니다.
- * - DB 레코드는 삭제하지 않고 `provider_uid`와 `stream_key`만 업데이트합니다.
- * - 방송 중(`CONNECTED`)에는 키 재발급을 차단합니다.
+ * - 기존 키를 무효화하기 위해, 기존 CF LiveInput을 삭제하고 새로 생성
+ * - DB 레코드는 삭제하지 않고 `provider_uid`와 `stream_key`만 업데이트
+ * - 방송 중(`CONNECTED`)에는 키 재발급을 차단
  */
 export async function rotateLiveInputKey(
   liveInputId: number,
@@ -280,7 +279,7 @@ export async function rotateLiveInputKey(
     }
   );
 
-  const data = await createRes.json().catch(() => ({}) as any);
+  const data = await createRes.json().catch(() => ({} as any));
   if (!createRes.ok || !data?.result) {
     return {
       success: false,

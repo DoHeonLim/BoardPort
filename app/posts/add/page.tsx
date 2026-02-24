@@ -17,8 +17,8 @@ import { createPostAction } from "@/features/post/actions/create";
 /**
  * 게시글 작성 페이지
  *
- * - `PostForm` 컴포넌트를 사용하여 게시글 작성 폼을 렌더링합니다.
- * - `submitPost` 서버 액션을 연결하여 폼 제출을 처리합니다.
+ * - `PostForm` 컴포넌트를 사용하여 게시글 작성 폼을 렌더링
+ * - `submitPost` 서버 액션을 연결하여 폼 제출을 처리
  */
 export default function AddPostPage() {
   return (

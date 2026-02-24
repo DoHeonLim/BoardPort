@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * 화면 우측 하단에 고정된 스트리밍 시작 버튼 (FAB)
- * 클릭 시 `/streams/add`로 이동합니다.
+ * 클릭 시 `/streams/add`로 이동
  */
 export default function AddStreamButton() {
   return (

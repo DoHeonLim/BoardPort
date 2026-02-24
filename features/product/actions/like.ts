@@ -11,6 +11,7 @@
  * 2026.01.22  임도헌   Modified  Session 전달 방식 수정
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/products/view/[id]/actions/like.ts -> features/product/actions/like.ts
+ * 2026.02.05  임도헌   Modified  ServiceResult 처리 및 에러 Throw 추가 (Client 롤백용)
  */
 "use server";
 
@@ -19,20 +20,24 @@ import { toggleProductLike } from "@/features/product/service/like";
 
 /**
  * 제품 좋아요 추가 Action
- * @throws {Error} 로그인하지 않은 경우
+ * @throws {Error}
  */
 export const likeProduct = async (productId: number) => {
   const session = await getSession();
   if (!session?.id) throw new Error("로그인이 필요합니다.");
-  await toggleProductLike(session.id, productId, true);
+
+  const res = await toggleProductLike(session.id, productId, true);
+  if (!res.success) throw new Error(res.error); // 실패 시 Client가 롤백하도록 에러 던짐
 };
 
 /**
  * 제품 좋아요 취소 Action
- * @throws {Error} 로그인하지 않은 경우
+ * @throws {Error}
  */
 export const dislikeProduct = async (productId: number) => {
   const session = await getSession();
   if (!session?.id) throw new Error("로그인이 필요합니다.");
-  await toggleProductLike(session.id, productId, false);
+
+  const res = await toggleProductLike(session.id, productId, false);
+  if (!res.success) throw new Error(res.error);
 };

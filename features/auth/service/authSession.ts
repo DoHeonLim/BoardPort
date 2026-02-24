@@ -9,24 +9,68 @@
  * 2025.06.07  임도헌   Modified   리디렉션 삭제
  * 2026.01.19  임도헌   Moved      lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved      lib/saveUserSession -> service/authSession
- * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.01.25  임도헌   Modified   주석 보강
+ * 2026.02.06  임도헌   Modified   유저 세션에 역할과 정지 여부 추가
  */
 import "server-only";
-
 import getSession from "@/lib/session";
+import db from "@/lib/db";
 
 /**
- * 로그인 성공 후 유저 세션을 저장합니다.
- * Iron Session 쿠키에 userId를 저장하고 암호화합니다.
+ * 로그인 성공 후 세션 생성
  *
- * @param {number} userId - 세션에 저장할 유저 ID
- * @returns {Promise<void>}
+ * 1. 유저 ID로 DB에서 최신 상태(Role, BannedAt)를 조회
+ * 2. 조회된 정보를 바탕으로 세션 객체를 구성
+ * 3. `iron-session`을 통해 암호화된 쿠키를 저장
+ *
+ * - id: 유저 PK
+ * - role: "USER" | "ADMIN"
+ * - banned: 정지 여부 (boolean)
  */
 export async function saveUserSession(userId: number) {
-  // 1. 세션 가져오기
   const session = await getSession();
 
-  // 2. 세션 데이터 설정 및 저장
+  // DB에서 최신 Role/Ban 상태 조회
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true, bannedAt: true },
+  });
+
+  if (!user) {
+    throw new Error("User not found during session creation.");
+  }
+
   session.id = userId;
+  session.role = user.role; // "USER" | "ADMIN"
+  session.banned = !!user.bannedAt; // 정지 여부 (Boolean 변환)
+
   await session.save();
+}
+
+/**
+ * 관리자 권한 검증 가드 (Server Action용)
+ * - 세션만 믿지 않고, 중요한 관리자 작업 수행 시에는 DB를 한 번 더 체크하는 것이 안전함.
+ */
+export async function verifyAdminAccess(): Promise<{
+  success: boolean;
+  adminId?: number;
+  error?: string;
+}> {
+  const session = await getSession();
+
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." };
+  }
+
+  // Double Check: DB에서 최신 Role 확인
+  const user = await db.user.findUnique({
+    where: { id: session.id },
+    select: { role: true },
+  });
+
+  if (!user || user.role !== "ADMIN") {
+    return { success: false, error: "관리자 권한이 없습니다." };
+  }
+
+  return { success: true, adminId: session.id };
 }

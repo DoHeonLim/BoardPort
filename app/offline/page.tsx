@@ -15,11 +15,11 @@ import { SignalSlashIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
 /**
- * PWA 오프라인 폴백(Fallback) 페이지입니다.
+ * PWA 오프라인 폴백(Fallback) 페이지
  *
- * - 인터넷 연결이 끊겼을 때 Service Worker가 이 페이지를 서빙합니다.
- * - 사용자에게 오프라인 상태임을 알리고, 재시도(새로고침) 가이드를 제공합니다.
- * - `next-pwa` 설정(`fallbacks: { document: "/offline" }`)에 의해 매핑됩니다.
+ * - 인터넷 연결이 끊겼을 때 Service Worker가 이 페이지를 서빙
+ * - 사용자에게 오프라인 상태임을 알리고, 재시도(새로고침) 가이드를 제공
+ * - `next-pwa` 설정(`fallbacks: { document: "/offline" }`)에 의해 매핑
  *
  * @returns {JSX.Element} 오프라인 안내 UI
  */

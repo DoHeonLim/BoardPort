@@ -39,16 +39,16 @@ export type FollowDelta = {
 
 /**
  * 이벤트 버스 (EventTarget)
- * - 브라우저의 CustomEvent를 활용하여 컴포넌트 간 통신을 수행합니다.
- * - 리렌더링 없이 상태 변화를 전파할 수 있습니다.
+ * - 브라우저의 CustomEvent를 활용하여 컴포넌트 간 통신을 수행
+ * - 리렌더링 없이 상태 변화를 전파
  */
 const followDeltaEventTarget = new EventTarget();
 
 /**
  * 인메모리 캐시 (Map)
- * - 페이지 이동(Unmount -> Mount) 시에도 최신 상태를 즉시 복원하기 위해 사용합니다.
- * - 예를 들어, 팔로우 목록에서 상태를 변경하고 뒤로가기를 했을 때 프로필 헤더의 카운트가 즉시 반영되도록 합니다.
- * - SPA 네비게이션 동안만 유지되며, 새로고침 시에는 초기화됩니다 (서버 데이터 재조회).
+ * - 페이지 이동(Unmount -> Mount) 시에도 최신 상태를 즉시 복원하기 위해 사용
+ * - 예를 들어, 팔로우 목록에서 상태를 변경하고 뒤로가기를 했을 때 프로필 헤더의 카운트가 즉시 반영
+ * - SPA 네비게이션 동안만 유지되며, 새로고침 시에는 초기화 (서버 데이터 재조회).
  */
 const cachedViewerFollowingByViewerId = new Map<number, number>();
 const cachedTargetFollowersByTargetId = new Map<number, number>();
@@ -75,8 +75,8 @@ export function getCachedIsFollowing(viewerId: number, targetUserId: number) {
 
 /**
  * 팔로우 변경 이벤트 구독
- * - 컴포넌트에서 useEffect 내에서 호출하여 사용합니다.
- * - 반환된 함수를 호출하면 구독이 해제됩니다.
+ * - 컴포넌트에서 useEffect 내에서 호출하여 사용
+ * - 반환된 함수를 호출하면 구독이 해제
  */
 export function onFollowDelta(handler: (delta: FollowDelta) => void) {
   const eventListener: EventListener = (evt: Event) => {

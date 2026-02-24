@@ -28,7 +28,7 @@
 
 @layer base {
   :root {
-    /* [핵심] 브라우저 강제 다크모드 방지 */
+    /* 브라우저 강제 다크모드 방지 */
     color-scheme: light dark;
 
     /* [신규 v1.1] Semantic Color Roles */
@@ -81,10 +81,10 @@
     --surface-foreground: #f8fafc; /* slate-50 */
     --surface-dim: #1e293b; /* slate-800 */
 
-    --text-primary: #f1f5f9; /* slate-100 */
+    --text-primary: #f8fafc; /* slate-50 */
     --text-muted: #94a3b8; /* slate-400 */
 
-    --border: #1e293b; /* slate-800 */
+    --border: #334155; /* slate-700 */
 
     /* [기존 유지] */
     --panel: #0b0f14;

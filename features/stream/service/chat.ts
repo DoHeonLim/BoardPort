@@ -12,17 +12,19 @@
  * 2026.01.19  임도헌   Moved     features/chat/lib -> features/stream/lib
  * 2026.01.23  임도헌   Merged    채팅방 생성/조회, 메시지 생성/조회 로직 통합 및 Session 분리
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { validateUserStatus } from "@/features/user/service/admin";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { StreamChatMessage } from "@/features/chat/types";
 
 /**
  * 방송(Broadcast) 1:1 채팅방 생성
- * - 이미 존재하면 해당 방 ID를 반환합니다 (Idempotent).
- * - 동시성 문제(Unique Constraint) 발생 시 조회 후 반환으로 fallback 처리합니다.
+ * - 이미 존재하면 해당 방 ID를 반환 (Idempotent).
+ * - 동시성 문제(Unique Constraint) 발생 시 조회 후 반환으로 fallback 처리
  *
  * @param {number} broadcastId - 방송 ID
  */
@@ -78,7 +80,8 @@ export const getStreamChatRoom = async (broadcastId: number) => {
 
 /**
  * 채팅 메시지 생성
- * - 메시지를 DB에 저장하고, 브로드캐스트를 위해 완성된 메시지 객체를 반환합니다.
+ * - 작성자의 정지 여부를 확인
+ * - 메시지를 DB에 저장하고, 브로드캐스트를 위해 완성된 메시지 객체를 반환
  *
  * @param {string} payload - 메시지 내용
  * @param {number} streamChatRoomId - 채팅방 ID
@@ -92,6 +95,10 @@ export const createStreamMessage = async (
   | { success: true; message: StreamChatMessage }
   | { success: false; error: string }
 > => {
+  //  정지 유저 체크
+  const status = await validateUserStatus(userId);
+  if (!status.success) return { success: false, error: "BANNED_USER" };
+
   try {
     const row = await db.streamMessage.create({
       data: { payload, streamChatRoomId, userId },
@@ -126,7 +133,7 @@ export const createStreamMessage = async (
 
 /**
  * 초기 메시지 목록 조회
- * - 최근 N개의 메시지를 최신순(DESC)으로 조회한 뒤, 시간순(ASC)으로 반환합니다.
+ * - 최근 N개의 메시지를 최신순(DESC)으로 조회한 뒤, 시간순(ASC)으로 반환
  *
  * @param {number} streamChatRoomId - 채팅방 ID
  * @param {number} take - 조회 개수 (Default: 20)

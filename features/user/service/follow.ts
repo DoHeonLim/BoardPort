@@ -16,12 +16,13 @@
  * 2025.10.05  임도헌   Moved      app/(tabs)/profile/actions → lib/user/follow로 분리
  * 2025.10.12  임도헌   Modified   모달 on-demand 조회 + 키셋 커서 + isFollowedByViewer 동반 계산
  * 2025.10.23  임도헌   Modified   username 정규화 후 즉시 id 해석, per-id 태그 규격화(user-followers-id-${id}),
- *                                username→id 얇은 캐시 태그(user-username-id-${uname}), 1페이지 캐시 도입
+ *                                 username→id 얇은 캐시 태그(user-username-id-${uname}), 1페이지 캐시 도입
  * 2025.12.20  임도헌   Modified   1페이지 캐시에 +1(take)로 hasMore 계산, cursor null 타입(Union) 안전 처리
  * 2025.12.31  임도헌   Modified   stale avatar 근본 해결: 1페이지 캐시는 id 목록만, user 스냅샷은 배치 조립 방식으로 변경
  * 2026.01.01  임도헌   Modified   username→id 해석 공용 유틸(resolveUserIdByUsernameCached)로 통합
  * 2026.01.05  임도헌   Modified   followers 맞팔로잉 지원: isMutualWithOwner 계산 추가(owner -> rowUser)
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
+ * 2026.02.22  임도헌   Modified   정지된 유저(Banned) 팔로우 원천 차단 가드 추가
  */
 import "server-only";
 
@@ -29,7 +30,9 @@ import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { isUniqueConstraintError } from "@/lib/errors";
-import { resolveUserIdByUsername } from "./profile";
+import { resolveUserIdByUsername } from "@/features/user/service/profile";
+import { checkBlockRelation } from "@/features/user/service/block";
+import { validateUserStatus } from "@/features/user/service/admin";
 import type { FollowListCursor, FollowListUser } from "@/features/user/types";
 
 // --- 1. Followers Cache Helpers ---
@@ -39,9 +42,9 @@ type FollowersRow = { id: number; followerId: number };
 /**
  * 팔로워 목록 첫 페이지 캐싱 (DB 부하 감소)
  *
- * - `unstable_cache`를 사용하여 첫 페이지의 "관계(Relation)" 데이터만 캐싱합니다.
- * - 유저 상세 정보(User)는 포함하지 않으므로 캐시 용량이 작습니다.
- * - 이후 비즈니스 로직에서 `batchFetchUserLiteByIds`로 최신 유저 정보를 조립합니다.
+ * - `unstable_cache`를 사용하여 첫 페이지의 "관계(Relation)" 데이터만 캐싱
+ * - 유저 상세 정보(User)는 포함하지 않음
+ * - 이후 비즈니스 로직에서 `batchFetchUserLiteByIds`로 최신 유저 정보를 조립
  *   (관계는 변하지 않아도 유저 닉네임/프사는 변할 수 있기 때문)
  *
  * @param ownerId - 조회 대상 유저 ID
@@ -92,8 +95,8 @@ const getFollowingFirstPageCached = (ownerId: number, limit: number) => {
 // --- Helper: Batch User Info ---
 /**
  * ID 목록으로 유저 정보를 한 번에 조회 (Batch Fetch)
- * - N+1 문제 방지를 위해 `WHERE id IN (...)` 쿼리를 사용합니다.
- * - 조회된 유저 정보를 Map으로 변환하여 O(1) 접근이 가능하게 합니다.
+ * - N+1 문제 방지를 위해 `WHERE id IN (...)` 쿼리를 사용
+ * - 조회된 유저 정보를 Map으로 변환하여 O(1) 접근이 가능
  */
 async function batchFetchUserLiteByIds(ids: number[]) {
   if (!ids.length) return new Map();
@@ -276,6 +279,18 @@ export async function followUserService(
   viewerId: number,
   targetId: number
 ): Promise<ToggleFollowResult> {
+  // 대상 유저가 정지된 상태인지 확인하여 팔로우 차단
+  const targetStatus = await validateUserStatus(targetId);
+  if (!targetStatus.success) {
+    throw new Error(
+      "운영 정책 위반으로 이용이 정지된 사용자는 팔로우할 수 없습니다."
+    );
+  }
+  // 차단 관계 확인
+  const isBlocked = await checkBlockRelation(viewerId, targetId);
+  if (isBlocked) {
+    throw new Error("차단 관계에서는 팔로우할 수 없습니다.");
+  }
   let changed = false;
   try {
     await db.follow.create({

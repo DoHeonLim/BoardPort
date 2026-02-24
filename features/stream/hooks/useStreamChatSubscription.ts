@@ -40,10 +40,10 @@ interface BroadcastEnvelope<T> {
  * 스트리밍 채팅방 실시간 구독 훅
  *
  * [기능]
- * 1. Supabase Realtime 채널을 구독하고 메시지를 수신합니다.
- * 2. 페이지 가시성(`visibilityState`)을 감지하여 백그라운드에서는 처리를 일시 중단합니다.
- * 3. 메시지 ID를 기반으로 중복 수신을 방지합니다.
- * 4. `ignoreSelf` 옵션으로 내가 보낸 메시지를 무시할지 결정합니다.
+ * 1. Supabase Realtime 채널을 구독하고 메시지를 수신
+ * 2. 페이지 가시성(`visibilityState`)을 감지하여 백그라운드에서는 처리를 일시 중단
+ * 3. 메시지 ID를 기반으로 중복 수신을 방지
+ * 4. `ignoreSelf` 옵션으로 내가 보낸 메시지를 무시할지 결정
  *
  * @returns {RealtimeChannel | null} 생성된 채널 인스턴스 (전송용으로 재사용 가능)
  */

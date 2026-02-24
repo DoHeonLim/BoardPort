@@ -29,11 +29,16 @@ import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import ProductCard from "@/features/product/components/productCard";
 import { Squares2X2Icon, ListBulletIcon } from "@heroicons/react/24/outline";
-import type { Paginated, ProductType } from "@/features/product/types";
+import type {
+  Paginated,
+  ProductSearchParams,
+  ProductType,
+} from "@/features/product/types";
 import { cn } from "@/lib/utils";
 
 type ProductListProps = {
   initialProducts: Paginated<ProductType>;
+  searchParams?: ProductSearchParams;
 };
 
 /**
@@ -45,7 +50,10 @@ type ProductListProps = {
  * 3. 뷰 모드 전환 (리스트 ↔ 그리드)
  * 4. 빈 상태 UI 처리 (데이터 없을 때)
  */
-export default function ProductList({ initialProducts }: ProductListProps) {
+export default function ProductList({
+  initialProducts,
+  searchParams,
+}: ProductListProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
@@ -56,6 +64,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
       mode: "product",
       initialProducts: initialProducts.products,
       initialCursor: initialProducts.nextCursor,
+      searchParams: searchParams || {},
     });
 
   // 무한 스크롤 관찰자 연결

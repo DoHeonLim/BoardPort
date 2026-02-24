@@ -20,8 +20,8 @@ interface PostCardHeaderProps {
 }
 
 /**
- * 게시글의 카테고리를 뱃지 형태로 표시합니다.
- * 상수(`POST_CATEGORY`)를 사용하여 카테고리 코드를 사람이 읽을 수 있는 이름으로 변환합니다.
+ * 게시글의 카테고리를 뱃지 형태로 표시
+ * 상수(`POST_CATEGORY`)를 사용하여 카테고리 코드를 사람이 읽을 수 있는 이름으로 변환
  */
 export default function PostCardHeader({ category }: PostCardHeaderProps) {
   return (

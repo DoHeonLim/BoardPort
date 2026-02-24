@@ -22,11 +22,11 @@ import { saveUserSession } from "@/features/auth/service/authSession";
 import type { ActionState } from "@/features/auth/types";
 
 /**
- * 로그인 폼 제출을 처리합니다.
+ * 로그인 폼 제출을 처리
  *
- * 1. 입력값을 검증합니다.
- * 2. Service 계층을 호출하여 이메일/비밀번호를 확인합니다.
- * 3. 검증 성공 시 세션을 생성합니다.
+ * 1. 입력값을 검증
+ * 2. Service 계층을 호출하여 이메일/비밀번호를 확인
+ * 3. 검증 성공 시 세션을 생성
  *
  * @param {unknown} _prevState - 이전 상태
  * @param {FormData} formData - 폼 데이터

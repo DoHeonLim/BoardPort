@@ -22,9 +22,9 @@ import { cn } from "@/lib/utils";
  * 푸시 알림 전역 ON/OFF 스위치 컴포넌트
  *
  * [기능]
- * - `usePushNotification` 훅을 사용하여 현재 구독 상태를 조회하고 제어합니다.
- * - 브라우저 미지원 또는 프라이빗 모드일 경우 안내 메시지를 표시합니다.
- * - 토글 클릭 시 구독(subscribe) 또는 구독 해제(unsubscribe)를 수행합니다.
+ * - `usePushNotification` 훅을 사용하여 현재 구독 상태를 조회하고 제어
+ * - 브라우저 미지원 또는 프라이빗 모드일 경우 안내 메시지를 표시
+ * - 토글 클릭 시 구독(subscribe) 또는 구독 해제(unsubscribe)를 수행
  */
 export function PushNotificationToggle() {
   const { isSupported, isSubscribed, isPrivateMode, subscribe, unsubscribe } =

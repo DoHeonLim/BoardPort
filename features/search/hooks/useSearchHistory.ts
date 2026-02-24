@@ -27,9 +27,9 @@ import type { SearchHistoryItem } from "@/features/product/types";
  * 검색 기록 관리 훅
  *
  * [기능]
- * 1. 초기 검색 기록(SSR/Props)을 상태로 관리합니다.
- * 2. 검색어 추가 시 중복 제거 후 최신순으로 정렬하고 서버에 저장합니다.
- * 3. 개별 삭제 및 전체 삭제 기능을 제공하며 서버와 동기화합니다.
+ * 1. 초기 검색 기록(SSR/Props)을 상태로 관리
+ * 2. 검색어 추가 시 중복 제거 후 최신순으로 정렬하고 서버에 저장
+ * 3. 개별 삭제 및 전체 삭제 기능을 제공하며 서버와 동기화
  *
  * @param {SearchHistoryItem[]} initialHistory - 초기 검색 기록 목록
  */
@@ -43,9 +43,9 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
 
   /**
    * 검색 기록 추가
-   * - 중복된 키워드가 있으면 제거하고 맨 앞에 추가합니다. (LRU 방식)
-   * - 최대 5개까지만 유지합니다.
-   * - 비동기로 서버 저장 액션을 호출합니다. (Fire & Forget)
+   * - 중복된 키워드가 있으면 제거하고 맨 앞에 추가. (LRU 방식)
+   * - 최대 5개까지만 유지
+   * - 비동기로 서버 저장 액션을 호출. (Fire & Forget)
    */
   const addHistory = useCallback(
     async (keyword: string) => {
@@ -74,7 +74,7 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
 
   /**
    * 개별 검색 기록 삭제
-   * - 서버 삭제 액션 호출 후, 최신 목록을 다시 불러와 상태를 갱신합니다.
+   * - 서버 삭제 액션 호출 후, 최신 목록을 다시 불러와 상태를 갱신
    */
   const removeHistory = useCallback(async (keyword: string) => {
     try {
@@ -88,7 +88,7 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
 
   /**
    * 전체 검색 기록 삭제
-   * - 서버 전체 삭제 액션 호출 후 로컬 상태를 비웁니다.
+   * - 서버 전체 삭제 액션 호출 후 로컬 상태를 비움
    */
   const clearHistory = useCallback(async () => {
     try {

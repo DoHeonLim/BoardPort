@@ -20,8 +20,8 @@ import CreateAccountForm from "@/features/auth/components/form/CreateAccountForm
 /**
  * 회원가입 페이지 컴포넌트
  *
- * - 신규 사용자 등록을 위한 페이지입니다.
- * - 회원가입 폼(`CreateAccountForm`)을 렌더링합니다.
+ * - 신규 사용자 등록을 위한 페이지
+ * - 회원가입 폼(`CreateAccountForm`)을 렌더링
  */
 export default function CreateAccountPage() {
   return (

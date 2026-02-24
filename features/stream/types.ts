@@ -1,5 +1,5 @@
 /**
- * File Name : types/stream.ts
+ * File Name : features/stream/types.ts
  * Description : 스트리밍/방송(Broadcast) + 녹화(VOD) 공용 타입
  * Author : 임도헌
  *
@@ -12,6 +12,7 @@
  * 2026.01.23  임도헌   Modified  SendStreamMessageResult 타입 추가
  * 2026.01.25  임도헌   Modified  Unused types removed (BroadcastCard), VodForGrid에 tags 추가
  * 2026.01.28  임도헌   Modified  주석 및 타입 정리
+ * 2026.02.07  임도헌   Modified  관리자용 DTO 추가
  */
 
 import { StreamChatMessage } from "@/features/chat/types";
@@ -202,3 +203,28 @@ export const isFollowersVisibility = (v: StreamVisibility) =>
   v === STREAM_VISIBILITY.FOLLOWERS;
 
 export const isVodReady = (s: VodStatus) => s === VOD_STATUS.READY;
+
+// =============================================================================
+// 5. Admin Types
+// =============================================================================
+
+export interface AdminStreamItem {
+  id: number;
+  title: string;
+  thumbnail: string | null;
+  status: string;
+  started_at: Date | null;
+  user: {
+    username: string;
+  };
+  _count: {
+    vodAssets: number; // 녹화본 수 (참고용)
+  };
+}
+
+export interface AdminStreamListResponse {
+  items: AdminStreamItem[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+}

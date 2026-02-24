@@ -27,8 +27,8 @@ interface ProductCardHeaderProps {
 }
 
 /**
- * 카드 상단에 게임 타입(보드게임/TRPG 등)과 카테고리 경로를 표시합니다.
- * 좁은 화면에서는 부모 카테고리를 숨겨 공간을 확보합니다.
+ * 카드 상단에 게임 타입(보드게임/TRPG 등)과 카테고리 경로를 표시
+ * 좁은 화면에서는 부모 카테고리를 숨겨 공간을 확보
  */
 export function ProductCardHeader({
   gameType,

@@ -4,12 +4,12 @@
  * Author : 임도헌
  *
  * Key Points
- * - 태그는 "무효화 범위"를 지정하는 레이블이며, 문자열 템플릿은 오타/불일치를 만들기 쉽습니다.
- * - 이 파일에서 태그 생성 함수를 중앙 집중화하여 일관성을 보장합니다.
- * - Producer(revalidateTag)와 Consumer(unstable_cache tags) 간의 매칭을 쉽게 합니다.
+ * - 태그는 "무효화 범위"를 지정하는 레이블이며, 문자열 템플릿은 오타/불일치를 만들기 쉬움
+ * - 이 파일에서 태그 생성 함수를 중앙 집중화하여 일관성을 보장
+ * - Producer(revalidateTag)와 Consumer(unstable_cache tags) 간의 매칭을 쉽게 함
  *
  * Convention
- * - USER_*    : 유저/프로필/팔로우/뱃지/리뷰 등 userId 기반
+ * - USER_*    : 유저/프로필/팔로우/뱃지/리뷰/차단 등 userId 기반
  * - PRODUCT_* : 제품 상세/좋아요/조회수 + 프로필 제품 탭
  * - POST_*    : 게시글 상세/좋아요 상태/댓글
  * - STREAM_*  : 스트림/방송 상세 + 유저 방송국 리스트
@@ -23,6 +23,7 @@
  * 2026.01.08  임도헌   Modified  제품 목록 캐싱을 위한 PRODUCT_LIST 태그 추가
  * 2026.01.19  임도헌   Renamed   tags.ts-> cacheTags.ts
  * 2026.01.30  임도헌   Modified  주석 개선 및 태그별 무효화 시점 가이드 추가
+ * 2026.02.04  임도헌   Modified  차단 관계 변경시 해당 유저의 캐시 무효화 진행하는 USER_BLOCK_UPDATE 태그 추가
  */
 
 import "server-only";
@@ -90,6 +91,14 @@ export const USER_AVERAGE_RATING_ID = (userId: number | string) =>
  */
 export const USER_REVIEWS_INITIAL_ID = (userId: number | string) =>
   `user-reviews-initial-id-${userId}`;
+
+/**
+ * 유저의 차단 목록 변경 (내가 누군가를 차단/해제함)
+ * - 대상: 나를 위한 맞춤형 목록 캐시 (제품 목록 등)
+ * - 무효화 시점: 차단/해제 액션 수행 시
+ */
+export const USER_BLOCK_UPDATE = (userId: number | string) =>
+  `user-block-update-${userId}`;
 
 /**
  * 전체 뱃지 메타데이터 목록

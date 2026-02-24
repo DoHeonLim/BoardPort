@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * 화면 우측 하단에 고정된 게시글 추가 버튼 (FAB)
- * 클릭 시 `/posts/add`로 이동합니다.
+ * 클릭 시 `/posts/add`로 이동
  */
 export default function AddPostButton() {
   return (

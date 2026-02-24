@@ -46,7 +46,7 @@ const _getUserAverageRatingBase = async (
 
 /**
  * 유저의 평균 평점 조회 (Cached)
- * - 프로필 헤더 등에서 사용됩니다.
+ * - 프로필 헤더 등에서 사용
  */
 export const getCachedUserAverageRating = (userId: number) => {
   const cached = nextCache(

@@ -24,9 +24,9 @@ import { ChatUser } from "@/features/chat/types";
 
 /**
  * 제품에 대한 1:1 채팅방 생성 Action
- * - 로그인 여부를 확인합니다.
- * - Chat Service를 통해 채팅방을 생성하거나 기존 방을 찾습니다.
- * - 채팅방 목록 캐시를 무효화하고 해당 채팅방으로 리다이렉트합니다.
+ * - 로그인 여부를 확인
+ * - Chat Service를 통해 채팅방을 생성하거나 기존 방을 찾음
+ * - 채팅방 목록 캐시를 무효화하고 해당 채팅방으로 리다이렉트
  *
  * @param {number} productId - 제품 ID
  */
@@ -42,7 +42,7 @@ export const createChatRoomAction = async (productId: number) => {
 
 /**
  * 예약자 선택을 위한 채팅 상대 목록 조회 Action
- * - 판매자가 예약자를 지정할 때, 해당 제품으로 대화한 유저 목록을 불러옵니다.
+ * - 판매자가 예약자를 지정할 때, 해당 제품으로 대화한 유저 목록을 불러옴
  *
  * @param {number} productId - 제품 ID
  * @returns {Promise<ChatUser[]>} 채팅한 유저 목록

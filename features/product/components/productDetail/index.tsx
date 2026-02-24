@@ -10,9 +10,8 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * ===============================================================================================
- * 이 폴더는 ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
- * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당합니다:
- *
+ * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
+ * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
  * - ProductDetailHeader.tsx   : 제품 제목, 가격, 게임 타입 표시
  * - ProductDetailImages.tsx   : 제품 이미지 캐러셀 및 조회수 뱃지
  * - ProductDetailMeta.tsx     : 판매자 프로필(아바타/이름) 및 작성일 표시
@@ -29,6 +28,7 @@ import ProductDetailImages from "@/features/product/components/productDetail/Pro
 import ProductDetailMeta from "@/features/product/components/productDetail/ProductDetailMeta";
 import ProductDetailHeader from "@/features/product/components/productDetail/ProductDetailHeader";
 import ProductDetailInfoGrid from "@/features/product/components/productDetail/ProductDetailInfoGrid";
+import StaticMap from "@/features/map/components/StaticMap";
 import ProductDetailTags from "@/features/product/components/productDetail/ProductDetailTags";
 import ProductDetailActions from "@/features/product/components/productDetail/ProductDetailActions";
 
@@ -58,11 +58,15 @@ export default function ProductDetailContainer({
   likeCount,
   isLiked,
 }: ProductDetailProps) {
+  // 주소 문자열 조합
+  const regionString = [product.region1, product.region2, product.region3]
+    .filter(Boolean)
+    .join(" ");
   return (
-    // pb-28: 하단 고정 액션바 공간 확보
-    <div className="relative min-h-screen bg-background text-primary pb-28 transition-colors">
-      <div className="flex flex-col">
-        {/* 1. 이미지 영역 (Full width on mobile) */}
+    <div className="relative min-h-full flex flex-col bg-background text-primary transition-colors">
+      {/* 본문 영역 (flex-1로 하단 바를 밀어냄) */}
+      <div className="flex-1 pb-4">
+        {/* 1. 이미지 영역 */}
         <ProductDetailImages images={product.images} views={views} />
 
         {/* 2. 판매자 정보 */}
@@ -78,6 +82,7 @@ export default function ProductDetailContainer({
             title={product.title}
             price={product.price}
             game_type={product.game_type}
+            bumpCount={product.bump_count}
           />
 
           <p className="text-base text-primary whitespace-pre-wrap leading-relaxed">
@@ -94,18 +99,34 @@ export default function ProductDetailContainer({
             has_manual={product.has_manual}
           />
 
+          {/* 거래 장소 */}
+          {product.latitude && product.longitude && product.locationName && (
+            <section className="py-2 border-t border-border mt-2 pt-6">
+              <h3 className="text-sm font-bold text-primary mb-3">
+                직거래 희망 장소
+              </h3>
+              <StaticMap
+                latitude={product.latitude}
+                longitude={product.longitude}
+                locationName={product.locationName}
+                regionString={regionString}
+              />
+            </section>
+          )}
+
           <ProductDetailTags tags={product.search_tags} />
         </div>
+      </div>
 
-        {/* 4. 하단 액션바 */}
-        <div className="absolute">
-          <ProductDetailActions
-            productId={product.id}
-            isLiked={isLiked}
-            likeCount={likeCount}
-            isOwner={isOwner}
-          />
-        </div>
+      {/* 4. 하단 액션바 (sticky 적용으로 스크롤바와 충돌 없이 완벽 정렬) */}
+      <div className="sticky bottom-0 z-40 w-full mt-auto">
+        <ProductDetailActions
+          productId={product.id}
+          isLiked={isLiked}
+          likeCount={likeCount}
+          isOwner={isOwner}
+          bumpCount={product.bump_count}
+        />
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ interface Props {
 
 /**
  * 스트리밍 목록이 비어있을 때 표시되는 UI
- * 검색어, 카테고리, 팔로잉 스코프 여부에 따라 적절한 안내 메시지를 표시합니다.
+ * 검색어, 카테고리, 팔로잉 스코프 여부에 따라 적절한 안내 메시지를 표시
  */
 export default function StreamEmptyState({ keyword, category, scope }: Props) {
   const hasKeyword = !!keyword;

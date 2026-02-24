@@ -31,9 +31,9 @@ interface IProductLikeButtonProps {
 
 /**
  * 좋아요 버튼 컴포넌트
- * - `useOptimistic`을 사용하여 즉각적인 UI 피드백을 제공합니다.
- * - `useTransition`으로 서버 액션 중복 호출을 방지합니다.
- * - 실패 시 자동으로 롤백되며 에러 토스트를 표시합니다.
+ * - `useOptimistic`을 사용하여 즉각적인 UI 피드백을 제공
+ * - `useTransition`으로 서버 액션 중복 호출을 방지
+ * - 실패 시 자동으로 롤백되며 에러 토스트를 표시
  */
 export default function ProductLikeButton({
   isLiked,

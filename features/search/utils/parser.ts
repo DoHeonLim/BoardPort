@@ -18,8 +18,8 @@ interface RawSearchParams {
 }
 
 /**
- * URL 쿼리 파라미터 객체를 `FilterState` 타입으로 변환합니다.
- * undefined 값은 빈 문자열로 처리하여 폼 상태와 동기화하기 쉽게 만듭니다.
+ * URL 쿼리 파라미터 객체를 `FilterState` 타입으로 변환
+ * undefined 값은 빈 문자열로 처리하여 폼 상태와 동기화하기 쉽게 만듬
  *
  * @param {RawSearchParams} searchParams - Next.js Page의 searchParams
  * @returns {FilterState} 필터 상태 객체

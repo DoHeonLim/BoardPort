@@ -13,6 +13,7 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 폼 간격(gap-form-gap) 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
+ * 2026.02.14  임도헌   Modified  직거래 희망 장소(지도) 추가
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -35,11 +36,11 @@ Date        Author   Status    Description
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { Category } from "@/generated/prisma/client";
 import {
   COMPLETENESS_TYPES,
   CONDITION_TYPES,
@@ -49,15 +50,18 @@ import {
   GAME_TYPE_DISPLAY,
 } from "@/features/product/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
+import { toast } from "sonner";
 import ImageUploader from "@/components/global/ImageUploader";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import TagInput from "@/components/ui/TagInput";
-import Link from "next/link";
-import { toast } from "sonner";
+import LocationPicker from "@/features/map/components/LocationPicker";
+import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { productFormSchema, productFormType } from "@/features/product/schemas";
+import type { Category } from "@/generated/prisma/client";
 import type { ProductFormAction } from "@/features/product/types";
+import type { LocationData } from "@/features/map/types";
 
 interface ProductFormProps {
   mode: "create" | "edit";
@@ -78,7 +82,8 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  * 2. 카테고리 선택 (대분류 > 소분류 연동)
  * 3. 제품 정보 입력 (제목, 가격, 인원, 상태 등)
  * 4. 태그 입력
- * 5. 폼 제출 및 서버 액션 호출
+ * 5. 직거래 희망 장소 입력
+ * 6. 폼 제출 및 서버 액션 호출
  *
  * @param {ProductFormProps} props - 폼 모드(create/edit), 초기값, 카테고리 데이터
  */
@@ -143,6 +148,7 @@ export default function ProductForm({
       has_manual: defaultValues.has_manual ?? true,
       categoryId: defaultValues.categoryId ?? undefined,
       tags: defaultValues.tags || [],
+      location: defaultValues.location ?? null,
     },
   });
 
@@ -152,6 +158,7 @@ export default function ProductForm({
     isImageFormOpen,
     setIsImageFormOpen,
     handleImageChange,
+    handleImageDrop,
     handleDeleteImage,
     handleDragEnd,
     setPreviews,
@@ -191,6 +198,20 @@ export default function ProductForm({
       }
     }
   }, [categories, defaultValues.categoryId, setValue]);
+
+  // 위치 관련 상태
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const location = watch("location");
+
+  // 위치 선택 핸들러
+  const handleLocationSelect = (data: LocationData) => {
+    setValue("location", data, { shouldDirty: true });
+    setIsMapOpen(false);
+  };
+
+  const handleRemoveLocation = () => {
+    setValue("location", null, { shouldDirty: true });
+  };
 
   const onSubmit = handleSubmit(async (data) => {
     if (mode === "create" && files.length === 0) {
@@ -261,11 +282,16 @@ export default function ProductForm({
           formData.append(key, JSON.stringify(value));
           return;
         }
-        if (key === "photos" || key === "id") return;
+        if (key === "photos" || key === "id" || key === "location") return;
         if (value === undefined || value === null) return;
         formData.append(key, value.toString());
       });
       allPhotos.forEach((url) => formData.append("photos[]", url));
+
+      // 위치 데이터(LocationData 객체)는 FormData에 바로 담을 수 없으므로 JSON 문자열로 직렬화하여 전송
+      if (data.location) {
+        formData.append("location", JSON.stringify(data.location));
+      }
 
       const result = await action(formData);
 
@@ -313,6 +339,7 @@ export default function ProductForm({
         <ImageUploader
           previews={previews}
           onImageChange={handleImageChange}
+          onImageDrop={handleImageDrop}
           onDeleteImage={handleDeleteImage}
           onDragEnd={handleDragEnd}
           isOpen={isImageFormOpen}
@@ -482,6 +509,59 @@ export default function ProductForm({
         resetSignal={resetSignal}
       />
 
+      {/* 직거래 장소 선택 섹션 */}
+      <div className="flex flex-col gap-2 pt-2">
+        <label className="text-sm font-medium text-primary flex items-center gap-1">
+          <MapPinIcon className="size-4" />
+          직거래 희망 장소{" "}
+          <span className="text-muted font-normal">(선택)</span>
+        </label>
+
+        {location ? (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-brand/10 rounded-full text-brand">
+                <MapPinIcon className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary">
+                  {location.locationName}
+                </p>
+                <p className="text-xs text-muted">
+                  {location.region1} {location.region2} {location.region3}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsMapOpen(true)}
+                className="text-xs font-medium text-muted hover:text-primary px-2 py-1"
+              >
+                변경
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveLocation}
+                className="text-muted hover:text-danger p-1"
+                title="위치 삭제"
+              >
+                <XMarkIcon className="size-4" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsMapOpen(true)}
+            className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 transition-all"
+          >
+            <MapPinIcon className="size-5" />
+            <span className="text-sm">거래 장소 추가하기</span>
+          </button>
+        )}
+      </div>
+
       <div className="pt-4 flex flex-col gap-3">
         <Button
           text={
@@ -490,8 +570,8 @@ export default function ProductForm({
                 ? "수정 중..."
                 : "업로드 중..."
               : mode === "edit"
-                ? "수정하기"
-                : "등록하기"
+              ? "수정하기"
+              : "등록하기"
           }
           disabled={isUploading}
         />
@@ -512,6 +592,15 @@ export default function ProductForm({
           </Link>
         </div>
       </div>
+
+      {/* 지도 모달 */}
+      {isMapOpen && (
+        <LocationPicker
+          onClose={() => setIsMapOpen(false)}
+          onSelect={handleLocationSelect}
+          initialData={location ?? undefined}
+        />
+      )}
     </form>
   );
 }

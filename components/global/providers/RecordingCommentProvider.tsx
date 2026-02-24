@@ -23,8 +23,8 @@ interface RecordingCommentProviderProps {
 
 /**
  * 녹화본 댓글 상태를 하위 컴포넌트에 공급하는 Provider
- * - `useRecordingComment` 훅을 초기화하고 그 결과를 Context로 전달합니다.
- * - `RecordingComment` 컴포넌트 내부에서 사용됩니다.
+ * - `useRecordingComment` 훅을 초기화하고 그 결과를 Context로 전달
+ * - `RecordingComment` 컴포넌트 내부에서 사용
  */
 export default function RecordingCommentProvider({
   vodId,

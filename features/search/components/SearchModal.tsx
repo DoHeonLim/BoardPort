@@ -40,8 +40,8 @@ interface SearchModalProps {
  * 검색 모달 컴포넌트
  *
  * [반응형 레이아웃]
- * - Mobile: 전체 화면(Full Screen)을 덮는 오버레이 형태
- * - Desktop: 검색바 하단에 열리는 드롭다운(Dropdown) 형태
+ * - Mobile: 전체 화면(`fixed inset-0`)을 덮는 오버레이 형태
+ * - Desktop: 검색바 하단에 부착되는 드롭다운(`absolute`) 형태
  *
  * [기능]
  * - 검색어 입력 (`SearchBar`)

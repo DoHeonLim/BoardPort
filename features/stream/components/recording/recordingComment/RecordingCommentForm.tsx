@@ -26,7 +26,7 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
  * [기능]
  * 1. 자동 높이 조절 Textarea 사용
  * 2. Enter 키 전송 지원 (Shift+Enter는 줄바꿈)
- * 3. Optimistic UI 패턴: 전송 시 입력창을 즉시 비우고, 실패 시 복원합니다.
+ * 3. Optimistic UI 패턴: 전송 시 입력창을 즉시 비우고, 실패 시 복원
  */
 export default function RecordingCommentForm({ vodId }: { vodId: number }) {
   const { createComment } = useRecordingCommentContext();

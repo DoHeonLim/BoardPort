@@ -20,9 +20,9 @@ import type { Paginated } from "@/features/product/types";
 /**
  * 유저 제품 목록 조회 Action (초기/추가 로드 통합)
  *
- * - 프로필 탭 전환 시 클라이언트에서 호출합니다.
- * - cursor가 있으면 추가 로드(무한 스크롤), 없으면 초기 로드(캐싱)를 수행합니다.
- * - Service 계층으로 분기하여 처리합니다.
+ * - 프로필 탭 전환 시 클라이언트에서 호출
+ * - cursor가 있으면 추가 로드(무한 스크롤), 없으면 초기 로드(캐싱)를 수행
+ * - Service 계층으로 분기하여 처리
  */
 export async function fetchUserProductsAction<T = any>(
   scope: UserProductsScope,

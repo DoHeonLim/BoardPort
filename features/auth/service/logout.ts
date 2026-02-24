@@ -18,8 +18,8 @@ import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 
 /**
- * 현재 세션을 파기하고 홈 화면으로 리다이렉트합니다.
- * Server Action 또는 Client Component에서 호출 가능합니다.
+ * 현재 세션을 파기하고 홈 화면으로 리다이렉트
+ * Server Action 또는 Client Component에서 호출 가능
  *
  * @returns {Promise<void>}
  */

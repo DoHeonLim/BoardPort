@@ -33,9 +33,9 @@ interface StreamSecretInfoProps {
 
 /**
  * 방송 소유자에게만 보이는 OBS 송출 정보 패널
- * - RTMP URL과 Stream Key를 표시하고 복사할 수 있습니다.
- * - 보안을 위해 기본적으로는 숨겨져 있으며, '보기' 버튼 클릭 시 로드합니다.
- * - Key 재발급 기능도 포함합니다.
+ * - RTMP URL과 Stream Key를 표시하고 복사할 수 있음
+ * - 보안을 위해 기본적으로는 숨겨져 있으며, '보기' 버튼 클릭 시 로드
+ * - Key 재발급 기능도 포함
  */
 function IconGhostButton({
   title,

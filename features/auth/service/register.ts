@@ -23,7 +23,7 @@ import { AUTH_ERRORS } from "@/features/auth/constants";
 import type { ServiceResult } from "@/lib/types";
 
 /**
- * 신규 계정을 생성합니다.
+ * 신규 계정을 생성
  *
  * @param {CreateAccountSchema} data - 회원가입 폼 데이터 (username, email, password)
  * @returns {Promise<ServiceResult<{ userId: number }>>} 성공 시 생성된 userId 반환

@@ -76,11 +76,11 @@ interface FollowListModalProps {
  * 팔로우 목록 모달
  *
  * [기능]
- * 1. 팔로워 또는 팔로잉 유저 목록을 렌더링합니다.
- * 2. '맞팔로잉' 유저와 그 외 유저를 섹션으로 분리하여 표시합니다. (`isMutualWithOwner` 기준)
- * 3. 무한 스크롤(`useInfiniteScroll`)을 지원합니다.
- * 4. 모바일에서는 Bottom Sheet, 데스크톱에서는 중앙 모달 형태로 반응형 레이아웃을 제공합니다.
- * 5. 접근성(Focus Trap, ESC 닫기, Scroll Lock)을 지원합니다.
+ * 1. 팔로워 또는 팔로잉 유저 목록을 렌더링
+ * 2. '맞팔로잉' 유저와 그 외 유저를 섹션으로 분리하여 표시 (`isMutualWithOwner` 기준)
+ * 3. 무한 스크롤(`useInfiniteScroll`)을 지원
+ * 4. 모바일에서는 Bottom Sheet, 데스크톱에서는 중앙 모달 형태로 반응형 레이아웃을 제공
+ * 5. 접근성(Focus Trap, ESC 닫기, Scroll Lock)을 지원
  */
 export default function FollowListModal({
   isOpen,

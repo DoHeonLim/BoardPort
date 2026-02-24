@@ -21,6 +21,7 @@ import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { serializeStream } from "@/features/stream/utils/serializer";
 import { BROADCAST_SUMMARY_SELECT } from "@/features/stream/constants";
+import { getBlockedUserIds } from "@/features/user/service/block";
 import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
 
 /* -------------------------------------------------------------------------- */
@@ -28,32 +29,41 @@ import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
 /* -------------------------------------------------------------------------- */
 
 /**
- * 1. 메인 스트리밍 탭용 목록 조회
- * - 검색(keyword), 카테고리 필터, 스코프(전체/팔로잉) 조건을 모두 지원합니다.
- * - 커서 기반 무한 스크롤을 사용합니다.
- * - 현재 방송 중(`CONNECTED`)인 항목만 조회합니다.
+ * 메인 스트리밍 목록 조회
+ *
+ * - 현재 방송 중(`CONNECTED`)인 항목만 조회
+ * - [Security] `getBlockedUserIds`를 사용하여 나와 차단 관계(내가 차단했거나 나를 차단한)에 있는
+ *   유저의 방송은 DB 쿼리 단계에서 원천적으로 제외
+ * - 정지된(Banned) 유저의 방송도 노출 X
+ * - 실시간성을 위해 별도의 캐싱을 적용 X (No-Store)
  *
  * @param {Object} params - 검색 및 페이징 파라미터
- * @returns {Promise<BroadcastSummary[]>} 방송 목록
+ * @returns {Promise<BroadcastSummary[]>} 필터링된 방송 목록
  */
 export async function getStreams(params: {
   scope: "all" | "following";
   category?: string;
   keyword?: string;
-  viewerId: number | null;
+  viewerId: number;
   cursor: number | null;
   take: number;
 }): Promise<BroadcastSummary[]> {
   const { scope, category, keyword, viewerId, cursor, take } = params;
 
-  // 기본 조건: 현재 방송 중
-  const where: Prisma.BroadcastWhereInput = { status: "CONNECTED" };
-  const conditions: Prisma.BroadcastWhereInput[] = [where];
+  // 1. 차단된 유저 ID 목록 조회
+  const blockedIds = await getBlockedUserIds(viewerId);
 
-  // 1. 커서
+  // 2. 기본 조건: 현재 방송 중(CONNECTED) && 차단 관계가 아닌 유저
+  const conditions: Prisma.BroadcastWhereInput[] = [
+    { status: "CONNECTED" },
+    { liveInput: { user: { bannedAt: null } } }, // 정지된 유저의 방송 숨김
+    { liveInput: { userId: { notIn: blockedIds } } }, // 차단 필터
+  ];
+
+  // 3. 페이지네이션 (커서)
   if (cursor) conditions.push({ id: { lt: cursor } });
 
-  // 2. 카테고리
+  // 4. 카테고리 필터
   if (category) {
     conditions.push({
       OR: [
@@ -63,7 +73,7 @@ export async function getStreams(params: {
     });
   }
 
-  // 3. 키워드
+  // 5. 키워드 검색
   if (keyword) {
     conditions.push({
       OR: [
@@ -75,15 +85,13 @@ export async function getStreams(params: {
           },
         },
         {
-          tags: {
-            some: { name: { contains: keyword, mode: "insensitive" } },
-          },
+          tags: { some: { name: { contains: keyword, mode: "insensitive" } } },
         },
       ],
     });
   }
 
-  // 4. 스코프 (팔로잉)
+  // 6. 스코프 필터 (팔로잉 목록인 경우)
   if (scope === "following") {
     if (!viewerId) return []; // 비로그인이면 팔로잉 목록 없음
     conditions.push({
@@ -135,9 +143,9 @@ export async function getStreams(params: {
 
 /**
  * 2. 프로필 페이지 "최근 방송" Rail용 조회
- * - 특정 유저의 방송을 최신순으로 N개만 가져옵니다. (단순 리스트)
- * - `includePrivate` 옵션: 본인 프로필일 경우 비공개 방송도 포함합니다.
- * - 캐싱(`unstable_cache`)이 적용되어 있습니다. (USER_STREAMS_ID 태그)
+ * - 특정 유저의 방송을 최신순으로 N개만 가져옴 (단순 리스트)
+ * - `includePrivate` 옵션: 본인 프로필일 경우 비공개 방송도 포함
+ * - 캐싱(`unstable_cache`)이 적용되어 있음 (USER_STREAMS_ID 태그)
  *
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수 (Default: 6)
@@ -210,8 +218,8 @@ export const getCachedRecentBroadcasts = (
 
 /**
  * 3. 채널 페이지 "현재 라이브" 조회 (단일)
- * - 특정 유저가 현재 진행 중인 방송 1개를 조회합니다. (최신순)
- * - 방송이 없으면 null을 반환합니다.
+ * - 특정 유저가 현재 진행 중인 방송 1개를 조회 (최신순)
+ * - 방송이 없으면 null을 반환
  *
  * @param {number} ownerId - 방송 소유자 ID
  */
@@ -247,8 +255,8 @@ export async function getChannelLive(
 
 /**
  * 4. 채널 페이지 "다시보기 그리드" 조회
- * - 특정 유저의 종료된(`ENDED`) 방송(VOD) 목록을 조회합니다.
- * - `ready_at` 및 `created_at` 기준으로 정렬합니다.
+ * - 특정 유저의 종료된(`ENDED`) 방송(VOD) 목록을 조회
+ * - `ready_at` 및 `created_at` 기준으로 정렬
  *
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수

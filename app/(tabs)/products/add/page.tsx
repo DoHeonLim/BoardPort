@@ -36,8 +36,8 @@ import { createProductAction } from "@/features/product/actions/create";
 /**
  * 제품 등록 페이지
  *
- * - 카테고리 목록을 서버에서 미리 로드하여 폼에 주입합니다.
- * - `ProductForm`을 'create' 모드로 렌더링합니다.
+ * - 카테고리 목록을 서버에서 미리 로드하여 폼에 주입
+ * - `ProductForm`을 'create' 모드로 렌더링
  */
 export default async function AddPage() {
   const categories = await fetchProductCategories();

@@ -34,9 +34,9 @@ type RawSubscription = {
 /**
  * POST /api/push/subscribe
  *
- * - 클라이언트로부터 PushSubscription 정보를 받아 DB에 저장(Upsert)합니다.
- * - 전역 알림 설정(pushEnabled)을 true로 활성화합니다.
- * - 최초 구독 시 Welcome 알림(Push)을 발송합니다.
+ * - 클라이언트로부터 PushSubscription 정보를 받아 DB에 저장(Upsert)
+ * - 전역 알림 설정(pushEnabled)을 true로 활성화
+ * - 최초 구독 시 Welcome 알림(Push)을 발송
  */
 export async function POST(req: Request) {
   try {

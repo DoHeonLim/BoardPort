@@ -11,14 +11,23 @@
  * 2026.01.12  임도헌   Modified  height, padding 조정
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  */
 "use client";
 
 import { useState } from "react";
-import { FilterState } from "@/features/product/types";
-import type { Category } from "@/generated/prisma/client";
-import SearchFilters from "@/features/search/components/SearchFilters";
+import dynamic from "next/dynamic";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
+import type { FilterState } from "@/features/product/types";
+import type { Category } from "@/generated/prisma/client";
+
+const SearchFilters = dynamic(
+  () => import("@/features/search/components/SearchFilters"),
+  {
+    ssr: false,
+    loading: () => null, // 로딩 중 아무것도 표시 안 함
+  }
+);
 
 interface Props {
   categories: Category[];
@@ -27,7 +36,7 @@ interface Props {
 
 /**
  * 상세 필터 버튼과 필터 모달을 관리하는 클라이언트 래퍼
- * - 버튼 클릭 시 `SearchFilters` 컴포넌트를 엽니다.
+ * - 버튼 클릭 시 `SearchFilters` 컴포넌트 오픈
  */
 export default function ClientFilterWrapper({ categories, filters }: Props) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -42,12 +51,14 @@ export default function ClientFilterWrapper({ categories, filters }: Props) {
         <AdjustmentsHorizontalIcon className="size-4" />
       </button>
 
-      <SearchFilters
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        categories={categories}
-        filters={filters}
-      />
+      {isFilterOpen && (
+        <SearchFilters
+          isOpen={isFilterOpen}
+          onClose={() => setIsFilterOpen(false)}
+          categories={categories}
+          filters={filters}
+        />
+      )}
     </div>
   );
 }

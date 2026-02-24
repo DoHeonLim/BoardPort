@@ -20,9 +20,9 @@ import SearchBar from "@/features/search/components/SearchBar";
 /**
  * 스트리밍 목록용 검색바 래퍼 컴포넌트
  *
- * - 공통 `SearchBar` 컴포넌트를 사용하여 UI를 렌더링합니다.
- * - 검색어 입력 시 URL 쿼리 파라미터(`keyword`)를 업데이트하여 검색을 수행합니다.
- * - 검색어가 있을 경우 `/streams?keyword=...`로 이동하고, 없으면 `/streams`로 초기화합니다.
+ * - 공통 `SearchBar` 컴포넌트를 사용하여 UI를 렌더링
+ * - 검색어 입력 시 URL 쿼리 파라미터(`keyword`)를 업데이트하여 검색을 수행
+ * - 검색어가 있을 경우 `/streams?keyword=...`로 이동하고, 없으면 `/streams`로 초기화
  */
 export default function StreamSearchBarWrapper() {
   const router = useRouter();

@@ -12,6 +12,7 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.22  임도헌   Modified  props에 차단 목록(initialBlockedUserIds) 추가
  */
 "use client";
 
@@ -25,15 +26,16 @@ interface Props {
   streamChatRoomhost: number;
   userId: number;
   username: string;
+  initialBlockedUserIds?: number[]; // 차단한 유저의 ID들
 }
 
 /**
  * 모바일 환경에서 사용되는 채팅 섹션 래퍼
  *
  * [기능]
- * 1. 채팅 영역의 높이를 동적으로 계산하여 키보드 활성화 시에도 UI가 깨지지 않도록 합니다.
- * 2. 채팅 확대/축소 기능을 제공하며, 상태 변경 시 이벤트를 발생시켜 상단 영상/정보 영역을 제어합니다.
- * 3. `StreamChatRoom` 컴포넌트를 렌더링합니다.
+ * 1. 채팅 영역의 높이를 동적으로 계산하여 키보드 활성화 시에도 UI가 깨지지 않도록 함
+ * 2. 채팅 확대/축소 기능을 제공하며, 상태 변경 시 이벤트를 발생시켜 상단 영상/정보 영역을 제어
+ * 3. `StreamChatRoom` 컴포넌트를 렌더링
  */
 export default function StreamMobileChatSection({
   initialStreamMessage,
@@ -41,6 +43,7 @@ export default function StreamMobileChatSection({
   streamChatRoomhost,
   userId,
   username,
+  initialBlockedUserIds = [],
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -48,8 +51,8 @@ export default function StreamMobileChatSection({
 
   /**
    * 채팅 영역 높이 계산 함수
-   * - 현재 요소의 화면상 top 위치부터 뷰포트 바닥까지의 높이를 계산합니다.
-   * - 최소 높이(300px)를 보장하여 키보드가 올라와도 UI가 깨지지 않도록 합니다.
+   * - 현재 요소의 화면상 top 위치부터 뷰포트 바닥까지의 높이를 계산
+   * - 최소 높이(300px)를 보장하여 키보드가 올라와도 UI가 깨지지 않도록 함
    */
   const updateHeight = useCallback(() => {
     const el = containerRef.current;
@@ -63,7 +66,7 @@ export default function StreamMobileChatSection({
 
   /**
    * Topbar에서 "채팅 닫기" 이벤트 수신
-   * - 닫힐 때 확대 상태를 초기화하고 높이를 재계산합니다.
+   * - 닫힐 때 확대 상태를 초기화하고 높이를 재계산
    */
   useEffect(() => {
     const handleState = (event: Event) => {
@@ -84,7 +87,7 @@ export default function StreamMobileChatSection({
 
   /**
    * 화면 리사이즈 및 회전 감지
-   * - 높이를 실시간으로 재계산하여 레이아웃을 맞춥니다.
+   * - 높이를 실시간으로 재계산하여 레이아웃을 맞춤
    */
   useEffect(() => {
     updateHeight();
@@ -99,7 +102,7 @@ export default function StreamMobileChatSection({
 
   /**
    * 확대/축소 상태 전파
-   * - StreamDetail 컴포넌트에게 "채팅이 확대되었음"을 알려 방송 정보를 숨기게 합니다.
+   * - StreamDetail 컴포넌트에게 "채팅이 확대되었음"을 알려 방송 정보를 숨기게 함
    */
   useEffect(() => {
     window.dispatchEvent(
@@ -109,7 +112,7 @@ export default function StreamMobileChatSection({
 
   /**
    * 레이아웃 변경 완료 신호 수신
-   * - StreamDetail이 숨겨지거나 나타난 후(레이아웃 변경 후) 높이를 다시 계산합니다.
+   * - StreamDetail이 숨겨지거나 나타난 후(레이아웃 변경 후) 높이를 다시 계산
    */
   useEffect(() => {
     const handleLayoutUpdated = () => updateHeight();
@@ -136,6 +139,7 @@ export default function StreamMobileChatSection({
         streamChatRoomhost={streamChatRoomhost}
         userId={userId}
         username={username}
+        initialBlockedUserIds={initialBlockedUserIds}
         fillParent
         showExpandToggle
         isExpanded={expanded}

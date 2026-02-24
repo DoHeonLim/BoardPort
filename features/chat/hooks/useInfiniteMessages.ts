@@ -28,10 +28,10 @@ import { getMoreMessagesAction } from "@/features/chat/actions/messages";
 /**
  * 채팅방 메시지 무한 스크롤 (역방향 페이징)
  *
- * [기능]
- * 1. 초기 메시지 목록을 상태로 관리합니다.
- * 2. 스크롤이 상단(`sentinelRef`)에 닿으면 `IntersectionObserver`가 감지하여 이전 메시지를 로드합니다.
- * 3. 메시지 추가(`prepend`) 시 스크롤 위치가 튀지 않도록 `scrollHeight` 차이를 계산하여 보정합니다.
+ * - 과거 메시지를 로드하여 리스트 앞에 추가(`prepend`)할 때,
+ *   스크롤 위치가 튀는 현상을 방지하기 위해 `scrollHeight`의 변화량(delta)만큼
+ *   `scrollTop`을 보정하여 사용자의 시선 위치를 유지
+ * - `IntersectionObserver`를 사용하여 리스트 최상단(`sentinelRef`) 노출을 감지
  *
  * @param {ChatMessage[]} initialMessages - 초기 메시지
  * @param {string} chatRoomId - 채팅방 ID

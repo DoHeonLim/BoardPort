@@ -24,7 +24,7 @@ interface StreamEndedOverlayProps {
 
 /**
  * 방송이 종료(ENDED)되었을 때 플레이어 위에 덮어씌우는 안내 화면
- * - 해당 스트리머의 채널 페이지(녹화본 목록)로 이동하는 버튼을 제공합니다.
+ * - 해당 스트리머의 채널 페이지(녹화본 목록)로 이동하는 버튼을 제공
  */
 export default function StreamEndedOverlay({
   username,

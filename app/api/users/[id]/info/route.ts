@@ -19,9 +19,9 @@ type Params = { params: { id: string } };
 /**
  * GET /api/users/[id]/info
  *
- * - 특정 유저의 ID, Username, Avatar 정보를 반환합니다.
- * - 세션 인증 없이 공개된 정보만 제공합니다. (Public Profile)
- * - 주로 리스트 등에서 유저 정보를 낙관적으로 표시(Optimistic UI)할 때 사용됩니다.
+ * - 특정 유저의 ID, Username, Avatar 정보를 반환
+ * - 세션 인증 없이 공개된 정보만 제공 (Public Profile)
+ * - 주로 리스트 등에서 유저 정보를 낙관적으로 표시(Optimistic UI)할 때 사용
  */
 export async function GET(_req: Request, { params }: Params) {
   const idNum = Number(params.id);

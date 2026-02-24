@@ -26,11 +26,21 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.24  임도헌   Modified  deleteReviewAction 사용 및 import 경로 수정
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
+ * 2026.02.03  임도헌   Modified  판매 중 탭에 끌어올리기 버튼 추가
+ * 2026.02.05  임도헌   Modified  끌어올리기 버튼에 횟수 제한(MAX_BUMP_COUNT) UI 적용
+ * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  */
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useTransition,
+} from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -39,28 +49,39 @@ import { cn } from "@/lib/utils";
 import {
   GAME_TYPE_DISPLAY,
   PRODUCT_STATUS_LABEL,
+  MAX_BUMP_COUNT,
 } from "@/features/product/constants";
 import { useReview } from "@/features/review/hooks/useReview";
-import { getUserInfoAction } from "@/features/user/actions/profile";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
-import SelectUserModal from "@/features/user/components/profile/SelectUserModal";
-import CreateReviewModal from "@/features/user/components/profile/CreateReviewModal";
-import ReviewDetailModal from "@/features/user/components/profile/ReviewDetailModal";
 import ReservationUserInfo from "@/features/user/components/profile/ReservationUserInfo";
 import { EyeIcon, HeartIcon } from "@heroicons/react/24/solid";
+import { ArrowUpIcon } from "@heroicons/react/24/outline";
+import { updateProductStatusAction } from "@/features/product/actions/status";
+import { deleteReviewAction } from "@/features/review/actions/delete";
+import { getUserInfoAction } from "@/features/user/actions/profile";
+import { bumpProductAction } from "@/features/product/actions/bump";
 import type {
   MySalesListItem,
   ProductStatus,
   GameType,
 } from "@/features/product/types";
 import type { ProductReview } from "@/features/review/types";
-import { updateProductStatusAction } from "@/features/product/actions/status";
-import {
-  deleteReviewAction,
-  deleteAllProductReviewsAction,
-} from "@/features/review/actions/delete";
+
+// Dynamic Imports
+const CreateReviewModal = dynamic(
+  () => import("@/features/user/components/profile/CreateReviewModal"),
+  { ssr: false }
+);
+const ReviewDetailModal = dynamic(
+  () => import("@/features/user/components/profile/ReviewDetailModal"),
+  { ssr: false }
+);
+const SelectUserModal = dynamic(
+  () => import("@/features/user/components/profile/SelectUserModal"),
+  { ssr: false }
+);
 
 interface ProductItemProps {
   product: MySalesListItem;
@@ -216,9 +237,29 @@ export default function MySalesProductItem({
     }
   }, [product.purchase_user, product.purchase_userId]);
 
+  // 리뷰 등록
   const handleSubmitReview = async (text: string, rating: number) => {
     const res = await submitReview(text, rating);
     return !!res.ok;
+  };
+
+  // 끌어올리기 훅
+  const [isBumping, startBump] = useTransition();
+  // 끌어올리기 횟수 제한
+  const isBumpMaxed = product.bump_count >= MAX_BUMP_COUNT;
+
+  // 끌어올리기
+  const handleBump = () => {
+    startBump(async () => {
+      const res = await bumpProductAction(product.id);
+      if (res.success) {
+        toast.success("게시글을 끌어올렸습니다!");
+        // 서버 액션 성공 즉시 UI 상의 카운트를 +1 하여 시각적 피드백 제공
+        onReviewChanged?.({ bump_count: product.bump_count + 1 });
+      } else {
+        toast.error(res.error ?? "실패했습니다.");
+      }
+    });
   };
 
   // 리뷰 삭제
@@ -299,7 +340,6 @@ export default function MySalesProductItem({
     await runWithOptimistic("selling", async () => {
       const res = await updateProductStatusAction(product.id, "selling");
       if (res?.success) {
-        await deleteAllProductReviewsAction(product.id);
         toast.success("판매중으로 변경되었습니다.");
         setReviews([]);
         onReviewChanged?.({ reviews: [] });
@@ -427,13 +467,40 @@ export default function MySalesProductItem({
       {/* 2. Actions (상태별 분기) */}
       <div className="grid grid-flow-col auto-cols-fr border-t border-border divide-x divide-border bg-surface-dim/30">
         {type === "selling" && (
-          <button
-            onClick={() => toggleModal("reservation", true)}
-            disabled={opLoading}
-            className="py-3 text-sm font-medium text-brand hover:bg-surface-dim transition-colors disabled:opacity-50"
-          >
-            예약자 선택
-          </button>
+          <>
+            <button
+              onClick={handleBump}
+              disabled={isBumping || isBumpMaxed || opLoading}
+              className="py-3 text-sm font-medium text-primary hover:bg-surface-dim transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBumping ? (
+                <span className="size-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              ) : (
+                <ArrowUpIcon
+                  className={cn(
+                    "size-4",
+                    isBumpMaxed ? "text-muted" : "text-brand"
+                  )}
+                />
+              )}
+
+              <span className={cn(isBumpMaxed && "text-muted")}>
+                {isBumpMaxed ? "UP 마감" : "UP"}
+              </span>
+
+              {/* 횟수 표시: (현재/최대) */}
+              <span className="text-[10px] font-normal text-muted">
+                ({product.bump_count}/{MAX_BUMP_COUNT})
+              </span>
+            </button>
+            <button
+              onClick={() => toggleModal("reservation", true)}
+              disabled={opLoading}
+              className="py-3 text-sm font-medium text-brand hover:bg-surface-dim transition-colors disabled:opacity-50"
+            >
+              예약자 선택
+            </button>
+          </>
         )}
         {type === "reserved" && (
           <>
@@ -491,39 +558,46 @@ export default function MySalesProductItem({
       {/* Modals */}
 
       {/* 1. 리뷰 작성 */}
-      <CreateReviewModal
-        isOpen={modalState.reviewCreate}
-        onClose={() => toggleModal("reviewCreate", false)}
-        onSubmit={handleSubmitReview}
-        username={purchaseUserInfo.username}
-        userAvatar={purchaseUserInfo.avatar}
-      />
-
+      {modalState.reviewCreate && (
+        <CreateReviewModal
+          isOpen={modalState.reviewCreate}
+          onClose={() => toggleModal("reviewCreate", false)}
+          onSubmit={handleSubmitReview}
+          username={purchaseUserInfo.username}
+          userAvatar={purchaseUserInfo.avatar}
+        />
+      )}
       {/* 2. 내 리뷰 상세/삭제 */}
-      <ReviewDetailModal
-        isOpen={modalState.reviewSeller}
-        onClose={() => toggleModal("reviewSeller", false)}
-        title="내가 쓴 리뷰"
-        review={sellerReviews[0]}
-        onDelete={() => toggleModal("deleteConfirm", true)}
-      />
+      {modalState.reviewSeller && (
+        <ReviewDetailModal
+          isOpen={modalState.reviewSeller}
+          onClose={() => toggleModal("reviewSeller", false)}
+          title="내가 쓴 리뷰"
+          review={sellerReviews[0]}
+          onDelete={() => toggleModal("deleteConfirm", true)}
+        />
+      )}
 
       {/* 3. 구매자 리뷰 조회 */}
-      <ReviewDetailModal
-        isOpen={modalState.reviewBuyer}
-        onClose={() => toggleModal("reviewBuyer", false)}
-        title="구매자 리뷰"
-        review={buyerReviews[0]}
-        emptyMessage="아직 작성된 리뷰가 없습니다."
-      />
+      {modalState.reviewBuyer && (
+        <ReviewDetailModal
+          isOpen={modalState.reviewBuyer}
+          onClose={() => toggleModal("reviewBuyer", false)}
+          title="구매자 리뷰"
+          review={buyerReviews[0]}
+          emptyMessage="아직 작성된 리뷰가 없습니다."
+        />
+      )}
 
       {/* 4. 유저 예약자 선택 */}
-      <SelectUserModal
-        productId={product.id}
-        isOpen={modalState.reservation}
-        onOpenChange={(v) => toggleModal("reservation", v)}
-        onConfirm={handleReserveConfirm}
-      />
+      {modalState.reservation && (
+        <SelectUserModal
+          productId={product.id}
+          isOpen={modalState.reservation}
+          onOpenChange={(v) => toggleModal("reservation", v)}
+          onConfirm={handleReserveConfirm}
+        />
+      )}
 
       {/* 5. 상태 변경 확인 다이얼로그 */}
       <ConfirmDialog

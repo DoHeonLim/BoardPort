@@ -30,9 +30,9 @@ interface ProductDetailProps {
 
 /**
  * 제품 상세 페이지를 모달 형태로 띄우는 래퍼 컴포넌트
- * - 목록 페이지에서 상세로 이동 시, 전체 페이지 전환 대신 모달로 띄워 UX를 향상시킵니다. (Next.js Parallel Routes)
- * - 배경 스크롤 잠금, 포커스 트랩, ESC 닫기 등 모달 필수 기능을 제공합니다.
- * - 닫기 시 `returnTo` 쿼리 파라미터를 사용하여 이전 목록 상태를 유지하며 복귀합니다.
+ * - 목록 페이지에서 상세로 이동 시, 전체 페이지 전환 대신 모달로 띄워 UX를 향상 (Next.js Parallel Routes)
+ * - 배경 스크롤 잠금, 포커스 트랩, ESC 닫기 등 모달 필수 기능을 제공
+ * - 닫기 시 `returnTo` 쿼리 파라미터를 사용하여 이전 목록 상태를 유지하며 복귀
  */
 export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
@@ -73,7 +73,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
-          "w-full h-full max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl flex flex-col overflow-hidden outline-none",
+          "w-full h-full min-h-screen max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl flex flex-col overflow-hidden outline-none",
           // 모바일에서는 전체 화면, 데스크톱에서는 중앙 모달 형태 유지
           "sm:h-[85vh] sm:rounded-2xl"
         )}

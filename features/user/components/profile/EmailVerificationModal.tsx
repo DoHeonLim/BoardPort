@@ -40,12 +40,12 @@ interface EmailVerificationModalProps {
 /**
  * 이메일 인증 모달 내부 컴포넌트
  *
- * [핵심 로직]
- * 1. `useFormState`를 통해 인증 요청(`request`), 재전송(`resend`), 검증(`verify`) 상태를 관리합니다.
+ * [로직]
+ * 1. `useFormState`를 통해 인증 요청(`request`), 재전송(`resend`), 검증(`verify`) 상태를 관리
  * 2. 쿨다운(3분) 로직:
- *    - 서버 응답(`cooldownRemaining`)을 기준으로 로컬 타이머를 설정합니다.
- *    - `localStorage`에 만료 시간을 저장하여 모달을 닫거나 새로고침해도 쿨다운을 유지합니다.
- * 3. 인증 성공 시 페이지를 새로고침하여 변경된 인증 상태를 반영합니다.
+ *    - 서버 응답(`cooldownRemaining`)을 기준으로 로컬 타이머를 설정
+ *    - `localStorage`에 만료 시간을 저장하여 모달을 닫거나 새로고침해도 쿨다운을 유지
+ * 3. 인증 성공 시 페이지를 새로고침하여 변경된 인증 상태를 반영
  */
 function EmailVerificationModalInner({
   onClose,
@@ -142,7 +142,9 @@ function EmailVerificationModalInner({
       if (state.sent) toast.success("인증 코드를 재전송했습니다.");
       else if ((state.cooldownRemaining ?? 0) > 0) {
         toast.info(
-          `잠시만요! 재전송은 ${formatTime(state.cooldownRemaining ?? 0)} 후에 가능합니다.`
+          `잠시만요! 재전송은 ${formatTime(
+            state.cooldownRemaining ?? 0
+          )} 후에 가능합니다.`
         );
       }
     } else if (lastActionRef.current === "request") {
@@ -330,7 +332,7 @@ function EmailVerificationModalInner({
 
 /**
  * 이메일 인증 모달 (Wrapper)
- * - 모달이 열릴 때마다 Key를 변경하여 내부 상태(`useFormState` 등)를 초기화합니다.
+ * - 모달이 열릴 때마다 Key를 변경하여 내부 상태(`useFormState` 등)를 초기화
  */
 export default function EmailVerificationModal({
   isOpen,

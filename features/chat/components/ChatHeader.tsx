@@ -14,6 +14,7 @@
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.24  임도헌   Modified  deleteAllProductReviewsAction Import 및 호출
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  상대방 차단 및 신고 통합 메뉴 구현
  */
 "use client";
 
@@ -21,7 +22,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, useEffect, useRef } from "react";
-import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import dynamic from "next/dynamic";
+import {
+  EllipsisHorizontalIcon,
+  UserMinusIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import UserAvatar from "@/components/global/UserAvatar";
 import BackButton from "@/components/global/BackButton";
@@ -30,8 +36,13 @@ import { formatToWon } from "@/lib/utils";
 import type { ChatUser } from "@/features/chat/types";
 import { leaveChatRoomAction } from "@/features/chat/actions/room";
 import { updateProductStatusAction } from "@/features/product/actions/status";
-import { deleteAllProductReviewsAction } from "@/features/review/actions/delete";
-import { cn } from "@/lib/utils";
+import { toggleBlockAction } from "@/features/user/actions/block";
+
+// 신고 모달 Dynamic Import
+const ReportModal = dynamic(
+  () => import("@/features/report/components/ReportModal"),
+  { ssr: false }
+);
 
 interface ChatHeaderProduct {
   id: number;
@@ -54,10 +65,10 @@ interface ChatHeaderProps {
  * 채팅방 상단 헤더
  *
  * [기능]
- * 1. 뒤로가기 및 상대방 프로필 표시
+ * 1. 뒤로가기 및 상대방 프로필 표시 (상대가 나갔으면 비활성)
  * 2. 거래 중인 제품 정보(제목, 가격, 상태) 요약 표시
  * 3. 판매자 전용 액션 메뉴 (예약자 지정, 판매완료 처리, 상태 되돌리기)
- * 4. 채팅방 나가기 기능
+ * 4. 채팅방 나가기, 차단, 신고 기능 (상대가 나갔으면 일부 제한)
  */
 export default function ChatHeader({
   chatRoomId,
@@ -67,16 +78,21 @@ export default function ChatHeader({
 }: ChatHeaderProps) {
   const router = useRouter();
 
+  // --- UI States ---
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null); // 메뉴 영역 참조
-  const buttonRef = useRef<HTMLButtonElement>(null); // 버튼 영역 참조
-
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [revertDialogOpen, setRevertDialogOpen] = useState(false);
-  const [isLeaving, startLeaveTransition] = useTransition();
-  const [isUpdatingStatus, startStatusTransition] = useTransition();
-  // 로컬에서 상품 상태 추적
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+
+  // --- Logic States ---
+  const [isPending, startTransition] = useTransition();
   const [productState, setProductState] = useState<ChatHeaderProduct>(product);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // 상대방 이탈 여부 체크 (Ghost User)
+  const isGhost = !!counterparty.hasLeft;
 
   const img = productState.images?.[0]?.url ?? "";
   const isSeller = viewerId === productState.userId;
@@ -84,18 +100,19 @@ export default function ChatHeader({
     !!productState.reservation_userId && !productState.purchase_userId;
   const isSold = !!productState.purchase_userId;
   const isSelling = !isReserved && !isSold;
+
+  // 현재 대화 상대가 예약자인지 확인
   const isCurrentReservationHolder =
     isReserved && productState.reservation_userId === counterparty.id;
 
   const productHref = `/products/view/${productState.id}`;
-  const profileHref = `/profile/${counterparty.username}`;
+  // Ghost면 프로필 링크 무효화
+  const profileHref = isGhost ? "#" : `/profile/${counterparty.username}`;
 
-  // 외부 클릭 감지 로직
+  // 외부 클릭 감지
   useEffect(() => {
     if (!menuOpen) return;
-
     const handleClickOutside = (event: MouseEvent) => {
-      // 메뉴 내부나 버튼을 클릭한 경우는 무시
       if (
         menuRef.current &&
         !menuRef.current.contains(event.target as Node) &&
@@ -105,144 +122,166 @@ export default function ChatHeader({
         setMenuOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // 판매중 → (이 유저를) 예약중
+  // --- Handlers ---
+
+  /**
+   * 1. 예약자로 지정 (판매중 -> 예약중)
+   */
   const handleReserveCounterparty = () => {
+    if (isGhost) return toast.error("대화 상대가 없어 예약할 수 없습니다.");
+
     setMenuOpen(false);
-    startStatusTransition(async () => {
+    startTransition(async () => {
       const res = await updateProductStatusAction(
         productState.id,
         "reserved",
         counterparty.id
       );
-      if (!res?.success) {
+      if (res?.success) {
+        toast.success(`${counterparty.username}님을 예약자로 지정했어요.`);
+        setProductState((prev) => ({
+          ...prev,
+          reservation_userId: counterparty.id,
+          purchase_userId: null,
+        }));
+      } else {
         toast.error(res?.error ?? "예약자로 지정하는 데 실패했습니다.");
-        return;
       }
-      toast.success(`${counterparty.username}님을 예약자로 지정했어요.`);
-      setProductState((prev) => ({
-        ...prev,
-        reservation_userId: counterparty.id,
-        purchase_userId: null,
-      }));
     });
   };
 
-  // 예약중 → 판매중 (예약 해제 + 리뷰 초기화)
+  /**
+   * 2. 예약 취소 (예약중 -> 판매중)
+   */
   const handleReservedToSelling = () => {
     setMenuOpen(false);
-    startStatusTransition(async () => {
+    startTransition(async () => {
       const res = await updateProductStatusAction(productState.id, "selling");
-      if (!res?.success) {
+      if (res?.success) {
+        // 리뷰 삭제 로직은 서버 트랜잭션으로 이관됨 (여기선 상태만 갱신)
+        toast.success("판매 중으로 변경했어요.");
+        setProductState((prev) => ({
+          ...prev,
+          reservation_userId: null,
+          purchase_userId: null,
+        }));
+      } else {
         toast.error(res?.error ?? "판매중으로 변경하지 못했어요.");
-        return;
       }
-
-      await deleteAllProductReviewsAction(productState.id).catch((err) =>
-        console.error("deleteAllProductReviewsAction error:", err)
-      );
-
-      toast.success("판매 중으로 변경했어요. 관련 리뷰가 초기화되었습니다.");
-      setProductState((prev) => ({
-        ...prev,
-        reservation_userId: null,
-        purchase_userId: null,
-      }));
     });
   };
 
-  // 예약중(현재 예약자 = 이 유저) → 판매완료
+  /**
+   * 3. 판매 완료 처리 (예약중 -> 판매완료)
+   */
   const handleReservedToSold = () => {
     setMenuOpen(false);
-    startStatusTransition(async () => {
+    startTransition(async () => {
       const res = await updateProductStatusAction(productState.id, "sold");
-      if (!res?.success) {
+      if (res?.success) {
+        toast.success("판매 완료로 변경했어요.");
+        setProductState((prev) => ({
+          ...prev,
+          purchase_userId: prev.reservation_userId ?? counterparty.id,
+          reservation_userId: null,
+        }));
+      } else {
         toast.error(res?.error ?? "판매완료로 변경하지 못했어요.");
-        return;
       }
-      toast.success("판매 완료로 변경했어요.");
-      setProductState((prev) => ({
-        ...prev,
-        purchase_userId: prev.reservation_userId ?? counterparty.id,
-        reservation_userId: null,
-      }));
     });
   };
 
-  // 판매완료 → 판매중 (리뷰 삭제 + ConfirmDialog에서 호출)
+  /**
+   * 4. 판매중으로 되돌리기 (판매완료 -> 판매중)
+   * - 서버에서 트랜잭션으로 리뷰 삭제까지 처리함
+   */
   const handleSoldToSelling = () => {
-    startStatusTransition(async () => {
+    startTransition(async () => {
       const res = await updateProductStatusAction(productState.id, "selling");
-      if (!res?.success) {
+      if (res?.success) {
+        // 리뷰 삭제 로직은 서버 트랜잭션으로 이관됨
+        toast.success(
+          "판매 중으로 되돌렸어요. 이 제품에 작성된 리뷰도 모두 삭제되었습니다."
+        );
+        setProductState((prev) => ({
+          ...prev,
+          reservation_userId: null,
+          purchase_userId: null,
+        }));
+        setRevertDialogOpen(false);
+        setMenuOpen(false);
+      } else {
         toast.error(res?.error ?? "판매중으로 되돌리지 못했어요.");
-        return;
       }
-
-      await deleteAllProductReviewsAction(productState.id).catch((err) =>
-        console.error("deleteAllProductReviewsAction error:", err)
-      );
-
-      toast.success(
-        "판매 중으로 되돌렸어요. 이 제품에 작성된 리뷰도 모두 삭제되었습니다."
-      );
-      setProductState((prev) => ({
-        ...prev,
-        reservation_userId: null,
-        purchase_userId: null,
-      }));
-      setRevertDialogOpen(false);
     });
   };
 
-  //채팅방 나가기
-  const handleLeaveRoom = () => {
-    startLeaveTransition(async () => {
-      const res = await leaveChatRoomAction(chatRoomId);
-      if (!res?.success) {
-        toast.error(res?.error ?? "채팅방 나가기 중 오류가 발생했습니다.");
-        return;
+  /**
+   * 5. 상대방 차단
+   */
+  const handleBlockCounterparty = () => {
+    if (isGhost) return; // 나간 유저는 차단 불가 (이미 나감)
+
+    startTransition(async () => {
+      const result = await toggleBlockAction(counterparty.id, "block");
+      if (result.success) {
+        toast.success(`${counterparty.username}님을 차단했습니다.`);
+        setBlockConfirmOpen(false);
+        setMenuOpen(false);
+        router.replace("/chat");
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "차단 처리에 실패했습니다.");
       }
-      toast.success("대화방을 나갔어요.");
-      router.replace("/chat");
+    });
+  };
+
+  /**
+   * 6. 채팅방 나가기
+   */
+  const handleLeaveRoom = () => {
+    startTransition(async () => {
+      const res = await leaveChatRoomAction(chatRoomId);
+      if (res?.success) {
+        toast.success("대화방을 나갔어요.");
+        router.replace("/chat");
+      } else {
+        toast.error(res?.error ?? "채팅방 나가기 중 오류가 발생했습니다.");
+      }
     });
   };
 
   return (
     <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-border shadow-sm">
       <div className="mx-auto w-full px-2 h-14 flex items-center justify-between gap-2">
-        {/* 1. Left: Back + User Info */}
+        {/* Left Section: Back + User */}
         <div className="flex justify-center items-center gap-1 min-w-0 shrink-0 max-w-[35%]">
           <BackButton
             fallbackHref="/chat"
             variant="appbar"
             className="h-10 w-8 px-0 shrink-0"
           />
+          {/* Ghost User(나간 유저)일 경우 프로필 링크 비활성화 */}
           <UserAvatar
             avatar={counterparty.avatar}
             username={counterparty.username}
             showUsername={true}
             size="sm"
             className="shrink-0"
-            compact // 패딩 제거 버전
+            compact
+            disabled={isGhost}
           />
         </div>
 
-        {/* 2. Center: Product Info Card (Link) */}
+        {/* Center Section: Product Info Link */}
         <Link
           href={productHref}
-          className={cn(
-            "flex-1 flex items-center justify-end gap-2 min-w-0",
-            "bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors",
-            "border border-transparent hover:border-border"
-          )}
+          className="flex-1 flex items-center justify-end gap-2 min-w-0 bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors border border-transparent hover:border-border"
         >
-          {/* 상품 이미지: 화면이 340px 이상일 때만 표시 (xs:block) */}
           <div className="relative size-8 shrink-0 rounded bg-surface border border-border overflow-hidden hidden xs:block">
             {img ? (
               <Image
@@ -255,37 +294,32 @@ export default function ChatHeader({
               <div className="bg-neutral-200 dark:bg-neutral-700 w-full h-full" />
             )}
           </div>
-
           <div className="flex flex-col items-end min-w-0">
-            {/* 제목 Truncate */}
             <span className="text-xs text-primary font-semibold truncate max-w-[120px]">
               {productState.title}
             </span>
-
-            {/* 가격 & 배지 */}
             <div className="flex items-center gap-1.5">
-              {/* 텍스트 배지 유지 및 스타일 최적화 (9px 폰트) */}
               {isReserved && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 whitespace-nowrap">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 whitespace-nowrap">
                   예약중
                 </span>
               )}
               {isSold && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
                   판매완료
                 </span>
               )}
               <span className="text-xs font-bold text-brand dark:text-brand-light">
-                {`${formatToWon(productState.price)}원`}
+                {formatToWon(productState.price)}원
               </span>
             </div>
           </div>
         </Link>
 
-        {/* 3. Right: Menu Button */}
+        {/* Right Section: Menu */}
         <div className="relative shrink-0">
           <button
-            ref={buttonRef} // [Add] 버튼 Ref 연결
+            ref={buttonRef}
             className="flex items-center justify-center size-9 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="메뉴 열기"
@@ -298,15 +332,19 @@ export default function ChatHeader({
               ref={menuRef}
               className="absolute right-0 mt-1 w-48 origin-top-right rounded-xl bg-surface shadow-xl border border-border text-sm py-1 z-50 animate-fade-in"
             >
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  router.push(profileHref);
-                }}
-                className="block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim"
-              >
-                상대 프로필
-              </button>
+              {/* Ghost가 아닐 때만 프로필 이동 가능 */}
+              {!isGhost && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    router.push(profileHref);
+                  }}
+                  className="block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim"
+                >
+                  상대 프로필
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -317,61 +355,83 @@ export default function ChatHeader({
                 상품 상세
               </button>
 
+              {/* [판매자 전용 메뉴] */}
               {isSeller && (
                 <>
                   <div className="border-t border-border my-1" />
-                  {isSelling && (
+
+                  {/* 판매중 -> 예약자 지정 (Ghost면 불가) */}
+                  {isSelling && !isGhost && (
                     <button
-                      className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-primary"
+                      className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim"
                       onClick={handleReserveCounterparty}
-                      disabled={isUpdatingStatus}
                     >
                       예약자로 지정
                     </button>
                   )}
 
-                  {isReserved && (
+                  {/* 예약중 -> 취소 or 판매완료 (현재 예약자인 경우만) */}
+                  {isReserved && isCurrentReservationHolder && (
                     <>
-                      {isCurrentReservationHolder ? (
-                        <>
-                          <button
-                            className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-primary"
-                            onClick={handleReservedToSelling}
-                            disabled={isUpdatingStatus}
-                          >
-                            예약 취소 (판매중)
-                          </button>
-                          <button
-                            className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-primary font-medium"
-                            onClick={handleReservedToSold}
-                            disabled={isUpdatingStatus}
-                          >
-                            판매완료 처리
-                          </button>
-                        </>
-                      ) : (
-                        <div className="px-3 py-2 text-xs text-muted">
-                          다른 유저가 예약 중입니다
-                        </div>
-                      )}
+                      <button
+                        className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim"
+                        onClick={handleReservedToSelling}
+                      >
+                        예약 취소 (판매중)
+                      </button>
+                      <button
+                        className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim font-medium"
+                        onClick={handleReservedToSold}
+                      >
+                        판매완료 처리
+                      </button>
                     </>
                   )}
 
+                  {/* 판매완료 -> 되돌리기 */}
                   {isSold && (
                     <button
-                      className="block w-full px-3 py-2 text-left hover:bg-surface-dim text-amber-600 dark:text-amber-400"
+                      className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim text-amber-600"
                       onClick={() => {
                         setMenuOpen(false);
                         setRevertDialogOpen(true);
                       }}
-                      disabled={isUpdatingStatus}
                     >
                       판매중으로 되돌리기
                     </button>
                   )}
                 </>
               )}
+
               <div className="border-t border-border my-1" />
+
+              {/* 차단/신고 (Ghost면 불가) */}
+              {!isGhost && (
+                <>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setBlockConfirmOpen(true);
+                    }}
+                    className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-surface-dim"
+                  >
+                    <UserMinusIcon className="size-4" /> 상대방 차단하기
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setReportOpen(true);
+                    }}
+                    className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-surface-dim"
+                  >
+                    <ExclamationTriangleIcon className="size-4" /> 사용자
+                    신고하기
+                  </button>
+                  <div className="border-t border-border my-1" />
+                </>
+              )}
+
+              {/* 채팅방 나가기 (항상 가능) */}
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -386,7 +446,16 @@ export default function ChatHeader({
         </div>
       </div>
 
-      {/* Dialogs */}
+      {/* --- Dialogs --- */}
+      <ConfirmDialog
+        open={blockConfirmOpen}
+        title="상대방 차단"
+        description={`${counterparty.username}님을 차단하시겠습니까? 차단하면 이 채팅방에서 나가게 되며 서로 대화할 수 없습니다.`}
+        confirmLabel="차단"
+        onConfirm={handleBlockCounterparty}
+        onCancel={() => setBlockConfirmOpen(false)}
+        loading={isPending}
+      />
       <ConfirmDialog
         open={leaveDialogOpen}
         title="채팅방 나가기"
@@ -394,20 +463,27 @@ export default function ChatHeader({
         confirmLabel="나가기"
         onConfirm={handleLeaveRoom}
         onCancel={() => setLeaveDialogOpen(false)}
-        loading={isLeaving}
+        loading={isPending}
       />
       <ConfirmDialog
         open={revertDialogOpen}
-        onCancel={() => {
-          if (!isUpdatingStatus) setRevertDialogOpen(false);
-        }}
-        onConfirm={handleSoldToSelling}
-        loading={isUpdatingStatus}
         title="판매 상태를 되돌릴까요?"
-        confirmLabel="판매중으로 변경"
-        cancelLabel="취소"
-        description="판매 완료를 취소하고 다시 '판매 중' 상태로 돌립니다. 리뷰도 삭제됩니다."
+        description="판매 완료를 취소하고 '판매 중' 상태로 돌립니다. 관련 리뷰도 모두 삭제됩니다."
+        confirmLabel="변경"
+        onConfirm={handleSoldToSelling}
+        onCancel={() => setRevertDialogOpen(false)}
+        loading={isPending}
       />
+
+      {/* 신고 모달 (Ghost가 아닐 때만 렌더링) */}
+      {!isGhost && (
+        <ReportModal
+          isOpen={reportOpen}
+          onClose={() => setReportOpen(false)}
+          targetId={counterparty.id}
+          targetType="USER"
+        />
+      )}
     </header>
   );
 }

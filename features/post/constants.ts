@@ -38,6 +38,9 @@ export const POST_CATEGORY_DESCRIPTIONS = {
   COMPASS: "보드게임에 대한 질문과 답변을 나누는 공간입니다",
 } as const;
 
+// 지역 필터가 '기본(내 동네)'으로 적용되어야 하는 카테고리 목록
+export const LOCAL_FOCUSED_CATEGORIES = ["CREW", "FREE"];
+
 // =============================================================================
 // 2. Prisma Select Queries
 // =============================================================================
@@ -75,6 +78,14 @@ export const POST_SELECT: Prisma.PostSelect = {
     },
     take: 1,
   },
+
+  // 위치 정보 추가
+  latitude: true,
+  longitude: true,
+  locationName: true,
+  region1: true,
+  region2: true,
+  region3: true,
 
   // 카운트 정보
   _count: {

@@ -9,20 +9,21 @@
  * 2025.09.10  임도헌   Modified  TimeAgo에 Date 직접 전달, 공유 핸들러 보강, a11y/가독성 개선
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 아이콘 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.02.13  임도헌   Modified  handleCopyLink 제거 및 handleShare 통합
  */
 
 "use client";
 
-import { formatDuration } from "@/lib/utils";
 import TimeAgo from "@/components/ui/TimeAgo";
-import { toast } from "sonner";
 import {
   ChatBubbleBottomCenterTextIcon,
   EyeIcon,
   ShareIcon,
 } from "@heroicons/react/24/outline";
+import { formatDuration, handleShare } from "@/lib/utils";
 
 interface RecordingMetaProps {
+  title: string;
   created: Date;
   duration: number;
   viewCount?: number;
@@ -36,34 +37,13 @@ interface RecordingMetaProps {
  * - 하단: 좋아요 버튼(주입됨), 조회수, 댓글 수
  */
 export default function RecordingMeta({
+  title,
   created,
   duration,
   viewCount = 0,
   commentCount = 0,
   LikeButtonComponent,
 }: RecordingMetaProps) {
-  const handleCopyLink = async () => {
-    try {
-      const url = typeof window !== "undefined" ? window.location.href : "";
-
-      // 1) Web Share API 우선
-      if (url && typeof navigator !== "undefined" && "share" in navigator) {
-        await (navigator as any).share({ title: document.title, url });
-        return;
-      }
-      // 2) Clipboard API
-      if (url && typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        toast.success("링크가 복사되었습니다.");
-        return;
-      }
-      // 3) 폴백
-      toast.error("공유를 지원하지 않는 환경입니다.");
-    } catch {
-      toast.error("링크 복사에 실패했습니다. 다시 시도해주세요.");
-    }
-  };
-
   return (
     <div className="flex flex-col gap-4 border-b border-border pb-4">
       {/* 1. 시간 및 공유 */}
@@ -75,7 +55,7 @@ export default function RecordingMeta({
         </div>
         <button
           type="button"
-          onClick={handleCopyLink}
+          onClick={() => handleShare(`보드포트 다시보기: ${title}`)}
           className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-primary transition-colors p-1.5 -mr-1.5 rounded-lg hover:bg-surface-dim"
           aria-label="링크 공유"
         >

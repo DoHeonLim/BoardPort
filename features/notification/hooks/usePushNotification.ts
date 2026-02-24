@@ -32,8 +32,8 @@ interface PushSubscriptionData {
 
 /**
  * 브라우저 환경 지원 여부 확인
- * - Service Worker, Push API, Notification API가 모두 있어야 합니다.
- * - 개발 모드(Development)에서는 next-pwa가 비활성화될 수 있으므로 false 처리합니다.
+ * - Service Worker, Push API, Notification API가 모두 있어야 함
+ * - 개발 모드(Development)에서는 next-pwa가 비활성화될 수 있으므로 false 처리
  */
 function checkSupport() {
   try {
@@ -58,9 +58,9 @@ function checkSupport() {
 /**
  * Service Worker 준비 상태 대기 헬퍼
  *
- * 1. 현재 등록된 SW가 있는지 확인합니다.
- * 2. 없으면 수동 등록(`/sw.js`)을 시도합니다. (next-pwa 자동 등록 실패 대비)
- * 3. `navigator.serviceWorker.ready`를 타임아웃과 함께 기다립니다.
+ * 1. 현재 등록된 SW가 있는지 확인
+ * 2. 없으면 수동 등록(`/sw.js`)을 시도 (next-pwa 자동 등록 실패 대비)
+ * 3. `navigator.serviceWorker.ready`를 타임아웃과 함께 기다림
  *
  * @param label - 로깅용 라벨 (check, subscribe 등)
  * @param timeoutMs - 대기 시간 (기본 10초)

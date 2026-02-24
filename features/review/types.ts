@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   Service/Action 공용 타입
  * 2026.01.24  임도헌   Modified  ProductReview, ReviewSubmitResult 추가
+ * 2026.02.22  임도헌   Modified  ReviewServiceResult에 캐시 무효화용 meta 추가
  */
 
 // =============================================================================
@@ -15,19 +16,24 @@
 
 /**
  * 리뷰 생성 서비스 결과
+ * - 생성 성공 시, 캐시 무효화를 위한 메타데이터(productId, sellerId, buyerId)를 반환
  */
 export type ReviewServiceResult =
-  | { success: true; review: ProductReview }
+  | {
+      success: true;
+      review: ProductReview;
+      meta?: { productId: number; sellerId: number; buyerId: number | null };
+    }
   | { success: false; error: string };
 
 /**
  * 리뷰 삭제 서비스 결과
- * - 삭제 성공 시, 캐시 무효화를 위한 메타데이터(productId, productOwnerId)를 반환합니다.
+ * - 삭제 성공 시, 캐시 무효화를 위한 메타데이터(productId, sellerId, buyerId)를 반환
  */
 export type DeleteReviewResult =
   | {
       success: true;
-      meta?: { productId: number; productOwnerId?: number };
+      meta?: { productId: number; sellerId?: number; buyerId?: number };
     }
   | { success: false; error: string };
 
@@ -37,7 +43,7 @@ export type DeleteReviewResult =
 
 /**
  * 리뷰 핵심 데이터 모델
- * - DB 조회 결과 매핑 및 클라이언트 UI 렌더링에 사용됩니다.
+ * - DB 조회 결과 매핑 및 클라이언트 UI 렌더링에 사용
  */
 export interface ProductReview {
   id: number;

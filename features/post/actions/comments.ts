@@ -1,5 +1,5 @@
 /**
- * File Name : features/post/actions/comment.ts
+ * File Name : features/post/actions/comments.ts
  * Description : 댓글 관리 Controller
  * Author : 임도헌
  *
@@ -12,6 +12,7 @@
  * 2026.01.22  임도헌   Modified  Service 연결, 생성/삭제 Action 추가
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/comments.ts -> features/post/actions/comment.ts
+ * 2026.02.05  임도헌   Modified  댓글 조회 시 viewerId 전달 (차단 필터링)
  */
 "use server";
 
@@ -27,6 +28,7 @@ import {
 import { commentFormSchema } from "@/features/post/schemas";
 import type { PostComment } from "@/features/post/types";
 import type { ServiceResult } from "@/lib/types";
+
 /**
  * 댓글 목록 추가 로드 Action (무한 스크롤)
  */
@@ -35,7 +37,9 @@ export const getComments = async (
   cursor?: number,
   limit = 10
 ): Promise<PostComment[]> => {
-  return fetchComments(postId, cursor, limit);
+  const session = await getSession();
+  const viewerId = session?.id ?? -1;
+  return fetchComments(postId, cursor, limit, viewerId);
 };
 
 /**
@@ -44,13 +48,15 @@ export const getComments = async (
 export const getCachedComments = async (
   postId: number
 ): Promise<PostComment[]> => {
-  return fetchCached(postId);
+  const session = await getSession();
+  const viewerId = session?.id ?? -1;
+  return fetchCached(postId, viewerId);
 };
 
 /**
  * 댓글 생성 Action
- * - 로그인 및 입력값 검증 후 Service를 호출합니다.
- * - 성공 시 댓글 목록, 게시글 상세(댓글 수), 전체 목록 캐시를 무효화합니다.
+ * - 로그인 및 입력값 검증 후 Service를 호출
+ * - 성공 시 댓글 목록, 게시글 상세(댓글 수), 전체 목록 캐시를 무효화
  *
  * @param {FormData} formData - 댓글 내용 및 게시글 ID
  */
@@ -83,8 +89,8 @@ export const createCommentAction = async (
 
 /**
  * 댓글 삭제 Action
- * - 로그인 확인 후 Service를 호출합니다.
- * - 성공 시 관련 캐시를 무효화합니다.
+ * - 로그인 확인 후 Service를 호출
+ * - 성공 시 관련 캐시를 무효화
  *
  * @param {number} commentId - 삭제할 댓글 ID
  * @param {number} postId - 게시글 ID

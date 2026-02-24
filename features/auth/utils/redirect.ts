@@ -12,8 +12,8 @@
  */
 
 /**
- * callbackUrl을 안전하게 정제하여 Open Redirect 취약점을 방지합니다.
- * 외부 도메인이나 프로토콜이 포함된 URL은 차단하고, 내부 경로만 허용합니다.
+ * callbackUrl을 안전하게 정제하여 Open Redirect 취약점을 방지
+ * 외부 도메인이나 프로토콜이 포함된 URL은 차단하고, 내부 경로만 허용
  *
  * @param {unknown} raw - 검증할 원본 URL
  * @returns {string} 안전한 내부 경로 또는 루트("/")

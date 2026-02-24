@@ -15,3 +15,9 @@ export const CHAT_EVENT = {
   MESSAGE: "message", // 새 메시지 수신
   MESSAGE_READ: "message_read", // 메시지 읽음 처리
 } as const;
+
+// DB include
+export const MESSAGE_INCLUDE = {
+  user: { select: { id: true, username: true, avatar: true } },
+  appointment: true, // 약속 정보 포함
+};

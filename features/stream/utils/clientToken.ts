@@ -36,9 +36,9 @@ function createRandomToken(): string {
 
 /**
  * getRealtimeClientToken
- * - 브라우저 탭(세션) 단위로 고정된 토큰을 반환.
- * - sessionStorage를 최우선 사용, 실패 시 모듈 스코프 변수로 대체.
- * - 서버(SSR)에서는 "server" 문자열을 반환하므로 클라이언트 전용 사용을 권장.
+ * - 브라우저 탭(세션) 단위로 고정된 토큰을 반환
+ * - sessionStorage를 최우선 사용, 실패 시 모듈 스코프 변수로 대체
+ * - 서버(SSR)에서는 "server" 문자열을 반환하므로 클라이언트 전용 사용을 권장
  */
 export function getRealtimeClientToken(): string {
   // SSR 환경 대응

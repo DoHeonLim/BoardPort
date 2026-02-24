@@ -40,9 +40,9 @@ export type MeResponse =
 /**
  * GET /api/me
  *
- * - 쿠키 세션에서 userId를 추출합니다.
- * - DB에서 해당 유저의 최신 기본 정보(username, avatar, emailVerified)를 조회합니다.
- * - 로그인되지 않았거나 유저가 존재하지 않으면 401을 반환합니다.
+ * - 쿠키 세션에서 userId를 추출
+ * - DB에서 해당 유저의 최신 기본 정보(username, avatar, emailVerified)를 조회
+ * - 로그인되지 않았거나 유저가 존재하지 않으면 401을 반환
  */
 export async function GET() {
   // 1. 세션 확인

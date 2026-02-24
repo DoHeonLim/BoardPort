@@ -19,9 +19,9 @@ import SearchBar from "@/features/search/components/SearchBar";
 /**
  * 게시글 목록용 검색바 래퍼 컴포넌트
  *
- * - 공통 `SearchBar` 컴포넌트를 사용하여 UI를 렌더링합니다.
- * - 검색어 입력 시 URL 쿼리 파라미터(`keyword`)를 업데이트하여 검색을 수행합니다.
- * - 카테고리 등 다른 쿼리 파라미터는 유지합니다.
+ * - 공통 `SearchBar` 컴포넌트를 사용하여 UI를 렌더링
+ * - 검색어 입력 시 URL 쿼리 파라미터(`keyword`)를 업데이트하여 검색을 수행
+ * - 카테고리 등 다른 쿼리 파라미터는 유지
  */
 export default function PostSearchBarWrapper() {
   const searchParams = useSearchParams();

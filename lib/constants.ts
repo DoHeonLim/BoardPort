@@ -28,6 +28,9 @@ export const MAX_PHOTO_SIZE = 3 * 1024 * 1024;
 export const BLUR_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mO8UA8AAiUBUcc3qzwAAAAASUVORK5CYII=";
 
+// 유저 키워드 최대 갯수
+export const MAX_KEYWORD_PER_USER = 10;
+
 // 페이지네이션 (Global Config)
 export const POSTS_PAGE_TAKE = 10;
 export const PRODUCTS_PAGE_TAKE = 10;

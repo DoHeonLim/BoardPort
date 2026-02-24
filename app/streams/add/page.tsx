@@ -30,8 +30,8 @@ export const metadata: Metadata = {
 /**
  * 방송 생성 페이지
  *
- * - 방송 카테고리를 미리 로드하여 폼에 주입합니다.
- * - `StreamForm` 컴포넌트를 렌더링합니다.
+ * - 방송 카테고리를 미리 로드하여 폼에 주입
+ * - `StreamForm` 컴포넌트를 렌더링
  */
 export default async function AddStreamPage() {
   let categories: Awaited<ReturnType<typeof fetchStreamCategories>> = [];

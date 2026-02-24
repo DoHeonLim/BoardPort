@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * 녹화본 목록이 비어있을 때 표시되는 UI
- * - 소유자(Owner)에게는 방송 시작 버튼을 노출합니다.
- * - 방문자(Visitor)에게는 팔로우 버튼을 노출합니다.
+ * - 소유자(Owner)에게는 방송 시작 버튼을 노출
+ * - 방문자(Visitor)에게는 팔로우 버튼을 노출
  */
 export default function RecordingEmptyState({
   role,

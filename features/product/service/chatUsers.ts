@@ -15,8 +15,8 @@ import db from "@/lib/db";
 import { ChatUser } from "@/features/chat/types";
 
 /**
- * 특정 제품에 대해 현재 사용자와 대화한 상대 유저 목록을 조회합니다.
- * 판매자가 예약자를 지정할 때 사용하며, 중복된 유저를 제거하고 이름순으로 정렬합니다.
+ * 특정 제품에 대해 현재 사용자와 대화한 상대 유저 목록을 조회
+ * 판매자가 예약자를 지정할 때 사용하며, 중복된 유저를 제거하고 이름순으로 정렬
  *
  * @param {number} productId - 제품 ID
  * @param {number} userId - 현재 사용자 ID (판매자)

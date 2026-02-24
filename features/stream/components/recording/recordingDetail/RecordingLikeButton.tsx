@@ -32,8 +32,8 @@ interface RecordingLikeButtonProps {
 
 /**
  * 녹화본 좋아요 버튼 컴포넌트
- * - 낙관적 업데이트(Optimistic UI)를 적용하여 즉각적인 반응을 제공합니다.
- * - 서버 액션 실패 시 상태를 롤백합니다.
+ * - 낙관적 업데이트(Optimistic UI)를 적용하여 즉각적인 반응을 제공
+ * - 서버 액션 실패 시 상태를 롤백
  */
 export default function RecordingLikeButton({
   isLiked,

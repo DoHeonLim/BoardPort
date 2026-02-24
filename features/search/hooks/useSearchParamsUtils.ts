@@ -20,10 +20,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 /**
  * URL Query Parameter 조작 훅
  *
- * [기능]
- * 1. 현재 URL의 쿼리 파라미터를 읽고 수정합니다.
- * 2. `keyword` 등 특정 파라미터만 업데이트하고 라우팅(`push`)합니다.
- * 3. `router.refresh()`를 호출하여 서버 컴포넌트의 데이터 갱신을 유도합니다.
+ * 1. 검색어(`keyword`), 카테고리, 가격 등 필터 파라미터를 조작
+ * 2. `router.push`와 `refresh`를 호출하여 서버 컴포넌트의 데이터 갱신을 유도
  */
 export function useSearchParamsUtils() {
   const router = useRouter();
@@ -32,7 +30,7 @@ export function useSearchParamsUtils() {
 
   /**
    * 검색어(keyword) 업데이트
-   * - 기존 파라미터를 유지한 채 keyword만 변경하거나 삭제합니다.
+   * - 기존 파라미터를 유지한 채 keyword만 변경하거나 삭제합
    */
   const updateKeyword = useCallback(
     (keyword: string) => {
@@ -90,8 +88,8 @@ export function useSearchParamsUtils() {
 
   /**
    * 전체 필터 일괄 적용 (기존 쿼리 덮어쓰기)
-   * - 전달받은 객체(values)에 있는 값으로 쿼리를 재구성합니다.
-   * - 값이 없는 키는 쿼리에서 제외됩니다.
+   * - 전달받은 객체(values)에 있는 값으로 쿼리를 재구성
+   * - 값이 없는 키는 쿼리에서 제외
    */
   const buildSearchParams = useCallback(
     (values: Record<string, string>) => {

@@ -50,11 +50,11 @@ type Opts = {
  * 팔로우/언팔로우 토글 훅
  *
  * [기능]
- * 1. 팔로우/언팔로우 API를 호출하고, 결과를 처리합니다.
- * 2. 낙관적 업데이트(Optimistic Update)를 지원하여 UI 반응성을 높입니다.
- * 3. 실패 시 롤백(Rollback) 로직을 수행합니다.
- * 4. 성공 시 `emitFollowDelta` 이벤트를 발행하여 전역 상태(다른 컴포넌트)를 동기화합니다.
- * 5. 중복 요청 방지(Pending 상태 관리)를 수행합니다.
+ * 1. 팔로우/언팔로우 API를 호출하고, 결과를 처리
+ * 2. 낙관적 업데이트(Optimistic Update)를 지원하여 UI 반응성을 높임임
+ * 3. 실패 시 롤백(Rollback) 로직을 수행
+ * 4. 성공 시 `emitFollowDelta` 이벤트를 발행하여 전역 상태(다른 컴포넌트)를 동기화
+ * 5. 중복 요청 방지(Pending 상태 관리)를 수행
  */
 export function useFollowToggle() {
   const router = useRouter();

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   Created   service/trade.ts에서 분리
+ * 2026.02.05  임도헌   Modified  좋아요 시 차단 관계 확인 로직 추가
  */
 import "server-only";
 
@@ -14,6 +15,8 @@ import { unstable_cache as nextCache, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import type { ServiceResult } from "@/lib/types";
 import type { ProductLikeResult } from "@/features/product/types";
+import { checkBlockRelation } from "@/features/user/service/block";
+import { isUniqueConstraintError } from "@/lib/errors";
 
 /**
  * 좋아요 상태 조회 (Cached)
@@ -50,7 +53,7 @@ export const getCachedProductLikeStatus = async (
 };
 
 /**
- * 제품 좋아요 상태를 토글합니다.
+ * 제품 좋아요 상태를 토글
  *
  * @param {number} userId - 유저 ID
  * @param {number} productId - 제품 ID
@@ -63,6 +66,22 @@ export async function toggleProductLike(
   isLike: boolean
 ): Promise<ServiceResult> {
   try {
+    // 차단 확인
+    const product = await db.product.findUnique({
+      where: { id: productId },
+      select: { userId: true },
+    });
+
+    if (!product) return { success: false, error: "제품을 찾을 수 없습니다." };
+
+    const isBlocked = await checkBlockRelation(userId, product.userId);
+    if (isBlocked) {
+      return {
+        success: false,
+        error: "차단된 사용자와는 상호작용할 수 없습니다.",
+      };
+    }
+
     if (isLike) {
       await db.productLike.create({
         data: {
@@ -78,7 +97,11 @@ export async function toggleProductLike(
 
     revalidateTag(T.PRODUCT_LIKE_STATUS(productId));
     return { success: true };
-  } catch (e) {
+  } catch (e: any) {
+    // 멱등성 처리
+    if (isLike && isUniqueConstraintError(e, ["userId", "productId"])) {
+      return { success: true };
+    }
     console.error("toggleProductLike Error:", e);
     return { success: false, error: "좋아요 처리 실패" };
   }

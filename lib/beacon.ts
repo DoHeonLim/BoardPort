@@ -16,7 +16,7 @@ export interface PostOnUnloadOptions {
 }
 
 /**
- * 페이지가 닫히거나 이동할 때 데이터를 서버로 안전하게 전송합니다.
+ * 페이지가 닫히거나 이동할 때 데이터를 서버로 안전하게 전송
  * - 1순위: `navigator.sendBeacon` 사용 (비동기, 메인 스레드 비차단)
  * - 2순위: `fetch` + `keepalive` 옵션 사용 (폴백)
  *

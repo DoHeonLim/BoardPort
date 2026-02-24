@@ -30,9 +30,9 @@ import {
  * 내 판매 관리 페이지
  *
  * [기능]
- * 1. 판매 중, 예약 중, 판매 완료 상품을 탭으로 나누어 보여줍니다.
- * 2. 초기 렌더링 시 '판매 중(SELLING)' 목록과 전체 탭별 카운트 정보를 로드합니다.
- * 3. `MySalesProductList`를 통해 탭 전환 및 상태 변경(Optimistic) 로직을 처리합니다.
+ * 1. 판매 중, 예약 중, 판매 완료 상품을 탭으로 나누어 보여줌
+ * 2. 초기 렌더링 시 '판매 중(SELLING)' 목록과 전체 탭별 카운트 정보를 로드
+ * 3. `MySalesProductList`를 통해 탭 전환 및 상태 변경(Optimistic) 로직을 처리
  */
 export default async function MySalesPage() {
   const session = await getSession();

@@ -32,6 +32,7 @@ import UserChannelContainer from "@/features/stream/components/channel";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import { getChannelLive, getChannelVods } from "@/features/stream/service/list";
 import { getViewerRole } from "@/features/stream/service/access";
+import { checkBlockRelation } from "@/features/user/service/block";
 import type {
   BroadcastSummary,
   ViewerRole,
@@ -45,10 +46,10 @@ export const dynamic = "force-dynamic";
  * 유저 방송국 페이지
  *
  * [기능]
- * 1. 채널 소유자 정보를 확인합니다.
- * 2. 현재 라이브 방송 중인지 확인(`getChannelLive`)하고, 지난 녹화본 목록(`getChannelVods`)을 로드합니다.
- * 3. 뷰어의 역할(Owner, Follower, Visitor)을 계산합니다.
- * 4. 각 콘텐츠(라이브, VOD)에 대한 접근 권한(Private 언락 여부 등)을 계산하여 주입합니다.
+ * 1. 채널 소유자 정보를 확인
+ * 2. 현재 라이브 방송 중인지 확인(`getChannelLive`)하고, 지난 녹화본 목록(`getChannelVods`)을 로드
+ * 3. 뷰어의 역할(Owner, Follower, Visitor)을 계산
+ * 4. 각 콘텐츠(라이브, VOD)에 대한 접근 권한(Private 언락 여부 등)을 계산하여 주입
  */
 export default async function ChannelPage({
   params,
@@ -64,11 +65,12 @@ export default async function ChannelPage({
   if (!userInfo?.id) return notFound();
   const ownerId = userInfo.id;
 
-  // 2. 데이터 병렬 조회
-  const [liveResult, vods, roleResult] = await Promise.all([
+  // 2. 데이터 병렬 조회 (차단 여부 체크 추가)
+  const [liveResult, vods, roleResult, isBlocked] = await Promise.all([
     getChannelLive(ownerId),
     getChannelVods(ownerId, 30),
     getViewerRole(viewerId, ownerId),
+    viewerId ? checkBlockRelation(viewerId, ownerId) : Promise.resolve(false),
   ]);
 
   const resolvedRole = roleResult as ViewerRole;
@@ -108,7 +110,7 @@ export default async function ChannelPage({
     <UserChannelContainer
       liveNow={liveStreamForUI}
       recordings={recordingsForGrid}
-      userInfo={{ ...userInfo, isFollowing }}
+      userInfo={{ ...userInfo, isFollowing, isBlocked }}
       me={resolvedRole === "OWNER"}
       viewerId={viewerId ?? undefined}
     />

@@ -19,7 +19,7 @@ interface ProductCardTitleProps {
 }
 
 /**
- * 제품 제목을 표시합니다.
+ * 제품 제목을 표시
  * - Grid View: 최대 2줄 표시 (line-clamp-2)
  * - List View: 최대 1줄 표시 (line-clamp-1)
  */

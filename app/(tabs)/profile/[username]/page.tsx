@@ -20,11 +20,17 @@
  * 2025.11.26  임도헌   Modified  방송국 섹션에 최근 방송 목록 추가
  * 2026.01.04  임도헌   Modified  getSession 중복 호출 제거(getUserProfile.viewerId 재사용)로 RSC 부하 감소
  * 2026.01.15  임도헌   Modified  레이아웃 패딩 조정
- * 2026.01.29  임도헌   Modified   타인 프로필 페이지 주석 보강 및 구조 설명 추가
+ * 2026.01.29  임도헌   Modified  타인 프로필 페이지 주석 보강 및 구조 설명 추가
+ * 2026.02.04  임도헌   Modified  신고 및 차단 기능을 위한 ProfileOptionMenu 추가
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가
  */
 
+import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
+import BackButton from "@/components/global/BackButton";
+import UserProfile from "@/features/user/components/profile/UserProfile";
+import ProfileOptionMenu from "@/features/user/components/profile/ProfileOptionMenu";
 import {
   getUserProfile,
   resolveUserIdByUsername,
@@ -34,18 +40,34 @@ import { getCachedUserAverageRating } from "@/features/user/service/metric";
 import { getCachedUserBadges } from "@/features/user/service/badge";
 import { getInitialUserProducts } from "@/features/product/service/userList";
 import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
-import UserProfile from "@/features/user/components/profile/UserProfile";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { username: string };
+}): Promise<Metadata> {
+  const username = decodeURIComponent(params.username);
+
+  return {
+    title: `${username}님의 선원증`,
+    description: `${username}님의 보드포트 프로필입니다.`,
+    openGraph: {
+      title: `${username} - 보드포트`,
+      description: `${username}님의 활동 내역과 판매 물품을 확인하세요.`,
+    },
+  };
+}
 
 /**
  * 타인 프로필 페이지
  *
  * [기능]
- * 1. URL의 `username`을 기반으로 `userId`를 식별합니다.
- * 2. 현재 로그인한 사용자(Viewer)와의 관계(팔로우 여부 등)를 포함한 프로필 정보를 로드합니다.
- * 3. 대상 유저의 평점, 리뷰, 뱃지, 판매 중/완료 상품, 최근 방송(공개) 목록을 병렬로 조회합니다.
- * 4. 본인의 username인 경우 `/profile`로 리다이렉트합니다.
+ * 1. URL의 `username`을 기반으로 `userId`를 식별
+ * 2. 현재 로그인한 사용자(Viewer)와의 관계(팔로우 여부 등)를 포함한 프로필 정보를 로드
+ * 3. 대상 유저의 평점, 리뷰, 뱃지, 판매 중/완료 상품, 최근 방송(공개) 목록을 병렬로 조회
+ * 4. 본인의 username인 경우 `/profile`로 리다이렉트
  */
 export default async function UserProfilePage({
   params,
@@ -79,7 +101,7 @@ export default async function UserProfilePage({
     streams,
   ] = await Promise.all([
     getCachedUserAverageRating(userProfile.id),
-    getCachedInitialUserReviews(userProfile.id),
+    getCachedInitialUserReviews(userProfile.id, viewerId),
     getInitialUserProducts({ type: "SELLING", userId: userProfile.id }),
     getInitialUserProducts({ type: "SOLD", userId: userProfile.id }),
     getCachedUserBadges(userProfile.id),
@@ -88,7 +110,28 @@ export default async function UserProfilePage({
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
-      <div className="px-page-x py-8">
+      {/* 상단 액션바: 뒤로가기 + 옵션 메뉴 */}
+      <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border sm:border-none">
+        <BackButton fallbackHref="/profile" variant="appbar" className="px-0" />
+
+        {/* 로그인 상태일 때만 옵션 메뉴 노출 */}
+        {viewerId && (
+          <ProfileOptionMenu
+            targetId={userProfile.id}
+            username={userProfile.username}
+            isBlocked={userProfile.isBlocked}
+          />
+        )}
+      </div>
+
+      <div className="px-page-x pt-2">
+        {/* 차단된 유저일 경우 안내 메시지 표시 */}
+        {userProfile.isBlocked && (
+          <div className="mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-medium text-center">
+            🚫 차단한 사용자입니다.
+          </div>
+        )}
+
         <UserProfile
           user={userProfile}
           initialReviews={initialReviews}

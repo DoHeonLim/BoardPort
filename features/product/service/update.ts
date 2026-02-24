@@ -12,18 +12,23 @@
  * 2026.01.20  임도헌   Modified  가격 하락 시 찜한 유저 알림 발송 추가
  * 2026.01.22  임도헌   Modified  타입 안전성 보강
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.05  임도헌   Modified  가격 하락 알림 대상에서 차단 관계 유저 제외 로직 추가
+ * 2026.02.20  임도헌   Modified  가격 하락 시 활성화된 모든 채팅방에 시스템 메시지 발송
+ * 2026.02.22  임도헌   Modified  가격 하락 알림 대상에서 정지된 유저(Banned) 완벽 배제
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { sendPushNotification } from "@/features/notification/service/sender";
+import { getBlockedUserIds } from "@/features/user/service/block";
 import {
   canSendPushForType,
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
 import type { ServiceResult } from "@/lib/types";
 import type { ProductDTO } from "@/features/product/types";
+import { mapToChatMessage } from "@/features/chat/utils/converter";
 
 // 알림 발송 헬퍼 (비동기 Fire-and-Forget용)
 async function notifyPriceDrop(params: {
@@ -117,10 +122,39 @@ async function notifyPriceDrop(params: {
   );
 }
 
+async function notifyPriceDropInChats(
+  productId: number,
+  newPrice: number,
+  sellerId: number
+) {
+  const rooms = await db.productChatRoom.findMany({
+    where: { productId },
+    select: { id: true },
+  });
+
+  for (const room of rooms) {
+    const sysMsg = await db.productMessage.create({
+      data: {
+        type: "SYSTEM",
+        userId: sellerId, // 판매자 ID
+        productChatRoomId: room.id,
+        payload: `상품 가격이 ${newPrice.toLocaleString()}원으로 인하되었습니다.`,
+      },
+      include: { user: { select: { id: true, username: true, avatar: true } } },
+    });
+
+    await supabase.channel(`room-${room.id}`).send({
+      type: "broadcast",
+      event: "message",
+      payload: mapToChatMessage(sysMsg),
+    });
+  }
+}
+
 /**
- * 제품 정보를 수정합니다.
- * - 소유권을 확인하고 기존 이미지/태그를 정리한 뒤 업데이트합니다.
- * - 가격 하락 시 찜한 유저에게 알림을 발송합니다.
+ * 제품 정보를 수정
+ * - 소유권을 확인하고 기존 이미지/태그를 정리한 뒤 업데이트
+ * - 가격 하락 시 찜한 유저에게 알림을 발송
  *
  * @param {number} userId - 요청자(소유자) ID
  * @param {number} productId - 수정할 제품 ID
@@ -150,6 +184,26 @@ export async function updateProduct(
     if (existing.userId !== userId) {
       return { success: false, error: "수정 권한이 없습니다." };
     }
+
+    // 위치 정보 업데이트 데이터 구성
+    // data.location이 null이면 DB 필드도 null로 초기화(위치 삭제)해야 함
+    const locationUpdate = data.location
+      ? {
+          latitude: data.location.latitude,
+          longitude: data.location.longitude,
+          locationName: data.location.locationName,
+          region1: data.location.region1,
+          region2: data.location.region2,
+          region3: data.location.region3,
+        }
+      : {
+          latitude: null,
+          longitude: null,
+          locationName: null,
+          region1: null,
+          region2: null,
+          region3: null,
+        };
 
     // 가격 하락 여부 체크
     const isPriceDropped = data.price < existing.price;
@@ -182,6 +236,7 @@ export async function updateProduct(
           condition: data.condition,
           completeness: data.completeness,
           has_manual: data.has_manual,
+          ...locationUpdate,
           category: { connect: { id: data.categoryId } },
           search_tags: {
             connectOrCreate: data.tags.map((tag) => ({
@@ -204,16 +259,24 @@ export async function updateProduct(
       }
     });
 
-    // 3. [신규 기능] 가격 하락 알림 발송 (비동기)
+    // 3. 가격 하락 알림 발송 (비동기)
     if (isPriceDropped) {
       // 찜한 유저 ID 목록 조회
       const likedUsers = await db.productLike.findMany({
-        where: { productId, userId: { not: userId } }, // 본인 제외
+        where: {
+          productId,
+          userId: { not: userId }, // 본인 제외
+          user: { bannedAt: null }, // 정지 유저 제외
+        },
         select: { userId: true },
       });
 
-      const recipientIds = likedUsers.map((u) => u.userId);
+      const blockedIds = await getBlockedUserIds(userId); // 판매자 기준 차단 목록
+      const recipientIds = likedUsers
+        .map((u) => u.userId)
+        .filter((id) => !blockedIds.includes(id)); // 차단된 유저 제외
 
+      // 1. 전역 푸시
       // Fire-and-forget: 알림 발송을 기다리지 않고 바로 응답 반환
       void notifyPriceDrop({
         productId,
@@ -225,6 +288,8 @@ export async function updateProduct(
           : undefined,
         recipients: recipientIds,
       });
+      // 2. 진행 중인 모든 채팅방에 시스템 메시지 전송
+      void notifyPriceDropInChats(productId, data.price, userId);
     }
 
     return {

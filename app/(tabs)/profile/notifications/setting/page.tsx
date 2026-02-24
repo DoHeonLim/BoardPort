@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/profile/notifications/page.tsx
+ * File Name : app/(tabs)/profile/notifications/setting/page.tsx
  * Description : 알림 설정 페이지 (NotificationPreferences + 푸시 구독)
  * Author : 임도헌
  *
@@ -9,21 +9,20 @@
  * 2025.12.03  임도헌   Modified  stream 알림 추가
  * 2026.01.16  임도헌   Modified  [Rule 3.2] max-w-mobile 및 시맨틱 토큰 적용
  * 2026.01.29  임도헌   Modified  알림 설정 페이지 주석 보강 및 구조 설명 추가
+ * 2026.02.08  임도헌   Modified  알림 목록 페이지 구현으로 인해 경로 변경 (settings)
+ * 2026.02.12  임도헌   Modifeid  키워드 알림 설정 추가
  */
 
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import NotificationSettingsClient from "@/features/notification/components/NotificationSettingsClient";
 import BackButton from "@/components/global/BackButton";
+import NotificationSettingsClient from "@/features/notification/components/NotificationSettingsClient";
 
 /**
  * 알림 수신 설정 페이지
- *
- * [기능]
- * 1. 사용자의 알림 수신 동의 여부(채팅, 거래, 리뷰 등)와 방해 금지 시간을 설정합니다.
- * 2. DB에 설정 정보가 없는 경우 `upsert`를 통해 기본값을 생성하여 불러옵니다.
- * 3. 클라이언트 컴포넌트(`NotificationSettingsClient`)에 초기 설정값을 전달합니다.
+ * - 알림 종류별(채팅, 거래 등) 수신 동의 여부 설정
+ * - 방해 금지 시간 설정 제공
  */
 export default async function NotificationSettingsPage() {
   const session = await getSession();
@@ -50,7 +49,7 @@ export default async function NotificationSettingsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-background transition-colors">
+    <div className="min-h-screen bg-background transition-colors pb-24">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-md border-b border-border h-14 w-full">
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
@@ -61,6 +60,7 @@ export default async function NotificationSettingsPage() {
 
       <div className="mx-auto w-full max-w-mobile px-page-x py-6">
         <NotificationSettingsClient prefs={prefs} />
+        {/* 키워드 관리 섹션 추가 */}
       </div>
     </div>
   );

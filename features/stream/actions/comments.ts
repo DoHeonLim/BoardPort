@@ -10,6 +10,7 @@
  * 2026.01.23  임도헌   Modified  Service(comment.ts) 연동 및 Controller 역할 정립
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/[id]/recording/actions/comments.ts -> features/stream/actions/comment.ts
+ * 2026.02.05  임도헌   Modified  댓글 조회 시 세션 ID 전달
  */
 "use server";
 
@@ -32,20 +33,24 @@ export const getRecordingComments = async (
   cursor?: number,
   limit = 10
 ) => {
-  return fetchComments(vodId, cursor, limit);
+  const session = await getSession();
+  const viewerId = session?.id ?? null;
+  return fetchComments(vodId, cursor, limit, viewerId);
 };
 
 /**
  * 초기 댓글 목록 로드 (Cached)
  */
 export const getCachedRecordingComments = async (vodId: number, limit = 10) => {
-  return fetchCached(vodId, limit);
+  const session = await getSession();
+  const viewerId = session?.id ?? null;
+  return fetchCached(vodId, limit, viewerId);
 };
 
 /**
  * 댓글 작성 Action
- * - 로그인 및 입력값 검증 후 Service를 호출합니다.
- * - 성공 시 해당 VOD의 댓글 목록 캐시를 무효화합니다.
+ * - 로그인 및 입력값 검증 후 Service를 호출
+ * - 성공 시 해당 VOD의 댓글 목록 캐시를 무효화
  */
 export const createRecordingComment = async (formData: FormData) => {
   const session = await getSession();
@@ -77,8 +82,8 @@ export const createRecordingComment = async (formData: FormData) => {
 
 /**
  * 댓글 삭제 Action
- * - 로그인 확인 후 Service를 호출합니다.
- * - 성공 시 댓글 목록 캐시를 무효화합니다.
+ * - 로그인 확인 후 Service를 호출
+ * - 성공 시 댓글 목록 캐시를 무효화
  */
 export const deleteRecordingComment = async (
   commentId: number,

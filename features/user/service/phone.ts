@@ -11,6 +11,7 @@
  * 2025.12.22  임도헌   Modified   Prisma 에러 가드 유틸로 변경
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Merged     lib/phone/*.ts 로직 이관
+ * 2026.02.23  임도헌   Modified   토큰 검증 및 유저 업데이트 트랜잭션 적용
  */
 
 import "server-only";
@@ -58,6 +59,9 @@ export async function sendProfilePhoneTokenService(
 
 /**
  * 프로필 인증번호 검증 및 전화번호 업데이트
+ *
+ * 트랜잭션을 적용하여 토큰 삭제와 유저 정보 갱신이 동시에 성공하거나,
+ * 동시에 실패(롤백)하도록 보장
  */
 export async function verifyProfilePhoneTokenService(
   userId: number,
@@ -77,27 +81,37 @@ export async function verifyProfilePhoneTokenService(
     };
   }
 
-  // 2. 토큰 소모 (삭제)
-  await db.sMSToken.delete({ where: { id: verified.id } });
-
   try {
-    // 3. 유저 전화번호 업데이트
-    await db.user.update({
-      where: { id: userId },
-      data: { phone },
+    // 2. 트랜잭션 실행 (토큰 소모 + 유저 정보 업데이트)
+    await db.$transaction(async (tx) => {
+      // (1) 토큰 삭제
+      await tx.sMSToken.delete({ where: { id: verified.id } });
+
+      // (2) 유저 업데이트
+      await tx.user.update({
+        where: { id: userId },
+        data: { phone },
+      });
     });
   } catch (e) {
+    // Unique Constraint Error (이미 등록된 번호 등)
     if (isUniqueConstraintError(e, ["phone"])) {
-      return { success: false, error: "이미 등록된 전화번호입니다." };
+      return {
+        success: false,
+        error: "이미 다른 계정에 등록된 전화번호입니다.",
+      };
     }
-    throw e;
+    console.error("verifyProfilePhoneTokenService error:", e);
+    return { success: false, error: "인증 처리 중 오류가 발생했습니다." };
   }
 
-  // 4. 뱃지 체크 및 캐시 갱신
+  // 3. 뱃지 체크 및 캐시 갱신 (트랜잭션 외부)
   await badgeChecks.onVerificationUpdate(userId);
 
   revalidateTag(T.USER_CORE_ID(userId));
   revalidateTag(T.USER_BADGES_ID(userId));
+
+  // UI 갱신을 위해 관련 경로 리프레시
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
 

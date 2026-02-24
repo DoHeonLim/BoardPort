@@ -18,8 +18,8 @@ interface PostDetailTitleProps {
 }
 
 /**
- * 게시글 상세 제목을 표시합니다.
- * 긴 제목은 자동으로 줄바꿈됩니다.
+ * 게시글 상세 제목을 표시
+ * 긴 제목은 자동으로 줄바꿈
  */
 export default function PostDetailTitle({ title }: PostDetailTitleProps) {
   return (

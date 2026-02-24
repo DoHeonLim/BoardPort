@@ -21,8 +21,8 @@ export const runtime = "nodejs";
 /**
  * POST /api/push/unsubscribe
  *
- * - 사용자의 전역 푸시 설정(pushEnabled)을 끄고, 모든 기기의 구독 상태를 비활성화합니다.
- * - 로그아웃이나 설정 페이지에서 '알림 끄기' 시 호출됩니다.
+ * - 사용자의 전역 푸시 설정(pushEnabled)을 끄고, 모든 기기의 구독 상태를 비활성화
+ * - 로그아웃이나 설정 페이지에서 '알림 끄기' 시 호출
  */
 export async function POST() {
   try {

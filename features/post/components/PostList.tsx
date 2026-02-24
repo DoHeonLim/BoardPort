@@ -17,30 +17,33 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import PostCard from "@/features/post/components/postCard";
 import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
-import { PostDetail } from "@/features/post/types";
+import { PostDetail, PostSearchParams } from "@/features/post/types";
 import { cn } from "@/lib/utils";
 
 interface PostListProps {
   initialPosts: PostDetail[];
   nextCursor: number | null;
+  searchParams: PostSearchParams;
 }
 
-export default function PostList({ initialPosts, nextCursor }: PostListProps) {
-  const searchParams = useSearchParams();
+export default function PostList({
+  initialPosts,
+  nextCursor,
+  searchParams,
+}: PostListProps) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
 
   const { posts, isLoading, hasMore, loadMore, reset } = usePostPagination({
     initialPosts,
     initialCursor: nextCursor,
-    searchParams: Object.fromEntries(searchParams.entries()), // 현재 검색 조건 전달
+    searchParams,
   });
 
   const triggerRef = useRef<HTMLDivElement | null>(null);

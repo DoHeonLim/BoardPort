@@ -18,8 +18,8 @@ type SubscriptionDTO = {
 
 /**
  * 푸시 구독 추가/갱신
- * - 기존 전역 설정을 확인하여 Welcome 알림 여부를 결정합니다.
- * - 구독 정보를 저장(Upsert)하고 전역 푸시 설정을 활성화합니다.
+ * - 기존 전역 설정을 확인하여 Welcome 알림 여부를 결정
+ * - 구독 정보를 저장(Upsert)하고 전역 푸시 설정을 활성화
  *
  * @param userId - 유저 ID
  * @param dto - 구독 정보 DTO
@@ -89,7 +89,7 @@ export async function upsertSubscription(userId: number, dto: SubscriptionDTO) {
 
 /**
  * 전역 구독 해제 (Global Unsubscribe)
- * - 전역 설정을 OFF하고 모든 기기의 구독을 비활성화합니다.
+ * - 전역 설정을 OFF하고 모든 기기의 구독을 비활성화
  *
  * @param userId - 유저 ID
  */
@@ -112,7 +112,7 @@ export async function unsubscribeAll(userId: number) {
 
 /**
  * 특정 엔드포인트의 구독 유효성 확인
- * - 전역 설정이 켜져 있고 해당 엔드포인트가 활성 상태인지 검사합니다.
+ * - 전역 설정이 켜져 있고 해당 엔드포인트가 활성 상태인지 검사
  *
  * @param userId - 유저 ID
  * @param endpoint - 브라우저 엔드포인트 URL

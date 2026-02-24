@@ -15,24 +15,27 @@
  * 2026.01.19  임도헌   Moved      lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Modified  Session 의존성 제거 및 LiveInput 보장 로직 위임
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  */
 
 import "server-only";
 import { hash } from "bcrypt";
 import db from "@/lib/db";
-import { STREAM_VISIBILITY } from "@/features/stream/constants";
-import { StreamFormValues } from "@/features/stream/schemas";
 import { ensureLiveInput } from "@/features/stream/service/liveInput";
 import { createStreamChatRoom } from "@/features/stream/service/chat";
+import { validateUserStatus } from "@/features/user/service/admin";
+import { STREAM_VISIBILITY } from "@/features/stream/constants";
+import { StreamFormValues } from "@/features/stream/schemas";
 import type { CreateBroadcastResult } from "@/features/stream/types";
 
 /**
  * 방송 생성 함수
  *
- * 1. PRIVATE 모드일 경우 비밀번호를 해싱합니다.
- * 2. 유저의 LiveInput(채널)을 보장합니다. (없으면 Cloudflare API 호출하여 생성)
- * 3. Broadcast DB 레코드를 생성합니다.
- * 4. 채팅방을 생성합니다. (실패해도 방송은 유지)
+ * 1. 작성자의 이용 정지 여부(Ban)를 확인
+ * 2. PRIVATE 모드일 경우 비밀번호를 해싱
+ * 3. 유저의 LiveInput(채널)을 보장 (없으면 Cloudflare API 호출하여 생성)
+ * 4. Broadcast DB 레코드를 생성
+ * 5. 채팅방을 생성 (실패해도 방송은 유지)
  *
  * @returns {Promise<CreateBroadcastResult>} OBS 연결 정보(RTMP/Key) 및 방송 ID
  */
@@ -40,6 +43,12 @@ export const createBroadcast = async (
   userId: number,
   data: StreamFormValues
 ): Promise<CreateBroadcastResult> => {
+  // 정지 유저 체크
+  const status = await validateUserStatus(userId);
+  if (!status.success) {
+    return { success: false, error: status.error! };
+  }
+
   const {
     title,
     description,

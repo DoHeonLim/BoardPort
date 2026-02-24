@@ -30,10 +30,10 @@ interface UserBadgesProps {
  * 유저 뱃지 목록 컴포넌트
  *
  * [기능]
- * 1. 유저가 획득한 뱃지들을 가로 스크롤 가능한 리스트로 표시합니다.
- * 2. `max` prop으로 표시 개수를 제한할 수 있습니다. (기본 5개)
- * 3. 뱃지 이름(Code)을 한글 이름으로 변환하여 표시합니다 (`getBadgeKoreanName`).
- * 4. 획득한 뱃지가 없을 경우 안내 메시지를 표시합니다.
+ * 1. 유저가 획득한 뱃지들을 가로 스크롤 가능한 리스트로 표시
+ * 2. `max` prop으로 표시 개수를 제한 (기본 5개)
+ * 3. 뱃지 이름(Code)을 한글 이름으로 변환하여 표시(`getBadgeKoreanName`).
+ * 4. 획득한 뱃지가 없을 경우 안내 메시지를 표시
  */
 export default function UserBadges({ badges = [], max = 5 }: UserBadgesProps) {
   if (!badges || badges.length === 0) {

@@ -30,10 +30,10 @@ import type { CreateBroadcastResult } from "@/features/stream/types";
 /**
  * 스트리밍 생성 Action
  *
- * 1. 로그인 세션을 확인합니다.
- * 2. 폼 데이터를 파싱하고 Zod 스키마로 검증합니다. (태그 JSON 파싱 포함)
- * 3. Service 계층을 호출하여 방송을 생성합니다. (LiveInput 보장 포함)
- * 4. 성공 시 `/streams` 경로 캐시를 무효화합니다.
+ * 1. 로그인 세션을 확인
+ * 2. 폼 데이터를 파싱하고 Zod 스키마로 검증 (태그 JSON 파싱 포함)
+ * 3. Service 계층을 호출하여 방송을 생성 (LiveInput 보장 포함)
+ * 4. 성공 시 `/streams` 경로 캐시를 무효화
  *
  * @param {FormData} formData - 방송 생성 폼 데이터
  * @returns {Promise<CreateBroadcastResult>} 생성 결과 (RTMP URL, Key 등 포함)

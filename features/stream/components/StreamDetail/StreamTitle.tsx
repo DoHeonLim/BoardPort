@@ -30,8 +30,8 @@ interface StreamTitleProps {
 }
 
 /**
- * 방송 제목을 표시합니다.
- * 긴 제목은 자동으로 줄바꿈(break-words) 및 말줄임(line-clamp) 처리됩니다.
+ * 방송 제목을 표시
+ * 긴 제목은 자동으로 줄바꿈(break-words) 및 말줄임(line-clamp) 처리
  */
 export default function StreamTitle({
   title,

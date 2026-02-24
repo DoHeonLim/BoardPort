@@ -14,6 +14,7 @@
  * 2026.01.16  임도헌   Moved     hooks -> hooks/product
  * 2026.01.18  임도헌   Moved     hooks/product -> features/product/hooks
  * 2026.01.25  임도헌   Modified  주석 설명 보강
+ * 2026.02.15  임도헌   Modified  searchParams 연동 로직 강화
  */
 
 "use client";
@@ -22,7 +23,11 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { fetchUserProductsAction } from "@/features/user/actions/product";
 import { getMoreProducts } from "@/features/product/actions/list";
 import type { UserProductsScope } from "@/features/product/service/userList";
-import type { Paginated } from "@/features/product/types";
+import type {
+  Paginated,
+  ProductSearchParams,
+  ProductType,
+} from "@/features/product/types";
 
 // =============================================================================
 // 1. Hook Configuration Types
@@ -32,7 +37,10 @@ import type { Paginated } from "@/features/product/types";
 type ProductsEnvelope<T> = Paginated<T>;
 
 /** [Mode 1] 기본 제품 목록 (메인 페이지 등) */
-type ProductMode = { mode: "product" };
+type ProductMode = {
+  mode: "product";
+  searchParams?: ProductSearchParams; // 검색 조건
+};
 
 /** [Mode 2] 프로필 탭 목록 (판매중/판매완료 등 Scope 기반) */
 type ProfileMode<T> = {
@@ -78,10 +86,9 @@ interface UseProductPaginationResult<T extends { id: number }> {
  * 제품 목록 페이징 및 상태 관리를 위한 훅
  *
  * [기능]
- * 1. 다양한 조회 모드('product', 'profile', 'custom') 지원
- * 2. 커서 기반 무한 스크롤 상태 관리 (products, cursor, hasMore)
- * 3. 중복 요청 방지 및 에러 핸들링
- * 4. 리스트 아이템 개별 업데이트(updateOne) 및 전체 리셋(reset)
+ * 1. 'product'(메인), 'profile'(내 목록), 'custom' 모드를 지원
+ * 2. `loadMore` 호출 시 현재 `searchParams`를 서버 액션에 전달하여 필터링된 다음 페이지를 가져옴
+ * 3. 커서 기반 페이지네이션 상태(products, cursor, hasMore)를 관리
  */
 export function useProductPagination<T extends { id: number }>(
   params: UseProductPaginationParams<T>
@@ -99,15 +106,18 @@ export function useProductPagination<T extends { id: number }>(
 
   // 모드별 설정 분리 (Dependency 최적화를 위해 Destructuring)
   const mode = params.mode;
+  const searchParams = mode === "product" ? params.searchParams : undefined;
+
   const profileScope =
     mode === "profile" ? (params.scope as UserProductsScope) : undefined;
+
   const customFetcher =
     mode === "custom"
       ? (params.fetcher as (c: number | null) => Promise<ProductsEnvelope<T>>)
       : undefined;
 
   // 1. Fetcher 선택 (Memoized)
-  // - 모드에 따라 적절한 데이터 조회 함수를 결정합니다.
+  // - 모드에 따라 적절한 데이터 조회 함수를 결정
   const pagedFetcher = useMemo(() => {
     if (mode === "custom" && customFetcher) {
       return (c: number | null) => customFetcher(c);
@@ -118,8 +128,11 @@ export function useProductPagination<T extends { id: number }>(
     }
     // mode === "product" (Default: 전체 제품 목록)
     return async (c: number | null) =>
-      (await getMoreProducts(c)) as unknown as ProductsEnvelope<T>;
-  }, [mode, customFetcher, profileScope]);
+      (await getMoreProducts(
+        c,
+        searchParams || {}
+      )) as ProductsEnvelope<ProductType>;
+  }, [mode, customFetcher, profileScope, searchParams]);
 
   // 2. 추가 데이터 로드 (Infinite Scroll)
   const loadMore = useCallback(async () => {
@@ -136,7 +149,7 @@ export function useProductPagination<T extends { id: number }>(
       if (data.products.length > 0) {
         setProducts((prev) => {
           // 중복 아이템 제거 (Map 활용)
-          // - 기존 아이템(prev)을 우선하여 로컬 변경사항을 보존합니다.
+          // - 기존 아이템(prev)을 우선하여 로컬 변경사항을 보존
           const map = new Map<number, T>();
           for (const p of prev) map.set(p.id, p);
           for (const p of data.products) {

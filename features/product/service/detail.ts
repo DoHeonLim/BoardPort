@@ -16,6 +16,7 @@
  * 2026.01.22  임도헌   Modified  getCachedProductLikeStatus 호출 시 userId 전달
  * 2026.01.22  임도헌   Modified  Session 의존성 제거 (userId 주입)
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.13  임도헌   Modified  미사용 함수 getCachedProductTitleById 삭제(generateMetadata에서 getCachedProduct를 사용하므로 삭제함)
  */
 import "server-only";
 
@@ -26,7 +27,7 @@ import type { ProductDetailType } from "@/features/product/types";
 
 /**
  * 제품 상세 본문 조회 (Cached)
- * 연관 데이터(User, Images, Category, Tags, LikeCount)를 포함하여 조회합니다.
+ * 연관 데이터(User, Images, Category, Tags, LikeCount)를 포함하여 조회
  *
  * @param {number} id - 제품 ID
  * @returns {Promise<ProductDetailType | null>} 제품 상세 정보
@@ -72,25 +73,6 @@ export const getCachedProduct = (id: number) => {
   return nextCache(() => getProductById(id), ["product-detail", String(id)], {
     tags: [T.PRODUCT_DETAIL_ID(id), T.PRODUCT_VIEWS(id)],
   })();
-};
-
-/**
- * 메타데이터 생성용 타이틀 조회 (Cached)
- */
-async function getProductTitleById(id: number): Promise<string | null> {
-  const row = await db.product.findUnique({
-    where: { id },
-    select: { title: true },
-  });
-  return row?.title ?? null;
-}
-
-export const getCachedProductTitleById = (id: number) => {
-  return nextCache(
-    () => getProductTitleById(id),
-    ["product-title", String(id)],
-    { tags: [T.PRODUCT_DETAIL_ID(id)] }
-  )();
 };
 
 /**

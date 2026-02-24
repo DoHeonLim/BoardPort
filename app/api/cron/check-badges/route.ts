@@ -28,8 +28,8 @@ const RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 /**
  * GET /api/cron/check-badges
- * - Vercel Cron에 의해 주기적으로 실행됩니다.
- * - 타임아웃 방지를 위해 'Rolling Batch' 전략을 사용하여 일정 수의 유저만 처리합니다.
+ * - Vercel Cron에 의해 주기적으로 실행
+ * - 타임아웃 방지를 위해 'Rolling Batch' 전략을 사용하여 일정 수의 유저만 처리
  */
 export async function GET(req: NextRequest) {
   // 1. 보안 체크: Vercel Cron 인증 헤더 검증

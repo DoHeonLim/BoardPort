@@ -25,17 +25,25 @@
  * 2026.01.12  임도헌   Modified  [UI/UX] 320px 대응을 위해 Floating에서 Solid Bar로 변경, 높이 자동 조절 textarea 적용
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.04  임도헌   Modified  이미지 업로드 기능 추가 (PhotoIcon, Preview, CF Upload 연동)
+ * 2026.02.19  임도헌   Modified  ChatActionMenu로 통합(이미지 업로드, 약속 잡기)
  */
 "use client";
 
-import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getUploadUrl } from "@/lib/cloudflareImages";
+import { PaperAirplaneIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import ChatActionMenu from "@/features/chat/components/ChatActionMenu";
 
 interface ChatInputBarProps {
   isSubmitting: boolean;
-  onSubmit: (text: string) => Promise<void> | void;
+  onSubmit: (text: string, imageUrl?: string | null) => Promise<void> | void;
+  onScheduleOpen?: () => void;
   autoFocus?: boolean;
+  disabled?: boolean;
 }
 
 /**
@@ -50,11 +58,92 @@ interface ChatInputBarProps {
 export default function ChatInputBar({
   isSubmitting,
   onSubmit,
+  onScheduleOpen,
   autoFocus = false,
+  disabled = false,
 }: ChatInputBarProps) {
-  const [text, setText] = useState("");
+  // States
+  const [text, setText] = useState(""); // 메세지
   const [isComposing, setIsComposing] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // 이미지 프리뷰
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // 이미지 URL
+  const [isUploading, setIsUploading] = useState(false); // 로딩
+
+  // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 사진 선택 트리거 (ActionMenu에서 호출)
+  const triggerPhotoSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 1. 이미지 선택 및 업로드 핸들러
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 용량 제한 (채팅은 더 가볍게 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("이미지 크기는 2MB를 초과할 수 없습니다.");
+      return;
+    }
+
+    setIsUploading(true);
+    const localPreview = URL.createObjectURL(file);
+    setImagePreview(localPreview);
+
+    try {
+      // 1) CF Upload URL 발급
+      const res = await getUploadUrl();
+      if (!res.success) throw new Error("URL 발급 실패");
+
+      // 2) 실제 업로드
+      const fd = new FormData();
+      fd.append("file", file);
+      const uploadRes = await fetch(res.result.uploadURL, {
+        method: "POST",
+        body: fd,
+      });
+      if (!uploadRes.ok) throw new Error("업로드 실패");
+
+      const finalUrl = `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${res.result.id}`;
+      setUploadedUrl(finalUrl);
+    } catch (err) {
+      console.error(err);
+      toast.error("이미지 업로드에 실패했습니다.");
+      setImagePreview(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // 이미지 삭제
+  const removeImage = () => {
+    setImagePreview(null);
+    setUploadedUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // 2. 메시지 제출
+  const submit = async () => {
+    if (isComposing || isSubmitting || isUploading) return;
+    const trimmed = text.trim();
+    if (!trimmed && !uploadedUrl) return;
+
+    try {
+      const currentUrl = uploadedUrl;
+      setText("");
+      removeImage(); // 전송 시도 시 프리뷰 제거
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+      await onSubmit(trimmed, currentUrl);
+    } catch {
+      setText(trimmed);
+      setUploadedUrl(uploadedUrl);
+    }
+    textareaRef.current?.focus();
+  };
 
   // 높이 자동 조절
   useEffect(() => {
@@ -64,23 +153,6 @@ export default function ChatInputBar({
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`; // 최대 높이 제한
   }, [text]);
 
-  const submit = async () => {
-    if (isComposing || isSubmitting) return;
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
-    try {
-      // 전송 시도 전에 텍스트 초기화 (Optimistic feel)
-      setText("");
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
-      await onSubmit(trimmed);
-    } catch {
-      // 실패 시 복구
-      setText(trimmed);
-    }
-    textareaRef.current?.focus();
-  };
-
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !isComposing) {
       e.preventDefault();
@@ -89,40 +161,86 @@ export default function ChatInputBar({
   };
 
   return (
-    <div
-      className={cn(
-        "w-full px-3 py-2 sm:px-4 transition-colors",
-        "flex items-end gap-2"
+    <div className="w-full px-3 py-2 sm:px-4 flex flex-col gap-2">
+      {/* 이미지 프리뷰 영역 */}
+      {imagePreview && (
+        <div className="flex px-1 animate-fade-in">
+          <div className="relative size-20 rounded-xl overflow-hidden border border-border shadow-sm group">
+            <Image
+              src={imagePreview}
+              alt="Preview"
+              fill
+              className="object-cover"
+            />
+            {isUploading && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              </div>
+            )}
+            <button
+              onClick={removeImage}
+              className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black"
+            >
+              <XMarkIcon className="size-4" />
+            </button>
+          </div>
+        </div>
       )}
-    >
-      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          onCompositionStart={() => setIsComposing(true)}
-          onCompositionEnd={() => setIsComposing(false)}
-          placeholder="메시지를 입력하세요"
-          className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
-          rows={1}
-          autoFocus={autoFocus}
-        />
-      </div>
 
-      <button
-        onClick={submit}
-        disabled={isSubmitting || !text.trim()}
-        className={cn(
-          "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
-          "bg-brand-light dark:bg-brand text-white hover:bg-brand hover:dark:bg-brand-light active:scale-95",
-          // [Disabled State] 가시성 개선: 배경색을 명확하게, 아이콘은 muted로
-          "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
-        )}
-        aria-label="전송"
-      >
-        <PaperAirplaneIcon className="size-5 pl-0.5" />
-      </button>
+      <div className="flex items-end gap-2">
+        {/* 사진 선택 버튼 */}
+        <ChatActionMenu
+          onSelectPhoto={triggerPhotoSelect}
+          onSelectAppointment={() => onScheduleOpen?.()}
+          disabled={isUploading || isSubmitting || disabled}
+        />
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept="image/*"
+          onChange={handleImageChange}
+        />
+
+        <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
+            placeholder={
+              disabled
+                ? "대화 상대가 채팅방을 나갔습니다."
+                : "메시지를 입력하세요"
+            }
+            disabled={disabled}
+            className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
+            rows={1}
+            autoFocus={autoFocus}
+          />
+        </div>
+
+        {/* 전송 */}
+        <button
+          onClick={submit}
+          disabled={
+            isSubmitting ||
+            isUploading ||
+            (!text.trim() && !uploadedUrl) ||
+            disabled
+          }
+          className={cn(
+            "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
+            "bg-brand-light dark:bg-brand text-white hover:bg-brand active:scale-95",
+            "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed"
+          )}
+        >
+          <PaperAirplaneIcon className="size-5 pl-0.5" />
+        </button>
+      </div>
     </div>
   );
 }

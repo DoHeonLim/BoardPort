@@ -10,9 +10,9 @@
  * - 리스트는 무효화 X(성능 우선).
  *
  * Policy
- * - 동일 userId + 동일 targetType + 동일 targetId 는 3분 내 1회만 증가.
- * - 상세 페이지는 didIncrement === true 일 때만 화면 표시값을 +1 보정.
- * - 목록(list)은 캐시/스냅샷 유지 정책상 즉시 반영 X.
+ * - 동일 userId + 동일 targetType + 동일 targetId 는 3분 내 1회만 증가
+ * - 상세 페이지는 didIncrement === true 일 때만 화면 표시값을 +1 보정
+ * - 목록(list)은 캐시/스냅샷 유지 정책상 즉시 반영 X
  *
  * History
  * Date        Author   Status     Description
@@ -27,8 +27,8 @@
 import { revalidateTag } from "next/cache";
 import db from "@/lib/db";
 import * as T from "@/lib/cacheTags";
-import type { ViewTargetType } from "@/generated/prisma/client";
 import { isUniqueConstraintError } from "@/lib/errors";
+import type { ViewTargetType } from "@/generated/prisma/client";
 
 export type IncrementViewsTarget = "PRODUCT" | "POST" | "RECORDING";
 
@@ -37,9 +37,9 @@ const COOLDOWN_MS = 3 * 60 * 1000;
 
 /**
  * 조회수 증가 가능 여부 확인 (내부 헬퍼)
- * - ViewThrottle 테이블을 사용하여 동일 유저/타겟의 최근 조회 시간을 확인합니다.
- * - 3분 이내 재조회 시 false를 반환하여 중복 증가를 막습니다.
- * - DB Write(Upsert/Update)를 포함하므로 Side Effect가 있습니다.
+ * - ViewThrottle 테이블을 사용하여 동일 유저/타겟의 최근 조회 시간을 확인
+ * - 3분 이내 재조회 시 false를 반환하여 중복 증가를 막음
+ * - DB Write(Upsert/Update)를 포함하므로 Side Effect가 있음
  *
  * @param userId - 조회자 ID (비로그인 시 null, 이 경우 항상 false 반환하여 증가 안 함 - 기획 정책)
  * @param targetType - 대상 타입 (PRODUCT, POST, VOD)
@@ -120,11 +120,14 @@ type IncrementViewsArgs = {
 };
 
 /**
- * 통합 조회수 증가 서비스 (Main Entry)
- * - 쿨다운 체크를 수행하고 통과 시 실제 타겟 테이블(Product/Post/Vod)의 views 컬럼을 +1 합니다.
- * - 증가 성공 시 관련 캐시 태그(상세/조회수)를 무효화하여 UI 정합성을 맞춥니다.
+ * 통합 조회수 증가 서비스
  *
- * @returns boolean - 실제 DB 증가가 일어났으면 true (UI 낙관적 +1 표시에 활용)
+ * 1. `ViewThrottle` 테이블을 조회하여 동일 유저/타겟의 마지막 조회 시간을 확인
+ * 2. [Throttle] 마지막 조회로부터 3분(COOLDOWN_MS)이 지나지 않았다면 카운트를 증가시키지 않음 (어뷰징 방지)
+ * 3. 쿨다운이 지났거나 첫 조회라면 `views` 컬럼을 원자적으로 증가(+1) 시킴
+ * 4. 성공 시 관련 캐시 태그(상세 정보)를 무효화하여 최신 상태를 반영
+ *
+ * @returns 실제 DB 증가가 일어났는지 여부 (UI 낙관적 업데이트용)
  */
 export async function incrementViews({
   target,

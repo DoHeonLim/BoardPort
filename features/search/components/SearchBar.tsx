@@ -35,8 +35,8 @@ interface SearchBarProps {
 /**
  * 검색어 입력 및 제출을 담당하는 컴포넌트
  *
- * - 입력값을 로컬 상태로 관리하고, 외부(`value` prop) 변경 시 동기화합니다.
- * - 폼 제출 시 `onSearch` 콜백을 호출하며, 잠시 로딩 스피너를 표시합니다.
+ * - 입력값을 로컬 상태로 관리하고, 외부(`value` prop) 변경 시 동기화
+ * - 폼 제출 시 `onSearch` 콜백을 호출하며, 잠시 로딩 스피너를 표시
  */
 export default function SearchBar({
   placeholder = "검색",
@@ -74,7 +74,7 @@ export default function SearchBar({
         autoFocus={autoFocus}
         className={cn(
           "input-primary h-10 w-full pl-9 pr-8 text-sm",
-          "bg-surface-dim border-transparent focus:bg-surface focus:border-brand/50"
+          "bg-surface-dim border border-border focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20"
         )}
       />
       <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none" />

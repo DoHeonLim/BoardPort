@@ -12,15 +12,15 @@
  */
 "use client";
 
-import type { Category } from "@/generated/prisma/client";
-import { getCategoryName } from "@/lib/getCategoryName";
 import {
   GAME_TYPE_DISPLAY,
   CONDITION_DISPLAY,
 } from "@/features/product/constants";
-import { FilterState } from "@/features/product/types";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { getCategoryName } from "@/lib/getCategoryName";
 import { cn } from "@/lib/utils";
+import type { FilterState } from "@/features/product/types";
+import type { Category } from "@/generated/prisma/client";
 
 interface SearchChipsProps {
   filters: FilterState;
@@ -51,7 +51,8 @@ export default function SearchChips({
       key={key}
       className={cn(
         "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors",
-        "bg-badge text-badge-text border border-transparent dark:border-white/10"
+        "bg-brand/10 text-brand border border-brand/20",
+        "dark:bg-brand-light/10 dark:text-brand-light dark:border-brand-light/20"
       )}
     >
       <span>{label}</span>
@@ -67,7 +68,9 @@ export default function SearchChips({
 
   // 가격 Filter
   if (filters.minPrice || filters.maxPrice) {
-    const label = `가격: ${filters.minPrice || "0"} ~ ${filters.maxPrice || "∞"}`;
+    const label = `가격: ${filters.minPrice || "0"} ~ ${
+      filters.maxPrice || "∞"
+    }`;
     chips.push(
       renderChip("price", label, () => {
         setFilters((prev) => ({ ...prev, minPrice: "", maxPrice: "" }));

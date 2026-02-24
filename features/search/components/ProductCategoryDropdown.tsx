@@ -16,11 +16,12 @@
  * 2026.01.12  임도헌   Modified  height, font size 조정
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.19  임도헌   Modified  카테고리/게임타입 변경 시 기존 region 파라미터 유지
  */
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GAME_TYPE_DISPLAY, GAME_TYPES } from "@/features/product/constants";
 import { XMarkIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
@@ -38,23 +39,34 @@ interface CategoryDropdownProps {
 
 /**
  * 검색바 좌측의 카테고리 빠른 선택 드롭다운
- * - 게임 타입(보드게임/TRPG/카드) 및 대분류 카테고리를 바로 선택하여 이동합니다.
+ * - 게임 타입(보드게임/TRPG/카드) 및 대분류 카테고리를 바로 선택하여 이동
  */
 export default function ProductCategoryDropdown({
   categories,
   onCategorySelect,
 }: CategoryDropdownProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
 
+  // 파라미터 보존 헬퍼
+  const createQueryString = (name: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(name, value);
+
+    return params.toString();
+  };
+
   const handleCategoryClick = (categoryId: number) => {
-    router.push(`/products?category=${categoryId}`);
+    const query = createQueryString("category", String(categoryId));
+    router.push(`/products?${query}`);
     setIsOpen(false);
     onCategorySelect?.();
   };
 
   const handleGameTypeClick = (gameType: string) => {
-    router.push(`/products?game_type=${gameType}`);
+    const query = createQueryString("game_type", gameType);
+    router.push(`/products?${query}`);
     setIsOpen(false);
     onCategorySelect?.();
   };
@@ -66,8 +78,9 @@ export default function ProductCategoryDropdown({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center justify-center gap-1 h-10 rounded-xl transition-all",
-          "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-900 dark:hover:bg-brand",
+          "flex items-center justify-center gap-1 h-10 rounded-xl transition-all border",
+          "bg-brand text-white border-brand hover:bg-brand-dark",
+          "dark:bg-brand-dark dark:text-brand-light dark:border-brand-light/30 dark:hover:bg-brand-dark/80",
           "shadow-sm active:scale-95 whitespace-nowrap",
           "px-2.5 sm:px-3"
         )}
@@ -92,7 +105,7 @@ export default function ProductCategoryDropdown({
           <div
             className={cn(
               "absolute left-0 top-full mt-2 w-64 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in origin-top-left",
-              "bg-surface border border-border" // [Fix] bg-white -> bg-surface
+              "bg-surface border border-border"
             )}
           >
             <div className="flex items-center justify-between p-3 border-b border-border bg-surface-dim">
@@ -122,8 +135,8 @@ export default function ProductCategoryDropdown({
                       {GAME_TYPE_DISPLAY[type] === "보드게임"
                         ? "🎲"
                         : GAME_TYPE_DISPLAY[type] === "TRPG"
-                          ? "🎭"
-                          : "🃏"}
+                        ? "🎭"
+                        : "🃏"}
                     </span>
                     <span>{GAME_TYPE_DISPLAY[type]}</span>
                   </button>

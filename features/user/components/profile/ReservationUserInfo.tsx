@@ -25,9 +25,9 @@ import UserAvatar from "@/components/global/UserAvatar";
  * 예약자 정보 표시 컴포넌트
  *
  * [기능]
- * 1. `fallback` 데이터가 있으면 즉시 표시합니다.
- * 2. `fallback`이 없고 `userId`만 있다면, 클라이언트에서 비동기로 유저 정보를 로드하여 표시합니다.
- * 3. 판매 내역 리스트에서 '예약 중' 상태일 때 예약자 정보를 보여주는 용도로 사용됩니다.
+ * 1. `fallback` 데이터가 있으면 즉시 표시
+ * 2. `fallback`이 없고 `userId`만 있다면, 클라이언트에서 비동기로 유저 정보를 로드하여 표시
+ * 3. 판매 내역 리스트에서 '예약 중' 상태일 때 예약자 정보를 보여주는 용도로 사용
  */
 export default function ReservationUserInfo({
   userId,

@@ -15,7 +15,7 @@ import { verifyBroadcastPassword } from "@/features/stream/service/access";
 
 /**
  * PRIVATE 방송 잠금 해제 Action
- * - 비밀번호 검증 성공 시 세션에 언락 정보(`unlockedBroadcastIds`)를 저장합니다.
+ * - 비밀번호 검증 성공 시 세션에 언락 정보(`unlockedBroadcastIds`)를 저장
  */
 export const unlockPrivateBroadcastAction = async (
   broadcastId: number,

@@ -27,8 +27,8 @@ interface PostEmptyStateProps {
 
 /**
  * 게시글 목록이 비어있을 때 표시되는 UI
- * - 검색어, 카테고리 필터 여부에 따라 적절한 안내 메시지를 표시합니다.
- * - 게시글 작성 버튼을 제공합니다.
+ * - 검색어, 카테고리 필터 여부에 따라 적절한 안내 메시지를 표시
+ * - 게시글 작성 버튼을 제공
  */
 export default function PostEmptyState({
   keyword,

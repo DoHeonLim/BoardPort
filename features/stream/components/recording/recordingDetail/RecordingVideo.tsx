@@ -22,8 +22,8 @@ interface RecordingVideoProps {
 
 /**
  * 녹화 영상을 재생하는 iframe 플레이어
- * - Cloudflare Stream URL을 사용하여 영상을 로드합니다.
- * - 환경 변수가 설정되지 않았거나 UID가 없는 경우 안내 메시지를 표시합니다.
+ * - Cloudflare Stream URL을 사용하여 영상을 로드
+ * - 환경 변수가 설정되지 않았거나 UID가 없는 경우 안내 메시지를 표시
  */
 export default function RecordingVideo({ uid }: RecordingVideoProps) {
   const domain = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;

@@ -19,7 +19,7 @@ import { DeleteReviewResult } from "@/features/review/types";
 
 /**
  * 단일 리뷰 삭제
- * - 작성자 또는 제품 소유자(판매자)만 삭제할 수 있습니다.
+ * - 작성자 또는 제품 소유자(판매자)만 삭제할 수 있음
  *
  * @param userId - 요청자 ID
  * @param reviewId - 삭제할 리뷰 ID
@@ -36,18 +36,15 @@ export async function deleteReviewService(
       select: {
         userId: true, // 작성자
         productId: true,
-        product: { select: { userId: true, id: true } }, // 판매자(상품 주인)
+        product: { select: { userId: true, purchase_userId: true, id: true } }, // 판매자(상품 주인)
       },
     });
 
     if (!rev) return { success: false, error: "리뷰를 찾을 수 없습니다." };
 
     // 2. 권한 검증
-    const isAuthor = rev.userId === userId;
-    const isProductOwner = rev.product?.userId === userId;
-
-    // 작성자도 아니고, 상품 주인도 아니라면 삭제 불가
-    if (!isAuthor && !isProductOwner) {
+    // 오직 작성자(isAuthor)만 삭제 가능
+    if (rev.userId !== userId) {
       return { success: false, error: REVIEW_ERRORS.UNAUTHORIZED };
     }
 
@@ -59,7 +56,8 @@ export async function deleteReviewService(
       success: true,
       meta: {
         productId: rev.productId,
-        productOwnerId: rev.product?.userId,
+        sellerId: rev.product?.userId,
+        buyerId: rev.product?.purchase_userId ?? undefined,
       },
     };
   } catch (error) {
@@ -70,8 +68,8 @@ export async function deleteReviewService(
 
 /**
  * 특정 제품의 모든 리뷰 삭제
- * - 제품 상태 변경(판매중 복귀) 시 관련 리뷰를 일괄 삭제합니다.
- * - 제품 소유자만 수행할 수 있습니다.
+ * - 제품 상태 변경(판매중 복귀) 시 관련 리뷰를 일괄 삭제
+ * - 제품 소유자만 수행 가능
  *
  * @param userId - 요청자 ID
  * @param productId - 제품 ID
@@ -85,7 +83,7 @@ export async function deleteAllReviewsService(
     // 1. 제품 소유권 확인
     const prod = await db.product.findUnique({
       where: { id: productId },
-      select: { userId: true },
+      select: { userId: true, purchase_userId: true },
     });
 
     if (!prod)
@@ -102,7 +100,8 @@ export async function deleteAllReviewsService(
       success: true,
       meta: {
         productId,
-        productOwnerId: prod.userId,
+        sellerId: prod.userId,
+        buyerId: prod.purchase_userId ?? undefined,
       },
     };
   } catch (error) {

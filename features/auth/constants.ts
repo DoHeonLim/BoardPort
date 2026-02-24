@@ -8,6 +8,7 @@
  * 2026.01.20  임도헌   Created   verifyEmailState.ts에서 constants.ts로 이동
  * 2026.01.24  임도헌   Modified  AUTH_ERRORS를 lib/constants에서 이관
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.24  임도헌   Modified  카카오 로그인 관련 에러 메시지 추가
  */
 
 import { EmailVerifyState } from "@/features/auth/types";
@@ -43,4 +44,8 @@ export const AUTH_ERRORS = {
   // GitHub
   GITHUB_TOKEN_FAILED: "GitHub 인증 토큰을 받아오지 못했습니다.",
   GITHUB_PROFILE_FAILED: "GitHub 프로필 정보를 가져오지 못했습니다.",
+
+  // Kakao
+  KAKAO_TOKEN_FAILED: "카카오 인증 토큰을 받아오지 못했습니다.",
+  KAKAO_PROFILE_FAILED: "카카오 프로필 정보를 가져오지 못했습니다.",
 } as const;

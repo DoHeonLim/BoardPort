@@ -23,8 +23,7 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * ===============================================================================================
- * 이 폴더는 StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
- *
+ * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - LiveViewerCount.tsx    : 실시간 시청자 수 (Supabase Presence)
  * - LiveStatusButton.tsx   : 방송 상태 뱃지 (ON/OFF/READY)
  * - StreamEndedOverlay.tsx : 방송 종료 시 플레이어 위 오버레이

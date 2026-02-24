@@ -35,10 +35,10 @@ interface ReviewModalProps {
  * 리뷰 목록 모달
  *
  * [기능]
- * 1. `ReviewsList` 컴포넌트를 렌더링하여 리뷰 목록을 표시합니다.
- * 2. 모달 내부 스크롤(`scrollAreaRef`)을 기준으로 무한 스크롤이 동작하도록 합니다.
+ * 1. `ReviewsList` 컴포넌트를 렌더링하여 리뷰 목록을 표시
+ * 2. 모달 내부 스크롤(`scrollAreaRef`)을 기준으로 무한 스크롤이 동작
  * 3. 반응형 레이아웃: 모바일(Bottom Sheet) / 데스크톱(Center Card).
- * 4. 접근성: 초기 포커스, ESC 닫기, 배경 스크롤 잠금.
+ * 4. 접근성: 초기 포커스, ESC 닫기, 배경 스크롤 잠금
  */
 export default function ProfileReviewsModal({
   isOpen,

@@ -20,8 +20,8 @@ interface ProductCardPriceProps {
 }
 
 /**
- * 가격과 판매 상태(작은 배지)를 표시합니다.
- * 썸네일 오버레이 외에도 텍스트 영역에 상태를 다시 한 번 명시합니다.
+ * 가격과 판매 상태(작은 배지)를 표시
+ * 썸네일 오버레이 외에도 텍스트 영역에 상태를 다시 한 번 명시
  */
 export default function ProductCardPrice({
   price,

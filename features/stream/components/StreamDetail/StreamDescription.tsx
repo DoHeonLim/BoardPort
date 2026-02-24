@@ -32,8 +32,8 @@ interface StreamDescriptionProps {
 
 /**
  * 긴 텍스트 설명을 접고 펼칠 수 있는 컴포넌트
- * - 내용이 `collapsedLines`를 초과할 때만 더보기 버튼을 노출합니다.
- * - 접힌 상태에서는 하단에 그라데이션 페이드 효과를 적용합니다.
+ * - 내용이 `collapsedLines`를 초과할 때만 더보기 버튼을 노출
+ * - 접힌 상태에서는 하단에 그라데이션 페이드 효과를 적용
  */
 export default function StreamDescription({
   description,
@@ -81,7 +81,7 @@ export default function StreamDescription({
         ref={ref}
         className={cn(
           "whitespace-pre-line break-words text-sm",
-          "text-primary", // [Fix] text-neutral-800 -> text-primary
+          "text-primary",
           expanded ? "" : clampClass,
           className
         )}

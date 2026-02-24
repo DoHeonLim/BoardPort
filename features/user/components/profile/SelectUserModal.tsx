@@ -35,9 +35,9 @@ interface SelectUserModalProps {
  * 예약자 선택 모달
  *
  * [기능]
- * 1. 특정 제품에 대해 판매자와 채팅을 나눈 유저 목록을 조회합니다.
- * 2. 판매자가 목록 중 한 명을 선택하여 '예약자'로 지정할 수 있게 합니다.
- * 3. 중복 선택 방지 및 로딩/에러 상태를 처리합니다.
+ * 1. 특정 제품에 대해 판매자와 채팅을 나눈 유저 목록을 조회
+ * 2. 판매자가 목록 중 한 명을 선택하여 '예약자'로 지정
+ * 3. 중복 선택 방지 및 로딩/에러 상태를 처리
  */
 export default function SelectUserModal({
   productId,
@@ -88,7 +88,7 @@ export default function SelectUserModal({
 
   /**
    * 유저 선택 핸들러
-   * - `onConfirm` 콜백을 호출하여 부모 컴포넌트에서 비즈니스 로직(상태 변경 등)을 수행하도록 위임합니다.
+   * - `onConfirm` 콜백을 호출하여 부모 컴포넌트에서 비즈니스 로직(상태 변경 등)을 수행하도록 위임
    */
   const handleUserSelect = useCallback(
     async (selectUserId: number) => {

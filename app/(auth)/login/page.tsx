@@ -23,9 +23,9 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 /**
  * 로그인 페이지 컴포넌트
  *
- * - `callbackUrl` 쿼리 파라미터를 받아 로그인 후 이동할 경로를 결정합니다.
- * - `sanitizeCallbackUrl`을 통해 외부 도메인이나 악성 스크립트가 포함된 URL을 내부 경로로 정화합니다.
- * - 로그인 폼(`LoginForm`)을 렌더링합니다.
+ * - `callbackUrl` 쿼리 파라미터를 받아 로그인 후 이동할 경로를 결정
+ * - `sanitizeCallbackUrl`을 통해 외부 도메인이나 악성 스크립트가 포함된 URL을 내부 경로로 정화
+ * - 로그인 폼(`LoginForm`)을 렌더링
  *
  * @param {Object} searchParams - URL 쿼리 파라미터
  * @param {string} searchParams.callbackUrl - 로그인 후 이동할 경로 (Optional)

@@ -10,7 +10,7 @@
 
 /**
  * [Architecture] 공통 서비스 결과 패턴
- * - 모든 Service 함수의 반환 타입으로 사용됩니다.
+ * - 모든 Service 함수의 반환 타입으로 사용
  * - 성공 시: { success: true, data?: T }
  * - 실패 시: { success: false, error: string, code?: string }
  */

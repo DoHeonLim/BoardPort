@@ -9,6 +9,10 @@
  * 2026.01.20  임도헌   Modified  ServiceResult 및 DTO 타입 추가, 상속 구조 개선
  * 2026.01.24  임도헌   Moved     types/product.ts -> features/product/types.ts
  * 2026.01.25  임도헌   Modified  주석 표준화 및 역할별 그룹핑
+ * 2026.02.03  임도헌   Modifeid  ProductType에 refreshed_at, bump_count 필드 추가
+ * 2026.02.07  임도헌   Modified  관리자용 DTO (AdminProductItem, AdminProductListResponse) 추가
+ * 2026.02.14  임도헌   Modified  location 속성 추가
+ * 2026.02.15  임도헌   Modified  ProductType 및 리스트 아이템에 region 정보 타입 추가
  */
 
 import {
@@ -17,6 +21,7 @@ import {
   GAME_TYPES,
 } from "@/features/product/constants";
 import type { ProductReview } from "@/features/review/types";
+import { LocationData } from "@/features/map/types";
 
 // =============================================================================
 // 1. Utility Types
@@ -42,6 +47,7 @@ export interface ProductDTO {
   completeness: (typeof COMPLETENESS_TYPES)[number];
   has_manual: boolean;
   categoryId: number;
+  location?: LocationData | null;
 }
 
 /** 제품 검색 파라미터 */
@@ -88,6 +94,8 @@ export interface ProductDeleteMeta {
   id: number;
   userId: number;
   purchase_userId: number | null;
+  reservation_userId: number | null;
+  chatUserIds: number[];
 }
 
 /** 상태 변경 메타데이터 (캐시 무효화용) */
@@ -157,6 +165,13 @@ export interface ProductFullDetails extends BaseProduct {
   has_manual: boolean;
   categoryId: number;
   userId: number;
+  // 위치 정보 필드
+  latitude?: number | null;
+  longitude?: number | null;
+  locationName?: string | null;
+  region1?: string | null;
+  region2?: string | null;
+  region3?: string | null;
 }
 
 /**
@@ -173,6 +188,7 @@ export interface ProductDetailType extends ProductFullDetails {
   reservation_userId: number | null;
   purchase_userId: number | null;
   views: number;
+  bump_count: number;
   category: {
     eng_name: string;
     kor_name: string;
@@ -190,13 +206,17 @@ export interface ProductDetailType extends ProductFullDetails {
 
 /**
  * 목록 조회용 제품 타입 (리스트/카드용)
- * - constants.ts의 PRODUCT_SELECT 쿼리 결과와 매핑
  */
 export interface ProductType extends BaseProduct {
   created_at: ISODate;
+  refreshed_at?: ISODate;
   reservation_userId: number | null;
   purchase_userId: number | null;
   views: number;
+  bump_count: number;
+  region1: string | null;
+  region2: string | null;
+  region3: string | null;
   category: {
     kor_name: string;
     icon: string | null;
@@ -212,7 +232,6 @@ export interface ProductType extends BaseProduct {
 
 /**
  * 프로필: '나의 판매 제품' 리스트 아이템용
- * - constants.ts의 PROFILE_SALES_UNIFIED_SELECT 쿼리 결과와 매핑
  */
 export interface MySalesListItem extends ProductType {
   reservation_at?: ISODate | null;
@@ -233,10 +252,11 @@ export interface MySalesListItem extends ProductType {
 /**
  * 프로필: '나의 구매 제품' 리스트 아이템용
  */
-export interface MyPurchasedListItem extends Pick<
-  ProductType,
-  "id" | "title" | "price" | "images" | "purchase_userId"
-> {
+export interface MyPurchasedListItem
+  extends Pick<
+    ProductType,
+    "id" | "title" | "price" | "images" | "purchase_userId"
+  > {
   purchased_at: ISODate;
   user: ProfileUserLite; // 판매자 정보
   reviews: ProductReview[];
@@ -274,4 +294,30 @@ export interface ProductCardProps {
   product: ProductType;
   viewMode: ViewMode;
   isPriority: boolean;
+}
+
+// =============================================================================
+// 6. Admin Types
+// =============================================================================
+
+/** 관리자 상품 목록 아이템 */
+export interface AdminProductItem {
+  id: number;
+  title: string;
+  price: number;
+  created_at: Date;
+  reservation_userId: number | null;
+  purchase_userId: number | null;
+  user: {
+    id: number;
+    username: string;
+  };
+}
+
+/** 관리자 상품 목록 응답 */
+export interface AdminProductListResponse {
+  items: AdminProductItem[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
 }

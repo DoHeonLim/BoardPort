@@ -31,7 +31,7 @@ const PostCommentContext = createContext<PostCommentContextProps | undefined>(
 
 /**
  * 댓글 Context 사용을 위한 커스텀 훅
- * Provider 내부가 아닐 경우 에러를 발생시킵니다.
+ * Provider 내부가 아닐 경우 에러를 발생
  */
 export function usePostCommentContext() {
   const context = useContext(PostCommentContext);

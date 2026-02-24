@@ -20,8 +20,8 @@ interface ThemeProviderProps {
 
 /**
  * next-themes 기반의 테마 관리 Provider
- * - 시스템 설정을 기본값으로 사용하며, class 기반 다크모드를 지원합니다.
- * - `app/layout.tsx`에서 최상위를 감싸 사용합니다.
+ * - 시스템 설정을 기본값으로 사용하며, class 기반 다크모드를 지원
+ * - `app/layout.tsx`에서 최상위를 감싸 사용
  */
 export default function ThemeProvider({
   children,

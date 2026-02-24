@@ -12,10 +12,15 @@
  */
 
 import { productFormType } from "@/features/product/schemas";
-import type { ProductFullDetails } from "@/features/product/types";
+import type {
+  CompletenessType,
+  ConditionType,
+  GameType,
+  ProductFullDetails,
+} from "@/features/product/types";
 
 /**
- * 제품 상세 정보를 수정 폼(react-hook-form)의 defaultValues 구조로 변환합니다.
+ * 제품 상세 정보를 수정 폼(react-hook-form)의 defaultValues 구조로 변환
  *
  * @param {ProductFullDetails} product - DB에서 조회한 제품 상세 정보
  * @returns {productFormType} 폼 초기값 객체
@@ -23,20 +28,34 @@ import type { ProductFullDetails } from "@/features/product/types";
 export function convertProductToFormValues(
   product: ProductFullDetails
 ): productFormType {
+  // 위치 데이터 변환 로직
+  let locationData = null;
+  if (product.latitude && product.longitude && product.locationName) {
+    locationData = {
+      latitude: product.latitude,
+      longitude: product.longitude,
+      locationName: product.locationName,
+      region1: product.region1 ?? "",
+      region2: product.region2 ?? "",
+      region3: product.region3 ?? "",
+    };
+  }
+
   return {
     id: product.id,
     title: product.title,
     description: product.description,
     price: product.price,
     photos: product.images.map((img) => img.url),
-    game_type: product.game_type as any, // Enum 호환성
+    game_type: product.game_type as GameType,
     min_players: product.min_players,
     max_players: product.max_players,
     play_time: product.play_time,
-    condition: product.condition as any,
-    completeness: product.completeness as any,
+    condition: product.condition as ConditionType,
+    completeness: product.completeness as CompletenessType,
     has_manual: product.has_manual,
     categoryId: product.categoryId,
     tags: product.search_tags.map((tag) => tag.name),
+    location: locationData,
   };
 }

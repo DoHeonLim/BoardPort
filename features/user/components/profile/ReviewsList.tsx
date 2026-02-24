@@ -27,7 +27,7 @@ interface ReviewsListProps {
   initialReviews: ProfileReview[];
   /**
    * 모달 등 특정 영역 내에서 스크롤될 때 해당 컨테이너의 Ref.
-   * 전달되지 않으면 Window 스크롤을 기준으로 동작합니다.
+   * 전달되지 않으면 Window 스크롤을 기준으로 동작
    */
   scrollParentRef?: React.RefObject<HTMLElement>;
 }
@@ -36,10 +36,10 @@ interface ReviewsListProps {
  * 리뷰 목록 렌더링 및 무한 스크롤 관리 컴포넌트
  *
  * [기능]
- * 1. `useReviewPagination` 훅을 사용하여 리뷰 데이터를 로드하고 상태를 관리합니다.
- * 2. `useInfiniteScroll`을 사용하여 스크롤이 바닥에 닿으면 추가 데이터를 로드합니다.
- *    - `scrollParentRef`를 통해 모달 내부 스크롤도 지원합니다.
- * 3. 로딩 상태(스피너) 및 빈 상태(Empty State) UI를 렌더링합니다.
+ * 1. `useReviewPagination` 훅을 사용하여 리뷰 데이터를 로드하고 상태를 관리
+ * 2. `useInfiniteScroll`을 사용하여 스크롤이 바닥에 닿으면 추가 데이터를 로드
+ *    - `scrollParentRef`를 통해 모달 내부 스크롤도 지원
+ * 3. 로딩 상태(스피너) 및 빈 상태(Empty State) UI를 렌더링
  */
 export default function ReviewsList({
   userId,

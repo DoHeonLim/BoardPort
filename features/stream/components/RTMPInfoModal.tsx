@@ -151,9 +151,9 @@ export default function RTMPInfoModal({
   }, [open]);
 
   // NOTE:
-  // 백드롭(오버레이) 클릭으로 모달을 닫히지 않도록 변경했습니다.
+  // 백드롭(오버레이) 클릭으로 모달을 닫히지 않도록 변경
   // (요청: 스트리밍 추가 시 모달창 옆 클릭시 닫힘 방지)
-  // 패널 내부는 기존처럼 stopPropagation으로 외부로 이벤트 전파를 막습니다.
+  // 패널 내부는 기존처럼 stopPropagation으로 외부로 이벤트 전파를 막음
 
   const copy = async (text: string, which: "url" | "key") => {
     try {

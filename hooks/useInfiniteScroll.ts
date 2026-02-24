@@ -51,9 +51,9 @@ interface UseInfiniteScrollProps {
  * 무한 스크롤 관찰 훅
  *
  * [기능]
- * - `IntersectionObserver`를 사용하여 `triggerRef` 요소가 화면(또는 root)에 나타나는지 감지합니다.
- * - 감지되면 `onLoadMore` 콜백을 실행합니다.
- * - `hasMore`가 false이거나, `isLoading`이 true이거나, 이미 실행 중(`runningRef`)이면 중복 호출을 방지합니다.
+ * - `IntersectionObserver`를 사용하여 `triggerRef` 요소가 화면(또는 root)에 나타나는지 감지
+ * - 감지되면 `onLoadMore` 콜백을 실행
+ * - `hasMore`가 false이거나, `isLoading`이 true이거나, 이미 실행 중(`runningRef`)이면 중복 호출을 방지
  */
 export function useInfiniteScroll({
   triggerRef,

@@ -21,8 +21,8 @@ import { editProfileAction } from "@/features/user/actions/profile";
 
 /**
  * 프로필 편집 페이지
- * - 세션 검증 후, 편집에 필요한 현재 유저 정보(`getCurrentUserForEdit`)를 조회합니다.
- * - `ProfileEditForm`에 초기값과 업데이트 액션을 주입합니다.
+ * - 세션 검증 후, 편집에 필요한 현재 유저 정보(`getCurrentUserForEdit`)를 조회
+ * - `ProfileEditForm`에 초기값과 업데이트 액션을 주입
  */
 export default async function EditProfilePage() {
   const session = await getSession();

@@ -14,7 +14,7 @@
  * 2026.01.22  임도헌   Modified  user 타입 정의 완화 (User -> UserLite)
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * ===============================================================================================
- * 이 폴더는 PostDetail (게시글 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  *
  * - PostDetailTopbar.tsx      : 상단바 (뒤로가기, 카테고리 칩, 수정 버튼)
  * - PostDetailTitle.tsx       : 게시글 제목
@@ -30,6 +30,7 @@ import { motion } from "framer-motion";
 import Carousel from "@/components/ui/Carousel";
 import PostDetailTitle from "@/features/post/components/postsDetail/PostDetailTitle";
 import PostDetailDescription from "@/features/post/components/postsDetail/PostDetailDescription";
+import StaticMap from "@/features/map/components/StaticMap";
 import PostDetailMeta from "@/features/post/components/postsDetail/PostDetailMeta";
 import PostDetailTopbar from "@/features/post/components/postsDetail/PostDetailTopbar";
 import PostComment from "@/features/post/components/postComment";
@@ -65,16 +66,23 @@ export default function PostDetail({
 }: PostDetailProps) {
   const canEdit = post.user.id === user.id;
 
+  // 주소 문자열 조합
+  const regionString = [post.region1, post.region2, post.region3]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">
       {/* Topbar section */}
       <PostDetailTopbar
-        category={post.category}
-        backHref="/posts"
+        postId={post.id}
+        title={post.title}
+        authorId={post.user.id}
         authorUsername={post.user.username}
         authorAvatar={post.user.avatar}
+        category={post.category}
         canEdit={canEdit}
-        editHref={canEdit ? `/posts/${post.id}/edit` : undefined}
+        editHref={`/posts/${post.id}/edit`}
       />
 
       {/* Contents section */}
@@ -87,6 +95,18 @@ export default function PostDetail({
         <PostDetailTitle title={post.title} />
 
         <PostDetailDescription description={post.description} />
+
+        {/* 장소 태그 (있을 때만 표시) */}
+        {post.latitude && post.longitude && post.locationName && (
+          <div className="mt-6 mb-2">
+            <StaticMap
+              latitude={post.latitude}
+              longitude={post.longitude}
+              locationName={post.locationName}
+              regionString={regionString}
+            />
+          </div>
+        )}
 
         {post.images.length > 0 && (
           <div className="relative aspect-video w-full overflow-hidden mt-6 rounded-2xl shadow-sm bg-surface-dim border border-border">

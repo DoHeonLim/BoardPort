@@ -21,8 +21,8 @@ interface PostCardTagsProps {
 }
 
 /**
- * 게시글 태그를 표시합니다.
- * 최대 2개까지만 보여주고, 나머지는 "+N" 형태로 축약합니다.
+ * 게시글 태그를 표시
+ * 최대 2개까지만 보여주고, 나머지는 "+N" 형태로 축약
  * (카드 내 공간 효율을 위해 제한)
  */
 export default function PostCardTags({ tags }: PostCardTagsProps) {

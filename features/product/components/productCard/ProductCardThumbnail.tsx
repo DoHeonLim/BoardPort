@@ -26,10 +26,10 @@ interface ProductCardThumbnailProps {
 }
 
 /**
- * 제품 썸네일을 렌더링합니다.
- * - 이미지가 없을 경우 Placeholder 아이콘을 표시합니다.
- * - 판매 완료/예약 중 상태일 경우 오버레이 배지를 표시합니다.
- * - Grid/List 뷰에 따라 최적화된 이미지 사이즈(sizes prop)를 적용합니다.
+ * 제품 썸네일을 렌더링
+ * - 이미지가 없을 경우 Placeholder 아이콘을 표시
+ * - 판매 완료/예약 중 상태일 경우 오버레이 배지를 표시
+ * - Grid/List 뷰에 따라 최적화된 이미지 사이즈(sizes prop)를 적용
  */
 export default function ProductCardThumbnail({
   imageUrl,

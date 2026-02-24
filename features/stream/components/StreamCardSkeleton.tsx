@@ -14,7 +14,7 @@ import Skeleton from "@/components/ui/Skeleton";
 
 /**
  * 스트리밍 카드 로딩 상태 UI
- * - 썸네일(16:9), 제목, 아바타, 메타 정보 영역의 스켈레톤을 표시합니다.
+ * - 썸네일(16:9), 제목, 아바타, 메타 정보 영역의 스켈레톤을 표시
  */
 export default function StreamCardSkeleton() {
   return (

@@ -11,18 +11,20 @@ const inter = Inter({ subsets: ["latin"] });
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // maximumScale: 1,
-  // userScalable: false,
   themeColor: "#1E40AF",
 };
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+  ? new URL(process.env.NEXT_PUBLIC_APP_URL)
+  : new URL("http://localhost:3000"); // 로컬 개발용 폴백
+
 export const metadata: Metadata = {
+  metadataBase: baseUrl,
   title: {
     template: "%s | 보드포트",
     default: "보드포트 - 모든 게임이 모이는 곳",
   },
   description: "보드게임과 TRPG 중고거래 및 커뮤니티 플랫폼 보드포트입니다.",
-  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/images/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -68,7 +70,9 @@ export default async function RootLayout({
                 },
               }}
             />
+
             <NotificationBoot />
+
             {children}
           </ThemeProvider>
         </AppWrapper>

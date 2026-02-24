@@ -30,9 +30,9 @@ type Params = {
 };
 
 /**
- * 팔로워들에게 방송 시작 알림을 전송합니다.
- * - 알림 설정(ON/OFF) 및 방해 금지 시간을 체크합니다.
- * - DB 알림 생성, In-App 브로드캐스트, 웹 푸시를 병렬로 처리합니다.
+ * 팔로워들에게 방송 시작 알림을 전송
+ * - 알림 설정(ON/OFF) 및 방해 금지 시간을 체크
+ * - DB 알림 생성, In-App 브로드캐스트, 웹 푸시를 병렬로 처리
  *
  * @param params - 방송 정보 및 스트리머 ID
  * @returns 생성된 알림 및 발송된 푸시 개수
@@ -43,7 +43,7 @@ export async function sendLiveStartNotifications({
   broadcastTitle,
   broadcastThumbnail,
 }: Params) {
-  // 1. 방송자 정보 조회 (알림 본문에 사용할 닉네임)
+  // 1. 방송자 정보 조회
   const broadcaster = await db.user.findUnique({
     where: { id: broadcasterId },
     select: { username: true },
@@ -70,6 +70,9 @@ export async function sendLiveStartNotifications({
   const title = "팔로우한 선원이 방송을 시작했어요";
   const body = `${broadcasterName} 님이 '${broadcastTitle}' 방송을 시작했습니다. 같이 보러 갈까요?`;
   const link = `/streams/${broadcastId}`;
+  const imageUrl = broadcastThumbnail
+    ? `${broadcastThumbnail}/public`
+    : undefined;
 
   let created = 0;
   let pushed = 0;
@@ -90,7 +93,7 @@ export async function sendLiveStartNotifications({
         userId: followerId,
         title,
         body,
-        image: broadcastThumbnail ?? null,
+        image: imageUrl,
         type: "STREAM",
         link,
         isPushSent: false,
@@ -115,41 +118,31 @@ export async function sendLiveStartNotifications({
         },
       });
     } catch (err) {
-      console.warn(
-        "[sendLiveStartNotifications] supabase notification broadcast failed:",
-        err
-      );
+      console.warn("[live-noti] broadcast failed:", err);
     }
 
     // 4-4. Push 알림 전송 가능 여부 체크 (방해 금지 시간 등)
     if (!canSendPushForType(pref, "STREAM", now)) {
-      continue;
-    }
-
-    // 4-5. Web Push 발송 (비동기)
-    // tag를 사용하여 동일 방송 알림이 중복 쌓이지 않고 갱신되도록 함
-    const result = await sendPushNotification({
-      targetUserId: followerId,
-      title,
-      message: body,
-      url: link,
-      type: "STREAM",
-      image: broadcastThumbnail ?? undefined,
-      tag: `bp-stream-start-${broadcastId}`,
-      renotify: true,
-      topic: `bp-stream-start-${broadcastId}`,
-    });
-
-    // 4-6. 발송 성공 시 DB 업데이트 (통계용)
-    if (result && result.success && (result as any).sent > 0) {
-      pushed += 1;
-      await db.notification.update({
-        where: { id: notification.id },
-        data: {
-          isPushSent: true,
-          sentAt: new Date(),
-        },
+      // 4-5. Web Push 발송 (비동기)
+      // tag를 사용하여 동일 방송 알림이 중복 쌓이지 않고 갱신되도록 함
+      const result = await sendPushNotification({
+        targetUserId: followerId,
+        title,
+        message: body,
+        url: link,
+        type: "STREAM",
+        image: imageUrl,
+        tag: `bp-stream-start-${broadcastId}`,
+        renotify: true,
       });
+      // 4-6. 발송 성공 시 DB 업데이트 (통계용)
+      if (result && result.success && (result.data?.sent ?? 0) > 0) {
+        pushed += 1;
+        await db.notification.update({
+          where: { id: notification.id },
+          data: { isPushSent: true, sentAt: new Date() },
+        });
+      }
     }
   }
 

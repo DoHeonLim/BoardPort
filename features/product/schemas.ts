@@ -15,7 +15,8 @@
  * 2025.06.15  임도헌   Modified  lib 폴더로 이동
  * 2025.06.18  임도헌   Modified  id를 z.number().optional()로 수정(제품 추가에서 에러 발생해서 optional로 변경)
  * 2026.01.19  임도헌   Moved     lib/product -> features/product/lib
- * 2026.01.20  임도헌   Moved     lib/productFormSchema.ts -> features/product/schemas.ts
+ * 2026.01.20  임도헌   Moved     lib/productFormSchemas.ts -> features/product/schemas.ts
+ * 2026.02.14  임도헌   Modified  location(위치) 객체 필드 추가
  */
 
 import { z } from "zod";
@@ -74,6 +75,18 @@ export const productFormSchema = z.object({
     .array(z.string())
     .max(5, "태그는 최대 5개까지 입력 가능합니다.")
     .default([]),
+  // 위치 정보는 선택 사항이며, 수정 시 삭제(null)될 수 있으므로 nullable() 처리 필수
+  location: z
+    .object({
+      latitude: z.number(),
+      longitude: z.number(),
+      locationName: z.string(),
+      region1: z.string(),
+      region2: z.string(),
+      region3: z.string(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export type productFormType = z.infer<typeof productFormSchema>;

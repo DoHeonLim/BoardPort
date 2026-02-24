@@ -1,5 +1,5 @@
 /**
- * File Name : features/post/lib/postFormSchema.ts
+ * File Name : features/post/schemas.ts
  * Description : 게시글 수정 스키마
  * Author : 임도헌
  *
@@ -11,6 +11,7 @@
  * 2026.01.19  임도헌   Moved     lib/post -> features/post/lib
  * 2026.01.22  임도헌   Merged    postFormSchema + commentFormSchema 통합
  * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.02.14  임도헌   Modified  location(위치) 객체 필드 추가
  */
 
 import { z } from "zod";
@@ -35,6 +36,18 @@ export const postFormSchema = z.object({
     .max(5, "태그는 최대 5개까지만 입력할 수 있습니다.")
     .optional(),
   photos: z.array(z.string()).optional(),
+  // 위치 정보는 선택 사항이며, 수정 시 삭제(null)될 수 있으므로 nullable() 처리 필수
+  location: z
+    .object({
+      latitude: z.number(),
+      longitude: z.number(),
+      locationName: z.string(),
+      region1: z.string(),
+      region2: z.string(),
+      region3: z.string(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export type PostFormValues = z.infer<typeof postFormSchema>;

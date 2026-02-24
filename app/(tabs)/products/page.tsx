@@ -25,27 +25,42 @@
  * 2026.01.10  임도헌   Modified  헤더를 sticky로 고정하여 스크롤 시에도 접근성 확보, 레이아웃 재정리
  * 2026.01.20  임도헌   Modified  formatSearchSummary 개선 적용 및 import 경로 수정
  * 2026.01.26  임도헌   Modified  주석 설명 보강
+ * 2026.02.04  임도헌   Modified  getCachedProducts만 사용하도록 수정(내부에서 알아서 필터함)
+ * 2026.02.08  임도헌   Modified  헤더 우측에 알림 벨(NotificationBell) 추가
+ * 2026.02.12  임도헌   Modified  검색 결과 있을 경우 KeywordAlertButton 추가
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가
+ * 2026.02.15  임도헌   Modified  헤더에 RegionFilterToggle 및 MyLocationButton(HeaderVariant) 추가
+ * 2026.02.15  임도헌   Modified  fullLocation 생성 및 UI 전달
+ * 2026.02.21  임도헌   Modified  currentRange를 EmptyState 및 SearchSummary에 주입
+ * 2026.02.21  임도헌   Modified  searchParams.region 레거시 제거 및 currentRange SSOT(DB) 고정
  */
 
+import { Metadata } from "next";
 import getSession from "@/lib/session";
-import { fetchProductCategories } from "@/features/product/service/category";
 import { getCategoryName } from "@/lib/getCategoryName";
 import { SearchProvider } from "@/components/global/providers/SearchProvider";
+import NotificationBell from "@/components/global/NotificationBell";
 import AddProductButton from "@/features/product/components/AddProductButton";
 import ProductEmptyState from "@/features/product/components/ProductEmptyState";
 import ProductList from "@/features/product/components/ProductList";
 import SearchResultSummary from "@/features/product/components/SearchResultSummary";
 import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
 import SearchSection from "@/features/search/components/SearchSection";
-import { formatSearchSummary } from "@/features/product/utils/format";
+import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
+import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
+import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
+import { fetchProductCategories } from "@/features/product/service/category";
 import {
   getUserSearchHistory,
   getPopularSearches,
 } from "@/features/product/service/history";
-import {
-  getCachedProducts,
-  getProducts,
-} from "@/features/product/service/list";
+import { getCachedProducts } from "@/features/product/service/list";
+import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { formatSearchSummary } from "@/features/product/utils/format";
+import { redirect } from "next/navigation";
+import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
+import { getUserLocation } from "@/features/user/service/profile";
+import type { RegionRange } from "@/generated/prisma/enums";
 
 interface ProductsPageProps {
   searchParams: {
@@ -58,6 +73,15 @@ interface ProductsPageProps {
   };
 }
 
+export const metadata: Metadata = {
+  title: "항구 (제품 목록)",
+  description: "다양한 보드게임과 TRPG 물품을 거래하세요.",
+  openGraph: {
+    title: "보드포트 항구",
+    description: "보드게임 중고 거래의 중심, 보드포트 항구입니다.",
+  },
+};
+
 function parseNumberParam(val: string | undefined): number | undefined {
   if (!val) return undefined;
   const num = Number(val);
@@ -68,40 +92,66 @@ function parseNumberParam(val: string | undefined): number | undefined {
  * 제품 목록 페이지
  *
  * [기능]
- * 1. 검색 조건(쿼리 파라미터)에 따라 제품 목록을 조회합니다.
- *    - 초기 로딩(필터 없음): 캐시된 데이터 사용 (`getCachedProducts`)
- *    - 검색/필터 적용: 실시간 데이터 조회 (`getProducts`)
- * 2. 카테고리, 검색 기록, 인기 검색어 데이터를 병렬로 로드합니다.
- * 3. 검색바(SearchSection)와 필터(ClientFilterWrapper)를 제공합니다.
- * 4. 결과 목록(ProductList) 또는 빈 상태(ProductEmptyState)를 렌더링합니다.
+ * 1. URL 검색 조건에 따라 제품 목록 조회
+ * 2. 유저의 현재 탐색 범위(`currentRange`)를 계산 (오직 DB의 `User.regionRange`만 신뢰)
+ * 3. 빈 검색 결과일 경우 `ProductEmptyState`에 탐색 범위를 주입하여 키워드 등록 지원
  */
 export default async function Products({ searchParams }: ProductsPageProps) {
   const session = await getSession();
   const userId = session?.id ?? null;
 
-  const hasSearchParams = Object.keys(searchParams).length > 0;
+  if (!userId) {
+    redirect("/login?callbackUrl=/products");
+  }
 
+  const hasSearchParams = Object.keys(searchParams).length > 0;
   // 안전한 숫자 파싱 (가격 필터)
   const minPrice = parseNumberParam(searchParams.minPrice);
   const maxPrice = parseNumberParam(searchParams.maxPrice);
 
   // 1. 데이터 병렬 로딩 (Service 직접 호출)
-  const [initialProducts, categories, searchHistory, popularSearches] =
-    await Promise.all([
-      hasSearchParams
-        ? getProducts({
-            keyword: searchParams.keyword,
-            category: searchParams.category,
-            minPrice,
-            maxPrice,
-            game_type: searchParams.game_type,
-            condition: searchParams.condition,
-          })
-        : getCachedProducts({}), // 초기 로딩 최적화 (Cache)
-      fetchProductCategories(),
-      userId ? getUserSearchHistory(userId) : Promise.resolve([]),
-      getPopularSearches(),
-    ]);
+  const [
+    initialProducts,
+    categories,
+    searchHistory,
+    popularSearches,
+    unreadCount,
+    keywordAlerts,
+    userLocation,
+  ] = await Promise.all([
+    getCachedProducts(
+      {
+        keyword: searchParams.keyword,
+        category: searchParams.category,
+        minPrice,
+        maxPrice,
+        game_type: searchParams.game_type,
+        condition: searchParams.condition,
+      },
+      userId
+    ),
+    fetchProductCategories(),
+    getUserSearchHistory(userId),
+    getPopularSearches(),
+    getUnreadNotificationCount(),
+    getMyKeywordAlerts(userId),
+    getUserLocation(userId),
+  ]);
+
+  const userRegion1 = userLocation?.region1;
+  const userRegion2 = userLocation?.region2;
+  const userRegion3 = userLocation?.region3;
+
+  // 유저가 위치 설정을 안 했다면(userRegion1이 null), 무조건 ALL(전국)로 간주합니다.
+  const currentRange = userRegion1
+    ? (userLocation?.regionRange as RegionRange) ?? "GU"
+    : "ALL";
+
+  const fullLocation = userLocation
+    ? [userLocation.region1, userLocation.region2, userLocation.region3]
+        .filter(Boolean)
+        .join(" ")
+    : null;
 
   // 검색 요약 텍스트 생성
   const categoryName = searchParams.category
@@ -114,12 +164,40 @@ export default async function Products({ searchParams }: ProductsPageProps) {
     searchParams.keyword
   );
 
+  const currentSearchKeyword = searchParams.keyword?.trim().toLowerCase();
+  // 키워드, 지역 범위(currentRange)까지 일치하는가?
+  const matchedAlert = keywordAlerts.find(
+    (a) =>
+      a.keyword.toLowerCase() === currentSearchKeyword &&
+      a.regionRange === currentRange
+  );
+
   return (
-    // pb-24: 하단 탭바 + FAB 공간 확보
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
       <SearchProvider searchParams={searchParams}>
         {/* Sticky Header: 검색창 및 필터 */}
         <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
+          {/* 상단 Row: 지역 필터 & 알림 */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+            {/* 왼쪽: 지역 토글 또는 설정 버튼 */}
+            {userRegion1 ? (
+              <RegionFilterToggle
+                userRegion1={userRegion1}
+                userRegion2={userRegion2}
+                userRegion3={userRegion3}
+                currentRange={currentRange}
+              />
+            ) : (
+              // 동네 미설정 시 헤더용 버튼 표시 (fullLocation 전달)
+              <MyLocationButton variant="header" fullLocation={fullLocation} />
+            )}
+
+            <div className="shrink-0">
+              <NotificationBell userId={userId} initialCount={unreadCount} />
+            </div>
+          </div>
+
+          {/* 하단 Row: 검색창 */}
           <SearchSection
             categories={categories}
             keyword={searchParams.keyword}
@@ -138,10 +216,20 @@ export default async function Products({ searchParams }: ProductsPageProps) {
           >
             {/* 검색 결과 요약 (조건이 있을 때만 표시) */}
             {hasSearchParams && (
-              <SearchResultSummary
-                count={initialProducts.products.length}
-                summaryText={resultSearchParams}
-              />
+              <div className="flex items-center gap-3">
+                <SearchResultSummary
+                  count={initialProducts.products.length}
+                  summaryText={resultSearchParams}
+                />
+                {/* 검색어(keyword)가 있을 때만 알림 버튼 노출 */}
+                {searchParams.keyword && (
+                  <KeywordAlertButton
+                    keyword={searchParams.keyword}
+                    alertId={matchedAlert?.id}
+                    currentRange={currentRange}
+                  />
+                )}
+              </div>
             )}
 
             {/* 필터 버튼 (Client Component) */}
@@ -155,11 +243,24 @@ export default async function Products({ searchParams }: ProductsPageProps) {
           {initialProducts.products.length > 0 ? (
             <ProductList
               // 검색 조건 변경 시 스크롤/상태 초기화를 위해 key 부여
-              key={JSON.stringify(searchParams)}
+              key={`${JSON.stringify(searchParams)}-${currentRange}`}
               initialProducts={initialProducts}
+              searchParams={{
+                keyword: searchParams.keyword,
+                category: searchParams.category,
+                minPrice: minPrice,
+                maxPrice: maxPrice,
+                game_type: searchParams.game_type,
+                condition: searchParams.condition,
+              }}
             />
           ) : (
-            <ProductEmptyState hasSearchParams={hasSearchParams} />
+            <ProductEmptyState
+              hasSearchParams={hasSearchParams}
+              keyword={searchParams.keyword}
+              alertId={matchedAlert?.id}
+              currentRange={currentRange}
+            />
           )}
         </div>
       </SearchProvider>

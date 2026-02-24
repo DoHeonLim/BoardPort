@@ -67,7 +67,7 @@ export async function getViewerRole(
 
 /**
  * 방송 접근 권한 확인 (순수 로직)
- * - DB 조회 없이 주어진 데이터(방송 정보, 뷰어 역할, 언락 여부)만으로 판단합니다.
+ * - DB 조회 없이 주어진 데이터(방송 정보, 뷰어 역할, 언락 여부)만으로 판단
  *
  * [판단 기준]
  * - PUBLIC: 누구나 접근 가능
@@ -107,7 +107,7 @@ export function checkBroadcastAccessPure(
 
 /**
  * 방송 접근 권한 확인 (통합)
- * - role이 주어지지 않았다면 DB를 조회하여 role을 계산한 후 판단합니다.
+ * - role이 주어지지 않았다면 DB를 조회하여 role을 계산한 후 판단
  *
  * @param stream - 방송 정보
  * @param viewerId - 조회자 ID
@@ -129,7 +129,7 @@ export async function checkBroadcastAccess(
 
 /**
  * PRIVATE 방송 비밀번호 검증
- * - 실제 세션 저장(로그인)은 Controller(Action)에서 수행하며, 여기서는 검증 결과만 반환합니다.
+ * - 실제 세션 저장(로그인)은 Controller(Action)에서 수행하며, 여기서는 검증 결과만 반환
  *
  * @param {number} broadcastId - 방송 ID
  * @param {string} password - 입력된 비밀번호

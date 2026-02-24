@@ -85,8 +85,8 @@ export const getCachedUserBadges = (userId: number) => {
 // -----------------------------------------------------------------------------
 
 /**
- * 유저에게 뱃지를 부여하고 알림을 전송합니다.
- * 이미 보유한 뱃지인 경우 중복 부여하지 않습니다.
+ * 유저에게 뱃지를 부여하고 알림을 전송
+ * 이미 보유한 뱃지인 경우 중복 부여 X
  *
  * @param {number} userId - 대상 유저 ID
  * @param {string} badgeName - 뱃지 이름 (Code)
@@ -549,7 +549,7 @@ export const checkPortFestivalBadge = async (userId: number) => {
 
 /**
  * 뱃지 체크 트리거 모음
- * - 각 액션(거래 완료, 글 작성 등) 이후에 호출하여 관련 뱃지들을 비동기 검사합니다.
+ * - 각 액션(거래 완료, 글 작성 등) 이후에 호출하여 관련 뱃지들을 비동기 검사
  */
 export const badgeChecks = {
   onTradeComplete: async (userId: number, role: "seller" | "buyer") => {

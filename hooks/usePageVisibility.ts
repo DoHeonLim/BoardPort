@@ -14,11 +14,11 @@
 import { useEffect, useState } from "react";
 
 /**
- * 현재 페이지(탭)가 사용자에게 보이는 상태인지 반환합니다.
+ * 현재 페이지(탭)가 사용자에게 보이는 상태인지 반환
  *
- * - `document.visibilityState` API를 사용합니다.
- * - iOS Safari의 `pagehide`/`pageshow` 이벤트도 함께 감지하여 신뢰성을 높입니다.
- * - 무한 스크롤이나 폴링(Polling) 로직에서 탭이 백그라운드로 갔을 때 중단하는 용도로 유용합니다.
+ * - `document.visibilityState` API를 사용
+ * - iOS Safari의 `pagehide`/`pageshow` 이벤트도 함께 감지하여 신뢰성을 높임
+ * - 무한 스크롤이나 폴링(Polling) 로직에서 탭이 백그라운드로 갔을 때 중단하는 용도로 유용
  *
  * @returns boolean - 가시성 여부 (true: 보임, false: 숨겨짐)
  */

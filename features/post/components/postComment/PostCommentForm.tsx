@@ -28,9 +28,9 @@ import { toast } from "sonner";
 /**
  * 댓글 작성 폼 컴포넌트
  *
- * - 자동 높이 조절 Textarea를 사용합니다.
- * - Enter 키로 전송(Shift+Enter는 줄바꿈)을 지원합니다.
- * - 전송 중 로딩 상태를 표시하고 중복 전송을 방지합니다.
+ * - 자동 높이 조절 Textarea를 사용
+ * - Enter 키로 전송(Shift+Enter는 줄바꿈)을 지원
+ * - 전송 중 로딩 상태를 표시하고 중복 전송을 방지
  */
 export default function PostCommentForm({ postId }: { postId: number }) {
   const { createComment } = usePostCommentContext();

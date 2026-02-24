@@ -28,8 +28,8 @@ import { cn } from "@/lib/utils";
  * 방송 상태(CONNECTED/ENDED/DISCONNECTED)를 표시하는 뱃지
  *
  * [기능]
- * - 초기값은 SSR로 받지만, 이후 `live-status` 채널 이벤트를 통해 실시간으로 상태를 갱신합니다.
- * - 상태에 따라 색상과 텍스트를 변경합니다.
+ * - 초기값은 SSR로 받지만, 이후 `live-status` 채널 이벤트를 통해 실시간으로 상태를 갱신
+ * - 상태에 따라 색상과 텍스트를 변경
  */
 export default function LiveStatusButton({
   status,

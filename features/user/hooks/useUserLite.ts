@@ -19,9 +19,9 @@ const fetcher = (url: string) =>
   fetch(url, { credentials: "same-origin" }).then((r) => r.json());
 
 /**
- * 특정 유저의 최소 정보(ID, 이름, 아바타)를 비동기로 가져옵니다.
+ * 특정 유저의 최소 정보(ID, 이름, 아바타)를 비동기로 가져옴
  * - 팔로워 리스트에 '나'를 낙관적으로 추가할 때 등,
- *   클라이언트가 유저 상세 정보를 가지고 있지 않을 때 유용합니다.
+ *   클라이언트가 유저 상세 정보를 가지고 있지 않을 때 유용
  *
  * @param userId - 조회할 유저 ID
  * @param enabled - 훅 활성화 여부

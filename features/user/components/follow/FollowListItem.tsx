@@ -37,10 +37,10 @@ interface FollowListItemProps {
 /**
  * 팔로우 목록의 개별 유저 아이템
  *
- * - 유저 아바타와 이름을 표시합니다.
- * - 본인이 아닐 경우 팔로우/언팔로우 버튼을 노출합니다.
- * - 본인일 경우 '나' 뱃지를 표시합니다.
- * - 버튼 상태는 `user.isFollowedByViewer`를 기준으로 렌더링됩니다.
+ * - 유저 아바타와 이름을 표시
+ * - 본인이 아닐 경우 팔로우/언팔로우 버튼을 노출
+ * - 본인일 경우 '나' 뱃지를 표시
+ * - 버튼 상태는 `user.isFollowedByViewer`를 기준으로 렌더링
  */
 export default function FollowListItem({
   user,

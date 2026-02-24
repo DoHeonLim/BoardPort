@@ -11,6 +11,7 @@
  * 2026.01.19  임도헌   Moved     lib/product -> features/product/lib
  * 2026.01.20  임도헌   Modified  Controller 분리, 삭제된 제품 메타데이터 반환
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.22  임도헌   Modified  상품 삭제 시 유령 채팅방 방지를 위해 참여자 ID 목록 반환 추가
  */
 import "server-only";
 
@@ -19,8 +20,8 @@ import type { ServiceResult } from "@/lib/types";
 import type { ProductDeleteMeta } from "@/features/product/types";
 
 /**
- * 제품을 삭제합니다.
- * 소유자 권한을 검증한 후 DB에서 삭제하며, 삭제된 제품의 메타데이터를 반환합니다.
+ * 제품을 삭제
+ * 소유자 권한을 검증한 후 DB에서 삭제하며, 삭제된 제품의 메타데이터를 반환
  *
  * @param {number} userId - 요청자 ID
  * @param {number} productId - 삭제할 제품 ID
@@ -37,6 +38,10 @@ export async function deleteProduct(
       select: {
         userId: true,
         purchase_userId: true,
+        reservation_userId: true,
+        chat_rooms: {
+          select: { users: { select: { id: true } } },
+        },
       },
     });
 
@@ -48,6 +53,11 @@ export async function deleteProduct(
       return { success: false, error: "삭제 권한이 없습니다." };
     }
 
+    // 채팅방 참여자 ID 중복 제거
+    const chatUserIds = Array.from(
+      new Set(product.chat_rooms.flatMap((room) => room.users.map((u) => u.id)))
+    );
+
     // 2. 삭제 실행
     await db.product.delete({ where: { id: productId } });
 
@@ -58,6 +68,8 @@ export async function deleteProduct(
         id: productId,
         userId: product.userId,
         purchase_userId: product.purchase_userId,
+        reservation_userId: product.reservation_userId,
+        chatUserIds,
       },
     };
   } catch (error) {

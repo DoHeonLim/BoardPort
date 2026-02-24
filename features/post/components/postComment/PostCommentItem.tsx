@@ -12,12 +12,27 @@
  */
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useState, useRef, useEffect, useTransition } from "react";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import {
+  EllipsisHorizontalIcon,
+  UserMinusIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { PostComment } from "@/features/post/types";
+import { toggleBlockAction } from "@/features/user/actions/block";
 import UserAvatar from "@/components/global/UserAvatar";
 import TimeAgo from "@/components/ui/TimeAgo";
+import ConfirmDialog from "@/components/global/ConfirmDialog";
 import CommentDeleteButton from "@/features/post/components/postComment/PostCommentDeleteButton";
+
+const ReportModal = dynamic(
+  () => import("@/features/report/components/ReportModal"),
+  { ssr: false }
+);
 
 interface CommentItemProps {
   comment: PostComment;
@@ -30,18 +45,57 @@ interface CommentItemProps {
 /**
  * 개별 댓글 컴포넌트
  *
- * - Framer Motion을 사용하여 등장/삭제 애니메이션을 적용합니다.
- * - 작성자 정보(아바타, 이름)와 작성 시간, 댓글 내용을 표시합니다.
- * - 본인이 작성한 댓글일 경우 삭제 버튼을 노출합니다.
+ * [기능]
+ * 1. 작성자 정보 및 내용 표시, 등장/삭제 애니메이션 적용
+ * 2. 본인 댓글: 삭제 버튼(`CommentDeleteButton`) 노출
+ * 3. 타인 댓글: 더보기 메뉴를 통해 '차단하기' 및 '신고하기' 기능 제공
+ * 4. 차단 실행 시 목록에서 해당 유저의 모든 콘텐츠를 숨기기 위해 `router.refresh()` 수행
  *
  * [Note: forwardRef 사용 이유]
- * 이 컴포넌트는 상위(PostCommentList)에서 `AnimatePresence` 내부에 렌더링됩니다.
+ * 이 컴포넌트는 상위(PostCommentList)에서 `AnimatePresence` 내부에 렌더링됨
  * AnimatePresence가 자식 요소의 exit 애니메이션을 제어하기 위해 ref를 주입하므로,
- * 이를 내부 `motion.div`로 전달하기 위해 forwardRef가 필수적입니다.
+ * 이를 내부 `motion.div`로 전달하기 위해 forwardRef가 필수적
  */
 const PostCommentItem = forwardRef<HTMLDivElement, CommentItemProps>(
   ({ comment, currentUser }, ref) => {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
+
+    // UI 상태 관리
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
+    const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+
+    const menuRef = useRef<HTMLDivElement>(null);
     const isOwner = comment.user.username === currentUser.username;
+
+    // 외부 클릭 시 메뉴 닫기
+    useEffect(() => {
+      const onClick = (e: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+          setMenuOpen(false);
+        }
+      };
+      if (menuOpen) document.addEventListener("mousedown", onClick);
+      return () => document.removeEventListener("mousedown", onClick);
+    }, [menuOpen]);
+
+    /**
+     * 작성자 차단 실행
+     */
+    const handleBlockUser = () => {
+      startTransition(async () => {
+        const result = await toggleBlockAction(comment.userId, "block");
+        if (result.success) {
+          toast.success(`${comment.user.username}님을 차단했습니다.`);
+          setBlockConfirmOpen(false);
+          setMenuOpen(false);
+          router.refresh(); // 차단된 유저의 댓글을 목록에서 즉시 필터링하기 위해 리프레시
+        } else {
+          toast.error(result.error);
+        }
+      });
+    };
 
     return (
       <motion.div
@@ -88,23 +142,75 @@ const PostCommentItem = forwardRef<HTMLDivElement, CommentItemProps>(
               </span>
             </div>
 
-            {isOwner && (
-              <div className="-mt-1 -mr-1">
+            {/* 액션 영역 */}
+            <div className="flex items-center">
+              {isOwner ? (
                 <CommentDeleteButton commentId={comment.id} />
-              </div>
-            )}
+              ) : (
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    className="p-1 text-muted hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                    aria-label="댓글 옵션"
+                  >
+                    <EllipsisHorizontalIcon className="size-5" />
+                  </button>
+
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-1 w-40 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in">
+                      <button
+                        onClick={() => setBlockConfirmOpen(true)}
+                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 transition-colors"
+                      >
+                        <UserMinusIcon className="size-4" />
+                        작성자 차단
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setReportOpen(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border transition-colors"
+                      >
+                        <ExclamationTriangleIcon className="size-4" />
+                        댓글 신고
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 본문 */}
-          <p className="mt-1 text-sm text-primary leading-relaxed break-words whitespace-pre-wrap">
+          <p className="text-sm text-primary leading-relaxed break-words whitespace-pre-wrap">
             {comment.payload}
           </p>
         </div>
+
+        {/* 차단 확인 다이얼로그 */}
+        <ConfirmDialog
+          open={blockConfirmOpen}
+          title="유저 차단"
+          description={`${comment.user.username}님을 차단하시겠습니까? 차단하면 이 유저의 모든 게시글과 댓글이 보이지 않게 됩니다.`}
+          confirmLabel="차단"
+          onConfirm={handleBlockUser}
+          onCancel={() => setBlockConfirmOpen(false)}
+          loading={isPending}
+        />
+
+        {/* 신고 모달 */}
+        {reportOpen && (
+          <ReportModal
+            isOpen={reportOpen}
+            onClose={() => setReportOpen(false)}
+            targetId={comment.id}
+            targetType="COMMENT"
+          />
+        )}
       </motion.div>
     );
   }
 );
 
-PostCommentItem.displayName = "PostCommentItem"; // 디버깅을 위한 displayName 설정
-
+PostCommentItem.displayName = "PostCommentItem";
 export default PostCommentItem;

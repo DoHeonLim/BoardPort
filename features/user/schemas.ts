@@ -5,7 +5,7 @@
  *
  * History
  * Date        Author   Status    Description
- * 2026.01.24  임도헌   Created   기존 lib/profile/*Schema.ts 통합
+ * 2026.01.24  임도헌   Created   기존 lib/profile/*Schemas.ts 통합
  */
 
 import { z } from "zod";
@@ -28,7 +28,7 @@ export type ProfileEditSchemaOptions = {
 
 /**
  * 프로필 수정 폼 스키마
- * - 상황(소셜 로그인 여부 등)에 따라 동적으로 검증 로직이 추가됩니다.
+ * - 상황(소셜 로그인 여부 등)에 따라 동적으로 검증 로직이 추가
  */
 export const profileEditSchema = ({
   needsEmailSetup,

@@ -29,7 +29,7 @@ import { AUTH_ERRORS } from "@/features/auth/constants";
 import type { ActionState } from "@/features/auth/types";
 
 /**
- * SMS 인증 번호 발송을 요청합니다.
+ * SMS 인증 번호 발송을 요청
  *
  * @param {FormData} formData - 전화번호 포함
  * @returns {Promise<ActionState>} 발송 성공 여부
@@ -51,7 +51,7 @@ export async function sendPhoneToken(formData: FormData): Promise<ActionState> {
 }
 
 /**
- * SMS 인증 번호를 검증하고 로그인 처리합니다.
+ * SMS 인증 번호를 검증하고 로그인 처리
  *
  * @param {FormData} formData - 전화번호 및 인증 토큰 포함
  * @returns {Promise<ActionState>} 검증 성공 여부

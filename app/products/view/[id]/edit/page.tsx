@@ -33,10 +33,10 @@ import { getCachedProduct } from "@/features/product/service/detail";
  * 제품 수정 페이지
  *
  * [기능]
- * 1. 제품 정보를 조회하고 소유권을 검증합니다. (비소유자 -> 목록 리다이렉트)
- * 2. 기존 제품 정보를 폼 데이터 형식으로 변환(`convertProductToFormValues`)합니다.
- * 3. `ProductForm`을 'edit' 모드로 렌더링합니다.
- * 4. 제품 삭제 기능(Server Action Form)을 별도로 제공합니다.
+ * 1. 제품 정보를 조회하고 소유권을 검증 (비소유자 -> 목록 리다이렉트)
+ * 2. 기존 제품 정보를 폼 데이터 형식으로 변환(`convertProductToFormValues`)
+ * 3. `ProductForm`을 'edit' 모드로 렌더링
+ * 4. 제품 삭제 기능(Server Action Form)을 별도로 제공
  */
 export default async function EditPage({ params }: { params: { id: string } }) {
   const id = Number(params.id);

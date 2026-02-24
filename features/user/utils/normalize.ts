@@ -16,7 +16,7 @@
  * - 소문자(toLowerCase)
  * - 유니코드 정규화(NFC) (한글 조합형/분해형 이슈 방지)
  *
- * 주의: decodeURIComponent는 malformed 입력에서 throw 할 수 있으므로 try/catch로 방어한다.
+ * 주의: decodeURIComponent는 malformed 입력에서 throw 할 수 있으므로 try/catch로 방어
  */
 export function normalizeUsername(raw: string) {
   const decoded = (() => {

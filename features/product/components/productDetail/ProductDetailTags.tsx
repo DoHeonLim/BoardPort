@@ -20,7 +20,8 @@ interface ProductDetailTagsProps {
 }
 
 /**
- * 태그 목록을 표시합니다. 클릭 시 해당 태그로 검색 결과 이동합니다.
+ * 태그 목록을 표시
+ * 클릭 시 해당 태그로 검색 결과 이동
  */
 export default function ProductDetailTags({ tags }: ProductDetailTagsProps) {
   if (!tags || tags.length === 0) return null;

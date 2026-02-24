@@ -14,6 +14,8 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 탭 스타일 및 스크롤 버튼 접근성 개선
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.19  임도헌   Modified  탭 변경 시 region 파라미터 보존 및 자동 전환 로직 정교화
+ * 2026.02.20  임도헌   Modified  지역 범위 관리가 DB로 이관됨에 따라 불필요한 URL 쿼리 제어 삭제
  */
 "use client";
 
@@ -37,9 +39,9 @@ const LONG_PRESS_DURATION = 600;
 /**
  * 게시글 카테고리 필터 탭
  *
- * - 가로 스크롤 가능한 탭 목록을 렌더링합니다.
- * - PC에서는 좌우 화살표, 모바일에서는 터치 스크롤을 지원합니다.
- * - PC 호버 또는 모바일 롱프레스 시 카테고리 설명을 툴팁으로 표시합니다.
+ * - 가로 스크롤 가능한 탭 목록을 렌더링
+ * - PC에서는 좌우 화살표, 모바일에서는 터치 스크롤을 지원
+ * - PC 호버 또는 모바일 롱프레스 시 카테고리 설명을 툴팁으로 표시
  */
 export default function PostCategoryTabs({
   currentCategory,
@@ -53,15 +55,16 @@ export default function PostCategoryTabs({
 
   const handleCategoryClick = (category?: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("keyword"); // 검색어 제거
+    params.delete("keyword"); // 검색어 초기화
+
     if (category) {
       params.set("category", category);
-      router.push(`/posts?${params.toString()}`);
     } else {
-      params.delete("category");
-      router.replace(`/posts`);
+      params.delete("category"); // 전체 보기
     }
-    router.refresh();
+
+    router.push(`/posts?${params.toString()}`);
+    router.refresh(); // 데이터 재로딩
   };
 
   const isTouchDevice =
@@ -140,7 +143,7 @@ export default function PostCategoryTabs({
       {/* 왼쪽 스크롤 버튼 */}
       <button
         onClick={() => scroll("left")}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-0 group-hover/scroll:opacity-100"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100"
         aria-label="scroll left"
       >
         <ChevronLeftIcon className="size-4" />
@@ -270,7 +273,7 @@ export default function PostCategoryTabs({
       {/* 오른쪽 스크롤 버튼 */}
       <button
         onClick={() => scroll("right")}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-0 group-hover/scroll:opacity-100"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100"
         aria-label="scroll right"
       >
         <ChevronRightIcon className="size-4" />

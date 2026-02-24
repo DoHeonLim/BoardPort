@@ -18,8 +18,8 @@ import type { PostActionResponse, PostUpdateDTO } from "@/features/post/types";
 
 /**
  * 게시글 수정 Action
- * - 폼 데이터 검증 후 Service를 호출하여 게시글을 수정합니다.
- * - 성공 시 게시글 상세 및 목록 캐시를 무효화합니다.
+ * - 폼 데이터 검증 후 Service를 호출하여 게시글을 수정
+ * - 성공 시 게시글 상세 및 목록 캐시를 무효화
  *
  * @param formData - 게시글 폼 데이터 (id 필수)
  * @returns 처리 결과 (성공 시 postId 포함)
@@ -43,8 +43,16 @@ export async function updatePostAction(
   } catch {
     tags = [];
   }
-
   const photos = formData.getAll("photos[]").map(String);
+  const locationRaw = formData.get("location")?.toString();
+  let locationData = null;
+  if (locationRaw) {
+    try {
+      locationData = JSON.parse(locationRaw);
+    } catch {
+      console.error("Location parse error");
+    }
+  }
 
   const rawData = {
     id,
@@ -55,6 +63,7 @@ export async function updatePostAction(
     photos: photos.length
       ? photos
       : JSON.parse(formData.get("photos")?.toString() || "[]"),
+    location: locationData,
   };
 
   // 2. Zod 검증

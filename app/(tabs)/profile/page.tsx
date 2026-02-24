@@ -25,6 +25,7 @@
  * 2026.01.15  임도헌   Modified   상단 액션바 위치 조정 및 패딩 표준화
  * 2026.01.24  임도헌   Modified   Service 경로 수정 및 타입 정합성
  * 2026.01.29  임도헌   Modified   내 프로필 페이지 주석 보강 및 구조 설명 추가
+ * 2026.02.11  임도헌   Modified   NotificationBell 추가 및 unreadCount 조회 병렬 처리
  */
 
 // revalidateTag 트리거 메모
@@ -39,6 +40,7 @@ import getSession from "@/lib/session";
 import ThemeToggle from "@/components/global/ThemeToggle";
 import MyProfile from "@/features/user/components/profile/MyProfile";
 import ProfileSettingMenu from "@/features/user/components/profile/ProfileSettingMenu";
+import NotificationBell from "@/components/global/NotificationBell";
 import { getUserProfile } from "@/features/user/service/profile";
 import { getCachedInitialUserReviews } from "@/features/user/service/review";
 import { getCachedUserAverageRating } from "@/features/user/service/metric";
@@ -47,6 +49,7 @@ import {
   getCachedUserBadges,
 } from "@/features/user/service/badge";
 import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
+import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { logOut } from "@/features/auth/service/logout";
 import type { BroadcastSummary } from "@/features/stream/types";
 import type {
@@ -55,15 +58,15 @@ import type {
   ProfileReview,
 } from "@/features/user/types";
 
-export const dynamic = "force-dynamic"; // 개인화 페이지 캐시 회피
+export const dynamic = "force-dynamic";
 
 /**
  * 내 프로필 페이지
  *
  * [기능]
- * 1. 세션을 확인하여 로그인 여부를 검증합니다.
- * 2. 내 프로필 정보(Core), 평점, 리뷰, 뱃지, 최근 방송 목록을 병렬로 로드합니다.
- * 3. `MyProfile` 컴포넌트를 통해 전체 UI를 구성합니다.
+ * 1. 세션을 확인하여 로그인 여부를 검증
+ * 2. 내 프로필 정보(Core), 평점, 리뷰, 뱃지, 최근 방송 목록을 병렬로 로드
+ * 3. `MyProfile` 컴포넌트를 통해 전체 UI를 구성
  */
 export default async function ProfilePage() {
   // 1. 세션 및 유저 확인
@@ -73,17 +76,20 @@ export default async function ProfilePage() {
   }
   const userId = session.id;
 
+  const isAdmin = session.role === "ADMIN";
+
   const user = await getUserProfile(userId, userId);
   if (!user) redirect("/login");
 
   // 2. 대량 데이터 병렬 로딩 (성능 최적화)
-  const [initialReviews, averageRating, badgesPair, streams]: [
+  const [initialReviews, averageRating, badgesPair, streams, unreadCount]: [
     ProfileReview[],
     ProfileAverageRating | null,
     { badges: Badge[]; userBadges: Badge[] },
     BroadcastSummary[],
+    number
   ] = await Promise.all([
-    getCachedInitialUserReviews(user.id),
+    getCachedInitialUserReviews(user.id, userId),
     getCachedUserAverageRating(user.id),
     (async () => {
       const [badges, userBadges] = await Promise.all([
@@ -92,16 +98,21 @@ export default async function ProfilePage() {
       ]);
       return { badges, userBadges };
     })(),
-    getCachedRecentBroadcasts(user.id, 6, true), // 본인이므로 비공개 방송 포함
+    getCachedRecentBroadcasts(user.id, 6, true),
+    getUnreadNotificationCount(),
   ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* 상단 액션바: 설정 메뉴 및 테마 토글 */}
       <div className="sticky top-0 z-30 flex justify-end gap-2 px-page-x py-3 bg-background/80 backdrop-blur-sm">
+        {/* 알림 벨 추가 */}
+        <NotificationBell userId={userId} initialCount={unreadCount} />
+
         <ProfileSettingMenu
           emailVerified={!!user.emailVerified}
           hasEmail={!!user.email}
+          isAdmin={isAdmin}
         />
         <ThemeToggle />
       </div>

@@ -28,62 +28,73 @@
  * 2026.01.04  임도헌   Modified  getProductDetailData가 redirect/조회수/개인화를 포함 → 모달도 force-dynamic + revalidate=0 명시
  * 2026.01.26  임도헌   Modified  주석 설명 보강
  * 2026.02.02  임도헌   Modified  일반 상세 페이지와 로직 동기화 (Service 분리 및 병렬 처리)
+ * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 로드
+ * 2026.02.04  임도헌   Modified  판매자와 조회자간의 차단 관계 확인 로직 추가(차단 관계일 경우 제품 정보 차단)
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCachedProduct } from "@/features/product/service/detail";
 import { getCachedProductLikeStatus } from "@/features/product/service/like";
 import { incrementViews } from "@/features/common/service/view";
+import { checkBlockRelation } from "@/features/user/service/block";
 import ProductDetailModalContainer from "@/features/product/components/productDetail/modal/ProductDetailModalContainer";
 import getSession from "@/lib/session";
 
 // 조회수 증가 및 개인화(좋아요) 로직이 포함되므로 동적 렌더링 강제
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-interface ProductDetailModalProps {
-  params: { id: string };
-}
 
 /**
  * 인터셉트된 제품 상세 모달
  *
- * - 목록 페이지에서 상세로 진입 시 가로채서 띄우는 모달입니다.
- * - 일반 상세 페이지(`app/products/view/[id]/page.tsx`)와 동일한 데이터 로딩 로직을 수행합니다.
+ * [기능]
+ * - 목록 페이지에서 상세로 진입 시 가로채서 띄우는 모달
+ * - 일반 상세 페이지(`app/products/view/[id]/page.tsx`)와 동일한 데이터 로딩 로직을 수행
  *   (제품 정보, 좋아요 상태, 조회수 증가)
  */
 export default async function ProductDetailModal({
   params,
-}: ProductDetailModalProps) {
+}: {
+  params: { id: string };
+}) {
   const id = Number(params.id);
   if (isNaN(id)) return notFound();
 
   const session = await getSession();
   const userId = session?.id ?? null;
 
-  // 1. 데이터 병렬 조회 & 조회수 증가
-  const [product, likeStatus, didIncrement] = await Promise.all([
+  // 1. 조회수 증가 선행
+  await incrementViews({
+    target: "PRODUCT",
+    targetId: id,
+    viewerId: userId,
+  });
+
+  // 2. 병렬 데이터 로드
+  const [product, likeStatus] = await Promise.all([
     getCachedProduct(id),
     getCachedProductLikeStatus(id, userId),
-    incrementViews({
-      target: "PRODUCT",
-      targetId: id,
-      viewerId: userId,
-    }),
   ]);
 
   if (!product) return notFound();
 
-  // 2. 권한 확인
-  const isOwner = !!userId && userId === product.userId;
+  if (userId && userId !== product.userId) {
+    const isBlocked = await checkBlockRelation(userId, product.userId);
+    if (isBlocked) {
+      const callbackUrl = `/products/view/${id}`;
+      redirect(
+        `/403?reason=BLOCKED` +
+          `&username=${encodeURIComponent(product.user.username)}` +
+          `&callbackUrl=${encodeURIComponent(callbackUrl)}`
+      );
+    }
+  }
 
-  // 3. 조회수 표시 보정
-  const finalViews = product.views + (didIncrement ? 1 : 0);
+  const isOwner = !!userId && userId === product.userId;
 
   return (
     <ProductDetailModalContainer
       product={product}
-      views={finalViews}
+      views={product.views}
       isOwner={isOwner}
       likeCount={likeStatus.likeCount}
       isLiked={likeStatus.isLiked}

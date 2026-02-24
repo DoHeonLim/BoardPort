@@ -12,6 +12,7 @@
  * 2025.12.03  임도헌   Modified  STREAM 타입 추가(방송 알림용 기본 정책/태그), 주석 보강
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
  * 2026.01.23  임도헌   Modified  lib/push-notification -> service/sender 이동 및 경로 수정
+ * 2026.02.12  임도헌   Modified  KEYWORD 타입 푸시 정책(Tag, Defaults) 추가
  */
 
 import webPush from "web-push";
@@ -105,6 +106,9 @@ function defaultTagByType(type: NotificationType, url?: string) {
       return m ? `bp-stream-${m[1]}` : "bp-stream";
     }
     case "SYSTEM":
+    case "KEYWORD": // 키워드 알림은 개별 건으로 쌓이는 게 좋으므로 unique tag 사용 권장 (여기선 url 기반)
+      const m = url?.match(/\/products\/view\/([^/?#]+)/);
+      return m ? `bp-keyword-${m[1]}` : "bp-keyword";
     default:
       return "bp-system";
   }
@@ -114,6 +118,7 @@ function defaultsFor(type: NotificationType) {
   // 긴급도/TTL은 UX 관점에서 합리적 기본치로 설정
   // CHAT   : 실시간성이 중요 → high / 1시간
   // STREAM : LIVE 알림 위주 → high / 1시간
+  // KEYWORD : 즉시 알아야함 → high / 1시간간
   // TRADE  : 거래 흐름 → normal / 12시간
   // REVIEW : 리뷰 관련 → normal / 12시간
   // BADGE  : 축하성 알림 → low / 24시간
@@ -122,6 +127,8 @@ function defaultsFor(type: NotificationType) {
     case "CHAT":
       return { urgency: "high" as const, ttlSeconds: 60 * 60 };
     case "STREAM":
+      return { urgency: "high" as const, ttlSeconds: 60 * 60 };
+    case "KEYWORD":
       return { urgency: "high" as const, ttlSeconds: 60 * 60 };
     case "TRADE":
     case "REVIEW":
@@ -168,8 +175,15 @@ function ensureMaxPayload(json: any): string {
 
 /**
  * 푸시 알림 발송 (다중 기기 지원)
- * - 대상 유저의 활성화된 모든 구독 정보를 조회하여 발송합니다.
- * - 만료된 구독(410/404)은 DB에서 자동 삭제합니다.
+ *
+ * [정책]
+ * - CHAT/STREAM/KEYWORD: `urgency: 'high'`, `TTL: 1시간` (실시간성이 중요)
+ * - TRADE/REVIEW: `urgency: 'normal'`, `TTL: 12시간`
+ * - BADGE/SYSTEM: `urgency: 'low'`, `TTL: 6~24시간`
+ *
+ * [태그]
+ * - 동일한 채팅방/방송에 대한 알림은 `tag`를 사용하여 기존 알림을 덮어씌움으로써
+ *   알림 센터가 도배되는 것을 방지
  *
  * @param props - 알림 내용 및 옵션
  * @returns 전송 결과 통계 (sent, removed, errors 등)

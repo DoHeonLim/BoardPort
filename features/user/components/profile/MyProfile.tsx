@@ -31,21 +31,25 @@
  * 2026.01.15  임도헌   Modified   섹션 간격 및 스타일 통일
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.15  임도헌   Modified  내 동네 설정 버튼(MyLocationButton) 추가
  */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { toast } from "sonner";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
 import StreamCard from "@/features/stream/components/StreamCard";
+import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
 import {
   ChevronRightIcon,
   ShoppingBagIcon,
   TagIcon,
 } from "@heroicons/react/24/outline";
+import { getMyBlockedUsersAction } from "@/features/user/actions/block";
 import type { BroadcastSummary } from "@/features/stream/types";
 import type {
   Badge,
@@ -68,6 +72,12 @@ const EmailVerificationModal = dynamic(
   () => import("./EmailVerificationModal"),
   { ssr: false }
 );
+const BlockedUsersModal = dynamic(() => import("./BlockedUsersModal"), {
+  ssr: false,
+});
+const WithdrawalModal = dynamic(() => import("./WithdrawalModal"), {
+  ssr: false,
+});
 
 type Props = {
   user: UserProfile;
@@ -106,7 +116,13 @@ export default function MyProfile({
     review: false,
     badge: false,
     email: false,
+    block: false,
+    withdraw: false,
   });
+  const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
+  const fullLocation = [user.region1, user.region2, user.region3]
+    .filter(Boolean)
+    .join(" ");
 
   const toggleModal = useCallback(
     (key: keyof typeof modalState, open: boolean) => {
@@ -119,12 +135,38 @@ export default function MyProfile({
   useEffect(() => {
     const onPass = () => toggleModal("password", true);
     const onEmail = () => toggleModal("email", true);
+    const onWithdraw = () => toggleModal("withdraw", true);
+
+    // 로딩 피드백 추가
+    const onBlock = async () => {
+      // 1. 로딩 상태 토스트 표시
+      const toastId = toast.loading("차단한 선원 목록을 불러오는 중...");
+
+      try {
+        const data = await getMyBlockedUsersAction();
+        setBlockedUsers(data);
+
+        // 2. 모달 열기
+        toggleModal("block", true);
+
+        // 3. 로딩 토스트 제거
+        toast.dismiss(toastId);
+      } catch (error) {
+        console.error("Failed to load blocked users:", error);
+        toast.error("목록을 불러오는 데 실패했습니다.", { id: toastId });
+      }
+    };
 
     window.addEventListener("open-password-modal", onPass);
     window.addEventListener("open-email-verification-modal", onEmail);
+    window.addEventListener("open-block-list-modal", onBlock);
+    window.addEventListener("open-withdraw-modal", onWithdraw);
+
     return () => {
       window.removeEventListener("open-password-modal", onPass);
       window.removeEventListener("open-email-verification-modal", onEmail);
+      window.removeEventListener("open-block-list-modal", onBlock);
+      window.removeEventListener("open-withdraw-modal", onWithdraw);
     };
   }, [toggleModal]);
 
@@ -149,7 +191,7 @@ export default function MyProfile({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
-            href="/profile/notifications"
+            href="/profile/notifications/setting"
             className="text-xs text-muted hover:text-brand transition-colors"
           >
             상세 설정
@@ -162,8 +204,16 @@ export default function MyProfile({
           <PushNotificationToggle />
         </div>
       </section>
+      {/* 3. My Neighborhood */}
+      <section>
+        <h2 className="text-sm font-bold text-primary mb-3">내 동네 설정</h2>
+        <MyLocationButton
+          currentRegion={user.region2}
+          fullLocation={fullLocation || user.locationName}
+        />
+      </section>
 
-      {/* 3. Trade Info */}
+      {/* 4. Trade Info */}
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">거래 정보</h2>
         <div className="grid grid-cols-2 gap-3">
@@ -195,7 +245,7 @@ export default function MyProfile({
         </div>
       </section>
 
-      {/* 4. Channel */}
+      {/* 5. Channel */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-primary">내 방송국</h2>
@@ -233,7 +283,7 @@ export default function MyProfile({
         )}
       </section>
 
-      {/* 5. Reviews & Badges */}
+      {/* 6. Reviews & Badges */}
       <div className="grid grid-cols-1 gap-6">
         <section>
           <div className="flex items-center justify-between mb-2">
@@ -298,6 +348,21 @@ export default function MyProfile({
         <PasswordChangeModal
           isOpen={modalState.password}
           onClose={() => toggleModal("password", false)}
+        />
+      )}
+
+      {modalState.block && (
+        <BlockedUsersModal
+          isOpen={modalState.block}
+          onClose={() => toggleModal("block", false)}
+          initialBlockedUsers={blockedUsers}
+        />
+      )}
+
+      {modalState.withdraw && (
+        <WithdrawalModal
+          isOpen={modalState.withdraw}
+          onClose={() => toggleModal("withdraw", false)}
         />
       )}
     </div>

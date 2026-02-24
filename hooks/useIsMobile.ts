@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * 현재 뷰포트 너비가 모바일 기준(breakpoint)보다 작은지 확인합니다.
+ * 현재 뷰포트 너비가 모바일 기준(breakpoint)보다 작은지 확인
  *
  * @param breakpoint - 모바일 기준 너비 (기본값: 768px)
  * @returns boolean - 모바일 여부

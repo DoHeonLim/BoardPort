@@ -16,8 +16,8 @@
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * ===============================================================================================
- * 이 폴더는 PostComment (게시글 댓글) 기능을 구성하는 컴포넌트들을 분리해 모아둔 디렉토리입니다.
- * Context API를 사용하여 댓글 목록, 작성, 삭제 상태를 전역적으로 관리합니다.
+ * PostComment (게시글 댓글) 기능을 구성하는 컴포넌트들을 분리해 모아둔 디렉토리
+ * Context API를 사용하여 댓글 목록, 작성, 삭제 상태를 전역적으로 관리
  *
  * - PostCommentContext.tsx      : 댓글 데이터 및 액션(작성/삭제/더보기)을 제공하는 Context
  * - PostCommentProvider.tsx     : Context Provider (usePostComment 훅 연결)
@@ -48,8 +48,8 @@ interface CommentProps {
 /**
  * 댓글 섹션 컨테이너
  *
- * - `PostCommentProvider`로 감싸서 하위 컴포넌트들이 댓글 데이터와 액션에 접근할 수 있게 합니다.
- * - 상단에 작성 폼(`PostCommentForm`), 하단에 댓글 목록(`PostCommentList`)을 배치합니다.
+ * - `PostCommentProvider`로 감싸서 하위 컴포넌트들이 댓글 데이터와 액션에 접근할 수 있게 함
+ * - 상단에 작성 폼(`PostCommentForm`), 하단에 댓글 목록(`PostCommentList`)을 배치
  */
 export default function PostComment({ postId, user }: CommentProps) {
   return (

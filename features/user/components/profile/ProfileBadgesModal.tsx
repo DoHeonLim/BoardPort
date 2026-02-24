@@ -138,9 +138,9 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
  * 뱃지 목록 모달
  *
  * [기능]
- * 1. 전체 뱃지 목록을 그리드 형태로 렌더링합니다.
- * 2. 사용자가 획득한 뱃지는 활성화 상태로 표시됩니다.
- * 3. 각 뱃지에 마우스를 올리면 상세 설명 툴팁을 보여줍니다.
+ * 1. 전체 뱃지 목록을 그리드 형태로 렌더링
+ * 2. 사용자가 획득한 뱃지는 활성화 상태로 표시
+ * 3. 각 뱃지에 마우스를 올리면 상세 설명 툴팁을 보여줌
  */
 export default function ProfileBadgesModal({
   isOpen,

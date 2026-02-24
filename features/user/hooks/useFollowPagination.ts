@@ -38,10 +38,10 @@ type FollowPaginationError =
  * 팔로워/팔로잉 목록 페이지네이션 훅
  *
  * [기능]
- * 1. 키셋 커서(Keyset Cursor) 기반의 무한 스크롤 상태를 관리합니다.
- * 2. `dedupMerge` 로직을 통해 중복 데이터를 제거하며 리스트를 병합합니다.
- * 3. 초기 로딩(`loadFirst`)과 추가 로딩(`loadMore`)을 분리하여 에러 핸들링을 세분화합니다.
- * 4. `upsertLocal` 및 `removeLocal` 메서드를 제공하여, 서버 재요청 없이 리스트 아이템을 즉시 갱신할 수 있습니다.
+ * 1. 키셋 커서(Keyset Cursor) 기반의 무한 스크롤 상태를 관리.
+ * 2. `dedupMerge` 로직을 통해 중복 데이터를 제거하며 리스트를 병합
+ * 3. 초기 로딩(`loadFirst`)과 추가 로딩(`loadMore`)을 분리하여 에러 핸들링을 세분화
+ * 4. `upsertLocal` 및 `removeLocal` 메서드를 제공하여, 서버 재요청 없이 리스트 아이템을 즉시 갱신할 수 있음
  *
  * @param {useFollowPaginationParams} params - 데이터 Fetcher 함수 및 유저명
  */
@@ -61,7 +61,6 @@ export function useFollowPagination({
       const map = new Map(prev.map((u) => [u.id, u]));
       for (const u of incoming) map.set(u.id, u);
       // Map은 삽입 순서를 유지하므로, 기존 순서 + 신규 순서가 됨 (단, 기존 키는 위치 유지)
-      // 여기선 간단히 값만 추출. 엄격한 정렬이 필요하면 별도 로직 필요.
       return Array.from(map.values());
     },
     []

@@ -16,6 +16,9 @@
  * 2026.01.01  임도헌   Modified   username→id 해석 공용 유틸(resolveUserIdByUsernameCached)로 통합
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Modified   getUserProfile, getUserInfoById, getUserChannel 통합 및 최적화
+ * 2026.02.04  임도헌   Modified  차단 관계 확인 로직 추가
+ * 2026.02.15  임도헌   Modified  updateUserLocationAction 추가
+ * 2026.02.15  임도헌   Modified  유저 조회 시 locationName, region2 포함
  */
 
 import "server-only";
@@ -23,8 +26,12 @@ import "server-only";
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
+import { checkBlockRelation } from "@/features/user/service/block";
 import { normalizeUsername } from "@/features/user/utils/normalize";
+import type { ServiceResult } from "@/lib/types";
 import type { UserProfile, UserLite } from "@/features/user/types";
+import type { LocationData } from "@/features/map/types";
+import type { RegionRange } from "@/generated/prisma/enums";
 
 // -----------------------------------------------------------------------------
 // 1. Internal Cached Helpers
@@ -32,7 +39,7 @@ import type { UserProfile, UserLite } from "@/features/user/types";
 
 /**
  * Username -> ID 해석 (Base Cache)
- * - 불필요한 DB 조회를 줄이기 위해 username 매핑 결과를 캐싱합니다.
+ * - 불필요한 DB 조회를 줄이기 위해 username 매핑 결과를 캐싱
  */
 const _resolveUserIdBase = nextCache(
   async (username: string) => {
@@ -48,7 +55,7 @@ const _resolveUserIdBase = nextCache(
 
 /**
  * 유저 기본 정보 조회 (Base Cache)
- * - 프로필 상단에 필요한 핵심 데이터만 조회합니다.
+ * - 프로필 상단에 필요한 핵심 데이터만 조회
  */
 const _getUserCoreByIdBase = nextCache(
   async (id: number) =>
@@ -60,6 +67,11 @@ const _getUserCoreByIdBase = nextCache(
         avatar: true,
         created_at: true,
         emailVerified: true,
+        locationName: true,
+        region1: true,
+        region2: true,
+        region3: true,
+        regionRange: true,
       },
     }),
   ["user-core-by-id"],
@@ -77,7 +89,7 @@ async function getUserCoreByIdCached(id: number) {
 
 /**
  * 팔로워/팔로잉 카운트 조회 (Base Cache)
- * - 변경 빈도가 높으므로 별도 쿼리로 분리하여 캐싱합니다.
+ * - 변경 빈도가 높으므로 별도 쿼리로 분리하여 캐싱
  */
 const _getUserFollowCountsBase = nextCache(
   async (id: number) => {
@@ -105,8 +117,8 @@ async function getUserFollowCountsCached(id: number) {
 // -----------------------------------------------------------------------------
 
 /**
- * username을 userId로 변환합니다. (Cached)
- * - URL 파라미터(username)를 DB ID로 변환할 때 사용합니다.
+ * username을 userId로 변환 (Cached)
+ * - URL 파라미터(username)를 DB ID로 변환할 때 사용
  */
 export async function resolveUserIdByUsername(rawUsername: string) {
   const uname = normalizeUsername(rawUsername);
@@ -154,16 +166,28 @@ export async function getUserProfile(
     email = me?.email ?? null;
   }
 
-  // 3. 팔로우 여부 확인 (비캐시 - Viewer에 따라 달라짐)
-  let isFollowing = false;
+  // 3. 관계 여부 확인 (비캐시 - Viewer에 따라 달라짐)
+  let isFollowing = false; // 팔로잉 여부
+  let isBlocked = false; // 차단 여부
+
   if (viewerId && !isMe) {
-    const rel = await db.follow.findUnique({
-      where: {
-        followerId_followingId: { followerId: viewerId, followingId: core.id },
-      },
-      select: { followerId: true },
-    });
-    isFollowing = !!rel;
+    // 병렬로 팔로우/차단 여부 확인
+    const [followRel, blockStatus] = await Promise.all([
+      db.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: viewerId,
+            followingId: core.id,
+          },
+        },
+        select: { id: true },
+      }),
+      // 양방향 차단 확인 (A가 B를 또는 B가 A를 차단한 경우 모두 true)
+      checkBlockRelation(viewerId, core.id),
+    ]);
+
+    isFollowing = !!followRel;
+    isBlocked = blockStatus;
   }
 
   return {
@@ -173,9 +197,14 @@ export async function getUserProfile(
     email,
     created_at: core.created_at,
     emailVerified: core.emailVerified,
+    locationName: core.locationName,
+    region1: core.region1,
+    region2: core.region2,
+    region3: core.region3,
     _count: { followers: counts.followers, following: counts.following },
     isMe,
     isFollowing,
+    isBlocked,
     viewerId,
   };
 }
@@ -204,8 +233,25 @@ export async function getUserInfoById(
 }
 
 /**
+ * 유저 위치 정보만 조회 (리스트 페이지용)
+ * - getUserCoreByIdCached를 재사용하여 캐시 효율 극대화
+ */
+export async function getUserLocation(userId: number) {
+  const core = await getUserCoreByIdCached(userId);
+  if (!core) return null;
+
+  return {
+    locationName: core.locationName,
+    region1: core.region1,
+    region2: core.region2,
+    region3: core.region3,
+    regionRange: core.regionRange as "DONG" | "GU" | "CITY" | "ALL",
+  };
+}
+
+/**
  * 방송국용 경량 정보 조회 (채널 페이지)
- * - username 기반으로 기본 정보와 팔로우 통계만 빠르게 조회합니다.
+ * - username 기반으로 기본 정보와 팔로우 통계만 빠르게 조회
  */
 export async function getUserChannel(username: string) {
   const uname = normalizeUsername(username);
@@ -226,7 +272,7 @@ export async function getUserChannel(username: string) {
 
 /**
  * per-id UserLite 캐시
- * - 리스트 등에서 반복적으로 사용되는 유저 정보를 캐싱합니다.
+ * - 리스트 등에서 반복적으로 사용되는 유저 정보를 캐싱
  */
 export function getCachedUserLiteById(id: number) {
   const cached = nextCache(
@@ -242,4 +288,50 @@ export function getCachedUserLiteById(id: number) {
     { tags: [T.USER_CORE_ID(id)] }
   );
   return cached(id);
+}
+
+/**
+ * 유저의 활동 지역(내 동네) 정보 또는 노출 범위(Range)를 업데이트
+ *
+ * [Logic]
+ * - Partial<LocationData>를 사용하여 전달된 필드만 선택적으로 업데이트합
+ * - 지도를 통해 전체를 바꿀 때는 모든 필드가 들어오고,
+ *   상단 토글로 범위만 바꿀 때는 regionRange만 들어옴
+ * - Prisma의 특성상 undefined 필드는 업데이트에서 제외
+ *
+ * @param {number} userId - 대상 유저 ID
+ * @param {Partial<LocationData>} location - 업데이트할 위치 데이터 조각
+ * @returns {Promise<ServiceResult>} 처리 결과
+ */
+export async function updateUserLocation(
+  userId: number,
+  location: Partial<LocationData>
+): Promise<ServiceResult> {
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        // 값이 undefined가 아닐 때만 업데이트 객체에 포함 (안전한 부분 업데이트)
+        ...(location.latitude !== undefined && { latitude: location.latitude }),
+        ...(location.longitude !== undefined && {
+          longitude: location.longitude,
+        }),
+        ...(location.locationName !== undefined && {
+          locationName: location.locationName,
+        }),
+        ...(location.region1 !== undefined && { region1: location.region1 }),
+        ...(location.region2 !== undefined && { region2: location.region2 }),
+        ...(location.region3 !== undefined && { region3: location.region3 }),
+
+        // 범위(Range) 설정 업데이트 (Enum 캐스팅 적용)
+        ...(location.regionRange && {
+          regionRange: location.regionRange as RegionRange,
+        }),
+      },
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("updateUserLocation error:", error);
+    return { success: false, error: "위치 저장 중 오류가 발생했습니다." };
+  }
 }

@@ -19,8 +19,8 @@ interface ProductCardTagsProps {
 }
 
 /**
- * 제품 태그를 뱃지 형태로 표시합니다.
- * 최대 3개까지만 보여주고 나머지는 "+N"으로 축약합니다.
+ * 제품 태그를 뱃지 형태로 표시
+ * 최대 3개까지만 보여주고 나머지는 "+N"으로 축약
  */
 export function ProductCardTags({ tags }: ProductCardTagsProps) {
   if (!tags || tags.length === 0) return null;

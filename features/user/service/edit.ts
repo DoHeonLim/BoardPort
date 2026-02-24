@@ -41,6 +41,7 @@ export async function getCurrentUserForEdit(
       avatar: true,
       phone: true,
       github_id: true,
+      kakao_id: true,
       created_at: true,
       updated_at: true,
       emailVerified: true,
@@ -51,7 +52,7 @@ export async function getCurrentUserForEdit(
   if (!user) return null;
 
   // 소셜 로그인 여부 판단 (GitHub ID 또는 전화번호 존재)
-  const isSocialLogin = !!user.github_id || !!user.phone;
+  const isSocialLogin = !!user.github_id || !!user.kakao_id || !!user.phone;
 
   return {
     id: user.id,
@@ -60,6 +61,7 @@ export async function getCurrentUserForEdit(
     avatar: user.avatar,
     phone: user.phone,
     github_id: user.github_id,
+    kakao_id: user.kakao_id,
     created_at: user.created_at,
     updated_at: user.updated_at,
     emailVerified: user.emailVerified,

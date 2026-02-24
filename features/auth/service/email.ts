@@ -20,7 +20,8 @@
  *                                 클라 localStorage 쿨다운 UX와 서버 쿨다운을 항상 동기화
  * 2026.01.19  임도헌   Moved      lib/auth -> features/auth/lib
  * 2026.01.20  임도헌   Moved      lib/email/verifyEmail -> service/email (경로 수정)
- * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.01.25  임도헌   Modified   주석 보강
+ * 2026.02.23  임도헌   Modified   토큰 삭제 및 인증 상태 업데이트 트랜잭션 원자성 보장
  */
 
 "use server";
@@ -174,13 +175,23 @@ export async function verifyEmail(
     };
   }
 
-  // 인증 성공: 토큰 삭제 및 유저 업데이트
-  await db.emailToken.delete({ where: { id: tokenRow.id } });
-
-  await db.user.update({
-    where: { id: tokenRow.userId },
-    data: { emailVerified: true },
-  });
+  // 트랜잭션 적용: 인증 성공 시 토큰 삭제와 유저 업데이트를 원자적으로 처리
+  try {
+    await db.$transaction([
+      db.emailToken.delete({ where: { id: tokenRow.id } }),
+      db.user.update({
+        where: { id: tokenRow.userId },
+        data: { emailVerified: true },
+      }),
+    ]);
+  } catch (error) {
+    console.error("Email verification DB transaction failed:", error);
+    return {
+      token: true,
+      email,
+      error: { formErrors: ["인증 처리 중 오류가 발생했습니다."] },
+    };
+  }
 
   await badgeChecks.onVerificationUpdate(tokenRow.userId);
 

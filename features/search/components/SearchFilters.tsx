@@ -43,8 +43,8 @@ interface SearchFiltersProps {
  * - Desktop: 필터 버튼 하단 Dropdown 스타일
  *
  * [기능]
- * - 임시 필터 상태(`tempFilters`)를 관리하며, '적용' 버튼 클릭 시 URL에 반영합니다.
- * - '초기화' 버튼으로 모든 필터를 리셋할 수 있습니다.
+ * - 임시 필터 상태(`tempFilters`)를 관리하며, '적용' 버튼 클릭 시 URL에 반영
+ * - '초기화' 버튼으로 모든 필터를 리셋
  */
 export default function SearchFilters({
   isOpen,

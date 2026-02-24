@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * 화면 우측 하단에 고정된 제품 추가 버튼 (FAB)
- * 클릭 시 `/products/add`로 이동합니다.
+ * 클릭 시 `/products/add`로 이동
  */
 export default function AddProductButton() {
   return (

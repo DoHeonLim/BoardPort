@@ -14,26 +14,42 @@
 "use client";
 
 import { ChatMessage } from "@/features/chat/types";
-import { cn } from "@/lib/utils";
+import { PhotoIcon } from "@heroicons/react/24/outline";
 
 interface ChatRoomLastMessageProps {
   message?: ChatMessage;
 }
 
 /**
- * 마지막 대화 내용 표시 (없으면 안내 문구)
+ * 마지막 대화 내용 표시
+ * - 텍스트가 있으면 텍스트 표시
+ * - 텍스트가 없고 이미지만 있으면 '사진' 아이콘과 텍스트 표시
  */
 export default function ChatRoomLastMessage({
   message,
 }: ChatRoomLastMessageProps) {
-  return (
-    <p
-      className={cn(
-        "text-sm truncate max-w-[200px] sm:max-w-[260px]",
-        message ? "text-muted" : "text-muted/60 italic"
-      )}
-    >
-      {message?.payload || "대화를 시작해보세요"}
-    </p>
-  );
+  if (!message) {
+    return <p className="text-sm text-muted/60 italic">대화를 시작해보세요</p>;
+  }
+
+  // 텍스트가 있는 경우
+  if (message.payload) {
+    return (
+      <p className="text-sm text-muted truncate max-w-[200px] sm:max-w-[260px]">
+        {message.payload}
+      </p>
+    );
+  }
+
+  // 텍스트 없이 이미지만 있는 경우
+  if (message.image) {
+    return (
+      <div className="flex items-center gap-1 text-sm text-muted">
+        <PhotoIcon className="size-4" />
+        <span>사진</span>
+      </div>
+    );
+  }
+
+  return <p className="text-sm text-muted/60 italic">내용 없음</p>;
 }

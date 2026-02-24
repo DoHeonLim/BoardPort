@@ -52,6 +52,7 @@ export async function updateNotificationPreferences(
       badge: toBool("badge"),
       stream: toBool("stream"),
       system: toBool("system"),
+      keyword: toBool("Keyword"),
       quietHoursStart: (formData.get("quietHoursStart") as string) || null,
       quietHoursEnd: (formData.get("quietHoursEnd") as string) || null,
     };

@@ -25,10 +25,10 @@ import { subscribeToRoomUpdates } from "@/features/chat/utils/realtime";
  * 채팅방 목록 페이지용 실시간 구독 훅
  *
  * [기능]
- * 1. 초기 채팅방 목록(SSR 데이터)을 상태로 관리합니다.
- * 2. `subscribeToRoomUpdates` 유틸을 사용하여 모든 채팅방의 이벤트를 구독합니다.
- * 3. 새 메시지 수신 시 해당 방의 `lastMessage`와 `unreadCount`를 갱신합니다.
- * 4. 읽음 이벤트 수신 시 해당 방의 `unreadCount`를 0으로 초기화합니다.
+ * 1. 초기 채팅방 목록(SSR 데이터)을 상태로 관리
+ * 2. `subscribeToRoomUpdates` 유틸을 사용하여 모든 채팅방의 이벤트를 구독
+ * 3. 새 메시지 수신 시 해당 방의 `lastMessage`와 `unreadCount`를 갱신
+ * 4. 읽음 이벤트 수신 시 해당 방의 `unreadCount`를 0으로 초기화
  *
  * @param {number} userId - 현재 사용자 ID
  * @param {ChatRoom[]} initialRooms - 초기 채팅방 목록

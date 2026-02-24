@@ -23,9 +23,9 @@ import RecordingCommentItem from "@/features/stream/components/recording/recordi
 /**
  * 댓글 목록 렌더링 컴포넌트
  *
- * - `AnimatePresence`를 통해 댓글 추가/삭제 시 애니메이션을 적용합니다.
- * - `useInfiniteScroll`을 사용하여 무한 스크롤 로딩을 처리합니다.
- * - 로딩 및 빈 상태에 대한 UI를 제공합니다.
+ * - `AnimatePresence`를 통해 댓글 추가/삭제 시 애니메이션을 적용
+ * - `useInfiniteScroll`을 사용하여 무한 스크롤 로딩을 처리
+ * - 로딩 및 빈 상태에 대한 UI를 제공
  */
 export default function RecordingCommentList({
   currentUserId,

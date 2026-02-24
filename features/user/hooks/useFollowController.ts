@@ -55,11 +55,10 @@ type ControllerParams = {
 /**
  * 팔로우 기능 통합 컨트롤러 훅
  *
- * [기능]
- * 1. 팔로우 버튼(헤더)과 팔로워/팔로잉 목록(모달)의 상태를 통합 관리합니다.
- * 2. `useFollowToggle`을 사용하여 팔로우/언팔로우 액션을 처리하고, 낙관적 업데이트를 수행합니다.
- * 3. `useFollowPagination`을 사용하여 팔로워/팔로잉 목록을 무한 스크롤로 로드합니다.
- * 4. `onFollowDelta` 이벤트를 구독하여, 다른 컴포넌트(예: 리스트 아이템)에서 발생한 팔로우 변경 사항을 헤더 카운트에 실시간으로 반영합니다.
+ * - SSOT(Single Source of Truth): 팔로우 버튼 및 리스트 상태는 서버 응답(`isFollowing`, `counts`)을 기준으로 최종 동기화
+ * - 사용자 액션 즉시 UI를 업데이트하고, 실패 시 롤백
+ * - `onFollowDelta`를 통해 헤더, 모달, 리스트 간의 상태 변화를 실시간으로 전파
+ * - 뒤로가기(Back/Forward) 시에도 최신 팔로우 상태가 유지되도록 인메모리 캐시를 활용
  *
  * @param {ControllerParams} params - 초기 상태(isFollowing, counts) 및 소유자 정보
  */
@@ -114,8 +113,8 @@ export function useFollowController({
 
   /**
    * 맞팔 여부 추론 (Best Effort)
-   * - 팔로잉 목록이 이미 로드되어 있다면, 그 안에 rowUser가 있는지 확인하여 맞팔 여부를 판단합니다.
-   * - 서버 데이터를 기다리지 않고 UI를 즉시 갱신하기 위함입니다.
+   * - 팔로잉 목록이 이미 로드되어 있다면, 그 안에 rowUser가 있는지 확인하여 맞팔 여부를 판단
+   * - 서버 데이터를 기다리지 않고 UI를 즉시 갱신하기 위함
    */
   const getMutualWithOwnerBestEffort = useCallback((rowUserId: number) => {
     return followingUsersRef.current.some((u) => u.id === rowUserId);

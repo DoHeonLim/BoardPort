@@ -36,7 +36,7 @@ export default function ProductDetailImages({
       {/* 조회수 뱃지 (Overlay) */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-medium shadow-sm">
         <EyeIcon className="size-3.5 text-white/90" />
-        <span>{views?.toLocaleString() ?? 0}</span>
+        <span>{views?.toLocaleString()}</span>
       </div>
     </div>
   );

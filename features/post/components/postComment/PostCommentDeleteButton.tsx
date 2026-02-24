@@ -28,8 +28,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * 댓글 삭제 버튼
- * - 클릭 시 삭제 확인 다이얼로그(`ConfirmDialog`)를 띄웁니다.
- * - 확인 시 Context의 `deleteComment`를 호출하여 삭제를 수행합니다.
+ * - 클릭 시 삭제 확인 다이얼로그(`ConfirmDialog`)를 띄움
+ * - 확인 시 Context의 `deleteComment`를 호출하여 삭제를 수행
  */
 export default function PostCommentDeleteButton({
   commentId,

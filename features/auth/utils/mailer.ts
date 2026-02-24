@@ -19,7 +19,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * 인증 번호가 포함된 이메일을 발송합니다.
+ * 인증 번호가 포함된 이메일을 발송
  *
  * @param {string} email - 수신자 이메일 주소
  * @param {string} token - 6자리 인증 번호

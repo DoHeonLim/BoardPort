@@ -13,7 +13,7 @@
 
 /**
  * 제품 상세 정보의 단일 항목 (Label + Value)
- * `ProductDetailInfoGrid` 내부에서 사용됩니다.
+ * `ProductDetailInfoGrid` 내부에서 사용
  */
 export default function ProductInfoItem({
   label,

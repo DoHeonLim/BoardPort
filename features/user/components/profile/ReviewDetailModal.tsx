@@ -4,19 +4,28 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2024.12.03  임도헌   Created
  * 2024.12.29  임도헌   Modified  리뷰 상세 모달 스타일 수정
  * 2025.10.19  임도헌   Modified  onDelete 비동기/로딩 처리 + ESC/오버레이 닫기 + 접근성 보강
- * 2026.01.12  임도헌   Modified   [Rule 5.1] 시맨틱 토큰 적용
+ * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.06  임도헌   Modified  리뷰 상세 모달에 신고 버튼 추가 및 ReportModal 연동
  */
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { StarIcon } from "@heroicons/react/24/solid";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import type { ProfileReview } from "@/features/user/types";
+
+const ReportModal = dynamic(
+  () => import("@/features/report/components/ReportModal"),
+  { ssr: false }
+);
 
 interface ReviewDetailModalProps {
   isOpen: boolean;
@@ -31,10 +40,10 @@ interface ReviewDetailModalProps {
  * 단일 리뷰 상세 내용 보기 모달
  *
  * [기능]
- * 1. 리뷰 내용, 별점, 작성자 정보를 표시합니다.
- * 2. 삭제 권한이 있는 경우(`onDelete` prop 존재 시) 삭제 버튼을 노출합니다.
- * 3. 리뷰 데이터가 없는 경우 `emptyMessage`를 표시합니다.
- * 4. 접근성(ESC 닫기) 및 삭제 로딩 상태를 관리합니다.
+ * 1. 리뷰 내용, 별점, 작성자 정보를 표시
+ * 2. 삭제 권한이 있는 경우(`onDelete` prop 존재 시) 삭제 버튼을 노출
+ * 3. 리뷰 데이터가 없는 경우 `emptyMessage`를 표시
+ * 4. 접근성(ESC 닫기) 및 삭제 로딩 상태를 관리
  */
 export default function ReviewDetailModal({
   isOpen,
@@ -45,6 +54,7 @@ export default function ReviewDetailModal({
   emptyMessage = "아직 작성된 리뷰가 없습니다.",
 }: ReviewDetailModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ESC 키로 닫기
@@ -137,24 +147,46 @@ export default function ReviewDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-end gap-2">
-          {review && onDelete && (
+        <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-between gap-2">
+          {/* 신고 버튼 (좌측 배치) */}
+          {review && (
             <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="px-4 py-2 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/20 rounded-xl transition-colors disabled:opacity-50"
+              onClick={() => setReportOpen(true)}
+              className="text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
             >
-              {isDeleting ? "삭제 중..." : "삭제"}
+              <ExclamationTriangleIcon className="size-4" />
+              <span className="text-xs">신고</span>
             </button>
           )}
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border rounded-xl transition-colors"
-          >
-            닫기
-          </button>
+
+          <div className="flex gap-2">
+            {review && onDelete && (
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/20 rounded-xl transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? "삭제 중..." : "삭제"}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border rounded-xl transition-colors"
+            >
+              닫기
+            </button>
+          </div>
         </div>
       </div>
+      {/* 신고 모달 */}
+      {review && (
+        <ReportModal
+          isOpen={reportOpen}
+          onClose={() => setReportOpen(false)}
+          targetId={review.id} // Review ID
+          targetType="REVIEW"
+        />
+      )}
     </div>
   );
 }

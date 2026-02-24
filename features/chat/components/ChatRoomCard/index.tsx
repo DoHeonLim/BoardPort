@@ -21,7 +21,7 @@
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * ===============================================================================================
- * 이 폴더는 ChatRoomCard (채팅방 목록 아이템)를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
+ * ChatRoomCard (채팅방 목록 아이템)를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  *
  * - ChatRoomThumbnail.tsx     : 제품 썸네일 이미지
  * - ChatRoomHeader.tsx        : 상대방 유저 이름 및 아바타

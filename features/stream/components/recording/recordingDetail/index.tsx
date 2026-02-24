@@ -12,8 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * ===============================================================================================
- * 이 폴더는 RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
- *
+ * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
  * - RecordingVideo.tsx      : 녹화 영상 플레이어 (Cloudflare Iframe)
  * - RecordingMeta.tsx       : 조회수, 좋아요, 작성일, 공유 버튼 등 메타 정보
@@ -73,6 +72,7 @@ export default function RecordingDetail({
       <RecordingTitle title={broadcast.title} />
       <RecordingVideo uid={uid} />
       <RecordingMeta
+        title={broadcast.title}
         created={created}
         duration={duration}
         viewCount={viewCount}

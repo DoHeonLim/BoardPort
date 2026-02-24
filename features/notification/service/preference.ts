@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.23  임도헌   Created   NotificationPreferences 로직 분리
+ * 2026.02.12  임도헌   Modified  keyword 필드 추가
  */
 
 import "server-only";
@@ -18,6 +19,7 @@ export type UpdatePreferencesDTO = {
   badge: boolean;
   stream: boolean;
   system: boolean;
+  keyword: boolean;
   quietHoursStart: string | null;
   quietHoursEnd: string | null;
 };

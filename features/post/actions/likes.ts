@@ -21,8 +21,8 @@ import { togglePostLike } from "@/features/post/service/like";
 
 /**
  * 게시글 좋아요 추가 Action
- * - 로그인 확인 후 Service를 호출합니다.
- * - 성공 시 좋아요 상태, 게시글 상세, 목록 캐시를 무효화하여 UI를 갱신합니다.
+ * - 로그인 확인 후 Service를 호출
+ * - 성공 시 좋아요 상태, 게시글 상세, 목록 캐시를 무효화하여 UI를 갱신
  *
  * @param {number} postId - 게시글 ID
  */
@@ -41,8 +41,8 @@ export const likePost = async (postId: number) => {
 
 /**
  * 게시글 좋아요 취소 Action
- * - 로그인 확인 후 Service를 호출합니다.
- * - 성공 시 관련 캐시를 무효화합니다.
+ * - 로그인 확인 후 Service를 호출
+ * - 성공 시 관련 캐시를 무효화
  *
  * @param {number} postId - 게시글 ID
  */

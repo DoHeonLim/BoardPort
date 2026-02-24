@@ -16,27 +16,32 @@
  * 2026.01.22  임도헌   Modified  Service 연결, Initial 제거
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/posts/actions/init.ts -> features/post/actions/list.ts
+ * 2026.02.15  임도헌   Modified  searchParams 전달 로직 추가
  */
 "use server";
 
 import { getMorePosts as fetchMore } from "@/features/post/service/post";
-import type { PostsPage } from "@/features/post/types";
+import type { PostSearchParams, PostsPage } from "@/features/post/types";
+import getSession from "@/lib/session";
 
 /**
  * 무한 스크롤용 추가 게시글 로드 Action
- * - 클라이언트 컴포넌트(`PostList`)에서 다음 페이지 요청 시 호출됩니다.
- * - 검색어 및 카테고리 필터를 적용하여 조회합니다.
+ * - 클라이언트 컴포넌트에서 다음 페이지 요청 시 호출
+ * - 검색어, 카테고리, 지역 필터 등 검색 조건(searchParams)을 유지
  *
- * @param {number | null} cursor - 마지막 게시글 ID
- * @param {Record<string, string>} searchParams - 검색 조건 (keyword, category)
- * @returns {Promise<PostsPage>} 다음 페이지 게시글 목록 및 커서
+ * @param cursor - 마지막 게시글 ID
+ * @param searchParams - 검색 조건 (keyword, category, region)
  */
 export const getMorePosts = async (
   cursor: number | null,
-  searchParams: Record<string, string>
+  searchParams: PostSearchParams
 ): Promise<PostsPage> => {
-  return fetchMore(cursor, {
-    keyword: searchParams.keyword,
-    category: searchParams.category,
-  });
+  const session = await getSession();
+  const viewerId = session?.id ?? -1;
+
+  return fetchMore(
+    cursor,
+    searchParams, // 전체 params 전달 (Service에서 분해)
+    viewerId
+  );
 };

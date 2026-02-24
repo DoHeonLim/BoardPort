@@ -15,10 +15,12 @@
  * 2026.01.14  임도헌   Modified   Select 컴포넌트 적용 및 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
@@ -33,10 +35,14 @@ import Button from "@/components/ui/Button";
 import ImageUploader from "@/components/global/ImageUploader";
 import Select from "@/components/ui/Select";
 import TagInput from "@/components/ui/TagInput";
-import RTMPInfoModal from "@/features/stream/components/RTMPInfoModal";
+import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
 import type { StreamCategory } from "@/features/stream/types";
 import type { CreateBroadcastResult } from "@/features/stream/types";
-import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
+
+const RTMPInfoModal = dynamic(
+  () => import("@/features/stream/components/RTMPInfoModal"),
+  { ssr: false }
+);
 
 interface StreamFormProps {
   mode: "create" | "edit";
@@ -124,6 +130,7 @@ export default function StreamForm({
     isImageFormOpen,
     setIsImageFormOpen,
     handleImageChange,
+    handleImageDrop,
     handleDeleteImage,
     handleDragEnd,
   } = useImageUpload({ maxImages: 1, setValue, getValues });
@@ -235,6 +242,7 @@ export default function StreamForm({
           <ImageUploader
             previews={previews}
             onImageChange={handleImageChange}
+            onImageDrop={handleImageDrop}
             onDeleteImage={handleDeleteImage}
             onDragEnd={handleDragEnd}
             isOpen={isImageFormOpen}

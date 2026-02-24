@@ -15,7 +15,7 @@ import "server-only";
 import coolsms from "coolsms-node-sdk";
 
 /**
- * CoolSMS API를 사용하여 단문 SMS를 전송합니다.
+ * CoolSMS API를 사용하여 단문 SMS를 전송
  *
  * @param {string} phone - 수신자 전화번호 (하이픈 없는 숫자)
  * @param {string} token - 인증 번호

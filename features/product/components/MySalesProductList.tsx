@@ -56,10 +56,10 @@ interface MySalesProductListProps {
  * 내 판매 목록 리스트 컴포넌트
  *
  * [기능]
- * 1. 판매중/예약중/판매완료 3개의 탭으로 구분하여 상품을 보여줍니다.
- * 2. `useProductPagination` 훅을 각 탭별로 독립적으로 사용하여 상태를 관리합니다.
- * 3. 상태 변경(예: 판매중 -> 예약중) 시 `onOptimisticMove`를 통해 즉시 UI를 반영합니다.
- * 4. 탭 전환 시 필요한 데이터를 서버 액션(`fetchUserProductsAction`)으로 지연 로딩합니다.
+ * 1. 판매중/예약중/판매완료 3개의 탭으로 구분하여 상품을 보여줌
+ * 2. `useProductPagination` 훅을 각 탭별로 독립적으로 사용하여 상태를 관리
+ * 3. 상태 변경(예: 판매중 -> 예약중) 시 `onOptimisticMove`를 통해 즉시 UI를 반영
+ * 4. 탭 전환 시 필요한 데이터를 서버 액션(`fetchUserProductsAction`)으로 지연 로딩
  */
 export default function MySalesProductList({
   userId,
@@ -104,8 +104,8 @@ export default function MySalesProductList({
   // --- Methods ---
 
   /**
-   * 탭 데이터를 서버에서 새로고침합니다.
-   * 상태 변경 후 데이터 정합성을 맞추거나, 처음 탭을 열 때 사용합니다.
+   * 탭 데이터를 서버에서 새로고침
+   * 상태 변경 후 데이터 정합성을 맞추거나, 처음 탭을 열 때 사용
    */
   const refreshTab = useCallback(
     async (tab: ProductStatus) => {
@@ -160,8 +160,8 @@ export default function MySalesProductList({
 
   /**
    * Optimistic UI Update 핸들러
-   * - 하위 아이템에서 상태 변경 요청이 오면, 현재 탭에서 제거하고 대상 탭으로 이동시킵니다.
-   * - 실패 시 롤백할 수 있는 함수를 반환합니다.
+   * - 하위 아이템에서 상태 변경 요청이 오면, 현재 탭에서 제거하고 대상 탭으로 이동
+   * - 실패 시 롤백할 수 있는 함수를 반환
    */
   const onOptimisticMove = useCallback(
     ({

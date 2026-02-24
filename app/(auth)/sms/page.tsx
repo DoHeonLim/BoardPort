@@ -23,8 +23,8 @@ import SmsForm from "@/features/auth/components/form/SmsForm";
 /**
  * SMS 로그인 페이지 컴포넌트
  *
- * - 휴대폰 번호를 이용한 간편 로그인/회원가입을 지원합니다.
- * - SMS 인증 폼(`SmsForm`)을 렌더링합니다.
+ * - 휴대폰 번호를 이용한 간편 로그인/회원가입을 지원
+ * - SMS 인증 폼(`SmsForm`)을 렌더링
  */
 export default function SMSLoginPage() {
   return (

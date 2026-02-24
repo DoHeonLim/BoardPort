@@ -21,17 +21,19 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.20  임도헌   Modified  타입 경로 수정 및 Import 정렬
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ * 2026.02.08  임도헌   Modified  헤더 우측 슬롯(rightAction) 추가 (알림 벨 배치용)
  */
 "use client";
 
+import dynamic from "next/dynamic";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { useSearchContext } from "@/components/global/providers/SearchProvider";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSearchHistory } from "@/features/search/hooks/useSearchHistory";
 import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
+import { useSearchContext } from "@/components/global/providers/SearchProvider";
 import ProductCategoryDropdown from "@/features/search/components/ProductCategoryDropdown";
 import SearchChips from "@/features/search/components/SearchChips";
-import SearchModal from "@/features/search/components/SearchModal";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/generated/prisma/client";
 import type {
@@ -39,12 +41,18 @@ import type {
   PopularSearchItem,
 } from "@/features/product/types";
 
+const SearchModal = dynamic(
+  () => import("@/features/search/components/SearchModal"),
+  { ssr: false } // 검색 모달은 클라이언트 인터랙션 전용
+);
+
 interface SearchSectionProps {
   categories: Category[];
   keyword: string | undefined;
   searchHistory: SearchHistoryItem[];
   popularSearches: PopularSearchItem[];
   basePath: string;
+  rightAction?: React.ReactNode;
 }
 
 /**
@@ -54,10 +62,11 @@ interface SearchSectionProps {
  * 1. 상단 바: 카테고리 드롭다운 + 검색 트리거 버튼
  * 2. 필터 칩 영역: 현재 적용된 필터를 보여주고 삭제 기능 제공
  * 3. 검색 모달: 검색어 입력, 최근 검색어, 인기 검색어 표시
+ * 4. 알림 벨
  *
  * [동작]
- * - 검색 트리거 버튼 클릭 시 `SearchModal`이 열립니다.
- * - 모달에서 검색어를 입력하거나 기록을 클릭하면 `handleSearch`가 호출되어 URL을 업데이트합니다.
+ * - 검색 트리거 버튼 클릭 시 `SearchModal`이 열림
+ * - 모달에서 검색어를 입력하거나 기록을 클릭하면 `handleSearch`가 호출되어 URL을 업데이트
  */
 export default function SearchSection({
   categories,
@@ -65,6 +74,7 @@ export default function SearchSection({
   searchHistory,
   popularSearches,
   basePath,
+  rightAction,
 }: SearchSectionProps) {
   const isMobile = useIsMobile();
   const { filters, setFilters, isSearchOpen, setIsSearchOpen } =
@@ -114,6 +124,8 @@ export default function SearchSection({
             </span>
           </button>
         </div>
+        {/* 우측 액션 슬롯 (알림 벨 등) */}
+        {rightAction && <div className="shrink-0">{rightAction}</div>}
       </div>
 
       {/* 2. 필터 칩 (검색창이 닫혀있을 때만 노출) */}

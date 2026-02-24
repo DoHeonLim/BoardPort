@@ -1,5 +1,5 @@
 /**
- * File Name : features/notification/lib/policy.ts
+ * File Name : features/notification/utils/policy.ts
  * Description : 알림 설정/타입 기반 알림/푸시 발송 정책 유틸리티
  * Author : 임도헌
  *
@@ -8,6 +8,7 @@
  * 2025.12.03  임도헌   Created   NotificationPreferences + quietHours 기반 canSendPushForType 추가
  * 2025.12.21  임도헌   Modified  pushEnabled는 푸시에만 영향, 앱 내 알림 생성은 타입 토글로만 제어
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
+ * 2026.02.12  임도헌   Modified  KEYWORD 알림 타입 추가
  */
 
 import { isWithinQuietHours } from "@/features/notification/utils/quietHours";
@@ -17,8 +18,9 @@ export type NotificationType =
   | "TRADE"
   | "REVIEW"
   | "BADGE"
+  | "STREAM"
   | "SYSTEM"
-  | "STREAM";
+  | "KEYWORD";
 
 export type NotificationPreferencesLike = {
   chat?: boolean;
@@ -27,6 +29,7 @@ export type NotificationPreferencesLike = {
   badge?: boolean;
   system?: boolean;
   stream?: boolean;
+  keyword?: boolean;
   pushEnabled?: boolean;
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
@@ -34,8 +37,8 @@ export type NotificationPreferencesLike = {
 
 /**
  * 앱 내 알림 생성 허용 여부 판단
- * - 유저의 타입별 알림 설정(chat, trade 등)을 확인합니다.
- * - pushEnabled는 고려하지 않습니다.
+ * - 유저의 타입별 알림 설정(chat, trade 등)을 확인
+ * - pushEnabled는 고려하지 않음
  *
  * @param prefs - 유저 알림 설정
  * @param type - 알림 타입
@@ -56,10 +59,12 @@ export function isNotificationTypeEnabled(
       return prefs.review !== false;
     case "BADGE":
       return prefs.badge !== false;
-    case "SYSTEM":
-      return prefs.system !== false;
     case "STREAM":
       return prefs.stream !== false;
+    case "SYSTEM":
+      return prefs.system !== false;
+    case "KEYWORD":
+      return prefs.keyword !== false;
     default:
       return true;
   }

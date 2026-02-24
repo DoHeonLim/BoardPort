@@ -21,6 +21,7 @@
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import { getStreams } from "@/features/stream/service/list";
 import type { BroadcastSummary } from "@/features/stream/types";
+import getSession from "@/lib/session";
 
 export type StreamsPage = {
   streams: BroadcastSummary[];
@@ -39,8 +40,8 @@ function norm(v?: string) {
 /**
  * 스트리밍 목록 추가 로드 Action (무한 스크롤)
  *
- * - 클라이언트 컴포넌트(`StreamList`)에서 스크롤 끝 도달 시 호출됩니다.
- * - 검색어, 카테고리, 스코프(전체/팔로잉) 필터를 적용하여 다음 페이지 데이터를 조회합니다.
+ * - 클라이언트 컴포넌트(`StreamList`)에서 스크롤 끝 도달 시 호출
+ * - 검색어, 카테고리, 스코프(전체/팔로잉) 필터를 적용하여 다음 페이지 데이터를 조회
  *
  * @param {Scope} scope - 조회 범위 ("all" | "following")
  * @param {number | null} cursor - 마지막 아이템 ID
@@ -54,11 +55,16 @@ export async function getMoreStreams(
   searchParams: Record<string, string>,
   viewerId: number | null
 ): Promise<StreamsPage> {
+  const session = await getSession();
+  const userId = session?.id ?? viewerId;
+
+  if (!userId) return { streams: [], nextCursor: null };
+
   const list = await getStreams({
     scope,
     category: norm(searchParams.category),
     keyword: norm(searchParams.keyword),
-    viewerId,
+    viewerId: userId,
     cursor,
     take: TAKE + 1, // 다음 페이지 존재 확인용 +1
     // * 리스트에서 팔로우 전용 방송의 잠금 상태(lock UI)를 표시하기 위해 팔로우 여부 조인이 필요함 (Service 내부 로직 참조)

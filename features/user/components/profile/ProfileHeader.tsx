@@ -39,15 +39,16 @@ type Props = {
   showFollowButton?: boolean; //내 프로필이 아니라면 true로 넘겨 버튼 노출
   onFollowingChange?: (now: boolean) => void;
   followButtonId?: string; // 팔로우 버튼 DOM id(rail에서 클릭 유도용)
+  isBlocked?: boolean; // 차단했는가?
 };
 
 /**
  * 프로필/채널 상단 헤더
  *
  * [기능]
- * 1. 유저 기본 정보(아바타, 이름, 가입일)를 표시합니다.
- * 2. `FollowSection`을 포함하여 팔로워/팔로잉 통계 및 버튼을 제공합니다.
- * 3. 반응형 디자인: 화면 크기(sm breakpoint)에 따라 아바타 및 평점 크기를 조절합니다.
+ * 1. 유저 기본 정보(아바타, 이름, 가입일)를 표시
+ * 2. `FollowSection`을 포함하여 팔로워/팔로잉 통계 및 버튼을 제공
+ * 3. 반응형 디자인: 화면 크기(sm breakpoint)에 따라 아바타 및 평점 크기를 조절
  */
 export default function ProfileHeader({
   ownerId,
@@ -63,6 +64,7 @@ export default function ProfileHeader({
   showFollowButton = true,
   onFollowingChange,
   followButtonId,
+  isBlocked,
   className,
 }: Props) {
   const [isLargeScreen, setIsLargeScreen] = useState(false);
@@ -135,6 +137,7 @@ export default function ProfileHeader({
                 onRequireLogin={onRequireLogin}
                 onFollowingChange={onFollowingChange}
                 followButtonId={followButtonId}
+                isBlocked={isBlocked}
                 className="gap-x-4 gap-y-2"
               />
             </div>

@@ -48,6 +48,20 @@
  * 2026.01.20  임도헌   Modified  각 모델 및 필드에 상세 비즈니스 로직 주석 정리
  * 2026.01.20  임도헌   Modified  유저 차단 및 신고 모델 추가
  * 2026.01.20  임도헌   Modified  Product 조회 성능을 위한 복합/단일 인덱스 추가
+ * 2026.02.03  임도헌   Modified  끌어올리기(Bump) 기능을 위한 refreshed_at, last_bumped_at, bump_count 필드 추가 및 인덱스 재구성
+ * 2026.02.05  임도헌   Modified  신고에 chat, 관련 필드 추가
+ * 2026.02.06  임도헌   Modified  Report 모델에 targetReviewId 필드 및 인덱스 추가
+ * 2026.02.06  임도헌   Modified  User 역할에 admin 추가, 이용 정지(bannedAt) 추가
+ * 2026.02.06  임도헌   Modified  report에 관리자 코멘트 추가
+ * 2026.02.07  임도헌   Modified  감사 로그 모델 추가
+ * 2026.02.08  임도헌   Modified  User 모델에 이용 정지 기간(bannedUntil) 추가
+ * 2026.02.11  임도헌   Modified  키워드 알림을 위한 KeywordAlert 모델 및 NotificationPreferences 필드 추가
+ * 2026.02.13  임도헌   Modified  제품 및 게시글에 위치 정보 추가
+ * 2026.02.15  임도헌   Modified  유저 모델에 위치 정보 추가
+ * 2026.02.16  임도헌   Modified  ProductMessage 모델 확장 및 Appointment 모델 추가
+ * 2026.02.20  임도헌   Modified  동네 보기 범위 추가
+ * 2026.02.21  임도헌   Modified  KeywordAlert에도 동네 범위 추가
+ * 2026.02.24  임도헌   Modified  유저 모델에 카카오 ID 추가
  */
 generator client {
   provider = "prisma-client"
@@ -65,6 +79,18 @@ datasource db {
 // User Domain (사용자 및 인증)
 // -----------------------------------------------------------------------------
 
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RegionRange {
+  DONG // 좁게 (동/읍/면)
+  GU // 보통 (구/군) - 기본값
+  CITY // 넓게 (시/도)
+  ALL // 전국
+}
+
 /// 사용자 정보 모델
 model User {
   id               Int       @id @default(autoincrement())
@@ -73,11 +99,23 @@ model User {
   emailVerified    Boolean   @default(false) // 이메일 인증 여부
   password         String? // 비밀번호 (해시값)
   phone            String?   @unique // 휴대폰 번호 (SMS 인증용)
+  kakao_id         String?   @unique // KAKAO 소셜 로그인 ID
   github_id        String?   @unique // GitHub 소셜 로그인 ID
   avatar           String? // 프로필 이미지 URL
   created_at       DateTime  @default(now()) // 가입일
   updated_at       DateTime  @updatedAt // 정보 수정일
   last_badge_check DateTime? // 뱃지 자동 부여 크론잡(Rolling Batch) 체크 시점
+  role             Role      @default(USER) // 유저 역할
+  bannedAt         DateTime? // 관리자에 의한 이용 정지 (Null이면 정상, 값이 있으면 정지된 시간)
+  bannedUntil      DateTime? // 정지 만료 시점
+
+  latitude     Float?
+  longitude    Float?
+  locationName String? // 예: "집 근처", "강남역" 등 유저가 지정한 별칭 또는 주소
+  region1      String? // 시/도 (예: 부산광역시)
+  region2      String? // 구/군 (예: 금정구) - *주 필터 기준*
+  region3      String? // 동/읍/면 (예: 부곡동)
+  regionRange  RegionRange @default(GU) // 유저가 설정한 동네 보기 범위 (기본값: GU)
 
   // --- Relations ---
   tokens               SMSToken[] // SMS 인증 토큰 목록
@@ -99,18 +137,21 @@ model User {
   push_subscriptions       PushSubscription[] // PWA 푸시 구독 정보
   notification_preferences NotificationPreferences? // 알림 수신 설정
   search_histories         SearchHistory[] // 검색 기록
-  emailTokens              EmailToken[] // 이메일 인증 토큰
+  email_tokens             EmailToken[] // 이메일 인증 토큰
 
   followers Follow[] @relation("Followers") // 나를 팔로우하는 사람들
   following Follow[] @relation("Following") // 내가 팔로우하는 사람들
 
-  recordingLikes    RecordingLike[] // 녹화본 좋아요
-  recordingComments RecordingComment[] // 녹화본 댓글
-  liveInputs        LiveInput? // 스트리밍 송출 정보 (1인 1채널)
-  viewThrottles     ViewThrottle[] // 조회수 어뷰징 방지 기록
-  blocked_users     Block[]            @relation("Blocker") // 내가 차단한 사람들
-  blocked_by        Block[]            @relation("Blocked") // 나를 차단한 사람들
-  reports_made      Report[] // 내가 한 신고들
+  recording_likes    RecordingLike[] // 녹화본 좋아요
+  recording_comments RecordingComment[] // 녹화본 댓글
+  live_inputs        LiveInput? // 스트리밍 송출 정보 (1인 1채널)
+  view_throttles     ViewThrottle[] // 조회수 어뷰징 방지 기록
+  blocked_users      Block[]            @relation("Blocker") // 내가 차단한 사람들
+  blocked_by         Block[]            @relation("Blocked") // 나를 차단한 사람들
+  reports            Report[]           @relation("ReportReporter") // 제출한 신고 내역
+  reports_received   Report[]           @relation("ReportTargetUser") // 접수된 피신고 내역
+  admin_logs         AuditLog[]         @relation("AdminActions") // 내가 수행한 관리 활동 로그(관리자용)
+  keyword_alerts     KeywordAlert[]
 
   @@index([username]) // 유저 검색 최적화
 }
@@ -193,6 +234,11 @@ model Product {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  // 끌어올리기 (Bump) 관련 필드
+  refreshed_at   DateTime  @default(now()) // 정렬 기준 시간 (생성 시엔 created_at과 동일)
+  last_bumped_at DateTime? // 마지막으로 끌어올린 시간 (쿨다운 24시간 체크용)
+  bump_count     Int       @default(0) // 끌어올리기 누적 횟수
+
   user   User @relation("Seller", fields: [userId], references: [id], onDelete: Cascade)
   userId Int // 판매자 ID
 
@@ -228,13 +274,27 @@ model Product {
   categoryId  Int
   search_tags SearchTag[] // 검색용 태그
 
-  @@index([created_at(sort: Desc)]) // 최신순 정렬 (필수)
+  // --- Location Info (직거래 장소) --- 
+  latitude     Float? // 위도
+  longitude    Float? // 경도
+  locationName String? // 위치 명
+  region1      String? // 시/도
+  region2      String? // 구/군
+  region3      String? // 동/읍/면
+
+  // 목록 정렬 인덱스: created_at -> refreshed_at (최신순 노출 기준 변경)
+  @@index([refreshed_at(sort: Desc)]) // 메인 목록 최신순
   @@index([price]) // 가격 범위 검색
   @@index([game_type]) // 게임 타입 필터
   @@index([condition]) // 상태 필터
-  // 복합 인덱스 (자주 사용되는 조회 패턴 최적화)
-  @@index([userId, created_at(sort: Desc)]) // "내 판매 상품" 최신순
-  @@index([categoryId, created_at(sort: Desc)]) // "카테고리별" 최신순
+  // 복합 인덱스 (refreshed_at 기준)
+  @@index([userId, refreshed_at(sort: Desc)]) // "내 판매 상품" 최신순
+  @@index([categoryId, refreshed_at(sort: Desc)]) // "카테고리별" 최신순
+  // (유지) 통계용 created_at 인덱스
+  @@index([created_at(sort: Desc)])
+  // 위치 
+  @@index([latitude, longitude])
+  @@index([region1, region2])
 }
 
 /// 상품 카테고리 (계층 구조 지원)
@@ -317,6 +377,14 @@ model Post {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
+  // --- Location Info (모임 장소, 카페 위치 등) ---
+  latitude     Float? // 위도
+  longitude    Float? // 경도
+  locationName String? // 위치 명
+  region1      String? // 시/도
+  region2      String? // 구/군
+  region3      String? // 동/읍/면
+
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
 
@@ -330,6 +398,8 @@ model Post {
   @@index([userId, created_at]) // 유저별 작성글
   @@index([created_at]) // 전체 최신순
   @@index([title]) // 제목 검색
+  @@index([latitude, longitude]) // "내 주변 게시글" 검색용
+  @@index([region1, region2]) // "우리 동네 이야기" 필터용
 }
 
 /// 게시글 이미지
@@ -392,7 +462,7 @@ model Comment {
 // Chat Domain (1:1 상품 문의)
 // -----------------------------------------------------------------------------
 
-/// 상품 채팅방
+// 상품 채팅방
 model ProductChatRoom {
   id         String   @id @default(cuid()) // CUID 사용
   created_at DateTime @default(now())
@@ -401,18 +471,34 @@ model ProductChatRoom {
   users    User[] // 참여자 (N:M)
   messages ProductMessage[]
 
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId Int
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId    Int
+  appointments Appointment[]
 
   @@index([updated_at]) // 채팅방 목록 정렬 (최신 대화순)
   @@index([productId])
 }
 
-/// 채팅 메시지
+// 메시지 타입
+enum MessageType {
+  TEXT
+  IMAGE
+  APPOINTMENT
+  SYSTEM
+}
+
+// 채팅 메시지
 model ProductMessage {
   id      Int     @id @default(autoincrement())
-  payload String // 메시지 내용
-  isRead  Boolean @default(false) // 읽음 여부
+  payload String? // 이미지만 보낼 수도 있으므로 선택 사항으로 변경
+  image   String? // Cloudflare 이미지 URL 저장 필드
+
+  // 메시지 타입 및 약속 연결
+  type          MessageType  @default(TEXT)
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  appointmentId Int?
+
+  isRead Boolean @default(false) // 읽음 여부
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -426,6 +512,44 @@ model ProductMessage {
   // [Optimization] 메시지 내역 조회 & 안 읽은 메시지 카운트
   @@index([productChatRoomId, created_at])
   @@index([productChatRoomId, isRead, userId]) // 안 읽은 개수 집계용
+}
+
+// 약속 상태
+enum AppointmentStatus {
+  PENDING // 제안됨 (수락 대기)
+  ACCEPTED // 수락됨 (거래 확정 -> 예약중 전환)
+  REJECTED // 거절됨
+  CANCELED // 취소됨
+}
+
+// 채팅 내 약속
+model Appointment {
+  id Int @id @default(autoincrement())
+
+  // 약속 정보
+  meetDate  DateTime // 약속 시간
+  location  String // 장소명 (예: 강남역 11번 출구)
+  latitude  Float
+  longitude Float
+
+  status AppointmentStatus @default(PENDING)
+
+  // 채팅방과의 관계
+  chatRoom   ProductChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  chatRoomId String
+
+  proposerId Int // 제안한 사람 ID
+  receiverId Int // 수신자 ID (수락해야 할 사람)
+
+  // 이 약속을 담고 있는 메시지 (보통 1개)
+  messages ProductMessage[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([chatRoomId])
+  @@index([proposerId])
+  @@index([receiverId])
 }
 
 // -----------------------------------------------------------------------------
@@ -481,12 +605,13 @@ model NotificationPreferences {
   userId Int  @unique
 
   // 알림 종류별 ON/OFF
-  chat   Boolean @default(true)
-  trade  Boolean @default(true)
-  review Boolean @default(true)
-  badge  Boolean @default(true)
-  system Boolean @default(true)
-  stream Boolean @default(true)
+  chat    Boolean @default(true)
+  trade   Boolean @default(true)
+  review  Boolean @default(true)
+  badge   Boolean @default(true)
+  system  Boolean @default(true)
+  stream  Boolean @default(true)
+  keyword Boolean @default(true)
 
   pushEnabled Boolean @default(true) // 전체 푸시 ON/OFF
 
@@ -541,6 +666,19 @@ model PopularSearch {
   updated_at DateTime @updatedAt
 
   @@index([count(sort: Desc)]) // 인기순 정렬
+}
+
+model KeywordAlert {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  keyword     String // 감지할 키워드 (소문자 저장 권장)
+  regionRange RegionRange @default(GU) // 키워드 별 감지 범위
+  created_at  DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, keyword]) // 한 유저가 같은 키워드 중복 등록 방지
+  @@index([keyword]) // 상품 등록 시 매칭 검색 성능 최적화
 }
 
 // -----------------------------------------------------------------------------
@@ -781,22 +919,28 @@ enum ReportReason {
   OTHER // 기타
 }
 
-/// 신고 모델
+// 신고 모델
 model Report {
   id Int @id @default(autoincrement())
 
-  reporter   User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  // 신고자 (Reporter)
+  reporter   User @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
   reporterId Int
 
-  // 신고 대상 (어떤 것을 신고했는지)
-  targetUserId    Int?
-  targetProductId Int?
-  targetPostId    Int?
-  targetCommentId Int?
-  targetStreamId  Int? // Broadcast ID
+  // 신고 대상 (Target)
+  targetUser             User? @relation("ReportTargetUser", fields: [targetUserId], references: [id])
+  targetUserId           Int?
+  targetProductId        Int? // 제품
+  targetPostId           Int? // 게시글
+  targetCommentId        Int? // 댓글(게시글, 녹화본)
+  targetStreamId         Int? // Broadcast ID
+  targetProductMessageId Int? // 1:1 거래 채팅 메시지
+  targetStreamMessageId  Int? // 라이브 방송 채팅 메시지
+  targetReviewId         Int? // 리뷰
 
-  reason      ReportReason // 신고 사유 (Enum)
-  description String? // 상세 설명 (선택)
+  reason       ReportReason // 신고 사유 (Enum)
+  description  String? // 상세 설명 (선택)
+  adminComment String? // 관리자 처리 코멘트 (기각 사유, 조치 내용 등)
 
   status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
   created_at DateTime @default(now())
@@ -804,4 +948,38 @@ model Report {
 
   @@index([reporterId])
   @@index([status])
+  // 검색 성능을 위한 타겟별 인덱스 전체 추가
+  @@index([targetUserId])
+  @@index([targetProductId])
+  @@index([targetPostId])
+  @@index([targetCommentId])
+  @@index([targetStreamId])
+  @@index([targetProductMessageId])
+  @@index([targetStreamMessageId])
+  @@index([targetReviewId])
+}
+
+/// 관리자 활동 감사 로그
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  // 수행한 관리자 정보
+  admin   User @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
+  adminId Int
+
+  // 액션 정보
+  action String // "BAN_USER", "UNBAN_USER", "DELETE_PRODUCT", "RESOLVE_REPORT", "CHANGE_ROLE"
+
+  // 대상 정보
+  targetType String // "USER", "PRODUCT", "POST", "REPORT", etc.
+  targetId   Int // 대상의 PK
+
+  // 상세 내용
+  reason String? // 처리 사유 (관리자 코멘트)
+
+  created_at DateTime @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([action])
 }

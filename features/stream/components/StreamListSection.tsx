@@ -36,8 +36,8 @@ type Props = {
 /**
  * 스트리밍 목록 섹션
  *
- * - `StreamList`를 감싸서 팔로우 토글 기능(`useFollowToggle`)을 주입합니다.
- * - 팔로워 전용 방송 클릭 시 로그인 유도 및 팔로우 처리를 담당합니다.
+ * - `StreamList`를 감싸서 팔로우 토글 기능(`useFollowToggle`)을 주입
+ * - 팔로워 전용 방송 클릭 시 로그인 유도 및 팔로우 처리를 담당
  */
 export default function StreamListSection(props: Props) {
   const { follow, isPending } = useFollowToggle();

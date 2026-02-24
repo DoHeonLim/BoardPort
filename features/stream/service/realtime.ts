@@ -41,7 +41,7 @@ async function ensureChannel(): Promise<RealtimeChannel> {
 }
 
 /**
- * 방송 상태 변경을 클라이언트들에게 실시간으로 알립니다.
+ * 방송 상태 변경을 클라이언트들에게 실시간으로 알림
  *
  * @param payload - 상태 정보 (streamId, status, ownerId 등)
  */

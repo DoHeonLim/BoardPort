@@ -33,11 +33,11 @@ interface NotFoundProps {
 }
 
 /**
- * 404 Not Found 또는 데이터 없음 상황을 표시하는 공통 UI 컴포넌트입니다.
+ * 404 Not Found 또는 데이터 없음 상황을 표시하는 공통 UI 컴포넌트
  *
- * - 아이콘(LifebuoyIcon)과 둥둥 떠다니는 애니메이션(float)을 포함합니다.
- * - 제목, 설명, 리다이렉트 버튼을 props로 커스터마이징할 수 있습니다.
- * - `action` prop을 통해 기본 버튼 대신 커스텀 버튼을 주입할 수 있습니다.
+ * - 아이콘(LifebuoyIcon)과 둥둥 떠다니는 애니메이션(float)을 포함
+ * - 제목, 설명, 리다이렉트 버튼을 props로 커스터마이징 가능
+ * - `action` prop을 통해 기본 버튼 대신 커스텀 버튼 주입 가능
  *
  * @param {NotFoundProps} props - 컴포넌트 설정 값
  * @returns {JSX.Element} Not Found UI

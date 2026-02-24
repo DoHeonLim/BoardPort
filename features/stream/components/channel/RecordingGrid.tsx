@@ -39,9 +39,9 @@ interface Props {
  * 지난 방송(녹화본) 목록을 2열 그리드로 표시하는 컴포넌트
  *
  * [기능]
- * 1. 녹화본 목록(`recordings`)을 순회하며 `StreamCard`로 렌더링합니다.
- * 2. 각 카드의 접근 권한(Private, Followers)을 뷰어 역할(Role)에 따라 계산하여 전달합니다.
- * 3. 목록이 비어있을 경우 `RecordingEmptyState`를 표시합니다.
+ * 1. 녹화본 목록(`recordings`)을 순회하며 `StreamCard`로 렌더링
+ * 2. 각 카드의 접근 권한(Private, Followers)을 뷰어 역할(Role)에 따라 계산하여 전달
+ * 3. 목록이 비어있을 경우 `RecordingEmptyState`를 표시
  */
 export default function RecordingGrid({
   recordings,

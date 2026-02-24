@@ -77,17 +77,17 @@ function HeroMedia({
    * 시청 가능 여부 판단 (LiveNowHero의 핵심 규칙)
    *
    * 1) FOLLOWERS(팔로워 전용)
-   * - VISITOR면 "티저(팔로우 CTA)"를 노출한다.
-   * - 팔로우 토글로 즉시 role이 FOLLOWER로 바뀌면, 같은 화면에서 즉시 시청 가능 상태로 전환되는 UX가 목표다.
+   * - VISITOR면 "티저(팔로우 CTA)"를 노출
+   * - 팔로우 토글로 즉시 role이 FOLLOWER로 바뀌면, 같은 화면에서 즉시 시청 가능 상태로 전환
    *
    * 2) PRIVATE(비공개/비밀번호)
    * - 팔로우로 풀리지 않는다. (비밀번호 언락 → 세션 저장이 SSOT)
-   * - 따라서 PRIVATE 잠금은 클라이언트에서 role만으로 추정하면 안 된다.
-   * - 서버(RSC)가 "세션 언락"까지 반영해 내려준 stream.requiresPassword를 SSOT로 사용한다.
+   * - 따라서 PRIVATE 잠금은 클라이언트에서 role만으로 추정하면 안됨
+   * - 서버(RSC)가 "세션 언락"까지 반영해 내려준 stream.requiresPassword를 SSOT로 사용
    *   (언락 후 뒤로가기/복원에서도 잠금 표시가 즉시 해제되도록)
    *
    * ※ 호환/방어:
-   * - stream.requiresPassword가 없는 구버전 데이터/타입이 섞여 있어도 동작하도록 fallback 로직을 둔다.
+   * - stream.requiresPassword가 없는 구버전 데이터/타입이 섞여 있어도 동작하도록 fallback 로직을 둠
    */
   const isFollowersTeaser =
     stream.visibility === "FOLLOWERS" && role === "VISITOR";

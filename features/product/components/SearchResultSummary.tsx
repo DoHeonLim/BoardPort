@@ -18,7 +18,7 @@ interface SearchResultSummaryProps {
 
 /**
  * 검색 결과 수와 요약 텍스트(필터 조건 등)를 표시하는 컴포넌트
- * 목록 상단에 위치합니다.
+ * 목록 상단에 위치
  */
 export default function SearchResultSummary({
   count,

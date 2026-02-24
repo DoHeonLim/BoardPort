@@ -1,5 +1,5 @@
 /**
- * File Name : features/notification/lib/quietHours.ts
+ * File Name : features/notification/utils/quietHours.ts
  * Description : 알림 방해 금지 시간대 계산 유틸리티 (HH:mm 문자열 기반)
  * Author : 임도헌
  *

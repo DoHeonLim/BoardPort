@@ -34,9 +34,9 @@ interface LiveViewerCountProps {
  * 실시간 시청자 수를 표시하는 컴포넌트
  *
  * [기능]
- * - Supabase Presence를 사용하여 현재 방에 접속한 사용자 수를 실시간으로 집계합니다.
- * - `join`, `leave`, `sync` 이벤트를 구독하여 카운트를 갱신합니다.
- * - 페이지 이탈 시 `untrack` 및 구독 해제를 수행합니다.
+ * - Supabase Presence를 사용하여 현재 방에 접속한 사용자 수를 실시간으로 집계
+ * - `join`, `leave`, `sync` 이벤트를 구독하여 카운트를 갱신
+ * - 페이지 이탈 시 `untrack` 및 구독 해제를 수행
  */
 export default function LiveViewerCount({
   streamId,

@@ -25,9 +25,9 @@ import MyPurchasesList from "@/features/product/components/MyPurchasesList";
  * 내 구매 목록 페이지
  *
  * [기능]
- * 1. 내가 구매 완료(Sold 처리 시 구매자로 지정됨)한 상품 목록을 로드합니다.
- * 2. `getCachedInitialUserProducts`를 통해 '구매함(PURCHASED)' 목록을 조회합니다.
- * 3. `MyPurchasesList` 컴포넌트에서 무한 스크롤 및 리뷰 작성을 처리합니다.
+ * 1. 내가 구매 완료(Sold 처리 시 구매자로 지정됨)한 상품 목록을 로드
+ * 2. `getCachedInitialUserProducts`를 통해 '구매함(PURCHASED)' 목록을 조회
+ * 3. `MyPurchasesList` 컴포넌트에서 무한 스크롤 및 리뷰 작성을 처리
  */
 export default async function MyPurchasesPage() {
   const session = await getSession();

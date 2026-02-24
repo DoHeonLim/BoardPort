@@ -12,6 +12,7 @@
  * 2026.01.12  임도헌   Modified  누락된 인기 검색어 로직 추가
  * 2026.01.20  임도헌   Modified  app/actions/history -> service/history
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.22  임도헌   Modified  검색어 대소문자 정규화(toLowerCase) 적용으로 파편화 방지
  */
 
 import "server-only";
@@ -23,7 +24,7 @@ import type {
 } from "@/features/product/types";
 
 /**
- * 검색 기록 저장 및 인기 검색어 카운트 증가를 수행합니다.
+ * 검색 기록 저장 및 인기 검색어 카운트 증가를 수행
  * - 로그인 유저: 개인 검색 기록(SearchHistory) 저장/갱신 (최신순 정렬)
  * - 전체: 인기 검색어(PopularSearch) 카운트 증가 (Upsert)
  *
@@ -34,7 +35,7 @@ export async function saveSearchHistory(
   userId: number | null,
   params: ProductSearchParams
 ) {
-  const keyword = params.keyword?.trim();
+  const keyword = params.keyword?.trim().toLowerCase();
   if (!keyword) return;
 
   // 1. 개인 검색 기록 저장 (로그인 유저만)

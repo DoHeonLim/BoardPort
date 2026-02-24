@@ -12,8 +12,8 @@
 import { Prisma } from "@/generated/prisma/client";
 
 /**
- * Prisma Unique Constraint Error (P2002) 여부를 확인합니다.
- * - 중복된 값(닉네임, 이메일 등) 저장 시도 시 발생합니다.
+ * Prisma Unique Constraint Error (P2002) 여부를 확인
+ * - 중복된 값(닉네임, 이메일 등) 저장 시도 시 발생
  *
  * @param err - catch된 에러 객체
  * @param fields - (선택) 특정 필드에서 발생한 중복인지 확인할 필드명 배열

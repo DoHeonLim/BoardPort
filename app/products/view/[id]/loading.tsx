@@ -16,8 +16,8 @@ import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="flex flex-col">
+    <div className="relative min-h-full flex flex-col bg-background transition-colors">
+      <div className="flex-1 pb-4">
         {/* Image Carousel */}
         <div className="w-full aspect-square sm:aspect-[4/3] bg-surface-dim animate-pulse border-b border-border" />
 
@@ -33,9 +33,9 @@ export default function Loading() {
         <div className="flex flex-col gap-6 p-6 py-6">
           {/* Header */}
           <div className="flex flex-col gap-3">
-            <Skeleton className="h-6 w-20 rounded-full" /> {/* Game Type */}
-            <Skeleton className="h-8 w-3/4 rounded-lg" /> {/* Title */}
-            <Skeleton className="h-7 w-1/3 rounded-lg" /> {/* Price */}
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-8 w-3/4 rounded-lg" />
+            <Skeleton className="h-7 w-1/3 rounded-lg" />
           </div>
 
           {/* Description */}
@@ -63,11 +63,16 @@ export default function Loading() {
         </div>
       </div>
 
-      {/* Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 w-full max-w-mobile mx-auto">
-        <div className="flex items-center justify-between gap-4 px-4 py-4 bg-surface/95 border-t border-border backdrop-blur">
+      {/* Bottom Action Bar Skeleton (Sticky) */}
+      <div className="sticky bottom-0 z-40 w-full mt-auto bg-surface/90 backdrop-blur-lg border-t border-border px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+        <div className="flex items-center justify-between gap-4 max-w-mobile mx-auto">
           <Skeleton className="size-10 rounded-xl shrink-0" /> {/* Like */}
-          <Skeleton className="flex-1 h-12 rounded-xl" /> {/* Action Button */}
+          <div className="flex-1 flex gap-3 h-12">
+            <Skeleton className="flex-1 h-full rounded-xl" />{" "}
+            {/* UP / Edit Button */}
+            <Skeleton className="flex-1 h-full rounded-xl" />{" "}
+            {/* Chat Button */}
+          </div>
         </div>
       </div>
     </div>

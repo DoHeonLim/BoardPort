@@ -1,5 +1,5 @@
 /**
- * File Name : features/chat/actions/message.ts
+ * File Name : features/chat/actions/messages.ts
  * Description : 채팅 메시지 관리 Controller (전송, 조회, 읽음)
  * Author : 임도헌
  *
@@ -24,6 +24,7 @@
  * 2026.01.22  임도헌   Modified  Service Layer 통합 및 비즈니스 로직 이관
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/chats/[id]/actions/messages.ts -> features/chat/actions/message.ts
+ * 2026.02.04  임도헌   Modified  sendMessageAction에 이미지 URL 파라미터 추가
  */
 "use server";
 
@@ -40,35 +41,34 @@ import type { ChatMessage } from "@/features/chat/types";
 
 /**
  * 메시지 전송 Action
- * - 로그인 세션을 확인합니다.
- * - Service를 호출하여 메시지를 저장하고 브로드캐스트합니다.
- * - 성공 시 채팅방 목록 캐시(전체 및 사용자별)를 무효화하여 최신 상태를 반영합니다.
+ * - 로그인 세션을 확인
+ * - Service를 호출하여 메시지를 저장하고 브로드캐스트
+ * - 성공 시 채팅방 목록 캐시(전체 및 사용자별)를 무효화하여 최신 상태를 반영
  *
- * @param {string} chatRoomId - 채팅방 ID
- * @param {string} payload - 메시지 내용
+ * @param chatRoomId - 채팅방 ID
+ * @param payload - 메시지 텍스트 (선택)
+ * @param image - 이미지 URL (선택)
  */
 export const sendMessageAction = async (
   chatRoomId: string,
-  payload: string
+  payload?: string | null,
+  image?: string | null
 ) => {
   const session = await getSession();
   if (!session?.id) throw new Error("로그인이 필요합니다.");
 
-  const result = await createMessage(payload, chatRoomId, session.id);
+  const result = await createMessage(chatRoomId, session.id, payload, image);
 
   if (result?.success) {
     // 보낸 사람의 채팅방 목록 갱신
     revalidateTag(T.CHAT_ROOMS_ID(session.id));
-
     // 받는 사람의 채팅방 목록 갱신 (Service에서 receiverId 반환 시)
     if (result.data?.receiverId) {
       revalidateTag(T.CHAT_ROOMS_ID(result.data.receiverId));
     }
-
     // 전역 채팅방 목록 갱신 (Fallback)
     revalidateTag(T.CHAT_ROOMS());
   }
-
   return result;
 };
 
@@ -89,8 +89,8 @@ export const getMoreMessagesAction = async (
 
 /**
  * 메시지 읽음 처리 Action
- * - 상대방 메시지를 읽음 상태로 변경하고, 이를 브로드캐스트합니다.
- * - 성공 시 채팅방 목록의 안 읽은 메시지 카운트를 갱신하기 위해 캐시를 무효화합니다.
+ * - 상대방 메시지를 읽음 상태로 변경하고, 이를 브로드캐스트
+ * - 성공 시 채팅방 목록의 안 읽은 메시지 카운트를 갱신하기 위해 캐시를 무효화
  *
  * @param {string} chatRoomId - 채팅방 ID
  * @param {number} userId - 읽은 유저 ID

@@ -38,11 +38,11 @@ interface MyPurchasesListProps {
  * 내 구매 목록 리스트 컴포넌트
  *
  * [기능]
- * 1. 초기 데이터(SSR)를 받아 리스트를 렌더링합니다.
- * 2. `useProductPagination` 훅을 사용하여 무한 스크롤 상태를 관리합니다.
- * 3. `useInfiniteScroll` 훅을 통해 스크롤 끝 감지 시 추가 데이터를 로드합니다.
+ * 1. 초기 데이터(SSR)를 받아 리스트를 렌더링
+ * 2. `useProductPagination` 훅을 사용하여 무한 스크롤 상태를 관리
+ * 3. `useInfiniteScroll` 훅을 통해 스크롤 끝 감지 시 추가 데이터를 로드
  * 4. 각 아이템(`MyPurchasesProductItem`)에서 발생하는 변경 사항(리뷰 작성/삭제 등)을
- *    `updateOne` 메서드를 통해 리스트 상태에 반영합니다.
+ *    `updateOne` 메서드를 통해 리스트 상태에 반영
  */
 export default function MyPurchasesList({
   initialPurchased,

@@ -10,10 +10,13 @@
  * 2026.01.19  임도헌   Moved      lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Merged    getBroadcastDetail + getVodDetail 통합
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.02.13  임도헌   Modified  getCachedBroadcastDetail 캐시 함수 export (Metadata용)
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { unstable_cache as nextCache } from "next/cache";
+import * as T from "@/lib/cacheTags";
 import type { StreamVisibility } from "@/features/stream/types";
 
 // 내부 DTO (페이지에서 사용)
@@ -39,11 +42,11 @@ export type StreamDetailDTO = {
 
 /**
  * 방송(Broadcast) 상세 조회
- * 화면 표시에 필요한 최소한의 필드만 조회합니다.
+ * 화면 표시에 필요한 최소한의 필드만 조회
  *
  * @param {number} id - 방송 ID
  */
-export const getBroadcastDetail = async (
+export const getBroadcastDetailRaw = async (
   id: number
 ): Promise<StreamDetailDTO | null> => {
   try {
@@ -93,6 +96,19 @@ export const getBroadcastDetail = async (
   }
 };
 
+/**
+ * 방송 상세 조회 캐시 Wrapper (Public)
+ * - 페이지와 메타데이터 생성 함수에서 공통으로 사용
+ * - 태그: BROADCAST_DETAIL(id)
+ */
+export const getCachedBroadcastDetail = (id: number) => {
+  return nextCache(
+    () => getBroadcastDetailRaw(id),
+    ["broadcast-detail-by-id", String(id)],
+    { tags: [T.BROADCAST_DETAIL(id)] }
+  )();
+};
+
 export type VodDetailDTO = {
   vodId: number;
   uid: string;
@@ -119,7 +135,7 @@ export type VodDetailDTO = {
 
 /**
  * 녹화본(VOD) 상세 조회
- * VOD 정보와 원본 방송 정보를 함께 조회합니다.
+ * VOD 정보와 원본 방송 정보를 함께 조회
  *
  * @param {number} vodId - VOD ID
  */

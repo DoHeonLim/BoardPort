@@ -162,10 +162,7 @@ export default function NotificationSettingsClient({ prefs }: Props) {
 
       {/* 저장 버튼 */}
       <div className="pt-4">
-        <button
-          type="submit"
-          className="w-full h-12 rounded-xl bg-primary text-white font-bold text-base hover:bg-primary/90 transition-colors shadow-sm active:scale-[0.98]"
-        >
+        <button type="submit" className="w-full h-12 btn-primary rounded-xl">
           설정 저장하기
         </button>
       </div>

@@ -23,10 +23,10 @@ interface PostCardThumbnailProps {
 }
 
 /**
- * 게시글의 대표 이미지를 렌더링합니다.
- * - 이미지가 있으면 첫 번째 이미지를 표시합니다.
- * - 이미지가 없으면 Placeholder 아이콘을 표시합니다.
- * - 뷰 모드에 따라 적절한 레이아웃과 sizes 속성을 적용합니다.
+ * 게시글의 대표 이미지를 렌더링
+ * - 이미지가 있으면 첫 번째 이미지를 표시
+ * - 이미지가 없으면 Placeholder 아이콘을 표시
+ * - 뷰 모드에 따라 적절한 레이아웃과 sizes 속성을 적용
  */
 export default function PostCardThumbnail({
   images,
@@ -38,7 +38,6 @@ export default function PostCardThumbnail({
     <div
       className={cn(
         "relative overflow-hidden bg-surface-dim border-r border-border shrink-0",
-        // List View 너비: sm 이상에선 w-28, 모바일(기본)에선 w-24로 살짝 줄임 (높이는 부모 h-full을 따름)
         isGrid
           ? "aspect-[4/3] w-full rounded-t-xl border-b"
           : "w-20 sm:w-28 h-full"

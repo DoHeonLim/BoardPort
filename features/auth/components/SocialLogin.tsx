@@ -11,6 +11,7 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/auth
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.24  임도헌   Modified  카카오 로그인 버튼 추가 및 최상단 배치
  */
 
 import Link from "next/link";
@@ -18,7 +19,7 @@ import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
 export default function SocialLogin() {
-  const buttonClass = cn(
+  const baseButtonClass = cn(
     "flex w-full items-center justify-center h-input-md gap-2.5",
     "rounded-xl border border-border bg-surface text-primary",
     "hover:bg-surface-dim active:scale-[0.98] transition-all",
@@ -27,11 +28,32 @@ export default function SocialLogin() {
 
   return (
     <div className="flex flex-col gap-3 w-full">
+      {/* Kakao Login */}
+      <a
+        aria-label="카카오로 계속하기"
+        className={cn(
+          "flex w-full items-center justify-center h-input-md gap-2.5",
+          "rounded-xl bg-[#FEE500] text-[#000000]", // 카카오 브랜드 컬러
+          "hover:bg-[#FADA0A] active:scale-[0.98] transition-all",
+          "font-bold text-base" // 카카오는 좀 더 강조하기 위해 bold 적용
+        )}
+        href="/kakao/start"
+      >
+        <svg
+          className="size-5"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M12 3C6.477 3 2 6.538 2 10.905c0 2.846 1.834 5.337 4.672 6.828l-1.002 3.738c-.068.254.218.432.428.283l4.38-2.932c.5.068 1.01.103 1.522.103 5.523 0 10-3.538 10-7.905C22 6.538 17.523 3 12 3z" />
+        </svg>
+        <span>카카오로 계속하기</span>
+      </a>
       {/* GitHub Login */}
       <a
         aria-label="GitHub로 계속하기"
-        className={buttonClass}
-        href="/api/auth/github/start"
+        className={baseButtonClass}
+        href="/github/start"
       >
         <svg
           className="size-5"
@@ -49,7 +71,7 @@ export default function SocialLogin() {
       </a>
 
       {/* SMS Login */}
-      <Link className={buttonClass} href="/sms">
+      <Link className={baseButtonClass} href="/sms">
         <ChatBubbleOvalLeftEllipsisIcon className="size-5" />
         <span>SMS로 계속하기</span>
       </Link>

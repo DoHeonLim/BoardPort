@@ -8,7 +8,12 @@
  * 2025.07.13  임도헌   Created   채팅 타입 분리
  * 2025.08.01  임도헌   Modified  스트리밍 채팅 메시지 타입 정의
  * 2025.11.21  임도헌   Modified  채팅방 unreadCount 필드 및 읽음 이벤트 payload 타입 정리
+ * 2026.02.04  임도헌   Modified  채팅 이미지 전송을 위한 image 필드 추가
+ * 2026.02.16  임도헌   Modified  Appointment 및 MessageType 추가
+ * 2026.02.21  임도헌   Modified  ChatUser에 hasLeft 추가
  */
+
+import type { AppointmentStatus, MessageType } from "@/generated/prisma/enums";
 
 // =============================================================================
 // 1. Entity / Model Types
@@ -19,6 +24,7 @@ export interface ChatUser {
   id: number;
   username: string;
   avatar?: string | null;
+  hasLeft?: boolean;
 }
 
 /** 채팅방에 연결된 제품 정보 */
@@ -31,7 +37,10 @@ export interface ChatProduct {
 /** 개별 채팅 메시지 */
 export interface ChatMessage {
   id: number;
-  payload: string;
+  payload?: string | null;
+  image?: string | null;
+  type: MessageType;
+  appointment?: Appointment | null;
   created_at: Date;
   isRead: boolean;
   user: ChatUser; // 보낸 사람
@@ -49,9 +58,16 @@ export interface ChatRoom {
   unreadCount?: number; // 읽지 않은 메시지 수 (서버 주입)
 }
 
-/** 메시지 목록을 포함한 채팅방 (상세용 - Deprecated or Optional) */
-export interface ChatRoomWithMessages extends ChatRoom {
-  messages: ChatMessage[];
+/** 약속 정보 */
+export interface Appointment {
+  id: number;
+  meetDate: Date;
+  location: string;
+  latitude: number;
+  longitude: number;
+  status: AppointmentStatus;
+  proposerId: number;
+  receiverId: number;
 }
 
 // =============================================================================

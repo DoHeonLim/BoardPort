@@ -16,6 +16,10 @@
  * 2026.01.19  임도헌   Moved     lib/post -> features/post/lib
  * 2026.01.22  임도헌   Merged    lib/createPost.ts 기반으로 조회/수정/삭제 로직 통합 및 Session 의존성 제거
  * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.02.15  임도헌   Modified  fetchPostsRaw에 지역(Region) 기반 디폴트 필터링 로직 추가
+ * 2026.02.15  임도헌   Modified  카테고리별 지역 필터링 차별화 (정보성 글은 전국 기본)
+ * 2026.02.20  임도헌   Modified  Hybrid Filtering 로직 명확화 및 JsDoc 개선
+ * 2026.02.22  임도헌   Modified  글로벌 피드에서 정지된 유저(Banned)의 게시글 완벽 은닉
  */
 import "server-only";
 
@@ -26,6 +30,9 @@ import * as T from "@/lib/cacheTags";
 import { POST_SELECT } from "@/features/post/constants";
 import { POSTS_PAGE_TAKE } from "@/lib/constants";
 import { badgeChecks, checkRuleSageBadge } from "@/features/user/service/badge";
+import { getBlockedUserIds } from "@/features/user/service/block";
+import { validateUserStatus } from "@/features/user/service/admin";
+import { buildRegionWhere } from "@/features/user/utils/region";
 import type { ServiceResult } from "@/lib/types";
 import type {
   PostDetail,
@@ -42,16 +49,35 @@ const TAKE = POSTS_PAGE_TAKE;
 /* -------------------------------------------------------------------------- */
 
 /**
- * 게시글 검색 조건 쿼리 빌더 (Internal Helper)
- * 키워드(제목/설명/태그) 및 카테고리 필터를 조합하여 Prisma Where 조건을 생성합니다.
+ * 게시글 검색 조건 쿼리 빌더
  *
- * @param params - 검색 파라미터 객체
+ * - 커뮤니티 특성에 따라 지역 필터 적용 여부가 달라짐
+ * - 지역성 카테고리 (CREW, FREE) : 유저의 DB 설정(RegionRange)에 따라 지역 필터를 적용
+ * - 정보성 카테고리 (LOG, MAP, COMPASS) : 지역 필터 없이 전국(ALL) 단위로 조회
+ * - 정지된 유저(Banned)의 게시글은 원천적으로 제외
+ *
+ * @param {PostSearchParams | undefined} params - 검색 조건
+ * @param {number} viewerId - 조회자 ID
+ * @returns {Promise<Prisma.PostWhereInput>} Prisma Where 조건 객체
  */
-function buildWhere(params?: PostSearchParams): Prisma.PostWhereInput {
-  if (!params) return {};
-  const { keyword, category } = params;
+async function buildWhere(
+  params: PostSearchParams | undefined,
+  viewerId: number
+): Promise<Prisma.PostWhereInput> {
+  const keyword = params?.keyword;
+  const category = params?.category;
+
+  // DB에 저장된 유저의 범위 설정값 가져오기
+  const user = await db.user.findUnique({
+    where: { id: viewerId },
+    select: { region1: true, region2: true, region3: true, regionRange: true },
+  });
+
+  const regionCondition = user ? buildRegionWhere(user) : {};
+
   return {
     AND: [
+      { user: { bannedAt: null } }, // 정지된 유저의 게시글 숨김
       keyword
         ? {
             OR: [
@@ -62,12 +88,13 @@ function buildWhere(params?: PostSearchParams): Prisma.PostWhereInput {
           }
         : {},
       category ? { category } : {},
+      regionCondition,
     ],
   };
 }
 
 /**
- * 게시글 상세 정보를 DB에서 조회합니다. (Internal)
+ * 게시글 상세 정보를 DB에서 조회 (Internal)
  */
 const getPostById = async (id: number): Promise<PostDetail | null> => {
   try {
@@ -100,16 +127,22 @@ export const getCachedPost = (id: number) => {
 };
 
 /**
- * 게시글 목록을 DB에서 조회합니다. (Internal)
- * 초기 로딩/검색/무한 스크롤 등 모든 목록 조회에 사용됩니다.
+ * 게시글 목록을 DB에서 조회 (Internal)
  */
 async function fetchPostsRaw(
-  params?: PostSearchParams,
+  params: PostSearchParams | undefined,
+  viewerId: number,
   cursor?: number | null
 ): Promise<PostsPage> {
-  const where = buildWhere(params);
+  const where = await buildWhere(params, viewerId);
 
-  const posts = await db.post.findMany({
+  // 차단 유저 필터링
+  const blockedIds = await getBlockedUserIds(viewerId);
+  if (blockedIds.length > 0) {
+    where.userId = { notIn: blockedIds };
+  }
+
+  const rows = await db.post.findMany({
     where,
     select: POST_SELECT,
     orderBy: { created_at: "desc" },
@@ -117,43 +150,54 @@ async function fetchPostsRaw(
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
   });
 
-  const hasNextPage = posts.length > TAKE;
-  const paginatedPosts = hasNextPage ? posts.slice(0, TAKE) : posts;
-  const nextCursor = hasNextPage
-    ? paginatedPosts[paginatedPosts.length - 1].id
-    : null;
+  const hasNextPage = rows.length > TAKE;
+  const posts = hasNextPage ? rows.slice(0, TAKE) : rows;
+  const nextCursor = hasNextPage ? posts[posts.length - 1].id : null;
 
-  return { posts: paginatedPosts as PostDetail[], nextCursor };
+  return { posts: posts as PostDetail[], nextCursor };
 }
 
 /**
  * 초기 게시글 목록 조회 (Cached)
- * - 필터가 없는 초기 로딩이나 특정 검색어의 첫 페이지를 캐싱합니다.
- * - 태그: POST_LIST
+ * - 필터가 없는 초기 로딩이나 특정 검색어의 첫 페이지를 캐싱
  *
- * @param {PostSearchParams} params - 검색 파라미터
+ * @param {PostSearchParams | undefined} params - 검색 파라미터
+ * @param {number} viewerId - 조회자 ID (필수)
  */
-export const getCachedInitialPosts = (params?: PostSearchParams) => {
-  const key = params
-    ? `search:${params.keyword ?? ""}|${params.category ?? ""}`
-    : "all";
-  return nextCache(() => fetchPostsRaw(params, null), ["post-list", key], {
-    tags: [T.POST_LIST()],
+export const getCachedInitialPosts = (
+  params: PostSearchParams | undefined,
+  viewerId: number
+) => {
+  const hasFilter = !!params?.keyword || !!params?.category;
+
+  if (hasFilter) {
+    return fetchPostsRaw(params, viewerId, null);
+  }
+
+  const key = `post-list-initial-user-${viewerId}`;
+  return nextCache(() => fetchPostsRaw(params, viewerId, null), [key], {
+    tags: [
+      T.POST_LIST(),
+      T.USER_BLOCK_UPDATE(viewerId), // 차단 정보 변경 시 내 캐시만 무효화
+      T.USER_CORE_ID(viewerId), // 내 동네 변경 시 캐시 무효화
+    ],
   })();
 };
 
 /**
- * 게시글 목록 추가 로드 (Non-Cached)
- * - 무한 스크롤 시 커서를 기반으로 다음 데이터를 실시간 조회합니다.
+ * 게시글 목록 추가 로드
+ * - 커서와 검색 조건을 받아 다음 페이지 데이터를 조회
  *
  * @param {number | null} cursor - 마지막 게시글 ID
- * @param {PostSearchParams} params - 검색 파라미터
+ * @param {PostSearchParams | undefined} params - 검색 파라미터
+ * @param {number} viewerId - 조회자 ID (필수)
  */
 export const getMorePosts = async (
   cursor: number | null,
-  params?: PostSearchParams
+  params: PostSearchParams | undefined,
+  viewerId: number
 ) => {
-  return fetchPostsRaw(params, cursor);
+  return fetchPostsRaw(params, viewerId, cursor);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -162,8 +206,9 @@ export const getMorePosts = async (
 
 /**
  * 게시글 생성
- * - 게시글 저장, 태그 연결, 이미지 저장을 트랜잭션으로 처리합니다.
- * - 생성 후 관련 뱃지를 체크합니다. (Fire & Forget)
+ * - 정지 유저 체크: `validateUserStatus`를 통해 이용 정지 상태인지 확인
+ * - 게시글 본문, 태그, 이미지를 트랜잭션으로 저장
+ * - 생성 후 관련 뱃지 획득 조건을 비동기로 체크
  *
  * @param {number} userId - 작성자 ID
  * @param {PostCreateDTO} data - 게시글 생성 데이터
@@ -174,18 +219,30 @@ export async function createPost(
   data: PostCreateDTO
 ): Promise<ServiceResult<{ postId: number }>> {
   try {
+    // 1. 정지 유저 체크
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     const post = await db.$transaction(async (tx) => {
-      // 1. 게시글 본문 생성
+      // 2. 게시글 본문 생성
       const newPost = await tx.post.create({
         data: {
           title: data.title,
           description: data.description,
           category: data.category,
           user: { connect: { id: userId } },
+          ...(data.location && {
+            latitude: data.location.latitude,
+            longitude: data.location.longitude,
+            locationName: data.location.locationName,
+            region1: data.location.region1,
+            region2: data.location.region2,
+            region3: data.location.region3,
+          }),
         },
       });
 
-      // 2. 태그 처리 (중복 시 카운트 증가)
+      // 3. 태그 처리 (중복 시 카운트 증가)
       if (data.tags.length) {
         for (const tagName of data.tags) {
           const tag = await tx.postTag.upsert({
@@ -200,7 +257,7 @@ export async function createPost(
         }
       }
 
-      // 3. 이미지 저장
+      // 4. 이미지 저장
       if (data.photos.length) {
         await Promise.all(
           data.photos.map((url, index) =>
@@ -217,7 +274,7 @@ export async function createPost(
       return newPost;
     });
 
-    // 4. 뱃지 체크 (비동기)
+    // 5. 뱃지 체크 (비동기)
     const badgeTasks: Promise<any>[] = [
       badgeChecks.onPostCreate(userId),
       badgeChecks.onEventParticipation(userId),
@@ -236,7 +293,7 @@ export async function createPost(
 
 /**
  * 게시글 수정
- * - 소유권을 확인하고 기존 이미지/태그를 정리한 뒤 업데이트합니다.
+ * - 소유권을 확인하고 기존 이미지/태그를 정리한 뒤 업데이트
  *
  * @param {number} userId - 요청자(작성자) ID
  * @param {PostUpdateDTO} data - 수정할 데이터
@@ -255,6 +312,25 @@ export async function updatePost(
       return { success: false, error: "게시글을 찾을 수 없습니다." };
     if (existing.userId !== userId)
       return { success: false, error: "권한이 없습니다." };
+
+    // 위치 정보 업데이트 데이터 구성
+    const locationUpdate = data.location
+      ? {
+          latitude: data.location.latitude,
+          longitude: data.location.longitude,
+          locationName: data.location.locationName,
+          region1: data.location.region1,
+          region2: data.location.region2,
+          region3: data.location.region3,
+        }
+      : {
+          latitude: null,
+          longitude: null,
+          locationName: null,
+          region1: null,
+          region2: null,
+          region3: null,
+        };
 
     // 2. 트랜잭션 업데이트
     await db.$transaction(async (tx) => {
@@ -278,6 +354,7 @@ export async function updatePost(
               create: { name: tag },
             })),
           },
+          ...locationUpdate,
         },
       });
 

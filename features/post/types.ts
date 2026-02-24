@@ -9,7 +9,12 @@
  * 2026.01.22  임도헌   Modified  타입 정의 구체화 (Prisma 호환)
  * 2026.01.25  임도헌   Modified  ServiceResult 추가
  * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.02.07  임도헌   Modified  관리자용 DTO (AdminPostItem, AdminPostListResponse) 추가
+ * 2026.02.14  임도헌   Modified  location 속성 추가
+ * 2026.02.15  임도헌   Modified  POST_SELECT 기반 Type SSOT 적용
  */
+
+import { LocationData } from "@/features/map/types";
 
 // =============================================================================
 // 1. Data Transfer Objects (DTO) - 요청/응답 데이터
@@ -35,6 +40,7 @@ export interface PostCreateDTO {
   category: string;
   tags: string[];
   photos: string[];
+  location?: LocationData | null;
 }
 
 /** 게시글 수정 DTO */
@@ -82,6 +88,13 @@ export interface PostDetail extends BasePost {
   views: number;
   tags: PostTag[];
   images: PostImage[];
+  // 위치 정보 필드
+  latitude?: number | null;
+  longitude?: number | null;
+  locationName?: string | null;
+  region1?: string | null;
+  region2?: string | null;
+  region3?: string | null;
   _count: {
     post_likes: number;
     comments: number;
@@ -109,4 +122,27 @@ export interface PostCardProps {
   post: PostDetail;
   viewMode: "list" | "grid";
   isPriority?: boolean;
+}
+
+// =============================================================================
+// 4. Admin Types
+// =============================================================================
+
+export interface AdminPostItem {
+  id: number;
+  title: string;
+  category: string;
+  views: number;
+  created_at: Date;
+  user: {
+    id: number;
+    username: string;
+  };
+}
+
+export interface AdminPostListResponse {
+  items: AdminPostItem[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
 }

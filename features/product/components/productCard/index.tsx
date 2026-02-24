@@ -27,10 +27,10 @@
  * 2026.01.11  임도헌   Modified  썸네일 width 조정
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.02.15  임도헌   Modified  ProductCardMeta에 region 정보 전달
  * ===============================================================================================
- * 이 폴더는 ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리입니다.
- * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당합니다:
- *
+ * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
+ * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
  * - ProductCardHeader.tsx    : 게임 타입 및 카테고리 경로 표시
  * - ProductCardTitle.tsx     : 제품 제목 표시
  * - ProductCardPrice.tsx     : 가격 및 판매/예약 상태 뱃지
@@ -55,9 +55,9 @@ import { cn } from "@/lib/utils";
 /**
  * 제품 카드 (ProductCard)
  *
- * - 목록(List) 및 그리드(Grid) 뷰 모드를 지원합니다.
- * - 썸네일, 헤더(카테고리), 제목, 가격, 태그, 메타 정보를 조합하여 렌더링합니다.
- * - 클릭 시 상세 페이지로 이동하며, `returnTo` 쿼리를 포함하여 목록 복귀를 지원합니다.
+ * - 목록(List) 및 그리드(Grid) 뷰 모드를 지원
+ * - 썸네일, 헤더(카테고리), 제목, 가격, 태그, 메타 정보를 조합하여 렌더링
+ * - 클릭 시 상세 페이지로 이동하며, `returnTo` 쿼리를 포함하여 목록 복귀를 지원
  *
  * @param {ProductCardProps} props - 제품 데이터 및 뷰 모드 설정
  */
@@ -79,6 +79,9 @@ export default function ProductCard({
     game_type,
     _count,
     search_tags,
+    bump_count,
+    region2,
+    region3,
   } = product;
 
   const pathname = usePathname();
@@ -146,6 +149,9 @@ export default function ProductCard({
             views={views}
             likes={_count.product_likes}
             createdAt={created_at}
+            bumpCount={bump_count}
+            region2={region2}
+            region3={region3}
           />
         </div>
       </div>

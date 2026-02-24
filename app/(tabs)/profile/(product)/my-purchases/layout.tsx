@@ -39,7 +39,7 @@ export default function MyPurchasesLayout({
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-mobile pb-10">{children}</main>
+      <main className="mx-auto max-w-mobile pb-24">{children}</main>
     </div>
   );
 }

@@ -19,6 +19,7 @@
  * 2026.01.20  임도헌   Modified  Service(createProduct) 연동, DTO 변환, 세션/리다이렉트 처리
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/products/actions/create.ts -> features/product/actions/create.ts
+ * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
  */
 "use server";
 
@@ -52,6 +53,15 @@ export async function createProductAction(
   const photos = formData.getAll("photos[]").map(String);
   const tagsString = formData.get("tags")?.toString() || "[]";
   const tags = JSON.parse(tagsString);
+  const locationRaw = formData.get("location")?.toString();
+  let locationData = null;
+  if (locationRaw) {
+    try {
+      locationData = JSON.parse(locationRaw);
+    } catch {
+      console.error("Location parse error");
+    }
+  }
 
   const rawData = {
     title: formData.get("title"),
@@ -67,6 +77,7 @@ export async function createProductAction(
     has_manual: formData.get("has_manual") === "true",
     categoryId: formData.get("categoryId"),
     tags,
+    location: locationData,
   };
 
   // 2. Zod 검증

@@ -25,10 +25,15 @@
  * 2026.01.14  임도헌   Modified   주석 보강 및 코드 가독성 개선
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  유저 클릭 시 StreamChatUserModal(dynamic) 오픈 로직 및 방장 권한 처리 추가
+ * 2026.02.06  임도헌   Modified  메시지 호버 시 신고 아이콘(!) 노출 및 ReportModal 연동
+ * 2026.02.06  임도헌   Modified  차단 시 메시지 즉시 숨김(Local Filtering) 로직 추가
+ * 2026.02.22  임도헌   Modified  initialBlockedUserIds 프롭을 받아 기존 차단 유저 채팅 완벽 은닉
  */
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { sendStreamMessageAction } from "@/features/stream/actions/chat";
 import TimeAgo from "@/components/ui/TimeAgo";
@@ -38,38 +43,47 @@ import {
   PaperAirplaneIcon,
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon,
+  ExclamationTriangleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { StreamChatMessage } from "@/features/chat/types";
 import { cn } from "@/lib/utils";
 
+const StreamChatUserModal = dynamic(() => import("./StreamChatUserModal"), {
+  ssr: false,
+});
+
+const ReportModal = dynamic(
+  () => import("@/features/report/components/ReportModal"),
+  { ssr: false }
+);
+
 interface Props {
-  initialStreamMessage: StreamChatMessage[]; // 최근 20개, ASC 정렬
-  streamChatRoomId: number;
-  streamChatRoomhost: number; // 방송자 userId
-  userId: number;
-  username: string; // 내 유저명 (fallback)
-  /** (모바일/본문영역) 부모 높이를 꽉 채워야 할 때 true */
-  fillParent?: boolean;
-  /** 바깥 래퍼에 추가 클래스(선택) */
-  containerClassName?: string;
-  /** 모바일 전용: 채팅 확대/축소 토글 */
-  onToggleExpand?: () => void;
-  isExpanded?: boolean;
-  showExpandToggle?: boolean;
+  initialStreamMessage: StreamChatMessage[]; // 서버에서 가져온 초기 메시지 리스트
+  streamChatRoomId: number; // 스트리밍 채팅방 PK
+  streamChatRoomhost: number; // 방송자(Host) 유저 ID
+  userId: number; // 내 유저 ID
+  username: string; // 내 닉네임
+  initialBlockedUserIds?: number[]; // 차단한 유저의 ID들
+  fillParent?: boolean; // 부모 컨테이너의 높이를 꽉 채울지 여부
+  containerClassName?: string; // 외부 주입 스타일
+  onToggleExpand?: () => void; // (모바일) 채팅창 확대 토글 콜백
+  isExpanded?: boolean; // (모바일) 확대 여부 상태
+  showExpandToggle?: boolean; // 확대 버튼 노출 여부
 }
 
-const MAX_ITEMS = 300; // 클라이언트 메모리 보호를 위한 최대 메시지 수
+const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 유지 한도
 
 /**
- * 스트리밍 실시간 채팅방
+ * 스트리밍 실시간 채팅창
  *
  * [기능]
- * 1. 초기 메시지 로드 및 실시간 메시지 수신 (Supabase)
- * 2. 메시지 전송 (Server Action) 및 Optimistic UI 처리
- * 3. 자동 스크롤 (사용자가 바닥에 있을 때만)
- * 4. 도배 방지 쿨다운 적용
- * 5. 모바일/데스크톱 반응형 레이아웃 지원
+ * 1. 실시간 통신: Supabase Broadcast를 통해 지연 없는 채팅 구현
+ * 2. 스마트 스크롤: 사용자가 바닥을 보고 있을 때만 새 메시지 수신 시 자동 스크롤
+ * 3. 도배 방지: Rate Limit 초과 시 쿨다운 UI 적용
+ * 4. 관리 도구: 유저 클릭 시 '차단(강제 퇴장)' 및 '프로필 확인'이 가능한 모달 제공
+ * 5. 메시지 호버 시 즉시 신고 가능한 아이콘 제공
+ * 5. 반응형 대응: 데스크톱 사이드바 모드와 모바일 하단 확대 모드 지원
  */
 export default function StreamChatRoom({
   initialStreamMessage,
@@ -77,45 +91,46 @@ export default function StreamChatRoom({
   streamChatRoomhost,
   userId,
   username,
+  initialBlockedUserIds = [],
   fillParent = false,
   containerClassName = "",
   onToggleExpand,
   isExpanded,
   showExpandToggle = false,
 }: Props) {
-  // --- State ---
-  /** 메시지/입력 상태 */
+  // --- States ---
   const [messages, setMessages] =
     useState<StreamChatMessage[]>(initialStreamMessage);
-  const [message, setMessage] = useState("");
-  const [cooldownUntil, setCooldownUntil] = useState<number>(0);
-  /** 열림/닫힘 — Topbar가 제어 (기본 true) */
-  const [isOpen, setIsOpen] = useState(true);
+  const [message, setMessage] = useState(""); // 입력 필드 텍스트
+  const [cooldownUntil, setCooldownUntil] = useState<number>(0); // 쿨다운 만료 시각
+  const [isOpen, setIsOpen] = useState(true); // 채팅창 표시 여부 (Topbar와 연동)
+  const [selectedUser, setSelectedUser] = useState<{
+    id: number;
+    username: string;
+    avatar: string | null;
+  } | null>(null); // 클릭된 유저 정보 (모달 트리거)
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<number>>(
+    new Set(initialBlockedUserIds)
+  ); // 차단한 유저 ID 목록
+  const [reportMessageId, setReportMessageId] = useState<number | null>(null); // 신고 대상 메세지 ID
 
   // --- Refs ---
-  const chatRef = useRef<HTMLDivElement | null>(null); // 채팅 스크롤 영역
-  const textareaRef = useRef<HTMLTextAreaElement>(null); // 입력창
-  const sendChannelRef = useRef<RealtimeChannel | null>(null); // 전송용 채널 인스턴스
+  const chatRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sendChannelRef = useRef<RealtimeChannel | null>(null);
+  const atBottomRef = useRef<boolean>(true); // 스크롤 바닥 여부 추적
+  const seenIdsRef = useRef<Set<string | number>>(new Set()); // 중복 메시지 방지용
 
-  // 스크롤 상태 추적: 사용자가 스크롤을 올려서 과거 메시지를 보고 있는지 여부
-  // true면 새 메시지 수신 시 자동 스크롤, false면 현재 위치 유지
-  const atBottomRef = useRef<boolean>(true);
+  // 내가 호스트(방장)인지 판단 (차단 안내 문구 분기용)
+  const isViewerHost = userId === streamChatRoomhost;
 
-  // 중복 메시지 방지용 ID Set (React StrictMode 등에서의 중복 수신 방어)
-  const seenIdsRef = useRef<Set<string | number>>(new Set());
-
-  // --- 1. Topbar 연동 (열기/닫기 상태 동기화) ---
+  // --- 1. Topbar 이벤트 리스너 (열기/닫기 동기화) ---
   useEffect(() => {
     const handleState = (event: Event) => {
       const { detail } = event as CustomEvent<{ open?: boolean }>;
       if (typeof detail?.open === "boolean") setIsOpen(detail.open);
     };
     window.addEventListener("stream:chat:state", handleState as EventListener);
-    // 최초 마운트 시 '열림' 상태로 동기화 신호를 보냄
-    window.dispatchEvent(
-      new CustomEvent("stream:chat:state", { detail: { open: true } })
-    );
-
     return () =>
       window.removeEventListener(
         "stream:chat:state",
@@ -123,16 +138,14 @@ export default function StreamChatRoom({
       );
   }, []);
 
-  // --- 2. 초기 데이터 세팅 (방 변경 시) ---
+  // --- 2. 데이터 초기화 및 중복 방지 Set 갱신 ---
   useEffect(() => {
     setMessages(initialStreamMessage);
-
-    // 중복 방지 Set 초기화
     const s = new Set<string | number>();
-    for (const m of initialStreamMessage) s.add(m.id);
+    initialStreamMessage.forEach((m) => s.add(m.id));
     seenIdsRef.current = s;
 
-    // 방이 바뀌면 무조건 최하단으로 스크롤 & 바닥 상태로 리셋
+    // 방 진입 시 즉시 하단 스크롤
     atBottomRef.current = true;
     requestAnimationFrame(() => {
       if (chatRef.current)
@@ -140,11 +153,9 @@ export default function StreamChatRoom({
     });
   }, [streamChatRoomId, initialStreamMessage]);
 
-  // --- 3. 새 메시지 수신 시 자동 스크롤 ---
+  // --- 3. 새 메시지 수신 시 스크롤 제어 ---
   useEffect(() => {
-    if (!chatRef.current) return;
-    // 사용자가 바닥에 붙어있을 때만(atBottomRef.current === true) 자동 스크롤
-    if (atBottomRef.current) {
+    if (chatRef.current && atBottomRef.current) {
       requestAnimationFrame(() => {
         if (chatRef.current)
           chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -152,18 +163,12 @@ export default function StreamChatRoom({
     }
   }, [messages]);
 
-  // --- 4. 최초 마운트 시 스크롤 하단 이동 (Safety) ---
-  useEffect(() => {
-    if (chatRef.current)
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, []);
-
-  // --- 5. 스크롤 위치 감지 (바닥 여부 업데이트) ---
+  // --- 4. 스크롤 위치 감지 로직 ---
   useEffect(() => {
     const el = chatRef.current;
     if (!el) return;
     const onScroll = () => {
-      // 스크롤이 바닥에서 50px 이내면 '바닥에 있음'으로 간주
+      // 바닥에서 50px 이내면 자동 스크롤 허용 상태로 간주
       atBottomRef.current =
         el.scrollHeight - el.scrollTop - el.clientHeight <= 50;
     };
@@ -171,7 +176,7 @@ export default function StreamChatRoom({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // --- 6. 쿨다운 타이머 (도배 방지) ---
+  // --- 5. 쿨다운 타이머 관리 ---
   useEffect(() => {
     if (!cooldownUntil) return;
     const ms = cooldownUntil - Date.now();
@@ -183,93 +188,79 @@ export default function StreamChatRoom({
     return () => clearTimeout(t);
   }, [cooldownUntil]);
 
-  // --- 7. 실시간 구독 (Supabase) ---
+  // --- 6. 실시간 구독 (Supabase Hook) ---
   const sendChannel = useStreamChatSubscription({
     streamChatRoomId,
     userId,
-    ignoreSelf: false, // 내가 보낸 메시지도 받아서(브로드캐스트) 상태를 동기화할 수 있음 (선택)
+    ignoreSelf: false, // 다른 탭에서의 내 메시지도 받기 위함
     onReceive: (msg) => {
-      // 중복 수신 방지
       if (seenIdsRef.current.has(msg.id)) return;
       seenIdsRef.current.add(msg.id);
 
-      // 메시지 추가 (최대 개수 유지)
       setMessages((prev) => {
-        const merged = [...prev, msg];
-        return merged.length > MAX_ITEMS
-          ? merged.slice(merged.length - MAX_ITEMS)
-          : merged;
+        const next = [...prev, msg];
+        return next.length > MAX_ITEMS ? next.slice(-MAX_ITEMS) : next;
       });
     },
   });
 
-  // 채널 인스턴스 저장 (전송용)
   useEffect(() => {
     if (sendChannel) sendChannelRef.current = sendChannel;
   }, [sendChannel]);
 
-  // --- 8. 입력창 높이 자동 조절 ---
+  // --- 7. 입력창 높이 자동 조절 ---
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto"; // 높이 초기화 후
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`; // scrollHeight에 맞춰 늘림 (최대 120px)
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [message]);
 
-  // --- 9. 메시지 전송 핸들러 ---
+  // --- 8. 메시지 전송 로직 ---
   const onSubmit = async () => {
     if (Date.now() < cooldownUntil) return;
     const text = message.trim();
-    if (!text) {
-      toast.error("메시지를 입력해주세요.");
-      return;
-    }
+    if (!text) return;
 
     try {
-      // Optimistic UI: 성공 가정하고 입력창 비움
-      setMessage("");
+      setMessage(""); // Optimistic Clear
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
       const res = await sendStreamMessageAction(text, streamChatRoomId);
 
       if (!res.success) {
-        // 실패 시 입력값 복구 (Rollback)
-        setMessage(text);
-
+        setMessage(text); // Rollback
         if (res.error === "RATE_LIMITED") {
           setCooldownUntil(Date.now() + 2000);
-          toast.error("조금 천천히 보내주세요.");
+          toast.error("조금 천천히 보내주세요. 🐢");
         } else {
-          toast.error("메시지 전송 실패");
+          toast.error("메시지를 보낼 수 없습니다.");
         }
         return;
       }
 
       const sent = res.message;
-
-      // 로컬 리스트에 내 메시지 즉시 추가
+      // 내 화면에 즉시 반영
       setMessages((prev) => {
-        const next = [...prev, sent];
+        if (seenIdsRef.current.has(sent.id)) return prev;
         seenIdsRef.current.add(sent.id);
-        return next.length > MAX_ITEMS
-          ? next.slice(next.length - MAX_ITEMS)
-          : next;
+        const next = [...prev, sent];
+        return next.length > MAX_ITEMS ? next.slice(-MAX_ITEMS) : next;
       });
 
-      // 다른 클라이언트들에게 브로드캐스트
+      // 브로드캐스트 전송
       await sendChannelRef.current?.send({
         type: "broadcast",
         event: "message",
         payload: sent,
       });
     } catch (err) {
-      setMessage(text); // Rollback
+      setMessage(text);
       console.error(err);
-      toast.error("전송 오류");
+      toast.error("서버 통신 오류");
     }
   };
 
-  // Enter 키 전송 (Shift+Enter는 줄바꿈)
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -279,14 +270,10 @@ export default function StreamChatRoom({
 
   const closeChat = () => {
     setIsOpen(false);
-    // 닫힘 상태 전파
     window.dispatchEvent(
       new CustomEvent("stream:chat:state", { detail: { open: false } })
     );
   };
-
-  const sendDisabled =
-    Date.now() < cooldownUntil || message.trim().length === 0;
 
   if (!isOpen) return null;
 
@@ -308,7 +295,6 @@ export default function StreamChatRoom({
             <button
               onClick={onToggleExpand}
               className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-              title={isExpanded ? "축소" : "확대"}
             >
               {isExpanded ? (
                 <ArrowsPointingInIcon className="size-4" />
@@ -320,65 +306,91 @@ export default function StreamChatRoom({
           <button
             onClick={closeChat}
             className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-            title="닫기"
           >
             <XMarkIcon className="size-5" />
           </button>
         </div>
       </div>
 
-      {/* Log */}
+      {/* Message Log */}
       <div
         ref={chatRef}
         className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 scrollbar-hide bg-surface"
+        role="log"
+        aria-live="polite"
       >
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-sm text-muted">
-            아직 채팅이 없습니다.
+            아직 신호가 없습니다.
           </div>
         ) : (
-          messages.map((msg) => {
-            const mine = msg.userId === userId;
-            const host = msg.userId === streamChatRoomhost;
-            const uname = msg.user?.username ?? (mine ? username : "익명");
+          messages
+            .filter((msg) => !blockedUserIds.has(msg.userId)) // 차단된 유저 메시지 숨김
+            .map((msg) => {
+              const isMine = msg.userId === userId;
+              const isHost = msg.userId === streamChatRoomhost;
+              const uname = msg.user?.username ?? (isMine ? username : "선원");
 
-            return (
-              <div key={msg.id} className="flex flex-col items-start gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      "text-xs font-semibold",
-                      mine ? "text-brand dark:text-brand-light" : "text-muted",
-                      host && "text-accent-dark"
-                    )}
-                  >
-                    {uname}
-                  </span>
-                  {host && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent-dark font-bold">
-                      HOST
+              return (
+                <div
+                  key={msg.id}
+                  className="flex flex-col items-start gap-0.5 group relative pr-6"
+                >
+                  <div className="flex items-center gap-1.5">
+                    {/* 유저 클릭 시 관리 모달 오픈 */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedUser({
+                          id: msg.userId,
+                          username: uname,
+                          avatar: msg.user?.avatar ?? null,
+                        })
+                      }
+                      className="flex items-center gap-1.5 hover:bg-surface-dim px-1 -ml-1 rounded transition-colors"
+                    >
+                      <span
+                        className={cn(
+                          "text-xs font-semibold",
+                          isMine
+                            ? "text-brand dark:text-brand-light"
+                            : "text-muted",
+                          isHost && "text-accent-dark"
+                        )}
+                      >
+                        {uname}
+                      </span>
+                      {isHost && (
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-accent/20 text-accent-dark font-bold leading-none">
+                          HOST
+                        </span>
+                      )}
+                    </button>
+                    <span className="text-[10px] text-muted/50">
+                      <TimeAgo date={msg.created_at.toString()} />
                     </span>
+                  </div>
+                  <div className="text-sm text-primary break-words whitespace-pre-wrap leading-relaxed max-w-full">
+                    {msg.payload}
+                  </div>
+                  {/* 신고 버튼 (내 메시지가 아닐 때만, 호버 시 노출) */}
+                  {!isMine && (
+                    <button
+                      onClick={() => setReportMessageId(msg.id)}
+                      className="absolute right-0 top-1 p-1 text-muted/40 hover:text-danger opacity-0 group-hover:opacity-100 transition-all"
+                      title="메시지 신고"
+                    >
+                      <ExclamationTriangleIcon className="size-4" />
+                    </button>
                   )}
-                  <span className="text-[10px] text-muted/60">
-                    <TimeAgo date={msg.created_at.toString()} />
-                  </span>
                 </div>
-                <div className="text-sm text-primary break-words whitespace-pre-wrap leading-relaxed">
-                  {msg.payload}
-                </div>
-              </div>
-            );
-          })
+              );
+            })
         )}
       </div>
 
-      {/* Input */}
-      <div
-        className={cn(
-          "border-t border-border p-3 bg-surface",
-          "sticky bottom-0 z-10 xl:static" // 모바일 키보드 대응
-        )}
-      >
+      {/* Input Section */}
+      <div className="border-t border-border p-3 bg-surface">
         <div className="flex items-end gap-2">
           <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors">
             <textarea
@@ -386,24 +398,51 @@ export default function StreamChatRoom({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="채팅에 참여하세요"
-              className="w-full bg-transparent border-none p-0 text-sm text-primary placeholder:text-muted resize-none max-h-[100px] focus:ring-0 leading-normal py-0.5"
+              placeholder="메시지를 입력하세요"
+              className="w-full bg-transparent border-none p-0 text-sm text-primary placeholder:text-muted resize-none max-h-[100px] focus:ring-0 leading-normal py-1"
               rows={1}
             />
           </div>
           <button
             onClick={onSubmit}
-            disabled={sendDisabled}
+            disabled={Date.now() < cooldownUntil || !message.trim()}
             className={cn(
               "shrink-0 size-10 rounded-full flex items-center justify-center transition-all",
-              "bg-brand text-white hover:bg-brand-light active:scale-95",
-              "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100"
+              "bg-brand text-white hover:bg-brand-light active:scale-95 shadow-sm",
+              "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed"
             )}
           >
             <PaperAirplaneIcon className="size-5 pl-0.5" />
           </button>
         </div>
       </div>
+
+      {/* 유저 관리 모달 */}
+      {selectedUser && (
+        <StreamChatUserModal
+          isOpen={!!selectedUser}
+          onClose={() => setSelectedUser(null)}
+          targetUser={selectedUser}
+          viewerId={userId}
+          isHost={isViewerHost}
+          // 차단 성공시 로컬 업데이트
+          onBlockSuccess={(targetId) => {
+            setBlockedUserIds((prev) => {
+              const next = new Set(prev);
+              next.add(targetId);
+              return next;
+            });
+          }}
+        />
+      )}
+
+      {/* 신고 모달 연결 */}
+      <ReportModal
+        isOpen={!!reportMessageId}
+        onClose={() => setReportMessageId(null)}
+        targetId={reportMessageId ?? 0}
+        targetType="STREAM_MESSAGE"
+      />
     </div>
   );
 }

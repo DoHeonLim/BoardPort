@@ -21,9 +21,9 @@ export const runtime = "nodejs";
 /**
  * POST /api/push/check-subscription
  *
- * - 클라이언트가 가지고 있는 푸시 엔드포인트가 DB에서도 유효한지(isActive) 확인합니다.
- * - 전역 설정(pushEnabled)이 꺼져있다면 유효하지 않은 것으로 간주합니다.
- * - 앱 초기 로딩 시 브라우저 상태와 서버 상태를 동기화하기 위해 사용됩니다.
+ * - 클라이언트가 가지고 있는 푸시 엔드포인트가 DB에서도 유효한지(isActive) 확인
+ * - 전역 설정(pushEnabled)이 꺼져있다면 유효하지 않은 것으로 간주
+ * - 앱 초기 로딩 시 브라우저 상태와 서버 상태를 동기화하기 위해 사용
  */
 export async function POST(req: Request) {
   try {

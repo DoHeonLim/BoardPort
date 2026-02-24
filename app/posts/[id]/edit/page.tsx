@@ -19,14 +19,15 @@ import PostForm from "@/features/post/components/PostForm";
 import { getCachedPost } from "@/features/post/service/post";
 import { updatePostAction } from "@/features/post/actions/update";
 import { deletePostAction } from "@/features/post/actions/delete";
+import { LocationData } from "@/features/map/types";
 
 /**
  * 게시글 수정 페이지
  *
  * [기능]
- * 1. 게시글 정보를 조회하고 작성자 본인인지 확인합니다. (비권한 시 리스트로 이동)
- * 2. 기존 게시글 데이터를 폼 초기값으로 주입하여 `PostForm`을 렌더링합니다.
- * 3. 게시글 삭제 버튼(Server Action Form)을 별도로 제공합니다.
+ * 1. 게시글 정보를 조회하고 작성자 본인인지 확인 (비권한 시 리스트로 이동)
+ * 2. 기존 게시글 데이터를 폼 초기값으로 주입하여 `PostForm`을 렌더링
+ * 3. 게시글 삭제 버튼(Server Action Form)을 별도로 제공
  *
  * @param {Object} params - URL 파라미터 (id: 게시글 ID)
  */
@@ -54,6 +55,19 @@ export default async function PostEditPage({
     redirect("/posts"); // 삭제 후 목록으로 이동
   };
 
+  let initialLocation: LocationData | null = null;
+
+  if (post.latitude && post.longitude && post.locationName) {
+    initialLocation = {
+      latitude: post.latitude,
+      longitude: post.longitude,
+      locationName: post.locationName,
+      region1: post.region1 ?? "",
+      region2: post.region2 ?? "",
+      region3: post.region3 ?? "",
+    };
+  }
+
   return (
     <div className="min-h-screen dark:bg-neutral-900 bg-white">
       <PostForm
@@ -64,6 +78,7 @@ export default async function PostEditPage({
           category: post.category,
           tags: post.tags.map((tag) => tag.name),
           photos: post.images.map((image) => image.url),
+          location: initialLocation,
         }}
         action={updatePostAction}
         backUrl={`/posts/${post.id}`}

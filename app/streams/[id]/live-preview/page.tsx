@@ -47,9 +47,9 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
 /**
  * 라이브 미리보기 페이지 (Iframe Embed용)
  *
- * - 카드 호버 시 로드되는 미니 플레이어입니다.
- * - 접근 권한을 체크하여 권한이 없으면 썸네일(Fallback)을 보여줍니다.
- * - Cloudflare Player를 전체 화면으로 렌더링합니다.
+ * - 카드 호버 시 로드되는 미니 플레이어
+ * - 접근 권한을 체크하여 권한이 없으면 썸네일(Fallback)을 보여줌
+ * - Cloudflare Player를 전체 화면으로 렌더링
  */
 export default async function LivePreviewPage({
   params,

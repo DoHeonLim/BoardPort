@@ -25,8 +25,8 @@ interface RecordingDeleteButtonProps {
 
 /**
  * 녹화본 삭제 버튼
- * - 클릭 시 삭제 확인 다이얼로그(`ConfirmDialog`)를 띄웁니다.
- * - 확인 시 삭제 API를 호출하고 채널 페이지로 이동합니다.
+ * - 클릭 시 삭제 확인 다이얼로그(`ConfirmDialog`)를 띄움
+ * - 확인 시 삭제 API를 호출하고 채널 페이지로 이동
  */
 export default function RecordingDeleteButton({
   broadcastId,

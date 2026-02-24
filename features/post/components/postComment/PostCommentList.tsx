@@ -37,10 +37,10 @@ import { usePageVisibility } from "@/hooks/usePageVisibility";
  * 댓글 목록 렌더링 컴포넌트
  *
  * [기능]
- * 1. Context에서 댓글 데이터를 받아와 렌더링합니다.
- * 2. `useInfiniteScroll`을 사용하여 스크롤 끝에 도달하면 추가 댓글을 로드합니다.
- * 3. `AnimatePresence`를 사용하여 댓글 추가/삭제 시 애니메이션을 적용합니다.
- * 4. 로딩 상태 및 빈 상태(Empty State) UI를 처리합니다.
+ * 1. Context에서 댓글 데이터를 받아와 렌더링
+ * 2. `useInfiniteScroll`을 사용하여 스크롤 끝에 도달하면 추가 댓글을 로드
+ * 3. `AnimatePresence`를 사용하여 댓글 추가/삭제 시 애니메이션을 적용
+ * 4. 로딩 상태 및 빈 상태(Empty State) UI를 처리
  */
 export default function PostCommentList({
   currentUser,

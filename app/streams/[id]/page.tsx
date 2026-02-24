@@ -25,14 +25,15 @@
  * 2026.01.03  임도헌   Modified   getSession() 후 유저 조회를 getUserInfo() → getUserInfoById(session.id)로 변경(중복 세션 조회 제거)
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 배경색 및 레이아웃 조정
  * 2026.01.29  임도헌   Modified  주석 설명 보강
+ * 2026.02.04  임도헌   Modified  방송 상세 진입 시 차단 가드(checkBlockRelation) 추가
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가 및 캐시 함수 재사용
+ * 2026.02.22  임도헌   Modified  라이브 채팅창에 기존 차단 목록(blockedIds) 주입
  */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
 
-import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cacheTags";
+import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-
 import getSession from "@/lib/session";
 import { getUserInfoById } from "@/features/user/service/profile";
 import type { StreamVisibility } from "@/features/stream/types";
@@ -40,8 +41,9 @@ import StreamDetail from "@/features/stream/components/StreamDetail";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import StreamTopbar from "@/features/stream/components/StreamTopBar";
 import StreamMobileChatSection from "@/features/stream/components/StreamMobileChatSection";
+import StreamBlockGuard from "@/features/stream/components/StreamBlockGuard";
 import {
-  getBroadcastDetail,
+  getCachedBroadcastDetail,
   StreamDetailDTO,
 } from "@/features/stream/service/detail";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
@@ -50,26 +52,47 @@ import {
   getInitialStreamMessages,
   getStreamChatRoom,
 } from "@/features/stream/service/chat";
+import {
+  checkBlockRelation,
+  getBlockedUserIds,
+} from "@/features/user/service/block";
 
-// Base Cache Function (Tags 생략)
-const _getCachedBroadcastBase = nextCache(
-  getBroadcastDetail,
-  ["broadcast-detail-by-id"],
-  {
-    tags: [],
+// 메타데이터 생성
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const id = Number(params.id);
+  const stream = await getCachedBroadcastDetail(id);
+
+  if (!stream) {
+    return { title: "방송을 찾을 수 없음" };
   }
-);
+
+  const title = `${stream.title} - ${stream.user.username}`;
+  const desc = stream.description?.slice(0, 100) || "보드포트 라이브 스트리밍";
+
+  return {
+    title,
+    description: desc,
+    openGraph: {
+      title,
+      description: desc,
+    },
+  };
+}
 
 /**
  * 라이브 방송 상세 페이지
  *
  * [기능]
- * 1. 로그인 세션을 확인합니다.
- * 2. 방송 정보를 조회하고, 접근 권한(Private/Followers)을 검증합니다.
- *    - 권한이 없으면 `/403` 페이지로 리다이렉트합니다.
- * 3. 채팅방 정보 및 초기 메시지를 조회합니다.
- * 4. 데스크톱(사이드바)과 모바일(하단)에 맞는 채팅 UI를 렌더링합니다.
- * 5. `StreamDetail` 컴포넌트로 방송 화면 및 정보를 표시합니다.
+ * 1. 로그인 세션을 확인
+ * 2. 방송 정보를 조회하고, 접근 권한(Private/Followers)을 검증
+ *    - 권한이 없으면 `/403` 페이지로 리다이렉트
+ * 3. 채팅방 정보 및 초기 메시지를 조회
+ * 4. 데스크톱(사이드바)과 모바일(하단)에 맞는 채팅 UI를 렌더링
+ * 5. `StreamDetail` 컴포넌트로 방송 화면 및 정보를 표시
  *
  * @param {Object} params - URL 파라미터 (id: 방송 ID)
  */
@@ -81,16 +104,9 @@ export default async function StreamDetailPage({
   const broadcastId = Number(params.id);
   if (!Number.isFinite(broadcastId) || broadcastId <= 0) notFound();
 
-  // 방송 상세 조회 (Cached + Tag)
-  const getCachedBroadcast = nextCache(
-    () => _getCachedBroadcastBase(broadcastId),
-    ["broadcast-detail-by-id"],
-    { tags: [T.BROADCAST_DETAIL(broadcastId)] }
-  );
-
   const [session, fetched] = await Promise.all([
     getSession(),
-    getCachedBroadcast(),
+    getCachedBroadcastDetail(broadcastId),
   ]);
 
   if (!session?.id) {
@@ -102,19 +118,29 @@ export default async function StreamDetailPage({
 
   const initialBroadcast = fetched as StreamDetailDTO;
   const ownerId = initialBroadcast.userId ?? null;
-  if (!ownerId) notFound();
+  // 1. 차단 관계 확인 가드
+  // 소유자가 본인이 아닐 때, 양방향 차단 여부(내가 차단했거나, 나를 차단했거나)를 검사
+  if (session.id !== ownerId) {
+    const isBlocked = await checkBlockRelation(session.id, ownerId);
+    if (isBlocked) {
+      redirect(
+        `/403?reason=BLOCKED` +
+          `&username=${encodeURIComponent(initialBroadcast.user.username)}` +
+          `&callbackUrl=${encodeURIComponent(`/streams/${broadcastId}`)}`
+      );
+    }
+  }
 
-  const isOwner = !!session?.id && session.id === ownerId;
-
-  // 접근 권한 체크
+  // 2. 기존 권한 체크 (PRIVATE / FOLLOWERS)
+  const isOwner = session.id === ownerId;
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
     const guard = await checkBroadcastAccess(
       {
-        userId: initialBroadcast.userId,
+        userId: ownerId,
         visibility: initialBroadcast.visibility as StreamVisibility,
       },
-      session?.id ?? null,
+      session.id,
       { isPrivateUnlocked: isUnlocked }
     );
 
@@ -128,22 +154,35 @@ export default async function StreamDetailPage({
     }
   }
 
-  // 채팅방 및 유저 정보 조회
+  // 3. 채팅방 및 유저 정보 조회
   const [streamChatRoom, user] = await Promise.all([
     getStreamChatRoom(broadcastId),
-    getUserInfoById(session.id!),
+    getUserInfoById(session.id),
   ]);
   if (!streamChatRoom || !user) notFound();
 
   const initialStreamMessage = await getInitialStreamMessages(
     streamChatRoom.id
   );
+  // 현재 접속한 유저가 과거에 차단했던 유저 목록을 DB에서 가져옴(기존 채팅에서 차단한 유저의 메세지 지우기 위해서)
+  const blockedIds = session.id ? await getBlockedUserIds(session.id) : [];
 
   return (
     <div className="flex flex-col min-h-screen bg-background transition-colors">
+      {/* 실시간 차단 감지 가드 추가 */}
+      <StreamBlockGuard
+        viewerId={session?.id ?? null}
+        ownerId={ownerId}
+        ownerUsername={initialBroadcast.user.username}
+      />
+
       <StreamTopbar
+        streamId={broadcastId}
+        ownerId={ownerId!}
+        ownerUsername={initialBroadcast.user.username}
+        title={initialBroadcast.title}
         visibility={initialBroadcast.visibility}
-        backFallbackHref="/streams"
+        isOwner={isOwner}
       />
 
       <div className="flex-1 xl:grid xl:grid-cols-[1fr,min(100%,1000px),360px] 2xl:grid-cols-[1fr,min(100%,1100px),400px] xl:gap-4 xl:p-4">
@@ -167,6 +206,7 @@ export default async function StreamDetailPage({
             streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
             userId={session.id!}
             username={user.username}
+            initialBlockedUserIds={blockedIds}
             fillParent
           />
         </div>
@@ -180,6 +220,7 @@ export default async function StreamDetailPage({
           streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
           userId={session.id!}
           username={user.username}
+          initialBlockedUserIds={blockedIds}
         />
       </div>
     </div>

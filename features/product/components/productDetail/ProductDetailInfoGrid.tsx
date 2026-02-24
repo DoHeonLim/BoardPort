@@ -40,7 +40,7 @@ interface ProductDetailInfoGridProps {
 }
 
 /**
- * 카테고리, 인원, 시간, 상태 등 상세 정보를 2열 그리드로 표시합니다.
+ * 카테고리, 인원, 시간, 상태 등 상세 정보를 2열 그리드로 표시
  */
 export default function ProductDetailInfoGrid({
   category,

@@ -13,7 +13,7 @@
 
 import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
 /**
- * 검색 파라미터들을 조합하여 요약 문자열을 생성합니다.
+ * 검색 파라미터들을 조합하여 요약 문자열을 생성
  * (예: "보드게임, 전략, 추리")
  *
  * @param {string} categoryName - 카테고리 이름 (이미 변환된 값)

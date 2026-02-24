@@ -17,6 +17,7 @@ import {
   updateProfileService,
   changePasswordService,
 } from "@/features/user/service/edit";
+import { updateUserLocation } from "@/features/user/service/profile";
 import { getUserInfoById as getUserInfoService } from "@/features/user/service/profile";
 import {
   profileEditSchema,
@@ -28,6 +29,7 @@ import type {
   EditProfileActionState,
   ChangePasswordActionState,
 } from "@/features/user/types";
+import type { LocationData } from "@/features/map/types";
 
 /**
  * 프로필 수정 Action
@@ -166,4 +168,28 @@ export async function changePasswordAction(
 
 export async function getUserInfoAction(userId: number) {
   return await getUserInfoService(userId);
+}
+
+/**
+ * 유저 위치 설정 Action
+ */
+export async function updateUserLocationAction(
+  location: Partial<LocationData>
+) {
+  const session = await getSession();
+  if (!session?.id) return { success: false, error: USER_ERRORS.NOT_LOGGED_IN };
+
+  const result = await updateUserLocation(session.id, location);
+
+  if (result.success) {
+    // 유저 정보 갱신
+    revalidateTag(T.USER_CORE_ID(session.id));
+
+    // 리스트 페이지들의 디폴트 필터링 결과가 달라지므로 갱신
+    revalidatePath("/products");
+    revalidatePath("/posts");
+    revalidatePath("/profile");
+  }
+
+  return result;
 }

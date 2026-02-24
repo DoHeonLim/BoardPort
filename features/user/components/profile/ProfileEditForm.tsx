@@ -423,7 +423,7 @@ export default function ProfileEditForm({
   const phoneReg = register("phone");
 
   return (
-    <div className="layout-container py-page-y px-page-x bg-background">
+    <div className="layout-container pt-page-y pb-24 px-page-x bg-background">
       <h1 className="text-2xl font-bold text-center mb-8 text-primary">
         프로필 수정
       </h1>

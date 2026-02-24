@@ -33,10 +33,8 @@ import { useFollowController } from "@/features/user/hooks/useFollowController";
 export type FollowSectionProps = {
   /** 타겟 유저 id */
   ownerId: number;
-
   /** 타겟 유저 username(팔로워/팔로잉 API seed 호출 시 사용) */
   ownerUsername: string;
-
   /**
    * 서버에서 미리 내려준 초기 상태(없으면 0/false로 시작)
    * - isFollowing: viewer → owner 단건 팔로우 상태
@@ -47,29 +45,23 @@ export type FollowSectionProps = {
     followerCount?: number;
     followingCount?: number;
   };
-
   /** viewer 정보(로그인 유저). id만 있으면 됨 */
   viewer?: { id?: number | null };
-
   /** 기본 true, 단 viewer?.id === ownerId 면 내부에서 자동 false */
   showButton?: boolean;
-
   /** UI 크기 */
   size?: "regular" | "compact";
-
   /** 정렬 */
   align?: "start" | "center" | "end";
-
   className?: string;
-
   /** 로그인 필요시 호출(없으면 no-op; 페이지에서 라우팅 처리 권장) */
   onRequireLogin?: () => void;
-
   /** 외부에서 팔로잉 상태 변화를 듣고 싶을 때(초기 1회는 스킵) */
   onFollowingChange?: (isFollowing: boolean) => void;
-
   /** 외부 CTA(rail 등)에서 팔로우 버튼을 찾을 수 있도록 id 주입 */
   followButtonId?: string;
+  // 차단 여부
+  isBlocked?: boolean;
 };
 
 /**
@@ -93,6 +85,7 @@ export default function FollowSection({
   onRequireLogin,
   onFollowingChange,
   followButtonId,
+  isBlocked,
 }: FollowSectionProps) {
   const viewerId = viewer?.id ?? undefined;
 
@@ -229,7 +222,8 @@ export default function FollowSection({
           id={followButtonId}
           type="button"
           onClick={onToggleFollow}
-          disabled={isPending}
+          disabled={isPending || isBlocked} // 차단 시 버튼 비활성화
+          title={isBlocked ? "차단 관계에서는 팔로우할 수 없습니다" : ""}
           aria-pressed={isFollowing}
           aria-busy={isPending}
           aria-label={

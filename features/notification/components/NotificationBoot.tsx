@@ -21,10 +21,10 @@ import type { MeResponse } from "@/app/api/me/route";
 /**
  * 알림 시스템 부트스트랩 컴포넌트
  *
- * - `RootLayout`에 배치되어 앱이 로드될 때 실행됩니다.
- * - `/api/me`를 호출하여 현재 로그인된 유저 ID를 확인합니다. (캐시 방지를 위해 `no-store` 사용)
- * - 유저 ID가 확인되면 `NotificationListener`를 렌더링하여 실시간 알림 구독을 시작합니다.
- * - 비로그인 상태이거나 에러 발생 시 아무것도 렌더링하지 않습니다.
+ * - `RootLayout`에 배치되어 앱이 로드될 때 실행
+ * - `/api/me`를 호출하여 현재 로그인된 유저 ID를 확인 (캐시 방지를 위해 `no-store` 사용)
+ * - 유저 ID가 확인되면 `NotificationListener`를 렌더링하여 실시간 알림 구독을 시작
+ * - 비로그인 상태이거나 에러 발생 시 아무것도 렌더링하지 않음
  */
 export default function NotificationBoot() {
   const [userId, setUserId] = useState<number | null>(null);

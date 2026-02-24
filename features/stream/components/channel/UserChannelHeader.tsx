@@ -29,6 +29,7 @@ interface Props {
   initialIsFollowing: boolean;
 
   isMe: boolean;
+  isBlocked?: boolean;
   viewerId?: number;
 
   onRequireLogin?: () => void;
@@ -38,9 +39,9 @@ interface Props {
 /**
  * 방송국 상단 헤더 컴포넌트
  *
- * - 스트리머의 프로필 정보(아바타, 이름)를 표시합니다.
- * - `FollowSection`을 포함하여 팔로워 수/팔로우 버튼을 제공합니다.
- * - 일반 프로필 페이지로 이동하는 링크를 제공합니다.
+ * - 스트리머의 프로필 정보(아바타, 이름)를 표시
+ * - `FollowSection`을 포함하여 팔로워 수/팔로우 버튼을 제공
+ * - 일반 프로필 페이지로 이동하는 링크를 제공
  */
 export default function UserChannelHeader({
   ownerId,
@@ -50,6 +51,7 @@ export default function UserChannelHeader({
   initialFollowingCount,
   initialIsFollowing,
   isMe,
+  isBlocked,
   viewerId,
   onRequireLogin,
   onFollowingChange,
@@ -85,6 +87,7 @@ export default function UserChannelHeader({
                 onRequireLogin={onRequireLogin}
                 onFollowingChange={onFollowingChange}
                 followButtonId="channel-follow-button"
+                isBlocked={isBlocked}
               />
             </div>
           </div>

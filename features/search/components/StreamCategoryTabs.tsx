@@ -26,7 +26,7 @@ interface StreamCategoryTabsProps {
 
 /**
  * 스트리밍 목록용 카테고리 필터 탭
- * - 기존 검색어(keyword)나 스코프(scope) 파라미터를 유지하면서 카테고리만 변경합니다.
+ * - 기존 검색어(keyword)나 스코프(scope) 파라미터를 유지하면서 카테고리만 변경
  */
 export default function StreamCategoryTabs({
   currentCategory,
@@ -48,13 +48,13 @@ export default function StreamCategoryTabs({
 
   return (
     <nav
-      className="flex gap-2 overflow-x-auto scrollbar-hide pb-1"
+      className="flex gap-2 overflow-x-auto scrollbar-hide"
       aria-label="스트리밍 카테고리"
     >
       <Link
         href={buildHref(undefined)}
         className={cn(
-          "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+          "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
           !currentCategory
             ? "bg-brand text-white shadow-md"
             : "bg-surface-dim text-muted hover:text-primary hover:bg-surface border border-transparent hover:border-border"
@@ -68,7 +68,7 @@ export default function StreamCategoryTabs({
           key={key}
           href={buildHref(key)}
           className={cn(
-            "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+            "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
             currentCategory === key
               ? "bg-brand text-white shadow-md"
               : "bg-surface-dim text-muted hover:text-primary hover:bg-surface border border-transparent hover:border-border"

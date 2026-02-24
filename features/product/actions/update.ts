@@ -14,6 +14,7 @@
  * 2025.06.15  임도헌   Modified  제품 수정 로직 lib로 분리 후 연결
  * 2026.01.20  임도헌   Modified  Service 연동, 세션 체크, 캐시 무효화
  * 2026.01.27  임도헌   Modified  주석 설명 보강
+ * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
  */
 "use server";
 
@@ -26,10 +27,10 @@ import type { ProductFormResponse, ProductDTO } from "@/features/product/types";
 
 /**
  * 기존 제품 정보 수정 Action
- * - 폼 데이터를 파싱하고 검증합니다.
- * - 로그인 세션을 확인합니다.
- * - Service 계층을 호출하여 제품 정보를 업데이트합니다. (소유권 검증 포함)
- * - 성공 시 제품 상세 및 판매자 관련 캐시 태그를 무효화합니다.
+ * - 폼 데이터를 파싱하고 검증
+ * - 로그인 세션을 확인
+ * - Service 계층을 호출하여 제품 정보를 업데이트 (소유권 검증 포함)
+ * - 성공 시 제품 상세 및 판매자 관련 캐시 태그를 무효화
  *
  * @param {FormData} formData - 수정할 데이터가 담긴 폼 데이터
  * @returns {Promise<ProductFormResponse>} 성공 여부 및 productId
@@ -53,6 +54,15 @@ export async function updateProductAction(
   const photos = formData.getAll("photos[]").map(String);
   const tagsString = formData.get("tags")?.toString() || "[]";
   const tags = JSON.parse(tagsString);
+  const locationRaw = formData.get("location")?.toString();
+  let locationData = null;
+  if (locationRaw) {
+    try {
+      locationData = JSON.parse(locationRaw);
+    } catch {
+      console.error("Location parse error");
+    }
+  }
 
   const rawData = {
     id: productId,
@@ -69,6 +79,7 @@ export async function updateProductAction(
     has_manual: formData.get("has_manual") === "true",
     categoryId: formData.get("categoryId"),
     tags,
+    location: locationData,
   };
 
   // 2. Zod 검증

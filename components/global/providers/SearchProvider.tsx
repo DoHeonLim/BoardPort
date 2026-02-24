@@ -40,9 +40,9 @@ const SearchContext = createContext<SearchContextValue | null>(null);
  * 검색 및 필터 상태를 전역 관리하는 Provider
  *
  * [기능]
- * 1. URL 쿼리 파라미터(`searchParams`)를 파싱하여 초기 필터 상태를 설정합니다.
- * 2. URL 변경 시 필터 상태를 동기화합니다.
- * 3. 검색 모달의 열림/닫힘 상태(`isSearchOpen`)를 관리합니다.
+ * 1. URL 쿼리 파라미터(`searchParams`)를 파싱하여 초기 필터 상태를 설정
+ * 2. URL 변경 시 필터 상태를 동기화
+ * 3. 검색 모달의 열림/닫힘 상태(`isSearchOpen`)를 관리
  */
 export function SearchProvider({
   children,

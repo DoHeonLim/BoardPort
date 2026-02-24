@@ -22,11 +22,16 @@
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 스코프 탭 스타일 통일
  * 2026.01.23  임도헌   Modified  Action Wrapper 제거 -> Service(getStreams) 직접 호출
  * 2026.01.29  임도헌   Modified  주석 설명 보강
+ * 2026.02.08  임도헌   Modified  헤더 우측에 알림 벨(NotificationBell) 추가, 검색창과 카테고리 탭 위치 변경
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가
  */
+import { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
+import NotificationBell from "@/components/global/NotificationBell";
 import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
 import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
 import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
@@ -34,6 +39,7 @@ import AddStreamButton from "@/features/stream/components/AddStreamButton";
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import { getStreams } from "@/features/stream/service/list";
+import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 
 export const dynamic = "force-dynamic";
 
@@ -45,19 +51,31 @@ interface StreamsPageProps {
   };
 }
 
+export const metadata: Metadata = {
+  title: "등대방송 (라이브)",
+  description: "실시간 보드게임 플레이와 소통 방송을 시청하세요.",
+  openGraph: {
+    title: "보드포트 등대방송",
+    description: "보드게임 라이브 스트리밍과 다시보기",
+  },
+};
 /**
  * 스트리밍 목록 페이지
  *
  * [기능]
- * 1. 검색 조건(키워드, 카테고리, 스코프)에 따라 방송 목록을 조회합니다. (`getStreams` Service)
- * 2. `LiveStatusRealtimeSubscriber`를 통해 실시간 상태 갱신을 구독합니다.
- * 3. 카테고리 탭과 검색바를 상단에 고정 표시합니다.
- * 4. 목록(`StreamListSection`) 또는 빈 상태(`StreamEmptyState`)를 렌더링합니다.
- * 5. 우측 하단에 방송 시작 버튼(`AddStreamButton`)을 표시합니다.
+ * 1. 검색 조건(키워드, 카테고리, 스코프)에 따라 방송 목록을 조회 (`getStreams` Service)
+ * 2. `LiveStatusRealtimeSubscriber`를 통해 실시간 상태 갱신을 구독
+ * 3. 카테고리 탭과 검색바를 상단에 고정 표시
+ * 4. 목록(`StreamListSection`) 또는 빈 상태(`StreamEmptyState`)를 렌더링
+ * 5. 우측 하단에 방송 시작 버튼(`AddStreamButton`)을 표시
  */
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const session = await getSession();
   const viewerId = session?.id ?? null;
+
+  if (!viewerId) {
+    redirect("/login?callbackUrl=/streams");
+  }
 
   // 파라미터 정규화
   const scope = searchParams.scope === "following" ? "following" : "all";
@@ -67,16 +85,17 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const TAKE = STREAMS_PAGE_TAKE;
 
   // Service 직접 호출 (Action Wrapper 제거)
-  const allItems = await getStreams({
-    scope,
-    category,
-    keyword,
-    viewerId,
-    cursor: null,
-    take: TAKE + 1, // 다음 페이지 존재 확인용 +1
-    // * 리스트에서 팔로우 전용 방송의 잠금 상태(lock UI)를 표시하기 위해 팔로우 여부 조인이 필요함
-    // * getStreams 내부에서 viewerId가 있으면 followers 조인을 수행하도록 구현되어 있음
-  });
+  const [allItems, unreadCount] = await Promise.all([
+    getStreams({
+      scope,
+      category,
+      keyword,
+      viewerId,
+      cursor: null,
+      take: TAKE + 1,
+    }),
+    getUnreadNotificationCount(),
+  ]);
 
   // Cursor 계산
   const hasMore = allItems.length > TAKE;
@@ -100,13 +119,24 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4 shadow-sm">
-        <StreamCategoryTabs currentCategory={category} />
+        <div className="flex items-center justify-between gap-3">
+          {/* Search + Bell Group */}
+          <div className="flex flex-1 items-center gap-2 min-w-0">
+            <StreamSearchBarWrapper />
+            <div className="shrink-0">
+              <NotificationBell userId={viewerId} initialCount={unreadCount} />
+            </div>
+          </div>
+        </div>
 
-        <div className="mt-4 flex items-center justify-between gap-4">
-          <StreamSearchBarWrapper />
-
-          {/* Scope Tab (All / Following) */}
-          <nav aria-label="스트리밍 보기 범위" role="tablist">
+        <div className="flex justify-center items-center gap-3 mt-4">
+          <StreamCategoryTabs currentCategory={category} />
+          {/* Scope Tab */}
+          <nav
+            aria-label="스트리밍 보기 범위"
+            role="tablist"
+            className="shrink-0"
+          >
             <div className="flex p-1 bg-surface-dim rounded-xl border border-border">
               <Link
                 href={buildHref("all")}

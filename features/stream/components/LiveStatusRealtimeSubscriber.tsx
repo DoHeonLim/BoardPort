@@ -24,9 +24,9 @@ interface Props {
 
 /**
  * 전역적인 방송 상태 변경 이벤트를 구독하여 페이지를 새로고침(refresh)하는 컴포넌트
- * - 주로 목록 페이지나 상세 페이지 상단에 배치하여 실시간성을 보장합니다.
- * - `live-status` 채널을 구독합니다.
- * - 디바운스 및 가시성 체크를 통해 불필요한 새로고침을 방지합니다.
+ * - 주로 목록 페이지나 상세 페이지 상단에 배치하여 실시간성을 보장
+ * - `live-status` 채널을 구독
+ * - 디바운스 및 가시성 체크를 통해 불필요한 새로고침을 방지
  */
 export default function LiveStatusRealtimeSubscriber({
   ignoreSelf = true,

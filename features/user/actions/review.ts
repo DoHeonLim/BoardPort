@@ -6,15 +6,17 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   Client Hook용 Server Action 생성
+ * 2026.02.05  임도헌   Modified  리뷰 조회 시 viewerId 전달
  */
 "use server";
 
+import getSession from "@/lib/session";
 import { getMoreUserReviews } from "@/features/user/service/review";
 import type { ReviewCursor } from "@/features/user/types";
 
 /**
  * 유저 리뷰 추가 로드 Action
- * - 클라이언트 무한 스크롤(`useReviewPagination`)에서 호출됩니다.
+ * - 클라이언트 무한 스크롤(`useReviewPagination`)에서 호출
  *
  * @param targetUserId - 리뷰 대상 유저 ID
  * @param cursor - 키셋 페이징 커서 (createdAt, id)
@@ -24,5 +26,7 @@ export async function getMoreUserReviewsAction(
   cursor: ReviewCursor,
   limit = 10
 ) {
-  return await getMoreUserReviews(targetUserId, cursor, limit);
+  const session = await getSession();
+  const viewerId = session?.id ?? null;
+  return await getMoreUserReviews(targetUserId, cursor, limit, viewerId);
 }

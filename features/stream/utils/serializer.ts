@@ -42,12 +42,12 @@ type RawRow = {
 };
 
 /**
- * 스트림 데이터를 UI에서 사용하기 쉬운 형태(`BroadcastSummary`)로 직렬화합니다.
+ * 스트림 데이터를 UI에서 사용하기 쉬운 형태(`BroadcastSummary`)로 직렬화
  *
  * [접근 제어 플래그 계산]
- * 1. `requiresPassword`: PRIVATE 방송이면서 본인이 아닌 경우 true.
+ * 1. `requiresPassword`: PRIVATE 방송이면서 본인이 아닌 경우 true
  *    (단, 실제 비밀번호 언락 여부는 Session에 있으므로, 이 플래그는 "비밀번호가 필요한 상태임"을 나타냄)
- * 2. `followersOnlyLocked`: FOLLOWERS 방송이면서 본인도 아니고 팔로워도 아닌 경우 true.
+ * 2. `followersOnlyLocked`: FOLLOWERS 방송이면서 본인도 아니고 팔로워도 아닌 경우 true
  *
  * @param s - DB 원시 데이터 Row
  * @param opts - 현재 뷰어의 상태 (isFollowing, isMine)

@@ -16,22 +16,33 @@
  * 2026.01.22  임도헌   Modified  init 제거 (Service 직접 호출로 변경)
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/products/actions/init.ts -> features/product/actions/list.ts
+ * 2026.02.05  임도헌   Modified  제품 목록 조회 시 viewerId 전달 (차단 필터링)
  */
 
 "use server";
 
+import getSession from "@/lib/session";
 import { getMoreProducts as fetchMore } from "@/features/product/service/list";
-import type { Paginated, ProductType } from "@/features/product/types";
+import type {
+  Paginated,
+  ProductType,
+  ProductSearchParams,
+} from "@/features/product/types";
 
 /**
- * 무한 스크롤용 추가 데이터 로드 Action
- * - 클라이언트 컴포넌트(`ProductList`)에서 다음 페이지 요청 시 호출됩니다.
+ * 무한 스크롤용 추가 제품 데이터 로드 Action
+ * - 클라이언트 컴포넌트에서 다음 페이지 요청 시 호출
+ * - 초기 로딩 시 적용된 검색 조건(params)을 그대로 유지하여 Service에 전달
  *
- * @param {number | null} cursor - 마지막 아이템 ID
- * @returns {Promise<Paginated<ProductType>>} 다음 페이지 데이터
+ * @param cursor - 마지막 아이템 ID
+ * @param params - 검색 파라미터 (keyword, region, category 등)
  */
 export const getMoreProducts = async (
-  cursor: number | null
+  cursor: number | null,
+  params: ProductSearchParams
 ): Promise<Paginated<ProductType>> => {
-  return fetchMore(cursor);
+  const session = await getSession();
+  const viewerId = session?.id ?? -1; // 비로그인 시 -1 (필터링 없음)
+
+  return fetchMore(cursor, params, viewerId);
 };

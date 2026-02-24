@@ -19,9 +19,9 @@ import type { ReviewServiceResult } from "@/features/review/types";
 
 /**
  * 리뷰 생성 Action
- * - 로그인 세션을 확인합니다.
- * - 입력값을 Zod 스키마로 검증합니다.
- * - Service 계층을 호출하여 리뷰를 생성하고, 성공 시 제품 상세 캐시를 무효화합니다.
+ * - 로그인 세션을 확인
+ * - 입력값을 Zod 스키마로 검증
+ * - Service 계층을 호출하여 리뷰를 생성하고, 성공 시 제품 상세 캐시를 무효화
  *
  * @param productId - 제품 ID
  * @param payload - 리뷰 내용
@@ -52,9 +52,15 @@ export async function createReviewAction(
 
   const result = await createReviewService(session.id, parsed.data);
 
-  if (result.success) {
-    const { productId } = parsed.data;
+  if (result.success && result.meta) {
+    const { productId, sellerId, buyerId } = result.meta;
+
     revalidateTag(T.PRODUCT_DETAIL_ID(productId));
+    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", sellerId));
+
+    if (buyerId) {
+      revalidateTag(T.USER_PRODUCTS_SCOPE_ID("PURCHASED", buyerId));
+    }
   }
 
   return result;

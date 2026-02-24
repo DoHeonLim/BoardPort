@@ -15,6 +15,7 @@
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/posts.ts (submitPost) -> features/post/actions/posts.ts
  * 2026.02.01  임도헌   Modified  posts.ts에서 생성/수정 로직 분리(create.ts, update.ts)
+ * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
  */
 "use server";
 
@@ -27,8 +28,8 @@ import type { PostActionResponse, PostCreateDTO } from "@/features/post/types";
 
 /**
  * 게시글 생성 Action
- * - 폼 데이터 검증 후 Service를 호출하여 게시글을 생성합니다.
- * - 성공 시 게시글 목록 캐시를 무효화합니다.
+ * - 폼 데이터 검증 후 Service를 호출하여 게시글을 생성
+ * - 성공 시 게시글 목록 캐시를 무효화
  *
  * @param formData - 게시글 폼 데이터
  * @returns 처리 결과 (성공 시 postId 포함)
@@ -47,8 +48,16 @@ export async function createPostAction(
   } catch {
     tags = [];
   }
-
   const photos = formData.getAll("photos[]").map(String);
+  const locationRaw = formData.get("location")?.toString();
+  let locationData = null;
+  if (locationRaw) {
+    try {
+      locationData = JSON.parse(locationRaw);
+    } catch {
+      console.error("Location parse error");
+    }
+  }
 
   const rawData = {
     title: formData.get("title"),
@@ -58,6 +67,7 @@ export async function createPostAction(
     photos: photos.length
       ? photos
       : JSON.parse(formData.get("photos")?.toString() || "[]"),
+    location: locationData,
   };
 
   // 2. Zod 검증

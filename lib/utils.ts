@@ -16,20 +16,22 @@
  * 2025.11.29  임도헌   Modified   DB 의존 함수 분리(Prisma 7 빌드 이슈 대응)
  * 2025.11.29  임도헌   Modified   formatToTimeAgo 로직 변경(nowInput 추가)
  * 2026.02.02  임도헌   Modified   JSDoc 표준화 및 유틸 역할 명확화
+ * 2026.02.13  임도헌   Modified  공유하기 공용 유틸(handleShare) 추가
  */
 
 import { clsx, type ClassValue } from "clsx";
+import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 
 /**
  * Tailwind CSS 클래스 병합 유틸리티
- * - clsx로 조건부 클래스를 처리하고 twMerge로 스타일 충돌을 방지합니다.
+ * - clsx로 조건부 클래스를 처리하고 twMerge로 스타일 충돌을 방지
  */
 export const cn = (...inputs: ClassValue[]): string => twMerge(clsx(...inputs));
 
 /**
  * 상대 시간 표시 유틸리티 (한국 시간대 기준)
- * - 입력된 날짜를 현재 시각과 비교하여 "방금 전", "N분 전", "N일 전" 등으로 반환합니다.
+ * - 입력된 날짜를 현재 시각과 비교하여 "방금 전", "N분 전", "N일 전" 등으로 반환
  *
  * @param date - ISO 8601 형식의 날짜 문자열 또는 Date 객체
  * @param nowInput - 비교 기준이 될 현재 시각 (ms, 생략 시 현재 시각)
@@ -84,4 +86,30 @@ export const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}분 ${s}초`;
+};
+
+/**
+ * 전역 공유하기 핸들러
+ * - Web Share API를 우선 사용하며, 미지원 환경에서는 URL을 클립보드에 복사함
+ *
+ * @param title 공유할 제목
+ * @param url 공유할 URL (생략 시 현재 창 주소)
+ */
+export const handleShare = async (title: string, url?: string) => {
+  const shareUrl =
+    url || (typeof window !== "undefined" ? window.location.href : "");
+
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ title, url: shareUrl });
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("링크가 클립보드에 복사되었습니다. ⚓");
+    }
+  } catch (error) {
+    // 사용자가 공유를 취소한 경우는 무시, 그 외 에러만 처리
+    if (!(error instanceof Error && error.name === "AbortError")) {
+      toast.error("공유하기에 실패했습니다.");
+    }
+  }
 };

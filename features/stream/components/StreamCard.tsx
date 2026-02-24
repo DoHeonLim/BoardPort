@@ -27,44 +27,50 @@
  * 2026.01.25  임도헌   Modified  녹화본 메타데이터(duration, viewCount) 내부 렌더링 지원 (UI 깨짐 수정)
  * 2026.01.25  임도헌   Modified  카테고리를 썸네일 우측 상단 오버레이로 이동, 하단에 태그(#) 추가
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  */
 
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { cn, formatToTimeAgo, formatDuration } from "@/lib/utils";
 import UserAvatar from "@/components/global/UserAvatar";
-import PrivateAccessModal from "@/features/stream/components/PrivateAccessModal";
 import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { StreamCategory, StreamVisibility } from "@/features/stream/types";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
 
+const PrivateAccessModal = dynamic(
+  () => import("@/features/stream/components/PrivateAccessModal"),
+  { ssr: false }
+);
+
 interface StreamCardProps {
-  id: number; /** unlock 타깃(원본 streamId 권장) */
-  vodIdForRecording?: number; /** 녹화본 페이지로 이동할 때 사용할 VodAsset id (없으면 id로 폴백) */
+  id: number /** unlock 타깃(원본 streamId 권장) */;
+  vodIdForRecording?: number /** 녹화본 페이지로 이동할 때 사용할 VodAsset id (없으면 id로 폴백) */;
   title: string;
   thumbnail?: string | null;
-  isLive: boolean; /** 라이브 여부 (false면 다시보기 배지 표시) */
+  isLive: boolean /** 라이브 여부 (false면 다시보기 배지 표시) */;
   streamer: { username: string; avatar?: string | null };
   startedAt?:
     | Date
     | string
-    | null; /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */
+    | null /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */;
   category?: StreamCategory | null;
   tags?: { name: string }[];
   duration?: number; // 초 단위
   viewCount?: number; // 조회수
   shortDescription?: boolean;
-  href?: string; /** 직접 지정하면 우선 사용, 없으면 isLive 기준으로 기본 경로 계산 */
+  href?: string /** 직접 지정하면 우선 사용, 없으면 isLive 기준으로 기본 경로 계산 */;
   // 서버 플래그
-  requiresPassword?: boolean; /** PRIVATE 접근 필요 여부(언락 전). 언락 후 false가 될 수 있음 */
-  isFollowersOnly?: boolean; /** FOLLOWERS 타입 여부(형식) — 전달 안 되면 visibility로 판정 */
-  followersOnlyLocked?: boolean; /** 비팔로워라 접근 잠금일 때 true (오버레이/CTA 트리거) */
-  visibility?: StreamVisibility; /** visibility가 있으면 배지/잠금 보조 판별에 사용 가능 */
+  requiresPassword?: boolean /** PRIVATE 접근 필요 여부(언락 전). 언락 후 false가 될 수 있음 */;
+  isFollowersOnly?: boolean /** FOLLOWERS 타입 여부(형식) — 전달 안 되면 visibility로 판정 */;
+  followersOnlyLocked?: boolean /** 비팔로워라 접근 잠금일 때 true (오버레이/CTA 트리거) */;
+  visibility?: StreamVisibility /** visibility가 있으면 배지/잠금 보조 판별에 사용 가능 */;
   // 옵션: 언락 이후에도 '비밀' 배지를 계속 보여주고 싶다면 명시적으로 true 전달
-  isPrivateType?: boolean; /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비밀' 배지를 유지하고 싶을 때 사용) */
+  isPrivateType?: boolean /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비밀' 배지를 유지하고 싶을 때 사용) */;
   onRequestFollow?: () => void; // 팔로우 CTA// 옵션 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
@@ -80,11 +86,16 @@ function resolveThumbUrl(src?: string | null): string | null {
  * 스트리밍 카드 컴포넌트
  *
  * [기능]
- * 1. 라이브 및 녹화본(VOD) 정보를 카드 형태로 표시합니다.
- * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 조회수 등)를 렌더링합니다.
- * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공합니다.
- * 4. 마우스 호버 시 라이브 미리보기(iframe)를 로드합니다.
- * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행합니다.
+ * 1. 라이브 및 녹화본(VOD) 정보를 카드 형태로 표시
+ * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 조회수 등)를 렌더링
+ * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공
+ * 4. 마우스 호버 시 라이브 미리보기(iframe)를 로드
+ * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행
+ *
+ * [권한]
+ * - `PRIVATE` 방송: `requiresPassword` prop을 SSOT로 사용 (서버에서 세션의 언락 여부까지 확인하여 주입됨)
+ * - `FOLLOWERS` 방송: 서버에서 받은 `followersOnlyLocked` 플래그를 기본으로 하되,
+ *   클라이언트의 팔로우 상태(`isFollowing`) 변화를 실시간으로 반영하여 잠금을 즉시 해제/설정
  */
 export default function StreamCard(props: StreamCardProps) {
   const {
@@ -120,8 +131,8 @@ export default function StreamCard(props: StreamCardProps) {
       (isLive
         ? `/streams/${id}` // 라이브는 broadcastId
         : vodIdForRecording
-          ? `/streams/${vodIdForRecording}/recording` // 녹화는 vodId
-          : `/streams/${id}/recording`), // fallback: 예전 방식
+        ? `/streams/${vodIdForRecording}/recording` // 녹화는 vodId
+        : `/streams/${id}/recording`), // fallback: 예전 방식
     [href, isLive, id, vodIdForRecording]
   );
 
