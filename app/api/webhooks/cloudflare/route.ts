@@ -13,6 +13,8 @@
  * 2025.11.22  임도헌   Modified  broadcast-list 캐시 태그 제거, 상세/user-streams-id 태그만 유지
  * 2026.01.08  임도헌   Modified  방송 재접속(CONNECTED) 시 ended_at 초기화(null) 추가
  * 2026.02.23  임도헌   Modified  Webhook 재전송 시 VOD 중복 생성 방지(P2002 무시) 및 에러 로깅 강화
+ * 2026.02.25  임도헌   Modified  순서 보장 가드, VOD 소유권 검증 강화
+ * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 최초 등록용 테스트 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
  */
 
 import "server-only";
@@ -53,10 +55,7 @@ const MAX_SKEW_SEC = 300;
 /*                             서명/보안 유틸 함수                             */
 /**
  * Webhook-Signature 헤더 파싱
- *
- * 예시 헤더 형식:
- *   "time=1680000000,sig1=abcdef..."
- *
+ * 예시 헤더 형식: "time=1680000000,sig1=abcdef..."
  * @param header - Webhook-Signature 헤더 값
  * @returns 파싱된 time(문자열)과 sig1(hex 문자열) 또는 null
  */
@@ -79,8 +78,6 @@ function parseStreamSignature(
 
 /**
  * 문자열이 16진수(hex) 형식인지 확인 (최소 32자)
- * - Cloudflare 대시보드에서 제공하는 hex key를 처리하기 위함
- *
  * @param s - 검사할 문자열
  */
 function looksHex(s: string) {
@@ -89,7 +86,6 @@ function looksHex(s: string) {
 
 /**
  * 16진수 문자열 → Uint8Array 변환
- *
  * @param hex - 16진수 문자열
  */
 function hexToBytes(hex: string): Uint8Array {
@@ -102,9 +98,7 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 /**
- * 상수 시간(constant-time) 바이트 배열 비교
- * - 타이밍 공격 방지용
- *
+ * 상수 시간(constant-time) 바이트 배열 비교 (타이밍 공격 방지)
  * @param a - 비교 대상 1
  * @param b - 비교 대상 2
  */
@@ -282,7 +276,6 @@ function getLiveInputUid(body: any): string | null {
 function isAssetReadyPayload(body: any): boolean {
   // Destination Webhook의 경우 body.data 안에 실제 페이로드가 들어있는 경우가 많으므로 우선 언랩
   const src = body?.data ?? body;
-
   const ready =
     src?.readyToStream === true ||
     src?.status?.state === "ready" ||
@@ -293,7 +286,6 @@ function isAssetReadyPayload(body: any): boolean {
     (src.playback.hls || src.playback.dash || typeof src.playback === "object");
 
   const uid = getAssetUid(body);
-
   return Boolean(ready && hasPlayback && typeof uid === "string");
 }
 
@@ -331,10 +323,7 @@ async function tryFillThumbnailFromCloudflare(
       },
     });
 
-    if (!resp.ok) {
-      console.warn("[CF] videos fetch failed:", resp.status, await resp.text());
-      return;
-    }
+    if (!resp.ok) return;
 
     const json = await resp.json();
     const list: any[] = Array.isArray(json?.result) ? json.result : [];
@@ -355,21 +344,21 @@ async function tryFillThumbnailFromCloudflare(
         select: { thumbnail: true },
       });
 
-      // 이미 썸네일이 있으면 유지
       if (!broadcast?.thumbnail) {
         await db.broadcast.update({
           where: { id: broadcastId },
           data: { thumbnail: thumbnailUrl },
-          select: { id: true },
         });
 
-        // 방송 상세/리스트/유저 방송 목록 캐시 무효화
-        revalidateTag(T.BROADCAST_DETAIL(broadcastId));
-        revalidateTag(T.USER_STREAMS_ID(ownerId));
+        // 관련 캐시 무효화 (비동기 처리)
+        try {
+          revalidateTag(T.BROADCAST_DETAIL(broadcastId));
+          revalidateTag(T.USER_STREAMS_ID(ownerId));
+        } catch {}
       }
     }
-  } catch (err) {
-    console.warn("[CF] fetch videos error:", err);
+  } catch {
+    // 썸네일 추출 실패는 메인 로직에 치명적이지 않음
   }
 }
 
@@ -401,7 +390,7 @@ async function onConnected(liveInputUid: string) {
   const b = li.broadcasts[0];
 
   // 이미 CONNECTED가 아닐 때만 업데이트
-  if (b.status !== "CONNECTED") {
+  if (b.status !== "CONNECTED" && b.status !== "ENDED") {
     const now = new Date();
 
     // 상태 업데이트 + started_at 기본값 세팅 + ended_at 초기화
@@ -410,25 +399,20 @@ async function onConnected(liveInputUid: string) {
       data: {
         status: "CONNECTED",
         started_at: b.started_at ?? now,
-        ended_at: null, // 재접속 시 종료 시간 제거
+        ended_at: null, // 재접속 시 종료 시간 초기화
       },
       select: { id: true, title: true, thumbnail: true },
     });
-
     // 썸네일 자동 채우기 시도 (이미지는 있어도 무시)
     try {
       await tryFillThumbnailFromCloudflare(liveInputUid, updated.id, li.userId);
-    } catch (err) {
-      console.warn("[onConnected] tryFillThumbnailFromCloudflare failed:", err);
-    }
+    } catch {}
 
     // 상태 변경에 대한 캐시 무효화 (썸네일 여부와 무관하게 항상 수행)
     try {
       revalidateTag(T.BROADCAST_DETAIL(updated.id));
       revalidateTag(T.USER_STREAMS_ID(li.userId));
-    } catch (err) {
-      console.warn("[onConnected] revalidateTag failed:", err);
-    }
+    } catch {}
 
     // 상태 변경을 Supabase Realtime 채널로 브로드캐스트
     try {
@@ -437,9 +421,7 @@ async function onConnected(liveInputUid: string) {
         status: "CONNECTED",
         ownerId: li.userId,
       });
-    } catch {
-      // 브로드캐스트 실패는 치명적이지 않으므로 무시 (필요시 별도 로깅)
-    }
+    } catch {}
     // 방송 시작 알림: 팔로워에게 STREAM 알림 + 푸시
     try {
       await sendLiveStartNotifications({
@@ -448,11 +430,10 @@ async function onConnected(liveInputUid: string) {
         broadcastTitle: updated.title,
         broadcastThumbnail: updated.thumbnail,
       });
-    } catch (err) {
-      console.warn("[onConnected] sendLiveStartNotifications failed:", err);
-    }
+    } catch {}
   }
 }
+
 /*                         이벤트 핸들러: DISCONNECTED                         */
 /**
  * live_input.disconnected 이벤트 처리
@@ -472,7 +453,7 @@ async function onDisconnected(liveInputUid: string) {
       broadcasts: {
         orderBy: { created_at: "desc" },
         take: 1,
-        select: { id: true, status: true, started_at: true, ended_at: true },
+        select: { id: true, status: true },
       },
     },
   });
@@ -480,28 +461,20 @@ async function onDisconnected(liveInputUid: string) {
 
   const b = li.broadcasts[0];
   if (b.status !== "ENDED") {
-    const now = new Date();
-
     await db.broadcast.update({
       where: { id: b.id },
-      data: { status: "ENDED", ended_at: now },
-      select: { id: true },
+      data: { status: "ENDED", ended_at: new Date() },
     });
 
-    // 방송 상세/리스트/유저 방송 목록 캐시 무효화
-    revalidateTag(T.BROADCAST_DETAIL(b.id));
-    revalidateTag(T.USER_STREAMS_ID(li.userId));
-
-    // 상태 변경 브로드캐스트
     try {
+      revalidateTag(T.BROADCAST_DETAIL(b.id));
+      revalidateTag(T.USER_STREAMS_ID(li.userId));
       await sendLiveStatusFromServer?.({
         streamId: liveInputUid,
         status: "ENDED",
         ownerId: li.userId,
       });
-    } catch {
-      // 실패 무시
-    }
+    } catch {}
   }
 }
 
@@ -523,10 +496,12 @@ async function onDisconnected(liveInputUid: string) {
  * - Broadcast와 연결된 후 방송 상세 캐시 무효화
  */
 async function onVideoReady(liveInputUid: string | null, assetBody: any) {
+  // 소유자 식별 불가 시 데이터 정합성을 위해 처리 중단
+  if (!liveInputUid) return;
+
   // data / result 래핑된 경우까지 모두 처리
   const src = assetBody?.data ?? assetBody?.result ?? assetBody;
   const assetUid = getAssetUid(assetBody);
-
   if (!assetUid) return;
 
   const playback_hls: string | null = src?.playback?.hls ?? null;
@@ -625,59 +600,36 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   }
 }
 
-/*                            메인 핸들러: POST 웹훅                           */
+/*                            메인 핸들러: GET / POST                          */
+
+/**
+ * 브라우저 접속(GET) 시 405 Method Not Allowed 대신 안내 문구를 출력합니다.
+ * - 주로 엔드포인트 활성화 여부를 체크하거나 디버깅하는 용도
+ */
+export async function GET() {
+  return NextResponse.json({
+    message: "Cloudflare Webhook Endpoint is active. Use POST to send data.",
+  });
+}
+
 /**
  * Cloudflare Stream Webhook 엔드포인트
  *
  * 처리 순서:
- * 1. 요청 바디(raw) 읽기
- * 2. 이 웹훅이 Stream Webhook 인지(Destination Webhook 인지) 판별
- *    - Webhook-Signature 헤더 존재 여부로 구분
- * 3. 서명/인증 검증
- *    - Stream Webhook : Webhook-Signature + HMAC 검증
- *    - Destination    : 커스텀 인증 헤더 유무 확인
- * 4. JSON 파싱 및 메타데이터 추출
- *    - event type (live_input.connected / disconnected / video.ready / …)
- *    - liveInputUid / assetUid
- * 5. 이벤트 타입에 따라 분기 처리
- *    - live_input.connected    → onConnected
- *    - live_input.disconnected → onDisconnected
- *    - video.ready (또는 type 없는 ready payload) → onVideoReady
- * 6. 모든 정상 흐름은 200 OK, 오류는 적절한 상태 코드와 함께 JSON 반환
+ * 1. 요청 바디(raw) 읽기 및 JSON 파싱
+ * 2. Cloudflare 웹훅 등록용 테스트 메시지("Hello World!...") 확인 및 우회 처리 (200 OK)
+ * 3. 이 웹훅이 Stream Webhook 인지(Destination Webhook 인지) 판별 및 서명 검증
+ * 4. 메타데이터 추출 (event type, liveInputUid, assetUid 등)
+ * 5. 이벤트 타입에 따라 분기 처리 (onConnected, onDisconnected, onVideoReady)
+ * 6. 정상 흐름 200 OK, 오류는 적절한 상태 코드와 함께 JSON 반환
  */
 export async function POST(req: Request) {
   try {
     const raw = await req.text();
+    // Cloudflare 웹훅 등록 테스트용 빈 바디 대응
+    if (!raw) return NextResponse.json({ ok: true });
 
-    const sigHeader = req.headers.get("webhook-signature");
-    const isStreamWebhook = !!sigHeader;
-
-    // 1) Stream Webhook → HMAC 서명 검증
-    if (isStreamWebhook) {
-      if (STREAM_SECRET) {
-        const ok = await verifyStreamSignatureWebCrypto(
-          raw,
-          sigHeader,
-          STREAM_SECRET
-        );
-        if (!ok) {
-          return NextResponse.json(
-            { ok: false, error: "BAD_SIGNATURE" },
-            { status: 401 }
-          );
-        }
-      }
-    } else {
-      // 2) Destination Webhook → 인증 헤더 확인 (옵션)
-      if (DEST_SECRET && !hasDestinationHeaderSecret(req, DEST_SECRET)) {
-        return NextResponse.json(
-          { ok: false, error: "UNAUTHORIZED" },
-          { status: 401 }
-        );
-      }
-    }
-
-    // 3) JSON 파싱
+    // 1) 서명 검증을 위해 바디를 먼저 파싱합니다.
     let body: any = {};
     try {
       body = JSON.parse(raw);
@@ -689,6 +641,48 @@ export async function POST(req: Request) {
       );
     }
 
+    // 2) [핵심] Cloudflare 웹훅 최초 등록용 테스트 메시지 우회 처리 (Handshake Bypass)
+    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냅니다.
+    // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 합니다.
+    if (
+      body?.text &&
+      typeof body.text === "string" &&
+      body.text.startsWith("Hello World! This is a test message")
+    ) {
+      console.log(
+        "[webhooks/cloudflare] Received Cloudflare test message. Handshake successful."
+      );
+      return NextResponse.json({ ok: true, message: "Handshake Successful" });
+    }
+
+    // 3) 서명 및 인증 검증 로직 (실제 이벤트 처리용)
+    const sigHeader = req.headers.get("webhook-signature");
+    const isStreamWebhook = !!sigHeader;
+
+    if (isStreamWebhook) {
+      // Stream Webhook → HMAC 서명 검증
+      if (STREAM_SECRET) {
+        const ok = await verifyStreamSignatureWebCrypto(
+          raw,
+          sigHeader,
+          STREAM_SECRET
+        );
+        if (!ok)
+          return NextResponse.json(
+            { ok: false, error: "BAD_SIGNATURE" },
+            { status: 401 }
+          );
+      }
+    } else {
+      // Destination Webhook → 인증 헤더 확인 (옵션)
+      if (DEST_SECRET && !hasDestinationHeaderSecret(req, DEST_SECRET)) {
+        return NextResponse.json(
+          { ok: false, error: "UNAUTHORIZED" },
+          { status: 401 }
+        );
+      }
+    }
+
     // 4) 공통 메타데이터 추출
     const type = getEventType(body);
     let liveInputUid = getLiveInputUid(body);
@@ -696,14 +690,14 @@ export async function POST(req: Request) {
     // video.ready 판별용 플래그 (type이 unknown이어도 ready 페이로드면 처리)
     const isReadyAsset = isAssetReadyPayload(body);
 
-    /* ------------------------------ video.ready(무타입) ------------------------------ */
+    /* ------------------------------ 이벤트 분기 처리 ------------------------------ */
 
     /**
-     * 일부 설정에서는 type 필드 없이 video.ready 형태의 바디만 들어올 수 있다.
-     * 이 경우 isAssetReadyPayload(body) 결과만으로도 video.ready 이벤트로 간주한다.
+     * Vercel Serverless 환경에서는 응답을 보내기 전에 비동기 작업이 완료되어야 하므로
+     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지함.
      */
     if (type === "unknown" && isReadyAsset) {
-      // liveInputUid가 누락된 경우 payload 내 liveInput/input 필드에서 다시 시도
+      // 무타입 ready 페이로드 대응
       if (!liveInputUid) {
         liveInputUid = getLiveInputUid({
           liveInput: body?.liveInput,
@@ -711,49 +705,19 @@ export async function POST(req: Request) {
         });
       }
       await onVideoReady(liveInputUid, body);
-      return NextResponse.json({ ok: true }, { status: 200 });
-    }
-
-    /* ----------------------------- live_input.connected ----------------------------- */
-
-    if (type === "live_input.connected") {
-      if (!liveInputUid) {
-        return NextResponse.json(
-          { ok: false, error: "MISSING_LIVEINPUT_UID" },
-          { status: 400 }
-        );
-      }
-      await onConnected(liveInputUid);
-      return NextResponse.json({ ok: true }, { status: 200 });
-    }
-
-    /* --------------------------- live_input.disconnected --------------------------- */
-
-    if (type === "live_input.disconnected") {
-      if (!liveInputUid) {
-        return NextResponse.json(
-          { ok: false, error: "MISSING_LIVEINPUT_UID" },
-          { status: 400 }
-        );
-      }
-      await onDisconnected(liveInputUid);
-      return NextResponse.json({ ok: true }, { status: 200 });
-    }
-
-    /* ---------------------------------- video.ready --------------------------------- */
-
-    if (type === "video.ready") {
+    } else if (type === "live_input.connected") {
+      if (liveInputUid) await onConnected(liveInputUid);
+    } else if (type === "live_input.disconnected") {
+      if (liveInputUid) await onDisconnected(liveInputUid);
+    } else if (type === "video.ready") {
       await onVideoReady(liveInputUid, body);
-      return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    /* ----------------------------- 기타 타입(무시, 200) ----------------------------- */
-
-    // 알 수 없는 이벤트 타입이더라도 Cloudflare 쪽에는 성공 응답을 줘야
-    // 재시도 폭주를 막을 수 있으므로 200 OK로 응답한다.
-    return NextResponse.json({ ok: true }, { status: 200 });
+    // 200 OK로 응답하여 재시도 방지
+    return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("[webhooks/cloudflare] error:", e);
+    // 치명적 시스템 오류만 로깅
+    console.error("[webhooks/cloudflare] Global Handler Error:", e);
     return NextResponse.json(
       { ok: false, error: "INTERNAL_ERROR" },
       { status: 500 }
