@@ -10,6 +10,7 @@ Date        Author   Status    Description
 2025.04.13  임도헌   Modified  뱃지 시드 추가
 2025.05.08  임도헌   Modified  스트리밍 카테고리 시드 추가
 2025.12.07  임도헌   Modified  뱃지 설명 수정
+2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
 */
 
 // prisma db seed 사용해서 데이터 추가
@@ -319,95 +320,97 @@ async function main() {
     }
   }
 
+  const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+
   // 뱃지 데이터 생성
   const badges = [
     {
       name: "FIRST_DEAL",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/63dbdbf0-61bc-4632-b3cb-698f99bd1500",
+      icon: `https://imagedelivery.net/${CF_HASH}/63dbdbf0-61bc-4632-b3cb-698f99bd1500`,
       description:
         "첫 거래를 성공적으로 완료한 첫 거래 선원입니다. 작은 목선에서 첫 거래의 기쁨을 맛보았어요!",
     },
     {
       name: "POWER_SELLER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/18844d35-d462-4d59-839d-2fcc25134800",
+      icon: `https://imagedelivery.net/${CF_HASH}/18844d35-d462-4d59-839d-2fcc25134800`,
       description:
         "10건 이상의 거래와 4.0 이상의 높은 평점을 기록한 파워 선상 상인입니다. 보드포트에서 신뢰할 수 있는 거래를 이어가고 있어요!",
     },
     {
       name: "QUICK_RESPONSE",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/b5a00613-399d-476f-2c00-fe3bd0297100",
+      icon: `https://imagedelivery.net/${CF_HASH}/b5a00613-399d-476f-2c00-fe3bd0297100`,
       description:
         "최근 60일 기준 50개 이상의 메시지, 80% 이상의 응답률과 60분 이내의 빠른 답변을 기록한 신속한 교신병입니다. 조개껍데기 무전기로 발 빠른 소통을 이어가고 있어요!",
     },
     {
       name: "FIRST_POST",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/2239e58c-d339-4777-be77-7d9a38fc7300",
+      icon: `https://imagedelivery.net/${CF_HASH}/2239e58c-d339-4777-be77-7d9a38fc7300`,
       description:
         "첫 게시글을 작성한 항해일지 작성자입니다. 등대 도서관에서 첫 발자국을 남겼어요!",
     },
     {
       name: "POPULAR_WRITER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/6791fdc6-dac2-4858-2db6-448b246a1e00",
+      icon: `https://imagedelivery.net/${CF_HASH}/6791fdc6-dac2-4858-2db6-448b246a1e00`,
       description:
         "최근 6개월 동안 5개 이상의 게시글과 총 50개 이상의 좋아요를 받은 인기 항해사입니다. 난파선 카페의 유명 작가가 되었어요!",
     },
     {
       name: "ACTIVE_COMMENTER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/9cc7214f-ae58-43ab-ba4d-75d31a9f6500",
+      icon: `https://imagedelivery.net/${CF_HASH}/9cc7214f-ae58-43ab-ba4d-75d31a9f6500`,
       description:
         "최근 30일 동안 30개 이상의 댓글을 남기고, 그 중 규칙/후기 게시글에 남긴 댓글 비율이 30% 이상인 열정적인 통신사입니다.",
     },
     {
       name: "GAME_COLLECTOR",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/ee622a84-9d9c-4201-7dc6-a778069e2e00",
+      icon: `https://imagedelivery.net/${CF_HASH}/ee622a84-9d9c-4201-7dc6-a778069e2e00`,
       description:
         "20회 이상 다양한 장르와 카테고리의 보드게임을 거래한 보물선 수집가입니다. 여러 항구를 넘나들며 풍부한 게임 경험을 쌓고 있어요!",
     },
     {
       name: "GENRE_MASTER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/bb30cb4b-d65a-481b-e65e-f5aead306100",
+      icon: `https://imagedelivery.net/${CF_HASH}//bb30cb4b-d65a-481b-e65e-f5aead306100`,
       description:
         "한 장르(카테고리)에서 10회 이상의 거래와 4.4 이상의 평점을 기록한 장르의 항해사입니다.",
     },
     {
       name: "RULE_SAGE",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/90fb9c56-d6be-49da-fe60-0471bfbbc400",
+      icon: `https://imagedelivery.net/${CF_HASH}//90fb9c56-d6be-49da-fe60-0471bfbbc400`,
       description:
         "10개 이상의 규칙 설명 게시글과 500회 이상의 조회수를 받은 규칙의 현자입니다.",
     },
     {
       name: "VERIFIED_SAILOR",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/0534d88d-1944-4844-563c-20cc0a843200",
+      icon: `https://imagedelivery.net/${CF_HASH}//0534d88d-1944-4844-563c-20cc0a843200`,
       description:
         "전화번호 인증을 완료한 인증된 선원입니다. 신뢰할 수 있는 나침반을 들고 있어요!",
     },
     {
       name: "FAIR_TRADER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/04b908dd-e9c7-40bb-4786-fe2b5af89900",
+      icon: `https://imagedelivery.net/${CF_HASH}//04b908dd-e9c7-40bb-4786-fe2b5af89900`,
       description:
         "5회 이상의 거래에서 4.5 이상의 높은 평점을 기록한 정직한 상인입니다. 공정한 거래로 신뢰를 쌓고 있어요!",
     },
     {
       name: "QUALITY_MASTER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/4b6ed65a-732d-439e-4509-faa53dcb9400",
+      icon: `https://imagedelivery.net/${CF_HASH}//4b6ed65a-732d-439e-4509-faa53dcb9400`,
       description:
         "8회 이상 판매를 완료하고, 그 중 70% 이상을 새제품급/거의 새것 상태와 완벽한 구성으로 유지한 품질의 달인입니다!",
     },
     {
       name: "EARLY_SAILOR",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/63d81c0f-250a-4a87-ffea-142726992f00",
+      icon: `https://imagedelivery.net/${CF_HASH}//63d81c0f-250a-4a87-ffea-142726992f00`,
       description:
         "2025년 1월 1일 이전에 가입하고 활동한 첫 항해 선원입니다. 새벽 항구에서 첫 닻을 올린 선구자예요!",
     },
     {
       name: "PORT_FESTIVAL",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/7abfbeaa-f4e4-4499-f4ce-fb6bf9745d00",
+      icon: `https://imagedelivery.net/${CF_HASH}//7abfbeaa-f4e4-4499-f4ce-fb6bf9745d00`,
       description:
         "최근 한 달 동안 3개 이상의 게시글, 10개 이상의 댓글, 1회 이상의 성공적인 거래로 항구를 뜨겁게 달군 축제의 주인공입니다. 당신의 활발한 활동이 우리 항구를 빛나게 만들어요!",
     },
     {
       name: "BOARD_EXPLORER",
-      icon: "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/c033d8e8-a96f-4632-6f86-cc76b62a9700",
+      icon: `https://imagedelivery.net/${CF_HASH}//c033d8e8-a96f-4632-6f86-cc76b62a9700`,
       description:
         "4가지 이상의 게임 타입을 거래하고, MAP/LOG 게시글 7개 이상을 남기며, 최근 6개월 기준 댓글 10개와 좋아요 30개 이상의 커뮤니티 기여도를 보여준 보드게임 탐험가입니다. 새로운 게임의 바다를 끝없이 탐험하고 있어요!",
     },

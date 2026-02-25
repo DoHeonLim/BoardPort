@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.06  임도헌   Created   관리자 권한 가드 및 Full-Width 사이드바 레이아웃 적용
+ * 2026.02.24  임도헌   Modified  로고 추가
  */
 
 import { redirect } from "next/navigation";
@@ -22,6 +23,7 @@ import {
   VideoCameraIcon,
   ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
+import Logo from "@/components/ui/Logo";
 import AdminNavLink from "@/features/user/components/admin/AdminNavLink";
 import MobileSidebar from "@/features/user/components/admin/MobileSidebar";
 import ThemeToggle from "@/components/global/ThemeToggle";
@@ -57,13 +59,15 @@ export default async function AdminLayout({
     <div className="flex min-h-screen w-full bg-background transition-colors">
       {/* [Desktop Sidebar] md 이상에서만 표시 */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-surface fixed inset-y-0 left-0 z-50">
-        <div className="h-16 flex items-center px-6 border-b border-border">
+        <div className="h-16 flex items-center px-6 border-b border-border gap-3">
+          {/* 작은 심볼 로고 배치 */}
+          <Logo variant="symbol" size={32} />
           <Link
             href="/admin"
             className="font-black text-xl text-brand dark:text-brand-light tracking-tighter"
           >
             BoardPort{" "}
-            <span className="text-muted font-bold text-xs uppercase tracking-normal">
+            <span className="text-muted font-bold text-[10px] uppercase tracking-normal">
               Admin
             </span>
           </Link>

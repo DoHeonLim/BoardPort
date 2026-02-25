@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/components/SocialLogin.tsx
- * Description : 소셜 로그인 버튼 모음 (GitHub, SMS 등)
+ * Description : 소셜 로그인 버튼 모음 (Kakao, GitHub, SMS 등)
  * Author : 임도헌
  *
  * History
@@ -12,6 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  카카오 로그인 버튼 추가 및 최상단 배치
+ * 2026.02.24  임도헌   Modified  각 소셜로그인 컬러 수정
  */
 
 import Link from "next/link";
@@ -52,15 +53,13 @@ export default function SocialLogin() {
       {/* GitHub Login */}
       <a
         aria-label="GitHub로 계속하기"
-        className={baseButtonClass}
+        className={cn(
+          baseButtonClass,
+          "bg-white text-[#181717] hover:bg-neutral-100"
+        )}
         href="/github/start"
       >
-        <svg
-          className="size-5"
-          viewBox="0 0 15 15"
-          fill="currentColor"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        <svg className="size-5" viewBox="0 0 15 15" fill="currentColor">
           <path
             fillRule="evenodd"
             clipRule="evenodd"
@@ -71,7 +70,13 @@ export default function SocialLogin() {
       </a>
 
       {/* SMS Login */}
-      <Link className={baseButtonClass} href="/sms">
+      <Link
+        className={cn(
+          baseButtonClass,
+          "bg-emerald-600 text-white hover:bg-emerald-700"
+        )}
+        href="/sms"
+      >
         <ChatBubbleOvalLeftEllipsisIcon className="size-5" />
         <span>SMS로 계속하기</span>
       </Link>

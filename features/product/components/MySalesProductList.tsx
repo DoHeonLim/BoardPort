@@ -262,8 +262,8 @@ export default function MySalesProductList({
     activeTab === "selling"
       ? selling
       : activeTab === "reserved"
-        ? reserved
-        : sold;
+      ? reserved
+      : sold;
   const currentProducts = current.products as MySalesListItem[];
 
   // 리뷰 변경 등 부분 업데이트 처리
@@ -351,8 +351,8 @@ export default function MySalesProductList({
               {activeTab === "selling"
                 ? "판매 중인 제품이 없습니다"
                 : activeTab === "reserved"
-                  ? "예약 중인 제품이 없습니다"
-                  : "판매 완료한 제품이 없습니다"}
+                ? "예약 중인 제품이 없습니다"
+                : "판매 완료한 제품이 없습니다"}
             </p>
           </div>
         ) : (

@@ -12,6 +12,7 @@
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.01  임도헌   Modified  Prop rename: onSubmit -> action
  * 2026.02.14  임도헌   Modified  지도 기능 추가
+ * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  */
 "use client";
 
@@ -150,7 +151,8 @@ export default function PostForm({
 
           if (!response.ok) throw new Error("Failed to upload image");
 
-          return `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${id}`;
+          const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+          return `https://imagedelivery.net/${CF_HASH}/${id}`;
         });
 
         const urls = await Promise.all(uploadPromises);

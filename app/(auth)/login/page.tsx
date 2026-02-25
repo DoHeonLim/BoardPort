@@ -14,9 +14,10 @@
  * 2025.12.09  임도헌   Modified  callbackUrl sanitize 적용
  * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.24  임도헌   Modified  로고 추가
  */
 
-import { LifebuoyIcon } from "@heroicons/react/24/outline";
+import Logo from "@/components/ui/Logo";
 import LoginForm from "@/features/auth/components/form/LoginForm";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
@@ -45,7 +46,7 @@ export default function LoginPage({
       {/* Header Area */}
       <div className="flex flex-col items-center gap-4 mt-10 mb-8">
         <div className="p-3 bg-surface rounded-2xl shadow-sm border border-border">
-          <LifebuoyIcon className="size-8 text-brand dark:text-brand-light" />
+          <Logo variant="symbol" size={60} />
         </div>
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold text-primary">항해 준비</h1>

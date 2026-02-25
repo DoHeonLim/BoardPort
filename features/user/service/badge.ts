@@ -132,7 +132,9 @@ async function awardBadge(userId: number, badgeName: string) {
       data: {
         userId,
         title: "새로운 뱃지 획득!",
-        body: `축하합니다! "${getBadgeKoreanName(badgeName)}" 뱃지를 획득하셨습니다!`,
+        body: `축하합니다! "${getBadgeKoreanName(
+          badgeName
+        )}" 뱃지를 획득하셨습니다!`,
         type: "BADGE",
         link: "/profile",
         image: imageUrl,

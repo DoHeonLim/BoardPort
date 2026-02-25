@@ -22,6 +22,7 @@
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 아바타/전화번호 UI 개선, 에러 핸들링 보강
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  */
 "use client";
 
@@ -66,6 +67,8 @@ interface ProfileEditFormProps {
   user: CurrentUserForEdit;
   action: EditProfileAction;
 }
+
+const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
 /**
  * 프로필 편집 폼
@@ -225,10 +228,7 @@ export default function ProfileEditForm({
 
     const { id, uploadURL } = res.result;
     setUploadUrl(uploadURL);
-    setValue(
-      "avatar",
-      `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${id}`
-    );
+    setValue("avatar", `https://imagedelivery.net/${CF_HASH}/${id}`);
   };
 
   const requestClearAvatar = () => {

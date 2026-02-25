@@ -14,6 +14,7 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.14  임도헌   Modified  직거래 희망 장소(지도) 추가
+ * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -251,7 +252,7 @@ export default function ProductForm({
             throw new Error("Failed to upload image");
           }
 
-          return `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${id}`;
+          return `https://imagedelivery.net/${CF_HASH}/${id}`;
         });
         const urls = await Promise.all(uploadPromises);
         uploadedPhotoUrls.push(...urls);

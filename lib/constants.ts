@@ -35,3 +35,19 @@ export const MAX_KEYWORD_PER_USER = 10;
 export const POSTS_PAGE_TAKE = 10;
 export const PRODUCTS_PAGE_TAKE = 10;
 export const STREAMS_PAGE_TAKE = 12;
+
+/**
+ * 로그인 없이 접근 가능한 경로 목록 (middleware.ts와 동기화)
+ */
+export const PUBLIC_ONLY_URLS = [
+  "/",
+  "/login",
+  "/sms",
+  "/create-account",
+  "/kakao/start",
+  "/kakao/complete",
+  "/github/start",
+  "/github/complete",
+  "/offline",
+  "/403",
+];

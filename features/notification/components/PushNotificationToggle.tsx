@@ -11,10 +11,12 @@
  * 2026.01.10  임도헌   Modified  시맨틱 컬러 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/notification
  * 2026.01.17  임도헌   Moved     components/notification -> features/notification/components
+ * 2026.02.25  임도헌   Modified  구독/해제 중 로딩 상태(isLoading) 및 스피너 UI 추가
  */
 
 "use client";
 
+import { useState } from "react";
 import { usePushNotification } from "@/features/notification/hooks/usePushNotification";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +31,8 @@ import { cn } from "@/lib/utils";
 export function PushNotificationToggle() {
   const { isSupported, isSubscribed, isPrivateMode, subscribe, unsubscribe } =
     usePushNotification();
+
+  const [loading, setLoading] = useState(false);
 
   // 브라우저 미지원 처리
   if (!isSupported) {
@@ -49,32 +53,42 @@ export function PushNotificationToggle() {
   }
 
   const handleToggle = async () => {
+    if (loading) return;
+
+    setLoading(true);
     try {
       if (isSubscribed) {
         await unsubscribe();
       } else {
         await subscribe();
       }
-    } catch (error) {
-      console.error("Push notification toggle error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="flex items-center gap-3">
       <span className="text-xs font-medium text-muted">
-        {isSubscribed ? "켜짐" : "꺼짐"}
+        {loading ? (
+          <span className="inline-block size-3 border-2 border-brand/30 border-t-brand rounded-full animate-spin mr-1" />
+        ) : isSubscribed ? (
+          "켜짐"
+        ) : (
+          "꺼짐"
+        )}
       </span>
 
       <button
         type="button"
         onClick={handleToggle}
+        disabled={loading}
         role="switch"
         aria-checked={isSubscribed}
-        aria-label="푸시 알림 설정"
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60",
-          isSubscribed ? "bg-brand" : "bg-neutral-300 dark:bg-neutral-600"
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+          isSubscribed ? "bg-brand" : "bg-neutral-300 dark:bg-neutral-600",
+          loading && "opacity-50 cursor-wait"
         )}
       >
         <span

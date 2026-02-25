@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Hobby 플랜의 실행 빈도(1일 1회)와 타임아웃(10초)을 고려한 배치 사이즈
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 30;
 // 재검사 최소 간격 (12시간) - 한 번 체크한 유저는 12시간 동안 다시 체크하지 않음
 const RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 

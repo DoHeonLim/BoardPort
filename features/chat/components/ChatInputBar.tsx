@@ -27,6 +27,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.04  임도헌   Modified  이미지 업로드 기능 추가 (PhotoIcon, Preview, CF Upload 연동)
  * 2026.02.19  임도헌   Modified  ChatActionMenu로 통합(이미지 업로드, 약속 잡기)
+ * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  */
 "use client";
 
@@ -107,7 +108,8 @@ export default function ChatInputBar({
       });
       if (!uploadRes.ok) throw new Error("업로드 실패");
 
-      const finalUrl = `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${res.result.id}`;
+      const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+      const finalUrl = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
       setUploadedUrl(finalUrl);
     } catch (err) {
       console.error(err);

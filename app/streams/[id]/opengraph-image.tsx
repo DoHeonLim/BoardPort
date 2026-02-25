@@ -8,19 +8,18 @@
  * 2026.02.13  임도헌   Created   방송 정보(제목, 스트리머, 썸네일)를 포함한 OG 이미지 생성
  */
 
+/* eslint-disable @next/next/no-img-element */
 import { ImageResponse } from "next/og";
 import db from "@/lib/db";
 
 export const runtime = "nodejs";
-
-export const alt = "보드포트 방송 미리보기";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
 
 export default async function Image({ params }: { params: { id: string } }) {
   const id = Number(params.id);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const logoSymbolUrl = `${baseUrl}/images/logo-symbol.png`;
 
-  // 1. 방송 정보 조회
   const stream = await db.broadcast.findUnique({
     where: { id },
     select: {
@@ -28,9 +27,7 @@ export default async function Image({ params }: { params: { id: string } }) {
       thumbnail: true,
       status: true,
       liveInput: {
-        select: {
-          user: { select: { username: true, avatar: true } },
-        },
+        select: { user: { select: { username: true, avatar: true } } },
       },
     },
   });
@@ -40,18 +37,19 @@ export default async function Image({ params }: { params: { id: string } }) {
       (
         <div
           style={{
-            fontSize: 48,
-            background: "#1E3A8A",
+            background: "#000000",
             width: "100%",
             height: "100%",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "white",
-            fontWeight: "bold",
           }}
         >
-          BoardPort Live
+          <img
+            src={logoSymbolUrl}
+            alt="BoardPort"
+            style={{ width: 100, height: 100 }}
+          />
         </div>
       ),
       { ...size }
@@ -59,9 +57,8 @@ export default async function Image({ params }: { params: { id: string } }) {
   }
 
   const isLive = stream.status === "CONNECTED";
-  // 썸네일이 없으면 기본 배경색 또는 로고 사용
   const thumbUrl = stream.thumbnail
-    ? stream.thumbnail.replace(/\/public$/, "") + "/public" // variant 보장
+    ? `${stream.thumbnail.replace(/\/public$/, "")}/public`
     : null;
 
   return new ImageResponse(
@@ -75,9 +72,22 @@ export default async function Image({ params }: { params: { id: string } }) {
           backgroundColor: "#000000",
         }}
       >
-        {/* 배경 이미지 (어둡게 처리) */}
+        {/* 우측 상단 로고 워터마크 */}
+        <img
+          src={logoSymbolUrl}
+          alt=""
+          style={{
+            position: "absolute",
+            top: 40,
+            right: 40,
+            width: 60,
+            height: 60,
+            zIndex: 20,
+            opacity: 0.8,
+          }}
+        />
+
         {thumbUrl && (
-          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={thumbUrl}
             alt=""
@@ -92,7 +102,6 @@ export default async function Image({ params }: { params: { id: string } }) {
           />
         )}
 
-        {/* 콘텐츠 오버레이 */}
         <div
           style={{
             position: "relative",
@@ -107,11 +116,10 @@ export default async function Image({ params }: { params: { id: string } }) {
               "linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0))",
           }}
         >
-          {/* LIVE 뱃지 */}
           {isLive ? (
             <div
               style={{
-                backgroundColor: "#ef4444", // red-500
+                backgroundColor: "#ef4444",
                 color: "white",
                 padding: "8px 24px",
                 borderRadius: "9999px",
@@ -151,7 +159,6 @@ export default async function Image({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          {/* 제목 */}
           <div
             style={{
               fontSize: 64,
@@ -165,10 +172,8 @@ export default async function Image({ params }: { params: { id: string } }) {
             {stream.title}
           </div>
 
-          {/* 스트리머 정보 */}
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
             {stream.liveInput.user.avatar && (
-              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={`${stream.liveInput.user.avatar}/avatar`}
                 alt=""
@@ -180,14 +185,7 @@ export default async function Image({ params }: { params: { id: string } }) {
                 }}
               />
             )}
-            <div
-              style={{
-                fontSize: 32,
-                color: "white",
-                fontWeight: "bold",
-                textShadow: "0 2px 4px rgba(0,0,0,0.5)",
-              }}
-            >
+            <div style={{ fontSize: 32, color: "white", fontWeight: "bold" }}>
               {stream.liveInput.user.username}
             </div>
           </div>

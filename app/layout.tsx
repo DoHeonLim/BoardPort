@@ -26,11 +26,8 @@ export const metadata: Metadata = {
   },
   description: "보드게임과 TRPG 중고거래 및 커뮤니티 플랫폼 보드포트입니다.",
   icons: {
-    icon: [
-      { url: "/images/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/images/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/images/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-    ],
+    icon: "/favicon.ico",
+    apple: "/images/apple-icon.png",
   },
   appleWebApp: {
     capable: true,

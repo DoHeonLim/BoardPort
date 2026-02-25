@@ -26,7 +26,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  * @returns {Promise<void>}
  * @throws {Error} 이메일 전송 실패 시
  */
-export const sendEmail = async (email: string, token: string) => {
+export const sendEmail = async (
+  email: string,
+  token: string
+): Promise<void> => {
   try {
     await resend.emails.send({
       from: "Board Port <noreply@boardport.xyz>",

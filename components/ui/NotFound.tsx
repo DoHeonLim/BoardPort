@@ -9,12 +9,13 @@
  * 2026.01.11  임도헌   Modified  시맨틱 토큰 적용 및 레이아웃 재정리
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.02  임도헌   Modified  주석 상세 설명 및 Props 타입 정의 보강
+ * 2026.02.24  임도헌   Modified  로고 추가
  */
 
 "use client";
 
 import Link from "next/link";
-import { LifebuoyIcon } from "@heroicons/react/24/outline";
+import Logo from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
 interface NotFoundProps {
@@ -61,9 +62,10 @@ export default function NotFound({
       <div className="relative mb-6 animate-float">
         {/* 뒤쪽 은은한 광원 효과 */}
         <div className="absolute inset-0 bg-brand-light/20 blur-2xl rounded-full" />
-        <LifebuoyIcon
-          className="relative w-24 h-24 text-brand dark:text-brand-light"
-          strokeWidth={1.5}
+        <Logo
+          variant="symbol"
+          size={100}
+          className="relative opacity-50 grayscale"
         />
       </div>
 

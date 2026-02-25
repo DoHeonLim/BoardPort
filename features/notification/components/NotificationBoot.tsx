@@ -10,13 +10,16 @@
  * 2025.12.12  임도헌   Modified  401(UNAUTHORIZED)도 JSON 파싱으로 명확히 처리, credentials 포함
  * 2026.01.16  임도헌   Moved     components/common -> components/notification
  * 2026.01.17  임도헌   Moved     components/notification -> features/notification/components
+ * 2026.02.24  임도헌   Modified  퍼블릭 경로 가드 추가 (불필요한 /api/me 401 호출 방지)
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import NotificationListener from "@/features/notification/components/NotificationListener";
 import type { MeResponse } from "@/app/api/me/route";
+import { PUBLIC_ONLY_URLS } from "@/lib/constants";
 
 /**
  * 알림 시스템 부트스트랩 컴포넌트
@@ -28,8 +31,16 @@ import type { MeResponse } from "@/app/api/me/route";
  */
 export default function NotificationBoot() {
   const [userId, setUserId] = useState<number | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
+    // 1. 현재 경로가 퍼블릭 경로(로그인 전 페이지)라면 조회를 스킵합니다.
+    const isPublicPage = PUBLIC_ONLY_URLS.includes(pathname);
+    if (isPublicPage) {
+      setUserId(null); // 로그인 페이지로 이동 시 이전 ID 제거
+      return;
+    }
+
     let mounted = true;
 
     (async () => {
@@ -69,7 +80,7 @@ export default function NotificationBoot() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [pathname]);
 
   if (!userId) return null;
   return <NotificationListener userId={userId} />;

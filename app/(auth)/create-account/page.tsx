@@ -12,9 +12,10 @@
  * 2025.04.29  임도헌   Modified  UI 수정
  * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.24  임도헌   Modified  로고 추가
  */
 
-import { UserPlusIcon } from "@heroicons/react/24/outline";
+import Logo from "@/components/ui/Logo";
 import CreateAccountForm from "@/features/auth/components/form/CreateAccountForm";
 
 /**
@@ -28,7 +29,7 @@ export default function CreateAccountPage() {
     <div className="flex flex-col min-h-screen px-page-x py-page-y bg-background transition-colors">
       <div className="flex flex-col items-center gap-4 mt-10 mb-8">
         <div className="p-3 bg-surface rounded-2xl shadow-sm border border-border">
-          <UserPlusIcon className="size-8 text-brand dark:text-brand-light" />
+          <Logo variant="symbol" size={60} />
         </div>
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold text-primary">선원 등록</h1>
