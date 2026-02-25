@@ -1,0 +1,347 @@
+/**
+ * File Name : features/stream/components/StreamForm.tsx
+ * Description : 스트리밍 생성/수정 폼 컴포넌트
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status     Description
+ * 2025.07.30  임도헌   Created    app/streams/add/page에서 form 분리
+ * 2025.07.30  임도헌   Modified   스트리밍 등록/수정 폼 통합 컴포넌트로 수정
+ * 2025.08.22  임도헌   Modified   Cloudflare 업로드 표준화 응답 반영(유니온 내로잉), 이미지 URL 하드코딩 제거 및 env 사용(HASH)
+ * 2025.08.22  임도헌   Modified   alert → toast로 변경, 에러 배열 전달 방식 정리
+ * 2025.08.22  임도헌   Modified   visibility onChange를 register 옵션으로 이전
+ * 2025.09.09  임도헌   Modified   Cloudflare Image URL에 variant(env) 추가, 소분류 초기화 resetField 적용, 타입/UX/a11y 보강
+ * 2025.09.15  임도헌   Modified   LiveInput/Broadcast 모델 반영, 결과 모달 그대로 사용
+ * 2026.01.14  임도헌   Modified   Select 컴포넌트 적용 및 스타일 통일
+ * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ */
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useImageUpload } from "@/hooks/useImageUpload";
+import { getUploadUrl } from "@/lib/cloudflareImages";
+import {
+  STREAM_VISIBILITY,
+  STREAM_VISIBILITY_DISPLAY,
+} from "@/features/stream/constants";
+import { toast } from "sonner";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import ImageUploader from "@/components/global/ImageUploader";
+import Select from "@/components/ui/Select";
+import TagInput from "@/components/ui/TagInput";
+import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
+import type { StreamCategory } from "@/features/stream/types";
+import type { CreateBroadcastResult } from "@/features/stream/types";
+
+const RTMPInfoModal = dynamic(
+  () => import("@/features/stream/components/RTMPInfoModal"),
+  { ssr: false }
+);
+
+interface StreamFormProps {
+  mode: "create" | "edit";
+  action: (formData: FormData) => Promise<CreateBroadcastResult>;
+  categories: StreamCategory[];
+  defaultValues?: Partial<StreamFormValues>;
+}
+
+const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+
+/**
+ * 방송 생성/수정 폼
+ *
+ * [기능]
+ * 1. 방송 제목, 설명, 공개 설정(Public/Private/Followers) 입력
+ * 2. 썸네일 이미지 업로드 (Cloudflare Images)
+ * 3. 카테고리 및 태그 설정
+ * 4. 폼 제출 후 성공 시 `RTMPInfoModal`을 띄워 OBS 송출 정보 제공
+ *
+ * @param {StreamFormProps} props
+ */
+export default function StreamForm({
+  mode,
+  action,
+  categories,
+  defaultValues,
+}: StreamFormProps) {
+  // 대분류 초기값 추론
+  const initialMainCategory = useMemo<number | null>(() => {
+    if (!defaultValues?.streamCategoryId) return null;
+    // Prisma 타입과 내부 정의 타입 호환성 (any casting 회피를 위해 as any 사용 가능)
+    const cat = categories.find(
+      (c: any) => c.id === defaultValues.streamCategoryId
+    );
+    return (cat as any)?.parentId ?? null;
+  }, [categories, defaultValues?.streamCategoryId]);
+
+  const [selectedMainCategory, setSelectedMainCategory] = useState<
+    number | null
+  >(initialMainCategory);
+
+  const [streamInfo, setStreamInfo] = useState<{
+    liveInputId: number;
+    broadcastId?: number | null;
+    streamKey: string;
+    rtmpUrl: string;
+  } | null>(null);
+  const [showStreamInfo, setShowStreamInfo] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    getValues,
+    resetField,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<StreamFormValues>({
+    resolver: zodResolver(streamFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      thumbnail: "",
+      visibility: STREAM_VISIBILITY.PUBLIC,
+      password: "",
+      streamCategoryId: undefined as unknown as number,
+      tags: [],
+      ...defaultValues,
+    },
+  });
+
+  const watchVisibility = watch("visibility");
+
+  // PRIVATE가 아니면 password 필드 초기화
+  useEffect(() => {
+    if (watchVisibility !== STREAM_VISIBILITY.PRIVATE) {
+      setValue("password", "");
+    }
+  }, [watchVisibility, setValue]);
+
+  const {
+    previews,
+    files,
+    isImageFormOpen,
+    setIsImageFormOpen,
+    handleImageChange,
+    handleImageDrop,
+    handleDeleteImage,
+    handleDragEnd,
+  } = useImageUpload({ maxImages: 1, setValue, getValues });
+
+  // 카테고리 필터링 (대분류/소분류)
+  // StreamCategory 타입이 Prisma 모델과 약간 다를 수 있으므로 as any 활용
+  const mainCategories = useMemo(
+    () => categories.filter((c: any) => !c.parentId),
+    [categories]
+  );
+  const subCategories = useMemo(
+    () => categories.filter((c: any) => c.parentId === selectedMainCategory),
+    [categories, selectedMainCategory]
+  );
+
+  const handleMainCategoryChange = (value: string) => {
+    const id = value ? Number(value) : null;
+    setSelectedMainCategory(id);
+    resetField("streamCategoryId");
+  };
+
+  const onSubmit = async (data: StreamFormValues) => {
+    try {
+      // 1) 썸네일 업로드
+      let thumbnail = data.thumbnail;
+
+      if (files.length > 0) {
+        if (!CF_HASH) {
+          throw new Error(
+            "Cloudflare 공개 해시(NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH)가 설정되지 않았습니다."
+          );
+        }
+        const res = await getUploadUrl();
+        if (!res.success) {
+          throw new Error(res.error ?? "Failed to get upload URL");
+        }
+
+        const uploadBody = new FormData();
+        uploadBody.append("file", files[0]);
+
+        const uploadResp = await fetch(res.result.uploadURL, {
+          method: "POST",
+          body: uploadBody,
+        });
+        if (!uploadResp.ok) throw new Error("이미지 업로드 실패");
+
+        thumbnail = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
+      }
+
+      // 2) 서버 액션 호출
+      const formData = new FormData();
+      formData.append("title", data.title);
+      formData.append("description", data.description ?? "");
+      formData.append("thumbnail", thumbnail ?? "");
+      formData.append("visibility", data.visibility);
+      formData.append("password", data.password ?? "");
+      if (typeof data.streamCategoryId === "number") {
+        formData.append("streamCategoryId", String(data.streamCategoryId));
+      } else {
+        formData.append("streamCategoryId", "");
+      }
+      formData.append("tags", JSON.stringify((data.tags ?? []).slice(0, 5)));
+
+      const result = await action(formData);
+
+      if (!result.success) {
+        toast.error(result.error ?? "스트리밍 처리 중 오류가 발생했습니다.");
+        return;
+      }
+
+      // 성공 시 결과 저장 및 모달 오픈
+      setStreamInfo({
+        liveInputId: result.liveInputId!,
+        broadcastId: result.broadcastId ?? null,
+        streamKey: result.streamKey!,
+        rtmpUrl: result.rtmpUrl!,
+      });
+      setShowStreamInfo(true);
+
+      toast.success("스트리밍이 생성되었습니다.");
+    } catch (error) {
+      console.error("[StreamForm] submit failed:", error);
+      toast.error("스트리밍 처리 중 오류가 발생했습니다.");
+    }
+  };
+
+  return (
+    <div className="bg-background px-4 py-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+        <Input
+          label="방송 제목"
+          placeholder="방송 제목을 입력하세요 (5자 이상)"
+          errors={errors.title?.message ? [errors.title.message] : []}
+          {...register("title")}
+        />
+        <Input
+          type="textarea"
+          label="방송 설명"
+          placeholder="방송에 대해 설명해주세요"
+          errors={
+            errors.description?.message ? [errors.description.message] : []
+          }
+          {...register("description")}
+          className="min-h-[120px]"
+        />
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-primary">썸네일</label>
+          <ImageUploader
+            previews={previews}
+            onImageChange={handleImageChange}
+            onImageDrop={handleImageDrop}
+            onDeleteImage={handleDeleteImage}
+            onDragEnd={handleDragEnd}
+            isOpen={isImageFormOpen}
+            onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
+            maxImages={1}
+            optional
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="대분류"
+            value={selectedMainCategory?.toString() || ""}
+            onChange={(e) => handleMainCategoryChange(e.target.value)}
+            errors={
+              errors.streamCategoryId?.message
+                ? [errors.streamCategoryId.message]
+                : []
+            }
+          >
+            <option value="">대분류 선택</option>
+            {mainCategories.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.icon} {c.kor_name}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            label="소분류"
+            {...register("streamCategoryId")}
+            disabled={!selectedMainCategory}
+            errors={
+              errors.streamCategoryId?.message
+                ? [errors.streamCategoryId.message]
+                : []
+            }
+          >
+            <option value="">소분류 선택</option>
+            {subCategories.map((c: any) => (
+              <option key={c.id} value={String(c.id)}>
+                {c.icon} {c.kor_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <TagInput name="tags" control={control} maxTags={5} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="공개 설정"
+            {...register("visibility", {
+              onChange: (e) =>
+                setValue(
+                  "visibility",
+                  e.target.value as StreamFormValues["visibility"]
+                ),
+            })}
+          >
+            <option value={STREAM_VISIBILITY.PUBLIC}>
+              {STREAM_VISIBILITY_DISPLAY.PUBLIC}
+            </option>
+            <option value={STREAM_VISIBILITY.PRIVATE}>
+              {STREAM_VISIBILITY_DISPLAY.PRIVATE}
+            </option>
+            <option value={STREAM_VISIBILITY.FOLLOWERS}>
+              {STREAM_VISIBILITY_DISPLAY.FOLLOWERS}
+            </option>
+          </Select>
+
+          {watchVisibility === STREAM_VISIBILITY.PRIVATE && (
+            <Input
+              label="비밀번호"
+              type="password"
+              placeholder="비밀번호 입력"
+              {...register("password")}
+              errors={errors.password?.message ? [errors.password.message] : []}
+            />
+          )}
+        </div>
+
+        <Button
+          disabled={isSubmitting}
+          text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
+        />
+      </form>
+
+      {/* OBS 정보 모달 */}
+      {showStreamInfo && streamInfo && (
+        <RTMPInfoModal
+          open={showStreamInfo}
+          onOpenChange={setShowStreamInfo}
+          rtmpUrl={streamInfo.rtmpUrl}
+          streamKey={streamInfo.streamKey}
+          liveInputId={streamInfo.liveInputId}
+          broadcastId={streamInfo.broadcastId ?? undefined}
+        />
+      )}
+    </div>
+  );
+}

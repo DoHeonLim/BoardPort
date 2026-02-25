@@ -1,0 +1,80 @@
+/**
+ * File Name : app/products/view/[id]/loading.tsx
+ * Description : 제품 상세 로딩 페이지
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.14  임도헌   Created
+ * 2024.10.14  임도헌   Modified  제품 상세 로딩 페이지 추가
+ * 2024.12.23  임도헌   Modified  제품 상세 로딩 페이지 아이콘 변경
+ * 2025.06.08  임도헌   Modified  제품 상세 로딩 수정
+ * 2026.01.11  임도헌   Modified  ProductDetailContainer와 동일한 UI 배치
+ */
+
+import Skeleton from "@/components/ui/Skeleton";
+
+export default function Loading() {
+  return (
+    <div className="relative min-h-full flex flex-col bg-background transition-colors">
+      <div className="flex-1 pb-4">
+        {/* Image Carousel */}
+        <div className="w-full aspect-square sm:aspect-[4/3] bg-surface-dim animate-pulse border-b border-border" />
+
+        {/* Seller Meta */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="h-3 w-8 rounded" />
+            <Skeleton className="size-8 rounded-full" />
+          </div>
+          <Skeleton className="h-3 w-16 rounded" />
+        </div>
+
+        <div className="flex flex-col gap-6 p-6 py-6">
+          {/* Header */}
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-8 w-3/4 rounded-lg" />
+            <Skeleton className="h-7 w-1/3 rounded-lg" />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full rounded" />
+            <Skeleton className="h-4 w-full rounded" />
+            <Skeleton className="h-4 w-2/3 rounded" />
+          </div>
+
+          {/* Info Grid */}
+          <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-surface-dim border border-border">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <Skeleton className="h-3 w-12 rounded" />
+                <Skeleton className="h-4 w-20 rounded" />
+              </div>
+            ))}
+          </div>
+
+          {/* Tags */}
+          <div className="flex gap-2">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Action Bar Skeleton (Sticky) */}
+      <div className="sticky bottom-0 z-40 w-full mt-auto bg-surface/90 backdrop-blur-lg border-t border-border px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+        <div className="flex items-center justify-between gap-4 max-w-mobile mx-auto">
+          <Skeleton className="size-10 rounded-xl shrink-0" /> {/* Like */}
+          <div className="flex-1 flex gap-3 h-12">
+            <Skeleton className="flex-1 h-full rounded-xl" />{" "}
+            {/* UP / Edit Button */}
+            <Skeleton className="flex-1 h-full rounded-xl" />{" "}
+            {/* Chat Button */}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

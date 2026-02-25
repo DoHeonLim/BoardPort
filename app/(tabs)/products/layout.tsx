@@ -1,13 +1,16 @@
 /**
-File Name : app/(tabs)/products/layout
-Description : 모달 레이아웃
-Author : 임도헌
+ * File Name : app/(tabs)/products/layout.tsx
+ * Description : 모달 레이아웃
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.22  임도헌   Created
+ * 2024.10.22  임도헌   Modified  모달 레이아웃 추가
+ * 2025.05.05  임도헌   Modified  모달 레이아웃 조건 추가
+ */
 
-History
-Date        Author   Status    Description
-2024.10.22  임도헌   Created
-2024.10.22  임도헌   Modified  모달 레이아웃 추가
-*/
+import ModalWrapper from "./modal-wrapper";
 
 export default function ModalLayout({
   children,
@@ -19,7 +22,7 @@ export default function ModalLayout({
   return (
     <>
       {children}
-      {modal}
+      <ModalWrapper>{modal}</ModalWrapper>
     </>
   );
 }

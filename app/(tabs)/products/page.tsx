@@ -1,57 +1,272 @@
 /**
-File Name : app/(tabs)/products/page
-Description : 제품 페이지
-Author : 임도헌
+ * File Name : app/(tabs)/products/page.tsx
+ * Description : 제품 목록 및 검색 페이지
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.14  임도헌   Created
+ * 2024.10.14  임도헌   Modified  제품 페이지 추가
+ * 2024.10.17  임도헌   Modified  무한 스크롤 기능 추가
+ * 2024.10.26  임도헌   Modified  데이터베이스 캐싱 기능 추가
+ * 2024.11.06  임도헌   Modified  캐싱기능 주석 처리
+ * 2024.12.05  임도헌   Modified  제품 초기화 기능 actions로 옮김
+ * 2024.12.12  임도헌   Modified  제품 추가 링크 변경
+ * 2024.12.16  임도헌   Modified  카테고리 얻기 기능 추가
+ * 2024.12.16  임도헌   Modified  최근 검색 기록 얻기 기능 추가
+ * 2024.12.16  임도헌   Modified  인기 검색 기록 얻기 기능 추가
+ * 2024.12.27  임도헌   Modified  제품 페이지 다크모드 추가
+ * 2025.04.29  임도헌   Modified  검색 기능 search/products에서 products로 통합
+ * 2025.05.30  임도헌   Modified  add-product 페이지 products/add로 이동
+ * 2025.06.07  임도헌   Modified  검색 결과 요약, 제품 목록, 제품 추가 버튼을 컴포넌트로 분리, 구조 개선
+ * 2025.06.18  임도헌   Modified  ProductList에 쿼리 문자열을 기준으로 key를 부여해서 제품 재렌더링
+ * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
+ * 2026.01.08  임도헌   Modified  URL 쿼리 파싱 시 NaN 방어 로직 추가 (minPrice, maxPrice)
+ * 2026.01.10  임도헌   Modified  헤더를 sticky로 고정하여 스크롤 시에도 접근성 확보, 레이아웃 재정리
+ * 2026.01.20  임도헌   Modified  formatSearchSummary 개선 적용 및 import 경로 수정
+ * 2026.01.26  임도헌   Modified  주석 설명 보강
+ * 2026.02.04  임도헌   Modified  getCachedProducts만 사용하도록 수정(내부에서 알아서 필터함)
+ * 2026.02.08  임도헌   Modified  헤더 우측에 알림 벨(NotificationBell) 추가
+ * 2026.02.12  임도헌   Modified  검색 결과 있을 경우 KeywordAlertButton 추가
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가
+ * 2026.02.15  임도헌   Modified  헤더에 RegionFilterToggle 및 MyLocationButton(HeaderVariant) 추가
+ * 2026.02.15  임도헌   Modified  fullLocation 생성 및 UI 전달
+ * 2026.02.21  임도헌   Modified  currentRange를 EmptyState 및 SearchSummary에 주입
+ * 2026.02.21  임도헌   Modified  searchParams.region 레거시 제거 및 currentRange SSOT(DB) 고정
+ */
 
-History
-Date        Author   Status    Description
-2024.10.14  임도헌   Created
-2024.10.14  임도헌   Modified  제품 페이지 추가
-2024.10.17  임도헌   Modified  무한 스크롤 기능 추가
-2024-10-26  임도헌   Modified  데이터베이스 캐싱 기능 추가
-2024-11-06  임도헌   Modified  캐싱기능 주석 처리
-*/
+import { Metadata } from "next";
+import getSession from "@/lib/session";
+import { getCategoryName } from "@/lib/getCategoryName";
+import { SearchProvider } from "@/components/global/providers/SearchProvider";
+import NotificationBell from "@/components/global/NotificationBell";
+import AddProductButton from "@/features/product/components/AddProductButton";
+import ProductEmptyState from "@/features/product/components/ProductEmptyState";
+import ProductList from "@/features/product/components/ProductList";
+import SearchResultSummary from "@/features/product/components/SearchResultSummary";
+import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
+import SearchSection from "@/features/search/components/SearchSection";
+import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
+import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
+import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
+import { fetchProductCategories } from "@/features/product/service/category";
+import {
+  getUserSearchHistory,
+  getPopularSearches,
+} from "@/features/product/service/history";
+import { getCachedProducts } from "@/features/product/service/list";
+import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { formatSearchSummary } from "@/features/product/utils/format";
+import { redirect } from "next/navigation";
+import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
+import { getUserLocation } from "@/features/user/service/profile";
+import type { RegionRange } from "@/generated/prisma/enums";
 
-import ProductList from "@/components/product-list";
-import db from "@/lib/db";
-import { PlusIcon } from "@heroicons/react/24/solid";
-import { Prisma } from "@prisma/client";
+interface ProductsPageProps {
+  searchParams: {
+    category?: string;
+    keyword?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    game_type?: string;
+    condition?: string;
+  };
+}
 
-// import { unstable_cache as nextCache, revalidatePath } from "next/cache";
-
-import Link from "next/link";
-
-const getInitialProducts = async () => {
-  const products = await db.product.findMany({
-    select: {
-      title: true,
-      price: true,
-      created_at: true,
-      photo: true,
-      id: true,
-    },
-    orderBy: {
-      created_at: "desc",
-    },
-  });
-  return products;
+export const metadata: Metadata = {
+  title: "항구 (제품 목록)",
+  description: "다양한 보드게임과 TRPG 물품을 거래하세요.",
+  openGraph: {
+    title: "보드포트 항구",
+    description: "보드게임 중고 거래의 중심, 보드포트 항구입니다.",
+  },
 };
 
-export type InitialProducts = Prisma.PromiseReturnType<
-  typeof getInitialProducts
->;
+function parseNumberParam(val: string | undefined): number | undefined {
+  if (!val) return undefined;
+  const num = Number(val);
+  return Number.isNaN(num) ? undefined : num;
+}
 
-export default async function Products() {
-  const initialProducts = await getInitialProducts();
+/**
+ * 제품 목록 페이지
+ *
+ * [기능]
+ * 1. URL 검색 조건에 따라 제품 목록 조회
+ * 2. 유저의 현재 탐색 범위(`currentRange`)를 계산 (오직 DB의 `User.regionRange`만 신뢰)
+ * 3. 빈 검색 결과일 경우 `ProductEmptyState`에 탐색 범위를 주입하여 키워드 등록 지원
+ */
+export default async function Products({ searchParams }: ProductsPageProps) {
+  const session = await getSession();
+  const userId = session?.id ?? null;
+
+  if (!userId) {
+    redirect("/login?callbackUrl=/products");
+  }
+
+  const hasSearchParams = Object.keys(searchParams).length > 0;
+  // 안전한 숫자 파싱 (가격 필터)
+  const minPrice = parseNumberParam(searchParams.minPrice);
+  const maxPrice = parseNumberParam(searchParams.maxPrice);
+
+  // 1. 데이터 병렬 로딩 (Service 직접 호출)
+  const [
+    initialProducts,
+    categories,
+    searchHistory,
+    popularSearches,
+    unreadCount,
+    keywordAlerts,
+    userLocation,
+  ] = await Promise.all([
+    getCachedProducts(
+      {
+        keyword: searchParams.keyword,
+        category: searchParams.category,
+        minPrice,
+        maxPrice,
+        game_type: searchParams.game_type,
+        condition: searchParams.condition,
+      },
+      userId
+    ),
+    fetchProductCategories(),
+    getUserSearchHistory(userId),
+    getPopularSearches(),
+    getUnreadNotificationCount(),
+    getMyKeywordAlerts(userId),
+    getUserLocation(userId),
+  ]);
+
+  const userRegion1 = userLocation?.region1;
+  const userRegion2 = userLocation?.region2;
+  const userRegion3 = userLocation?.region3;
+
+  // 유저가 위치 설정을 안 했다면(userRegion1이 null), 무조건 ALL(전국)로 간주합니다.
+  const currentRange = userRegion1
+    ? (userLocation?.regionRange as RegionRange) ?? "GU"
+    : "ALL";
+
+  const fullLocation = userLocation
+    ? [userLocation.region1, userLocation.region2, userLocation.region3]
+        .filter(Boolean)
+        .join(" ")
+    : null;
+
+  // 검색 요약 텍스트 생성
+  const categoryName = searchParams.category
+    ? getCategoryName(searchParams.category, categories)
+    : "";
+
+  const resultSearchParams = formatSearchSummary(
+    categoryName,
+    searchParams.game_type,
+    searchParams.keyword
+  );
+
+  const currentSearchKeyword = searchParams.keyword?.trim().toLowerCase();
+  // 키워드, 지역 범위(currentRange)까지 일치하는가?
+  const matchedAlert = keywordAlerts.find(
+    (a) =>
+      a.keyword.toLowerCase() === currentSearchKeyword &&
+      a.regionRange === currentRange
+  );
+
   return (
-    <div>
-      <ProductList initialProducts={initialProducts} />
-      <Link
-        href="products/add"
-        className="fixed flex items-center justify-center text-white transition-colors bg-indigo-400 rounded-full size-16 bottom-24 right-8 hover:bg-indigo-500"
-      >
-        <PlusIcon className="size-10" />
-      </Link>
+    <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
+      <SearchProvider searchParams={searchParams}>
+        {/* Sticky Header: 검색창 및 필터 */}
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
+          {/* 상단 Row: 지역 필터 & 알림 */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+            {/* 왼쪽: 지역 토글 또는 설정 버튼 */}
+            {userRegion1 ? (
+              <RegionFilterToggle
+                userRegion1={userRegion1}
+                userRegion2={userRegion2}
+                userRegion3={userRegion3}
+                currentRange={currentRange}
+              />
+            ) : (
+              // 동네 미설정 시 헤더용 버튼 표시 (fullLocation 전달)
+              <MyLocationButton variant="header" fullLocation={fullLocation} />
+            )}
+
+            <div className="shrink-0">
+              <NotificationBell userId={userId} initialCount={unreadCount} />
+            </div>
+          </div>
+
+          {/* 하단 Row: 검색창 */}
+          <SearchSection
+            categories={categories}
+            keyword={searchParams.keyword}
+            searchHistory={searchHistory}
+            popularSearches={popularSearches}
+            basePath="/products"
+          />
+        </header>
+
+        {/* Content Area */}
+        <div className="flex-1 px-page-x py-6">
+          <div
+            className={`flex items-center mb-4 ${
+              hasSearchParams ? "justify-between" : "justify-end"
+            }`}
+          >
+            {/* 검색 결과 요약 (조건이 있을 때만 표시) */}
+            {hasSearchParams && (
+              <div className="flex items-center gap-3">
+                <SearchResultSummary
+                  count={initialProducts.products.length}
+                  summaryText={resultSearchParams}
+                />
+                {/* 검색어(keyword)가 있을 때만 알림 버튼 노출 */}
+                {searchParams.keyword && (
+                  <KeywordAlertButton
+                    keyword={searchParams.keyword}
+                    alertId={matchedAlert?.id}
+                    currentRange={currentRange}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* 필터 버튼 (Client Component) */}
+            <ClientFilterWrapper
+              categories={categories}
+              filters={searchParams}
+            />
+          </div>
+
+          {/* 제품 목록 렌더링 */}
+          {initialProducts.products.length > 0 ? (
+            <ProductList
+              // 검색 조건 변경 시 스크롤/상태 초기화를 위해 key 부여
+              key={`${JSON.stringify(searchParams)}-${currentRange}`}
+              initialProducts={initialProducts}
+              searchParams={{
+                keyword: searchParams.keyword,
+                category: searchParams.category,
+                minPrice: minPrice,
+                maxPrice: maxPrice,
+                game_type: searchParams.game_type,
+                condition: searchParams.condition,
+              }}
+            />
+          ) : (
+            <ProductEmptyState
+              hasSearchParams={hasSearchParams}
+              keyword={searchParams.keyword}
+              alertId={matchedAlert?.id}
+              currentRange={currentRange}
+            />
+          )}
+        </div>
+      </SearchProvider>
+
+      {/* 제품 추가 플로팅 버튼 (FAB) */}
+      <AddProductButton />
     </div>
   );
 }

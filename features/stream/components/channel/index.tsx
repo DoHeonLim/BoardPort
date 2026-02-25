@@ -1,0 +1,168 @@
+/**
+ * File Name : features/stream/components/channel/index.tsx
+ * Description : 유저 방송국(채널) 메인 컨테이너
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.05.16  임도헌   Created
+ * 2025.05.16  임도헌   Modified  유저 방송국 client 컴포넌트
+ * 2025.05.22  임도헌   Modified  팔로우 기능 추가
+ * 2025.08.09  임도헌   Modified  기능별 컴포넌트 분리
+ * 2025.09.08  임도헌   Modified  useFollowToggle 사용 + viewerId/viewerFollowingIds 전달
+ * 2025.09.14  임도헌   Modified  a11y/UX 보강(Esc 닫기, 포커스 관리, 스크롤 잠금, 스크롤 영역 일관화)
+ * 2025.09.19  임도헌   Modified  getUserChannel 경량화에 맞춰 팔로워/팔로잉 모달 지연 로드(lazy-load) 적용
+ * 2025.09.19  임도헌   Modified  유저 팔로우, 팔로잉 무한스크롤 기능 추가
+ * 2025.10.05  임도헌   Modified  follow관련 함수 이름 변경(listFollowers -> fetchFollowers, listFollowing -> fetchFollowing)
+ * 2025.10.14  임도헌   Modified  FollowSection 도입: 팔로우/모달/페이지네이션 로직 제거
+ * 2026.01.06  임도헌   Modified  팔로우 용어/SSOT 정리: 모달 row는 isFollowedByViewer, 섹션 분리는 isMutualWithOwner(owner 기준)
+ * 2025.01.06  임도헌   Modified  LiveNowHero에 onFollow 연결
+ * 2026.01.14  임도헌   Modified  [Refactor] UserStreamsClient -> index.tsx, 시맨틱 토큰 적용
+ * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * ===============================================================================================
+ * User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
+ * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 통계)
+ * - LiveNowHero.tsx       : 현재 진행 중인 라이브 방송 (최상단 노출)
+ * - RecordingGrid.tsx     : 지난 방송(녹화본) 목록 그리드
+ * - RecordingEmptyState.tsx : 녹화본이 없을 때 빈 상태 UI
+ * - index.tsx             : 위 컴포넌트들을 조합한 최종 채널 페이지 컨테이너
+ * ===============================================================================================
+ */
+"use client";
+
+import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import UserChannelHeader from "@/features/stream/components/channel/UserChannelHeader";
+import LiveNowHero from "@/features/stream/components/channel/LiveNowHero";
+import RecordingGrid from "@/features/stream/components/channel/RecordingGrid";
+import type {
+  BroadcastSummary,
+  ViewerRole,
+  VodForGrid,
+} from "@/features/stream/types";
+
+type ExtendedUserInfo = {
+  id: number;
+  username: string;
+  avatar?: string | null;
+  isFollowing?: boolean;
+  isBlocked?: boolean;
+  _count?: { followers?: number; following?: number };
+};
+
+type MeProp = boolean | { id: number } | undefined;
+
+/**
+ * 유저 방송국 페이지 컨테이너
+ *
+ * [구조]
+ * 1. 헤더: 유저 정보 및 팔로우 액션
+ * 2. 라이브 히어로: 현재 진행 중인 방송이 있다면 최상단에 크게 표시
+ * 3. 녹화본 그리드: 지난 방송 목록
+ *
+ * [기능]
+ * - 팔로우 상태를 로컬 state로 관리하여 즉각적인 UI 반응성을 제공
+ * - 로그인되지 않은 경우 로그인 페이지로 리다이렉트하는 콜백을 헤더에 전달
+ */
+export default function UserChannelContainer({
+  liveNow,
+  recordings,
+  userInfo,
+  me,
+  viewerId,
+}: {
+  liveNow?: BroadcastSummary | null;
+  recordings?: VodForGrid[];
+  userInfo: ExtendedUserInfo;
+  me?: MeProp;
+  viewerId?: number;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const next = useMemo(
+    () => pathname + (searchParams.size ? `?${searchParams.toString()}` : ""),
+    [pathname, searchParams]
+  );
+
+  const isMe =
+    typeof me === "boolean"
+      ? me
+      : !!(me && "id" in me && me.id === userInfo.id);
+
+  const [isFollowing, setIsFollowing] = useState<boolean>(
+    !!userInfo.isFollowing
+  );
+
+  // 현재 뷰어의 역할 계산 (Owner / Follower / Visitor)
+  const role: ViewerRole = isMe
+    ? "OWNER"
+    : isFollowing
+      ? "FOLLOWER"
+      : "VISITOR";
+
+  const liveStream = useMemo<BroadcastSummary | undefined>(() => {
+    if (liveNow) return liveNow || undefined;
+  }, [liveNow]);
+
+  const recordingsMemo = useMemo(() => recordings ?? [], [recordings]);
+  return (
+    <div className="flex flex-col min-h-screen bg-background pb-20 transition-colors">
+      <UserChannelHeader
+        ownerId={userInfo.id}
+        username={userInfo.username}
+        avatar={userInfo.avatar}
+        initialFollowerCount={userInfo._count?.followers ?? 0}
+        initialFollowingCount={userInfo._count?.following ?? 0}
+        initialIsFollowing={!!userInfo.isFollowing}
+        isMe={isMe}
+        isBlocked={userInfo.isBlocked}
+        viewerId={viewerId}
+        onRequireLogin={() =>
+          router.push(`/login?callbackUrl=${encodeURIComponent(next)}`)
+        }
+        onFollowingChange={setIsFollowing}
+      />
+
+      {userInfo.isBlocked ? (
+        <div className="mx-auto max-w-3xl w-full px-4 py-12">
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in bg-surface-dim rounded-2xl border border-dashed border-border">
+            <span className="text-4xl mb-4">🚫</span>
+            <p className="text-lg font-bold text-primary">
+              차단한 사용자입니다
+            </p>
+            <p className="text-sm text-muted mt-1">
+              이 사용자의 실시간 방송과 다시보기를 시청할 수 없습니다.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* Live Section */}
+          <LiveNowHero
+            stream={liveStream}
+            role={role}
+            onFollow={() => {
+              const btn = document.getElementById("channel-follow-button");
+              if (btn) {
+                btn.scrollIntoView({ behavior: "smooth", block: "center" });
+                btn.focus();
+              } else {
+                // fallback
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
+          />
+
+          {/* VOD Section */}
+          <RecordingGrid
+            recordings={recordingsMemo}
+            role={role}
+            isFollowing={isFollowing}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

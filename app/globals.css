@@ -1,33 +1,620 @@
-/*2024-11-23 커스텀 스크롤바 추가*/
+/* History
+   2024.11.23  임도헌 - 커스텀 스크롤바 추가
+   2024.12.14  임도헌 - 버튼, 카드, 인풋 디자인 변경
+   2025.04.29  임도헌 - 다크모드 전환 애니메이션 개선 및 구름 요소 반응형 추가
+   2025.07.24  임도헌 - 커스텀 스크롤바 수정
+   2026.01.10  임도헌 - BoardPort Design Standard v1.1 (Semantic Variables) 적용
+*/
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 커스텀 스크롤바 스타일 */
+/* [기존 유지] 커스텀 스크롤바 스타일 */
 .scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #6366f1 #171717;
+  scrollbar-color: #4338ca #ffffff;
 }
 .scrollbar::-webkit-scrollbar {
-  width: 12px;
+  width: 6px;
 }
 .scrollbar::-webkit-scrollbar-track {
-  background: #171717;
+  background: transparent;
 }
 .scrollbar::-webkit-scrollbar-thumb {
-  background-color: #6366f1;
-  border-radius: 6px;
-  border: 3px solid #6366f1;
+  background-color: #4338ca;
+  border-radius: 20px;
 }
 
 @layer base {
-  a {
-    @apply text-indigo-300;
+  :root {
+    /* 브라우저 강제 다크모드 방지 */
+    color-scheme: light dark;
+
+    /* [신규 v1.1] Semantic Color Roles */
+    /* 기본 테마: 깨끗한 화이트 & 슬레이트 그레이 */
+    --background: #f8fafc; /* slate-50 */
+    --background-dark: #020617; /* slate-950 */
+
+    /* 표면: 카드, 모달 등 */
+    --surface: #ffffff;
+    --surface-foreground: #0f172a; /* slate-900 */
+    --surface-dim: #f1f5f9; /* slate-100 */
+
+    /* 타이포그래피 */
+    --text-primary: #1e293b; /* slate-800 */
+    --text-muted: #64748b; /* slate-500 */
+
+    /* 테두리 */
+    --border: #e2e8f0; /* slate-200 */
+
+    /* [기존 유지] 그라데이션 및 그림자 변수 */
+    --gradient-ocean: linear-gradient(to bottom, #60a5fa, #1e40af);
+    --gradient-sunset: linear-gradient(to right, #fcd34d, #f97316);
+
+    --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-dropdown: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+
+    --radius-small: 0.375rem;
+    --radius-medium: 0.5rem;
+    --radius-large: 0.75rem;
+
+    --panel: #ffffff;
+    --panel-border: #e5e7eb;
+    --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+    --link: #3b82f6;
+
+    /* [신규] Mobile Constraints */
+    --max-width-mobile: 640px;
+
+    /* [신규] Badge/Tag Colors (가시성 확보) */
+    /* Light: 연한 브랜드 컬러 배경 + 진한 텍스트 */
+    --badge-bg: #e0f2fe; /* sky-100 */
+    --badge-text: #0c4a6e; /* sky-900 */
+  }
+
+  .dark {
+    /* [신규 v1.1] Dark Mode Overrides */
+    --background: #020617; /* slate-950 */
+
+    --surface: #0f172a; /* slate-900 */
+    --surface-foreground: #f8fafc; /* slate-50 */
+    --surface-dim: #1e293b; /* slate-800 */
+
+    --text-primary: #f8fafc; /* slate-50 */
+    --text-muted: #94a3b8; /* slate-400 */
+
+    --border: #334155; /* slate-700 */
+
+    /* [기존 유지] */
+    --panel: #0b0f14;
+    --panel-border: #1f2937;
+    --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --link: #60a5fa;
+
+    /* [신규] Badge/Tag Colors (가시성 확보) */
+    /* Dark: 반투명 흰색 배경 + 밝은 텍스트 (또는 진한 브랜드 배경) */
+    --badge-bg: #1e293b; /* slate-800 (Surface보다 약간 밝음) */
+    --badge-text: #e0f2fe; /* sky-100 */
+  }
+
+  /* [Rule 3.2] Global Reset */
+  html,
+  body {
+    @apply h-full w-full overflow-x-hidden;
+  }
+
+  body {
+    /* bg-background와 text-primary는 tailwind.config에서 정의한 시맨틱 클래스 */
+    @apply bg-background text-primary antialiased transition-colors duration-300;
+  }
+
+  /* [기존 유지] 다크모드 전환 애니메이션 */
+  * {
+    transition-property: color, background-color, border-color,
+      text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
   }
 }
 
 @layer components {
-  .primary-btn {
-    @apply w-full font-medium text-white bg-indigo-300 rounded-md text-center hover:bg-indigo-400 transition-colors;
+  /* [업데이트] Semantic Token 적용 */
+  .btn-primary {
+    @apply bg-brand hover:bg-brand-dark dark:bg-brand-light dark:hover:bg-brand
+    text-white dark:text-gray-900
+    px-4 py-2 rounded-xl transition-colors
+    disabled:bg-neutral-400 dark:disabled:bg-neutral-600 
+    disabled:text-neutral-300 dark:disabled:text-neutral-400 
+    disabled:cursor-not-allowed;
   }
+
+  .btn-secondary {
+    @apply bg-surface text-brand border border-brand
+    hover:bg-neutral-50 dark:bg-surface dark:text-brand-light dark:border-brand-light
+    px-4 py-2 rounded-xl transition-colors
+    disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-surface text-primary
+    rounded-2xl shadow-sm border border-border p-4 
+    hover:shadow-md transition-shadow;
+  }
+
+  .input-primary {
+    @apply w-full transition bg-transparent 
+    border-none rounded-xl appearance-none
+    focus:outline-none ring-2 focus:ring-4 
+    ring-border dark:ring-neutral-700 
+    focus:ring-brand focus:dark:ring-brand-light 
+    placeholder:text-muted
+    text-primary;
+  }
+
+  /* 라이트/다크 공용 패널 */
+  .panel {
+    @apply bg-surface border border-border shadow-sm rounded-xl;
+  }
+
+  .btn-ghost {
+    @apply text-brand dark:text-brand-light px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/5;
+  }
+
+  .section-h {
+    @apply flex items-center justify-between mb-2;
+  }
+
+  /* 링크형 타일(살짝 강조) */
+  .tile {
+    @apply panel transition-colors
+           hover:bg-neutral-50 dark:hover:bg-white/5;
+  }
+  .tile-strong {
+    @apply panel border-neutral-700/80 hover:border-neutral-500/70 hover:bg-white/5 transition-colors;
+  }
+
+  /* 섹션 공통 여백(선택) */
+  .section {
+    @apply mt-6;
+  }
+  .section-tight {
+    @apply mt-4;
+  }
+  .section-divider {
+    @apply border-t border-border -mx-4 sm:-mx-6 px-4 sm:px-6 pt-6;
+  }
+}
+
+@layer utilities {
+  /* [Rule 3.2] 데스크톱 제약 래퍼 유틸리티 */
+  .layout-container {
+    @apply mx-auto min-h-[100dvh] w-full max-w-mobile bg-background shadow-2xl overflow-hidden;
+  }
+
+  /* 커스텀 스크롤바 숨김 (미니멀리즘) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ==========================================================================
+   [기존 애니메이션 코드 유지 - 삭제 금지] 
+   로그인/회원가입 페이지의 배경 효과(구름, 갈매기, 파도, 별)를 위해 필수적임
+   ========================================================================== */
+
+/* 구름 애니메이션 */
+.clouds {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 0;
+  top: 0;
+  left: 0;
+}
+
+.cloud {
+  position: absolute;
+  width: 200px;
+  height: 100px;
+  border-radius: 50%;
+  filter: blur(10px);
+  opacity: 0.5;
+  animation: floatCloud linear infinite;
+}
+
+.cloud1 {
+  top: 10%;
+  left: -20%;
+  animation-duration: 70s;
+}
+
+.cloud2 {
+  top: 30%;
+  left: 0%;
+  animation-duration: 40s;
+}
+
+.cloud3 {
+  top: 50%;
+  left: -10%;
+  animation-duration: 55s;
+}
+
+@keyframes floatCloud {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(150vw);
+  }
+}
+
+/* 구름 그림자 효과 */
+.cloud::before,
+.cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: 50%;
+}
+
+.cloud::before {
+  width: 100px;
+  height: 50px;
+  top: -20px;
+  left: 15px;
+}
+
+.cloud::after {
+  width: 80px;
+  height: 40px;
+  top: 70px;
+  right: 15px;
+}
+
+/* 갈매기 애니메이션 */
+.seagulls {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.seagull {
+  position: absolute;
+  width: 60px;
+  height: 40px;
+  animation: fly linear infinite;
+}
+
+.seagull1 {
+  background: url("/images/seagull.svg") no-repeat center/contain;
+  top: 30%;
+  animation-duration: 15s;
+}
+
+.seagull2 {
+  background: url("/images/seagull2.svg") no-repeat center/contain;
+  top: 40%;
+  animation-duration: 12s;
+}
+
+@keyframes fly {
+  from {
+    left: -5%;
+    transform: translateY(0px);
+  }
+  25% {
+    transform: translateY(-20px);
+  }
+  50% {
+    transform: translateY(0px);
+  }
+  75% {
+    transform: translateY(-10px);
+  }
+  to {
+    left: 105%;
+    transform: translateY(0px);
+  }
+}
+
+/* 등대 깜빡임 효과 */
+.lighthouse {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lighthouse-light {
+  position: absolute;
+  top: 40%;
+  right: -10px;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 247, 213, 0.8);
+  border-radius: 50%;
+  filter: blur(5px);
+  animation: lighthouse 4s ease-in-out infinite;
+}
+
+@keyframes lighthouse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* 별 효과 수정 */
+.stars {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle 2s infinite ease-in-out alternate;
+}
+
+/* 각 별들의 위치를 명시적으로 지정 */
+.star1 {
+  top: 10%;
+  left: 10%;
+  animation: twinkle 3s infinite;
+}
+.star2 {
+  top: 20%;
+  left: 25%;
+  animation: twinkle 4s infinite;
+}
+.star3 {
+  top: 15%;
+  left: 50%;
+  animation: twinkle 3.5s infinite;
+}
+.star4 {
+  top: 30%;
+  left: 75%;
+  animation: twinkle 4.5s infinite;
+}
+.star5 {
+  top: 25%;
+  left: 90%;
+  animation: twinkle 3s infinite;
+}
+.star6 {
+  top: 5%;
+  left: 60%;
+  animation: twinkle 4s infinite;
+}
+.star7 {
+  top: 40%;
+  left: 30%;
+  animation: twinkle 3.5s infinite;
+}
+.star8 {
+  top: 55%;
+  left: 80%;
+  animation: twinkle 5s infinite;
+}
+.star9 {
+  top: 65%;
+  left: 15%;
+  animation: twinkle 3.2s infinite;
+}
+.star10 {
+  top: 75%;
+  left: 45%;
+  animation: twinkle 4.2s infinite;
+}
+.star11 {
+  top: 85%;
+  left: 70%;
+  animation: twinkle 4.8s infinite;
+}
+.star12 {
+  top: 90%;
+  left: 10%;
+  animation: twinkle 3.6s infinite;
+}
+.star13 {
+  top: 35%;
+  left: 85%;
+  animation: twinkle 5.2s infinite;
+}
+.star14 {
+  top: 45%;
+  left: 5%;
+  animation: twinkle 4.3s infinite;
+}
+.star15 {
+  top: 15%;
+  left: 35%;
+  animation: twinkle 3.7s infinite;
+}
+.star16 {
+  top: 20%;
+  left: 65%;
+  animation: twinkle 4.9s infinite;
+}
+.star17 {
+  top: 60%;
+  left: 90%;
+  animation: twinkle 3.4s infinite;
+}
+.star18 {
+  top: 70%;
+  left: 25%;
+  animation: twinkle 4.1s infinite;
+}
+.star19 {
+  top: 80%;
+  left: 50%;
+  animation: twinkle 3.8s infinite;
+}
+.star20 {
+  top: 95%;
+  left: 75%;
+  animation: twinkle 4.6s infinite;
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* 파도 애니메이션 수정 */
+.wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 88.7'%3E%3Cpath d='M800 56.9c-155.5 0-204.9-50-405.5-49.9-200 0-250 49.9-394.5 49.9v31.8h800v-.2-31.6z' fill='%23FFFFFF'/%3E%3C/svg%3E");
+  background-size: 50% 100px;
+}
+
+.wave1 {
+  opacity: 1;
+  z-index: 3;
+  animation: wave 7s linear infinite;
+}
+
+.wave2 {
+  opacity: 0.5;
+  z-index: 2;
+  animation: wave 7s linear infinite;
+  animation-delay: -3.5s;
+}
+
+.wave3 {
+  opacity: 0.3;
+  z-index: 1;
+  animation: wave 7s linear infinite;
+  animation-delay: -2.5s;
+}
+
+@keyframes wave {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* 부드러운 float 애니메이션 */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* 페이드인 애니메이션 */
+.animate-fade-in {
+  animation: fadeIn 1s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 글래스모피즘(반투명 유리) 효과 */
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+}
+
+/* 반응형 조정 */
+@media (max-width: 640px) {
+  .text-5xl {
+    font-size: 2.5rem;
+  }
+  .text-2xl {
+    font-size: 1.25rem;
+  }
+  .lighthouse-light {
+    width: 20px;
+    height: 20px;
+  }
+  .cloud1 {
+    width: 80px;
+    height: 30px;
+  }
+  .cloud2 {
+    width: 60px;
+    height: 25px;
+  }
+  .cloud3 {
+    width: 70px;
+    height: 30px;
+  }
+  .seagull {
+    width: 40px;
+    height: 30px;
+  }
+  .wave {
+    height: 60px;
+  }
+}
+
+/* 동작 줄이기 설정일 때: UI 쪽 애니메이션만 최소화 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-fade-in {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Edge/IE 계열: password reveal / clear 버튼 숨기기 */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* Chromium 계열에서 자동완성/credentials 버튼이 뜨는 경우 숨기기 */
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
 }
