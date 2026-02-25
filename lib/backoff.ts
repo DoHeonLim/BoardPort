@@ -1,5 +1,5 @@
 /**
- * File Name : lib/backoff
+ * File Name : lib/backoff.ts
  * Description : 지수 백오프 기반 폴링 유틸 (클라이언트/서버 공용)
  * Author : 임도헌
  *
@@ -24,10 +24,16 @@ export interface BackoffController {
 }
 
 /**
- * createBackoffPoller
- * - task가 "success"면 딜레이를 base로 리셋
- * - "fail"이면 딜레이를 factor배로 증가(최대 maxMs)
- * - "stop"이면 폴링을 종료
+ * 지수 백오프 폴러 생성
+ *
+ * [알고리즘]
+ * - 초기 딜레이(`baseMs`)로 시작
+ * - 태스크 실패(`fail`) 시 딜레이를 `factor`(기본 2배)만큼 증가 (최대 `maxMs`까지)
+ * - 태스크 성공(`success`) 시 딜레이를 다시 `baseMs`로 초기화
+ * - `jitter` 옵션이 켜져 있으면 딜레이에 무작위성(0.5~1.5배)을 부여하여 서버 부하를 분산
+ *
+ * [기능]
+ * - `pauseWhenHidden`: 탭이 백그라운드로 가면 폴링을 일시 중단하고, 돌아오면 즉시 재개
  */
 export function createBackoffPoller(
   task: () => Promise<boolean | "success" | "fail" | "stop" | void>,

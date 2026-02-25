@@ -1,6 +1,6 @@
 /**
- * File Name : app/api/webhooks/cloudflare/route
- * Description : Cloudflare Stream 웹훅 수신 → Broadcast/VodAsset 갱신 (WebCrypto HMAC 검증)
+ * File Name : app/api/webhooks/cloudflare/route.ts
+ * Description : Cloudflare Stream 웹훅 수신 -> Broadcast/VodAsset 갱신 (WebCrypto HMAC 검증)
  * Author : 임도헌
  *
  * History
@@ -12,16 +12,18 @@
  * 2025.09.17  임도헌   Modified  방송 시작시 썸네일 자동 업데이트 기능 추가
  * 2025.11.22  임도헌   Modified  broadcast-list 캐시 태그 제거, 상세/user-streams-id 태그만 유지
  * 2026.01.08  임도헌   Modified  방송 재접속(CONNECTED) 시 ended_at 초기화(null) 추가
+ * 2026.02.23  임도헌   Modified  Webhook 재전송 시 VOD 중복 생성 방지(P2002 무시) 및 에러 로깅 강화
  */
 
 import "server-only";
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cache/tags";
+import * as T from "@/lib/cacheTags";
 import crypto from "node:crypto";
 import db from "@/lib/db";
-import { sendLiveStatusFromServer } from "@/lib/stream/status/serverBroadcast";
-import { sendLiveStartNotifications } from "@/lib/notification/sendLiveStartNotifications";
+import { sendLiveStatusFromServer } from "@/features/stream/service/realtime";
+import { sendLiveStartNotifications } from "@/features/notification/service/live";
+import { Prisma } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
 
@@ -45,7 +47,6 @@ const STREAM_SECRET = (
  */
 const subtle = (crypto.webcrypto ?? globalThis.crypto).subtle;
 const te = new TextEncoder();
-
 /** 웹훅 타임스탬프 허용 편차(초) — 5분 */
 const MAX_SKEW_SEC = 300;
 
@@ -537,8 +538,8 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   const ready_at: Date | null = src?.readyToStreamAt
     ? new Date(src.readyToStreamAt)
     : src?.created
-      ? new Date(src.created)
-      : null;
+    ? new Date(src.created)
+    : null;
 
   let broadcastIdResolved: number | null = null;
 
@@ -572,45 +573,52 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   // 연결할 방송이 없다면 VOD는 생성하되 어느 방송에도 연결하지 않음
   if (!broadcastIdResolved) return;
 
-  // VodAsset upsert (provider_asset_id 기준)
-  await db.vodAsset.upsert({
-    where: { provider_asset_id: assetUid },
-    update: {
-      playback_hls,
-      playback_dash,
-      thumbnail_url,
-      duration_sec,
-      ready_at: ready_at ?? undefined,
-      broadcast: { connect: { id: broadcastIdResolved } },
-    },
-    create: {
-      provider_asset_id: assetUid,
-      playback_hls,
-      playback_dash,
-      thumbnail_url,
-      duration_sec,
-      ready_at: ready_at ?? undefined,
-      broadcast: { connect: { id: broadcastIdResolved } },
-    },
-  });
+  try {
+    // VodAsset upsert
+    await db.vodAsset.upsert({
+      where: { provider_asset_id: assetUid },
+      update: {
+        playback_hls,
+        playback_dash,
+        thumbnail_url,
+        duration_sec,
+        ready_at: ready_at ?? undefined,
+        broadcast: { connect: { id: broadcastIdResolved } },
+      },
+      create: {
+        provider_asset_id: assetUid,
+        playback_hls,
+        playback_dash,
+        thumbnail_url,
+        duration_sec,
+        ready_at: ready_at ?? undefined,
+        broadcast: { connect: { id: broadcastIdResolved } },
+      },
+    });
+  } catch (e) {
+    // 중복 생성 에러(P2002)는 무시하고 성공으로 간주 (Idempotency)
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
+      console.log(
+        `[onVideoReady] VOD already exists (Idempotent skip): ${assetUid}`
+      );
+      return;
+    }
+    throw e; // 그 외 에러는 상위로 전파
+  }
 
-  // 해당 방송 상세 캐시 무효화 (VOD 탭/버튼 등 갱신)
+  // 캐시 무효화
   revalidateTag(T.BROADCAST_DETAIL(broadcastIdResolved));
 
-  // 리스트/유저 방송 목록 캐시도 최신화
   try {
     const owner = await db.broadcast.findUnique({
       where: { id: broadcastIdResolved },
-      select: {
-        liveInput: {
-          select: { userId: true },
-        },
-      },
+      select: { liveInput: { select: { userId: true } } },
     });
-
-    const ownerId = owner?.liveInput?.userId;
-    if (ownerId) {
-      revalidateTag(T.USER_STREAMS_ID(ownerId));
+    if (owner?.liveInput?.userId) {
+      revalidateTag(T.USER_STREAMS_ID(owner.liveInput.userId));
     }
   } catch (err) {
     console.warn("[onVideoReady] revalidateTag failed:", err);

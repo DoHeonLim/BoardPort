@@ -1,5 +1,5 @@
 /**
- * File Name : app/streams/add/page
+ * File Name : app/streams/add/page.tsx
  * Description : 라이브 스트리밍 시작 페이지 (StreamForm 진입)
  * Author : 임도헌
  *
@@ -12,67 +12,51 @@
  * 2025.04.19  임도헌   Modified   OBS Studio 호환 방식으로 변경
  * 2025.07.30  임도헌   Modified   StreamForm 컴포넌트로 분리
  * 2025.09.09  임도헌   Modified   filename 정정, metadata/캐싱/a11y/에러 처리 보강
+ * 2026.01.14  임도헌   Modified   시맨틱 토큰 및 레이아웃 적용
+ * 2026.01.14  임도헌   Modified   헤더를 layout으로 위임하고 본문만 남김
+ * 2026.01.29  임도헌   Modified   주석 설명 보강
  */
 
 import type { Metadata } from "next";
-import StreamForm from "@/components/stream/StreamForm";
-import { fetchStreamCategories } from "@/lib/category/fetchStreamCategories";
-import { createBroadcastAction } from "./actions";
+import StreamForm from "@/features/stream/components/StreamForm";
+import { fetchStreamCategories } from "@/features/stream/service/category";
+import { createBroadcastAction } from "@/features/stream/actions/create";
 
-/**
- * SEO metadata
- * - 페이지 타이틀/설명 기본 제공. 필요시 채널/유저명 등으로 동적 확장 가능.
- */
 export const metadata: Metadata = {
   title: "새로운 스트리밍 시작하기 | BoardPort",
-  description:
-    "OBS/방송 툴과 호환되는 라이브 스트리밍을 생성하세요. 카테고리, 썸네일, 태그를 설정할 수 있습니다.",
+  description: "OBS/방송 툴과 호환되는 라이브 스트리밍을 생성하세요.",
 };
 
 /**
- * 캐싱 정책
- * - 카테고리는 빈도가 낮게 변경되므로 1시간 캐싱. (운영 정책에 따라 0/force-dynamic로 조정 가능)
+ * 방송 생성 페이지
+ *
+ * - 방송 카테고리를 미리 로드하여 폼에 주입
+ * - `StreamForm` 컴포넌트를 렌더링
  */
-export const revalidate = 3600;
-
 export default async function AddStreamPage() {
   let categories: Awaited<ReturnType<typeof fetchStreamCategories>> = [];
 
   try {
     categories = await fetchStreamCategories();
   } catch (err) {
-    // NOTE: 서버 로그 남기고 폼은 동작하도록 fallback
     console.error("[AddStreamPage] fetchStreamCategories failed:", err);
   }
 
-  const hasCategories = Array.isArray(categories) && categories.length > 0;
-
   return (
-    <main className="max-w-2xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-2 text-black dark:text-white">
-        새로운 스트리밍 시작하기
-      </h1>
-      <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-        RTMP/OBS 환경에서 바로 사용할 수 있도록 제목·카테고리·썸네일을
-        설정하세요.
-      </p>
-
-      {!hasCategories && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200"
-        >
-          카테고리 목록을 불러오지 못했어요. 나중에 다시 시도하거나 카테고리
-          없이 생성해도 됩니다.
-        </div>
-      )}
+    <div className="px-page-x py-6">
+      <div className="mb-6">
+        <p className="text-sm text-muted">
+          제목, 카테고리, 썸네일을 설정하여 방송을 시작하세요.
+          <br />
+          생성 후 OBS 설정 정보를 확인할 수 있습니다.
+        </p>
+      </div>
 
       <StreamForm
         mode="create"
         action={createBroadcastAction}
         categories={categories ?? []}
       />
-    </main>
+    </div>
   );
 }

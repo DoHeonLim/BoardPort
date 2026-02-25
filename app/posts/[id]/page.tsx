@@ -1,6 +1,6 @@
 /**
- * File Name : app/posts/[id]/page
- * Description : 동네생활 게시글 페이지
+ * File Name : app/posts/[id]/page.tsx
+ * Description : 게시글 상세 페이지
  * Author : 임도헌
  *
  * History
@@ -24,14 +24,61 @@
  * 2026.01.03  임도헌   Modified  좋아요 상태 조회(getCachedLikeStatus)도 병렬 처리로 최적화
  * 2026.01.04  임도헌   Modified  incrementPostViews(didIncrement:boolean) 기반 조회수 표시 보정(+1)으로 통일
  * 2026.01.04  임도헌   Modified  incrementPostViews wrapper 제거 → lib/views/incrementViews 직접 호출로 단일 진입점 고정
+ * 2026.01.22  임도헌   Modified  Service 직접 호출 최적화
+ * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 로드
+ * 2026.02.04  임도헌   Modified  차단 관계 확인 로직 추가
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가
  */
 
-import { notFound } from "next/navigation";
-import { getCachedPost, getUser } from "./actions/posts";
-import { getCachedLikeStatus } from "./actions/likes";
-import { incrementViews } from "@/lib/views/incrementViews";
-import PostDetailWrapper from "@/components/post/postsDetail";
+import { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
+import { incrementViews } from "@/features/common/service/view";
+import PostDetail from "@/features/post/components/postsDetail";
+import { getUserInfoById } from "@/features/user/service/profile";
+import getSession from "@/lib/session";
+import { getCachedPost } from "@/features/post/service/post";
+import { getCachedPostLikeStatus } from "@/features/post/service/like";
+import { checkBlockRelation } from "@/features/user/service/block";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const id = Number(params.id);
+  const post = await getCachedPost(id);
+
+  if (!post) {
+    return { title: "게시글을 찾을 수 없음" };
+  }
+
+  const desc = post.description
+    ? post.description.slice(0, 100).replace(/\n/g, " ")
+    : "보드포트 항해일지";
+
+  return {
+    title: post.title,
+    description: desc,
+    openGraph: {
+      title: post.title,
+      description: desc,
+      // images: post.images[0]?.url ? [post.images[0].url] : [], // (선택) OG 이미지 생성기 쓰면 생략 가능
+    },
+  };
+}
+/**
+ * 게시글 상세 페이지
+ *
+ * [기능]
+ * 1. 로그인 여부를 확인 (비로그인 시 로그인 페이지로 리다이렉트)
+ * 2. 사용자의 조회수를 먼저 업데이트하고 기존 캐시를 무효화
+ * 3. 최신 게시글 데이터, 좋아요 상태, 그리고 작성자 정보를 병렬로 호출
+ * 4. 비로그인 사용자는 로그인 페이지로 리다이렉트
+ * 5. `PostDetail` 컴포넌트를 렌더링
+ *
+ * @param {Object} params - URL 파라미터 (id: 게시글 ID)
+ */
 export default async function PostDetailPage({
   params,
 }: {
@@ -40,36 +87,46 @@ export default async function PostDetailPage({
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
 
-  const user = await getUser();
+  const session = await getSession();
+  const userId = session?.id ?? null;
 
-  /**
-   * 상세 데이터/조회수 증가/좋아요 상태를 병렬 처리한다.
-   * - getCachedPost: 캐시된 상세 (태그 기반)
-   * - incrementViews: 부수효과(조회수) + 3분 쿨다운 (단일 진입점)
-   * - getCachedLikeStatus: 좋아요/카운트 캐시
-   */
-  const [post, didIncrement, likeStatus] = await Promise.all([
+  // 비로그인 접근 제한 (미들웨어 보조)
+  if (!userId) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/posts/${id}`)}`);
+  }
+
+  // 1. [Write] 조회수 증가 및 무효화 선행
+  await incrementViews({
+    target: "POST",
+    targetId: id,
+    viewerId: userId,
+  });
+
+  // 2. [Read] 데이터 병렬 조회 (게시글 + 좋아요 + 유저)
+  const [post, likeStatus, viewerInfo] = await Promise.all([
     getCachedPost(id),
-    incrementViews({
-      target: "POST",
-      targetId: id,
-      viewerId: user?.id ?? null,
-    }),
-    getCachedLikeStatus(id),
+    getCachedPostLikeStatus(id, userId),
+    getUserInfoById(userId),
   ]);
 
   if (!post) return notFound();
+  if (!viewerInfo) redirect("/login");
 
-  const mergedPost = {
-    ...post,
-    // didIncrement=true일 때만 화면 표시값을 +1 보정한다. (쿨다운이면 보정 금지)
-    views: (post.views ?? 0) + (didIncrement ? 1 : 0),
-  };
+  if (userId !== post.user.id) {
+    const isBlocked = await checkBlockRelation(userId, post.user.id);
+    if (isBlocked) {
+      redirect(
+        `/403?reason=BLOCKED&username=${encodeURIComponent(
+          post.user.username
+        )}&callbackUrl=/posts/${id}`
+      );
+    }
+  }
 
   return (
-    <PostDetailWrapper
-      post={mergedPost}
-      user={user}
+    <PostDetail
+      post={post}
+      user={viewerInfo}
       likeCount={likeStatus.likeCount}
       isLiked={likeStatus.isLiked}
     />

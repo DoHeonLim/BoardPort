@@ -1,5 +1,5 @@
 /**
- * File Name : app/offline/page
+ * File Name : app/offline/page.tsx
  * Description : 오프라인 상태 안내 페이지(PWA fallback)
  * Author : 임도헌
  *
@@ -7,56 +7,68 @@
  * Date        Author   Status    Description
  * 2025.11.29  임도헌   Created   오프라인 전용 안내 페이지 추가
  * 2025.11.29  임도헌   Modified  보트포트 컨셉에 맞는 UI 및 안내 텍스트 정리
+ * 2026.01.14  임도헌   Modifeid  시멘틱 토큰 적용
+ * 2026.02.02  임도헌   Modified  주석 상세 설명 보강
+ * 2026.02.25  임도헌   Modified  로고 컴포넌트 적용 및 오프라인 테마 강화
  */
-
 import Link from "next/link";
+import Logo from "@/components/ui/Logo";
+import { SignalSlashIcon } from "@heroicons/react/24/outline";
+import { cn } from "@/lib/utils";
 
+/**
+ * PWA 오프라인 폴백(Fallback) 페이지
+ *
+ * - 인터넷 연결이 끊겼을 때 Service Worker가 이 페이지를 서빙
+ * - 사용자에게 오프라인 상태임을 알리고, 재시도(새로고침) 가이드를 제공
+ * - `next-pwa` 설정(`fallbacks: { document: "/offline" }`)에 의해 매핑
+ *
+ * @returns {JSX.Element} 오프라인 안내 UI
+ */
 export default function OfflinePage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sky-50 via-white to-slate-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white/90 dark:bg-neutral-900/90 shadow-lg border border-neutral-100/80 dark:border-neutral-800/80 p-6 sm:p-8">
-        <div className="flex flex-col items-center text-center gap-4">
-          {/* 아이콘 */}
-          <div className="h-14 w-14 rounded-2xl bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
-            <span className="text-2xl" aria-hidden>
-              📡
-            </span>
+    <main className="flex flex-col items-center justify-center min-h-screen px-6 bg-background transition-colors text-center">
+      {/* 로고 및 아이콘 영역 */}
+      <div className="mb-8 flex flex-col items-center gap-4">
+        <div className="relative p-5 rounded-full bg-surface-dim border border-border animate-float shadow-sm">
+          {/* 심볼 로고를 반투명/그레이스케일로 처리하여 오프라인 느낌 강조 */}
+          <Logo variant="symbol" size={80} className="grayscale opacity-40" />
+          <div className="absolute -bottom-1 -right-1 bg-background p-1 rounded-full border border-border">
+            <SignalSlashIcon className="size-6 text-danger" />
           </div>
-
-          {/* 타이틀/설명 */}
-          <div className="space-y-1">
-            <h1 className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-              지금은 바다와의 연결이 끊어졌어요
-            </h1>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              인터넷 연결이 없어 보트포트 항구에 접속할 수 없습니다.
-              <br className="hidden sm:inline" />
-              네트워크가 다시 연결되면 자동으로 항해를 이어갈 수 있어요.
-            </p>
-          </div>
-
-          {/* 가이드 박스 */}
-          <div className="w-full rounded-xl bg-sky-50 dark:bg-neutral-800/80 px-4 py-3 text-left text-xs sm:text-[13px] text-sky-900 dark:text-sky-100">
-            <p className="font-medium mb-1">잠깐, 이렇게 해볼까요?</p>
-            <ul className="space-y-1 list-disc list-inside">
-              <li>Wi-Fi 또는 모바일 데이터 연결을 확인해 주세요.</li>
-              <li>브라우저를 새로 고침해서 다시 접속해 보세요.</li>
-              <li>
-                PWA로 설치한 경우, 최근에 본 페이지는 일부 오프라인에서도 열릴
-                수 있어요.
-              </li>
-            </ul>
-          </div>
-
-          {/* 홈으로 이동 버튼 */}
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors"
-          >
-            항구로 돌아가기
-          </Link>
         </div>
+        <Logo variant="full" size={160} className="opacity-80" />
       </div>
+
+      <h1 className="text-2xl font-bold text-primary mb-3">
+        항로를 잃었습니다
+      </h1>
+      <p className="text-sm text-muted mb-8 leading-relaxed max-w-xs mx-auto">
+        현재 인터넷에 연결되어 있지 않아
+        <br />
+        보드포트에 접속할 수 없습니다.
+      </p>
+
+      <div className="w-full max-w-sm rounded-2xl bg-surface border border-border p-5 text-left mb-8 shadow-sm">
+        <h3 className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
+          💡 연결 확인하기
+        </h3>
+        <ul className="space-y-2 text-xs text-muted list-disc list-inside">
+          <li>Wi-Fi 또는 모바일 데이터 활성화 확인</li>
+          <li>비행기 모드 종료 여부 확인</li>
+          <li>인터넷 연결 후 아래 버튼 클릭</li>
+        </ul>
+      </div>
+
+      <Link
+        href="/"
+        className={cn(
+          "btn-primary h-12 px-10 text-base font-semibold shadow-lg",
+          "flex items-center justify-center gap-2"
+        )}
+      >
+        재시도
+      </Link>
     </main>
   );
 }

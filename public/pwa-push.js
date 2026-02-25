@@ -5,6 +5,7 @@
  * History
  * Date        Author   Status     Description
  * 2025.11.10  임도헌   Created
+ * 2026.02.24  임도헌   Modified   푸시 알림 아이콘 로고 변경
  */
 
 self.addEventListener("push", function (event) {
@@ -21,9 +22,9 @@ self.addEventListener("push", function (event) {
     body: data.body || "",
     // 알림에 표시되는 작은 아이콘 (앱 아이콘)
     // data.image가 있으면 그것을 사용하고, 없으면 기본 아이콘 사용
-    icon: data.image || "/images/logo.svg",
+    icon: data.image || "/images/logo-symbol.png",
     // 알림 트레이에 표시되는 작은 아이콘 (상태 표시줄)
-    badge: "/images/logo.svg",
+    badge: "/images/logo-symbol.png",
     // 알림에 표시되는 큰 이미지
     // 일부 브라우저에서는 알림 아래에 큰 이미지로 표시됨
     image: data.image,

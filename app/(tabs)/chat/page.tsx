@@ -1,5 +1,5 @@
 /**
- * File Name : app/(tabs)/chat/page
+ * File Name : app/(tabs)/chat/page.tsx
  * Description : 채팅 페이지
  * Author : 임도헌
  *
@@ -12,16 +12,45 @@
  * 2025.07.24  임도헌   Modified  캐싱 기능 추가
  * 2025.11.21  임도헌   Modified  nextCache 제거, dynamic 페이지로 고정
  * 2026.01.03  임도헌   Modified  force-dynamic 제거 + getCachedChatRooms로 통일(효율성 우선)
+ * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.02.08  임도헌   Modified  unreadNotificationCount 조회 및 전달 추가
  */
-
+import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
-import { getCachedChatRooms } from "@/lib/chat/room/getChatRooms";
-import ChatRoomListContainer from "@/components/chat/ChatRoomListContainer";
+import { getCachedChatRooms } from "@/features/chat/service/room";
+import ChatRoomListContainer from "@/features/chat/components/ChatRoomListContainer";
+import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 
+/**
+ * 채팅방 목록 페이지
+ *
+ * [기능]
+ * 1. 로그인 세션을 확인 (비로그인 시 로그인 페이지로 리다이렉트)
+ * 2. `getCachedChatRooms` Service를 호출하여 사용자의 채팅방 목록을 조회
+ *    (안 읽은 메시지 수 포함, 캐싱 적용)
+ * 3. `ChatRoomListContainer`를 렌더링하여 목록을 표시하고 실시간 업데이트를 처리
+ */
 export default async function Chat() {
   const session = await getSession();
-  const userId = session.id!;
-  const chatRooms = await getCachedChatRooms(userId);
 
-  return <ChatRoomListContainer initialRooms={chatRooms} userId={userId} />;
+  // 미들웨어에서 처리하지만 안전하게 한 번 더 체크
+  if (!session?.id) {
+    redirect("/login?callbackUrl=/chat");
+  }
+
+  const userId = session.id!;
+
+  // 채팅방 목록과 안 읽은 알림 수 병렬 조회
+  const [chatRooms, unreadNotiCount] = await Promise.all([
+    getCachedChatRooms(userId),
+    getUnreadNotificationCount(),
+  ]);
+
+  return (
+    <ChatRoomListContainer
+      initialRooms={chatRooms}
+      userId={userId}
+      unreadNotificationCount={unreadNotiCount}
+    />
+  );
 }

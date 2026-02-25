@@ -1,34 +1,33 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ThemeProvider from "@/components/providers/ThemeProvider";
+import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import { Toaster } from "sonner";
-import AppWrapper from "@/components/layout/AppWrapper";
-import NotificationBoot from "@/components/common/NotificationBoot";
+import AppWrapper from "@/components/global/AppWrapper";
+import NotificationBoot from "@/features/notification/components/NotificationBoot";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // maximumScale: 1,
-  // userScalable: false,
   themeColor: "#1E40AF",
 };
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+  ? new URL(process.env.NEXT_PUBLIC_APP_URL)
+  : new URL("http://localhost:3000"); // 로컬 개발용 폴백
+
 export const metadata: Metadata = {
+  metadataBase: baseUrl,
   title: {
     template: "%s | 보드포트",
     default: "보드포트 - 모든 게임이 모이는 곳",
   },
   description: "보드게임과 TRPG 중고거래 및 커뮤니티 플랫폼 보드포트입니다.",
-  manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: "/images/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/images/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/images/favicon-96x96.png", sizes: "96x96", type: "image/png" },
-    ],
+    icon: "/favicon.ico",
+    apple: "/images/apple-icon.png",
   },
   appleWebApp: {
     capable: true,
@@ -68,7 +67,9 @@ export default async function RootLayout({
                 },
               }}
             />
+
             <NotificationBoot />
+
             {children}
           </ThemeProvider>
         </AppWrapper>

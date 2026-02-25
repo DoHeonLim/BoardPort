@@ -1,41 +1,59 @@
 /**
-File Name : app/(auth)/sms/page
-Description : SMS 로그인 페이지
-Author : 임도헌
+ * File Name : app/(auth)/sms/page.tsx
+ * Description : SMS 로그인 페이지
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.01  임도헌   Created
+ * 2024.10.01  임도헌   Modified  SMS로그인 페이지 추가
+ * 2024.10.04  임도헌   Modified  폼 제출 유효성 검증 추가
+ * 2024.10.11  임도헌   Modified  초기 state 전화번호 추가
+ * 2024.12.14  임도헌   Modified  다른 방법의 로그인 링크 추가
+ * 2024.12.24  임도헌   Modified  스타일 변경
+ * 2025.04.29  임도헌   Modified  UI 수정
+ * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
+ * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.02.24  임도헌   Modified  로고 추가
+ */
 
-History
-Date        Author   Status    Description
-2024.10.01  임도헌   Created
-2024.10.01  임도헌   Modified  SMS로그인 페이지 추가
-2024.10.04  임도헌   Modified  폼 제출 유효성 검증 추가
-2024.10.11  임도헌   Modified  초기 state 전화번호 추가
-2024.12.14  임도헌   Modified  다른 방법의 로그인 링크 추가
-2024.12.24  임도헌   Modified  스타일 변경
-2025.04.29  임도헌   Modified  UI 수정
-*/
-import SmsForm from "@/components/auth/form/SmsForm";
 import Link from "next/link";
+import Logo from "@/components/ui/Logo";
+import SmsForm from "@/features/auth/components/form/SmsForm";
 
+/**
+ * SMS 로그인 페이지 컴포넌트
+ *
+ * - 휴대폰 번호를 이용한 간편 로그인/회원가입을 지원
+ * - SMS 인증 폼(`SmsForm`)을 렌더링
+ */
 export default function SMSLoginPage() {
   return (
-    <div className="flex flex-col gap-6 sm:gap-8 px-4 sm:px-6 py-6 sm:py-8 bg-background dark:bg-background-dark">
-      <div className="flex flex-col gap-2 items-center">
-        <h1 className="text-xl sm:text-2xl font-medium text-text dark:text-text-dark">
-          🏮 등대 신호로 로그인
-        </h1>
-        <p className="text-base sm:text-lg text-text/80 dark:text-text-dark/80">
-          📱 전화번호로 빠른 항해를 시작하세요
-        </p>
+    <div className="flex flex-col min-h-screen px-page-x py-page-y bg-background transition-colors">
+      <div className="flex flex-col items-center gap-4 mt-10 mb-8">
+        <div className="p-3 bg-surface rounded-2xl shadow-sm border border-border">
+          <Logo variant="symbol" size={60} />
+        </div>
+        <div className="text-center space-y-1">
+          <h1 className="text-2xl font-bold text-primary">등대 신호</h1>
+          <p className="text-sm text-muted">
+            휴대폰 번호로 빠르게 로그인하세요
+          </p>
+        </div>
       </div>
-      <SmsForm />
-      <div className="flex items-center justify-center gap-2 text-text/90 dark:text-text-dark/90 text-sm sm:text-base">
-        <span>다른 방법으로 항해하실래요?</span>
-        <Link
-          href="/login"
-          className="font-semibold text-primary hover:text-primary-dark dark:text-primary-light dark:hover:text-white transition-colors"
-        >
-          ✉️ 이메일로 항해하기
-        </Link>
+
+      <div className="w-full max-w-sm mx-auto">
+        <SmsForm />
+
+        <div className="mt-6 text-center text-sm text-muted">
+          다른 방법으로 항해하시겠어요?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
+          >
+            이메일 로그인
+          </Link>
+        </div>
       </div>
     </div>
   );

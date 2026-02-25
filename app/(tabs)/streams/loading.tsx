@@ -1,59 +1,39 @@
 /**
-File Name : app/(tabs)/streams/loading
-Description : 라이브 스트리밍 로딩 페이지
-Author : 임도헌
+ * File Name : app/(tabs)/streams/loading.tsx
+ * Description : 스트리밍 탭 로딩
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.05.21  임도헌   Created
+ * 2025.05.21  임도헌   Modified  라이브 스트리밍 로딩 페이지 추가
+ * 2026.01.14  임도헌   Modified  탭/검색창/리스트 스켈레톤 적용
+ */
 
-History
-Date        Author   Status    Description
-2025.05.21  임도헌   Created
-2025.05.21  임도헌   Modified  라이브 스트리밍 로딩 페이지 추가
-*/
+import StreamListSkeleton from "@/features/stream/components/StreamListSkeleton";
+import Skeleton from "@/components/ui/Skeleton";
+
 export default function Loading() {
   return (
-    <div className="relative min-h-screen bg-background dark:bg-background-dark p-4 pb-24">
-      {/* 탭 버튼 skeleton */}
-      <div className="flex gap-2 mb-4">
-        <div className="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-neutral-700 w-24 h-10 animate-pulse" />
-        <div className="px-4 py-2 rounded-lg font-semibold bg-gray-200 dark:bg-neutral-700 w-24 h-10 animate-pulse" />
-      </div>
-
-      {/* 카테고리/검색 skeleton */}
-      <div className="sticky top-0 z-10 p-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-700">
-        <div className="flex gap-2 mb-2">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="h-8 w-20 bg-gray-200 dark:bg-neutral-700 rounded-lg animate-pulse"
-            />
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* Header Skeleton */}
+      <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm p-3 sm:p-4 h-[116px] flex flex-col gap-4">
+        {/* Tabs */}
+        <div className="flex gap-2 overflow-hidden">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-9 w-20 rounded-full shrink-0" />
           ))}
         </div>
-        <div className="mt-4">
-          <div className="h-10 bg-gray-200 dark:bg-neutral-700 rounded-lg animate-pulse w-full" />
+        {/* Search & Scope */}
+        <div className="flex justify-between items-center gap-4">
+          <Skeleton className="h-10 flex-1 rounded-xl" />
+          <Skeleton className="h-10 w-32 rounded-2xl" />
         </div>
       </div>
 
-      <div className="mt-6">
-        <h1 className="text-2xl font-bold mb-6 dark:text-white">실시간 방송</h1>
-        <div className="text-center text-gray-500 dark:text-gray-400 mt-10 mb-8">
-          로딩 중...
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg" />
-              <div className="mt-2 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700" />
-                <div className="flex-1">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <StreamListSkeleton />
       </div>
-
-      {/* 방송 추가 플로팅 버튼 skeleton */}
-      <div className="fixed bottom-24 right-6 bg-gray-200 dark:bg-neutral-700 rounded-full w-16 h-16 flex items-center justify-center text-4xl shadow-lg z-10 animate-pulse" />
     </div>
   );
 }

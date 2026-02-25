@@ -1,25 +1,37 @@
 /**
-File Name : app/(tabs)/posts/loading
-Description : 항해일지 로딩 페이지
-Author : 임도헌
+ * File Name : app/(tabs)/posts/loading.tsx
+ * Description : 항해일지 로딩 페이지
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.11.01  임도헌   Created
+ * 2024.11.01  임도헌   Modified  동네생활 로딩 페이지 추가
+ * 2024.12.18  임도헌   Modified  항해일지 로딩 페이지 추가
+ * 2024.12.18  임도헌   Modified  카테고리 탭 스켈레톤 추가
+ * 2025.06.26  임도헌   Created   상단 필터 고정 + 스켈레톤 UI 적용
+ * 2026.01.13  임도헌   Modified  [UI] 실제 페이지 레이아웃과 싱크 맞춤
+ */
+import PostListSkeleton from "@/features/post/components/PostListSkeleton";
+import Skeleton from "@/components/ui/Skeleton";
 
-History
-Date        Author   Status    Description
-2024.11.01  임도헌   Created
-2024.11.01  임도헌   Modified  동네생활 로딩 페이지 추가
-2024.12.18  임도헌   Modified  항해일지 로딩 페이지 추가
-2024.12.18  임도헌   Modified  카테고리 탭 스켈레톤 추가
-2025.06.26  임도헌   Created   상단 필터 고정 + 스켈레톤 UI 적용
-*/
-import PostListSkeleton from "@/components/post/PostListSkeleton";
-
-export default function PostsLoading() {
+export default function Loading() {
   return (
-    <div className="flex flex-col min-h-screen bg-neutral-50 dark:bg-neutral-900">
-      {/* 헤더(탭 및 검색창 자리) 유지 */}
-      <div className="sticky top-0 z-10 p-4 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border-b border-neutral-200 dark:border-neutral-700 h-[100px]" />
-      {/* 게시글 리스트 스켈레톤 */}
-      <PostListSkeleton viewMode="list" />
+    <div className="flex flex-col min-h-screen bg-background pb-24">
+      {/* Header Skeleton */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 h-[106px] flex flex-col gap-3">
+        <div className="flex gap-2 overflow-hidden">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-8 w-20 rounded-full shrink-0" />
+          ))}
+        </div>
+        <Skeleton className="h-10 w-full rounded-xl" />
+      </div>
+
+      {/* List Skeleton */}
+      <div className="px-page-x py-6">
+        <PostListSkeleton viewMode="list" />
+      </div>
     </div>
   );
 }

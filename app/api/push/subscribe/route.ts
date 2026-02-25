@@ -1,5 +1,5 @@
 /**
- * File Name : app/api/push/subscribe/route
+ * File Name : app/api/push/subscribe/route.ts
  * Description : 푸시 알림 구독 API (전역 ON/OFF는 NotificationPreferences.pushEnabled)
  * Author : 임도헌
  *
@@ -13,16 +13,16 @@
  *                                welcome 알림/테스트 푸시는 "처음 켜는 시점"에만 생성,
  *                                DB 동기화는 트랜잭션(return)으로 묶어 타입 안정성 강화
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
+ * 2026.01.23  임도헌   Modified  Service(upsertSubscription) 호출로 변경
  */
-
 import { NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import { sendPushNotification } from "@/lib/notification/push-notification";
+import { upsertSubscription } from "@/features/notification/service/subscription";
+import { sendPushNotification } from "@/features/notification/service/sender";
 
 export const runtime = "nodejs";
 
-// 브라우저 PushSubscription.toJSON() 형태와 맞추기 위한 타입
 type RawSubscription = {
   endpoint: string;
   keys: {
@@ -31,34 +31,30 @@ type RawSubscription = {
   };
 };
 
-// welcome 알림(선택 필드) 타입 고정
-type WelcomeNotification = {
-  id: number;
-  title: string;
-  body: string;
-  link: string | null;
-  image: string | null;
-};
-
+/**
+ * POST /api/push/subscribe
+ *
+ * - 클라이언트로부터 PushSubscription 정보를 받아 DB에 저장(Upsert)
+ * - 전역 알림 설정(pushEnabled)을 true로 활성화
+ * - 최초 구독 시 Welcome 알림(Push)을 발송
+ */
 export async function POST(req: Request) {
   try {
-    // 1) 세션 확인 (로그인 필수)
+    // 1. 세션 확인 (로그인 필수)
     const session = await getSession();
-    const userId = session?.id;
-    if (!userId) {
+    if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = session.id;
 
-    // 2) 요청 바디 파싱 및 기본 검증
+    // 2. 요청 바디 검증
     const body = (await req.json()) as RawSubscription;
-
     if (
       !body ||
-      typeof body.endpoint !== "string" ||
       !body.endpoint ||
       !body.keys ||
-      typeof body.keys.p256dh !== "string" ||
-      typeof body.keys.auth !== "string"
+      !body.keys.p256dh ||
+      !body.keys.auth
     ) {
       return NextResponse.json(
         { error: "Invalid subscription payload" },
@@ -69,114 +65,44 @@ export async function POST(req: Request) {
     const { endpoint, keys } = body;
     const userAgent = req.headers.get("user-agent") ?? undefined;
 
-    // 3) 구독/설정 동기화 (트랜잭션)
-    //    - 전역 ON/OFF 토글은 NotificationPreferences.pushEnabled로 관리
-    //    - subscribe 시 pushEnabled=true로 복구
-    //    - welcome 알림은 "처음 켜는 시점"(prefs 없음 또는 pushEnabled=false)에서만 생성
-    //    - 바깥 변수를 mutate 하지 않고 return으로 가져와 타입 오류(never) 방지
-    const welcomeNotification = await db.$transaction(
-      async (tx): Promise<WelcomeNotification | null> => {
-        const prev = await tx.notificationPreferences.findUnique({
-          where: { userId },
-          select: { pushEnabled: true },
-        });
+    // 3. Service 호출 (구독 저장 & 설정 활성화)
+    // - 기존 구독이 있으면 갱신, 없으면 생성 (Upsert)
+    // - 최초 구독이거나 설정이 꺼져있었다면 welcomeNotiId 반환
+    const result = await upsertSubscription(userId, {
+      endpoint,
+      keys,
+      userAgent,
+    });
 
-        const shouldCreateWelcome = !prev || prev.pushEnabled === false;
-
-        // (A) 이 기기/브라우저 endpoint 구독 upsert + 활성화
-        await tx.pushSubscription.upsert({
-          where: {
-            endpoint_userId: {
-              endpoint,
-              userId,
-            },
-          },
-          update: {
-            p256dh: keys.p256dh,
-            auth: keys.auth,
-            userAgent,
-            isActive: true,
-          },
-          create: {
-            userId,
-            endpoint,
-            p256dh: keys.p256dh,
-            auth: keys.auth,
-            userAgent,
-            isActive: true,
-          },
-        });
-
-        // (B) 전역 푸시 ON으로 복구
-        await tx.notificationPreferences.upsert({
-          where: { userId },
-          update: { pushEnabled: true },
-          create: { userId, pushEnabled: true },
-        });
-
-        // (C) welcome 알림은 1회만 생성
-        if (!shouldCreateWelcome) return null;
-
-        return tx.notification.create({
-          data: {
-            userId,
-            title: "푸시 알림 설정 완료",
-            body: "푸시 알림이 활성화되었습니다.",
-            type: "SYSTEM",
-            link: "/profile/notifications",
-            isPushSent: false,
-            // sentAt: null (발송 성공 시점에만 갱신)
-          },
-          select: {
-            id: true,
-            title: true,
-            body: true,
-            link: true,
-            image: true,
-          },
-        });
-      }
-    );
-
-    // 4) 테스트 푸시 알림 발송
-    //    - VAPID 미설정/쿼터/네트워크 오류 등으로 실패해도 "구독 자체"는 성공 처리
-    if (welcomeNotification) {
+    // 4. Welcome 알림 발송 (조건부)
+    if (result.welcomeNotiId) {
       try {
-        const result = await sendPushNotification({
+        const pushRes = await sendPushNotification({
           targetUserId: userId,
-          title: welcomeNotification.title,
-          message: welcomeNotification.body,
-          url: welcomeNotification.link ?? undefined,
+          title: "푸시 알림 설정 완료",
+          message: "푸시 알림이 활성화되었습니다.",
+          url: "/profile/notifications",
           type: "SYSTEM",
-          image: welcomeNotification.image ?? undefined,
           tag: "welcome",
           renotify: false,
         });
 
-        // 실제 전송건(sent) > 0 인 경우에만 sentAt / isPushSent 갱신
-        if (result && result.success && (result as any).sent > 0) {
+        // 발송 성공 시 DB 업데이트 (통계/상태용)
+        if (pushRes?.success && pushRes.data?.sent > 0) {
           await db.notification.update({
-            where: { id: welcomeNotification.id },
-            data: {
-              isPushSent: true,
-              sentAt: new Date(),
-            },
+            where: { id: result.welcomeNotiId },
+            data: { isPushSent: true, sentAt: new Date() },
           });
         }
-      } catch (pushError) {
-        console.error("[push] test notification failed:", pushError);
+      } catch (e) {
+        console.error("[push] welcome notification failed:", e);
+        // Welcome 알림 실패는 전체 프로세스 실패로 간주하지 않음
       }
     }
 
-    return NextResponse.json(
-      { message: "Successfully subscribed to push notifications" },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     console.error("Push subscription error:", error);
-    return NextResponse.json(
-      { error: "Failed to subscribe to push notifications" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

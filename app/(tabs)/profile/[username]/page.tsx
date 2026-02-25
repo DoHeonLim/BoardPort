@@ -1,6 +1,6 @@
 /**
- * File Name : app/(tabs)/profile/[username]/page
- * Description : 유저 프로필 페이지 (MyProfile와 통일된 레이아웃/모달 on-demand)
+ * File Name : app/(tabs)/profile/[username]/page.tsx
+ * Description : 타인 프로필 상세 페이지
  * Author : 임도헌
  *
  * History
@@ -19,41 +19,79 @@
  * 2025.11.22  임도헌   Modified  getIsFollowing 중복 호출 제거(getUserProfile.isFollowing만 사용)
  * 2025.11.26  임도헌   Modified  방송국 섹션에 최근 방송 목록 추가
  * 2026.01.04  임도헌   Modified  getSession 중복 호출 제거(getUserProfile.viewerId 재사용)로 RSC 부하 감소
+ * 2026.01.15  임도헌   Modified  레이아웃 패딩 조정
+ * 2026.01.29  임도헌   Modified  타인 프로필 페이지 주석 보강 및 구조 설명 추가
+ * 2026.02.04  임도헌   Modified  신고 및 차단 기능을 위한 ProfileOptionMenu 추가
+ * 2026.02.13  임도헌   Modified  generateMetadata 추가
  */
 
-import { notFound } from "next/navigation";
-
-import { getUserProfile } from "@/lib/user/getUserProfile";
-import { getCachedInitialUserReviews } from "@/lib/user/getUserReviews";
-import { getCachedUserAverageRating } from "@/lib/user/getUserAverageRating";
-import { getCachedUserBadges } from "@/lib/user/getUserBadges";
-import { getInitialUserProducts } from "@/lib/product/getUserProducts";
-import { getUserStreams } from "@/lib/stream/getUserStreams";
-
-import type { UserProfile as UserProfileType } from "@/types/profile";
-import type { BroadcastSummary } from "@/types/stream";
-import UserProfile from "@/components/profile/UserProfile";
+import { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
+import getSession from "@/lib/session";
+import BackButton from "@/components/global/BackButton";
+import UserProfile from "@/features/user/components/profile/UserProfile";
+import ProfileOptionMenu from "@/features/user/components/profile/ProfileOptionMenu";
+import {
+  getUserProfile,
+  resolveUserIdByUsername,
+} from "@/features/user/service/profile";
+import { getCachedInitialUserReviews } from "@/features/user/service/review";
+import { getCachedUserAverageRating } from "@/features/user/service/metric";
+import { getCachedUserBadges } from "@/features/user/service/badge";
+import { getInitialUserProducts } from "@/features/product/service/userList";
+import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: { username: string };
+}): Promise<Metadata> {
+  const username = decodeURIComponent(params.username);
+
+  return {
+    title: `${username}님의 선원증`,
+    description: `${username}님의 보드포트 프로필입니다.`,
+    openGraph: {
+      title: `${username} - 보드포트`,
+      description: `${username}님의 활동 내역과 판매 물품을 확인하세요.`,
+    },
+  };
+}
+
+/**
+ * 타인 프로필 페이지
+ *
+ * [기능]
+ * 1. URL의 `username`을 기반으로 `userId`를 식별
+ * 2. 현재 로그인한 사용자(Viewer)와의 관계(팔로우 여부 등)를 포함한 프로필 정보를 로드
+ * 3. 대상 유저의 평점, 리뷰, 뱃지, 판매 중/완료 상품, 최근 방송(공개) 목록을 병렬로 조회
+ * 4. 본인의 username인 경우 `/profile`로 리다이렉트
+ */
 export default async function UserProfilePage({
   params,
 }: {
   params: { username: string };
 }) {
-  // 프로필 조회 (본인이면 /profile로 redirect)
-  const user = (await getUserProfile({
-    username: params.username,
-    redirectIfSelfToProfile: true,
-  })) as UserProfileType | null;
+  // 1. Username -> ID 변환
+  const targetId = await resolveUserIdByUsername(params.username);
+  if (!targetId) return notFound();
 
-  if (!user) return notFound();
+  // 2. Viewer(Session) 확인
+  const session = await getSession();
+  const viewerId = session?.id ?? null;
 
-  // getUserProfile이 session을 이미 읽어 viewerId를 주입한다.
-  // 동일 요청 내 중복 getSession 호출을 피하기 위해 user.viewerId를 재사용한다.
-  const viewerId = user.viewerId ?? null;
+  // 본인이면 내 프로필로 이동
+  if (viewerId === targetId) {
+    redirect("/profile");
+  }
 
-  // 공용 데이터는 캐시, 개인화는 최소(팔로우 여부는 getUserProfile.isFollowing 사용)
+  // 3. 프로필 기본 정보 로드
+  const userProfile = await getUserProfile(targetId, viewerId);
+  if (!userProfile) return notFound();
+
+  // 4. 데이터 병렬 로딩
   const [
     averageRating,
     initialReviews,
@@ -62,34 +100,47 @@ export default async function UserProfilePage({
     userBadges,
     streams,
   ] = await Promise.all([
-    getCachedUserAverageRating(user.id),
-    getCachedInitialUserReviews(user.id),
-    getInitialUserProducts({ type: "SELLING", userId: user.id }),
-    getInitialUserProducts({ type: "SOLD", userId: user.id }),
-    getCachedUserBadges(user.id),
-    (async () => {
-      const { items } = await getUserStreams({
-        ownerId: user.id,
-        viewerId,
-        take: 6,
-        includeViewerRole: false,
-      });
-      return items as BroadcastSummary[];
-    })(),
+    getCachedUserAverageRating(userProfile.id),
+    getCachedInitialUserReviews(userProfile.id, viewerId),
+    getInitialUserProducts({ type: "SELLING", userId: userProfile.id }),
+    getInitialUserProducts({ type: "SOLD", userId: userProfile.id }),
+    getCachedUserBadges(userProfile.id),
+    getCachedRecentBroadcasts(userProfile.id, 6, false), // 타인이므로 비공개 방송 제외
   ]);
 
   return (
-    <div className="min-h-screen bg-background dark:bg-neutral-950 transition-colors">
-      <div className="px-4 sm:px-5 pb-8">
+    <div className="min-h-screen bg-background transition-colors pb-24">
+      {/* 상단 액션바: 뒤로가기 + 옵션 메뉴 */}
+      <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border sm:border-none">
+        <BackButton fallbackHref="/profile" variant="appbar" className="px-0" />
+
+        {/* 로그인 상태일 때만 옵션 메뉴 노출 */}
+        {viewerId && (
+          <ProfileOptionMenu
+            targetId={userProfile.id}
+            username={userProfile.username}
+            isBlocked={userProfile.isBlocked}
+          />
+        )}
+      </div>
+
+      <div className="px-page-x pt-2">
+        {/* 차단된 유저일 경우 안내 메시지 표시 */}
+        {userProfile.isBlocked && (
+          <div className="mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-medium text-center">
+            🚫 차단한 사용자입니다.
+          </div>
+        )}
+
         <UserProfile
-          user={user}
+          user={userProfile}
           initialReviews={initialReviews}
           initialSellingProducts={initialSellingProducts}
           initialSoldProducts={initialSoldProducts}
           averageRating={averageRating}
           userBadges={userBadges}
-          viewerId={viewerId ?? undefined}
           myStreams={streams}
+          viewerId={viewerId ?? undefined}
         />
       </div>
     </div>

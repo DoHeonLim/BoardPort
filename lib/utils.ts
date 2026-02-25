@@ -1,5 +1,5 @@
 /**
- * File Name : lib/utils
+ * File Name : lib/utils.ts
  * Description : 공통 유틸리티 함수들 (클라이언트/서버 공용)
  * Author : 임도헌
  *
@@ -15,28 +15,34 @@
  * 2025.05.29  임도헌   Modified   cn 유틸(tailwind-merge, clsx 기능 조합)
  * 2025.11.29  임도헌   Modified   DB 의존 함수 분리(Prisma 7 빌드 이슈 대응)
  * 2025.11.29  임도헌   Modified   formatToTimeAgo 로직 변경(nowInput 추가)
+ * 2026.02.02  임도헌   Modified   JSDoc 표준화 및 유틸 역할 명확화
+ * 2026.02.13  임도헌   Modified  공유하기 공용 유틸(handleShare) 추가
  */
 
 import { clsx, type ClassValue } from "clsx";
+import { toast } from "sonner";
 import { twMerge } from "tailwind-merge";
 
-// clsx → 조건부 클래스 생성
-// twMerge → Tailwind 클래스 병합
+/**
+ * Tailwind CSS 클래스 병합 유틸리티
+ * - clsx로 조건부 클래스를 처리하고 twMerge로 스타일 충돌을 방지
+ */
 export const cn = (...inputs: ClassValue[]): string => twMerge(clsx(...inputs));
 
 /**
- * 제공된 시간에 따라 "몇일 전/몇분 전" 등으로 표현하는 함수 (한국 시간 기준)
- * @param date   ISO 문자열 등 파싱 가능한 날짜 문자열
- * @param nowInput  기준 시각(ms). 없으면 현재 시각 기준
+ * 상대 시간 표시 유틸리티 (한국 시간대 기준)
+ * - 입력된 날짜를 현재 시각과 비교하여 "방금 전", "N분 전", "N일 전" 등으로 반환
+ *
+ * @param date - ISO 8601 형식의 날짜 문자열 또는 Date 객체
+ * @param nowInput - 비교 기준이 될 현재 시각 (ms, 생략 시 현재 시각)
+ * @returns 상대 시간 문자열
  */
 export const formatToTimeAgo = (date: string, nowInput?: number): string => {
-  // 한국 시간대로 변환 (대상 시각)
   const koreaTime = new Date(date).toLocaleString("en-US", {
     timeZone: "Asia/Seoul",
   });
   const time = new Date(koreaTime).getTime();
 
-  // 기준 시각(now)도 한국 시간대로 변환
   const nowKoreaString =
     nowInput !== undefined
       ? new Date(nowInput).toLocaleString("en-US", { timeZone: "Asia/Seoul" })
@@ -51,69 +57,59 @@ export const formatToTimeAgo = (date: string, nowInput?: number): string => {
   const diffInMinutes = Math.floor(diffTime / (1000 * 60));
 
   if (diffInDays > 0) {
-    if (diffInDays >= 30) {
-      const diffInMonths = Math.floor(diffInDays / 30);
-      return `${diffInMonths}달 전`;
-    } else if (diffInDays >= 7) {
-      const diffInWeeks = Math.floor(diffInDays / 7);
-      return `${diffInWeeks}주일 전`;
-    } else {
-      return `${diffInDays}일 전`;
-    }
-  } else if (diffInHours > 0) {
-    const koreaDate = new Date(koreaTime);
-    const formattedHours = koreaDate.getHours();
-    const amPm = formattedHours >= 12 ? "오후" : "오전";
-    const hours = formattedHours % 12 || 12;
-    const minutes = koreaDate.getMinutes();
-    return `${amPm} ${hours}시 ${minutes}분`;
-  } else if (diffInMinutes > 0) {
-    return `${diffInMinutes}분 전`;
-  } else {
-    return `방금 전`;
+    if (diffInDays >= 30) return `${Math.floor(diffInDays / 30)}달 전`;
+    if (diffInDays >= 7) return `${Math.floor(diffInDays / 7)}주일 전`;
+    return `${diffInDays}일 전`;
   }
+  if (diffInHours > 0) {
+    const koreaDate = new Date(koreaTime);
+    const hours = koreaDate.getHours();
+    const amPm = hours >= 12 ? "오후" : "오전";
+    const displayHours = hours % 12 || 12;
+    return `${amPm} ${displayHours}시 ${koreaDate.getMinutes()}분`;
+  }
+  if (diffInMinutes > 0) return `${diffInMinutes}분 전`;
+  return `방금 전`;
 };
 
-// 가격 "원" 포맷 (3자리 콤마)
+/**
+ * 통화 포맷팅 (3자리 콤마)
+ * @param price - 숫자 가격
+ * @returns "1,000" 형식의 문자열
+ */
 export const formatToWon = (price: number): string => {
   return price.toLocaleString("ko-KR");
 };
-
-// 뱃지 한글 이름 가져오기
-export function getBadgeKoreanName(badgeType: string): string {
-  const koreanNames: { [key: string]: string } = {
-    // 1. 거래 관련 뱃지
-    FIRST_DEAL: "첫 거래 선원",
-    POWER_SELLER: "노련한 상인",
-    QUICK_RESPONSE: "신속한 교신병",
-
-    // 2. 커뮤니티 활동 뱃지
-    FIRST_POST: "첫 항해일지",
-    POPULAR_WRITER: "인기 항해사",
-    ACTIVE_COMMENTER: "열정적인 통신사",
-    RULE_SAGE: "규칙의 현자",
-
-    // 3. 보드게임 전문성 뱃지
-    GAME_COLLECTOR: "보물선 수집가",
-    GENRE_MASTER: "장르의 항해사",
-    BOARD_EXPLORER: "보드게임 탐험가",
-
-    // 4. 신뢰도 뱃지
-    VERIFIED_SAILOR: "인증된 선원",
-    FAIR_TRADER: "정직한 상인",
-    QUALITY_MASTER: "품질의 달인",
-
-    // 5. 특별 이벤트 뱃지
-    EARLY_SAILOR: "첫 항해 선원",
-    PORT_FESTIVAL: "항구 축제의 주인",
-  };
-
-  return koreanNames[badgeType] || badgeType;
-}
 
 // 초 단위 영상 시간을 "분 초" 문자열로 변환
 export const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}분 ${s}초`;
+};
+
+/**
+ * 전역 공유하기 핸들러
+ * - Web Share API를 우선 사용하며, 미지원 환경에서는 URL을 클립보드에 복사함
+ *
+ * @param title 공유할 제목
+ * @param url 공유할 URL (생략 시 현재 창 주소)
+ */
+export const handleShare = async (title: string, url?: string) => {
+  const shareUrl =
+    url || (typeof window !== "undefined" ? window.location.href : "");
+
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ title, url: shareUrl });
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("링크가 클립보드에 복사되었습니다. ⚓");
+    }
+  } catch (error) {
+    // 사용자가 공유를 취소한 경우는 무시, 그 외 에러만 처리
+    if (!(error instanceof Error && error.name === "AbortError")) {
+      toast.error("공유하기에 실패했습니다.");
+    }
+  }
 };
