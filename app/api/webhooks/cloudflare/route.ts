@@ -14,6 +14,7 @@
  * 2026.01.08  임도헌   Modified  방송 재접속(CONNECTED) 시 ended_at 초기화(null) 추가
  * 2026.02.23  임도헌   Modified  Webhook 재전송 시 VOD 중복 생성 방지(P2002 무시) 및 에러 로깅 강화
  * 2026.02.25  임도헌   Modified  순서 보장 가드, VOD 소유권 검증 강화
+ * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 최초 등록용 테스트 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
  */
 
 import "server-only";
@@ -432,6 +433,7 @@ async function onConnected(liveInputUid: string) {
     } catch {}
   }
 }
+
 /*                         이벤트 핸들러: DISCONNECTED                         */
 /**
  * live_input.disconnected 이벤트 처리
@@ -598,25 +600,28 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   }
 }
 
-/*                            메인 핸들러: POST 웹훅                           */
+/*                            메인 핸들러: GET / POST                          */
+
+/**
+ * 브라우저 접속(GET) 시 405 Method Not Allowed 대신 안내 문구를 출력합니다.
+ * - 주로 엔드포인트 활성화 여부를 체크하거나 디버깅하는 용도
+ */
+export async function GET() {
+  return NextResponse.json({
+    message: "Cloudflare Webhook Endpoint is active. Use POST to send data.",
+  });
+}
+
 /**
  * Cloudflare Stream Webhook 엔드포인트
  *
  * 처리 순서:
- * 1. 요청 바디(raw) 읽기
- * 2. 이 웹훅이 Stream Webhook 인지(Destination Webhook 인지) 판별
- *    - Webhook-Signature 헤더 존재 여부로 구분
- * 3. 서명/인증 검증
- *    - Stream Webhook : Webhook-Signature + HMAC 검증
- *    - Destination    : 커스텀 인증 헤더 유무 확인
- * 4. JSON 파싱 및 메타데이터 추출
- *    - event type (live_input.connected / disconnected / video.ready / …)
- *    - liveInputUid / assetUid
- * 5. 이벤트 타입에 따라 분기 처리
- *    - live_input.connected    → onConnected
- *    - live_input.disconnected → onDisconnected
- *    - video.ready (또는 type 없는 ready payload) → onVideoReady
- * 6. 모든 정상 흐름은 200 OK, 오류는 적절한 상태 코드와 함께 JSON 반환
+ * 1. 요청 바디(raw) 읽기 및 JSON 파싱
+ * 2. Cloudflare 웹훅 등록용 테스트 메시지("Hello World!...") 확인 및 우회 처리 (200 OK)
+ * 3. 이 웹훅이 Stream Webhook 인지(Destination Webhook 인지) 판별 및 서명 검증
+ * 4. 메타데이터 추출 (event type, liveInputUid, assetUid 등)
+ * 5. 이벤트 타입에 따라 분기 처리 (onConnected, onDisconnected, onVideoReady)
+ * 6. 정상 흐름 200 OK, 오류는 적절한 상태 코드와 함께 JSON 반환
  */
 export async function POST(req: Request) {
   try {
@@ -624,11 +629,38 @@ export async function POST(req: Request) {
     // Cloudflare 웹훅 등록 테스트용 빈 바디 대응
     if (!raw) return NextResponse.json({ ok: true });
 
+    // 1) 서명 검증을 위해 바디를 먼저 파싱합니다.
+    let body: any = {};
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      // Cloudflare가 간혹 text-only를 보낼 경우를 대비한 방어 로직
+      return NextResponse.json(
+        { ok: false, error: "BAD_JSON" },
+        { status: 400 }
+      );
+    }
+
+    // 2) [핵심] Cloudflare 웹훅 최초 등록용 테스트 메시지 우회 처리 (Handshake Bypass)
+    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냅니다.
+    // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 합니다.
+    if (
+      body?.text &&
+      typeof body.text === "string" &&
+      body.text.startsWith("Hello World! This is a test message")
+    ) {
+      console.log(
+        "[webhooks/cloudflare] Received Cloudflare test message. Handshake successful."
+      );
+      return NextResponse.json({ ok: true, message: "Handshake Successful" });
+    }
+
+    // 3) 서명 및 인증 검증 로직 (실제 이벤트 처리용)
     const sigHeader = req.headers.get("webhook-signature");
     const isStreamWebhook = !!sigHeader;
 
-    // 1) Stream Webhook → HMAC 서명 검증
     if (isStreamWebhook) {
+      // Stream Webhook → HMAC 서명 검증
       if (STREAM_SECRET) {
         const ok = await verifyStreamSignatureWebCrypto(
           raw,
@@ -642,25 +674,13 @@ export async function POST(req: Request) {
           );
       }
     } else {
-      // 2) Destination Webhook → 인증 헤더 확인 (옵션)
+      // Destination Webhook → 인증 헤더 확인 (옵션)
       if (DEST_SECRET && !hasDestinationHeaderSecret(req, DEST_SECRET)) {
         return NextResponse.json(
           { ok: false, error: "UNAUTHORIZED" },
           { status: 401 }
         );
       }
-    }
-
-    // 3) JSON 파싱
-    let body: any = {};
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      // Cloudflare가 간혹 text-only를 보낼 경우를 대비한 방어 로직
-      return NextResponse.json(
-        { ok: false, error: "BAD_JSON" },
-        { status: 400 }
-      );
     }
 
     // 4) 공통 메타데이터 추출
@@ -670,11 +690,11 @@ export async function POST(req: Request) {
     // video.ready 판별용 플래그 (type이 unknown이어도 ready 페이로드면 처리)
     const isReadyAsset = isAssetReadyPayload(body);
 
-    /* ------------------------------ video.ready(무타입) ------------------------------ */
+    /* ------------------------------ 이벤트 분기 처리 ------------------------------ */
 
     /**
      * Vercel Serverless 환경에서는 응답을 보내기 전에 비동기 작업이 완료되어야 하므로
-     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지
+     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지함.
      */
     if (type === "unknown" && isReadyAsset) {
       // 무타입 ready 페이로드 대응
