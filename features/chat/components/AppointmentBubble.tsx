@@ -9,6 +9,7 @@
  * 2026.02.20  임도헌   Modified  지도 레이아웃 깨짐 현상 수정 및 StaticMap 직접 구현으로 교체
  * 2026.02.20  임도헌   Modified  지도 클릭 시 확대되는 지도 모달 추가
  * 2026.02.22  임도헌   Modified  Ghost User(나간 유저)일 경우 액션 버튼 비활성화 처리
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 
 "use client";
@@ -128,7 +129,9 @@ export default function AppointmentBubble({
       <div
         className={cn(
           "w-[260px] sm:w-[300px] rounded-2xl overflow-hidden border shadow-sm transition-all bg-surface",
-          isOwnMessage ? "border-brand-light/20" : "border-border",
+          isOwnMessage
+            ? "border-brand-light/20 dark:border-brand-light/40"
+            : "border-border",
           isDead && "opacity-60 grayscale"
         )}
       >
@@ -137,11 +140,11 @@ export default function AppointmentBubble({
           className={cn(
             "px-4 py-3 flex items-center gap-2 border-b",
             isOwnMessage
-              ? "border-brand-light/10 bg-brand/5 text-primary"
+              ? "border-brand-light/10 bg-brand/5 dark:bg-brand-light/10 text-primary"
               : "border-border bg-surface-dim/50 text-primary"
           )}
         >
-          <CalendarDaysIcon className="size-5 text-brand" />
+          <CalendarDaysIcon className="size-5 text-brand dark:text-brand-light" />
           <span className="font-bold text-sm">
             {status === "PENDING" && isExpired ? "만료된 제안" : "약속 제안"}
           </span>

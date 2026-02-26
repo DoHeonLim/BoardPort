@@ -33,6 +33,7 @@
  * 2026.02.15  임도헌   Modified  fullLocation 생성 및 UI 전달
  * 2026.02.21  임도헌   Modified  currentRange를 EmptyState 및 SearchSummary에 주입
  * 2026.02.21  임도헌   Modified  searchParams.region 레거시 제거 및 currentRange SSOT(DB) 고정
+ * 2026.02.26  임도헌   Modified  검색 결과 및 알림 버튼 줄바꿈 (모바일 겹침 현상)
  */
 
 import { Metadata } from "next";
@@ -209,40 +210,42 @@ export default async function Products({ searchParams }: ProductsPageProps) {
 
         {/* Content Area */}
         <div className="flex-1 px-page-x py-6">
-          <div
-            className={`flex items-center mb-4 ${
-              hasSearchParams ? "justify-between" : "justify-end"
-            }`}
-          >
-            {/* 검색 결과 요약 (조건이 있을 때만 표시) */}
-            {hasSearchParams && (
-              <div className="flex items-center gap-3">
-                <SearchResultSummary
-                  count={initialProducts.products.length}
-                  summaryText={resultSearchParams}
-                />
-                {/* 검색어(keyword)가 있을 때만 알림 버튼 노출 */}
-                {searchParams.keyword && (
+          {/* 1. 검색 메타 정보 영역 (필터 적용 시에만 노출) */}
+          {hasSearchParams && (
+            <div className="flex flex-col gap-3 mb-6 animate-fade-in">
+              {/* 상단 라인: 요약 정보와 상세 필터 버튼 */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <SearchResultSummary
+                    count={initialProducts.products.length}
+                    summaryText={resultSearchParams}
+                  />
+                </div>
+                <div className="shrink-0">
+                  <ClientFilterWrapper
+                    categories={categories}
+                    filters={searchParams}
+                  />
+                </div>
+              </div>
+
+              {/* 하단 라인: 키워드 알림 버튼 (검색어가 있을 때만 표시) */}
+              {searchParams.keyword && (
+                <div className="flex justify-start">
                   <KeywordAlertButton
                     keyword={searchParams.keyword}
                     alertId={matchedAlert?.id}
                     currentRange={currentRange}
                   />
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* 필터 버튼 (Client Component) */}
-            <ClientFilterWrapper
-              categories={categories}
-              filters={searchParams}
-            />
-          </div>
-
-          {/* 제품 목록 렌더링 */}
+          {/* 2. 제품 목록 섹션 */}
           {initialProducts.products.length > 0 ? (
             <ProductList
-              // 검색 조건 변경 시 스크롤/상태 초기화를 위해 key 부여
+              // 검색 조건이 바뀌면 리스트를 초기화하기 위해 key 부여
               key={`${JSON.stringify(searchParams)}-${currentRange}`}
               initialProducts={initialProducts}
               searchParams={{

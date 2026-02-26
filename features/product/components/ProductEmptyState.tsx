@@ -10,6 +10,7 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.02.21  임도헌   Modified  currentRange Prop 추가
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 "use client";
 
@@ -60,7 +61,7 @@ export default function ProductEmptyState({
 
       {/* 키워드 검색 중이지만 결과가 없을 때 -> 알림 등록 유도 */}
       {keyword && (
-        <div className="flex flex-col items-center gap-2 mt-2 p-4 rounded-xl bg-surface-dim/30 border border-dashed border-border">
+        <div className="flex flex-col items-center gap-2 mt-2 p-4 rounded-xl bg-surface-dim/30 dark:bg-white/5 border border-dashed border-border">
           <p className="text-xs text-muted font-medium">
             이 키워드로 새 상품이 등록되면 알려드릴까요?
           </p>

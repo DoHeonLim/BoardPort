@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.15  임도헌   Created   타 지역 검색 및 행정구역명 추출 로직 구현
+ * 2026.02.26  임도헌   Modified  autoFocus 제거
  */
 "use client";
 
@@ -109,7 +110,6 @@ export default function RegionSearchModal({ onSelect, onClose }: Props) {
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={handleKeyDown}
-              autoFocus
             />
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted" />
             <button

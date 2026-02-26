@@ -15,6 +15,7 @@
  * 2026.02.04  임도헌   Modified  이미지 포함 메시지 렌더링 로직 추가
  * 2026.02.06  임도헌   Modified  상대방 메시지에 신고 메뉴(더보기) UI 추가
  * 2026.02.23  임도헌   Modified  다크 모드 시 본인 말풍선 가시성 개선 (bg-brand-light)
+ * 2026.02.26  임도헌   Modified  메세지 오버플로우 방지
  */
 "use client";
 
@@ -174,7 +175,7 @@ export default function ChatMessageBubble({
                   <div
                     className={cn(
                       "text-sm leading-relaxed break-words whitespace-pre-wrap",
-                      message.image && "px-2 py-1.5 pt-2"
+                      "overflow-wrap-anywhere"
                     )}
                   >
                     {message.payload}

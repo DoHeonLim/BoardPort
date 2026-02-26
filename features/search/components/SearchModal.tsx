@@ -10,6 +10,7 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.20  임도헌   Modified  타입 경로 수정 및 Import 정렬
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  Content에 overflow-y-auto 추가
  */
 "use client";
 
@@ -86,7 +87,7 @@ export default function SearchModal({
         </div>
 
         {/* Content */}
-        <div className="bg-background">
+        <div className="bg-background flex-1 overflow-y-auto">
           <div className="p-4 flex flex-col gap-8 pb-20">
             <SearchHistoryBox
               history={searchHistory}
@@ -121,12 +122,7 @@ export default function SearchModal({
       <div className="absolute inset-x-0 top-full bg-surface border-b border-border shadow-lg z-50 rounded-b-2xl">
         <div className="w-full max-w-mobile mx-auto p-6">
           <div className="mb-6">
-            <SearchBar
-              onSearch={onSearch}
-              value={value}
-              autoFocus
-              className="mx-0"
-            />
+            <SearchBar onSearch={onSearch} value={value} className="mx-0" />
           </div>
 
           <div className="grid grid-cols-2 gap-8">

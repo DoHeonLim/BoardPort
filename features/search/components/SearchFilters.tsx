@@ -189,7 +189,7 @@ export default function SearchFilters({
           </div>
 
           {/* Footer (액션) */}
-          <div className="flex gap-3 p-5 border-t border-border bg-surface safe-area-pb">
+          <div className="flex gap-3 p-5 border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),1.25rem)]">
             <button
               onClick={handleResetFilters}
               className="flex-1 btn-secondary h-12 text-sm"

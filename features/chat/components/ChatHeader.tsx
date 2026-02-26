@@ -15,6 +15,7 @@
  * 2026.01.24  임도헌   Modified  deleteAllProductReviewsAction Import 및 호출
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  상대방 차단 및 신고 통합 메뉴 구현
+ * 2026.02.26  임도헌   Modified  좁은 화면에서 UI깨짐 방지
  */
 "use client";
 
@@ -280,7 +281,7 @@ export default function ChatHeader({
         {/* Center Section: Product Info Link */}
         <Link
           href={productHref}
-          className="flex-1 flex items-center justify-end gap-2 min-w-0 bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors border border-transparent hover:border-border"
+          className="flex-1 flex items-center justify-end gap-1.5 min-w-0 bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors border border-transparent hover:border-border"
         >
           <div className="relative size-8 shrink-0 rounded bg-surface border border-border overflow-hidden hidden xs:block">
             {img ? (
@@ -294,22 +295,23 @@ export default function ChatHeader({
               <div className="bg-neutral-200 dark:bg-neutral-700 w-full h-full" />
             )}
           </div>
-          <div className="flex flex-col items-end min-w-0">
-            <span className="text-xs text-primary font-semibold truncate max-w-[120px]">
+
+          <div className="flex flex-1 flex-col items-end min-w-0">
+            <span className="text-xs text-primary font-semibold truncate w-full block text-right">
               {productState.title}
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 mt-0.5">
               {isReserved && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 whitespace-nowrap">
+                <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 whitespace-nowrap">
                   예약중
                 </span>
               )}
               {isSold && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
                   판매완료
                 </span>
               )}
-              <span className="text-xs font-bold text-brand dark:text-brand-light">
+              <span className="text-xs font-bold text-brand dark:text-brand-light truncate">
                 {formatToWon(productState.price)}원
               </span>
             </div>

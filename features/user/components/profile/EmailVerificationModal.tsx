@@ -18,6 +18,7 @@
  * 2026.01.15  임도헌   Modified  [Logic] 핵심 로직 주석 보강 및 디자인 시스템(Semantic Token) 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  autoFocus 제거
  */
 "use client";
 
@@ -285,7 +286,6 @@ function EmailVerificationModalInner({
                   pattern="[0-9]{6}"
                   icon={<KeyIcon className="size-5" />}
                   className="text-center text-lg tracking-widest font-mono"
-                  autoFocus
                   onChange={(e) => {
                     const v =
                       e.target.value?.replace(/\D/g, "").slice(0, 6) ?? "";

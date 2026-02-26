@@ -11,6 +11,7 @@
  * 2026.01.14  임도헌   Modified  [UI] ChatInputBar/CommentForm 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 "use client";
 
@@ -82,7 +83,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
         "flex items-end gap-2"
       )}
     >
-      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
+      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">
         <textarea
           ref={textareaRef}
           value={text}

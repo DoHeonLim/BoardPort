@@ -28,6 +28,7 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.15  임도헌   Modified  ProductCardMeta에 region 정보 전달
+ * 2026.02.26  임도헌   Modified  제품 리스트 카드 찌그러짐 수정
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -95,7 +96,7 @@ export default function ProductCard({
     <Link
       href={href}
       className={cn(
-        "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-all duration-300",
+        "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-light/50 dark:hover:border-brand-light/50",
         isGrid ? "flex-col h-full" : "flex-row h-28 sm:h-36 w-full"
       )}
@@ -103,8 +104,10 @@ export default function ProductCard({
       {/* 썸네일 영역 */}
       <div
         className={cn(
-          "relative shrink-0 overflow-hidden",
-          isGrid ? "aspect-[4/3] w-full" : "w-24 sm:w-36 h-full"
+          "relative shrink-0 overflow-hidden bg-surface-dim",
+          isGrid
+            ? "aspect-[4/3] w-full border-b border-border"
+            : "w-24 sm:w-36 h-full"
         )}
       >
         <ProductCardThumbnail
@@ -120,7 +123,7 @@ export default function ProductCard({
       {/* 정보 영역 */}
       <div
         className={cn(
-          "flex flex-1 flex-col justify-between p-3 sm:p-4 min-w-0",
+          "flex flex-1 flex-col justify-between p-2 sm:p-3 min-w-0",
           isGrid ? "gap-2" : "gap-1"
         )}
       >
@@ -152,6 +155,7 @@ export default function ProductCard({
             bumpCount={bump_count}
             region2={region2}
             region3={region3}
+            viewMode={viewMode}
           />
         </div>
       </div>

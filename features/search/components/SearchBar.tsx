@@ -17,6 +17,7 @@
  * 2026.01.12  임도헌   Modified  height, font size 조정
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 "use client";
 
@@ -73,7 +74,7 @@ export default function SearchBar({
         onChange={(e) => setKeyword(e.target.value)}
         autoFocus={autoFocus}
         className={cn(
-          "input-primary h-10 w-full pl-9 pr-8 text-sm",
+          "input-primary h-10 w-full pl-9 pr-8 text-base md:text-sm",
           "bg-surface-dim border border-border focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20"
         )}
       />
@@ -81,7 +82,7 @@ export default function SearchBar({
 
       {isPending && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <div className="size-3.5 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+          <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
         </div>
       )}
     </form>

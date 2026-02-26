@@ -8,6 +8,7 @@
  * 2026.02.08  임도헌   Created   실시간 카운트 갱신 및 뱃지 UI 구현
  * 2026.02.11  임도헌   Modified  Supabase 구독 제거 -> window event 수신으로 변경 (BAN 기능 정상화)
  * 2026.02.12  임도헌   Modified  뱃지 UI 변경 (Dot -> Number Count)
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 
 "use client";
@@ -91,7 +92,7 @@ export default function NotificationBell({
             "absolute -top-0.5 -right-0.5 flex items-center justify-center",
             "min-w-[18px] h-[18px] px-1",
             "text-[10px] font-bold text-white leading-none",
-            "bg-danger rounded-full border-2 border-background shadow-sm",
+            "bg-danger rounded-full border-2 border-surface shadow-sm",
             "animate-fade-in"
           )}
         >

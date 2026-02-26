@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.19  임도헌   Created   사진/약속 선택 메뉴 구현
+ * 2026.02.26  임도헌   Modified  다크모드 아이콘 가시성 개선 (brand-light)
  */
 
 "use client";
@@ -59,14 +60,18 @@ export default function ChatActionMenu({
         disabled={disabled}
         className={cn(
           "shrink-0 size-10 rounded-full flex items-center justify-center transition-colors",
-          "bg-surface-dim text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5",
+          "bg-surface-dim text-muted hover:text-primary",
+          "dark:text-neutral-400 dark:hover:text-brand-light",
           isOpen && "bg-black/10 dark:bg-white/10 text-primary"
         )}
         aria-label="채팅 메뉴 열기"
         aria-expanded={isOpen}
       >
         <PlusIcon
-          className="size-6 transition-transform duration-200"
+          className={cn(
+            "size-6 transition-transform duration-200",
+            isOpen && "text-brand dark:text-brand-light"
+          )}
           style={{ transform: isOpen ? "rotate(45deg)" : "none" }}
         />
       </button>
@@ -80,7 +85,7 @@ export default function ChatActionMenu({
             }}
             className="w-full px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-3 transition-colors"
           >
-            <div className="p-1.5 bg-brand/10 rounded-lg text-brand">
+            <div className="p-1.5 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-lg">
               <PhotoIcon className="size-5" />
             </div>
             사진 보내기
@@ -93,7 +98,7 @@ export default function ChatActionMenu({
             }}
             className="w-full px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-3 transition-colors"
           >
-            <div className="p-1.5 bg-green-500/10 rounded-lg text-green-600">
+            <div className="p-1.5 bg-green-500/10 rounded-lg text-green-600 dark:bg-green-500/20 dark:text-green-400">
               <CalendarDaysIcon className="size-5" />
             </div>
             약속 잡기

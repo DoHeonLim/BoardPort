@@ -13,6 +13,7 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.07  임도헌   Modified  관리자 계정일 경우 '관리자 콘솔' 바로가기 추가 (isAdmin prop)
  * 2026.02.23  임도헌   Modified  회원 탈퇴 버튼 추가
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 "use client";
 
@@ -145,7 +146,7 @@ export default function ProfileSettingMenu({
                 href="/admin"
                 role="menuitem"
                 data-menuitem="true"
-                className="flex items-center gap-2 px-4 py-3 text-sm font-bold text-brand dark:text-brand-light bg-brand/5 hover:bg-brand/10 transition-colors"
+                className="flex items-center gap-2 px-4 py-3 text-sm font-bold text-brand dark:text-brand-light bg-brand/5 hover:bg-brand/10 dark:bg-brand-light/10 dark:hover:bg-brand-light/20 transition-colors"
                 onClick={() => setOpen(false)}
               >
                 <ComputerDesktopIcon className="size-4" />

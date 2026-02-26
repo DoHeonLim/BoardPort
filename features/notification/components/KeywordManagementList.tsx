@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.12  임도헌   Created   관리 목록 UI 구현
  * 2026.02.21  임도헌   Modified  regionRange 뱃지 노출 추가
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 "use client";
 
@@ -68,7 +69,7 @@ export default function KeywordManagementList({ items }: Props) {
             deletingId === item.id && "opacity-50 pointer-events-none"
           )}
         >
-          <span className="text-[10px] font-bold text-brand dark:text-brand-light bg-brand/10 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-bold text-brand dark:text-brand-light bg-brand/10 dark:bg-brand-light/20 px-1.5 py-0.5 rounded">
             {rangeLabels[item.regionRange]}
           </span>
           <span className="text-xs font-bold pl-0.5">{item.keyword}</span>

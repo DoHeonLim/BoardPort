@@ -9,6 +9,7 @@
  * 2026.01.14  임도헌   Modified  [UI] 공통 Empty State 디자인 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
@@ -44,12 +45,14 @@ export default function StreamEmptyState({ keyword, category, scope }: Props) {
 
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
-      <div className="p-4 rounded-full bg-surface-dim mb-4">
+      <div className="p-4 rounded-full bg-surface-dim dark:bg-white/5 mb-4 border border-transparent dark:border-white/10">
         <VideoCameraIcon className="size-10 text-muted/50" />
       </div>
 
       <h3 className="text-lg font-bold text-primary mb-1">{title}</h3>
-      <p className="text-sm text-muted mb-6">{description}</p>
+      <p className="text-sm text-muted dark:text-neutral-400 mb-6">
+        {description}
+      </p>
 
       <div className="flex gap-3">
         {(hasKeyword || hasCategory) && (

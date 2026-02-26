@@ -12,6 +12,7 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/notification
  * 2026.01.17  임도헌   Moved     components/notification -> features/notification/components
  * 2026.02.25  임도헌   Modified  구독/해제 중 로딩 상태(isLoading) 및 스피너 UI 추가
+ * 2026.02.26  임도헌   Modified  좁은 화면에서 UI 깨짐 수정
  */
 
 "use client";
@@ -37,7 +38,7 @@ export function PushNotificationToggle() {
   // 브라우저 미지원 처리
   if (!isSupported) {
     return (
-      <div className="text-xs sm:text-sm text-muted text-center sm:text-left">
+      <div className="text-[11px] sm:text-xs text-muted text-right leading-tight max-w-[160px]">
         이 브라우저에서는 푸시 알림을 지원하지 않습니다.
       </div>
     );
@@ -46,8 +47,8 @@ export function PushNotificationToggle() {
   // 프라이빗 모드 처리 (Service Worker 제한)
   if (isPrivateMode) {
     return (
-      <div className="text-sm text-muted text-center sm:text-left">
-        프라이빗 모드에서는 푸시 알림을 사용할 수 없습니다.
+      <div className="text-[11px] sm:text-xs text-muted text-right leading-tight max-w-[160px]">
+        프라이빗 모드에서는 사용할 수 없습니다.
       </div>
     );
   }
@@ -68,8 +69,8 @@ export function PushNotificationToggle() {
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs font-medium text-muted">
+    <div className="flex items-center gap-3 shrink-0">
+      <span className="text-xs font-medium text-muted whitespace-nowrap">
         {loading ? (
           <span className="inline-block size-3 border-2 border-brand/30 border-t-brand rounded-full animate-spin mr-1" />
         ) : isSubscribed ? (

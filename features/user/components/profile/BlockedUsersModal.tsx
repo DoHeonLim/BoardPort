@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.04  임도헌   Created
+ * 2026.02.26  임도헌   Modified  차단 해제 텍스트 버튼 다크모드 가시성 수정
  */
 "use client";
 
@@ -84,7 +85,7 @@ export default function BlockedUsersModal({
                     handleUnblock(u.blocked.id, u.blocked.username)
                   }
                   disabled={isPending}
-                  className="text-xs font-semibold text-brand hover:text-brand-dark underline underline-offset-2 disabled:opacity-50"
+                  className="text-xs font-semibold text-brand dark:text-brand-light hover:text-brand-dark dark:hover:text-white underline underline-offset-2 disabled:opacity-50 transition-colors"
                 >
                   차단 해제
                 </button>

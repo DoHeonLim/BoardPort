@@ -15,6 +15,7 @@
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.14  임도헌   Modified  직거래 희망 장소(지도) 추가
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.02.26  임도헌   Modified  둥근 맵 핀 아이콘의 배경과 색상 개선
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -521,7 +522,7 @@ export default function ProductForm({
         {location ? (
           <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand/10 rounded-full text-brand">
+              <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
                 <MapPinIcon className="size-5" />
               </div>
               <div>

@@ -13,6 +13,7 @@
  * 2026.02.01  임도헌   Modified  Prop rename: onSubmit -> action
  * 2026.02.14  임도헌   Modified  지도 기능 추가
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.02.26  임도헌   Modified  게시글 작성 후 push에서 replace로 수정
  */
 "use client";
 
@@ -195,7 +196,7 @@ export default function PostForm({
         toast.success(
           isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
         );
-        router.push(`/posts/${result.postId}`);
+        router.replace(`/posts/${result.postId}`);
       } else if (result.error) {
         toast.error(result.error);
       }
@@ -279,7 +280,7 @@ export default function PostForm({
           {location ? (
             <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-brand/10 rounded-full text-brand">
+                <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
                   <MapPinIcon className="size-5" />
                 </div>
                 <div>

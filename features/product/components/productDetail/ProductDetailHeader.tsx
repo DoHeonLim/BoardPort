@@ -10,6 +10,7 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.03  임도헌   Modified  [UI] 끌어올리기 횟수 뱃지 추가
+ * 2026.02.26  임도헌   Modified  게임 타입 UI 수정
  */
 
 "use client";
@@ -43,7 +44,7 @@ export default function ProductDetailHeader({
       <div className="flex gap-3">
         <Link
           href={`/products?game_type=${game_type}`}
-          className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-brand-light hover:bg-brand/20 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-gray-100 hover:bg-brand/20 transition-colors"
         >
           🎲 {GAME_TYPE_DISPLAY[game_type as GameType] || game_type}
         </Link>

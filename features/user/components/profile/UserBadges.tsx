@@ -45,7 +45,7 @@ export default function UserBadges({ badges = [], max = 5 }: UserBadgesProps) {
   }
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border dark:scrollbar-thumb-neutral-700">
+    <div className="flex gap-3 overflow-x-auto pb-2 -mx-page-x px-page-x scrollbar-thin scrollbar-thumb-border dark:scrollbar-thumb-neutral-700">
       {badges.slice(0, max).map((badge) => (
         <div
           key={badge.id}

@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.05  임도헌   Created   상품 신고 기능 구현
  * 2026.02.05  임도헌   Modified  판매자 차단 기능 추가 (신고와 통합)
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 "use client";
 
@@ -95,7 +96,7 @@ export default function ProductOptionMenu({
               setIsOpen(false);
               setBlockConfirmOpen(true);
             }}
-            className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2"
+            className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/10 dark:hover:bg-danger/20 flex items-center gap-2"
           >
             <UserMinusIcon className="size-4" />
             판매자 차단하기

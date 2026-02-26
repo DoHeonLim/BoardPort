@@ -35,6 +35,7 @@
  * 2026.02.06  임도헌   Modified  ReportModal 연동 및 메시지 신고 핸들러 연결
  * 2026.02.19  임도헌   Modified  약속 제안(ScheduleModal) 및 상태별 버블(AppointmentBubble) 통합
  * 2026.02.20  임도헌   Modified  약속 수락(ACCEPTED) 시 router.refresh() 호출로 ChatHeader 상태 동기화
+ * 2026.02.26  임도헌   Modified  autoFocus 제거, 아이폰 하단 홈과 겹치는 곳 수정
  */
 "use client";
 
@@ -301,7 +302,7 @@ export default function ChatMessagesList({
 
   return (
     <div className="relative flex flex-col flex-1 h-full min-h-0">
-      {/* 메시지 스크롤 영역 (flex-1이 화면의 남은 공간을 차지함) */}
+      {/* 메시지 스크롤 영역 */}
       <div
         ref={containerRef}
         className="
@@ -378,14 +379,13 @@ export default function ChatMessagesList({
         </button>
       )}
 
-      {/* 하단 입력바: fixed를 제거하고 flex item(shrink-0)으로 배치 */}
-      <div className="shrink-0 w-full flex justify-center px-2 pb-4 sm:pb-6 pt-2 bg-transparent z-30">
+      {/* 하단 입력바 영역 */}
+      <div className="shrink-0 w-full flex justify-center px-2 pt-2 bg-transparent z-30 pb-[max(env(safe-area-inset-bottom),1rem)] sm:pb-6">
         <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-neutral-900/75 dark:bg-neutral-950/75 backdrop-blur-md shadow-lg">
           <ChatInputBar
             isSubmitting={isSending}
             onSubmit={onSubmit}
             onScheduleOpen={() => setScheduleModalOpen(true)}
-            autoFocus
             disabled={isCounterpartyLeft}
           />
         </div>

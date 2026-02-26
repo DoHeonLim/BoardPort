@@ -28,6 +28,7 @@
  * 2026.02.04  임도헌   Modified  이미지 업로드 기능 추가 (PhotoIcon, Preview, CF Upload 연동)
  * 2026.02.19  임도헌   Modified  ChatActionMenu로 통합(이미지 업로드, 약속 잡기)
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.02.26  임도헌   Modified  다크모드 개선 및 autoFocus 제거
  */
 "use client";
 
@@ -205,7 +206,7 @@ export default function ChatInputBar({
           onChange={handleImageChange}
         />
 
-        <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
+        <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">
           <textarea
             ref={textareaRef}
             value={text}
@@ -219,7 +220,7 @@ export default function ChatInputBar({
                 : "메시지를 입력하세요"
             }
             disabled={disabled}
-            className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
+            className="w-full bg-transparent border-none p-0 text-base md:text-sm text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
             rows={1}
             autoFocus={autoFocus}
           />

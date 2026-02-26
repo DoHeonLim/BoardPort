@@ -9,6 +9,7 @@
  * 2025.10.29  임도헌   Modified   MyProfile 최신 레이아웃과 일치하도록 전면 수정(그라디언트/액션버튼/방송국/뱃지/카드 구성)
  * 2025.11.13  임도헌   Modified   MyProfile 섹션 구조에 맞춰 스켈레톤 정비
  * 2026.01.15  임도헌   Modified   MyProfile 구조 재반영
+ * 2026.02.26  임도헌   Modified   헤더에 스켈레톤 하나 추가
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -18,6 +19,7 @@ export default function Loading() {
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* Top Actions Placeholder */}
       <div className="flex justify-end gap-2 px-page-x py-3">
+        <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="size-10 rounded-xl" />
       </div>

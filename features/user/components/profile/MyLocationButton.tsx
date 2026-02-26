@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.15  임도헌   Created   variant(header/profile)에 따른 조건부 렌더링 구현
+ * 2026.02.26  임도헌   Modified  동네 설정 버튼 UI 개선
  */
 "use client";
 
@@ -83,7 +84,7 @@ export default function MyLocationButton({
         disabled={isPending}
         className={cn(
           "flex w-full items-center justify-between p-4 rounded-xl border transition-all",
-          "bg-surface border-border hover:border-brand/50 hover:shadow-sm group",
+          "bg-surface border-border hover:border-brand/50 dark:hover:border-brand-light/50 hover:shadow-sm group",
           !currentRegion && "border-dashed bg-surface-dim/30"
         )}
       >
@@ -92,8 +93,8 @@ export default function MyLocationButton({
             className={cn(
               "p-2.5 rounded-full transition-colors",
               currentRegion
-                ? "bg-brand/10 text-brand"
-                : "bg-surface-dim text-muted group-hover:bg-brand/5 group-hover:text-brand"
+                ? "bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light"
+                : "bg-surface-dim text-muted group-hover:bg-brand/5 dark:group-hover:bg-brand-light/10 group-hover:text-brand dark:group-hover:text-brand-light"
             )}
           >
             {currentRegion ? (

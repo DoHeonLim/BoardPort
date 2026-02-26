@@ -11,6 +11,7 @@
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.15  임도헌   Modified  PostCardMeta에 region 정보 전달
+ * 2026.02.26  임도헌   Modified  PostCardTag에서 PostCardTags로 import 수정
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -31,7 +32,7 @@ import PostCardHeader from "@/features/post/components/postCard/PostCardHeader";
 import PostCardMeta from "@/features/post/components/postCard/PostCardMeta";
 import PostCardThumbnail from "@/features/post/components/postCard/PostCardThumbnail";
 import PostCardTitle from "@/features/post/components/postCard/PostCardTitle";
-import PostCardTags from "@/features/post/components/postCard/PostCardTag";
+import PostCardTags from "@/features/post/components/postCard/PostCardTags";
 import { cn } from "@/lib/utils";
 
 interface PostCardProps {
@@ -53,7 +54,7 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
     <Link
       href={`/posts/${post.id}`}
       className={cn(
-        "group relative flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300",
+        "group relative flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
         isGrid ? "flex-col h-full" : "flex-row h-28 w-full"
       )}
@@ -84,6 +85,7 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
             createdAt={post.created_at.toString()}
             region2={post.region2}
             region3={post.region3}
+            viewMode={viewMode}
           />
         </div>
       </div>

@@ -10,9 +10,11 @@
  * 2026.01.12  임도헌   Modified  모바일/좁은 화면에서 부모 카테고리를 렌더링 하지 않게 수정
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.02.26  임도헌   Modified  게임 타입 UI 수정
  */
 
 import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
+import { cn } from "@/lib/utils";
 
 interface ProductCardHeaderProps {
   gameType: string;
@@ -36,7 +38,12 @@ export function ProductCardHeader({
 }: ProductCardHeaderProps) {
   return (
     <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted">
-      <span className="font-medium text-brand dark:text-brand-light shrink-0">
+      <span
+        className={cn(
+          "inline-flex items-center px-1.5 py-0.5 rounded-[4px] text-[9px] sm:text-[10px] font-bold tracking-tight shrink-0",
+          "bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-gray-100 hover:bg-brand/20 transition-colors"
+        )}
+      >
         {GAME_TYPE_DISPLAY[gameType as keyof typeof GAME_TYPE_DISPLAY] ||
           gameType}
       </span>

@@ -13,6 +13,7 @@
  * 2026.01.17  임도헌   Modified  PostDetailCarousel 컴포넌트 제거 후 Carousel 컴포넌트로 변경
  * 2026.01.22  임도헌   Modified  user 타입 정의 완화 (User -> UserLite)
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  UI 순서 재배치
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  *
@@ -30,6 +31,7 @@ import { motion } from "framer-motion";
 import Carousel from "@/components/ui/Carousel";
 import PostDetailTitle from "@/features/post/components/postsDetail/PostDetailTitle";
 import PostDetailDescription from "@/features/post/components/postsDetail/PostDetailDescription";
+import PostDetailTags from "@/features/post/components/postsDetail/PostDetailTags";
 import StaticMap from "@/features/map/components/StaticMap";
 import PostDetailMeta from "@/features/post/components/postsDetail/PostDetailMeta";
 import PostDetailTopbar from "@/features/post/components/postsDetail/PostDetailTopbar";
@@ -53,7 +55,7 @@ interface PostDetailProps {
  *
  * [구조]
  * 1. 상단바 (Topbar)
- * 2. 본문 영역 (제목 -> 설명 -> 이미지 캐러셀 -> 메타 정보)
+ * 2. 본문 영역 (제목 -> 설명 -> 이미지 캐러셀 -> 지도 -> 태그 -> 메타 정보)
  * 3. 댓글 섹션 (PostComment)
  *
  * Framer Motion을 사용하여 본문 영역에 진입 애니메이션 적용
@@ -73,7 +75,7 @@ export default function PostDetail({
 
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">
-      {/* Topbar section */}
+      {/* 1. 상단바 */}
       <PostDetailTopbar
         postId={post.id}
         title={post.title}
@@ -85,20 +87,33 @@ export default function PostDetail({
         editHref={`/posts/${post.id}/edit`}
       />
 
-      {/* Contents section */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="px-page-x py-6 space-y-6"
+        className="px-page-x py-6 flex flex-col gap-8" // 섹션 간 간격을 더 넉넉히 조정
       >
+        {/* 2. 제목 (제목) */}
         <PostDetailTitle title={post.title} />
 
+        {/* 3. 본문 내용 (글) */}
         <PostDetailDescription description={post.description} />
 
-        {/* 장소 태그 (있을 때만 표시) */}
+        {/* 4. 이미지 캐러셀 (그림) */}
+        {post.images.length > 0 && (
+          <div className="pt-4 border-t border-border">
+            <div className="relative aspect-video w-full overflow-hidden rounded-2xl shadow-sm bg-surface-dim border border-border">
+              <Carousel images={post.images} className="w-full h-full" />
+            </div>
+          </div>
+        )}
+
+        {/* 5. 지도 (장소) */}
         {post.latitude && post.longitude && post.locationName && (
-          <div className="mt-6 mb-2">
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-bold text-primary mb-4">
+              📍 모임 및 거래 희망 장소
+            </h3>
             <StaticMap
               latitude={post.latitude}
               longitude={post.longitude}
@@ -108,12 +123,10 @@ export default function PostDetail({
           </div>
         )}
 
-        {post.images.length > 0 && (
-          <div className="relative aspect-video w-full overflow-hidden mt-6 rounded-2xl shadow-sm bg-surface-dim border border-border">
-            <Carousel images={post.images} className="w-full h-full" />
-          </div>
-        )}
+        {/* 6. 태그 */}
+        <PostDetailTags tags={post.tags} />
 
+        {/* 7. 메타 정보 (하단 반응 섹션) */}
         <div className="border-t border-border pt-4">
           <PostDetailMeta
             postId={post.id}
@@ -124,7 +137,7 @@ export default function PostDetail({
           />
         </div>
 
-        {/* Comment section */}
+        {/* 8. 댓글 섹션 */}
         <section className="pt-4">
           <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
             <span className="text-xl">💬</span> 항해 로그
