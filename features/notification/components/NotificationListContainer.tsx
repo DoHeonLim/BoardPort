@@ -6,8 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.08  임도헌   Created   알림 목록 UI 구현 및 읽음 처리 연동
+ * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (액션 연결)
  */
-
 "use client";
 
 import { useState, useTransition } from "react";
@@ -26,6 +26,7 @@ import type {
 } from "@/features/notification/service/notification";
 import { EnvelopeIcon, EnvelopeOpenIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 
 interface Props {
   data: NotificationListResponse;
@@ -35,11 +36,10 @@ interface Props {
  * 알림 목록 컨테이너
  *
  * [기능]
- * 1. 사용자가 받은 알림 목록을 최신순으로 표시
- * 2. 알림의 `isRead` 상태에 따라 스타일을 다르게 적용
- * 3. `markNotificationAsReadAction`을 통해 단일 알림을 읽음 처리
- * 4. `markAllNotificationsAsReadAction`을 통해 모든 알림을 읽음 처리
- * 5. 알림 타입(`type`)과 링크(`link`)에 따라 아이콘 및 클릭 동작을 제공
+ * 1. 사용자가 받은 알림 목록을 최신순으로 표시함.
+ * 2. 알림의 `isRead` 상태에 따라 스타일을 다르게 적용함.
+ * 3. `markNotificationAsReadAction`을 통해 단일 알림을 읽음 처리하고, 성공 시 Zustand 상태를 동기화하여 차감함.
+ * 4. `markAllNotificationsAsReadAction`을 통해 모든 알림을 읽음 처리하고, 성공 시 Zustand 상태를 초기화함.
  */
 export default function NotificationListContainer({ data }: Props) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(
@@ -47,16 +47,18 @@ export default function NotificationListContainer({ data }: Props) {
   );
   const [isMarkingAll, startMarkingAll] = useTransition();
 
+  // Zustand 액션 가져오기
+  const decrement = useNotificationStore((state) => state.decrement);
+  const clear = useNotificationStore((state) => state.clear);
+
   const handleMarkAsRead = async (id: number) => {
     const res = await markNotificationAsReadAction(id);
     if (res.success) {
       setNotifications((prev) =>
         prev.map((noti) => (noti.id === id ? { ...noti, isRead: true } : noti))
       );
-      // 알림을 읽으면 벨 카운트 차감 이벤트를 발생
-      window.dispatchEvent(
-        new CustomEvent("sys:notification_read", { detail: { count: 1 } })
-      );
+      // 알림 읽음 처리 완료 시 전역 뱃지 카운트 1 차감
+      decrement(1);
     } else {
       toast.error(res.error ?? "읽음 처리 실패");
     }
@@ -70,15 +72,15 @@ export default function NotificationListContainer({ data }: Props) {
           prev.map((noti) => ({ ...noti, isRead: true }))
         );
         toast.success("모든 알림을 읽음 처리했습니다.");
-        // 모두 읽음 시 벨 카운트를 0으로 초기화하는 이벤트를 발생
-        window.dispatchEvent(new CustomEvent("sys:notification_read_all"));
+        // 모두 읽음 처리 완료 시 전역 뱃지 카운트 초기화
+        clear();
       } else {
         toast.error(res.error ?? "모든 알림 읽음 처리 실패");
       }
     });
   };
 
-  // 알림 타입별 아이콘
+  // 알림 타입별 아이콘 매핑
   const typeIcons: Record<string, JSX.Element> = {
     CHAT: <span className="text-xl">💬</span>,
     TRADE: <span className="text-xl">⚓</span>,

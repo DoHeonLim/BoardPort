@@ -18,6 +18,7 @@
  * 2026.02.08  임도헌   Modified  pathname 의존성 제거로 페이지 이동 시 연결 끊김 방지
  * 2026.02.11  임도헌   Modified  NotificationBell과의 채널 충돌 방지를 위해 로컬 이벤트 발행 로직 추가
  * 2026.02.22  임도헌   Modified  현재 페이지 알림 수신 시 벨 카운트 깜빡임(Flicker) 방지
+ * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (dispatchEvent 제거)
  */
 "use client";
 
@@ -26,6 +27,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import Image from "next/image";
+import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 
 type NotiPayload = {
   id?: number;
@@ -48,16 +50,9 @@ type SysEventPayload = {
  * 전역 알림 리스너 (Root Layout 전용)
  *
  * [역할 및 기능]
- * 1. Single Source of Truth (SSOT): 앱 내에서 유일하게 `user-{id}-notifications` 채널을 구독
- *    - 여러 컴포넌트에서 동일 채널을 구독/해제할 때 발생하는 연결 끊김 문제를 방지
- *
- * 2. 이벤트 브리지 (Event Bridge):
- *    - 알림(`notification`) 수신 시 `sys:notification`이라는 Window 이벤트를 발행
- *    - 이를 통해 `NotificationBell` 등 UI 컴포넌트가 Supabase 연결 없이도 상태를 갱신할 수 있음
- *
- * 3. 보안 집행 (Security Enforcer):
- *    - 시스템 이벤트(`sys_event`) 중 `BAN` 타입을 감지
- *    - 정지 명령 수신 즉시 세션을 갱신하고 `/403` 페이지로 강제 리다이렉트
+ * 1. Single Source of Truth (SSOT): 앱 내에서 유일하게 `user-{id}-notifications` 채널을 구독하여 웹소켓 연결 충돌을 방지
+ * 2. 상태 동기화 (State Synchronization): 알림(`notification`) 수신 시 Zustand 스토어의 `increment` 액션을 직접 호출하여 상태 변화를 단방향으로 통제
+ * 3. 보안 집행 (Security Enforcer): 시스템 이벤트(`sys_event`) 중 `BAN` 타입을 감지 시, 세션을 갱신하고 `/403` 페이지로 강제 리다이렉트 처리
  *
  * @param {number} userId - 로그인한 사용자 ID
  */
@@ -66,7 +61,10 @@ export default function NotificationListener({ userId }: { userId: number }) {
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
 
-  // 현재 경로 추적 (알림 클릭 시 중복 이동 방지용)
+  // Zustand 스토어에서 알림 카운트 증가 액션 가져오기
+  const increment = useNotificationStore((state) => state.increment);
+
+  // 현재 경로 추적 (알림 클릭 시 중복 이동 방지 및 현재 방 알림 무시용)
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
@@ -83,9 +81,8 @@ export default function NotificationListener({ userId }: { userId: number }) {
 
         if (typeof p.userId === "number" && p.userId !== userId) return;
 
-        // 현재 보고 있는 페이지(예: 현재 채팅방)와 관련된 알림이면
-        // 토스트뿐만 아니라 전역 벨 카운트 증가 이벤트(sys:notification)도 생략
-        // 이를 통해 0 -> 1 -> 0 으로 번쩍거리는 UX 결함을 방지
+        // 사용자가 현재 보고 있는 페이지(예: 지금 대화 중인 채팅방)와 관련된 알림일 경우,
+        // 토스트 팝업 표시 및 상단 뱃지 카운트 증가를 생략하여 번쩍거리는 UX 결함을 방지
         if (
           typeof document !== "undefined" &&
           !document.hidden &&
@@ -95,22 +92,8 @@ export default function NotificationListener({ userId }: { userId: number }) {
           return;
         }
 
-        // 로컬 이벤트 발행 -> NotificationBell이 수신하여 뱃지 카운트 증가
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("sys:notification", { detail: p })
-          );
-        }
-
-        // 현재 보고 있는 페이지와 관련된 알림이면 토스트 생략 (예: 현재 채팅방의 새 메시지)
-        if (
-          typeof document !== "undefined" &&
-          !document.hidden &&
-          p.link &&
-          pathnameRef.current === p.link
-        ) {
-          return;
-        }
+        // 기존 window.dispatchEvent 방식 대신 Zustand 액션을 명시적으로 호출
+        increment();
 
         // 토스트 알림 표시
         const toastId = p.id
@@ -155,7 +138,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
             position: "top-center",
           });
 
-          // 3. 강제 페이지 이동 (SPA 라우팅 대신 href 사용하여 미들웨어 거치도록 함)
+          // 3. 강제 페이지 이동 (SPA 라우팅 대신 href를 사용하여 미들웨어를 거치도록 강제)
           setTimeout(() => {
             window.location.href = `/403?reason=BANNED&banReason=${encodeURIComponent(
               p.reason || ""
@@ -171,7 +154,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       // 컴포넌트 언마운트 시(로그아웃 등)에만 연결 해제
       supabase.removeChannel(channel);
     };
-  }, [userId, router]);
+  }, [userId, router, increment]);
 
   return null;
 }
