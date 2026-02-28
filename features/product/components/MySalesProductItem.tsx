@@ -30,6 +30,7 @@
  * 2026.02.05  임도헌   Modified  끌어올리기 버튼에 횟수 제한(MAX_BUMP_COUNT) UI 적용
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  * 2026.02.26  임도헌   Modified  Grid View 지원, 다크모드 텍스트 가시성(brand-light) 개선, bump_count 방어코드
+ * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 적용
  */
 
 "use client";
@@ -647,6 +648,7 @@ export default function MySalesProductItem({
           title="내가 쓴 리뷰"
           review={sellerReviews[0]}
           onDelete={() => toggleModal("deleteConfirm", true)}
+          isOwnReview={true}
         />
       )}
 

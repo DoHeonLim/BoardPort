@@ -12,6 +12,7 @@
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.15  임도헌   Modified  PostCardMeta에 region 정보 전달
  * 2026.02.26  임도헌   Modified  PostCardTag에서 PostCardTags로 import 수정
+ * 2026.02.28  임도헌   Modified  태그 유무와 상관없이 메타 정보를 바닥에 고정하도록 구조 개선
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -54,9 +55,9 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
     <Link
       href={`/posts/${post.id}`}
       className={cn(
-        "group relative flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-300",
+        "group relative flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
-        isGrid ? "flex-col h-full" : "flex-row h-28 w-full"
+        isGrid ? "flex-col h-full" : "flex-row h-28 sm:h-36 w-full"
       )}
     >
       {/* 썸네일 */}
@@ -64,20 +65,21 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
         <PostCardThumbnail images={post.images} viewMode={viewMode} />
       </div>
 
-      {/* 정보 영역 */}
-      <div
-        className={cn(
-          "flex flex-1 flex-col p-2 min-w-0",
-          isGrid ? "justify-between gap-1" : "justify-between"
-        )}
-      >
+      {/* 2. 정보 영역 (flex-col flex-1) */}
+      <div className="flex flex-1 flex-col p-2 min-w-0">
+        {/* 상단: 카테고리 + 제목 */}
         <div className="flex flex-col gap-0.5">
           <PostCardHeader category={post.category} />
           <PostCardTitle title={post.title} viewMode={viewMode} />
         </div>
 
-        <div className="flex flex-col mt-auto">
-          {!isGrid && <PostCardTags tags={post.tags} />}
+        {/* 중단: 태그 영역 (공간을 채워 메타 정보를 아래로 밀어냄) */}
+        <div className="flex-1 flex items-center min-h-0">
+          {!isGrid && post.tags.length > 0 && <PostCardTags tags={post.tags} />}
+        </div>
+
+        {/* 하단: 메타 정보 (mt-auto로 바닥 고정) */}
+        <div className="mt-auto pt-1">
           <PostCardMeta
             views={post.views}
             likes={post._count.post_likes}

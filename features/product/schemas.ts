@@ -89,4 +89,4 @@ export const productFormSchema = z.object({
     .nullable(),
 });
 
-export type productFormType = z.infer<typeof productFormSchema>;
+export type productFormValues = z.infer<typeof productFormSchema>;

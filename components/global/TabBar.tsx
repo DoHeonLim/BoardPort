@@ -75,7 +75,7 @@ export default function TabBar() {
   // [Rule 4.1.2] 최상위 루트 경로가 아니면 TabBar 숨김
   // 1. pathname이 탭 목록에 있는 경로 중 하나와 정확히 일치하는지 확인
   const isMainTab = tabs.some((tab) => tab.href === pathname);
-  
+
   // 2. 예외 처리: 프로필 경로('/profile')로 시작하는 경우 (서브 페이지 포함)
   const isProfileSection = pathname.startsWith("/profile");
 
@@ -91,6 +91,7 @@ export default function TabBar() {
         // [스타일] 배경 블러 처리 및 상단 테두리
         "bg-surface/90 backdrop-blur-md border-t border-border",
         "pb-[env(safe-area-inset-bottom)]", // 아이폰 홈 바 안전 영역 확보
+        "transform-gpu translate-z-0", // Safari 렌더링 고정용 가속 추가
         "transition-transform duration-300"
       )}
     >

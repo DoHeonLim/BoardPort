@@ -27,7 +27,7 @@ import dynamic from "next/dynamic";
 import {
   EllipsisHorizontalIcon,
   UserMinusIcon,
-  ExclamationTriangleIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import UserAvatar from "@/components/global/UserAvatar";
@@ -75,7 +75,7 @@ export default function ChatHeader({
   chatRoomId,
   viewerId,
   counterparty,
-  product,
+  product
 }: ChatHeaderProps) {
   const router = useRouter();
 
@@ -147,7 +147,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           reservation_userId: counterparty.id,
-          purchase_userId: null,
+          purchase_userId: null
         }));
       } else {
         toast.error(res?.error ?? "예약자로 지정하는 데 실패했습니다.");
@@ -168,7 +168,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           reservation_userId: null,
-          purchase_userId: null,
+          purchase_userId: null
         }));
       } else {
         toast.error(res?.error ?? "판매중으로 변경하지 못했어요.");
@@ -188,7 +188,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           purchase_userId: prev.reservation_userId ?? counterparty.id,
-          reservation_userId: null,
+          reservation_userId: null
         }));
       } else {
         toast.error(res?.error ?? "판매완료로 변경하지 못했어요.");
@@ -211,7 +211,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           reservation_userId: null,
-          purchase_userId: null,
+          purchase_userId: null
         }));
         setRevertDialogOpen(false);
         setMenuOpen(false);
@@ -260,11 +260,11 @@ export default function ChatHeader({
     <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-border shadow-sm">
       <div className="mx-auto w-full px-2 h-14 flex items-center justify-between gap-2">
         {/* Left Section: Back + User */}
-        <div className="flex justify-center items-center gap-1 min-w-0 shrink-0 max-w-[35%]">
+        <div className="flex justify-center items-center ml-2 gap-1 min-w-0 shrink-0 max-w-[50%]">
           <BackButton
             fallbackHref="/chat"
             variant="appbar"
-            className="h-10 w-8 px-0 shrink-0"
+            className="size-10 px-0 shrink-0"
           />
           {/* Ghost User(나간 유저)일 경우 프로필 링크 비활성화 */}
           <UserAvatar
