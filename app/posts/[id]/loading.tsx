@@ -6,14 +6,15 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.14  임도헌   Created
+ * 2026.02.26  임도헌   Modified  백그라운드 색상 변경
  */
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="max-w-3xl mx-auto min-h-screen bg-neutral-50 dark:bg-neutral-900 pb-20">
+    <div className="max-w-3xl mx-auto min-h-screen bg-background pb-20 transition-colors">
       {/* Topbar Skeleton */}
-      <div className="sticky top-0 z-40 h-14 bg-white/70 dark:bg-neutral-900/70 border-b border-border backdrop-blur-md flex items-center px-4 justify-between">
+      <div className="sticky top-0 z-40 h-14 bg-surface/80 border-b border-border backdrop-blur-md flex items-center px-4 justify-between">
         <div className="flex items-center gap-3">
           <Skeleton className="size-8 rounded-lg" /> {/* Back */}
           <div className="flex items-center gap-2">

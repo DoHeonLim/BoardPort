@@ -27,9 +27,10 @@
  *                                 비로그인 시 /login?callbackUrl=... 리다이렉트 통일(onRequireLogin 공용)
  *                                 PRIVATE 잠금은 팔로우로 해제되지 않으므로 서버 플래그(requiresPassword) 유지
  * 2026.01.15  임도헌   Modified   시맨틱 토큰 적용
- * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
+ * 2026.01.17  임도헌   Moved      components/profile -> features/user/components/profile
  * 2026.02.04  임도헌   Modified   차단(isBlocked) 상태에 따른 조건부 렌더링 추가
  * 2026.02.05  임도헌   Modified   차단된 유저 화면에 '차단 해제' 버튼 추가 (UX 개선)
+ * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
  */
 
 "use client";
@@ -265,7 +266,7 @@ export default function UserProfile({
               <h2 className="text-sm font-bold text-primary">방송국</h2>
               <Link
                 href={`/profile/${user.username}/channel`}
-                className="text-xs text-muted hover:text-brand transition-colors flex items-center"
+                className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
               >
                 전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
               </Link>
@@ -326,7 +327,7 @@ export default function UserProfile({
                 </h2>
                 <button
                   onClick={() => setIsReviewModalOpen(true)}
-                  className="text-xs text-muted hover:text-brand"
+                  className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
                 >
                   전체 보기
                 </button>

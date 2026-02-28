@@ -17,6 +17,7 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 클래스 & 접근성 업데이트
  * 2026.01.11  임도헌   Modified  [UX] 스피너 제거 & 스크롤 변경 방지
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
+ * 2026.02.26  임도헌   Modified  autoFocus 제거
  */
 "use client";
 
@@ -122,6 +123,7 @@ const Input = (
             icon ? "pl-11" : "pl-4",
             canToggle ? "pr-11" : "pr-4",
             filteredErrors.length > 0 && "ring-2 ring-danger/50",
+            "text-base md:text-sm",
             className
           )}
           style={type === "number" ? noSpinnerStyle : undefined}
@@ -138,8 +140,8 @@ const Input = (
             aria-pressed={revealed}
             aria-label={
               revealed
-                ? (passwordToggleLabels?.hide ?? "비밀번호 숨기기")
-                : (passwordToggleLabels?.show ?? "비밀번호 표시")
+                ? passwordToggleLabels?.hide ?? "비밀번호 숨기기"
+                : passwordToggleLabels?.show ?? "비밀번호 표시"
             }
           >
             {revealed ? (

@@ -17,6 +17,7 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.19  임도헌   Modified  카테고리/게임타입 변경 시 기존 region 파라미터 유지
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 "use client";
 
@@ -122,7 +123,7 @@ export default function ProductCategoryDropdown({
 
             <div className="p-2 max-h-[400px] overflow-y-auto scrollbar-hide">
               <div className="mb-4">
-                <div className="px-2 py-1 text-xs font-semibold text-brand dark:text-brand-light mb-1">
+                <div className="px-2 py-1.5 text-xs font-semibold text-brand bg-brand/5 dark:bg-brand-light/10 dark:text-brand-light rounded-md mb-1">
                   게임 타입
                 </div>
                 {GAME_TYPES.map((type) => (
@@ -144,7 +145,7 @@ export default function ProductCategoryDropdown({
               </div>
 
               <div>
-                <div className="px-2 py-1 text-xs font-semibold text-brand dark:text-brand-light mb-1">
+                <div className="px-2 py-1.5 text-xs font-semibold text-brand bg-brand/5 dark:bg-brand-light/10 dark:text-brand-light rounded-md mb-1">
                   장르
                 </div>
                 {topLevelCategories.map((category) => (

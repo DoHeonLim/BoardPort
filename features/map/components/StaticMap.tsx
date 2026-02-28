@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.14  임도헌   Created   읽기 전용 지도 및 길찾기 링크 연결
  * 2026.02.15  임도헌   Modified  useKakaoLoader 적용하여 스크립트 미로드 시 크래시 방지
+ * 2026.02.26  임도헌   Modified  지도 마커 및 헤더 텍스트 찌그러짐 픽스
  */
 
 "use client";
@@ -64,13 +65,17 @@ export default function StaticMap({
   return (
     <div className="flex flex-col gap-3">
       {/* 텍스트 정보 */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-2">
-          <MapPinIcon className="size-5 text-brand mt-0.5 shrink-0" />
-          <div>
-            <h3 className="font-bold text-primary">{locationName}</h3>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 min-w-0">
+          <MapPinIcon className="size-5 text-brand dark:text-brand-light mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <h3 className="font-bold text-primary break-words leading-snug">
+              {locationName}
+            </h3>
             {regionString && (
-              <p className="text-xs text-muted mt-0.5">{regionString}</p>
+              <p className="text-xs text-muted mt-0.5 truncate">
+                {regionString}
+              </p>
             )}
           </div>
         </div>
@@ -78,7 +83,7 @@ export default function StaticMap({
           href={mapLink}
           target="_blank"
           rel="noreferrer"
-          className="text-xs font-medium text-muted hover:text-brand flex items-center gap-1 bg-surface-dim px-2 py-1 rounded-md transition-colors"
+          className="shrink-0 text-xs font-medium text-muted hover:text-brand dark:hover:text-brand-light flex items-center gap-1 bg-surface-dim px-2 py-1.5 rounded-md transition-colors"
         >
           지도 보기 <ArrowTopRightOnSquareIcon className="size-3" />
         </a>

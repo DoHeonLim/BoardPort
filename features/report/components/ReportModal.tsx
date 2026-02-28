@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.05  임도헌   Created   라디오 버튼 기반 신고 사유 선택 및 제출 UI 구현
  * 2026.02.20  임도헌   Modified  레이아웃에서 모달 위치가 깨지지 않도록 createPortal 적용
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 "use client";
 
@@ -143,7 +144,7 @@ export default function ReportModal({
                     className={cn(
                       "flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all",
                       reason === r
-                        ? "bg-brand/5 border-brand/50 text-brand dark:text-brand-light"
+                        ? "bg-brand/5 border-brand/50 text-brand dark:bg-brand-light/10 dark:border-brand-light/50 dark:text-brand-light"
                         : "bg-surface border-border text-muted hover:bg-surface-dim"
                     )}
                   >

@@ -8,6 +8,7 @@
  * 2026.02.05  임도헌   Created   초기 생성
  * 2026.02.05  임도헌   Modified  방장(isHost) 여부에 따른 차단 안내 문구 분기 로직 추가
  * 2026.02.06  임도헌   Modified  차단 성공 시 부모에게 알리는 onBlockSuccess 콜백 추가
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 
 "use client";
@@ -164,7 +165,7 @@ export default function StreamChatUserModal({
                 <>
                   <button
                     onClick={() => setIsConfirmOpen(true)}
-                    className="btn-secondary h-11 w-full gap-2 text-danger border-danger/30 hover:bg-danger/5"
+                    className="btn-secondary h-11 w-full gap-2 text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
                   >
                     <UserMinusIcon className="size-5" />
                     차단하기

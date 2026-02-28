@@ -24,6 +24,7 @@
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.02.08  임도헌   Modified  헤더 우측에 알림 벨(NotificationBell) 추가, 검색창과 카테고리 탭 위치 변경
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
+ * 2026.02.26  임도헌   Modified  헤더 UI 수정
  */
 import { Metadata } from "next";
 import Link from "next/link";
@@ -114,60 +115,51 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background transition-colors pb-24">
-      {/* 실시간 상태 구독 */}
       <LiveStatusRealtimeSubscriber />
 
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          {/* Search + Bell Group */}
-          <div className="flex flex-1 items-center gap-2 min-w-0">
-            <StreamSearchBarWrapper />
-            <div className="shrink-0">
-              <NotificationBell userId={viewerId} initialCount={unreadCount} />
-            </div>
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
+        {/* 1단: 검색 및 알림 벨 */}
+        <div className="flex items-center gap-3 p-4 pb-2">
+          <StreamSearchBarWrapper />
+          <div className="shrink-0">
+            <NotificationBell userId={viewerId!} initialCount={unreadCount} />
           </div>
         </div>
 
-        <div className="flex justify-center items-center gap-3 mt-4">
+        {/* 2단: 페이지 스코프 선택 (전체 / 팔로잉) */}
+        <nav aria-label="보기 범위" className="px-4 py-2">
+          <div className="flex p-1 bg-surface-dim dark:bg-neutral-800/50 rounded-xl border border-border shadow-inner">
+            <Link
+              href={buildHref("all")}
+              className={cn(
+                "flex-1 flex justify-center items-center py-2 text-sm font-bold rounded-lg transition-all",
+                scope === "all"
+                  ? "bg-surface text-brand dark:text-brand-light shadow-md"
+                  : "text-muted hover:text-primary"
+              )}
+            >
+              전체 방송
+            </Link>
+            <Link
+              href={buildHref("following")}
+              className={cn(
+                "flex-1 flex justify-center items-center py-2 text-sm font-bold rounded-lg transition-all",
+                scope === "following"
+                  ? "bg-surface text-brand dark:text-brand-light shadow-md"
+                  : "text-muted hover:text-primary"
+              )}
+            >
+              팔로잉
+            </Link>
+          </div>
+        </nav>
+
+        {/* 3단: 카테고리 칩 */}
+        <div className="px-4 pb-3 overflow-hidden">
           <StreamCategoryTabs currentCategory={category} />
-          {/* Scope Tab */}
-          <nav
-            aria-label="스트리밍 보기 범위"
-            role="tablist"
-            className="shrink-0"
-          >
-            <div className="flex p-1 bg-surface-dim rounded-xl border border-border">
-              <Link
-                href={buildHref("all")}
-                role="tab"
-                aria-selected={scope === "all"}
-                className={cn(
-                  "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap",
-                  scope === "all"
-                    ? "bg-surface text-brand shadow-sm"
-                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-              >
-                전체
-              </Link>
-              <Link
-                href={buildHref("following")}
-                role="tab"
-                aria-selected={scope === "following"}
-                className={cn(
-                  "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap",
-                  scope === "following"
-                    ? "bg-surface text-brand shadow-sm"
-                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-              >
-                팔로잉
-              </Link>
-            </div>
-          </nav>
         </div>
-      </div>
+      </header>
 
       {/* Content */}
       <div className="flex-1 px-page-x py-6">

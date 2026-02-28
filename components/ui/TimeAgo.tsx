@@ -15,6 +15,7 @@
  *                                 tooltipFormatter/locale 옵션 확장
  * 2026.01.11  임도헌   Modified  시맨틱 텍스트 색상 적용 (text-muted)
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
+ * 2026.02.26  임도헌   Modified  텍스트 크기 10px로 수정
  */
 
 "use client";
@@ -124,13 +125,10 @@ export default function TimeAgo({
           : computeAutoInterval(Date.now(), parsedDate.getTime());
 
       // setTimeout으로 가변 주기 스케줄링(Interval drift 최소화)
-      timerRef.current = window.setTimeout(
-        () => {
-          setNow(Date.now());
-          schedule(); // 재귀 스케줄
-        },
-        Math.max(1000, base)
-      ); // 최소 1초
+      timerRef.current = window.setTimeout(() => {
+        setNow(Date.now());
+        schedule(); // 재귀 스케줄
+      }, Math.max(1000, base)); // 최소 1초
     };
 
     // 가시성 이벤트 핸들링
@@ -158,7 +156,8 @@ export default function TimeAgo({
     };
   }, [parsedDate, refreshMs, live]);
 
-  const baseClass = "text-xs text-muted hover:text-primary transition-colors";
+  const baseClass =
+    "text-[10px] text-muted dark:text-neutral-400 hover:text-primary transition-colors";
 
   // 잘못된 날짜짜
   if (!parsedDate) {

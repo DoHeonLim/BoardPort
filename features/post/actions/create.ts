@@ -16,6 +16,7 @@
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/posts.ts (submitPost) -> features/post/actions/posts.ts
  * 2026.02.01  임도헌   Modified  posts.ts에서 생성/수정 로직 분리(create.ts, update.ts)
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
+ * 2026.02.26  임도헌   Modified  dto에 parsed.data.location 추가
  */
 "use server";
 
@@ -83,6 +84,7 @@ export async function createPostAction(
     category: parsed.data.category,
     tags: parsed.data.tags || [],
     photos: parsed.data.photos || [],
+    location: parsed.data.location,
   };
 
   const result = await createPostService(session.id, dto);

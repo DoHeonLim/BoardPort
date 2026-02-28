@@ -28,6 +28,7 @@
  * 2026.01.25  임도헌   Modified  카테고리를 썸네일 우측 상단 오버레이로 이동, 하단에 태그(#) 추가
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ * 2026.02.26  임도헌   Modified  좁은 화면에서 UI 깨짐 수정
  */
 
 "use client";
@@ -396,10 +397,10 @@ export default function StreamCard(props: StreamCardProps) {
               startedAtIso ||
               duration ||
               viewCount != null) && (
-              <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted border-t border-border/50 pt-2 mt-auto overflow-hidden">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-[11px] text-muted border-t border-border/50 pt-2 mt-auto min-w-0">
                 {/* 1. 태그 (존재하면 우선 표시) */}
                 {formattedTags ? (
-                  <span className="truncate font-medium text-brand dark:text-brand-light/80">
+                  <span className="truncate font-medium text-brand dark:text-brand-light max-w-[100px] sm:max-w-[150px]">
                     {formattedTags}
                   </span>
                 ) : null}
@@ -410,10 +411,10 @@ export default function StreamCard(props: StreamCardProps) {
                     <span className="text-border shrink-0">|</span>
                   )}
 
-                <div className="flex items-center gap-2 truncate">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
                   {/* 2. 시간 (시작시간 or 녹화일) */}
                   {startedAtIso && (
-                    <span className="truncate">
+                    <span className="shrink-0">
                       {formatToTimeAgo(startedAtIso)} {isLive ? "시작" : ""}
                     </span>
                   )}

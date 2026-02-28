@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.05  임도헌   Created   중복 체크 및 Rate Limit 로직 포함 생성 기능 구현
  * 2026.02.06  임도헌   Modified  리뷰 신고(targetReviewId) 매핑 로직 추가
+ * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 추가
  */
 
 import "server-only";
@@ -47,9 +48,67 @@ export async function createReport(
 
     const targetField = targetFieldMap[data.targetType];
 
-    // 2. 본인 신고 체크 (USER 타입일 때만)
-    if (data.targetType === "USER" && data.targetId === reporterId) {
-      return { success: false, error: REPORT_ERRORS.SELF_REPORT };
+    // [핵심] 2. 셀프 신고(Self-Report) 원천 차단 로직 확장
+    // USER뿐만 아니라 제품, 게시글, 댓글 등 내가 작성한 모든 데이터에 대해 신고를 차단
+    let isSelfReport = false;
+
+    switch (data.targetType) {
+      case "USER":
+        isSelfReport = data.targetId === reporterId;
+        break;
+      case "PRODUCT":
+        const prod = await db.product.findUnique({
+          where: { id: data.targetId },
+          select: { userId: true },
+        });
+        isSelfReport = prod?.userId === reporterId;
+        break;
+      case "POST":
+        const post = await db.post.findUnique({
+          where: { id: data.targetId },
+          select: { userId: true },
+        });
+        isSelfReport = post?.userId === reporterId;
+        break;
+      case "COMMENT":
+        const comment = await db.comment.findUnique({
+          where: { id: data.targetId },
+          select: { userId: true },
+        });
+        isSelfReport = comment?.userId === reporterId;
+        break;
+      case "REVIEW":
+        const review = await db.review.findUnique({
+          where: { id: data.targetId },
+          select: { userId: true },
+        });
+        isSelfReport = review?.userId === reporterId;
+        break;
+      case "STREAM":
+        const stream = await db.broadcast.findUnique({
+          where: { id: data.targetId },
+          select: { liveInput: { select: { userId: true } } },
+        });
+        isSelfReport = stream?.liveInput?.userId === reporterId;
+        break;
+      case "PRODUCT_MESSAGE":
+        const pMsg = await db.productMessage.findUnique({
+          where: { id: data.targetId },
+          select: { userId: true },
+        });
+        isSelfReport = pMsg?.userId === reporterId;
+        break;
+      case "STREAM_MESSAGE":
+        const sMsg = await db.streamMessage.findUnique({
+          where: { id: data.targetId },
+          select: { userId: true },
+        });
+        isSelfReport = sMsg?.userId === reporterId;
+        break;
+    }
+
+    if (isSelfReport) {
+      return { success: false, error: "자신의 컨텐츠는 신고할 수 없습니다." };
     }
 
     // 3. 중복 신고 체크 (1인 1대상 1회 제한)
@@ -57,7 +116,7 @@ export async function createReport(
       where: {
         reporterId,
         [targetField]: data.targetId,
-        status: "PENDING", // 처리 대기 중인 동일 신고가 있는지 확인
+        status: "PENDING",
       },
     });
 

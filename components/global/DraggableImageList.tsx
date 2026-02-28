@@ -9,6 +9,7 @@
  * 2024.12.10  임도헌   Modified  이미지 드래그 앤 드롭 컴포넌트 추가
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 스타일 개선
  * 2026.01.16  임도헌   Moved     components/image -> components/global
+ * 2026.02.26  임도헌   Modified  이미지 업로드 X 버튼 크기 수정
  */
 import dynamic from "next/dynamic";
 import type { DropResult } from "@hello-pangea/dnd";
@@ -97,7 +98,7 @@ export default function DraggableImageList({
                           e.preventDefault();
                           onDeleteImage(index);
                         }}
-                        className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 hover:bg-red-500 text-white transition-colors backdrop-blur-sm z-10"
+                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 hover:bg-red-500 text-white transition-colors backdrop-blur-sm z-10"
                         aria-label="이미지 삭제"
                       >
                         <XMarkIcon className="w-3.5 h-3.5" />

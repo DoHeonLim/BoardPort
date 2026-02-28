@@ -12,6 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.06  임도헌   Modified  리뷰 상세 모달에 신고 버튼 추가 및 ReportModal 연동
+ * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 적용
  */
 "use client";
 
@@ -34,6 +35,7 @@ interface ReviewDetailModalProps {
   review?: Pick<ProfileReview, "id" | "rate" | "payload">;
   onDelete?: () => void | Promise<void>;
   emptyMessage?: string;
+  isOwnReview?: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export default function ReviewDetailModal({
   review,
   onDelete,
   emptyMessage = "아직 작성된 리뷰가 없습니다.",
+  isOwnReview = false,
 }: ReviewDetailModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -149,15 +152,17 @@ export default function ReviewDetailModal({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-between gap-2">
           {/* 신고 버튼 (좌측 배치) */}
-          {review && (
-            <button
-              onClick={() => setReportOpen(true)}
-              className="text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
-            >
-              <ExclamationTriangleIcon className="size-4" />
-              <span className="text-xs">신고</span>
-            </button>
-          )}
+          <div className="flex items-center">
+            {review && !isOwnReview && (
+              <button
+                onClick={() => setReportOpen(true)}
+                className="text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
+              >
+                <ExclamationTriangleIcon className="size-4" />
+                <span className="text-xs">신고</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex gap-2">
             {review && onDelete && (

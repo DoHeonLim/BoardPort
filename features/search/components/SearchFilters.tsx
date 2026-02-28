@@ -145,7 +145,7 @@ export default function SearchFilters({
         />
         <div className="absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl max-h-[85vh] h-full flex flex-col animate-slide-up shadow-2xl">
           {/* Header */}
-          <div className="flex justify-between items-center p-5 border-b border-border">
+          <div className="flex justify-between items-center px-4 py-2 border-b border-border">
             <h3 className="text-lg font-bold text-primary">필터 설정</h3>
             <button
               onClick={onClose}
@@ -157,7 +157,7 @@ export default function SearchFilters({
           </div>
 
           {/* Content (스크롤) */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-8 pb-safe">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-safe">
             <CategoryFilter
               parentCategories={parentCategories}
               childCategories={childCategories}
@@ -167,7 +167,7 @@ export default function SearchFilters({
               onChildChange={handleChildCategoryChange}
             />
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               <PriceFilter
                 minPrice={tempFilters.minPrice ?? ""}
                 maxPrice={tempFilters.maxPrice ?? ""}
@@ -189,7 +189,7 @@ export default function SearchFilters({
           </div>
 
           {/* Footer (액션) */}
-          <div className="flex gap-3 p-5 border-t border-border bg-surface safe-area-pb">
+          <div className="flex gap-3 p-5 border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),1.25rem)]">
             <button
               onClick={handleResetFilters}
               className="flex-1 btn-secondary h-12 text-sm"
@@ -222,7 +222,7 @@ export default function SearchFilters({
             </button>
           </div>
 
-          <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+          <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide">
             <CategoryFilter
               parentCategories={parentCategories}
               childCategories={childCategories}

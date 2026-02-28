@@ -105,7 +105,7 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* 상단 액션바: 설정 메뉴 및 테마 토글 */}
-      <div className="sticky top-0 z-30 flex justify-end gap-2 px-page-x py-3 bg-background/80 backdrop-blur-sm">
+      <div className="sticky top-0 z-30 flex items-center justify-end gap-2 px-page-x h-16 bg-background/80 backdrop-blur-sm">
         {/* 알림 벨 추가 */}
         <NotificationBell userId={userId} initialCount={unreadCount} />
 

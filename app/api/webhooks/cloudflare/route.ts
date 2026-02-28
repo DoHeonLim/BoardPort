@@ -513,8 +513,8 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   const ready_at: Date | null = src?.readyToStreamAt
     ? new Date(src.readyToStreamAt)
     : src?.created
-    ? new Date(src.created)
-    : null;
+      ? new Date(src.created)
+      : null;
 
   let broadcastIdResolved: number | null = null;
 
@@ -603,7 +603,7 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
 /*                            메인 핸들러: GET / POST                          */
 
 /**
- * 브라우저 접속(GET) 시 405 Method Not Allowed 대신 안내 문구를 출력합니다.
+ * 브라우저 접속(GET) 시 405 Method Not Allowed 대신 안내 문구를 출력
  * - 주로 엔드포인트 활성화 여부를 체크하거나 디버깅하는 용도
  */
 export async function GET() {
@@ -629,7 +629,7 @@ export async function POST(req: Request) {
     // Cloudflare 웹훅 등록 테스트용 빈 바디 대응
     if (!raw) return NextResponse.json({ ok: true });
 
-    // 1) 서명 검증을 위해 바디를 먼저 파싱합니다.
+    // 1) 서명 검증을 위해 바디를 먼저 파싱
     let body: any = {};
     try {
       body = JSON.parse(raw);
@@ -642,8 +642,8 @@ export async function POST(req: Request) {
     }
 
     // 2) [핵심] Cloudflare 웹훅 최초 등록용 테스트 메시지 우회 처리 (Handshake Bypass)
-    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냅니다.
-    // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 합니다.
+    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냄
+    // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 함
     if (
       body?.text &&
       typeof body.text === "string" &&

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.20  임도헌   Created   약속 모달과 구분하기 위해서 동네 설정 모달 생성
+ * 2026.02.26  임도헌   Modified  autoFocus 제거
  */
 "use client";
 
@@ -159,7 +160,6 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={handleKeyDown}
-                autoFocus
               />
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-muted pointer-events-none" />
             </div>

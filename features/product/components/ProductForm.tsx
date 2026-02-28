@@ -15,6 +15,8 @@
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.14  임도헌   Modified  직거래 희망 장소(지도) 추가
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.02.26  임도헌   Modified  둥근 맵 핀 아이콘의 배경과 색상 개선
+ * 2026.02.28  임도헌   Modified  formData 생성 로직 표준화 및 가독성 개선
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -59,7 +61,10 @@ import Button from "@/components/ui/Button";
 import TagInput from "@/components/ui/TagInput";
 import LocationPicker from "@/features/map/components/LocationPicker";
 import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { productFormSchema, productFormType } from "@/features/product/schemas";
+import {
+  productFormSchema,
+  productFormValues,
+} from "@/features/product/schemas";
 import type { Category } from "@/generated/prisma/client";
 import type { ProductFormAction } from "@/features/product/types";
 import type { LocationData } from "@/features/map/types";
@@ -67,7 +72,7 @@ import type { LocationData } from "@/features/map/types";
 interface ProductFormProps {
   mode: "create" | "edit";
   action: ProductFormAction; // Server Action
-  defaultValues?: Partial<productFormType>;
+  defaultValues?: Partial<productFormValues>;
   categories: Category[];
   submitText?: string;
   cancelHref?: string;
@@ -132,7 +137,7 @@ export default function ProductForm({
     formState: { errors },
     getValues,
     resetField,
-  } = useForm<productFormType>({
+  } = useForm<productFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       id: defaultValues.id || 0,
@@ -214,7 +219,7 @@ export default function ProductForm({
     setValue("location", null, { shouldDirty: true });
   };
 
-  const onSubmit = handleSubmit(async (data) => {
+  const onSubmit = handleSubmit(async (data: productFormValues) => {
     if (mode === "create" && files.length === 0) {
       toast.error("최소 1개 이상의 이미지를 업로드해주세요.");
       return;
@@ -223,14 +228,13 @@ export default function ProductForm({
     setIsUploading(true);
     try {
       const newFiles = files.filter((file) => file instanceof File);
-      // 환경변수 누락 방어
       if (newFiles.length > 0 && !CF_HASH) {
         toast.error("이미지 업로드 설정 오류 (CF_HASH Missing)");
         return;
       }
       const uploadedPhotoUrls: string[] = [];
 
-      // 1. 신규 이미지 Cloudflare 업로드
+      // 1. 신규 이미지 업로드
       if (newFiles.length > 0) {
         const uploadPromises = newFiles.map(async (file) => {
           const res = await getUploadUrl();
@@ -239,7 +243,6 @@ export default function ProductForm({
           }
 
           const { uploadURL, id } = res.result;
-
           const cloudflareForm = new FormData();
           cloudflareForm.append("file", file);
 
@@ -248,17 +251,14 @@ export default function ProductForm({
             body: cloudflareForm,
           });
 
-          if (!response.ok) {
-            throw new Error("Failed to upload image");
-          }
-
+          if (!response.ok) throw new Error("Failed to upload image");
           return `https://imagedelivery.net/${CF_HASH}/${id}`;
         });
         const urls = await Promise.all(uploadPromises);
         uploadedPhotoUrls.push(...urls);
       }
 
-      // 2. 최종 이미지 URL 리스트 조합 (기존 + 신규)
+      // 2. 최종 이미지 URL 조합
       const allPhotos: string[] = previews
         .map((preview) => {
           if (preview.includes("imagedelivery.net")) {
@@ -272,27 +272,34 @@ export default function ProductForm({
         })
         .filter((url): url is string => !!url);
 
-      // 3. 서버 액션 호출
+      // 3. 폼 데이터 생성 (표준화)
       const formData = new FormData();
-      if (mode === "edit") {
-        const productId = defaultValues.id ? defaultValues.id.toString() : "0";
-        formData.append("id", productId);
-      }
-      Object.entries(data).forEach(([key, value]) => {
-        if (key === "tags") {
-          formData.append(key, JSON.stringify(value));
-          return;
-        }
-        if (key === "photos" || key === "id" || key === "location") return;
-        if (value === undefined || value === null) return;
-        formData.append(key, value.toString());
-      });
-      allPhotos.forEach((url) => formData.append("photos[]", url));
 
-      // 위치 데이터(LocationData 객체)는 FormData에 바로 담을 수 없으므로 JSON 문자열로 직렬화하여 전송
+      // [특수 필드 1] ID (수정 모드)
+      if (mode === "edit" && defaultValues.id) {
+        formData.append("id", defaultValues.id.toString());
+      }
+
+      // [특수 필드 2] JSON 직렬화
       if (data.location) {
         formData.append("location", JSON.stringify(data.location));
       }
+      formData.append("tags", JSON.stringify(data.tags || []));
+
+      // [특수 필드 3] 이미지 배열
+      allPhotos.forEach((url) => formData.append("photos[]", url));
+
+      // [일반 필드] 자동 매핑
+      const skipFields = ["id", "location", "tags", "photos"];
+      Object.entries(data).forEach(([key, value]) => {
+        if (
+          !skipFields.includes(key) &&
+          value !== undefined &&
+          value !== null
+        ) {
+          formData.append(key, value.toString());
+        }
+      });
 
       const result = await action(formData);
 
@@ -521,7 +528,7 @@ export default function ProductForm({
         {location ? (
           <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand/10 rounded-full text-brand">
+              <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
                 <MapPinIcon className="size-5" />
               </div>
               <div>
@@ -571,8 +578,8 @@ export default function ProductForm({
                 ? "수정 중..."
                 : "업로드 중..."
               : mode === "edit"
-              ? "수정하기"
-              : "등록하기"
+                ? "수정하기"
+                : "등록하기"
           }
           disabled={isUploading}
         />

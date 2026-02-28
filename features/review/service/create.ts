@@ -238,7 +238,7 @@ export async function createReviewService(
       }
 
       // 5-3. 채팅방 시스템 메시지 전송
-      // 거래 당사자 간의 채팅방을 찾아 리뷰 작성 완료 사실을 채팅 로그에 남깁니다.
+      // 거래 당사자 간의 채팅방을 찾아 리뷰 작성 완료 사실을 채팅 로그에 남김
       try {
         const room = await db.productChatRoom.findFirst({
           where: {

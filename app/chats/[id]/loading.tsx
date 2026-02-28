@@ -6,13 +6,14 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.12  임도헌   Created   [UX] 채팅방 상세 스켈레톤 추가
+ * 2026.02.26  임도헌   Modified  백그라운드 색상 변경
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#F0F4FA] dark:bg-[#111111]">
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-background">
       {/* Header Skeleton */}
       <header className="sticky top-0 z-40 bg-surface border-b border-border shadow-sm h-14 shrink-0">
         <div className="mx-auto w-full px-2 h-full flex items-center justify-between gap-2">

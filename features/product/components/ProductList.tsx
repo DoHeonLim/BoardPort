@@ -20,6 +20,7 @@
  * 2025.08.26  임도헌   Modified  usePageVisibility + 새 useInfiniteScroll 옵션 추가
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 "use client";
 
@@ -147,7 +148,7 @@ export default function ProductList({
         )}
         {isLoading && (
           <div className="flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full">
-            <span className="size-4 border-2 border-muted border-t-transparent rounded-full animate-spin" />
+            <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
             <span>더 불러오는 중...</span>
           </div>
         )}

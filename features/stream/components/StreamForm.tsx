@@ -13,9 +13,10 @@
  * 2025.09.09  임도헌   Modified   Cloudflare Image URL에 variant(env) 추가, 소분류 초기화 resetField 적용, 타입/UX/a11y 보강
  * 2025.09.15  임도헌   Modified   LiveInput/Broadcast 모델 반영, 결과 모달 그대로 사용
  * 2026.01.14  임도헌   Modified   Select 컴포넌트 적용 및 스타일 통일
- * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
- * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
- * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ * 2026.01.17  임도헌   Moved      components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified   주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified   모달 Dynamic Import 적용
+ * 2026.02.28  임도헌   Modified   formData 생성 로직 표준화 및 가독성 개선
  */
 "use client";
 
@@ -159,9 +160,7 @@ export default function StreamForm({
 
       if (files.length > 0) {
         if (!CF_HASH) {
-          throw new Error(
-            "Cloudflare 공개 해시(NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH)가 설정되지 않았습니다."
-          );
+          throw new Error("Cloudflare 환경변수가 설정되지 않았습니다.");
         }
         const res = await getUploadUrl();
         if (!res.success) {
@@ -180,20 +179,28 @@ export default function StreamForm({
         thumbnail = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
       }
 
-      // 2) 서버 액션 호출
+      // 2. 폼 데이터 생성 (표준화)
       const formData = new FormData();
-      formData.append("title", data.title);
-      formData.append("description", data.description ?? "");
-      formData.append("thumbnail", thumbnail ?? "");
-      formData.append("visibility", data.visibility);
-      formData.append("password", data.password ?? "");
-      if (typeof data.streamCategoryId === "number") {
-        formData.append("streamCategoryId", String(data.streamCategoryId));
-      } else {
-        formData.append("streamCategoryId", "");
-      }
+
+      // [특수 필드 1] JSON 직렬화
       formData.append("tags", JSON.stringify((data.tags ?? []).slice(0, 5)));
 
+      // [자동화] 나머지 필드들
+      const skipFields = ["tags", "thumbnail"];
+      Object.entries(data).forEach(([key, value]) => {
+        if (
+          !skipFields.includes(key) &&
+          value !== undefined &&
+          value !== null
+        ) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      // 썸네일은 위에서 처리된 URL 할당
+      formData.append("thumbnail", thumbnail ?? "");
+
+      // 3. 서버 액션 호출
       const result = await action(formData);
 
       if (!result.success) {
@@ -201,7 +208,7 @@ export default function StreamForm({
         return;
       }
 
-      // 성공 시 결과 저장 및 모달 오픈
+      // 4. 성공 시 결과 저장 및 모달 오픈
       setStreamInfo({
         liveInputId: result.liveInputId!,
         broadcastId: result.broadcastId ?? null,

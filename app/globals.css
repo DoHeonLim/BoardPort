@@ -119,10 +119,10 @@
 }
 
 @layer components {
-  /* [업데이트] Semantic Token 적용 */
+  /* Semantic Token 적용 */
   .btn-primary {
     @apply bg-brand hover:bg-brand-dark dark:bg-brand-light dark:hover:bg-brand
-    text-white dark:text-gray-900
+    text-white dark:text-gray-600
     px-4 py-2 rounded-xl transition-colors
     disabled:bg-neutral-400 dark:disabled:bg-neutral-600 
     disabled:text-neutral-300 dark:disabled:text-neutral-400 
@@ -131,7 +131,7 @@
 
   .btn-secondary {
     @apply bg-surface text-brand border border-brand
-    hover:bg-neutral-50 dark:bg-surface dark:text-brand-light dark:border-brand-light
+    hover:bg-neutral-50 dark:bg-surface dark:text-brand-light dark:border-brand-light dark:hover:bg-white/10
     px-4 py-2 rounded-xl transition-colors
     disabled:opacity-50 disabled:cursor-not-allowed;
   }
@@ -617,4 +617,10 @@ input::-webkit-credentials-auto-fill-button {
   pointer-events: none;
   position: absolute;
   right: 0;
+}
+
+/* Sonner Toast 컨테이너 위치 미세 조정 (Safe Area 대응) */
+[data-sonner-toaster] {
+  top: env(safe-area-inset-top, 16px) !important;
+  margin-top: 8px;
 }

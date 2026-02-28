@@ -15,6 +15,7 @@
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 반응형 모달 레이아웃 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  모달 애니메이션 도중 툴팁 오작동 방지를 위해 autoUpdate 적용
  */
 "use client";
 
@@ -32,6 +33,7 @@ import {
   useRole,
   useInteractions,
   FloatingArrow,
+  autoUpdate,
   type Placement,
 } from "@floating-ui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -57,6 +59,7 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
     open: isOpen,
     onOpenChange: setIsOpen,
     placement: "bottom" as Placement,
+    whileElementsMounted: autoUpdate,
     middleware: [
       offset(10), // 타겟과 10px 간격
       flip({ padding: 10 }), // 화면 밖으로 나가면 반전

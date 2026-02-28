@@ -10,6 +10,7 @@
  * 2025.11.13  임도헌   Modified  CloseButton(returnTo) 적용, role="dialog" 등 접근성 보강
  * 2026.01.10  임도헌   Modified  모바일 및 데스크톱 레이아웃 변경
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
+ * 2026.02.27  임도헌   Modified  모바일 높이를 h-full로 고정하여 하단 액션바 짤림 현상 해결
  */
 "use client";
 
@@ -64,7 +65,6 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
       onClick={handleOverlayClick}
-      aria-hidden="true"
     >
       <div
         role="dialog"
@@ -73,9 +73,11 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
-          "w-full h-full min-h-screen max-w-screen-sm bg-white dark:bg-neutral-900 rounded-lg shadow-xl flex flex-col overflow-hidden outline-none",
-          // 모바일에서는 전체 화면, 데스크톱에서는 중앙 모달 형태 유지
-          "sm:h-[85vh] sm:rounded-2xl"
+          "bg-white dark:bg-neutral-900 shadow-xl flex flex-col overflow-hidden outline-none",
+          // [Mobile] 부모의 inset-0에 완벽하게 맞추어 짤림 원천 차단
+          "w-full h-full rounded-none",
+          // [Desktop] 중앙 모달 형태
+          "sm:h-auto sm:max-h-[85vh] sm:min-h-[500px] sm:max-w-screen-sm sm:rounded-2xl sm:border sm:border-border"
         )}
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >

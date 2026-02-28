@@ -12,6 +12,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#1E40AF",
+  colorScheme: "light dark",
 };
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -58,12 +59,24 @@ export default async function RootLayout({
             disableTransitionOnChange
           >
             <Toaster
-              position="bottom-right"
+              position="top-right"
               richColors
               toastOptions={{
-                closeButton: true,
+                style: {
+                  borderRadius: "12px",
+                  border: "1px solid var(--border)",
+                  fontSize: "14px",
+                },
                 classNames: {
-                  closeButton: "text-neutral-700 dark:text-neutral-200",
+                  toast:
+                    "group-[.toaster]:bg-surface group-[.toaster]:text-primary group-[.toaster]:shadow-xl",
+                  description: "group-[.toast]:text-muted",
+                  actionButton:
+                    "group-[.toast]:bg-brand group-[.toast]:text-white",
+                  cancelButton:
+                    "group-[.toast]:bg-surface-dim group-[.toast]:text-muted",
+                  closeButton:
+                    "group-[.toast]:bg-surface group-[.toast]:border-border group-[.toast]:hover:bg-surface-dim",
                 },
               }}
             />

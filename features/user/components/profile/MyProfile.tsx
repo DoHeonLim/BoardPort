@@ -32,6 +32,7 @@
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.15  임도헌   Modified  내 동네 설정 버튼(MyLocationButton) 추가
+ * 2026.02.26  임도헌   Modified  모든 버튼에 hover시 dark:hover:text-brand-light 추가
  */
 "use client";
 
@@ -188,22 +189,26 @@ export default function MyProfile({
 
       {/* 2. Notification */}
       <section>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-end justify-between mb-3 px-1">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
             href="/profile/notifications/setting"
-            className="text-xs text-muted hover:text-brand transition-colors"
+            className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
           >
             상세 설정
           </Link>
         </div>
-        <div className="panel p-4 flex items-center justify-between">
-          <span className="text-sm text-primary font-medium">
+        <div className="panel p-4 flex items-center justify-between gap-4">
+          <span className="text-sm text-primary font-medium shrink-0">
             푸시 알림 받기
           </span>
-          <PushNotificationToggle />
+          <div className="flex-1 flex justify-end min-w-0">
+            {/* 우측 정렬 영역 확보 */}
+            <PushNotificationToggle />
+          </div>
         </div>
       </section>
+
       {/* 3. My Neighborhood */}
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">내 동네 설정</h2>
@@ -251,7 +256,7 @@ export default function MyProfile({
           <h2 className="text-sm font-bold text-primary">내 방송국</h2>
           <Link
             href={`/profile/${user.username}/channel`}
-            className="text-xs text-muted hover:text-brand transition-colors flex items-center"
+            className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
           >
             전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
           </Link>
@@ -290,7 +295,7 @@ export default function MyProfile({
             <h2 className="text-sm font-bold text-primary">받은 거래 후기</h2>
             <button
               onClick={() => toggleModal("review", true)}
-              className="text-xs text-muted hover:text-brand"
+              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
             >
               전체 보기
             </button>
@@ -302,7 +307,7 @@ export default function MyProfile({
             <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
             <button
               onClick={() => toggleModal("badge", true)}
-              className="text-xs text-muted hover:text-brand"
+              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
             >
               전체 보기
             </button>

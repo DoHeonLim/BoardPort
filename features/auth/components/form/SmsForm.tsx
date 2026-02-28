@@ -124,7 +124,6 @@ export default function SmsForm() {
             placeholder="휴대폰 번호 (- 없이 입력)"
             errors={phoneError}
             required
-            autoFocus
             icon={<DevicePhoneMobileIcon className="size-5" />}
           />
         </div>
@@ -146,7 +145,6 @@ export default function SmsForm() {
             max={999999}
             errors={tokenError}
             required
-            autoFocus
             icon={<ChatBubbleBottomCenterTextIcon className="size-5" />}
           />
         </div>
@@ -158,8 +156,8 @@ export default function SmsForm() {
             isPending
               ? "처리 중..."
               : phase === "phone"
-                ? "인증번호 받기"
-                : "인증하기"
+              ? "인증번호 받기"
+              : "인증하기"
           }
           disabled={isPending}
         />

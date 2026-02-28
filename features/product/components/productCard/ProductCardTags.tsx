@@ -9,6 +9,7 @@
  * 2025.01.10  임도헌   Modified  태그 갯수 제한(3개)
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 
 import { cn } from "@/lib/utils";

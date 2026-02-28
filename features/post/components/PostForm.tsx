@@ -13,6 +13,8 @@
  * 2026.02.01  임도헌   Modified  Prop rename: onSubmit -> action
  * 2026.02.14  임도헌   Modified  지도 기능 추가
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.02.26  임도헌   Modified  게시글 작성 후 push에서 replace로 수정
+ * 2026.02.28  임도헌   Modified  formData 생성 로직 표준화 및 가독성 개선
  */
 "use client";
 
@@ -43,6 +45,8 @@ interface PostFormProps {
   submitLabel?: string;
   isEdit?: boolean;
 }
+
+const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
 /**
  * 게시글 작성/수정 폼
@@ -124,7 +128,7 @@ export default function PostForm({
     setIsMapOpen(false);
   };
 
-  const submitHandler = handleSubmit(async (data: PostFormValues) => {
+  const onSubmit = handleSubmit(async (data: PostFormValues) => {
     setIsUploading(true);
 
     try {
@@ -133,6 +137,8 @@ export default function PostForm({
 
       // 1. 신규 이미지 업로드
       if (newFiles.length > 0) {
+        if (!CF_HASH) throw new Error("Cloudflare 설정 오류");
+
         const uploadPromises = newFiles.map(async (file) => {
           const res = await getUploadUrl();
           if (!res.success) {
@@ -140,7 +146,6 @@ export default function PostForm({
           }
 
           const { uploadURL, id } = res.result;
-
           const cloudflareForm = new FormData();
           cloudflareForm.append("file", file);
 
@@ -150,8 +155,6 @@ export default function PostForm({
           });
 
           if (!response.ok) throw new Error("Failed to upload image");
-
-          const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
           return `https://imagedelivery.net/${CF_HASH}/${id}`;
         });
 
@@ -174,20 +177,34 @@ export default function PostForm({
         })
         .filter(Boolean);
 
-      // 3. 서버 액션 호출
+      // 3. 폼 데이터 생성 (표준화)
       const formData = new FormData();
+
+      // [특수 필드 1] ID (수정 모드)
       if (isEdit && initialValues?.id) {
         formData.append("id", initialValues.id.toString());
       }
-      // 위치 데이터(LocationData 객체)는 FormData에 바로 담을 수 없으므로 JSON 문자열로 직렬화하여 전송
+
+      // [특수 필드 2] JSON 직렬화
       if (data.location) {
         formData.append("location", JSON.stringify(data.location));
       }
-      formData.append("title", data.title);
-      formData.append("description", data.description);
-      formData.append("category", data.category);
-      data.tags?.forEach((tag) => formData.append("tags[]", tag));
+      formData.append("tags", JSON.stringify(data.tags || []));
+
+      // [특수 필드 3] 이미지 배열
       allPhotoUrls.forEach((url) => formData.append("photos[]", url));
+
+      // [일반 필드] 자동 매핑
+      const skipFields = ["id", "location", "tags", "photos"];
+      Object.entries(data).forEach(([key, value]) => {
+        if (
+          !skipFields.includes(key) &&
+          value !== undefined &&
+          value !== null
+        ) {
+          formData.append(key, value.toString());
+        }
+      });
 
       const result = await action(formData);
 
@@ -195,7 +212,7 @@ export default function PostForm({
         toast.success(
           isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
         );
-        router.push(`/posts/${result.postId}`);
+        router.replace(`/posts/${result.postId}`);
       } else if (result.error) {
         toast.error(result.error);
       }
@@ -210,7 +227,7 @@ export default function PostForm({
   return (
     <div className="bg-background">
       <form
-        onSubmit={submitHandler}
+        onSubmit={onSubmit}
         className="flex flex-col gap-form-gap px-page-x py-page-y"
       >
         {/* Image Uploader */}
@@ -279,7 +296,7 @@ export default function PostForm({
           {location ? (
             <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-brand/10 rounded-full text-brand">
+                <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
                   <MapPinIcon className="size-5" />
                 </div>
                 <div>

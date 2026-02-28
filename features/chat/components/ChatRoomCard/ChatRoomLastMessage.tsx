@@ -10,6 +10,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (text-muted)
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  텍스트 너비를 w-full로 수정
  */
 "use client";
 
@@ -35,9 +36,7 @@ export default function ChatRoomLastMessage({
   // 텍스트가 있는 경우
   if (message.payload) {
     return (
-      <p className="text-sm text-muted truncate max-w-[200px] sm:max-w-[260px]">
-        {message.payload}
-      </p>
+      <p className="text-sm text-muted truncate w-full">{message.payload}</p>
     );
   }
 

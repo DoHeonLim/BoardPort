@@ -11,6 +11,7 @@
  * 2025.04.21  임도헌   Modified  useController 사용하는 방식으로 변경
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 뱃지 색상 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 "use client";
 
@@ -76,7 +77,7 @@ export default function TagInput({
               <button
                 type="button"
                 onClick={() => handleRemoveTag(tag)}
-                className="hover:text-primary transition-colors"
+                className="hover:text-danger dark:hover:text-rose-400 transition-colors"
                 aria-label={`${tag} 태그 삭제`}
               >
                 <XMarkIcon className="w-3.5 h-3.5" />

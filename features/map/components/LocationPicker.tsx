@@ -9,6 +9,8 @@
  * 2026.02.15  임도헌   Modified  useKakaoLoader 적용 및 폼 중첩 이슈(새로고침) 해결
  * 2026.02.15  임도헌   Modified  services 객체 로드 지연 방어 로직 추가
  * 2026.02.15  임도헌   Modified  createPortal 적용으로 Z-Index/Stacking Context 문제 해결
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 강화를 위한 brand-light 토큰 적용
+ * 2026.02.26  임도헌   Modified  autoFocus 제거
  */
 
 "use client";
@@ -196,7 +198,6 @@ export default function LocationPicker({
               onKeyDown={handleKeyDown}
               placeholder="장소 검색 (예: 사당역, 스타벅스 강남점)"
               className="input-primary w-full pl-11 pr-16 h-12 shadow-sm bg-surface-dim focus:bg-surface"
-              autoFocus
             />
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted" />
             <button
@@ -221,7 +222,6 @@ export default function LocationPicker({
           </Map>
 
           {/* Search Results List Overlay */}
-          {/* [UI Fix] 배경색을 bg-surface로 고정하여 지도 위에서 텍스트 가독성 확보 */}
           {searchResults.length > 0 && (
             <div className="absolute top-0 left-0 right-0 z-10 bg-surface max-h-[50%] overflow-y-auto border-b border-border shadow-xl divide-y divide-border">
               {searchResults.map((rs, i) => (
@@ -229,9 +229,9 @@ export default function LocationPicker({
                   key={i}
                   type="button"
                   onClick={() => handleResultClick(rs)}
-                  className="w-full text-left p-4 hover:bg-surface-dim transition-colors flex flex-col gap-0.5 active:bg-surface-dim/80"
+                  className="w-full text-left p-4 bg-surface hover:bg-surface-dim transition-colors flex flex-col gap-0.5 active:bg-surface-dim/80"
                 >
-                  <span className="text-sm font-bold text-primary">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">
                     {rs.place_name}
                   </span>
                   <span className="text-xs text-muted">
@@ -247,11 +247,13 @@ export default function LocationPicker({
             <div className="absolute bottom-6 inset-x-4 z-30 animate-slide-up">
               <div className="bg-surface p-4 rounded-2xl shadow-2xl border border-border flex flex-col gap-3 ring-1 ring-black/5">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 bg-brand/10 rounded-full text-brand shrink-0">
+                  {/* [Fix] dark:bg-brand-light/10 dark:text-brand-light 적용 */}
+                  <div className="p-2.5 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
                     <MapPinIcon className="size-6" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-brand uppercase tracking-wider mb-0.5">
+                    {/* [Fix] dark:text-brand-light 적용 */}
+                    <p className="text-xs font-bold text-brand dark:text-brand-light uppercase tracking-wider mb-0.5">
                       선택된 위치
                     </p>
                     <p className="font-bold text-primary text-lg truncate">

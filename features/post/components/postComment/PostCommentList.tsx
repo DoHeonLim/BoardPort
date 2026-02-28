@@ -23,6 +23,7 @@
  * 2026.01.16  임도헌   Renamed   CommentList -> PostCommentList
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 "use client";
 
@@ -78,11 +79,11 @@ export default function PostCommentList({
       <div className="py-6 flex justify-center">
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted">
-            <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
             <span>댓글을 불러오는 중...</span>
           </div>
         ) : isFetchingNextPage ? (
-          <span className="size-5 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
+          <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
         ) : !hasNextPage && comments.length > 0 ? (
           <div className="text-xs text-muted/50 italic">
             모든 기록을 확인했습니다

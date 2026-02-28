@@ -9,6 +9,7 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.02.26  임도헌   Renamed   PostCardTags -> PostCardTags로 변경 및 다크모드 개선
  */
 
 "use client";
