@@ -15,10 +15,11 @@
  * 2026.01.20  임도헌   Modified  Service 연동, 세션 체크, 캐시 무효화
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
+ * 2026.03.05  임도헌   Modified  PRODUCT_DETAIL 태그 무효화 책임을 update action으로 이관(revalidateTag 적용), 조회 경로 무효화 제거로 캐시 최적화
  */
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
 import { updateProduct } from "@/features/product/service/update";
@@ -100,11 +101,9 @@ export async function updateProductAction(
   }
 
   // 4. 캐시 무효화
-  revalidateTag(T.PRODUCT_DETAIL_ID(productId));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", session.id));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("RESERVED", session.id));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", session.id));
-  revalidateTag(T.USER_PRODUCTS_COUNTS_ID(session.id));
+  revalidateTag(T.PRODUCT_DETAIL(productId));
+  revalidatePath("/products");
+  revalidatePath(`/products/view/${productId}`);
 
   return { success: true, productId };
 }

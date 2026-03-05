@@ -13,10 +13,13 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.22  임도헌   Modified  props에 차단 목록(initialBlockedUserIds) 추가
+ * 2026.03.04  임도헌   Modified  stream:chat:* 이벤트 버스 제거 및 채팅 확대 상태를 Zustand Store로 일원화
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import type { StreamChatMessage } from "@/features/chat/types";
 
@@ -30,12 +33,13 @@ interface Props {
 }
 
 /**
- * 모바일 환경에서 사용되는 채팅 섹션 래퍼
+ * 모바일 스트리밍 채팅 섹션 래퍼 컴포넌트
  *
- * [기능]
- * 1. 채팅 영역의 높이를 동적으로 계산하여 키보드 활성화 시에도 UI가 깨지지 않도록 함
- * 2. 채팅 확대/축소 기능을 제공하며, 상태 변경 시 이벤트를 발생시켜 상단 영상/정보 영역을 제어
- * 3. `StreamChatRoom` 컴포넌트를 렌더링
+ * [상태 주입 및 레이아웃 제어 로직]
+ * - 모바일 환경(키보드 활성화 시) 레이아웃 깨짐 방지를 위한 동적 높이(`computedHeight`) 계산 로직 적용
+ * - `useStreamChatUIStore` 상태 구독을 통한 채팅창 확대/축소(`isExpanded`) 상태 전역 제어
+ * - 화면 리사이즈 및 회전(Orientation) 이벤트 감지 기반 높이 재계산 로직 포함
+ * - `StreamChatRoom` 컴포넌트 호출 및 하위 모달(확대 토글, 차단 등) 상태 전달
  */
 export default function StreamMobileChatSection({
   initialStreamMessage,
@@ -45,7 +49,8 @@ export default function StreamMobileChatSection({
   username,
   initialBlockedUserIds = [],
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const expanded = useStreamChatUIStore((s) => s.isChatExpanded);
+  const setChatExpanded = useStreamChatUIStore((s) => s.setChatExpanded);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [computedHeight, setComputedHeight] = useState<number | null>(null);
 
@@ -65,34 +70,12 @@ export default function StreamMobileChatSection({
   }, []);
 
   /**
-   * Topbar에서 "채팅 닫기" 이벤트 수신
-   * - 닫힐 때 확대 상태를 초기화하고 높이를 재계산
-   */
-  useEffect(() => {
-    const handleState = (event: Event) => {
-      const { detail } = event as CustomEvent<{ open?: boolean }>;
-      if (detail?.open === false) {
-        setExpanded(false);
-        // 닫힐 때도 현재 위치 기준 높이 한 번 정리 (재열림 대비)
-        updateHeight();
-      }
-    };
-    window.addEventListener("stream:chat:state", handleState as EventListener);
-    return () =>
-      window.removeEventListener(
-        "stream:chat:state",
-        handleState as EventListener
-      );
-  }, [updateHeight]);
-
-  /**
    * 화면 리사이즈 및 회전 감지
    * - 높이를 실시간으로 재계산하여 레이아웃을 맞춤
    */
   useEffect(() => {
     updateHeight();
     window.addEventListener("resize", updateHeight);
-    // 모바일 가로/세로 회전 대응
     window.addEventListener("orientationchange", updateHeight);
     return () => {
       window.removeEventListener("resize", updateHeight);
@@ -101,31 +84,11 @@ export default function StreamMobileChatSection({
   }, [updateHeight]);
 
   /**
-   * 확대/축소 상태 전파
-   * - StreamDetail 컴포넌트에게 "채팅이 확대되었음"을 알려 방송 정보를 숨기게 함
+   * 채팅 확대/축소 상태 변경 시 레이아웃 계산을 한 번 더 수행
    */
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("stream:chat:expand", { detail: { expanded } })
-    );
-  }, [expanded]);
-
-  /**
-   * 레이아웃 변경 완료 신호 수신
-   * - StreamDetail이 숨겨지거나 나타난 후(레이아웃 변경 후) 높이를 다시 계산
-   */
-  useEffect(() => {
-    const handleLayoutUpdated = () => updateHeight();
-    window.addEventListener(
-      "stream:chat:layout-updated",
-      handleLayoutUpdated as EventListener
-    );
-    return () =>
-      window.removeEventListener(
-        "stream:chat:layout-updated",
-        handleLayoutUpdated as EventListener
-      );
-  }, [updateHeight]);
+    requestAnimationFrame(() => updateHeight());
+  }, [expanded, updateHeight]);
 
   return (
     <div
@@ -143,7 +106,7 @@ export default function StreamMobileChatSection({
         fillParent
         showExpandToggle
         isExpanded={expanded}
-        onToggleExpand={() => setExpanded((v) => !v)}
+        onToggleExpand={() => setChatExpanded(!expanded)}
         containerClassName="border-none rounded-none shadow-none" // 모바일은 카드 스타일 제거
       />
     </div>

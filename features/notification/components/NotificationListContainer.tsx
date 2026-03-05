@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.02.08  임도헌   Created   알림 목록 UI 구현 및 읽음 처리 연동
  * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (액션 연결)
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ *
  */
 "use client";
 
@@ -33,13 +35,12 @@ interface Props {
 }
 
 /**
- * 알림 목록 컨테이너
+ * 알림함 목록 및 읽음 처리 컨테이너 컴포넌트
  *
- * [기능]
- * 1. 사용자가 받은 알림 목록을 최신순으로 표시함.
- * 2. 알림의 `isRead` 상태에 따라 스타일을 다르게 적용함.
- * 3. `markNotificationAsReadAction`을 통해 단일 알림을 읽음 처리하고, 성공 시 Zustand 상태를 동기화하여 차감함.
- * 4. `markAllNotificationsAsReadAction`을 통해 모든 알림을 읽음 처리하고, 성공 시 Zustand 상태를 초기화함.
+ * [상호작용 및 상태 제어 로직]
+ * - 서버 액션(`markNotificationAsReadAction` 등)을 호출하여 알림 읽음 데이터 영속화 처리
+ * - 성공 시 로컬 상태 업데이트 및 Zustand 스토어(`decrement`, `clear`) 액션 호출을 통한 전역 벨 뱃지 즉각 동기화 적용
+ * - 알림 타입에 따른 동적 아이콘 매핑 및 시각적 스타일링 처리
  */
 export default function NotificationListContainer({ data }: Props) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(

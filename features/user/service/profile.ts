@@ -19,13 +19,12 @@
  * 2026.02.04  임도헌   Modified  차단 관계 확인 로직 추가
  * 2026.02.15  임도헌   Modified  updateUserLocationAction 추가
  * 2026.02.15  임도헌   Modified  유저 조회 시 locationName, region2 포함
+ * 2026.03.03  임도헌   Modified  unstable_cache 래퍼 전면 제거 및 단일 순수 함수로 통합 (TanStack Query 이관)
  */
 
 import "server-only";
 
 import db from "@/lib/db";
-import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { normalizeUsername } from "@/features/user/utils/normalize";
 import type { ServiceResult } from "@/lib/types";
@@ -38,29 +37,47 @@ import type { RegionRange } from "@/generated/prisma/enums";
 // -----------------------------------------------------------------------------
 
 /**
- * Username -> ID 해석 (Base Cache)
- * - 불필요한 DB 조회를 줄이기 위해 username 매핑 결과를 캐싱
+ * username을 userId로 변환
  */
-const _resolveUserIdBase = nextCache(
-  async (username: string) => {
-    const u = await db.user.findUnique({
-      where: { username },
-      select: { id: true },
-    });
-    return u?.id ?? null;
-  },
-  ["user-username-resolve"],
-  { tags: [] } // 태그는 아래 wrapper에서 동적으로 주입
-);
+export async function resolveUserIdByUsername(
+  rawUsername: string
+): Promise<number | null> {
+  const uname = normalizeUsername(rawUsername);
+  if (!uname) return null;
+
+  const u = await db.user.findUnique({
+    where: { username: uname },
+    select: { id: true },
+  });
+
+  return u?.id ?? null;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Public API
+// -----------------------------------------------------------------------------
 
 /**
- * 유저 기본 정보 조회 (Base Cache)
- * - 프로필 상단에 필요한 핵심 데이터만 조회
+ * 프로필 페이지 상세 정보 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 유저의 핵심 정보 및 팔로우 카운트 병렬 조회
+ * - 조회자(`viewerId`)와 타겟 유저 간의 차단/팔로우 관계 상태 매핑 처리
+ *
+ * @param {number | null} targetId - 조회할 대상 유저 ID
+ * @param {number | null} viewerId - 조회자 ID
+ * @returns {Promise<UserProfile | null>} 상태 매핑된 프로필 객체 반환
  */
-const _getUserCoreByIdBase = nextCache(
-  async (id: number) =>
+export async function getUserProfile(
+  targetId: number | null,
+  viewerId: number | null
+): Promise<UserProfile | null> {
+  if (!targetId) return null;
+
+  // Core 정보와 카운트 정보를 병렬 조회
+  const [core, followerCount, followingCount] = await Promise.all([
     db.user.findUnique({
-      where: { id },
+      where: { id: targetId },
       select: {
         id: true,
         username: true,
@@ -74,89 +91,14 @@ const _getUserCoreByIdBase = nextCache(
         regionRange: true,
       },
     }),
-  ["user-core-by-id"],
-  { tags: [] }
-);
-
-async function getUserCoreByIdCached(id: number) {
-  const withTag = nextCache(
-    (x: number) => _getUserCoreByIdBase(x),
-    ["user-core-by-id"],
-    { tags: [T.USER_CORE_ID(id)] } // ID별 태그 적용
-  );
-  return withTag(id);
-}
-
-/**
- * 팔로워/팔로잉 카운트 조회 (Base Cache)
- * - 변경 빈도가 높으므로 별도 쿼리로 분리하여 캐싱
- */
-const _getUserFollowCountsBase = nextCache(
-  async (id: number) => {
-    const [followers, following] = await Promise.all([
-      db.follow.count({ where: { followingId: id } }),
-      db.follow.count({ where: { followerId: id } }),
-    ]);
-    return { followers, following };
-  },
-  ["user-follow-counts"],
-  { tags: [] }
-);
-
-async function getUserFollowCountsCached(id: number) {
-  const withTag = nextCache(
-    (x: number) => _getUserFollowCountsBase(x),
-    ["user-follow-counts"],
-    { tags: [T.USER_FOLLOWERS_ID(id), T.USER_FOLLOWING_ID(id)] }
-  );
-  return withTag(id);
-}
-
-// -----------------------------------------------------------------------------
-// 2. Public API
-// -----------------------------------------------------------------------------
-
-/**
- * username을 userId로 변환 (Cached)
- * - URL 파라미터(username)를 DB ID로 변환할 때 사용
- */
-export async function resolveUserIdByUsername(rawUsername: string) {
-  const uname = normalizeUsername(rawUsername);
-  if (!uname) return null;
-
-  // per-username 태그 주입하여 닉네임 변경 시 캐시 무효화 지원
-  const withTag = nextCache(
-    (u: string) => _resolveUserIdBase(u),
-    ["user-username-resolve"],
-    { tags: [T.USER_USERNAME_ID(uname)] }
-  );
-
-  return withTag(uname);
-}
-
-/**
- * 프로필 페이지용 상세 정보 조회
- *
- * @param {number | null} targetId - 조회 대상 유저 ID
- * @param {number | null} viewerId - 조회자 ID
- */
-export async function getUserProfile(
-  targetId: number | null,
-  viewerId: number | null
-): Promise<UserProfile | null> {
-  if (!targetId) return null;
-
-  // 1. Core 정보와 카운트 정보를 병렬 조회 (Cached)
-  const [core, counts] = await Promise.all([
-    getUserCoreByIdCached(targetId),
-    getUserFollowCountsCached(targetId),
+    db.follow.count({ where: { followingId: targetId } }),
+    db.follow.count({ where: { followerId: targetId } }),
   ]);
 
   if (!core) return null;
 
   const isMe = !!viewerId && viewerId === core.id;
 
-  // 2. 이메일은 본인일 때만 별도 조회 (보안, 비캐시)
   let email: string | null = null;
   if (isMe) {
     const me = await db.user.findUnique({
@@ -166,12 +108,10 @@ export async function getUserProfile(
     email = me?.email ?? null;
   }
 
-  // 3. 관계 여부 확인 (비캐시 - Viewer에 따라 달라짐)
-  let isFollowing = false; // 팔로잉 여부
-  let isBlocked = false; // 차단 여부
+  let isFollowing = false;
+  let isBlocked = false;
 
   if (viewerId && !isMe) {
-    // 병렬로 팔로우/차단 여부 확인
     const [followRel, blockStatus] = await Promise.all([
       db.follow.findUnique({
         where: {
@@ -182,7 +122,6 @@ export async function getUserProfile(
         },
         select: { id: true },
       }),
-      // 양방향 차단 확인 (A가 B를 또는 B가 A를 차단한 경우 모두 true)
       checkBlockRelation(viewerId, core.id),
     ]);
 
@@ -201,7 +140,7 @@ export async function getUserProfile(
     region1: core.region1,
     region2: core.region2,
     region3: core.region3,
-    _count: { followers: counts.followers, following: counts.following },
+    _count: { followers: followerCount, following: followingCount },
     isMe,
     isFollowing,
     isBlocked,
@@ -233,11 +172,27 @@ export async function getUserInfoById(
 }
 
 /**
- * 유저 위치 정보만 조회 (리스트 페이지용)
- * - getUserCoreByIdCached를 재사용하여 캐시 효율 극대화
+ * 유저 위치 정보 업데이트 로직
+ *
+ * [데이터 가공 및 캐시 제어 전략]
+ * - Partial 타입 입력을 통한 위치 데이터(region/latitude/longitude 등) 선택적 업데이트
+ * - 위치 정보 변경 시 전체 목록 페이지(`products`, `posts`, `profile`) 리밸리데이션(Revalidate) 유도
+ *
+ * @param {number} userId - 대상 유저 ID
+ * @param {Partial<LocationData>} location - 업데이트할 위치 데이터 조각
  */
 export async function getUserLocation(userId: number) {
-  const core = await getUserCoreByIdCached(userId);
+  const core = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      locationName: true,
+      region1: true,
+      region2: true,
+      region3: true,
+      regionRange: true,
+    },
+  });
+
   if (!core) return null;
 
   return {
@@ -256,7 +211,7 @@ export async function getUserLocation(userId: number) {
 export async function getUserChannel(username: string) {
   const uname = normalizeUsername(username);
 
-  const user = await db.user.findUnique({
+  return await db.user.findUnique({
     where: { username: uname },
     select: {
       id: true,
@@ -266,28 +221,6 @@ export async function getUserChannel(username: string) {
       _count: { select: { followers: true, following: true } },
     },
   });
-
-  return user;
-}
-
-/**
- * per-id UserLite 캐시
- * - 리스트 등에서 반복적으로 사용되는 유저 정보를 캐싱
- */
-export function getCachedUserLiteById(id: number) {
-  const cached = nextCache(
-    async (uid: number): Promise<UserLite | null> => {
-      const u = await db.user.findUnique({
-        where: { id: uid },
-        select: { id: true, username: true, avatar: true },
-      });
-      if (!u) return null;
-      return { id: u.id, username: u.username, avatar: u.avatar ?? null };
-    },
-    ["user-lite-by-id", String(id)],
-    { tags: [T.USER_CORE_ID(id)] }
-  );
-  return cached(id);
 }
 
 /**
@@ -311,7 +244,6 @@ export async function updateUserLocation(
     await db.user.update({
       where: { id: userId },
       data: {
-        // 값이 undefined가 아닐 때만 업데이트 객체에 포함 (안전한 부분 업데이트)
         ...(location.latitude !== undefined && { latitude: location.latitude }),
         ...(location.longitude !== undefined && {
           longitude: location.longitude,
@@ -322,8 +254,6 @@ export async function updateUserLocation(
         ...(location.region1 !== undefined && { region1: location.region1 }),
         ...(location.region2 !== undefined && { region2: location.region2 }),
         ...(location.region3 !== undefined && { region3: location.region3 }),
-
-        // 범위(Range) 설정 업데이트 (Enum 캐스팅 적용)
         ...(location.regionRange && {
           regionRange: location.regionRange as RegionRange,
         }),

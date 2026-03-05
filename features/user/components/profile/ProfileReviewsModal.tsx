@@ -13,37 +13,35 @@
  * 2025.10.29  임도헌   Modified   ESC 닫기/포커스 복귀/바디 스크롤락/a11y 보강, 옵저버 의존성 안정화
  * 2025.11.13  임도헌   Modified   긴 문장 가독성 개선: 읽기 폭 제한(max-w-2xl/ max-w-prose), overscroll-contain
  * 2026.01.15  임도헌   Modified   무한 스크롤 로직을 ReviewsList로 위임하고 레이아웃만 담당
- * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
- * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.01.17  임도헌   Moved      components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified   주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.03  임도헌   Modified   Suspense 적용
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import ReviewsList from "@/features/user/components/profile/ReviewsList";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import type { ProfileReview } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
 interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  reviews: ProfileReview[];
   userId: number;
 }
 
 /**
- * 리뷰 목록 모달
+ * 받은 거래 후기(리뷰) 목록 모달 컴포넌트
  *
- * [기능]
- * 1. `ReviewsList` 컴포넌트를 렌더링하여 리뷰 목록을 표시
- * 2. 모달 내부 스크롤(`scrollAreaRef`)을 기준으로 무한 스크롤이 동작
- * 3. 반응형 레이아웃: 모바일(Bottom Sheet) / 데스크톱(Center Card).
- * 4. 접근성: 초기 포커스, ESC 닫기, 배경 스크롤 잠금
+ * [UI 구성 및 스크롤 제어 로직]
+ * - React `Suspense`를 활용한 `ReviewsList` 자식 컴포넌트 데이터 로딩 상태의 선언적 제어
+ * - 모달 내부의 스크롤 컨테이너(`scrollAreaRef`)를 `ReviewsList`에 주입하여 독립적 무한 스크롤 트리거 적용
+ * - 화면 크기에 따른 하단 시트(Bottom Sheet) 및 중앙 카드 렌더링 반응형 분기 처리
  */
 export default function ProfileReviewsModal({
   isOpen,
   onClose,
-  reviews: initialReviews,
   userId,
 }: ReviewModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -116,12 +114,14 @@ export default function ProfileReviewsModal({
           ref={scrollAreaRef}
           className="flex-1 overflow-y-auto p-6 scrollbar-hide"
         >
-          {/* ReviewsList에 scrollParentRef 전달 -> 내부 무한 스크롤 트리거 기준 */}
-          <ReviewsList
-            userId={userId}
-            initialReviews={initialReviews}
-            scrollParentRef={scrollAreaRef}
-          />
+          <Suspense
+            fallback={
+              <div className="size-6 mx-auto mt-10 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+            }
+          >
+            {/* ReviewsList에 scrollParentRef 전달 -> 내부 무한 스크롤 트리거 기준 */}
+            <ReviewsList userId={userId} scrollParentRef={scrollAreaRef} />
+          </Suspense>
         </div>
       </div>
     </div>

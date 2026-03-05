@@ -21,6 +21,7 @@
  * 2026.02.04  임도헌   Modified  메세지 수신 브로드캐스트에 image 추가
  * 2026.02.22  임도헌   Modified  채팅 읽음 처리 시 전역 알림 벨 카운트 즉시 동기화 추가
  * 2026.02.28  임도헌   Modified  Zustand 기반 전역 상태 감소 로직 적용 (DOM 이벤트 제거)
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
@@ -38,8 +39,8 @@ interface UseChatSubscriptionOptions {
   onMessagesRead: (readIds: number[]) => void; // 읽음 처리 시 호출되는 콜백
   /**
    * (옵션) 읽음 처리 호출 폭주 방지
-   * - 상대방 메시지가 연속으로 들어올 때 매번 readMessageUpdateAction을 호출하면 서버/DB 부담이 커질 수 있음.
-   * - true일 경우 "동일 tick에서 1회만" 호출되도록 게이트를 설정함.
+   * - 상대방 메시지가 연속으로 들어올 때 매번 readMessageUpdateAction을 호출하면 서버/DB 부담이 커질 수 있음
+   * - true일 경우 "동일 tick에서 1회만" 호출되도록 게이트를 설정
    * - 기본값: true
    */
   onAppointmentUpdate?: (id: number, status: AppointmentStatus) => void;
@@ -50,10 +51,10 @@ interface UseChatSubscriptionOptions {
  * 단일 채팅방에 대한 실시간 구독 훅
  *
  * [기능]
- * 1. `message` 이벤트: 새 메시지 수신 시 콜백을 호출함. 내가 보낸 메시지가 아닐 경우 읽음 처리 API를 호출함.
- * 2. `message_read` 이벤트: 상대방이 메시지를 읽으면 콜백을 호출하여 UI를 갱신함.
- * 3. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용함.
- * 4. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신함.
+ * 1. `message` 이벤트: 새 메시지 수신 시 콜백을 호출. 내가 보낸 메시지가 아닐 경우 읽음 처리 API를 호출
+ * 2. `message_read` 이벤트: 상대방이 메시지를 읽으면 콜백을 호출하여 UI를 갱신
+ * 3. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
+ * 4. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
  *
  * @param {UseChatSubscriptionOptions} options
  */
@@ -66,7 +67,7 @@ export default function useChatSubscription({
   throttleReadUpdate = true,
 }: UseChatSubscriptionOptions) {
   // 상위 컴포넌트의 리렌더링으로 인해 콜백 참조값이 변경되더라도
-  // 불필요한 재구독이 발생하지 않도록 useRef를 사용하여 최신 콜백을 유지함.
+  // 불필요한 재구독이 발생하지 않도록 useRef를 사용하여 최신 콜백을 유지
   const onNewMessageRef = useRef(onNewMessage);
   const onMessagesReadRef = useRef(onMessagesRead);
   const onAppointmentUpdateRef = useRef(onAppointmentUpdate);

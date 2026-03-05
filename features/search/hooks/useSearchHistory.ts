@@ -10,11 +10,14 @@
  * 2026.01.16  임도헌   Moved     hooks -> hooks/search
  * 2026.01.18  임도헌   Moved     hooks/search -> features/search/hooks
  * 2026.01.28  임도헌   Modified  주석 및 로직 설명 보강
+ * 2026.03.01  임도헌   Modified  useState 제거 및 useQuery/useMutation을 활용한 서버 상태 동기화
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import {
   deleteSearchHistory,
   deleteAllSearchHistory,
@@ -26,78 +29,57 @@ import type { SearchHistoryItem } from "@/features/product/types";
 /**
  * 검색 기록 관리 훅
  *
- * [기능]
- * 1. 초기 검색 기록(SSR/Props)을 상태로 관리
- * 2. 검색어 추가 시 중복 제거 후 최신순으로 정렬하고 서버에 저장
- * 3. 개별 삭제 및 전체 삭제 기능을 제공하며 서버와 동기화
- *
- * @param {SearchHistoryItem[]} initialHistory - 초기 검색 기록 목록
+ * [상태 주입 및 사이드 이펙트 제어 로직]
+ * - `useQuery`를 활용한 검색 기록 서버 데이터 캐싱 및 전역 상태 관리 적용
+ * - 신규 검색어 추가(`addHistory`) 시 `onMutate` 단계를 활용하여 로컬 캐시에 즉시 반영 및 중복 제거(Optimistic Update)
+ * - 추가 실패 시 `onError`를 통한 이전 캐시 스냅샷 복구(Rollback) 적용
+ * - 삭제(`removeHistory`) 및 전체 삭제(`clearHistory`) 완료 후 `queryClient.setQueryData` 및 무효화 처리를 통한 서버 상태 동기화
  */
 export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
-  const [history, setHistory] = useState<SearchHistoryItem[]>([]);
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.search.history();
 
-  // 초기값 동기화
-  useEffect(() => {
-    setHistory(initialHistory);
-  }, [initialHistory]);
+  const { data: history } = useQuery({
+    queryKey,
+    queryFn: async () => await getUserSearchHistory(), // 서버 액션 내부에서 세션 검증
+    initialData: initialHistory,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  /**
-   * 검색 기록 추가
-   * - 중복된 키워드가 있으면 제거하고 맨 앞에 추가. (LRU 방식)
-   * - 최대 5개까지만 유지
-   * - 비동기로 서버 저장 액션을 호출. (Fire & Forget)
-   */
-  const addHistory = useCallback(
-    async (keyword: string) => {
-      const trimmed = keyword.trim();
-      if (!trimmed) return;
+  const { mutate: addHistory } = useMutation({
+    mutationFn: async (keyword: string) => await createSearchHistory(keyword),
+    onMutate: async (keyword) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<SearchHistoryItem[]>(queryKey);
 
-      const newItem: SearchHistoryItem = {
-        keyword: trimmed,
-        created_at: new Date(),
-      };
+      queryClient.setQueryData(queryKey, (old: SearchHistoryItem[] = []) => {
+        const trimmed = keyword.trim();
+        const filtered = old.filter((item) => item.keyword !== trimmed);
+        return [
+          { keyword: trimmed, created_at: new Date() },
+          ...filtered,
+        ].slice(0, 5);
+      });
 
-      // 로컬 상태 즉시 업데이트 (Optimistic)
-      const filtered = history.filter((item) => item.keyword !== trimmed);
-      const updated = [newItem, ...filtered].slice(0, 5);
-      setHistory(updated);
-
-      try {
-        await createSearchHistory(trimmed); // 서버 저장
-      } catch (err) {
-        console.error("검색 기록 저장 실패", err);
-        // 실패 시 롤백 처리는 생략 (검색 기록은 중요도가 낮음)
-      }
+      return { previous };
     },
-    [history]
-  );
+    onError: (err, newKeyword, context) => {
+      queryClient.setQueryData(queryKey, context?.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
 
-  /**
-   * 개별 검색 기록 삭제
-   * - 서버 삭제 액션 호출 후, 최신 목록을 다시 불러와 상태를 갱신
-   */
-  const removeHistory = useCallback(async (keyword: string) => {
-    try {
-      await deleteSearchHistory(keyword);
-      const updated = await getUserSearchHistory();
-      setHistory(updated);
-    } catch (err) {
-      console.error("검색 기록 삭제 실패", err);
-    }
-  }, []);
+  const { mutate: removeHistory } = useMutation({
+    mutationFn: async (keyword: string) => await deleteSearchHistory(keyword),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
 
-  /**
-   * 전체 검색 기록 삭제
-   * - 서버 전체 삭제 액션 호출 후 로컬 상태를 비움
-   */
-  const clearHistory = useCallback(async () => {
-    try {
-      await deleteAllSearchHistory();
-      setHistory([]);
-    } catch (err) {
-      console.error("전체 검색 기록 삭제 실패", err);
-    }
-  }, []);
+  const { mutate: clearHistory } = useMutation({
+    mutationFn: async () => await deleteAllSearchHistory(),
+    onSuccess: () => queryClient.setQueryData(queryKey, []),
+  });
 
   return {
     history,

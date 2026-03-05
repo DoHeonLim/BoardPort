@@ -8,10 +8,11 @@
  * 2026.01.20  임도헌   Created   제품 상태 변경 액션 분리
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/products/view/[id]/actions/status.ts -> features/product/actions/status.ts
+ * 2026.03.05  임도헌   Modified  상태 변경 시의 무거운 `revalidateTag` 호출 제거 및 클라이언트 Query Cache(`onOptimisticMove`)로 갱신 책임 위임
  */
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
 import { updateProductStatus } from "@/features/product/service/trade";
@@ -50,33 +51,9 @@ export async function updateProductStatusAction(
 
   const meta = result.data;
 
-  // 1. 상품 상세 캐시 무효화
-  revalidateTag(T.PRODUCT_DETAIL_ID(productId));
-
-  // 2. 판매자의 탭 및 카운트 캐시 무효화
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", meta.sellerId));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("RESERVED", meta.sellerId));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", meta.sellerId));
-  revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.sellerId));
-
-  // 3. 구매자(또는 예약자)의 탭 및 카운트 캐시 무효화
-  if (meta.buyerId) {
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("PURCHASED", meta.buyerId));
-    revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.buyerId));
-  }
-
-  // 4. 리뷰 및 평점 캐시 무효화 통합 처리
-  // - "sold": 거래가 완료되어 서로 리뷰를 쓸 수 있는 상태가 됨
-  // - "selling": 거래가 취소되어, 서비스 트랜잭션 단에서 기존 리뷰가 일괄 삭제됨
-  if (meta.newStatus === "sold" || meta.newStatus === "selling") {
-    revalidateTag(T.USER_REVIEWS_INITIAL_ID(meta.sellerId));
-    revalidateTag(T.USER_AVERAGE_RATING_ID(meta.sellerId));
-
-    if (meta.buyerId) {
-      revalidateTag(T.USER_REVIEWS_INITIAL_ID(meta.buyerId));
-      revalidateTag(T.USER_AVERAGE_RATING_ID(meta.buyerId));
-    }
-  }
+  revalidateTag(T.PRODUCT_DETAIL(productId)); // 제품 상세 원본 갱신
+  revalidatePath("/products");
+  revalidatePath("/profile");
 
   return { success: true, newStatus: meta.newStatus };
 }

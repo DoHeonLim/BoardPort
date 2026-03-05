@@ -26,11 +26,18 @@
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
  * 2026.02.15  임도헌   Modified  헤더에 RegionFilterToggle 및 MyLocationButton 적용
  * 2026.02.21  임도헌   Modified  searchParams.region 레거시 제거 및 DB 기반 currentRange 연동
+ * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
+import Skeleton from "@/components/ui/Skeleton";
 import NotificationBell from "@/components/global/NotificationBell";
 import PostList from "@/features/post/components/PostList";
 import PostEmptyState from "@/features/post/components/PostEmptyState";
@@ -40,7 +47,7 @@ import PostCategoryTabs from "@/features/search/components/PostCategoryTabs";
 import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
 import { getUserLocation } from "@/features/user/service/profile";
-import { getCachedInitialPosts } from "@/features/post/service/post";
+import { getPostsListAction } from "@/features/post/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import type { PostSearchParams } from "@/features/post/types";
 import type { RegionRange } from "@/generated/prisma/enums";
@@ -65,15 +72,14 @@ export const metadata: Metadata = {
  * 게시글 목록 페이지
  *
  * [기능]
- * 1. 카테고리 탭(`PostCategoryTabs`)과 검색바(`PostSearchBarWrapper`)를 제공
- * 2. `getCachedInitialPosts` Service를 호출하여 초기 게시글 목록을 로드
- * 3. 게시글이 있으면 `PostList`, 없으면 `PostEmptyState`를 렌더링
- * 4. 우측 하단에 글쓰기 버튼(`AddPostButton`)을 표시
+ * - 로그인 세션 검증 및 비인가 사용자 리다이렉트 처리
+ * - URL 검색 조건을 기반으로 `getPostsListAction`을 호출하여 초기 게시글 목록 서버 프리패치(Prefetch)
+ * - TanStack Query HydrationBoundary 적용으로 클라이언트 사이드 워터폴 현상 방지
+ * - 게시글 데이터 유무에 따른 `PostList` 또는 `PostEmptyState` 조건부 렌더링
  *
  * @param {PostsPageProps} props - URL 쿼리 파라미터 (keyword, category)
  */
 export default async function PostsPage({ searchParams }: PostsPageProps) {
-  // Service 직접 호출 (캐싱된 초기 데이터)
   const session = await getSession();
   const userId = session.id;
 
@@ -81,13 +87,18 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     redirect("/login?callbackUrl=/posts");
   }
 
+  const queryClient = getQueryClient();
   const params: PostSearchParams = {
     keyword: searchParams.keyword,
     category: searchParams.category,
   };
 
-  const [initialData, unreadCount, userLocation] = await Promise.all([
-    getCachedInitialPosts(params, userId),
+  const [, unreadCount, userLocation] = await Promise.all([
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.posts.list(params),
+      queryFn: () => getPostsListAction(null, params),
+      initialPageParam: null as number | null,
+    }),
     getUnreadNotificationCount(),
     getUserLocation(userId),
   ]);
@@ -102,6 +113,12 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
         .filter(Boolean)
         .join(" ")
     : null;
+
+  // 데이터 여부 확인
+  const prefetchData = queryClient.getQueryData<any>(
+    queryKeys.posts.list(params)
+  );
+  const isDataEmpty = prefetchData?.pages[0]?.posts.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-background transition-colors pb-24">
@@ -136,23 +153,30 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
 
       {/* Content */}
       <div className="flex-1 px-page-x py-6">
-        {initialData.posts.length === 0 ? (
+        {isDataEmpty ? (
           <PostEmptyState
             keyword={searchParams.keyword}
             category={searchParams.category}
           />
         ) : (
-          <PostList
-            // 검색 조건 변경 시 스크롤/상태 초기화를 위해 key 부여
-            key={`${JSON.stringify(searchParams)}-${currentRange}`}
-            initialPosts={initialData.posts}
-            nextCursor={initialData.nextCursor}
-            searchParams={params}
-          />
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <Suspense
+              fallback={
+                <div className="space-y-4">
+                  <Skeleton className="h-32 w-full rounded-2xl" />
+                  <Skeleton className="h-32 w-full rounded-2xl" />
+                </div>
+              }
+            >
+              <PostList
+                key={`${JSON.stringify(searchParams)}-${currentRange}`}
+                searchParams={params}
+              />
+            </Suspense>
+          </HydrationBoundary>
         )}
       </div>
-
-      {/* Add Button */}
+      {/* 게시글 추가 플로팅 버튼 (FAB) */}
       <AddPostButton />
     </div>
   );

@@ -17,6 +17,8 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.08  임도헌   Modified  Sticky Header 적용 및 NotificationBell 추가
  * 2026.02.23  임도헌   Modified  빈 상태 화면에 "항구로 이동하여 물품 둘러보기" 버튼을 추가
+ * 2026.03.03  임도헌   Modified  initialRooms Prop Drilling 제거 및 캐시 기반 렌더링 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
@@ -25,35 +27,33 @@ import Link from "next/link";
 import useChatRoomSubscription from "@/features/chat/hooks/useChatRoomSubscription";
 import ChatRoomCard from "@/features/chat/components/ChatRoomCard";
 import NotificationBell from "@/components/global/NotificationBell";
-import { ChatRoom } from "@/features/chat/types";
 import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/outline";
 
 interface ChatRoomListContainerProps {
-  initialRooms: ChatRoom[];
   userId: number;
   unreadNotificationCount: number;
 }
+
 /**
- * 채팅방 목록 컨테이너
+ * 채팅방 목록 렌더링 컨테이너 컴포넌트
  *
- * [기능]
- * 1. `useChatRoomSubscription` 훅을 통해 실시간 업데이트(새 메시지, 읽음 상태)를 구독
- * 2. 채팅방 목록(`ChatRoomCard`)을 렌더링하며, 각 방의 안 읽은 메시지 수를 전달
- * 3. 채팅방이 없을 경우 빈 상태(Empty State)를 표시
+ * [상태 주입 및 상호작용 로직]
+ * - `useChatRoomSubscription` 훅을 통한 하이드레이션된 채팅방 캐시 데이터 선언적 렌더링
+ * - 실시간 웹소켓 이벤트를 통한 최신 메시지 및 읽음 상태(unreadCount) 즉각 동기화 적용
+ * - 진행 중인 대화 유무에 따른 리스트 항목 또는 빈 상태(Empty State) 조건부 렌더링
  */
 export default function ChatRoomListContainer({
-  initialRooms,
   userId,
   unreadNotificationCount,
 }: ChatRoomListContainerProps) {
-  const { rooms, unreadCounts } = useChatRoomSubscription(userId, initialRooms);
+  // Suspense에 의해 데이터가 보장
+  const { rooms } = useChatRoomSubscription(userId);
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors h-16">
         <div className="flex items-center justify-between px-page-x h-full max-w-mobile mx-auto">
-          {/* Title & Count */}
           <div className="flex items-center gap-1.5">
             <h1 className="text-lg font-bold text-primary">신호</h1>
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light">
@@ -61,7 +61,6 @@ export default function ChatRoomListContainer({
             </span>
           </div>
 
-          {/* Notification Bell */}
           <NotificationBell
             userId={userId}
             initialCount={unreadNotificationCount}
@@ -77,7 +76,8 @@ export default function ChatRoomListContainer({
               <ChatRoomCard
                 key={room.id}
                 room={room}
-                unreadCount={unreadCounts[room.id] || 0}
+                // 기존 별도 객체로 관리되던 unreadCount가 캐시된 room 객체에 내장
+                unreadCount={room.unreadCount ?? 0}
               />
             ))}
           </div>
@@ -92,8 +92,6 @@ export default function ChatRoomListContainer({
             <p className="text-sm text-muted mt-1 mb-6">
               관심 있는 물품에 대해 대화를 시작해보세요!
             </p>
-
-            {/* 행동 유도 버튼 (CTA) */}
             <Link
               href="/products"
               className="btn-primary h-10 px-6 text-sm inline-flex items-center shadow-md"

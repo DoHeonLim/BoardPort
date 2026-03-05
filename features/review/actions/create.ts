@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   Moved     features/review/actions.ts -> features/review/actions/create.ts
+ * 2026.03.05  임도헌   Modified  Action 내 `revalidateTag` 부수 효과(리뷰 목록, 평점 등) 제거 및 클라이언트 Mutation 훅으로 상태 갱신 위임
  */
 "use server";
 
@@ -53,14 +54,9 @@ export async function createReviewAction(
   const result = await createReviewService(session.id, parsed.data);
 
   if (result.success && result.meta) {
-    const { productId, sellerId, buyerId } = result.meta;
+    const { productId } = result.meta;
 
-    revalidateTag(T.PRODUCT_DETAIL_ID(productId));
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", sellerId));
-
-    if (buyerId) {
-      revalidateTag(T.USER_PRODUCTS_SCOPE_ID("PURCHASED", buyerId));
-    }
+    revalidateTag(T.PRODUCT_DETAIL(productId));
   }
 
   return result;

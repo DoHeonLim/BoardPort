@@ -6,11 +6,12 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   Created   posts.ts에서 수정 로직 분리
+ * 2026.03.05  임도헌   Modified  수정 시 발생하는 불필요한 `revalidateTag` 파편화 코드 제거 및 캐싱 정책 최적화
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { updatePost as updatePostService } from "@/features/post/service/post";
 import { postFormSchema } from "@/features/post/schemas";
@@ -87,8 +88,8 @@ export async function updatePostAction(
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.POST_DETAIL(result.data.postId));
-  revalidateTag(T.POST_LIST());
+  revalidateTag(T.POST_DETAIL(result.data.postId)); // 상세 본문 갱신
+  revalidatePath("/posts");
 
   return { success: true, postId: result.data.postId };
 }

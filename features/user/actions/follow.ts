@@ -6,12 +6,11 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   API Route 대체
+ * 2026.03.05  임도헌   Modified  서버 캐시 무효화(`revalidateTag`) 방식 탈피, `queryClient.setQueryData`를 활용한 즉각적 UI 갱신(Optimistic Update) 적용
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import {
   followUserService,
   unfollowUserService,
@@ -82,17 +81,10 @@ export async function toggleFollowAction(
     return { success: false, error: "자신을 팔로우할 수 없습니다." };
   }
 
-  // 1. Service 호출
   const result =
     intent === "follow"
       ? await followUserService(viewerId, targetId)
       : await unfollowUserService(viewerId, targetId);
-
-  // 2. 캐시 무효화 (실제 변경이 있을 때만)
-  if (result.changed) {
-    revalidateTag(T.USER_FOLLOWING_ID(viewerId)); // 내 팔로잉 목록/수
-    revalidateTag(T.USER_FOLLOWERS_ID(targetId)); // 상대방 팔로워 목록/수
-  }
 
   return {
     success: true,

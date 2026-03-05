@@ -17,6 +17,9 @@
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  * 2026.02.26  임도헌   Modified  둥근 맵 핀 아이콘의 배경과 색상 개선
  * 2026.02.28  임도헌   Modified  formData 생성 로직 표준화 및 가독성 개선
+ * 2026.03.01  임도헌   Modified  tanstack query 도입
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.05  임도헌   Modified  flow=modal-edit 분기 추가, 편집 완료 시 모달/페이지 복귀 동작 분리
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -35,13 +38,15 @@ Date        Author   Status    Description
 2025.04.13  임도헌   Modified  condition 필드를 영어로 변경
 2025.04.13  임도헌   Modified  game_type 필드를 영어로 변경
 2025.06.15  임도헌   Modified  통합된 제품 폼으로 병합
+2026.03.01
  */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import {
@@ -65,6 +70,7 @@ import {
   productFormSchema,
   productFormValues,
 } from "@/features/product/schemas";
+import { queryKeys } from "@/lib/queryKeys";
 import type { Category } from "@/generated/prisma/client";
 import type { ProductFormAction } from "@/features/product/types";
 import type { LocationData } from "@/features/map/types";
@@ -81,17 +87,14 @@ interface ProductFormProps {
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
 /**
- * 제품 등록/수정 폼
+ * 제품 등록 및 수정 공통 폼 컴포넌트
  *
- * [기능]
- * 1. 이미지 업로드 (Cloudflare Images 연동)
- * 2. 카테고리 선택 (대분류 > 소분류 연동)
- * 3. 제품 정보 입력 (제목, 가격, 인원, 상태 등)
- * 4. 태그 입력
- * 5. 직거래 희망 장소 입력
- * 6. 폼 제출 및 서버 액션 호출
- *
- * @param {ProductFormProps} props - 폼 모드(create/edit), 초기값, 카테고리 데이터
+ * [상태 제어 및 상호작용 로직]
+ * - `useForm` 기반 폼 상태 관리 및 Zod 스키마(`productFormSchema`) 연동 유효성 검증 적용
+ * - `useImageUpload` 훅을 통한 파일 선택, 드래그 앤 드롭, 순서 변경, 미리보기 생성 관리
+ * - 카테고리(대분류/소분류) 연동 및 Kakao Map 기반 위치(`location`) 입력 데이터 매핑
+ * - Cloudflare Images URL 확보 및 이미지 파일 업로드 병렬 처리
+ * - 등록/수정 Server Action 완료 시 `queryClient.invalidateQueries` 호출로 목록 캐시 무효화 유도
  */
 export default function ProductForm({
   mode,
@@ -101,6 +104,10 @@ export default function ProductForm({
   cancelHref = "/products",
 }: ProductFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const sp = useSearchParams();
+  const returnTo = sp.get("returnTo");
+  const isModalEditFlow = sp.get("flow") === "modal-edit";
   const [resetSignal, setResetSignal] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -304,13 +311,27 @@ export default function ProductForm({
       const result = await action(formData);
 
       if (result?.success) {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.products.all,
+        });
+
+        const detailHref = `/products/view/${result.productId}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+
         if (mode === "create") {
           toast.success("🎉 제품 등록 완료!");
-          router.replace(`/products/view/${result.productId}`);
+          router.push(detailHref);
         } else if (mode === "edit") {
           toast.success("🎉 제품 수정 완료!");
-          router.back();
-          router.refresh();
+          if (isModalEditFlow && returnTo) {
+            // 모달에서 편집한 경우:
+            // 1) 목록으로 복귀
+            // 2) products 페이지의 릴레이 컴포넌트가 모달 상세를 재오픈
+            const relayHref = `/products?openProductId=${result.productId}&returnTo=${encodeURIComponent(returnTo)}`;
+            window.location.replace(relayHref);
+          } else {
+            // 일반 상세에서 편집한 경우: edit 히스토리 제거
+            window.location.replace(`/products/view/${result.productId}`);
+          }
         }
       } else if (result?.error) {
         toast.error("오류가 발생했습니다. 다시 시도해주세요.");

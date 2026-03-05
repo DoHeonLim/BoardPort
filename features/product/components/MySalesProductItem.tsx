@@ -31,6 +31,7 @@
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  * 2026.02.26  임도헌   Modified  Grid View 지원, 다크모드 텍스트 가시성(brand-light) 개선, bump_count 방어코드
  * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
@@ -152,16 +153,12 @@ function Metric({
 }
 
 /**
- * 판매 상품 아이템 컴포넌트
+ * 나의 판매 제품 단일 항목 렌더링 컴포넌트
  *
- * [기능]
- * 1. 상품 정보 렌더링 (제목, 가격, 상태, 조회수 등)
- * 2. 현재 상태(탭)에 따른 액션 버튼 제공
- *    - 판매 중: 예약자 선택
- *    - 예약 중: 예약 취소, 판매 완료
- *    - 판매 완료: 판매 중으로 되돌리기, 리뷰 작성/보기
- * 3. Optimistic Update를 위한 상위 콜백 호출
- * 4. 리뷰 작성/삭제 및 각종 모달 연동
+ * [상호작용 및 상태 제어 로직]
+ * - 탭 간 상태 변경(예: 판매 중 -> 판매 완료) 시, 부모로부터 주입받은 `onOptimisticMove` 헬퍼를 호출하여 Query Cache 기반 낙관적 렌더링 수행
+ * - 리뷰 작성, 삭제, 끌어올리기 등 단일 아이템 속성 변경 시 `onReviewChanged` 콜백을 통한 캐시 부분 갱신(Patch) 유도
+ * - 서버 액션 에러 발생 시 `onMoveFailed`를 호출하여 이전 상태 스냅샷으로 롤백 처리
  */
 export default function MySalesProductItem({
   product,

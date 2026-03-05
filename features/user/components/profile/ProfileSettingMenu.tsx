@@ -14,6 +14,9 @@
  * 2026.02.07  임도헌   Modified  관리자 계정일 경우 '관리자 콘솔' 바로가기 추가 (isAdmin prop)
  * 2026.02.23  임도헌   Modified  회원 탈퇴 버튼 추가
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.03.01  임도헌   Modified  window.dispatchEvent 제거 및 Zustand(useModalStore) 연동
+ * 2026.03.03  임도헌   Modified  로컬 핸들러 잔재 제거 및 openModal 인자 매핑 수정
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 "use client";
 
@@ -22,9 +25,10 @@ import Link from "next/link";
 import {
   Cog6ToothIcon,
   ComputerDesktopIcon,
-  ArrowLeftOnRectangleIcon,
+  UserMinusIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { useModalStore } from "@/components/global/providers/ModalStoreProvider";
 
 type Props = {
   emailVerified?: boolean;
@@ -33,13 +37,12 @@ type Props = {
 };
 
 /**
- * 내 프로필 설정 메뉴
+ * 프로필 설정 드롭다운 메뉴 컴포넌트
  *
- * [기능]
- * 1. 계정 관련 주요 기능(프로필 수정, 비밀번호 변경, 이메일 인증, 회원 탈퇴)으로의 접근을 제공함
- * 2. 내가 차단한 유저 목록 모달을 호출함
- * 3. **관리자 기능**: 관리자 계정(Role=ADMIN)일 경우 '관리자 콘솔' 바로가기 링크를 표시함
- * 4. 키보드 네비게이션 및 접근성을 지원함
+ * [상호작용 및 상태 제어 로직]
+ * - `useModalStore` Zustand 훅을 호출하여 비밀번호 변경, 이메일 인증, 회원 탈퇴 등의 상태 제어 이벤트 발행
+ * - 관리자(`isAdmin`) 여부에 따른 '관리자 콘솔' 항목 조건부 렌더링
+ * - 방향키(ArrowDown/Up) 및 Home/End 키보드 이벤트를 지원하는 순환 네비게이션(Accessibility) 적용
  */
 export default function ProfileSettingMenu({
   emailVerified,
@@ -48,6 +51,9 @@ export default function ProfileSettingMenu({
 }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Zustand 스토어 액션 호출 (명시적 상태 변경)
+  const openModal = useModalStore((state) => state.openModal);
 
   // 1. 바깥 클릭 및 ESC 닫기
   useEffect(() => {
@@ -105,16 +111,6 @@ export default function ProfileSettingMenu({
     return () =>
       menu.removeEventListener("keydown", onKey as unknown as EventListener);
   }, [open]);
-
-  // 3. 모달 오픈 이벤트 핸들러
-  const openPassword = () =>
-    window.dispatchEvent(new CustomEvent("open-password-modal"));
-  const openEmailVerify = () =>
-    window.dispatchEvent(new CustomEvent("open-email-verification-modal"));
-  const openBlockList = () =>
-    window.dispatchEvent(new CustomEvent("open-block-list-modal"));
-  const openWithdraw = () =>
-    window.dispatchEvent(new CustomEvent("open-withdraw-modal"));
 
   return (
     <div ref={ref} className="relative">
@@ -175,7 +171,7 @@ export default function ProfileSettingMenu({
             data-menuitem="true"
             onClick={() => {
               setOpen(false);
-              openPassword();
+              openModal("password"); // Zustand 액션으로 교체
             }}
             className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
           >
@@ -198,7 +194,7 @@ export default function ProfileSettingMenu({
               data-menuitem="true"
               onClick={() => {
                 setOpen(false);
-                openEmailVerify();
+                openModal("email"); // Zustand 액션으로 교체
               }}
               className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
             >
@@ -217,13 +213,14 @@ export default function ProfileSettingMenu({
           )}
 
           <div role="separator" className="h-px bg-border" />
+
           {/* 항목 4: 차단된 유저 관리 */}
           <button
             role="menuitem"
             data-menuitem="true"
             onClick={() => {
               setOpen(false);
-              openBlockList();
+              openModal("block"); // Zustand 액션으로 교체
             }}
             className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
           >
@@ -231,17 +228,18 @@ export default function ProfileSettingMenu({
           </button>
 
           <div role="separator" className="h-px bg-border" />
+
           {/* 항목 5: 회원 탈퇴 */}
           <button
             role="menuitem"
             data-menuitem="true"
             onClick={() => {
               setOpen(false);
-              openWithdraw();
+              openModal("withdraw"); // Zustand 액션으로 교체
             }}
             className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 transition-colors flex items-center gap-2"
           >
-            <ArrowLeftOnRectangleIcon className="size-4" />
+            <UserMinusIcon className="size-4" />
             회원 탈퇴
           </button>
         </div>

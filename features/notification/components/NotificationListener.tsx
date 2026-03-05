@@ -19,6 +19,7 @@
  * 2026.02.11  임도헌   Modified  NotificationBell과의 채널 충돌 방지를 위해 로컬 이벤트 발행 로직 추가
  * 2026.02.22  임도헌   Modified  현재 페이지 알림 수신 시 벨 카운트 깜빡임(Flicker) 방지
  * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (dispatchEvent 제거)
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
@@ -47,12 +48,13 @@ type SysEventPayload = {
 };
 
 /**
- * 전역 알림 리스너 (Root Layout 전용)
+ * 전역 실시간 웹소켓 알림 및 시스템 이벤트 리스너 컴포넌트
  *
- * [역할 및 기능]
- * 1. Single Source of Truth (SSOT): 앱 내에서 유일하게 `user-{id}-notifications` 채널을 구독하여 웹소켓 연결 충돌을 방지
- * 2. 상태 동기화 (State Synchronization): 알림(`notification`) 수신 시 Zustand 스토어의 `increment` 액션을 직접 호출하여 상태 변화를 단방향으로 통제
- * 3. 보안 집행 (Security Enforcer): 시스템 이벤트(`sys_event`) 중 `BAN` 타입을 감지 시, 세션을 갱신하고 `/403` 페이지로 강제 리다이렉트 처리
+ * [상태 주입 및 보안 제어 로직]
+ * - Supabase `user-{id}-notifications` 개인 채널 구독을 통한 데이터 실시간 수신
+ * - 새 알림 수신 시 Zustand 스토어의 `increment` 액션을 명시적으로 호출하여 뱃지 상태 동기화
+ * - 사용자가 현재 보고 있는 화면(채팅방 등)과 동일한 컨텍스트의 알림 수신 시 토스트 알림 생략 처리(Flicker 방지)
+ * - `sys_event`(BAN) 수신 시 세션 쿠키 강제 갱신 및 비인가 페이지(`/403`) 리다이렉트 수행
  *
  * @param {number} userId - 로그인한 사용자 ID
  */

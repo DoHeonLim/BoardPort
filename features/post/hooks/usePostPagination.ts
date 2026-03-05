@@ -11,110 +11,75 @@
  * 2026.01.18  임도헌   Moved     hooks/post -> features/post/hooks
  * 2026.01.27  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.15  임도헌   Modified  searchParams 연동 강화
+ * 2026.02.28  임도헌   Modified  TanStack Query (useInfiniteQuery) 도입으로 수동 상태 관리 및 병합 로직 제거
+ * 2026.03.01  임도헌   Modified  Product 도메인과 패턴 통일 (isFetchingNextPage 분리 및 반환 타입 명시)
+ * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialData Prop Drilling 제거
+ * 2026.03.04  임도헌   Modified  getPostsListAction 연동 및 쿼리 조회 로직 통합
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { getMorePosts } from "@/features/post/actions/list";
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
+import { getPostsListAction } from "@/features/post/actions/list";
+import { queryKeys } from "@/lib/queryKeys";
 import type { PostDetail, PostSearchParams } from "@/features/post/types";
 
+// =============================================================================
+// 1. Hook Configuration Types
+// =============================================================================
+
 interface UsePostPaginationParams {
-  initialPosts: PostDetail[];
-  initialCursor: number | null;
   searchParams: PostSearchParams;
 }
 
-interface UsePostPaginationResult {
+/** 훅 반환 타입 인터페이스 */
+export interface UsePostPaginationResult {
   posts: PostDetail[];
-  cursor: number | null;
-  isLoading: boolean;
+  isFetchingNextPage: boolean; // 스크롤 하단 도달 시 추가 데이터를 가져오는 상태
   hasMore: boolean;
-  loadMore: () => Promise<void>;
-  reset: () => void;
+  loadMore: () => Promise<unknown>;
 }
 
+// =============================================================================
+// 2. Hook Implementation
+// =============================================================================
+
 /**
- * 게시글 목록 페이징 훅
+ * 게시글 목록 페이징 전용 Suspense Query 훅
  *
- * [기능]
- * 1. 초기 데이터(SSR)를 상태로 관리하고, 커서 기반 추가 데이터를 로드
- * 2. `loadMore` 호출 시 `searchParams`를 함께 전송하여 필터링된 목록 정합성을 유지
- * 3. 검색 조건 변경 시 목록 리셋 기능(`reset`)을 제공
+ * [상태 추출 및 사이드 이펙트 제어 로직]
+ * - `searchParams`를 쿼리 키에 포함하여 필터 조건 변경 시 자동 캐시 분리 및 새 쿼리 생성
+ * - `useSuspenseInfiniteQuery`를 활용한 서버 액션(`getPostsListAction`) 호출 및 무한 스크롤 상태 자동화
+ * - 평탄화된 게시글 배열(posts) 및 로딩 상태(isFetchingNextPage) 추출 및 반환
  *
- * @param {UsePostPaginationParams} params - 초기 데이터 및 검색 조건
+ * @param {UsePostPaginationParams} params - 검색 조건 파라미터
+ * @returns {UsePostPaginationResult} 페이징 상태 및 추출된 게시글 데이터
  */
 export function usePostPagination({
-  initialPosts,
-  initialCursor,
   searchParams,
 }: UsePostPaginationParams): UsePostPaginationResult {
-  // --- State ---
-  const [posts, setPosts] = useState(initialPosts);
-  const [cursor, setCursor] = useState(initialCursor);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(initialCursor !== null);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useSuspenseInfiniteQuery({
+      queryKey: queryKeys.posts.list(searchParams),
+      queryFn: async ({ pageParam }) => {
+        // 서버 액션 호출 (커서 및 검색 조건 전달)
+        return await getPostsListAction(
+          pageParam as number | null,
+          searchParams
+        );
+      },
+      initialPageParam: null as number | null,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      // 짧은 시간 내의 페이지 이동 시 캐시를 재사용하기 위함
+      staleTime: 60 * 1000,
+    });
 
-  // 중복 요청 방지
-  const lastRequestedCursorRef = useRef<number | null>(null);
-
-  // 부모 컴포넌트(Page)에서 탭/검색 조건 변경으로 인해 새로운 initialPosts가 내려오면 무조건 상태를 동기화
-  useEffect(() => {
-    setPosts(initialPosts);
-    setCursor(initialCursor);
-    setHasMore(initialCursor !== null);
-    lastRequestedCursorRef.current = null;
-  }, [initialPosts, initialCursor]);
-
-  /**
-   * 추가 데이터 로드
-   */
-  const loadMore = useCallback(async () => {
-    if (isLoading || !hasMore || cursor === null) return;
-    if (lastRequestedCursorRef.current === cursor) return;
-
-    lastRequestedCursorRef.current = cursor;
-    setIsLoading(true);
-
-    try {
-      // Server Action 호출 (params 전달)
-      const newData = await getMorePosts(cursor, searchParams);
-
-      if (newData.posts.length > 0) {
-        setPosts((prev) => {
-          // 중복 제거 병합
-          const map = new Map<number, PostDetail>();
-          prev.forEach((p) => map.set(p.id, p));
-          newData.posts.forEach((p) => map.set(p.id, p));
-          return Array.from(map.values());
-        });
-      }
-
-      setCursor(newData.nextCursor);
-      setHasMore(newData.nextCursor !== null);
-    } catch (error) {
-      console.error("Failed to load more posts:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading, hasMore, cursor, searchParams]);
-
-  /**
-   * 목록 초기화
-   * - 검색 조건이 변경되거나 탭이 바뀔 때, 상태를 초기값으로 되돌림
-   */
-  const reset = useCallback(() => {
-    setPosts(initialPosts);
-    setCursor(initialCursor);
-    setHasMore(initialCursor !== null);
-    lastRequestedCursorRef.current = null;
-  }, [initialPosts, initialCursor]);
+  const posts = data.pages.flatMap((page) => page.posts);
 
   return {
     posts,
-    cursor,
-    isLoading,
-    hasMore,
-    loadMore,
-    reset,
+    isFetchingNextPage,
+    hasMore: !!hasNextPage,
+    loadMore: fetchNextPage,
   };
 }

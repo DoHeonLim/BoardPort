@@ -11,6 +11,8 @@
  * 2026.01.23  임도헌   Merged    getBroadcastDetail + getVodDetail 통합
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.02.13  임도헌   Modified  getCachedBroadcastDetail 캐시 함수 export (Metadata용)
+ * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수(getBroadcastDetail)로 통일
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import "server-only";
@@ -41,14 +43,17 @@ export type StreamDetailDTO = {
 };
 
 /**
- * 방송(Broadcast) 상세 조회
- * 화면 표시에 필요한 최소한의 필드만 조회
+ * 방송(Broadcast) 상세 정보 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간 등)만 선택적 조회
+ * - 방송 소유자의 정보 및 CF Live Input UID 연동 데이터 조인 반환
  *
  * @param {number} id - 방송 ID
  */
-export const getBroadcastDetailRaw = async (
+export async function getBroadcastDetail(
   id: number
-): Promise<StreamDetailDTO | null> => {
+): Promise<StreamDetailDTO | null> {
   try {
     const b = await db.broadcast.findUnique({
       where: { id },
@@ -94,18 +99,22 @@ export const getBroadcastDetailRaw = async (
     console.error("[getBroadcastDetail] failed:", error);
     return null;
   }
-};
+}
 
 /**
- * 방송 상세 조회 캐시 Wrapper (Public)
- * - 페이지와 메타데이터 생성 함수에서 공통으로 사용
- * - 태그: BROADCAST_DETAIL(id)
+ * 방송 상세 정보 캐시 Wrapper 로직
+ *
+ * [캐시 제어 전략]
+ * - `unstable_cache`를 활용하여 방송 상세 데이터의 서버 사이드 렌더링 캐시 적용
+ * - `BROADCAST_DETAIL(id)` 태그를 주입하여 상태 변경(Connected/Ended) 시 주문형 무효화 지원
+ *
+ * @param {number} id - 방송 ID
  */
 export const getCachedBroadcastDetail = (id: number) => {
   return nextCache(
-    () => getBroadcastDetailRaw(id),
-    ["broadcast-detail-by-id", String(id)],
-    { tags: [T.BROADCAST_DETAIL(id)] }
+    () => getBroadcastDetail(id),
+    ["broadcast-detail-data", String(id)],
+    { tags: [T.BROADCAST_DETAIL(id)], revalidate: 3600 }
   )();
 };
 
@@ -134,8 +143,11 @@ export type VodDetailDTO = {
 };
 
 /**
- * 녹화본(VOD) 상세 조회
- * VOD 정보와 원본 방송 정보를 함께 조회
+ * 녹화본(VOD) 상세 정보 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 특정 VodAsset 정보를 기준으로 부모 방송(Broadcast)의 메타데이터(스트리머, 카테고리 등) 일괄 조회
+ * - 조회수, 좋아요, 댓글 등의 집계 데이터(Counts) 병합 반환
  *
  * @param {number} vodId - VOD ID
  */

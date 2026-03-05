@@ -11,12 +11,11 @@
  * 2026.01.22  임도헌   Modified  Service 경로 수정 (createChatRoom)
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/products/view/[id]/actions/chat.ts -> features/product/actions/chat.ts
+ * 2026.03.05  임도헌   Modified  채팅방 생성 후 `revalidateTag` 기반 서버 상태 갱신 방식 제거 및 클라이언트 캐시 제어 적용
  */
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
 import { createChatRoom } from "@/features/chat/service/room";
 import { getProductChatUsers } from "@/features/product/service/chatUsers";
@@ -35,8 +34,6 @@ export const createChatRoomAction = async (productId: number) => {
   if (!session?.id) throw new Error("로그인이 필요합니다.");
 
   const chatRoomId = await createChatRoom(session.id, productId);
-
-  revalidateTag(T.CHAT_ROOMS());
   return redirect(`/chats/${chatRoomId}`);
 };
 

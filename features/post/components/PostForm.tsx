@@ -15,6 +15,8 @@
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  * 2026.02.26  임도헌   Modified  게시글 작성 후 push에서 replace로 수정
  * 2026.02.28  임도헌   Modified  formData 생성 로직 표준화 및 가독성 개선
+ * 2026.03.01  임도헌   Modified  tanstack query 도입
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
@@ -22,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -33,6 +36,7 @@ import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { POST_CATEGORY } from "@/features/post/constants";
+import { queryKeys } from "@/lib/queryKeys";
 import { getUploadUrl } from "@/lib/cloudflareImages";
 import { postFormSchema, PostFormValues } from "@/features/post/schemas";
 import type { PostActionResponse } from "@/features/post/types";
@@ -51,11 +55,11 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 /**
  * 게시글 작성/수정 폼
  *
- * [기능]
- * 1. 이미지 업로드 (최대 5장, Cloudflare Images)
- * 2. 카테고리 선택, 태그, 장소 입력
- * 3. 게시글 제목/내용 입력 및 Zod 검증
- * 4. 폼 제출 및 서버 액션 호출 (성공 시 상세 페이지 이동)
+ * [상태 주입 및 상호작용 로직]
+ * - `useForm` 기반 폼 상태 관리 및 Zod 스키마 연동 유효성 검증 적용
+ * - Cloudflare Images API 연동을 통한 다중 이미지 업로드 및 미리보기 생성 로직 포함
+ * - 카테고리, 태그, 지도 기반 위치(Location) 데이터 매핑 기능 제공
+ * - 폼 제출 시 주입된 Action 호출 및 결과에 따른 화면 리다이렉트 처리
  *
  * @param {PostFormProps} props - 초기값, 액션 핸들러, 모드 설정 등
  */
@@ -67,6 +71,9 @@ export default function PostForm({
   isEdit = false,
 }: PostFormProps) {
   const router = useRouter();
+  // 쿼리 클라이언트 인스턴스 가져오기
+  const queryClient = useQueryClient();
+
   const [isUploading, setIsUploading] = useState(false);
   const [resetSignal, setResetSignal] = useState(0);
 
@@ -209,6 +216,8 @@ export default function PostForm({
       const result = await action(formData);
 
       if (result.success && result.postId) {
+        // 데이터 변경이 성공했으므로 캐시를 무효화하여 다음 방문 시 새로고침을 유도함
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
         toast.success(
           isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
         );

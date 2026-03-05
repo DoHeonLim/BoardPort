@@ -15,6 +15,7 @@
  * 2026.02.23  임도헌   Modified  Webhook 재전송 시 VOD 중복 생성 방지(P2002 무시) 및 에러 로깅 강화
  * 2026.02.25  임도헌   Modified  순서 보장 가드, VOD 소유권 검증 강화
  * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 최초 등록용 테스트 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
+ * 2026.03.05  임도헌   Modified  공통 데이터(상세)는 `revalidateTag` 유지, 개인화 데이터(목록/상태)는 Query Cache 기반 혼합 캐싱 정책 적용
  */
 
 import "server-only";
@@ -305,8 +306,7 @@ function isAssetReadyPayload(body: any): boolean {
  */
 async function tryFillThumbnailFromCloudflare(
   liveInputUid: string,
-  broadcastId: number,
-  ownerId: number
+  broadcastId: number
 ) {
   if (!CF_ACCOUNT || !CF_TOKEN) return;
 
@@ -353,7 +353,6 @@ async function tryFillThumbnailFromCloudflare(
         // 관련 캐시 무효화 (비동기 처리)
         try {
           revalidateTag(T.BROADCAST_DETAIL(broadcastId));
-          revalidateTag(T.USER_STREAMS_ID(ownerId));
         } catch {}
       }
     }
@@ -405,13 +404,12 @@ async function onConnected(liveInputUid: string) {
     });
     // 썸네일 자동 채우기 시도 (이미지는 있어도 무시)
     try {
-      await tryFillThumbnailFromCloudflare(liveInputUid, updated.id, li.userId);
+      await tryFillThumbnailFromCloudflare(liveInputUid, updated.id);
     } catch {}
 
     // 상태 변경에 대한 캐시 무효화 (썸네일 여부와 무관하게 항상 수행)
     try {
       revalidateTag(T.BROADCAST_DETAIL(updated.id));
-      revalidateTag(T.USER_STREAMS_ID(li.userId));
     } catch {}
 
     // 상태 변경을 Supabase Realtime 채널로 브로드캐스트
@@ -468,7 +466,6 @@ async function onDisconnected(liveInputUid: string) {
 
     try {
       revalidateTag(T.BROADCAST_DETAIL(b.id));
-      revalidateTag(T.USER_STREAMS_ID(li.userId));
       await sendLiveStatusFromServer?.({
         streamId: liveInputUid,
         status: "ENDED",
@@ -588,13 +585,10 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   revalidateTag(T.BROADCAST_DETAIL(broadcastIdResolved));
 
   try {
-    const owner = await db.broadcast.findUnique({
+    await db.broadcast.findUnique({
       where: { id: broadcastIdResolved },
       select: { liveInput: { select: { userId: true } } },
     });
-    if (owner?.liveInput?.userId) {
-      revalidateTag(T.USER_STREAMS_ID(owner.liveInput.userId));
-    }
   } catch (err) {
     console.warn("[onVideoReady] revalidateTag failed:", err);
   }
@@ -694,7 +688,7 @@ export async function POST(req: Request) {
 
     /**
      * Vercel Serverless 환경에서는 응답을 보내기 전에 비동기 작업이 완료되어야 하므로
-     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지함.
+     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지
      */
     if (type === "unknown" && isReadyAsset) {
       // 무타입 ready 페이로드 대응

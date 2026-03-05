@@ -13,6 +13,8 @@
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/comments.ts -> features/post/actions/comment.ts
  * 2026.02.05  임도헌   Modified  댓글 조회 시 viewerId 전달 (차단 필터링)
+ * 2026.03.04  임도헌   Modified  getPostCommentsListAction으로 명칭 변경 및 통합 로직 호출
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use server";
 
@@ -20,8 +22,7 @@ import getSession from "@/lib/session";
 import { revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import {
-  getMoreComments as fetchComments,
-  getCachedComments as fetchCached,
+  getPostCommentsList,
   createComment as createService,
   deleteComment as deleteService,
 } from "@/features/post/service/comment";
@@ -30,33 +31,33 @@ import type { PostComment } from "@/features/post/types";
 import type { ServiceResult } from "@/lib/types";
 
 /**
- * 댓글 목록 추가 로드 Action (무한 스크롤)
+ * 게시글 댓글 페이징 조회 Server Action
+ *
+ * [데이터 페칭 전략]
+ * - 커서 기반의 무한 스크롤 조회를 위한 데이터 패치 로직
+ * - 로그인 세션(viewerId) 확인을 통해 차단 유저의 댓글 필터링 적용
+ *
+ * @param {number} postId - 조회할 게시글 ID
+ * @param {number} [cursor] - 마지막 댓글 ID
+ * @param {number} limit - 가져올 개수
  */
-export const getComments = async (
+export const getPostCommentsListAction = async (
   postId: number,
   cursor?: number,
   limit = 10
 ): Promise<PostComment[]> => {
   const session = await getSession();
-  const viewerId = session?.id ?? -1;
-  return fetchComments(postId, cursor, limit, viewerId);
+  const viewerId = session?.id ?? null;
+  return getPostCommentsList(postId, cursor, limit, viewerId);
 };
 
 /**
- * 초기 댓글 목록 로드 Action (Cached)
- */
-export const getCachedComments = async (
-  postId: number
-): Promise<PostComment[]> => {
-  const session = await getSession();
-  const viewerId = session?.id ?? -1;
-  return fetchCached(postId, viewerId);
-};
-
-/**
- * 댓글 생성 Action
- * - 로그인 및 입력값 검증 후 Service를 호출
- * - 성공 시 댓글 목록, 게시글 상세(댓글 수), 전체 목록 캐시를 무효화
+ * 게시글 댓글 생성 Server Action
+ *
+ * [데이터 가공 및 캐시 제어 로직]
+ * - 로그인 세션 확인 및 Zod 스키마를 통한 입력값 유효성 검증
+ * - Service 레이어를 호출하여 신규 댓글 데이터 영속화
+ * - 클라이언트 TanStack Query 연동을 위한 결과 객체(ServiceResult) 반환
  *
  * @param {FormData} formData - 댓글 내용 및 게시글 ID
  */
@@ -80,17 +81,17 @@ export const createCommentAction = async (
   );
 
   if (result.success) {
-    revalidateTag(T.POST_COMMENTS(parsed.data.postId));
     revalidateTag(T.POST_DETAIL(parsed.data.postId));
-    revalidateTag(T.POST_LIST());
   }
   return result;
 };
 
 /**
- * 댓글 삭제 Action
- * - 로그인 확인 후 Service를 호출
- * - 성공 시 관련 캐시를 무효화
+ * 게시글 댓글 삭제 Server Action
+ *
+ * [데이터 가공 및 권한 제어 로직]
+ * - 로그인 세션 검증 및 Service 레이어 호출을 통한 작성자 권한 확인 후 삭제 처리
+ * - 클라이언트 캐시 무효화를 유도하기 위한 결과 반환
  *
  * @param {number} commentId - 삭제할 댓글 ID
  * @param {number} postId - 게시글 ID
@@ -105,9 +106,7 @@ export const deleteCommentAction = async (
   const result = await deleteService(session.id, commentId);
 
   if (result.success) {
-    revalidateTag(T.POST_COMMENTS(postId));
     revalidateTag(T.POST_DETAIL(postId));
-    revalidateTag(T.POST_LIST());
   }
   return result;
 };

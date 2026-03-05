@@ -1,5 +1,5 @@
 /**
- * File Name : components/productDetail/modal/ProductDetailModalContainer.tsx
+ * File Name : features/product/components/productDetail/modal/ProductDetailModalContainer.tsx
  * Description : 제품 상세 모달 컨테이너 (Intercepting Route용)
  * Author : 임도헌
  *
@@ -11,6 +11,7 @@
  * 2026.01.10  임도헌   Modified  모바일 및 데스크톱 레이아웃 변경
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.02.27  임도헌   Modified  모바일 높이를 h-full로 고정하여 하단 액션바 짤림 현상 해결
+ * 2026.03.05  임도헌   Modified  ProductDetailContainer에 isModalContext 전달
  */
 "use client";
 
@@ -57,8 +58,8 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const returnTo = sp.get("returnTo") || "/products";
 
   const handleOverlayClick = () => {
-    // 배경 클릭 시 닫기: router.push(returnTo)로 복귀
-    router.push(returnTo);
+    // Intercepting Route 종료는 replace로 슬롯 상태를 안정적으로 정리
+    router.replace(returnTo);
   };
 
   return (
@@ -86,7 +87,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto bg-background">
-          <ProductDetailContainer {...props} />
+          <ProductDetailContainer {...props} isModalContext />
         </div>
       </div>
     </div>

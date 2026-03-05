@@ -25,13 +25,19 @@
  * 2026.02.08  임도헌   Modified  헤더 우측에 알림 벨(NotificationBell) 추가, 검색창과 카테고리 탭 위치 변경
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
  * 2026.02.26  임도헌   Modified  헤더 UI 수정
+ * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
+import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { STREAMS_PAGE_TAKE } from "@/lib/constants";
+import Skeleton from "@/components/ui/Skeleton";
 import NotificationBell from "@/components/global/NotificationBell";
 import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
 import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
@@ -39,7 +45,7 @@ import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
 import AddStreamButton from "@/features/stream/components/AddStreamButton";
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
-import { getStreams } from "@/features/stream/service/list";
+import { getStreamsListAction } from "@/features/stream/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 
 export const dynamic = "force-dynamic";
@@ -64,11 +70,10 @@ export const metadata: Metadata = {
  * 스트리밍 목록 페이지
  *
  * [기능]
- * 1. 검색 조건(키워드, 카테고리, 스코프)에 따라 방송 목록을 조회 (`getStreams` Service)
- * 2. `LiveStatusRealtimeSubscriber`를 통해 실시간 상태 갱신을 구독
- * 3. 카테고리 탭과 검색바를 상단에 고정 표시
- * 4. 목록(`StreamListSection`) 또는 빈 상태(`StreamEmptyState`)를 렌더링
- * 5. 우측 하단에 방송 시작 버튼(`AddStreamButton`)을 표시
+ * - 세션 검증을 통한 로그인 여부 확인 및 비인가 사용자 리다이렉트 처리
+ * - URL 검색 조건(키워드, 카테고리, 스코프) 기반 스트리밍 목록의 서버 프리패치(Prefetch) 적용
+ * - 안 읽은 알림 개수의 서버 사이드 병렬 로드 적용
+ * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달 및 초기 렌더링 최적화
  */
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const session = await getSession();
@@ -83,25 +88,22 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const category = searchParams.category?.trim() || undefined;
   const keyword = searchParams.keyword?.trim() || undefined;
 
-  const TAKE = STREAMS_PAGE_TAKE;
+  const queryParams = { category: category ?? "", keyword: keyword ?? "" };
 
-  // Service 직접 호출 (Action Wrapper 제거)
-  const [allItems, unreadCount] = await Promise.all([
-    getStreams({
-      scope,
-      category,
-      keyword,
-      viewerId,
-      cursor: null,
-      take: TAKE + 1,
+  const queryClient = getQueryClient();
+  const [, unreadCount] = await Promise.all([
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.streams.list(scope, queryParams),
+      queryFn: () => getStreamsListAction(scope, null, queryParams, viewerId),
+      initialPageParam: null as number | null,
     }),
     getUnreadNotificationCount(),
   ]);
 
-  // Cursor 계산
-  const hasMore = allItems.length > TAKE;
-  const streams = hasMore ? allItems.slice(0, TAKE) : allItems;
-  const nextCursor = hasMore ? streams[streams.length - 1].id : null;
+  const prefetchData = queryClient.getQueryData<any>(
+    queryKeys.streams.list(scope, queryParams)
+  );
+  const isDataEmpty = prefetchData?.pages[0]?.streams.length === 0;
 
   // 탭 링크 빌더
   const buildHref = (nextScope: "all" | "following") => {
@@ -163,27 +165,33 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 
       {/* Content */}
       <div className="flex-1 px-page-x py-6">
-        {streams.length > 0 ? (
-          <StreamListSection
-            key={JSON.stringify(searchParams)}
-            scope={scope}
-            searchParams={{
-              category: category ?? "",
-              keyword: keyword ?? "",
-            }}
-            initialItems={streams}
-            initialCursor={nextCursor}
-            viewerId={viewerId}
-          />
-        ) : (
+        {isDataEmpty ? (
           <StreamEmptyState
             keyword={keyword}
             category={category}
             scope={scope}
           />
+        ) : (
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <Suspense
+              fallback={
+                <div className="grid grid-cols-2 gap-4">
+                  <Skeleton className="aspect-video w-full rounded-2xl" />
+                  <Skeleton className="aspect-video w-full rounded-2xl" />
+                </div>
+              }
+            >
+              <StreamListSection
+                key={JSON.stringify(searchParams)}
+                scope={scope}
+                searchParams={queryParams}
+                viewerId={viewerId}
+              />
+            </Suspense>
+          </HydrationBoundary>
         )}
       </div>
-
+      {/* 스트리밍 추가 플로팅 버튼 (FAB) */}
       <AddStreamButton />
     </div>
   );

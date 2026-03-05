@@ -42,7 +42,7 @@ interface ImageUploaderProps {
  * 이미지 업로드 컴포넌트
  *
  * 1. Native Input을 통한 파일 선택 및 Drag & Drop을 모두 지원
- * 2. 드래그 진입 시(`onDragOver`) 점선 테두리 강조로 시각적 피드백을 제공함.
+ * 2. 드래그 진입 시(`onDragOver`) 점선 테두리 강조로 시각적 피드백을 제공
  * 3. `useImageUpload` 훅과 연동하여 Blob URL 미리보기를 즉시 생성
  * 4. `@hello-pangea/dnd`를 사용하여 업로드된 이미지의 순서를 드래그로 변경 가능
  * 5. 실제 업로드 로직(Cloudflare Direct Upload)은 상위 폼 컴포넌트에서 수행
@@ -160,8 +160,8 @@ export default function ImageUploader({
                     {previews.length >= maxImages
                       ? `최대 ${maxImages}장까지 업로드 가능합니다`
                       : isDragOver
-                      ? "여기에 이미지를 놓으세요"
-                      : "클릭 또는 드래그하여 사진 추가"}
+                        ? "여기에 이미지를 놓으세요"
+                        : "클릭 또는 드래그하여 사진 추가"}
                   </div>
                 </div>
               )}

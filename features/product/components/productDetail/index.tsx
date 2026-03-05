@@ -9,6 +9,7 @@
  * 2026.01.10  임도헌   Modified  배경색 및 레이아웃 정리
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.03.05  임도헌   Modified  isModalContext prop 전달 추가
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
@@ -38,6 +39,7 @@ interface ProductDetailProps {
   isOwner: boolean;
   likeCount: number;
   isLiked: boolean;
+  isModalContext?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export default function ProductDetailContainer({
   isOwner,
   likeCount,
   isLiked,
+  isModalContext = false,
 }: ProductDetailProps) {
   // 주소 문자열 조합
   const regionString = [product.region1, product.region2, product.region3]
@@ -125,6 +128,7 @@ export default function ProductDetailContainer({
           isLiked={isLiked}
           likeCount={likeCount}
           isOwner={isOwner}
+          isModalContext={isModalContext}
           bumpCount={product.bump_count}
         />
       </div>

@@ -30,26 +30,26 @@
  * 2026.02.02  임도헌   Modified  일반 상세 페이지와 로직 동기화 (Service 분리 및 병렬 처리)
  * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 로드
  * 2026.02.04  임도헌   Modified  판매자와 조회자간의 차단 관계 확인 로직 추가(차단 관계일 경우 제품 정보 차단)
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import { notFound, redirect } from "next/navigation";
 import { getCachedProduct } from "@/features/product/service/detail";
-import { getCachedProductLikeStatus } from "@/features/product/service/like";
+import { getProductLikeStatus } from "@/features/product/service/like";
 import { incrementViews } from "@/features/common/service/view";
 import { checkBlockRelation } from "@/features/user/service/block";
 import ProductDetailModalContainer from "@/features/product/components/productDetail/modal/ProductDetailModalContainer";
 import getSession from "@/lib/session";
 
-// 조회수 증가 및 개인화(좋아요) 로직이 포함되므로 동적 렌더링 강제
 export const dynamic = "force-dynamic";
 
 /**
  * 인터셉트된 제품 상세 모달
  *
  * [기능]
- * - 목록 페이지에서 상세로 진입 시 가로채서 띄우는 모달
- * - 일반 상세 페이지(`app/products/view/[id]/page.tsx`)와 동일한 데이터 로딩 로직을 수행
- *   (제품 정보, 좋아요 상태, 조회수 증가)
+ * - 목록 페이지에서 상세로 진입 시 가로채기(Intercept) 패턴을 통한 병렬 모달 렌더링
+ * - 일반 상세 페이지와 동일한 조회수 어뷰징 방지(`incrementViews`) 및 개인화 데이터 병렬 로딩 처리
+ * - 판매자-조회자 간 차단 관계 검증 및 차단 시나리오에서 `/403` 리다이렉트 수행
  */
 export default async function ProductDetailModal({
   params,
@@ -72,7 +72,7 @@ export default async function ProductDetailModal({
   // 2. 병렬 데이터 로드
   const [product, likeStatus] = await Promise.all([
     getCachedProduct(id),
-    getCachedProductLikeStatus(id, userId),
+    getProductLikeStatus(id, userId),
   ]);
 
   if (!product) return notFound();

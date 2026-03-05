@@ -10,6 +10,7 @@
  * 2026.02.12  임도헌   Modified  뱃지 UI 변경 (Dot -> Number Count)
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (DOM 이벤트 리스너 제거)
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
@@ -27,12 +28,12 @@ interface NotificationBellProps {
 }
 
 /**
- * 전역 알림 벨 컴포넌트
+ * 전역 상단 알림 벨 및 뱃지 UI 컴포넌트
  *
- * [동작 원리]
- * 1. 서버로부터 전달받은 초기값(`initialCount`)을 Zustand Store에 동기화
- * 2. 전역 스토어의 `unreadCount`를 구독하여 상태 변경 시 즉각적인 UI 렌더링을 수행
- * 3. 기존 Event Bus 방식을 제거함으로써 이벤트 리스너 미해제로 인한 메모리 누수 위험을 방지
+ * [상태 주입 및 동기화 로직]
+ * - 서버로부터 주입된 초기 카운트(`initialCount`)를 `useNotificationStore`에 하이드레이션(Hydration) 처리
+ * - Zustand 전역 상태(`unreadCount`) 구독을 통한 실시간 카운트 증감 및 뱃지 UI 조건부 렌더링 적용
+ * - 기존 Event Bus 리스너 방식 제거를 통한 메모리 누수 원천 차단
  *
  * @param {NotificationBellProps} props
  */

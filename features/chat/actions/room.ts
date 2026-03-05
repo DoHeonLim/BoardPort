@@ -13,22 +13,42 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/chats/[id]/actions/room.ts -> features/chat/actions/room.ts
  * 2026.02.22  임도헌   Modified  방을 나갈 때 남아있는 상대방의 채팅 목록 캐시도 무효화
+ * 2026.03.03  임도헌   Modified  채팅방 목록 조회 액션(getChatRoomsAction) 추가
+ * 2026.03.04  임도헌   Modified  주석 최신화
+ * 2026.03.05  임도헌   Modified  레거시 `revalidateTag` 의존성 제거 및 `invalidateQueries`를 통한 클라이언트 캐시 무효화로 대체
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
-import { leaveChatRoom } from "@/features/chat/service/room";
+import { leaveChatRoom, getChatRooms } from "@/features/chat/service/room";
+import type { ChatRoom } from "@/features/chat/types";
 
 /**
- * 채팅방 나가기 Action
+ * 채팅방 전체 목록 조회 Server Action
  *
- * - Service(`leaveChatRoom`)를 호출하여 유저 연결 해제, PENDING 약속 취소, 시스템 메시지 생성을 수행
- * - 나가는 본인의 채팅방 목록뿐만 아니라, 남아있는 상대방(`counterpartyId`)의 채팅방 목록 캐시도
- *   무효화하여 '대화 상대가 나갔습니다' 상태가 즉시 반영
+ * [데이터 페칭 전략]
+ * - 로그인 세션 확인 및 사용자 ID 추출
+ * - 클라이언트 TanStack Query의 `queryFn` 연동을 위한 순수 DB 조회 데이터 반환
  *
- * @param {string} chatRoomId - 채팅방 ID
+ * @returns {Promise<ChatRoom[]>} 차단 필터링이 적용된 사용자 참여 채팅방 목록
+ */
+export async function getChatRoomsAction(): Promise<ChatRoom[]> {
+  const session = await getSession();
+  if (!session?.id) return [];
+
+  // Service 레이어의 순수 DB 조회 함수 호출
+  return await getChatRooms(session.id);
+}
+
+/**
+ * 채팅방 퇴장 Server Action
+ *
+ * [데이터 가공 및 상태 제어 로직]
+ * - 로그인 세션 검증 후 Service 레이어를 통해 채팅방 연결 해제 및 PENDING 약속 일괄 취소
+ * - 상대방이 남아있는 경우 시스템 메시지("상대방이 나갔습니다") 저장 및 실시간 전송
+ * - 클라이언트에서는 성공 시 TanStack Query 캐시 수동 무효화 처리
+ *
+ * @param {string} chatRoomId - 퇴장할 채팅방 ID
  */
 export const leaveChatRoomAction = async (chatRoomId: string) => {
   const session = await getSession();
@@ -37,18 +57,6 @@ export const leaveChatRoomAction = async (chatRoomId: string) => {
   }
 
   const result = await leaveChatRoom(chatRoomId, session.id);
-
-  if (result?.success && result.data) {
-    // 내 캐시 갱신
-    revalidateTag(T.CHAT_ROOMS_ID(result.data.userId));
-
-    // 상대방 캐시 갱신 (상대방 목록에 '대화 상대가 나갔습니다'를 즉시 반영하기 위함)
-    if (result.data.counterpartyId) {
-      revalidateTag(T.CHAT_ROOMS_ID(result.data.counterpartyId));
-    }
-
-    revalidateTag(T.CHAT_ROOMS());
-  }
 
   return result;
 };
