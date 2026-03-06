@@ -20,12 +20,15 @@
  * 2026.02.15  임도헌   Modified  updateUserLocationAction 추가
  * 2026.02.15  임도헌   Modified  유저 조회 시 locationName, region2 포함
  * 2026.03.03  임도헌   Modified  unstable_cache 래퍼 전면 제거 및 단일 순수 함수로 통합 (TanStack Query 이관)
+ * 2026.03.07  임도헌   Modified  위치 저장 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  위치 변경 mutation에 정지 유저 가드 추가
  */
 
 import "server-only";
 
 import db from "@/lib/db";
 import { checkBlockRelation } from "@/features/user/service/block";
+import { validateUserStatus } from "@/features/user/service/admin";
 import { normalizeUsername } from "@/features/user/utils/normalize";
 import type { ServiceResult } from "@/lib/types";
 import type { UserProfile, UserLite } from "@/features/user/types";
@@ -240,6 +243,11 @@ export async function updateUserLocation(
   userId: number,
   location: Partial<LocationData>
 ): Promise<ServiceResult> {
+  const userStatus = await validateUserStatus(userId);
+  if (!userStatus.success) {
+    return { success: false, error: userStatus.error! };
+  }
+
   try {
     await db.user.update({
       where: { id: userId },
@@ -262,6 +270,10 @@ export async function updateUserLocation(
     return { success: true };
   } catch (error) {
     console.error("updateUserLocation error:", error);
-    return { success: false, error: "위치 저장 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "위치 저장에 실패했습니다. 선택한 지역 정보를 확인한 뒤 다시 시도해주세요.",
+    };
   }
 }

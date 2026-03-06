@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   editProfile, changePassword 액션 통합 및 Service 연결
  * 2026.03.05  임도헌   Modified  프로필/위치 업데이트 시 발생하던 `revalidateTag` 파편화 제거 및 `revalidatePath` 기반 상태 동기화로 최적화
+ * 2026.03.07  임도헌   Modified  비밀번호 변경 미로그인 오류를 전역 에러로 매핑
  */
 "use server";
 
@@ -121,7 +122,7 @@ export async function changePasswordAction(
   if (!session?.id) {
     return {
       success: false,
-      errors: { currentPassword: [USER_ERRORS.NOT_LOGGED_IN] },
+      errors: { _: [USER_ERRORS.NOT_LOGGED_IN] },
     };
   }
 

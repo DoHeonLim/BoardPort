@@ -27,11 +27,15 @@
  * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
  * 2026.01.11  임도헌   Modified  프래그먼트 태그 제거
  * 2026.01.26  임도헌   Modified  주석 설명 보강
+ * 2026.03.06  임도헌   Modified  작성 페이지 정적 프리렌더를 비활성화해 인증 기반 폼 진입 흐름을 안정화
  */
 
 import ProductForm from "@/features/product/components/ProductForm";
 import { fetchProductCategories } from "@/features/product/service/category";
 import { createProductAction } from "@/features/product/actions/create";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * 제품 등록 페이지

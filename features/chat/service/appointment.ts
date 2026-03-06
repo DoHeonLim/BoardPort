@@ -10,6 +10,7 @@
  * 2026.02.20  임도헌   Modified  새로운 약속을 만들 때 기존의 대기 중인 약속을 정리하도록 수정
  * 2026.02.22  임도헌   Modified  약속 수락 트랜잭션 통합(원자성 보장) 및 알림 발송 로직 독립 구현
  * 2026.02.23  임도헌   Modified  보안 가드(과거 시간, IDOR, Ghost User) 및 동시성 제어 강화
+ * 2026.03.07  임도헌   Modified  약속 관련 실패 문구를 구체화(v1.2)
  */
 
 import "server-only";
@@ -195,7 +196,11 @@ export async function proposeAppointment(
       return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
     }
     console.error("proposeAppointment error:", error);
-    return { success: false, error: "약속 제안 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "약속 제안에 실패했습니다. 날짜와 장소 정보를 확인한 뒤 다시 시도해주세요.",
+    };
   }
 }
 
@@ -437,7 +442,11 @@ export async function acceptAppointment(
       return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
 
     console.error("acceptAppointment error:", error);
-    return { success: false, error: "약속 수락 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "약속 수락에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 
@@ -537,6 +546,10 @@ export async function cancelAppointment(
     if (error.message === "ALREADY_PROCESSED") {
       return { success: false, error: "이미 처리된 약속입니다." };
     }
-    return { success: false, error: "처리 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "약속 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

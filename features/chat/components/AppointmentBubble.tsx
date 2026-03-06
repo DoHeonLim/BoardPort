@@ -255,7 +255,7 @@ export default function AppointmentBubble({
               <button
                 onClick={() => setIsConfirmOpen(true)}
                 disabled={isActionDisabled}
-                className="flex-1 py-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 text-primary transition-colors"
+                className="flex-1 py-3 text-sm font-medium text-primary transition-colors hover:bg-surface-dim disabled:opacity-50"
               >
                 약속 취소하기
               </button>

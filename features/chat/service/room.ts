@@ -21,6 +21,7 @@
  * 2026.02.22  임도헌   Modified  채팅방 나가기 시 상대방(Counterparty) ID 반환 추가
  * 2026.02.23  임도헌   Modified  나간 방 재입장 시 기존 대화 내역을 유지하며 양측 모두 재연결되도록 UX 개선
  * 2026.03.03  임도헌   Modified  `unstable_cache` 및 `revalidateTag` 기반 서버 상태 갱신 방식 제거, 순수 DB 조회 로직으로 리팩토링
+ * 2026.03.07  임도헌   Modified  채팅방 생성 중복 요청 방어용 In-Memory Lock 및 요청자 정지 상태 검증 추가
  */
 
 import "server-only";
@@ -34,6 +35,84 @@ import { mapToChatMessage } from "@/features/chat/utils/converter";
 import type { ChatRoom, ChatUser } from "@/features/chat/types";
 import type { ServiceResult } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+
+const roomCreationLocks = new Set<string>();
+
+/**
+ * 채팅방 생성 중복 요청을 식별하기 위한 잠금 키 생성
+ * - 동일 상품에 대해 동일한 두 사용자 조합은 항상 같은 키를 사용
+ * - 사용자 ID를 정렬하여 요청 방향과 무관하게 동일 키를 보장
+ */
+function getRoomCreationLockKey(
+  productId: number,
+  requesterId: number,
+  ownerId: number
+) {
+  const [smallerId, largerId] = [requesterId, ownerId].sort((a, b) => a - b);
+  return `${productId}:${smallerId}:${largerId}`;
+}
+
+/**
+ * 동일 상품에 대한 재사용 가능한 채팅방 탐색
+ * - 현재 참여 중인 방
+ * - 과거 메시지 이력이 남아 있는 방
+ * - 약속 이력이 남아 있는 방
+ * 중 하나라도 해당되면 복구 가능한 기존 방으로 간주
+ *
+ * @param {number} productId - 상품 ID
+ * @param {number} userId - 방을 다시 열려는 사용자 ID
+ * @returns {Promise<import("@prisma/client").ProductChatRoom | null>} 가장 최근에 갱신된 재사용 가능 방
+ */
+async function findReusableRoom(productId: number, userId: number) {
+  return db.productChatRoom.findFirst({
+    where: {
+      productId,
+      OR: [
+        { users: { some: { id: userId } } },
+        { messages: { some: { userId } } },
+        {
+          appointments: {
+            some: {
+              OR: [{ proposerId: userId }, { receiverId: userId }],
+            },
+          },
+        },
+      ],
+    },
+    include: { users: { select: { id: true } } },
+    orderBy: { updated_at: "desc" },
+  });
+}
+
+/**
+ * 다른 요청에서 채팅방 생성이 진행 중일 때 기존 방이 생길 때까지 짧게 재조회
+ * - In-Memory Lock으로 동시에 들어온 중복 생성 요청을 serialize한 뒤
+ * - 선행 요청이 만든/복구한 방 ID를 후행 요청이 재사용하도록 보조
+ *
+ * @param {number} productId - 상품 ID
+ * @param {number} userId - 요청자 ID
+ * @param {number} ownerId - 판매자 ID
+ * @param {number} [retries=5] - 최대 재시도 횟수
+ * @param {number} [intervalMs=120] - 재시도 간격(ms)
+ * @returns {Promise<string | null>} 생성/복구된 채팅방 ID 또는 null
+ */
+async function waitForExistingRoom(
+  productId: number,
+  userId: number,
+  ownerId: number,
+  retries = 5,
+  intervalMs = 120
+) {
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    const room = await findReusableRoom(productId, userId);
+
+    if (room) return room.id;
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return null;
+}
 
 /* -------------------------------------------------------------------------- */
 /*                                 Read Logic                                 */
@@ -247,7 +326,8 @@ export async function getCounterpartyInChatRoom(
  * 3. `roomCreationLocks`(In-Memory Set)를 사용하여 동일 유저+상품 조합의 중복 생성 요청을 방어
  * 4. 기존에 참여했다가 나간 방(Ghost Room)이 있다면, 유저를 다시 연결(connect)하고
  *    '대화가 다시 시작되었습니다' 시스템 메시지를 발송하여 복구
- * 5. 방이 없으면 신규 생성
+ * 5. 과거 메시지/약속 이력이 남아 있는 동일 상품의 기존 방도 재사용 대상으로 간주
+ * 6. 방이 없으면 신규 생성
  *
  * @param {number} userId - 요청자 ID
  * @param {number} productId - 제품 ID
@@ -258,6 +338,13 @@ export async function createChatRoom(
   userId: number,
   productId: number
 ): Promise<string> {
+  const requesterStatus = await validateUserStatus(userId);
+  if (!requesterStatus.success) {
+    throw new Error(
+      requesterStatus.error || "운영 정책 위반으로 채팅을 시작할 수 없습니다."
+    );
+  }
+
   const product = await db.product.findUnique({
     where: { id: productId },
     select: { userId: true },
@@ -277,71 +364,78 @@ export async function createChatRoom(
     throw new Error("차단된 사용자 대화할 수 없습니다.");
   }
 
-  // 1. 기존 방 탐색
-  // (내가 참여 중이거나, 내가 나갔던 흔적이 있는 방)
-  const existingRoom = await db.productChatRoom.findFirst({
-    where: {
+  const lockKey = getRoomCreationLockKey(productId, userId, product.userId);
+
+  if (roomCreationLocks.has(lockKey)) {
+    const existingRoomId = await waitForExistingRoom(
       productId,
-      OR: [
-        { users: { some: { id: userId } } },
-        { messages: { some: { userId: userId } } },
-      ],
-    },
-    include: { users: { select: { id: true } } },
-  });
-
-  if (existingRoom) {
-    // 방 복구 로직 (connect)
-    const amIInRoom = existingRoom.users.some((u) => u.id === userId);
-    const isSellerInRoom = existingRoom.users.some(
-      (u) => u.id === product.userId
+      userId,
+      product.userId
     );
-
-    const connectData = [];
-    if (!amIInRoom) connectData.push({ id: userId });
-    if (!isSellerInRoom) connectData.push({ id: product.userId });
-
-    if (connectData.length > 0) {
-      await db.productChatRoom.update({
-        where: { id: existingRoom.id },
-        data: {
-          users: { connect: connectData },
-          updated_at: new Date(),
-        },
-      });
-
-      // 시스템 메시지 발송
-      const sysMsg = await db.productMessage.create({
-        data: {
-          type: "SYSTEM",
-          userId,
-          productChatRoomId: existingRoom.id,
-          payload: "대화가 다시 시작되었습니다.",
-        },
-        include: {
-          user: { select: { id: true, username: true, avatar: true } },
-        },
-      });
-
-      await supabase.channel(`room-${existingRoom.id}`).send({
-        type: "broadcast",
-        event: "message",
-        payload: mapToChatMessage(sysMsg),
-      });
-    }
-    return existingRoom.id;
+    if (existingRoomId) return existingRoomId;
+    throw new Error("채팅방 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.");
   }
 
-  // 2. 신규 생성
-  const room = await db.productChatRoom.create({
-    data: {
-      users: { connect: [{ id: product.userId }, { id: userId }] },
-      product: { connect: { id: productId } },
-    },
-    select: { id: true },
-  });
+  roomCreationLocks.add(lockKey);
 
-  return room.id;
+  try {
+    // 1. 기존 방 탐색
+    // (내가 참여 중이거나, 내가 나갔던 흔적이 있는 방)
+    const existingRoom = await findReusableRoom(productId, userId);
+
+    if (existingRoom) {
+      const amIInRoom = existingRoom.users.some((u) => u.id === userId);
+      const isSellerInRoom = existingRoom.users.some(
+        (u) => u.id === product.userId
+      );
+
+      const connectData = [];
+      if (!amIInRoom) connectData.push({ id: userId });
+      if (!isSellerInRoom) connectData.push({ id: product.userId });
+
+      if (connectData.length > 0) {
+        await db.productChatRoom.update({
+          where: { id: existingRoom.id },
+          data: {
+            users: { connect: connectData },
+            updated_at: new Date(),
+          },
+        });
+
+        const sysMsg = await db.productMessage.create({
+          data: {
+            type: "SYSTEM",
+            userId,
+            productChatRoomId: existingRoom.id,
+            payload: "대화가 다시 시작되었습니다.",
+          },
+          include: {
+            user: { select: { id: true, username: true, avatar: true } },
+          },
+        });
+
+        await supabase.channel(`room-${existingRoom.id}`).send({
+          type: "broadcast",
+          event: "message",
+          payload: mapToChatMessage(sysMsg),
+        });
+      }
+      return existingRoom.id;
+    }
+
+    // 2. 신규 생성
+    const room = await db.productChatRoom.create({
+      data: {
+        users: { connect: [{ id: product.userId }, { id: userId }] },
+        product: { connect: { id: productId } },
+      },
+      select: { id: true },
+    });
+
+    return room.id;
+  } finally {
+    roomCreationLocks.delete(lockKey);
+  }
 }
 
 /**

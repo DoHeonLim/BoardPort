@@ -28,6 +28,7 @@
  * 2026.02.11  임도헌   Modified   NotificationBell 추가 및 unreadCount 조회 병렬 처리
  * 2026.03.03  임도헌   Modified   서버 컴포넌트 하이드레이션(HydrationBoundary) 적용 및 initialReviews Prop Drilling 제거
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.06  임도헌   Modified   로그아웃 UX를 공용 LogoutButton(pending/toast) 기반으로 정리
  */
 
 import { redirect } from "next/navigation";
@@ -45,7 +46,6 @@ import { getUserAverageRating } from "@/features/user/service/metric";
 import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
-import { logOut } from "@/features/auth/service/logout";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +115,6 @@ export default async function ProfilePage() {
             userBadges={badgesPair.userBadges}
             myStreams={streams}
             viewerId={user.id}
-            logOut={logOut}
           />
         </HydrationBoundary>
       </div>

@@ -24,6 +24,7 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.27  임도헌   Modified  모달 Dynamic Import 적용 및 본인 리뷰 신고 방지 적용
+ * 2026.03.07  임도헌   Modified  리뷰 삭제 실패 피드백 문구를 구체화(v1.2)
  */
 
 "use client";
@@ -142,11 +143,16 @@ export default function MyPurchasesProductItem({
         toast.success("리뷰를 삭제했습니다.");
         toggleModal("viewMine", false); // 상세 모달도 같이 닫기
       } else {
-        toast.error(res.error || "삭제 실패");
+        toast.error(
+          res.error ??
+            "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       }
     } catch (e) {
       console.error(e);
-      toast.error("오류가 발생했습니다.");
+      toast.error(
+        "리뷰 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+      );
     } finally {
       setIsDeleting(false);
       toggleModal("deleteConfirm", false);

@@ -214,7 +214,7 @@ export default function PrivateAccessModal({
               type="button"
               onClick={close}
               disabled={isPending}
-              className="btn-secondary h-10 text-sm border-transparent hover:bg-black/5 dark:hover:bg-white/5"
+              className="btn-secondary h-10 text-sm border-transparent hover:bg-surface-dim"
             >
               취소
             </button>

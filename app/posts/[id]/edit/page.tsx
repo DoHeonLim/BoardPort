@@ -13,13 +13,14 @@
  * 2026.01.19  임도헌   Modified  getIsOwner 제거 및 직접 비교
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  삭제 액션을 ConfirmDialog 기반 PostDeleteButton으로 분리하고 배경 토큰을 통일
  */
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import PostForm from "@/features/post/components/PostForm";
+import PostDeleteButton from "@/features/post/components/PostDeleteButton";
 import { getPostDetail } from "@/features/post/service/post";
 import { updatePostAction } from "@/features/post/actions/update";
-import { deletePostAction } from "@/features/post/actions/delete";
 import { LocationData } from "@/features/map/types";
 
 /**
@@ -48,13 +49,6 @@ export default async function PostEditPage({
   const isOwner = session?.id === post.user.id;
   if (!isOwner) redirect("/posts");
 
-  // 3. 삭제 핸들러 (Server Action Wrapper)
-  const handleDeletePost = async () => {
-    "use server";
-    await deletePostAction(id);
-    redirect("/posts"); // 삭제 후 목록으로 이동
-  };
-
   let initialLocation: LocationData | null = null;
 
   if (post.latitude && post.longitude && post.locationName) {
@@ -69,7 +63,7 @@ export default async function PostEditPage({
   }
 
   return (
-    <div className="min-h-screen dark:bg-neutral-900 bg-white">
+    <div className="min-h-screen bg-background">
       <PostForm
         initialValues={{
           id: post.id,
@@ -85,14 +79,9 @@ export default async function PostEditPage({
         submitLabel="수정 완료"
         isEdit
       />
-      <form
-        action={handleDeletePost}
-        className="flex items-center justify-center"
-      >
-        <button className="bg-rose-700 hover:bg-rose-500 w-full mx-5 py-2 rounded-md text-white font-semibold sm:text-sm md:text-md transition-colors">
-          삭제하기
-        </button>
-      </form>
+      <div className="flex items-center justify-center pb-6">
+        <PostDeleteButton postId={id} />
+      </div>
     </div>
   );
 }

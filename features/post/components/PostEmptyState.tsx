@@ -10,6 +10,8 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 디자인 통일
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  Empty State 문구 톤과 CTA 크기를 제품/스트림과 동일한 리듬으로 통일
+ * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸을 적용해 상태 화면 정합성을 높임
  */
 "use client";
 
@@ -46,21 +48,27 @@ export default function PostEmptyState({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
-      <div className="p-4 rounded-full bg-surface-dim mb-4">
-        <DocumentMagnifyingGlassIcon className="size-10 text-muted/50" />
+    <div className="state-screen">
+      <div className="state-card">
+        <div className="state-icon-wrap">
+          <DocumentMagnifyingGlassIcon className="size-10 text-muted/50" />
+        </div>
+
+        <div>
+          <p className="state-title">{message}</p>
+          <p className="state-description">{subMessage}</p>
+        </div>
+
+        <div className="state-actions justify-center">
+          <Link
+            href="/posts/add"
+            className="btn-primary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm shadow-sm"
+          >
+            <PlusIcon className="w-5 h-5" />
+            <span>게시글 작성하기</span>
+          </Link>
+        </div>
       </div>
-
-      <p className="text-lg font-bold text-primary">{message}</p>
-      <p className="text-sm text-muted mt-1 mb-6">{subMessage}</p>
-
-      <Link
-        href="/posts/add"
-        className="btn-primary inline-flex items-center gap-2"
-      >
-        <PlusIcon className="w-5 h-5" />
-        <span>게시글 작성하기</span>
-      </Link>
     </div>
   );
 }

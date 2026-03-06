@@ -8,6 +8,7 @@ x * Description : 스트리밍 카드 스켈레톤
  * 2026.01.13  임도헌   Created   StreamCard 구조에 맞춘 스켈레톤 생성
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  StreamCard의 최신 정보 밀도와 동일한 패딩/메타 간격으로 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -25,7 +26,7 @@ export default function StreamCardSkeleton() {
       </div>
 
       {/* Info */}
-      <div className="flex flex-1 flex-col justify-between p-3 gap-3">
+      <div className="flex flex-1 flex-col justify-between gap-1.5 p-2.5 sm:gap-2 sm:p-3">
         <div className="space-y-2">
           <Skeleton className="h-4 w-3/4 rounded" /> {/* Title */}
           <div className="flex items-center gap-2">
@@ -34,7 +35,7 @@ export default function StreamCardSkeleton() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+        <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
           <Skeleton className="h-3 w-16 rounded" /> {/* Category */}
           <Skeleton className="h-3 w-12 rounded" /> {/* Time */}
         </div>

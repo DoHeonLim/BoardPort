@@ -36,6 +36,7 @@
  * 2026.03.01  임도헌   Modified   이벤트 리스너(window.addEventListener) 제거 및 Zustand(ModalStore) 도입
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.06  임도헌   Modified   거래 정보 섹션에 '찜한 내역' 바로가기 링크 추가
+ * 2026.03.06  임도헌   Modified   공용 LogoutButton 적용으로 로그아웃 피드백 정합성 보강
  */
 "use client";
 
@@ -45,6 +46,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
+import LogoutButton from "@/components/global/LogoutButton";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
 import StreamCard from "@/features/stream/components/StreamCard";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
@@ -91,7 +93,6 @@ type MyProfileProps = {
   userBadges: Badge[];
   myStreams?: BroadcastSummary[];
   viewerId?: number;
-  logOut: () => Promise<void>;
 };
 
 /**
@@ -109,7 +110,6 @@ export default function MyProfile({
   userBadges,
   myStreams,
   viewerId,
-  logOut,
 }: MyProfileProps) {
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const fullLocation = [user.region1, user.region2, user.region3]
@@ -302,11 +302,9 @@ export default function MyProfile({
       </div>
 
       <div className="pt-6 border-t border-border mt-2">
-        <form action={logOut}>
-          <button className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 transition-colors text-sm font-semibold">
-            로그아웃
-          </button>
-        </form>
+        <LogoutButton
+          className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
+        />
       </div>
 
       {/* Zustand 상태 기반 모달 렌더링 */}

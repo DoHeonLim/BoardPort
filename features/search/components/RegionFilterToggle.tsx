@@ -8,6 +8,7 @@
  * 2026.02.15  임도헌   Created
  * 2026.02.15  임도헌   Modified  드롭다운 메뉴 및 지역 검색 모달 연동
  * 2026.02.20  임도헌   Modified '구'가 없는 지역(세종시 등)은 '구 단위' 설정 버튼 자동 숨김 처리
+ * 2026.03.07  임도헌   Modified  구 단위가 없는 지역에서도 시/전국 범위 토글은 유지되도록 조건 수정
  */
 "use client";
 
@@ -111,7 +112,7 @@ export default function RegionFilterToggle({
     });
   };
 
-  if (!userRegion2) return null;
+  if (!userRegion1 && !userRegion3) return null;
 
   return (
     <div className="relative" ref={menuRef}>

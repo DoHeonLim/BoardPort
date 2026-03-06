@@ -10,6 +10,7 @@
  * 2026.01.12  임도헌   Modified  검색 기록 없을때 안내 메세지 표시
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  삭제 버튼 hover 대비를 시맨틱 토큰 기반으로 정리
  */
 "use client";
 
@@ -95,7 +96,7 @@ export default function SearchHistoryBox({
                   e.preventDefault();
                   onRemove(item.keyword);
                 }}
-                className="absolute right-1 p-1 text-muted hover:text-danger rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                className="absolute right-1 inline-flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-danger"
                 aria-label={`${item.keyword} 삭제`}
               >
                 <XMarkIcon className="size-3.5" />

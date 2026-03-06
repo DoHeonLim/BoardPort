@@ -28,6 +28,7 @@
  * 2026.03.03  임도헌   Modified  getMoreMessagesAction에서 cursor(null) 기반 초기 조회 로직 통합
  * 2026.03.04  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  채팅방 목록 및 메시지 갱신용 `revalidateTag` 호출 제거, 단일 진실 공급원(SSOT)을 로컬 Query Cache로 전환
+ * 2026.03.07  임도헌   Modified  메시지 조회/읽음 Server Action에 세션 및 채팅방 접근 권한 검증 추가
  */
 "use server";
 
@@ -38,8 +39,9 @@ import {
   markMessagesAsRead,
   getInitialMessages,
 } from "@/features/chat/service/message";
+import { checkChatRoomAccess } from "@/features/chat/service/room";
 import type { ServiceResult } from "@/lib/types";
-import type { ChatMessage } from "@/features/chat/types";
+import type { ChatMessage, MessageReadUpdateResult } from "@/features/chat/types";
 
 /**
  * 채팅 메시지 전송 Server Action
@@ -82,6 +84,16 @@ export const getMoreMessagesAction = async (
   lastMessageId: number | null,
   limit = 20
 ): Promise<ServiceResult<ChatMessage[]>> => {
+  const session = await getSession();
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." };
+  }
+
+  const room = await checkChatRoomAccess(chatRoomId, session.id);
+  if (!room) {
+    return { success: false, error: "채팅방 접근 권한이 없습니다." };
+  }
+
   if (!lastMessageId) {
     const data = await getInitialMessages(chatRoomId, limit);
     return { success: true, data };
@@ -102,8 +114,22 @@ export const getMoreMessagesAction = async (
 export const readMessageUpdateAction = async (
   chatRoomId: string,
   userId: number
-) => {
-  const result = await markMessagesAsRead(chatRoomId, userId);
+): Promise<MessageReadUpdateResult> => {
+  const session = await getSession();
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." };
+  }
+
+  if (session.id !== userId) {
+    return { success: false, error: "읽음 처리 권한이 없습니다." };
+  }
+
+  const room = await checkChatRoomAccess(chatRoomId, session.id);
+  if (!room) {
+    return { success: false, error: "채팅방 접근 권한이 없습니다." };
+  }
+
+  const result = await markMessagesAsRead(chatRoomId, session.id);
 
   return result;
 };

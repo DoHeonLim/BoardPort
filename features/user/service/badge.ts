@@ -14,6 +14,7 @@
  * 2026.01.24  임도헌   Merged     badges.ts, getUserBadges.ts 통합
  * 2026.03.03  임도헌   Modified   unstable_cache 래퍼 제거 및 함수명 단순화 (getAllBadges, getUserBadges)
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.07  임도헌   Modified   push 성공 판정 기준을 result.data.sent로 정정
  */
 
 import "server-only";
@@ -172,7 +173,7 @@ async function awardBadge(userId: number, badgeName: string) {
         renotify: true,
       });
 
-      if (result?.success && (result as any).sent > 0) {
+      if (result?.success && (result.data?.sent ?? 0) > 0) {
         await db.notification.update({
           where: { id: notification.id },
           data: { isPushSent: true, sentAt: new Date() },

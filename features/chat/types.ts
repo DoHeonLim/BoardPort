@@ -11,6 +11,8 @@
  * 2026.02.04  임도헌   Modified  채팅 이미지 전송을 위한 image 필드 추가
  * 2026.02.16  임도헌   Modified  Appointment 및 MessageType 추가
  * 2026.02.21  임도헌   Modified  ChatUser에 hasLeft 추가
+ * 2026.03.07  임도헌   Modified  MessageReadPayload에 readerId 추가
+ * 2026.03.07  임도헌   Modified  메시지 읽음 액션 결과 타입(MessageReadUpdateResult) 추가
  */
 
 import type { AppointmentStatus, MessageType } from "@/generated/prisma/enums";
@@ -71,13 +73,27 @@ export interface Appointment {
 }
 
 // =============================================================================
-// 2. Realtime Payloads
+// 2. Realtime Payload Types
 // =============================================================================
 
-/** 메시지 읽음 이벤트 Payload */
+/**
+ * 메시지 읽음 이벤트 Payload
+ * - readIds: 읽음 처리된 메시지 ID 목록
+ * - readerId: 실제 읽음 처리 요청을 수행한 사용자 ID
+ */
 export interface MessageReadPayload {
   readIds: number[];
+  readerId: number;
 }
+
+/** 메시지 읽음 처리 액션/서비스 결과 */
+export type MessageReadUpdateResult =
+  | { success: true; readIds: number[] }
+  | { success: false; error: string };
+
+// =============================================================================
+// 3. Shared Stream Chat Types
+// =============================================================================
 
 /** 스트리밍 채팅 메시지 (Stream 도메인 공유) */
 export interface StreamChatMessage {

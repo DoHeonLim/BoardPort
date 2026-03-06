@@ -11,6 +11,7 @@
  * 2026.02.15  임도헌   Modified  createPortal 적용으로 Z-Index/Stacking Context 문제 해결
  * 2026.02.26  임도헌   Modified  다크모드 가시성 강화를 위한 brand-light 토큰 적용
  * 2026.02.26  임도헌   Modified  autoFocus 제거
+ * 2026.03.07  임도헌   Modified  지도 SDK 로드 실패를 토스트/즉시 종료 대신 모달 내 상태 화면으로 전환
  */
 
 "use client";
@@ -183,6 +184,7 @@ export default function LocationPicker({
             type="button"
             onClick={onClose}
             className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+            aria-label="거래 장소 선택 모달 닫기"
           >
             <XMarkIcon className="size-6" />
           </button>
@@ -204,6 +206,7 @@ export default function LocationPicker({
               type="button"
               onClick={executeSearch}
               className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-colors"
+              aria-label="거래 장소 검색 실행"
             >
               검색
             </button>
@@ -295,9 +298,35 @@ export default function LocationPicker({
   }
 
   if (loaderError) {
-    toast.error("지도 시스템을 로드하지 못했습니다.");
-    onClose();
-    return null;
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-surface w-full max-w-md rounded-3xl border border-border shadow-2xl overflow-hidden">
+          <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
+            <h3 className="font-bold text-primary text-lg">거래 장소 선택</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+              aria-label="거래 장소 선택 모달 닫기"
+            >
+              <XMarkIcon className="size-6" />
+            </button>
+          </div>
+          <div className="p-6">
+            <div className="state-card max-w-none px-5 py-6">
+              <div className="state-icon-wrap">
+                <MapPinIcon className="size-8" />
+              </div>
+              <h4 className="state-title">지도 시스템을 불러오지 못했습니다.</h4>
+              <p className="state-description">
+                네트워크 상태를 확인한 뒤 다시 시도해주세요.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   }
 
   return createPortal(modalContent, document.body);

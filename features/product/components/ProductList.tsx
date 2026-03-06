@@ -24,6 +24,9 @@
  * 2026.03.01  임도헌   Modified  useProductPagination 반환 타입 변경 대응 및 로딩 상태 세분화
  * 2026.03.03  임도헌   Modified  명령형 로딩(isLoading) 및 initialProducts Props 제거, 선언적 렌더링 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  뷰 토글 active 상태 및 다크모드 대비 보강
+ * 2026.03.06  임도헌   Modified  모바일 그리드 카드 간격을 조정해 카드 밀도를 더 촘촘하게 정리
+ * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
  */
 
 "use client";
@@ -88,25 +91,27 @@ export default function ProductList({ searchParams }: ProductListProps) {
           총 <span className="text-primary font-bold">{products.length}</span>
           개의 상품
         </span>
-        <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
+        <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
           <button
             onClick={() => setViewMode("list")}
+            aria-label="리스트 보기"
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
               viewMode === "list"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
           >
             <ListBulletIcon className="size-5" />
           </button>
           <button
             onClick={() => setViewMode("grid")}
+            aria-label="그리드 보기"
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
               viewMode === "grid"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
           >
             <Squares2X2Icon className="size-5" />
@@ -124,8 +129,9 @@ export default function ProductList({ searchParams }: ProductListProps) {
       ) : (
         <div
           className={cn(
-            "grid gap-4",
-            viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
+            viewMode === "grid"
+              ? "grid grid-cols-2 gap-3 sm:gap-4"
+              : "grid grid-cols-1 gap-4"
           )}
         >
           {products.map((product, index) => (
@@ -144,7 +150,7 @@ export default function ProductList({ searchParams }: ProductListProps) {
           <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
         )}
         {isFetchingNextPage && (
-          <div className="mt-3 mb-[calc(84px+env(safe-area-inset-bottom))] sm:mb-0 mx-auto w-fit flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full shadow-sm animate-fade-in whitespace-nowrap">
+          <div className="list-loading-pill">
             <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
             <span className="whitespace-nowrap">더 불러오는 중...</span>
           </div>

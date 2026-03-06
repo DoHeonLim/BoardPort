@@ -14,12 +14,14 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 다크모드 배경색(bg-surface) 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet 패턴으로 통일하고 드래그 닫기 UX를 적용
  */
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { Category } from "@/generated/prisma/client";
 import { FilterState } from "@/features/product/types";
+import BottomSheet from "@/components/global/BottomSheet";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
 import CategoryFilter from "@/features/search/components/filters/CategoryFilter";
@@ -137,59 +139,14 @@ export default function SearchFilters({
 
   return (
     <div className="relative z-50">
-      {/* [Mobile] 바텀시트 / 전체화면 Overlay */}
-      <div className="md:hidden fixed inset-0 z-50">
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-          onClick={onClose}
-        />
-        <div className="absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl max-h-[85vh] h-full flex flex-col animate-slide-up shadow-2xl">
-          {/* Header */}
-          <div className="flex justify-between items-center px-4 py-2 border-b border-border">
-            <h3 className="text-lg font-bold text-primary">필터 설정</h3>
-            <button
-              onClick={onClose}
-              className="p-2 -mr-2 text-muted hover:text-primary transition-colors rounded-full hover:bg-surface-dim"
-              aria-label="닫기"
-            >
-              <XMarkIcon className="size-6" />
-            </button>
-          </div>
-
-          {/* Content (스크롤) */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-safe">
-            <CategoryFilter
-              parentCategories={parentCategories}
-              childCategories={childCategories}
-              selectedParentCategory={selectedParentCategory}
-              onParentChange={handleParentCategoryChange}
-              selectedChildCategory={tempFilters.category ?? ""}
-              onChildChange={handleChildCategoryChange}
-            />
-
-            <div className="space-y-4">
-              <PriceFilter
-                minPrice={tempFilters.minPrice ?? ""}
-                maxPrice={tempFilters.maxPrice ?? ""}
-                onChangeKeyValue={handlePriceChange}
-              />
-              <GameTypeFilter
-                value={tempFilters.game_type ?? ""}
-                onChange={(value) =>
-                  setTempFilters((prev) => ({ ...prev, game_type: value }))
-                }
-              />
-              <ConditionFilter
-                value={tempFilters.condition ?? ""}
-                onChange={(value) =>
-                  setTempFilters((prev) => ({ ...prev, condition: value }))
-                }
-              />
-            </div>
-          </div>
-
-          {/* Footer (액션) */}
-          <div className="flex gap-3 p-5 border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),1.25rem)]">
+      <BottomSheet
+        open={isMobile && isOpen}
+        title="필터 설정"
+        description="카테고리, 가격, 상태 조건을 설정할 수 있습니다."
+        onClose={onClose}
+        contentClassName="space-y-4 pt-4"
+        footer={
+          <div className="flex gap-3">
             <button
               onClick={handleResetFilters}
               className="flex-1 btn-secondary h-12 text-sm"
@@ -203,8 +160,37 @@ export default function SearchFilters({
               적용하기
             </button>
           </div>
+        }
+      >
+        <CategoryFilter
+          parentCategories={parentCategories}
+          childCategories={childCategories}
+          selectedParentCategory={selectedParentCategory}
+          onParentChange={handleParentCategoryChange}
+          selectedChildCategory={tempFilters.category ?? ""}
+          onChildChange={handleChildCategoryChange}
+        />
+
+        <div className="space-y-4">
+          <PriceFilter
+            minPrice={tempFilters.minPrice ?? ""}
+            maxPrice={tempFilters.maxPrice ?? ""}
+            onChangeKeyValue={handlePriceChange}
+          />
+          <GameTypeFilter
+            value={tempFilters.game_type ?? ""}
+            onChange={(value) =>
+              setTempFilters((prev) => ({ ...prev, game_type: value }))
+            }
+          />
+          <ConditionFilter
+            value={tempFilters.condition ?? ""}
+            onChange={(value) =>
+              setTempFilters((prev) => ({ ...prev, condition: value }))
+            }
+          />
         </div>
-      </div>
+      </BottomSheet>
 
       {/* [Desktop] 드롭다운 */}
       <div className="hidden md:block absolute top-full right-0 mt-2 w-80 z-50 origin-top-right">
@@ -216,7 +202,8 @@ export default function SearchFilters({
             <h3 className="font-semibold text-primary">상세 필터</h3>
             <button
               onClick={onClose}
-              className="text-muted hover:text-primary transition-colors"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
+              aria-label="필터 닫기"
             >
               <XMarkIcon className="size-5" />
             </button>

@@ -12,6 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.03.06  임도헌   Modified  카테고리 탭 높이와 타이포를 게시글 탭과 동일한 밀도로 통일
  */
 "use client";
 
@@ -55,7 +56,7 @@ export default function StreamCategoryTabs({
       <Link
         href={buildHref(undefined)}
         className={cn(
-          "px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all border",
+          "inline-flex min-h-[36px] items-center rounded-full px-4 text-sm font-medium whitespace-nowrap transition-all border",
           !currentCategory
             ? "bg-brand text-white border-brand shadow-md dark:border-white/20"
             : "bg-surface text-muted border-border hover:border-brand/50 hover:text-primary"
@@ -69,7 +70,7 @@ export default function StreamCategoryTabs({
           key={key}
           href={buildHref(key)}
           className={cn(
-            "px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all border",
+            "inline-flex min-h-[36px] items-center rounded-full px-4 text-sm font-medium whitespace-nowrap transition-all border",
             currentCategory === key
               ? "bg-brand text-white border-brand shadow-md dark:border-white/20"
               : "bg-surface text-muted border-border hover:border-brand/50 hover:text-primary"

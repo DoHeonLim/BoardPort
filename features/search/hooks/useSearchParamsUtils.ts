@@ -10,6 +10,7 @@
  * 2026.01.16  임도헌   Moved     hooks -> hooks/search
  * 2026.01.18  임도헌   Moved     hooks/search -> features/search/hooks
  * 2026.01.28  임도헌   Modified  주석 표준화 및 로직 설명 보강
+ * 2026.03.07  임도헌   Modified  App Router 검색 파라미터 변경 시 불필요한 router.refresh()를 제거
  */
 
 "use client";
@@ -21,7 +22,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
  * URL Query Parameter 조작 훅
  *
  * 1. 검색어(`keyword`), 카테고리, 가격 등 필터 파라미터를 조작
- * 2. `router.push`와 `refresh`를 호출하여 서버 컴포넌트의 데이터 갱신을 유도
+ * 2. `router.push`를 호출하여 서버 컴포넌트의 데이터 갱신을 유도
  */
 export function useSearchParamsUtils() {
   const router = useRouter();
@@ -41,7 +42,6 @@ export function useSearchParamsUtils() {
         params.delete("keyword");
       }
       router.push(`${pathname}?${params.toString()}`);
-      router.refresh();
     },
     [searchParams, pathname, router]
   );
@@ -58,7 +58,6 @@ export function useSearchParamsUtils() {
         params.delete(key);
       }
       router.push(`${pathname}?${params.toString()}`);
-      router.refresh();
     },
     [searchParams, pathname, router]
   );
@@ -71,7 +70,6 @@ export function useSearchParamsUtils() {
       const params = new URLSearchParams(searchParams.toString());
       params.delete(key);
       router.push(`${pathname}?${params.toString()}`);
-      router.refresh();
     },
     [searchParams, pathname, router]
   );
@@ -83,7 +81,6 @@ export function useSearchParamsUtils() {
     const params = new URLSearchParams(searchParams.toString());
     keys.forEach((key) => params.delete(key));
     router.push(`${pathname}?${params.toString()}`);
-    router.refresh();
   };
 
   /**
@@ -101,7 +98,6 @@ export function useSearchParamsUtils() {
         }
       }
       router.push(`${pathname}?${params.toString()}`);
-      router.refresh();
     },
     [pathname, router]
   );

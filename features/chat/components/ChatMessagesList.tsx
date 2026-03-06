@@ -39,10 +39,13 @@
  * 2026.03.01  임도헌   Modified  useInfiniteMessages(TanStack Query) 적용으로 수동 상태 동기화 제거 및 캐시 조작 연동
  * 2026.03.03  임도헌   Modified  메시지 전송 및 약속 제안 로직을 CQRS(Mutation) 패턴으로 훅(Hook) 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  채팅방 최초 진입 시 실제 마지막 메시지를 안정적으로 노출하도록 초기 스크롤 기준 조정
+ * 2026.03.06  임도헌   Modified  최초 진입 스크롤과 실시간 수신 스크롤 정책을 분리해 과거 메시지 탐색 중 자동 점프를 방지
+ * 2026.03.07  임도헌   Modified  useChatSubscription의 읽음 이벤트 payload 구조(readerId 포함)에 맞춰 콜백 시그니처 정합성 보강
  */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -111,8 +114,50 @@ export default function ChatMessagesList({
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   const isAtBottomRef = useRef(true);
+  const hasInitialScrolledRef = useRef(false);
   const lastMessageIdRef = useRef<number | null>(null);
+  const messageElementMapRef = useRef(new Map<number, HTMLDivElement>());
+  const pendingScrollModeRef = useRef<"self" | "incoming" | null>(null);
   const BOTTOM_THRESHOLD_PX = 100;
+
+  const setMessageElement = useCallback(
+    (messageId: number, element: HTMLDivElement | null) => {
+      if (element) {
+        messageElementMapRef.current.set(messageId, element);
+        return;
+      }
+      messageElementMapRef.current.delete(messageId);
+    },
+    []
+  );
+
+  const scrollToLatestMessage = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const container = containerRef.current;
+      if (!container || messages.length === 0) return;
+
+      const lastMessage = messages[messages.length - 1];
+      const targetElement = lastMessage
+        ? messageElementMapRef.current.get(lastMessage.id)
+        : null;
+
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          block: "end",
+          behavior,
+        });
+      } else {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior,
+        });
+      }
+
+      isAtBottomRef.current = true;
+      setUnseenCount(0);
+    },
+    [containerRef, messages]
+  );
 
   /**
    * 약속 제안 핸들러
@@ -124,8 +169,8 @@ export default function ChatMessagesList({
     try {
       const resData = await proposeAppointment({ date, location });
       if (resData) {
+        pendingScrollModeRef.current = "self";
         addMessage(resData);
-        isAtBottomRef.current = true;
       }
     } catch (e: any) {
       toast.error(e.message);
@@ -154,29 +199,32 @@ export default function ChatMessagesList({
   }, [containerRef]);
 
   /**
-   * 메시지 추가 시 바닥 근처라면 자동 스크롤
+   * 실시간/전송으로 마지막 메시지가 갱신되었을 때만 자동 스크롤
+   * - self: 내가 보낸 메시지는 항상 최신 위치로 이동
+   * - incoming: 사용자가 이미 최신 구간을 보고 있을 때만 따라감
+   * - null: 과거 메시지 탐색 중 들어온 새 메시지이므로 점프하지 않음
    */
   useEffect(() => {
+    if (!hasInitialScrolledRef.current) return;
+
     const lastMsg = messages[messages.length - 1];
     if (!lastMsg) return;
 
-    if (lastMessageIdRef.current !== lastMsg.id) {
-      lastMessageIdRef.current = lastMsg.id;
-      const isOwn = lastMsg.user.id === user.id;
+    if (lastMessageIdRef.current === lastMsg.id) return;
 
-      if (isOwn || isAtBottomRef.current) {
-        setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.scrollTo({
-              top: containerRef.current.scrollHeight,
-              behavior: isOwn ? "auto" : "smooth",
-            });
-          }
-          setUnseenCount(0);
-        }, 100);
-      }
-    }
-  }, [containerRef, messages, user.id]);
+    lastMessageIdRef.current = lastMsg.id;
+
+    const pendingMode = pendingScrollModeRef.current;
+    pendingScrollModeRef.current = null;
+
+    if (!pendingMode) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToLatestMessage(pendingMode === "incoming" ? "smooth" : "auto");
+      });
+    });
+  }, [messages, scrollToLatestMessage]);
 
   /**
    * Supabase 실시간 웹소켓 구독
@@ -186,14 +234,19 @@ export default function ChatMessagesList({
     currentUserId: user.id,
     throttleReadUpdate: true,
     onNewMessage: (newMessage) => {
-      addMessage(newMessage);
-
       const isOwn = newMessage.user.id === user.id;
-      if (!isOwn && !isAtBottomRef.current) {
+      if (isOwn) {
+        pendingScrollModeRef.current = "self";
+      } else if (isAtBottomRef.current) {
+        pendingScrollModeRef.current = "incoming";
+      } else {
+        pendingScrollModeRef.current = null;
         setUnseenCount((c) => c + 1);
       }
+
+      addMessage(newMessage);
     },
-    onMessagesRead: (readIds) => updateMessagesRead(readIds),
+    onMessagesRead: ({ readIds }) => updateMessagesRead(readIds),
     onAppointmentUpdate: (appointmentId, status) => {
       updateAppointmentStatus(appointmentId, status);
       // 예약 승인 시 헤더 뱃지 갱신을 위해 RSC를 리프레시함
@@ -202,26 +255,21 @@ export default function ChatMessagesList({
   });
 
   /**
-   * 최초 진입 시 무조건 최하단으로 스크롤 고정
+   * 최초 진입 시 실제 마지막 메시지를 우선 노출
+   * - 렌더 직후 마지막 메시지 DOM 기준으로 정렬하여 이미지/버블 높이 차이에도 안정적으로 맞춘다.
+   * - 타깃 DOM을 찾지 못하면 기존처럼 최하단으로 이동한다.
    */
-  const hasInitialScrolledRef = useRef(false);
   useEffect(() => {
-    if (hasInitialScrolledRef.current) return;
-    hasInitialScrolledRef.current = true;
+    if (hasInitialScrolledRef.current || messages.length === 0) return;
 
-    setTimeout(() => {
-      if (containerRef.current) {
-        containerRef.current.scrollTo({
-          top: containerRef.current.scrollHeight,
-          behavior: "auto",
-        });
-      }
-      setUnseenCount(0);
-      if (messages.length > 0) {
-        lastMessageIdRef.current = messages[messages.length - 1].id;
-      }
-    }, 100);
-  }, [containerRef, messages]);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToLatestMessage("auto");
+        lastMessageIdRef.current = messages[messages.length - 1]?.id ?? null;
+        hasInitialScrolledRef.current = true;
+      });
+    });
+  }, [messages, scrollToLatestMessage]);
 
   /**
    * 메시지 전송 핸들러
@@ -230,8 +278,8 @@ export default function ChatMessagesList({
     try {
       const resData = await sendMessage({ text, imageUrl });
       if (resData?.message) {
+        pendingScrollModeRef.current = "self";
         addMessage(resData.message);
-        isAtBottomRef.current = true;
       }
       // 성공 시 비동기로 뱃지 획득 여부 체크
       void checkQuickResponseBadgeAction(user.id);
@@ -262,7 +310,12 @@ export default function ChatMessagesList({
         {messages.map((message) => {
           if (message.type === "SYSTEM") {
             return (
-              <SystemMessage key={message.id} text={message.payload ?? ""} />
+              <div
+                key={message.id}
+                ref={(element) => setMessageElement(message.id, element)}
+              >
+                <SystemMessage text={message.payload ?? ""} />
+              </div>
             );
           }
 
@@ -271,6 +324,7 @@ export default function ChatMessagesList({
             return (
               <div
                 key={message.id}
+                ref={(element) => setMessageElement(message.id, element)}
                 className={`flex w-full ${
                   isOwn ? "justify-end" : "justify-start"
                 } py-2`}
@@ -286,13 +340,17 @@ export default function ChatMessagesList({
           }
 
           return (
-            <ChatMessageBubble
+            <div
               key={message.id}
-              message={message}
-              isOwnMessage={message.user.id === user.id}
-              showAvatar
-              onReport={(id) => setReportMessageId(id)}
-            />
+              ref={(element) => setMessageElement(message.id, element)}
+            >
+              <ChatMessageBubble
+                message={message}
+                isOwnMessage={message.user.id === user.id}
+                showAvatar
+                onReport={(id) => setReportMessageId(id)}
+              />
+            </div>
           );
         })}
 
@@ -304,11 +362,7 @@ export default function ChatMessagesList({
         <button
           type="button"
           onClick={() => {
-            containerRef.current?.scrollTo({
-              top: containerRef.current.scrollHeight,
-              behavior: "smooth",
-            });
-            setUnseenCount(0);
+            scrollToLatestMessage("smooth");
           }}
           className="absolute left-1/2 -translate-x-1/2 bottom-24 z-20 rounded-full bg-neutral-900/80 dark:bg-neutral-950/80 border border-white/10 px-3 py-1.5 text-sm text-white backdrop-blur-md shadow-lg animate-bounce"
         >

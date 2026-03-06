@@ -27,6 +27,9 @@
  * 2026.02.26  임도헌   Modified  헤더 UI 수정
  * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  스코프 탭 active 상태를 다크모드 대비 기준으로 재정렬
+ * 2026.03.06  임도헌   Modified  상단 검색/스코프/카테고리 행의 간격과 보더 구조를 제품/게시글 탭과 유사하게 통일
+ * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 스트림 카드 스켈레톤 구조로 통일
  */
 import { Suspense } from "react";
 import { Metadata } from "next";
@@ -37,12 +40,12 @@ import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { cn } from "@/lib/utils";
-import Skeleton from "@/components/ui/Skeleton";
 import NotificationBell from "@/components/global/NotificationBell";
 import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
 import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
 import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
 import AddStreamButton from "@/features/stream/components/AddStreamButton";
+import StreamListSkeleton from "@/features/stream/components/StreamListSkeleton";
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import { getStreamsListAction } from "@/features/stream/actions/list";
@@ -122,7 +125,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
       {/* Sticky Header */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
         {/* 1단: 검색 및 알림 벨 */}
-        <div className="flex items-center gap-3 p-4 pb-2">
+        <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
           <StreamSearchBarWrapper />
           <div className="shrink-0">
             <NotificationBell userId={viewerId!} initialCount={unreadCount} />
@@ -130,15 +133,18 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         </div>
 
         {/* 2단: 페이지 스코프 선택 (전체 / 팔로잉) */}
-        <nav aria-label="보기 범위" className="px-4 py-2">
-          <div className="flex p-1 bg-surface-dim dark:bg-neutral-800/50 rounded-xl border border-border shadow-inner">
+        <nav
+          aria-label="보기 범위"
+          className="border-b border-border/50 px-4 py-2"
+        >
+          <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
             <Link
               href={buildHref("all")}
               className={cn(
-                "flex-1 flex justify-center items-center py-2 text-sm font-bold rounded-lg transition-all",
+                "flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
                 scope === "all"
-                  ? "bg-surface text-brand dark:text-brand-light shadow-md"
-                  : "text-muted hover:text-primary"
+                  ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                  : "text-muted hover:bg-background/70 hover:text-primary"
               )}
             >
               전체 방송
@@ -146,10 +152,10 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
             <Link
               href={buildHref("following")}
               className={cn(
-                "flex-1 flex justify-center items-center py-2 text-sm font-bold rounded-lg transition-all",
+                "flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
                 scope === "following"
-                  ? "bg-surface text-brand dark:text-brand-light shadow-md"
-                  : "text-muted hover:text-primary"
+                  ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                  : "text-muted hover:bg-background/70 hover:text-primary"
               )}
             >
               팔로잉
@@ -158,7 +164,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         </nav>
 
         {/* 3단: 카테고리 칩 */}
-        <div className="px-4 pb-3 overflow-hidden">
+        <div className="px-4 py-2 overflow-hidden">
           <StreamCategoryTabs currentCategory={category} />
         </div>
       </header>
@@ -174,12 +180,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         ) : (
           <HydrationBoundary state={dehydrate(queryClient)}>
             <Suspense
-              fallback={
-                <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="aspect-video w-full rounded-2xl" />
-                  <Skeleton className="aspect-video w-full rounded-2xl" />
-                </div>
-              }
+              fallback={<StreamListSkeleton />}
             >
               <StreamListSection
                 key={JSON.stringify(searchParams)}

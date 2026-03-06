@@ -17,6 +17,7 @@
  * 2026.02.28  임도헌   Modified  formData 생성 로직 표준화 및 가독성 개선
  * 2026.03.01  임도헌   Modified  tanstack query 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  실패 토스트를 상황 중심 문구로 구체화(v1.2)
  */
 "use client";
 
@@ -227,7 +228,11 @@ export default function PostForm({
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("게시글 처리에 실패했습니다.");
+      toast.error(
+        isEdit
+          ? "게시글 수정 중 문제가 발생했습니다. 입력 내용과 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          : "게시글 등록 중 문제가 발생했습니다. 이미지 업로드와 입력 내용을 확인한 뒤 다시 시도해주세요."
+      );
     } finally {
       setIsUploading(false);
     }

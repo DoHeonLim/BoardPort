@@ -12,6 +12,8 @@
  * 2026.02.15  임도헌   Modified  위치 정보(region) 표시 추가
  * 2026.02.26  임도헌   Modified  좁은 화면에서 UI 깨짐 수정
  * 2026.02.28  임도헌   Modified  viewMode 기반 레이아웃 최적화
+ * 2026.03.06  임도헌   Modified  모바일 그리드에서는 위치 정보 1줄을 노출하고 메타 배치를 압축형으로 조정
+ * 2026.03.06  임도헌   Modified  모바일 그리드 메타를 하단 정렬로 재배치하고 통계/시간을 한 줄로 정리
  */
 "use client";
 
@@ -55,34 +57,60 @@ export default function PostCardMeta({
   const isGrid = viewMode === "grid";
   // 동 단위까지만 표시 (예: "서초구 방배동")
   const locationText = [region2, region3].filter(Boolean).join(" ");
+  const showLocationInGrid = isGrid && !!locationText;
 
-  return (
-    <div className="flex items-center justify-between w-full mt-auto min-w-0 gap-2">
-      {/* 1. 좌측: 통계 지표 (공간이 줄어들면 shrink-0으로 크기 유지) */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0 text-muted">
-        <div className="flex items-center gap-1">
-          <HeartIcon
-            className={cn(
-              "size-3 sm:size-3.5",
-              likes > 0 ? "text-rose-500" : "text-muted/70"
-            )}
+  const stats = (
+    <div className="flex items-center gap-2 sm:gap-3 shrink-0 text-muted">
+      <div className="flex items-center gap-1">
+        <HeartIcon
+          className={cn(
+            "size-3 sm:size-3.5",
+            likes > 0 ? "text-rose-500" : "text-muted/70"
+          )}
+        />
+        <span className="text-[10px] sm:text-xs">{likes}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <ChatBubbleLeftIcon className="size-3 text-muted/70" />
+        <span className="text-[10px] sm:text-xs">{comments}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <EyeIcon className="size-3 text-muted/70" />
+        <span className="text-[10px] sm:text-xs">{views}</span>
+      </div>
+    </div>
+  );
+
+  if (isGrid) {
+    return (
+      <div className="mt-auto flex w-full min-w-0 flex-col gap-1 text-muted">
+        {showLocationInGrid && (
+          <div
+            className="flex items-center gap-1 min-w-0 text-[10px]"
+            title={locationText}
+          >
+            <MapPinIcon className="size-3 shrink-0" />
+            <span className="truncate">{locationText}</span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+          {stats}
+          <TimeAgo
+            date={createdAt}
+            className="text-muted whitespace-nowrap shrink-0"
           />
-          <span className="text-[10px] sm:text-xs">{likes}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <ChatBubbleLeftIcon className="size-3 text-muted/70" />
-          <span className="text-[10px] sm:text-xs">{comments}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <EyeIcon className="size-3 text-muted/70" />
-          <span className="text-[10px] sm:text-xs">{views}</span>
         </div>
       </div>
+    );
+  }
 
-      {/* 2. 우측: 위치 및 시간 */}
-      <div className="flex items-center gap-1.5 min-w-0 justify-end text-[10px] sm:text-xs text-muted">
-        {/* 리스트 모드에서만 위치 정보 노출 */}
-        {!isGrid && locationText && (
+  return (
+    <div className="mt-auto flex w-full min-w-0 items-center justify-between gap-2">
+      {stats}
+
+      <div className="flex items-center justify-end gap-1.5 min-w-0 text-[10px] sm:text-xs text-muted">
+        {locationText && (
           <>
             <div
               className="flex items-center gap-0.5 min-w-0"

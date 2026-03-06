@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.23  임도헌   Created   API Route 로직 이관 (구독/해제/검증)
+ * 2026.03.07  임도헌   Modified  Welcome 알림 링크를 실제 설정 경로로 정정
  */
 import "server-only";
 import db from "@/lib/db";
@@ -75,7 +76,7 @@ export async function upsertSubscription(userId: number, dto: SubscriptionDTO) {
           title: "푸시 알림 설정 완료",
           body: "푸시 알림이 활성화되었습니다.",
           type: "SYSTEM",
-          link: "/profile/notifications",
+          link: "/profile/notifications/setting",
           isPushSent: false,
         },
         select: { id: true },

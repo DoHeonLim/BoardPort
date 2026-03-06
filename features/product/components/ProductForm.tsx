@@ -20,6 +20,7 @@
  * 2026.03.01  임도헌   Modified  tanstack query 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  flow=modal-edit 분기 추가, 편집 완료 시 모달/페이지 복귀 동작 분리
+ * 2026.03.07  임도헌   Modified  성공/실패 피드백 문구를 구체화해 v1.2 기준 반영
  */
 
 /** 제품 수정 컴포넌트 히스토리
@@ -318,10 +319,10 @@ export default function ProductForm({
         const detailHref = `/products/view/${result.productId}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
 
         if (mode === "create") {
-          toast.success("🎉 제품 등록 완료!");
+          toast.success("제품이 등록되었습니다. 상세 페이지에서 바로 거래를 이어갈 수 있습니다.");
           router.push(detailHref);
         } else if (mode === "edit") {
-          toast.success("🎉 제품 수정 완료!");
+          toast.success("제품 정보가 수정되었습니다. 변경 내용이 상세 페이지에 반영됩니다.");
           if (isModalEditFlow && returnTo) {
             // 모달에서 편집한 경우:
             // 1) 목록으로 복귀
@@ -334,11 +335,20 @@ export default function ProductForm({
           }
         }
       } else if (result?.error) {
-        toast.error("오류가 발생했습니다. 다시 시도해주세요.");
+        toast.error(
+          result.error ??
+            (mode === "create"
+              ? "제품 등록에 실패했습니다. 필수 입력값과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요."
+              : "제품 수정에 실패했습니다. 변경한 항목을 확인한 뒤 다시 시도해주세요.")
+        );
       }
     } catch (err) {
       console.error("upload error:", err);
-      toast.error("처리 중 오류가 발생했습니다.");
+      toast.error(
+        mode === "create"
+          ? "제품 등록 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          : "제품 수정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+      );
     } finally {
       setIsUploading(false);
     }

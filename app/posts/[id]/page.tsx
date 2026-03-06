@@ -33,6 +33,9 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";

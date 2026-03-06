@@ -194,7 +194,7 @@ export default function SelectUserModal({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-end">
           <button
-            className="btn-secondary h-10 text-sm border-transparent hover:bg-black/5 dark:hover:bg-white/5"
+            className="btn-secondary h-10 text-sm border-transparent hover:bg-surface-dim"
             onClick={() => onOpenChange(false)}
           >
             닫기

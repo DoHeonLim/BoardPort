@@ -8,6 +8,7 @@
  * 2025.09.17  임도헌   Created   라이브 상세에서 분리하여 녹화 페이지 전용으로 이동
  * 2026.01.14  임도헌   Modified  [UI] ConfirmDialog 연동 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.03.07  임도헌   Modified  삭제 실패 피드백 문구를 구체화(v1.2)
  */
 "use client";
 
@@ -51,7 +52,10 @@ export default function RecordingDeleteButton({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
-        toast.error(data?.error ?? "삭제 실패");
+        toast.error(
+          data?.error ??
+            "녹화 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
         return;
       }
 
@@ -60,7 +64,9 @@ export default function RecordingDeleteButton({
       router.push(`/profile/${username}/channel`);
     } catch (e) {
       console.error(e);
-      toast.error("오류가 발생했습니다.");
+      toast.error(
+        "녹화 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+      );
     } finally {
       setLoading(false);
     }

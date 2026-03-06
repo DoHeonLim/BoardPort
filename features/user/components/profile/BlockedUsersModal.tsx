@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.04  임도헌   Created
  * 2026.02.26  임도헌   Modified  차단 해제 텍스트 버튼 다크모드 가시성 수정
+ * 2026.03.06  임도헌   Modified  닫기 버튼 접근성과 터치 타겟을 공통 규칙에 맞게 보강
  */
 "use client";
 
@@ -15,6 +16,7 @@ import { toggleBlockAction } from "@/features/user/actions/block";
 import UserAvatar from "@/components/global/UserAvatar";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface BlockedUser {
   blocked: { id: number; username: string; avatar: string | null };
@@ -59,7 +61,12 @@ export default function BlockedUsersModal({
           <h2 className="font-bold text-primary">차단한 선원 관리</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-black/5 rounded-full transition-colors"
+            type="button"
+            aria-label="차단한 선원 관리 모달 닫기"
+            className={cn(
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors",
+              "text-muted hover:bg-surface-dim hover:text-primary"
+            )}
           >
             <XMarkIcon className="size-6 text-muted" />
           </button>

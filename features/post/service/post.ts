@@ -22,6 +22,8 @@
  * 2026.02.22  임도헌   Modified  글로벌 피드에서 정지된 유저(Banned)의 게시글 완벽 은닉
  * 2026.03.05  임도헌   Modified  `unstable_cache` 및 관련 `revalidateTag` 레거시 제거, TanStack Query용 순수 DB 페칭 로직으로 단일화
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  사용자 노출용 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  PostTag.count 정합성 및 정지 유저 mutation 가드 보강
  */
 import "server-only";
 
@@ -203,6 +205,8 @@ export async function createPost(
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
+    const nextTags = Array.from(new Set(data.tags));
+
     const post = await db.$transaction(async (tx) => {
       // 2. 게시글 본문 생성
       const newPost = await tx.post.create({
@@ -223,8 +227,8 @@ export async function createPost(
       });
 
       // 3. 태그 처리 (중복 시 카운트 증가)
-      if (data.tags.length) {
-        for (const tagName of data.tags) {
+      if (nextTags.length) {
+        for (const tagName of nextTags) {
           const tag = await tx.postTag.upsert({
             where: { name: tagName },
             create: { name: tagName, count: 1 },
@@ -267,7 +271,11 @@ export async function createPost(
     return { success: true, data: { postId: post.id } };
   } catch (error) {
     console.error("createPost Error:", error);
-    return { success: false, error: "게시글 생성 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 등록에 실패했습니다. 입력 내용과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요.",
+    };
   }
 }
 
@@ -287,15 +295,24 @@ export async function updatePost(
   data: PostUpdateDTO
 ): Promise<ServiceResult<{ postId: number }>> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     // 1. 소유권 확인
     const existing = await db.post.findUnique({
       where: { id: data.id },
-      select: { userId: true },
+      select: { userId: true, tags: { select: { name: true } } },
     });
     if (!existing)
       return { success: false, error: "게시글을 찾을 수 없습니다." };
     if (existing.userId !== userId)
       return { success: false, error: "권한이 없습니다." };
+
+    const prevTags = new Set(existing.tags.map((tag) => tag.name));
+    const nextTags = Array.from(new Set(data.tags));
+    const nextTagSet = new Set(nextTags);
+    const removedTags = Array.from(prevTags).filter((tag) => !nextTagSet.has(tag));
+    const addedTags = nextTags.filter((tag) => !prevTags.has(tag));
 
     // 위치 정보 업데이트 데이터 구성
     const locationUpdate = data.location
@@ -333,7 +350,7 @@ export async function updatePost(
           description: data.description,
           category: data.category,
           tags: {
-            connectOrCreate: data.tags.map((tag) => ({
+            connectOrCreate: nextTags.map((tag) => ({
               where: { name: tag },
               create: { name: tag },
             })),
@@ -341,6 +358,25 @@ export async function updatePost(
           ...locationUpdate,
         },
       });
+
+      if (removedTags.length) {
+        await tx.postTag.updateMany({
+          where: { name: { in: removedTags }, count: { gt: 0 } },
+          data: { count: { decrement: 1 } },
+        });
+      }
+
+      if (addedTags.length) {
+        await Promise.all(
+          addedTags.map((tagName) =>
+            tx.postTag.upsert({
+              where: { name: tagName },
+              create: { name: tagName, count: 1 },
+              update: { count: { increment: 1 } },
+            })
+          )
+        );
+      }
 
       // 새 이미지 저장
       if (data.photos.length) {
@@ -361,7 +397,11 @@ export async function updatePost(
     return { success: true, data: { postId: data.id } };
   } catch (error) {
     console.error("updatePost Error:", error);
-    return { success: false, error: "게시글 수정에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 수정에 실패했습니다. 변경한 내용과 첨부 이미지를 확인한 뒤 다시 시도해주세요.",
+    };
   }
 }
 
@@ -380,19 +420,37 @@ export async function deletePost(
   postId: number
 ): Promise<ServiceResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     const post = await db.post.findUnique({
       where: { id: postId },
-      select: { userId: true },
+      select: { userId: true, tags: { select: { name: true } } },
     });
 
     if (!post) return { success: false, error: "게시글을 찾을 수 없습니다." };
     if (post.userId !== userId)
       return { success: false, error: "권한이 없습니다." };
 
-    await db.post.delete({ where: { id: postId } });
+    await db.$transaction(async (tx) => {
+      const tagNames = post.tags.map((tag) => tag.name);
+
+      if (tagNames.length) {
+        await tx.postTag.updateMany({
+          where: { name: { in: tagNames }, count: { gt: 0 } },
+          data: { count: { decrement: 1 } },
+        });
+      }
+
+      await tx.post.delete({ where: { id: postId } });
+    });
     return { success: true };
   } catch (error) {
     console.error("deletePost Error:", error);
-    return { success: false, error: "삭제 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

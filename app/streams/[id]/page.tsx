@@ -30,6 +30,7 @@
  * 2026.02.22  임도헌   Modified  라이브 채팅창에 기존 차단 목록(blockedIds) 주입
  * 2026.03.04  임도헌   Modified  StreamChatUIStoreProvider 적용으로 스트림 채팅 UI 상태를 이벤트 버스에서 Zustand로 전환
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  데스크톱에서도 모바일과 동일한 중앙 정렬 단일 컬럼 흐름으로 레이아웃을 통일
  */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
@@ -187,12 +188,8 @@ export default async function StreamDetailPage({
           isOwner={isOwner}
         />
 
-        <div className="flex-1 xl:grid xl:grid-cols-[1fr,min(100%,1000px),360px] 2xl:grid-cols-[1fr,min(100%,1100px),400px] xl:gap-4 xl:p-4">
-          {/* Left Spacer (Grid Centering) */}
-          <div className="hidden xl:block" />
-
-          {/* Main Content */}
-          <div className="w-full">
+        <div className="mx-auto flex w-full max-w-mobile flex-1 flex-col px-3 pb-4 sm:px-4">
+          <div className="pt-3">
             <StreamDetail
               stream={initialBroadcast}
               me={session?.id ?? null}
@@ -200,8 +197,8 @@ export default async function StreamDetailPage({
             />
           </div>
 
-          {/* Chat Sidebar (Desktop) */}
-          <div className="hidden xl:block h-[calc(100vh-100px)] sticky top-20">
+          {/* Chat Section (Desktop) */}
+          <div className="mt-3 hidden xl:block">
             <StreamChatRoom
               initialStreamMessage={initialStreamMessage}
               streamChatRoomId={streamChatRoom.id}
@@ -209,7 +206,7 @@ export default async function StreamDetailPage({
               userId={session.id!}
               username={user.username}
               initialBlockedUserIds={blockedIds}
-              fillParent
+              containerClassName="xl:h-[36rem]"
             />
           </div>
         </div>

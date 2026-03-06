@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import { Toaster } from "sonner";
@@ -9,7 +9,11 @@ import { NotificationStoreProvider } from "@/components/global/providers/Notific
 import { ModalStoreProvider } from "@/components/global/providers/ModalStoreProvider";
 import NotificationBoot from "@/features/notification/components/NotificationBoot";
 
-const inter = Inter({ subsets: ["latin"] });
+const pretendard = localFont({
+  src: "../public/fonts/PretendardVariable.woff2",
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -53,7 +57,7 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={pretendard.variable}>
         <AppWrapper>
           <ThemeProvider
             attribute="class"

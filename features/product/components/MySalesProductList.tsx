@@ -22,6 +22,7 @@
  * 2026.03.01  임도헌   Modified  상태 변경(Optimistic Move) 로직을 QueryClient.setQueryData로 리팩토링 및 로딩 상태 세분화
  * 2026.03.03  임도헌   Modified  initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent)를 분리하여 Suspense 최적화
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  탭/뷰 토글 active 상태와 다크모드 대비 정리
  */
 
 "use client";
@@ -167,16 +168,16 @@ export default function MySalesProductList({
 
   return (
     <div className="flex flex-col px-page-x py-6">
-      <div className="flex p-1 mb-6 bg-surface-dim rounded-xl border border-border">
+      <div className="mb-6 flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
         {PRODUCT_STATUS_TYPES.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={cn(
-              "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+              "flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-all",
               activeTab === tab
-                ? "bg-surface text-brand shadow-sm"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
           >
             {PRODUCT_STATUS_LABEL[tab]}{" "}
@@ -186,25 +187,27 @@ export default function MySalesProductList({
       </div>
 
       <div className="flex justify-end gap-2 mb-3">
-        <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
+        <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
           <button
             onClick={() => setViewMode("list")}
+            aria-label="리스트 보기"
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
               viewMode === "list"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
           >
             <ListBulletIcon className="size-5" />
           </button>
           <button
             onClick={() => setViewMode("grid")}
+            aria-label="그리드 보기"
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
               viewMode === "grid"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
           >
             <Squares2X2Icon className="size-5" />

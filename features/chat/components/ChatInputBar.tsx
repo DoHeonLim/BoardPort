@@ -29,6 +29,7 @@
  * 2026.02.19  임도헌   Modified  ChatActionMenu로 통합(이미지 업로드, 약속 잡기)
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  * 2026.02.26  임도헌   Modified  다크모드 개선 및 autoFocus 제거
+ * 2026.03.06  임도헌   Modified  이미지 제거/메시지 전송 버튼 접근성 라벨 보강
  */
 "use client";
 
@@ -182,6 +183,7 @@ export default function ChatInputBar({
             )}
             <button
               onClick={removeImage}
+              aria-label="첨부 이미지 제거"
               className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black"
             >
               <XMarkIcon className="size-4" />
@@ -235,6 +237,7 @@ export default function ChatInputBar({
             (!text.trim() && !uploadedUrl) ||
             disabled
           }
+          aria-label="메시지 전송"
           className={cn(
             "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
             "bg-brand-light dark:bg-brand text-white hover:bg-brand active:scale-95",

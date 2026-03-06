@@ -10,11 +10,12 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  스트리머 차단 및 VOD 신고 통합 메뉴 구현
+ * 2026.03.06  임도헌   Modified  상세 상단 액션바 버튼/칩 스타일을 공통 규칙으로 통일하고 모바일 옵션 시트를 추가
  */
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -23,11 +24,14 @@ import {
   EllipsisVerticalIcon,
   UserMinusIcon,
   ExclamationTriangleIcon,
+  ShareIcon,
 } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import BackButton from "@/components/global/BackButton";
+import BottomSheet from "@/components/global/BottomSheet";
 import UserAvatar from "@/components/global/UserAvatar";
-import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { cn, handleShare } from "@/lib/utils";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -65,6 +69,21 @@ export default function RecordingTopbar({
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (isMobile || !menuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobile, menuOpen]);
 
   const handleBlock = () => {
     startTransition(async () => {
@@ -73,7 +92,11 @@ export default function RecordingTopbar({
         toast.success(`${username}님을 차단했습니다.`);
         router.replace("/streams");
         router.refresh();
+      } else {
+        toast.error(res.error);
       }
+      setBlockConfirmOpen(false);
+      setMenuOpen(false);
     });
   };
 
@@ -98,7 +121,7 @@ export default function RecordingTopbar({
           {categoryLabel && (
             <div
               className={cn(
-                "hidden sm:inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                "appbar-chip hidden sm:inline-flex",
                 "bg-surface-dim text-muted border border-transparent"
               )}
             >
@@ -106,24 +129,46 @@ export default function RecordingTopbar({
               <span>{categoryLabel}</span>
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => handleShare(`${username}님의 다시보기`)}
+            className="appbar-icon-btn"
+            aria-label="다시보기 공유하기"
+          >
+            <ShareIcon className="size-5" />
+          </button>
           {!isOwner && (
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="p-2 text-muted hover:text-primary"
+                aria-label="다시보기 옵션 열기"
+                aria-expanded={menuOpen}
+                aria-haspopup={isMobile ? "dialog" : "menu"}
+                className="appbar-icon-btn"
               >
                 <EllipsisVerticalIcon className="size-5" />
               </button>
-              {menuOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in">
+              {!isMobile && menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+                >
                   <button
-                    onClick={() => setBlockConfirmOpen(true)}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setBlockConfirmOpen(true);
+                    }}
+                    role="menuitem"
                     className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2"
                   >
                     <UserMinusIcon className="size-4" /> 스트리머 차단
                   </button>
                   <button
-                    onClick={() => setReportOpen(true)}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setReportOpen(true);
+                    }}
+                    role="menuitem"
                     className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border"
                   >
                     <ExclamationTriangleIcon className="size-4" /> 다시보기 신고
@@ -134,6 +179,38 @@ export default function RecordingTopbar({
           )}
         </div>
       </div>
+
+      <BottomSheet
+        open={isMobile && menuOpen}
+        title="다시보기 옵션"
+        description="스트리머 차단 또는 다시보기 신고를 진행할 수 있습니다."
+        onClose={() => setMenuOpen(false)}
+      >
+        <div className="space-y-2 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setBlockConfirmOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+          >
+            <UserMinusIcon className="size-5 shrink-0" />
+            스트리머 차단
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+          >
+            <ExclamationTriangleIcon className="size-5 shrink-0" />
+            다시보기 신고
+          </button>
+        </div>
+      </BottomSheet>
 
       <ConfirmDialog
         open={blockConfirmOpen}

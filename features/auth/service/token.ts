@@ -14,6 +14,7 @@
  * 2026.01.21  임도헌   Moved     lib/email/token -> service/token
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Merged    features/auth/utils/tokenGenerator.ts (SMS) 통합
+ * 2026.03.07  임도헌   Modified  SMS 토큰 생성 범위를 이메일 토큰과 동일한 6자리 전체 범위로 정정
  */
 
 import "server-only";
@@ -47,7 +48,7 @@ export async function handleGetToken(): Promise<string> {
  * - SMSToken 테이블 중복 체크
  */
 export async function generateUniqueSmsToken(): Promise<string> {
-  const token = crypto.randomInt(100000, 999999).toString();
+  const token = crypto.randomInt(100000, 1000000).toString();
 
   const exists = await db.sMSToken.findUnique({
     where: { token },

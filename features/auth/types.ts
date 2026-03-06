@@ -6,11 +6,16 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.20  임도헌   Created   Auth 관련 공용 타입 정의
- * 2026.01.20  임도헌   Modified  ServiceResult 제네릭 개선, EmailVerifyState 추가
+ * 2026.01.20  임도헌   Modified  Action/Form State 및 EmailVerifyState 추가
  * 2026.01.24  임도헌   Moved     root/types/auth.ts -> features/auth/types.ts
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  카카오 프로필 정보(KakaoProfile) 타입 추가
+ * 2026.03.07  임도헌   Modified  타입 섹션 구조 정리
  */
+
+// =============================================================================
+// 1. Action / Form State Types
+// =============================================================================
 
 /** 서버 액션 공통 응답 (Form State) */
 export type ActionState = {
@@ -18,6 +23,10 @@ export type ActionState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
 };
+
+// =============================================================================
+// 2. OAuth Profile Types
+// =============================================================================
 
 /** GitHub 프로필 정보 */
 export interface GitHubProfile {
@@ -42,6 +51,10 @@ export interface KakaoProfile {
     };
   };
 }
+
+// =============================================================================
+// 3. Auth Flow State Types
+// =============================================================================
 
 /** 이메일 인증 상태 (useFormState용) */
 export interface EmailVerifyState {

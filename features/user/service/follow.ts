@@ -17,12 +17,17 @@
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.02.22  임도헌   Modified   정지된 유저(Banned) 팔로우 원천 차단 가드 추가
  * 2026.03.03  임도헌   Modified   unstable_cache 래퍼 및 1페이지 분기 로직 제거, 단일 페이징 쿼리로 통합
+ * 2026.03.07  임도헌   Modified   요청자 정지 가드 및 팔로우 실패 사유 전달 정합성 보강
+ * 2026.03.07  임도헌   Modified   팔로우 목록에서 정지/차단 관계 유저 숨김 처리 추가
  */
 import "server-only";
 import db from "@/lib/db";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { resolveUserIdByUsername } from "@/features/user/service/profile";
-import { checkBlockRelation } from "@/features/user/service/block";
+import {
+  checkBlockRelation,
+  getBlockedUserIds,
+} from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { FollowListCursor, FollowListUser } from "@/features/user/types";
 
@@ -35,10 +40,28 @@ import type { FollowListCursor, FollowListUser } from "@/features/user/types";
 async function batchFetchUserLiteByIds(ids: number[]) {
   if (!ids.length) return new Map();
   const users = await db.user.findMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, bannedAt: null },
     select: { id: true, username: true, avatar: true },
   });
   return new Map(users.map((u) => [u.id, u]));
+}
+
+/**
+ * 조회자 기준으로 차단 관계에 있는 유저를 팔로우 목록에서 제외
+ */
+async function filterVisibleFollowRows<T extends { followerId?: number; followingId?: number }>(
+  rows: T[],
+  viewerId: number | null
+) {
+  if (!viewerId || rows.length === 0) return rows;
+
+  const blockedIds = new Set(await getBlockedUserIds(viewerId));
+  if (blockedIds.size === 0) return rows;
+
+  return rows.filter((row) => {
+    const targetId = row.followerId ?? row.followingId;
+    return targetId ? !blockedIds.has(targetId) : true;
+  });
 }
 
 /** --- Public API ---
@@ -76,9 +99,10 @@ export async function getFollowersService(
 
   const hasMore = rows.length > Math.min(limit, 50);
   const page = hasMore ? rows.slice(0, Math.min(limit, 50)) : rows;
+  const visiblePage = await filterVisibleFollowRows(page, viewerId);
 
   // 2. 유저 정보 조립
-  const ids = page.map((r) => r.followerId);
+  const ids = visiblePage.map((r) => r.followerId);
   const liteById = await batchFetchUserLiteByIds(ids);
 
   // 3. 관계 상태 확인 (viewer -> row / owner -> row)
@@ -102,7 +126,7 @@ export async function getFollowersService(
 
   // 4. 결과 매핑
   const users: FollowListUser[] = [];
-  for (const r of page) {
+  for (const r of visiblePage) {
     const u = liteById.get(r.followerId);
     if (!u) continue;
     users.push({
@@ -148,8 +172,9 @@ export async function getFollowingService(
 
   const hasMore = rows.length > Math.min(limit, 50);
   const page = hasMore ? rows.slice(0, Math.min(limit, 50)) : rows;
+  const visiblePage = await filterVisibleFollowRows(page, viewerId);
 
-  const ids = page.map((r) => r.followingId);
+  const ids = visiblePage.map((r) => r.followingId);
   const liteById = await batchFetchUserLiteByIds(ids);
 
   const viewerFollowsSet = new Set<number>();
@@ -171,7 +196,7 @@ export async function getFollowingService(
   }
 
   const users: FollowListUser[] = [];
-  for (const r of page) {
+  for (const r of visiblePage) {
     const u = liteById.get(r.followingId);
     if (!u) continue;
     users.push({
@@ -206,6 +231,11 @@ export async function followUserService(
   viewerId: number,
   targetId: number
 ): Promise<ToggleFollowResult> {
+  const viewerStatus = await validateUserStatus(viewerId);
+  if (!viewerStatus.success) {
+    throw new Error(viewerStatus.error);
+  }
+
   // 대상 유저가 정지된 상태인지 확인하여 팔로우 차단
   const targetStatus = await validateUserStatus(targetId);
   if (!targetStatus.success) {
@@ -240,6 +270,11 @@ export async function unfollowUserService(
   viewerId: number,
   targetId: number
 ): Promise<ToggleFollowResult> {
+  const viewerStatus = await validateUserStatus(viewerId);
+  if (!viewerStatus.success) {
+    throw new Error(viewerStatus.error);
+  }
+
   const res = await db.follow.deleteMany({
     where: { followerId: viewerId, followingId: targetId },
   });

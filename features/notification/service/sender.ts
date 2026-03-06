@@ -13,6 +13,7 @@
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
  * 2026.01.23  임도헌   Modified  lib/push-notification -> service/sender 이동 및 경로 수정
  * 2026.02.12  임도헌   Modified  KEYWORD 타입 푸시 정책(Tag, Defaults) 추가
+ * 2026.03.07  임도헌   Modified  SYSTEM 기본 tag가 KEYWORD로 폴스루되지 않도록 분기 수정
  */
 
 import webPush from "web-push";
@@ -106,6 +107,7 @@ function defaultTagByType(type: NotificationType, url?: string) {
       return m ? `bp-stream-${m[1]}` : "bp-stream";
     }
     case "SYSTEM":
+      return "bp-system";
     case "KEYWORD": // 키워드 알림은 개별 건으로 쌓이는 게 좋으므로 unique tag 사용 권장 (여기선 url 기반)
       const m = url?.match(/\/products\/view\/([^/?#]+)/);
       return m ? `bp-keyword-${m[1]}` : "bp-keyword";

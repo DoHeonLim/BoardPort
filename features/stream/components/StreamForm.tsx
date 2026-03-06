@@ -17,11 +17,13 @@
  * 2026.01.28  임도헌   Modified   주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified   모달 Dynamic Import 적용
  * 2026.02.28  임도헌   Modified   formData 생성 로직 표준화 및 가독성 개선
+ * 2026.03.07  임도헌   Modified   실패 피드백 구체화 및 명시적 취소 경로 추가(v1.2)
  */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
@@ -50,6 +52,7 @@ interface StreamFormProps {
   action: (formData: FormData) => Promise<CreateBroadcastResult>;
   categories: StreamCategory[];
   defaultValues?: Partial<StreamFormValues>;
+  cancelHref?: string;
 }
 
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
@@ -70,6 +73,7 @@ export default function StreamForm({
   action,
   categories,
   defaultValues,
+  cancelHref = "/streams",
 }: StreamFormProps) {
   // 대분류 초기값 추론
   const initialMainCategory = useMemo<number | null>(() => {
@@ -204,7 +208,12 @@ export default function StreamForm({
       const result = await action(formData);
 
       if (!result.success) {
-        toast.error(result.error ?? "스트리밍 처리 중 오류가 발생했습니다.");
+        toast.error(
+          result.error ??
+            (mode === "create"
+              ? "방송 생성에 실패했습니다. 제목, 카테고리, 공개 설정을 확인한 뒤 다시 시도해주세요."
+              : "방송 수정에 실패했습니다. 변경한 항목을 확인한 뒤 다시 시도해주세요.")
+        );
         return;
       }
 
@@ -217,10 +226,18 @@ export default function StreamForm({
       });
       setShowStreamInfo(true);
 
-      toast.success("스트리밍이 생성되었습니다.");
+      toast.success(
+        mode === "create"
+          ? "방송이 생성되었습니다. 송출 정보를 확인하고 바로 시작할 수 있습니다."
+          : "방송 정보가 수정되었습니다."
+      );
     } catch (error) {
       console.error("[StreamForm] submit failed:", error);
-      toast.error("스트리밍 처리 중 오류가 발생했습니다.");
+      toast.error(
+        mode === "create"
+          ? "방송 생성 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          : "방송 수정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+      );
     }
   };
 
@@ -332,10 +349,19 @@ export default function StreamForm({
           )}
         </div>
 
-        <Button
-          disabled={isSubmitting}
-          text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
-        />
+        <div className="pt-2 flex flex-col gap-3">
+          <Button
+            disabled={isSubmitting}
+            text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
+          />
+
+          <Link
+            href={cancelHref}
+            className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+          >
+            취소
+          </Link>
+        </div>
       </form>
 
       {/* OBS 정보 모달 */}

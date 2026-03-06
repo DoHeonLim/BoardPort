@@ -5,11 +5,12 @@
  *
  * History
  * Date        Author   Status    Description
- * 2026.01.24  임도헌   Created   types/profile.ts 내용 통합 및 ServiceResult 추가
+ * 2026.01.24  임도헌   Created   types/profile.ts 내용 통합
  * 2026.02.04  임도헌   Modified  userProfile 타입에 isBlocked 필드 추가 (차단 여부)
  * 2026.02.06  임도헌   Modified  관리자용 타입 추가
  * 2026.02.15  임도헌   Modified  UserProfile에 location 관련 필드 추가
  * 2026.02.24  임도헌   Modified  CurrentUserForEdit 타입에 kakao_id를 추가
+ * 2026.03.07  임도헌   Modified  섹션 제목 및 타입 설명 정리
  */
 
 import type { Role } from "@/generated/prisma/enums";
@@ -145,7 +146,7 @@ export type AdminUserListResponse = {
 };
 
 // =============================================================================
-// 2. Action Response Types (Form State)
+// 2. Action / Form State Types
 // =============================================================================
 
 export type EditProfileActionState = {
