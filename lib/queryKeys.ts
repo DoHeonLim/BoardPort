@@ -47,7 +47,7 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.products.details(), id] as const,
     likeStatus: (productId: number) =>
       [...queryKeys.products.detail(productId), "likeStatus"] as const,
-    // 유저 프로필 탭의 판매/구매 목록용
+    // 유저 프로필 탭의 판매/구매/찜 목록용
     userScope: (scope: string, userId: number) =>
       [...queryKeys.products.all, "userScope", scope, userId] as const,
   },

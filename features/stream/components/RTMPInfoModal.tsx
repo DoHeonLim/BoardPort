@@ -209,7 +209,7 @@ export default function RTMPInfoModal({
   };
 
   // 닫기 공통 로직: 사용자가 "스트리밍 페이지로 이동" 하지 않았다면
-  // 생성된 broadcast를 삭제하여 중복 생성을 방지합니다.
+  // 생성된 broadcast를 삭제하여 중복 생성을 방지
   const handleClose = () => {
     // 만약 네비게이트 했으면 즉시 닫기
     if (navigatedToBroadcastRef.current || !broadcastId) {

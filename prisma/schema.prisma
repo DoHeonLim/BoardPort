@@ -62,6 +62,7 @@
  * 2026.02.20  임도헌   Modified  동네 보기 범위 추가
  * 2026.02.21  임도헌   Modified  KeywordAlert에도 동네 범위 추가
  * 2026.02.24  임도헌   Modified  유저 모델에 카카오 ID 추가
+ * 2026.03.06  임도헌   Modified  ProductLike/Notification 인덱스 추가 (좋아요 목록/알림 중복 검사 성능 최적화)
  */
 generator client {
   provider = "prisma-client"
@@ -341,6 +342,8 @@ model ProductLike {
   productId Int
 
   @@id(name: "id", [userId, productId]) // 복합 키
+  @@index([productId]) // 상품별 좋아요 카운트/조회 최적화
+  @@index([userId, created_at(sort: Desc), productId(sort: Desc)]) // 내 찜 목록 최신순 + 커서 페이징 최적화
 }
 
 /// 거래 후기 (Review)
@@ -576,6 +579,7 @@ model Notification {
 
   @@index([userId, created_at]) // 내 알림함
   @@index([userId, isRead]) // 안 읽은 알림 필터
+  @@index([userId, type, link, created_at(sort: Desc)]) // 거래 알림 최근 중복 검사 쿼리 최적화
 }
 
 /// Web Push 구독 정보 (PWA)

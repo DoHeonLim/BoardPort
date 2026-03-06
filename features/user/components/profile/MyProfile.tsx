@@ -35,6 +35,7 @@
  * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
  * 2026.03.01  임도헌   Modified   이벤트 리스너(window.addEventListener) 제거 및 Zustand(ModalStore) 도입
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.06  임도헌   Modified   거래 정보 섹션에 '찜한 내역' 바로가기 링크 추가
  */
 "use client";
 
@@ -61,6 +62,7 @@ import type {
   ProfileAverageRating,
   UserProfile,
 } from "@/features/user/types";
+import { HeartIcon } from "@heroicons/react/24/solid";
 
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
@@ -188,6 +190,7 @@ export default function MyProfile({
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">거래 정보</h2>
         <div className="grid grid-cols-2 gap-3">
+          {/*  판매 내역 */}
           <Link
             href="/profile/my-sales"
             className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
@@ -200,7 +203,7 @@ export default function MyProfile({
               판매 중인 물품 관리
             </p>
           </Link>
-
+          {/*  구매 내역 */}
           <Link
             href="/profile/my-purchases"
             className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
@@ -212,6 +215,22 @@ export default function MyProfile({
             <p className="text-xs text-muted group-hover:text-primary transition-colors">
               구매한 물품 확인
             </p>
+          </Link>
+          {/*  찜한 내역 */}
+          <Link
+            href="/profile/my-likes"
+            className="col-span-2 flex items-center justify-between group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
+          >
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-rose-500">
+                <HeartIcon className="size-5" />
+                <span className="text-sm font-semibold">찜한 내역</span>
+              </div>
+              <p className="text-xs text-muted group-hover:text-primary transition-colors">
+                내가 찜한 관심 상품
+              </p>
+            </div>
+            <ChevronRightIcon className="size-5 text-muted group-hover:text-brand transition-colors" />
           </Link>
         </div>
       </section>
