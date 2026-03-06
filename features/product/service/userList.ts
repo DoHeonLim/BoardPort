@@ -18,6 +18,8 @@
  * 2026.01.25  임도헌   Modified  주석 보강 (Scope 정의, 캐싱 전략 상세 설명)
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 및 파편화된 페이징 로직 제거, 단일 함수(getUserProductsList)로 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  'LIKED' 스코프 추가 및 조건 매핑 (내가 찜한 상품 조회)
+ * 2026.03.06  임도헌   Modified  getUserProductsList 제네릭 기본 타입에 ProductType 추가(LIKED 스코프 타입 정합성 강화)
  */
 
 import "server-only";
@@ -29,6 +31,7 @@ import type {
   TabCounts,
   MySalesListItem,
   MyPurchasedListItem,
+  ProductType,
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
@@ -39,12 +42,14 @@ const TAKE = PRODUCTS_PAGE_TAKE;
  * - RESERVED: 예약 중
  * - SOLD: 판매 완료
  * - PURCHASED: 구매 내역
+ * - LIKED: 좋아요 내역
  */
 export type UserProductsScope =
   | { type: "SELLING"; userId: number }
   | { type: "RESERVED"; userId: number }
   | { type: "SOLD"; userId: number }
-  | { type: "PURCHASED"; userId: number };
+  | { type: "PURCHASED"; userId: number }
+  | { type: "LIKED"; userId: number };
 
 /** Prisma Where Input 생성 헬퍼 */
 function whereFor(scope: UserProductsScope) {
@@ -70,6 +75,10 @@ function whereFor(scope: UserProductsScope) {
       return {
         purchase_userId: scope.userId,
       };
+    case "LIKED":
+      return {
+        product_likes: { some: { userId: scope.userId } },
+      };
   }
 }
 
@@ -77,18 +86,83 @@ function whereFor(scope: UserProductsScope) {
  * 사용자별 맞춤 제품 목록 조회 및 페이징 로직
  *
  * [데이터 페칭 및 가공 전략]
- * - 프로필 내 판매 내역 / 구매 내역 탭을 위한 커서 기반 무한 스크롤 데이터 추출
- * - 주입된 `scope` 타입(SELLING, RESERVED, SOLD, PURCHASED)에 따른 동적 Where 조건 분기 적용
- * - 삭제 엣지 케이스 방어를 위한 커서 유효성 사전 검사(SELECT id) 수행
+ * - 프로필 내 판매/구매/찜 내역 탭을 위한 커서 기반 무한 스크롤 데이터 추출
+ * - 주입된 `scope` 타입(SELLING, RESERVED, SOLD, PURCHASED, LIKED)에 따른 동적 Where 조건 분기 적용
  * - 단일 통합 쿼리 셀렉터(`PROFILE_SALES_UNIFIED_SELECT`) 적용을 통한 필드 정합성 유지
+ * - 기본 제네릭 타입을 `MySalesListItem | MyPurchasedListItem | ProductType`로 확장하여
+ *   LIKED 스코프의 타입 안정성 및 호출부 추론 정확도 개선
+ * - 삭제 엣지 케이스 방어를 위한 커서 유효성 사전 검사(SELECT id) 수행
  *
+ * @template T - 반환할 제품 아이템 타입 (기본값: MySalesListItem | MyPurchasedListItem | ProductType)
  * @param {UserProductsScope} scope - 조회할 목록 타입 및 대상 유저 ID
  * @param {number | null} [cursor] - 페이징 커서 (제품 ID)
  * @returns {Promise<Paginated<T>>} 페이징된 목록 및 커서 반환
  */
 export async function getUserProductsList<
-  T = MySalesListItem | MyPurchasedListItem,
+  T = MySalesListItem | MyPurchasedListItem | ProductType,
 >(scope: UserProductsScope, cursor?: number | null): Promise<Paginated<T>> {
+  // LIKED는 ProductLike.created_at 기준(최근 찜한 순)으로 별도 처리
+  if (scope.type === "LIKED") {
+    let cursorLike: { created_at: Date; productId: number } | null = null;
+
+    if (cursor) {
+      cursorLike = await db.productLike.findUnique({
+        where: {
+          id: {
+            userId: scope.userId,
+            productId: cursor,
+          },
+        },
+        select: {
+          created_at: true,
+          productId: true,
+        },
+      });
+      // 커서 대상이 사라졌다면 이전 페이지의 끝임을 의미하므로 빈 결과 반환
+      if (!cursorLike) return { products: [], nextCursor: null };
+    }
+
+    const likedRows = await db.productLike.findMany({
+      where: {
+        userId: scope.userId,
+        ...(cursorLike
+          ? {
+              OR: [
+                { created_at: { lt: cursorLike.created_at } },
+                {
+                  AND: [
+                    { created_at: cursorLike.created_at },
+                    { productId: { lt: cursorLike.productId } },
+                  ],
+                },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        productId: true,
+        created_at: true,
+        product: {
+          select: PROFILE_SALES_UNIFIED_SELECT,
+        },
+      },
+      orderBy: [{ created_at: "desc" }, { productId: "desc" }],
+      take: TAKE + 1,
+    });
+
+    const hasNext = likedRows.length > TAKE;
+    const pageRows = hasNext ? likedRows.slice(0, TAKE) : likedRows;
+    const products = pageRows.map((r) => r.product) as unknown as T[];
+    const nextCursor = hasNext
+      ? (pageRows[pageRows.length - 1]?.productId ?? null)
+      : null;
+
+    return { products, nextCursor };
+  }
+
+  /**======================================================================
+   *               기존 SELLING/RESERVED/SOLD/PURCHASED 로직
+   * ====================================================================== */
   let cursorOpt: Record<string, any> = {};
 
   // 커서 유효성 검사 (삭제된 제품일 수 있으므로 확인)
