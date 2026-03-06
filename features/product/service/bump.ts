@@ -9,6 +9,7 @@
  * 2026.02.05  임도헌   Modified  최대 횟수(5회) 제한 로직 추가
  * 2026.02.22  임도헌   Modified  예약중/판매완료 상품 끌어올리기 어뷰징 차단 로직 추가
  * 2026.02.23  임도헌   Modified  동시성 이슈(Race Condition) 방어를 위한 원자적 업데이트 적용
+ * 2026.03.05  임도헌   Modified  끌어올리기(Bump) 이후의 광범위한 `revalidateTag` 의존성 제거 및 클라이언트 상태 동기화로 대체
  */
 
 import "server-only";
@@ -116,11 +117,7 @@ export async function bumpProduct(
     }
 
     // 5. 캐시 무효화
-    revalidateTag(T.PRODUCT_LIST()); // 전체 목록
-    revalidateTag(T.PRODUCT_DETAIL_ID(productId)); // 상세 페이지
-    revalidateTag(T.PRODUCT_VIEWS(productId)); // 조회수 전용 태그 무효화
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", userId)); // 내 판매 목록
-    revalidateTag(T.USER_PRODUCTS_COUNTS_ID(userId));
+    revalidateTag(T.PRODUCT_DETAIL(productId)); // 상세 페이지
 
     return { success: true };
   } catch (e) {

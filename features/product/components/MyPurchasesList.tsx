@@ -16,6 +16,8 @@
  * 2026.01.16  임도헌   Modified  Empty State 및 Loading UI 개선
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
+ * 2026.03.01  임도헌   Modified  useProductPagination 반환 타입 구조 및 로딩 분리 대응
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
@@ -27,51 +29,43 @@ import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import MyPurchasesProductItem from "@/features/product/components/MyPurchasesProductItem";
 import { ShoppingBagIcon } from "@heroicons/react/24/outline";
-import type { MyPurchasedListItem, Paginated } from "@/features/product/types";
+import type { MyPurchasedListItem } from "@/features/product/types";
 
 interface MyPurchasesListProps {
   userId: number;
-  initialPurchased: Paginated<MyPurchasedListItem>;
 }
 
 /**
- * 내 구매 목록 리스트 컴포넌트
+ * 나의 구매 제품 목록 컴포넌트
  *
- * [기능]
- * 1. 초기 데이터(SSR)를 받아 리스트를 렌더링
- * 2. `useProductPagination` 훅을 사용하여 무한 스크롤 상태를 관리
- * 3. `useInfiniteScroll` 훅을 통해 스크롤 끝 감지 시 추가 데이터를 로드
- * 4. 각 아이템(`MyPurchasesProductItem`)에서 발생하는 변경 사항(리뷰 작성/삭제 등)을
- *    `updateOne` 메서드를 통해 리스트 상태에 반영
+ * [상태 주입 및 스크롤 페이징 로직]
+ * - `useProductPagination` 훅을 활용하여 'PURCHASED' 범위(scope)의 구매 내역 데이터를 추출 및 관리
+ * - 서버(RSC)에서 프리패치(Prefetch)된 초기 데이터를 활용한 클라이언트 하이드레이션 적용 (깜빡임 방지)
+ * - 사용자 가시성(`usePageVisibility`) 기반의 `useInfiniteScroll` 스크롤 감지 및 페이징 요청 제어
+ * - 리뷰 작성/수정 발생 시 `updateOne` 헬퍼를 통한 쿼리 캐시 낙관적 업데이트(Optimistic UI) 처리
  */
-export default function MyPurchasesList({
-  initialPurchased,
-  userId,
-}: MyPurchasesListProps) {
-  // 1. 페이지네이션 훅 초기화 (profile 모드 / PURCHASED 스코프)
+export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
   const purchased = useProductPagination<MyPurchasedListItem>({
     mode: "profile",
     scope: { type: "PURCHASED", userId },
-    initialProducts: initialPurchased.products,
-    initialCursor: initialPurchased.nextCursor,
   });
 
   const products = purchased.products;
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
 
-  // 2. 무한 스크롤 연결
+  // 무한 스크롤 이벤트 연결
   useInfiniteScroll({
     triggerRef,
     hasMore: purchased.hasMore,
-    isLoading: purchased.isLoading,
+    isLoading: purchased.isFetchingNextPage, // 하단 스크롤 중복 로드 방지
     onLoadMore: purchased.loadMore,
     enabled: isVisible,
-    rootMargin: "600px", // 조기 로딩 여유
+    rootMargin: "600px", // 사용자 경험 향상을 위한 조기 로딩 여유 영역
     threshold: 0.1,
   });
 
-  // 3. 빈 상태 처리
+  // 빈 상태 처리
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in">
@@ -86,7 +80,7 @@ export default function MyPurchasesList({
         </p>
         <Link
           href="/products"
-          className="btn-primary text-sm h-10 px-6 inline-flex items-center"
+          className="btn-primary text-sm h-10 px-6 inline-flex items-center shadow-sm hover:shadow-md transition-all"
         >
           제품 둘러보기
         </Link>
@@ -94,24 +88,21 @@ export default function MyPurchasesList({
     );
   }
 
-  // 4. 리스트 렌더링
+  // 리스트 렌더링
   return (
     <div className="flex flex-col px-page-x py-6 gap-4">
       {products.map((product) => (
         <MyPurchasesProductItem
           key={product.id}
           product={product}
-          // 리뷰 상태 변경 시(작성/삭제) 리스트 아이템 업데이트
           onReviewChanged={(patch) => purchased.updateOne(product.id, patch)}
         />
       ))}
-
-      {/* Infinite Scroll Trigger & Loader */}
       <div className="py-6 flex justify-center min-h-[40px]">
         {purchased.hasMore && (
           <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
         )}
-        {purchased.isLoading && (
+        {purchased.isFetchingNextPage && (
           <div className="flex items-center gap-2 text-sm text-muted">
             <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
             <span>불러오는 중...</span>

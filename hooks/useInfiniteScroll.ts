@@ -10,6 +10,8 @@
  * 2025.09.10  임도헌   Modified  내부 in-flight 가드(runningRef), triggerRef.current 의존성 캡처, root 옵션 지원
  * 2025.10.12  임도헌   Modified  안정성 보강
  * 2026.02.02  임도헌   Modified  주석 보강
+ * 2026.02.28  임도헌   Modified  TanStack Query(fetchNextPage) 연동을 위해 onLoadMore 반환 타입(unknown) 확장
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
@@ -23,8 +25,8 @@ interface UseInfiniteScrollProps {
   hasMore: boolean;
   /** 현재 데이터 로딩 중인지 여부 */
   isLoading: boolean;
-  /** 데이터 로드 콜백 함수 */
-  onLoadMore: () => void | Promise<void>;
+  /** 데이터 로드 콜백 함수 (TanStack Query 반환값 호환을 위해 unknown 허용) */
+  onLoadMore: () => unknown | Promise<unknown>;
 
   /**
    * 훅 활성화 여부 (예: 탭이 백그라운드일 때 false)
@@ -48,12 +50,14 @@ interface UseInfiniteScrollProps {
 }
 
 /**
- * 무한 스크롤 관찰 훅
+ * 공통 무한 스크롤 교차 감지 훅
  *
- * [기능]
- * - `IntersectionObserver`를 사용하여 `triggerRef` 요소가 화면(또는 root)에 나타나는지 감지
- * - 감지되면 `onLoadMore` 콜백을 실행
- * - `hasMore`가 false이거나, `isLoading`이 true이거나, 이미 실행 중(`runningRef`)이면 중복 호출을 방지
+ * [상태 주입 및 상호작용 제어 로직]
+ * - `IntersectionObserver`를 활용한 `triggerRef` 요소의 뷰포트 내 교차 여부 비동기 감지 적용
+ * - `hasMore`, `isLoading` 상태 및 내부 가드(`runningRef`)를 통한 중복 페이징 요청 차단
+ * - `enabled` 속성을 활용한 탭 비가시성(Background) 시 관찰자 해제 최적화 처리
+ *
+ * @param {UseInfiniteScrollProps} props - 관찰 요소 참조, 추가 데이터 존재 여부, 로딩 상태 및 콜백 함수 포함
  */
 export function useInfiniteScroll({
   triggerRef,

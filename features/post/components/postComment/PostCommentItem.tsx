@@ -9,6 +9,7 @@
  * 2026.01.16  임도헌   Renamed   CommentItem -> PostCommentItem
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.03  임도헌   Modified  postId props에 추가
  */
 "use client";
 
@@ -35,6 +36,7 @@ const ReportModal = dynamic(
 );
 
 interface CommentItemProps {
+  postId: number;
   comment: PostComment;
   currentUser: {
     id: number;
@@ -57,7 +59,7 @@ interface CommentItemProps {
  * 이를 내부 `motion.div`로 전달하기 위해 forwardRef가 필수적
  */
 const PostCommentItem = forwardRef<HTMLDivElement, CommentItemProps>(
-  ({ comment, currentUser }, ref) => {
+  ({ postId, comment, currentUser }, ref) => {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
@@ -145,7 +147,7 @@ const PostCommentItem = forwardRef<HTMLDivElement, CommentItemProps>(
             {/* 액션 영역 */}
             <div className="flex items-center">
               {isOwner ? (
-                <CommentDeleteButton commentId={comment.id} />
+                <CommentDeleteButton postId={postId} commentId={comment.id} />
               ) : (
                 <div className="relative" ref={menuRef}>
                   <button

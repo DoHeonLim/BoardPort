@@ -286,8 +286,6 @@ export async function createReviewService(
       },
       meta: {
         productId: data.productId,
-        sellerId,
-        buyerId,
       },
     };
   } catch (error) {

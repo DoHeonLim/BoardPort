@@ -16,17 +16,17 @@
  * 2026.01.20  임도헌   Moved      lib/getUserProducts -> service/userList
  * 2026.01.20  임도헌   Merged     lib/fetchInitialUserProducts.client.ts 및 API Route 대체
  * 2026.01.25  임도헌   Modified  주석 보강 (Scope 정의, 캐싱 전략 상세 설명)
+ * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 및 파편화된 페이징 로직 제거, 단일 함수(getUserProductsList)로 통합
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import "server-only";
-
-import { unstable_cache as nextCache } from "next/cache";
 import db from "@/lib/db";
-import * as T from "@/lib/cacheTags";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
 import { PROFILE_SALES_UNIFIED_SELECT } from "@/features/product/constants";
-import type { Paginated, TabCounts } from "@/features/product/types";
 import type {
+  Paginated,
+  TabCounts,
   MySalesListItem,
   MyPurchasedListItem,
 } from "@/features/product/types";
@@ -45,16 +45,6 @@ export type UserProductsScope =
   | { type: "RESERVED"; userId: number }
   | { type: "SOLD"; userId: number }
   | { type: "PURCHASED"; userId: number };
-
-/** 캐시 태그 생성 헬퍼 */
-function tagForScope(scope: UserProductsScope) {
-  return T.USER_PRODUCTS_SCOPE_ID(scope.type, scope.userId);
-}
-
-/** 캐시 키 생성 헬퍼 */
-function scopeKey(s: UserProductsScope) {
-  return `${s.type}-uid-${s.userId}`;
-}
 
 /** Prisma Where Input 생성 헬퍼 */
 function whereFor(scope: UserProductsScope) {
@@ -84,14 +74,21 @@ function whereFor(scope: UserProductsScope) {
 }
 
 /**
- * 제품 목록 조회 (내부 구현)
- * 커서 기반 페이지네이션을 적용하고, Scope에 따른 조건 분기 처리를 수행
+ * 사용자별 맞춤 제품 목록 조회 및 페이징 로직
+ *
+ * [데이터 페칭 및 가공 전략]
+ * - 프로필 내 판매 내역 / 구매 내역 탭을 위한 커서 기반 무한 스크롤 데이터 추출
+ * - 주입된 `scope` 타입(SELLING, RESERVED, SOLD, PURCHASED)에 따른 동적 Where 조건 분기 적용
+ * - 삭제 엣지 케이스 방어를 위한 커서 유효성 사전 검사(SELECT id) 수행
+ * - 단일 통합 쿼리 셀렉터(`PROFILE_SALES_UNIFIED_SELECT`) 적용을 통한 필드 정합성 유지
+ *
+ * @param {UserProductsScope} scope - 조회할 목록 타입 및 대상 유저 ID
+ * @param {number | null} [cursor] - 페이징 커서 (제품 ID)
+ * @returns {Promise<Paginated<T>>} 페이징된 목록 및 커서 반환
  */
-async function fetchProducts<T = MySalesListItem | MyPurchasedListItem>(
-  scope: UserProductsScope,
-  take: number,
-  cursor?: number | null
-): Promise<Paginated<T>> {
+export async function getUserProductsList<
+  T = MySalesListItem | MyPurchasedListItem,
+>(scope: UserProductsScope, cursor?: number | null): Promise<Paginated<T>> {
   let cursorOpt: Record<string, any> = {};
 
   // 커서 유효성 검사 (삭제된 제품일 수 있으므로 확인)
@@ -100,21 +97,19 @@ async function fetchProducts<T = MySalesListItem | MyPurchasedListItem>(
       where: { id: cursor },
       select: { id: true },
     });
-    if (exists) {
-      cursorOpt = { skip: 1, cursor: { id: cursor } };
-    }
+    if (exists) cursorOpt = { skip: 1, cursor: { id: cursor } };
   }
 
   const rows = await db.product.findMany({
     where: whereFor(scope),
-    select: PROFILE_SALES_UNIFIED_SELECT, // 프로필용 최적화된 Select 필드
+    select: PROFILE_SALES_UNIFIED_SELECT,
     orderBy: { id: "desc" },
-    take: take + 1, // 다음 페이지 존재 여부 확인을 위해 +1
+    take: TAKE + 1,
     ...cursorOpt,
   });
 
-  const hasNext = rows.length > take;
-  const products = (hasNext ? rows.slice(0, take) : rows) as unknown as T[];
+  const hasNext = rows.length > TAKE;
+  const products = (hasNext ? rows.slice(0, TAKE) : rows) as unknown as T[];
   const nextCursor = hasNext
     ? (products[products.length - 1] as any)!.id
     : null;
@@ -122,91 +117,31 @@ async function fetchProducts<T = MySalesListItem | MyPurchasedListItem>(
   return { products, nextCursor };
 }
 
-// --- Public Functions ---
-
 /**
- * 초기 유저 제품 목록 조회 (Cached)
- * 프로필 진입 시 초기 1페이지를 빠르게 보여주기 위해 캐싱
+ * 사용자 판매/예약 상태별 누적 상품 카운트 집계 로직
  *
- * @param {UserProductsScope} scope - 조회 범위
- * @returns {Promise<Paginated<any>>}
- */
-export async function getCachedInitialUserProducts(
-  scope: UserProductsScope
-): Promise<Paginated<any>> {
-  const tag = tagForScope(scope);
-  const cached = nextCache(
-    async (s: UserProductsScope, take: number) => fetchProducts(s, take),
-    [`user-products-initial-${scopeKey(scope)}`],
-    { tags: [tag] }
-  );
-  return cached(scope, TAKE);
-}
-
-/**
- * 초기 유저 제품 목록 조회 (Non-Cached)
- * 실시간성이 중요한 경우 사용
+ * [데이터 가공 전략]
+ * - 특정 사용자가 등록한 상품의 거래 상태(판매 중, 예약 중, 판매 완료)별 레코드 수 병렬(Promise.all) 조회
+ * - 마이페이지 탭 전환 버튼의 상태 뱃지 렌더링 값으로 활용
  *
- * @param {UserProductsScope} scope - 조회 범위
- * @returns {Promise<Paginated<any>>}
+ * @param {number} userId - 카운트를 조회할 대상 유저 ID
+ * @returns {Promise<TabCounts>} 상태별 누적 개수 객체 반환
  */
-export async function getInitialUserProducts(
-  scope: UserProductsScope
-): Promise<Paginated<any>> {
-  return fetchProducts(scope, TAKE);
-}
-
-/**
- * 추가 제품 목록 로드 (무한 스크롤용)
- * 커서 이후의 데이터를 가져옴
- * 캐싱 X.
- *
- * @param {UserProductsScope} scope - 조회 범위
- * @param {number | null} cursor - 마지막 아이템 ID
- * @returns {Promise<Paginated<any>>}
- */
-export async function getMoreUserProducts(
-  scope: UserProductsScope,
-  cursor: number | null
-): Promise<Paginated<any>> {
-  return fetchProducts(scope, TAKE, cursor);
-}
-
-/**
- * 유저 탭별 카운트 조회 (Cached)
- * 판매중/예약중/판매완료 개수를 한 번에 조회하여 캐싱
- *
- * @param {number} userId - 대상 유저 ID
- * @returns {Promise<TabCounts>} 탭별 아이템 개수
- */
-export async function getCachedUserTabCounts(
-  userId: number
-): Promise<TabCounts> {
-  const cached = nextCache(
-    async (uid: number) => {
-      const [selling, reserved, sold] = await Promise.all([
-        db.product.count({
-          where: {
-            userId: uid,
-            purchase_userId: null,
-            reservation_userId: null,
-          },
-        }),
-        db.product.count({
-          where: {
-            userId: uid,
-            purchase_userId: null,
-            reservation_userId: { not: null },
-          },
-        }),
-        db.product.count({
-          where: { userId: uid, purchase_userId: { not: null } },
-        }),
-      ]);
-      return { selling, reserved, sold };
-    },
-    [`user-products-tab-counts-id-${userId}`],
-    { tags: [T.USER_PRODUCTS_COUNTS_ID(userId)] }
-  );
-  return cached(userId);
+export async function getUserTabCounts(userId: number): Promise<TabCounts> {
+  const [selling, reserved, sold] = await Promise.all([
+    db.product.count({
+      where: { userId, purchase_userId: null, reservation_userId: null },
+    }),
+    db.product.count({
+      where: {
+        userId,
+        purchase_userId: null,
+        reservation_userId: { not: null },
+      },
+    }),
+    db.product.count({
+      where: { userId, purchase_userId: { not: null } },
+    }),
+  ]);
+  return { selling, reserved, sold };
 }

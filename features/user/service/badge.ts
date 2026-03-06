@@ -12,12 +12,14 @@
  * 2025.10.29  임도헌   Modified   nextCache 인자 간소화, 템플릿 리터럴 오류 수정, 주석 보강
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Merged     badges.ts, getUserBadges.ts 통합
+ * 2026.03.03  임도헌   Modified   unstable_cache 래퍼 제거 및 함수명 단순화 (getAllBadges, getUserBadges)
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 
 import "server-only";
 
 import db from "@/lib/db";
-import { unstable_cache as nextCache, revalidateTag } from "next/cache";
+import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { supabase } from "@/lib/supabase";
 import { getBadgeKoreanName } from "@/features/user/utils/badge";
@@ -39,22 +41,34 @@ import type { Badge } from "@/features/user/types";
 // -----------------------------------------------------------------------------
 
 /**
- * 전체 뱃지 목록 조회 (Cached)
+ * 전체 뱃지 메타데이터 목록 조회 로직
+ *
+ * [데이터 가공 및 캐시 제어 전략]
+ * - `unstable_cache`를 활용하여 전역 뱃지 리스트(ID 오름차순 정렬) 서버 사이드 캐시 적용
+ * - 모든 사용자가 동일하게 참조하는 정적 데이터로서 24시간(`86400`) 단위 리밸리데이션(Revalidate) 유지
  */
-export const getCachedAllBadges = () => {
-  const cached = nextCache(
-    async () =>
-      db.badge.findMany({
-        select: { id: true, name: true, icon: true, description: true },
-        orderBy: { id: "asc" },
-      }),
-    ["badges-all"],
-    { tags: [T.BADGES_ALL()] }
-  );
-  return cached();
-};
+export const getAllBadges = nextCache(
+  async () => {
+    return await db.badge.findMany({
+      select: { id: true, name: true, icon: true, description: true },
+      orderBy: { id: "asc" },
+    });
+  },
+  ["badges-all"],
+  { tags: [T.BADGES_ALL()], revalidate: 86400 } // 24시간 캐시 유지
+);
 
-const _getUserBadgesBase = async (userId: number): Promise<Badge[]> => {
+/**
+ * 특정 유저의 보유 뱃지 목록 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 유저 정보에 조인된 획득 뱃지(`badges`) 배열 데이터만 순수하게 추출하여 반환
+ * - 클라이언트 TanStack Query 캐시와 연동하기 위한 순수 함수 형태 제공
+ *
+ * @param {number} userId - 조회할 유저 ID
+ * @returns {Promise<Badge[]>} 획득한 뱃지 배열 반환
+ */
+export async function getUserBadges(userId: number): Promise<Badge[]> {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {
@@ -65,31 +79,22 @@ const _getUserBadgesBase = async (userId: number): Promise<Badge[]> => {
     },
   });
   return user?.badges ?? [];
-};
-
-/**
- * 특정 유저의 보유 뱃지 목록 조회 (Cached)
- * - 태그: USER_BADGES_ID(userId)
- */
-export const getCachedUserBadges = (userId: number) => {
-  const cached = nextCache(
-    async (uid: number) => _getUserBadgesBase(uid),
-    ["user-badges-by-id"],
-    { tags: [T.USER_BADGES_ID(userId)] }
-  );
-  return cached(userId);
-};
+}
 
 // -----------------------------------------------------------------------------
 // 2. 부여 (Award)
 // -----------------------------------------------------------------------------
 
 /**
- * 유저에게 뱃지를 부여하고 알림을 전송
- * 이미 보유한 뱃지인 경우 중복 부여 X
+ * 유저 뱃지 부여 및 알림 발송 통합 로직
+ *
+ * [데이터 가공 및 알림 제어 전략]
+ * - 뱃지 메타데이터 조회 및 유저의 해당 뱃지 중복 보유 여부 사전 검증
+ * - DB 업데이트를 통한 뱃지 매핑(Connect) 처리
+ * - 유저의 알림 수신 설정(`NotificationPreferences`) 확인 후 앱 내 브로드캐스트(In-App) 및 푸시 알림 비동기 병렬 발송
  *
  * @param {number} userId - 대상 유저 ID
- * @param {string} badgeName - 뱃지 이름 (Code)
+ * @param {string} badgeName - 부여할 뱃지 식별자 코드
  */
 async function awardBadge(userId: number, badgeName: string) {
   try {
@@ -109,12 +114,6 @@ async function awardBadge(userId: number, badgeName: string) {
       where: { id: userId },
       data: { badges: { connect: { id: badge.id } } },
     });
-
-    try {
-      revalidateTag(T.USER_BADGES_ID(userId));
-    } catch (e) {
-      console.warn("[awardBadge] revalidateTag failed:", e);
-    }
 
     // 2) 알림 설정 조회
     const pref = await db.notificationPreferences.findUnique({
@@ -550,8 +549,10 @@ export const checkPortFestivalBadge = async (userId: number) => {
 };
 
 /**
- * 뱃지 체크 트리거 모음
- * - 각 액션(거래 완료, 글 작성 등) 이후에 호출하여 관련 뱃지들을 비동기 검사
+ * 사용자 행동 기반 뱃지 획득 여부 비동기 검사 래퍼 객체
+ *
+ * [동작 전략]
+ * - 거래 완료, 게시글 작성, 댓글 작성 등 특정 이벤트 발생 후 호출되어 연관된 여러 뱃지 검사 함수를 병렬(Promise.all) 실행 처리
  */
 export const badgeChecks = {
   onTradeComplete: async (userId: number, role: "seller" | "buyer") => {

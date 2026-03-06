@@ -1,17 +1,17 @@
 /**
- * File Name : features/user/actions/profile.ts
+ * File Name :
  * Description : 프로필/계정 관리 Controller
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   editProfile, changePassword 액션 통합 및 Service 연결
+ * 2026.03.05  임도헌   Modified  프로필/위치 업데이트 시 발생하던 `revalidateTag` 파편화 제거 및 `revalidatePath` 기반 상태 동기화로 최적화
  */
 "use server";
 
-import { revalidateTag, revalidatePath } from "next/cache";
+import { revalidatePath } from "next/cache";
 import getSession from "@/lib/session";
-import * as T from "@/lib/cacheTags";
 import {
   getCurrentUserForEdit,
   updateProfileService,
@@ -23,7 +23,6 @@ import {
   profileEditSchema,
   passwordChangeSchema,
 } from "@/features/user/schemas";
-import { normalizeUsername } from "@/features/user/utils/normalize";
 import { USER_ERRORS } from "@/features/user/constants";
 import type {
   EditProfileActionState,
@@ -106,18 +105,6 @@ export async function editProfileAction(
     return { success: false, errors: { formErrors: [result.error!] } };
   }
 
-  // 6. 캐시 무효화
-  const oldUsernameKey = normalizeUsername(current.username);
-  const newUsernameKey = normalizeUsername(parsed.data.username);
-
-  revalidateTag(T.USER_CORE_ID(current.id));
-  revalidateTag(T.USER_BADGES_ID(current.id)); // 아바타 변경 시 뱃지 UI 영향 가능성
-  revalidateTag(T.USER_USERNAME_ID(oldUsernameKey)); // 구 닉네임 캐시 제거
-
-  if (newUsernameKey !== oldUsernameKey) {
-    revalidateTag(T.USER_USERNAME_ID(newUsernameKey)); // 신 닉네임 캐시 제거
-  }
-
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
 
@@ -182,9 +169,6 @@ export async function updateUserLocationAction(
   const result = await updateUserLocation(session.id, location);
 
   if (result.success) {
-    // 유저 정보 갱신
-    revalidateTag(T.USER_CORE_ID(session.id));
-
     // 리스트 페이지들의 디폴트 필터링 결과가 달라지므로 갱신
     revalidatePath("/products");
     revalidatePath("/posts");

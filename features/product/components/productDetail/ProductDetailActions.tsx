@@ -10,11 +10,13 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.05  임도헌   Modified  bumpCount prop 추가 및 횟수 제한 UI 적용
+ * 2026.03.05  임도헌   Modified  isModalContext 기반 edit 링크 replace 분기 추가
  */
 "use client";
 
-import Link from "next/link";
 import { useTransition } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import ProductLikeButton from "@/features/product/components/ProductLikeButton";
 import ChatButton from "@/features/chat/components/ChatButton";
@@ -29,6 +31,7 @@ interface ProductDetailActionsProps {
   likeCount: number;
   isOwner: boolean;
   bumpCount?: number;
+  isModalContext?: boolean;
 }
 
 /**
@@ -42,10 +45,17 @@ export default function ProductDetailActions({
   likeCount,
   isOwner,
   bumpCount = 0,
+  isModalContext = false,
 }: ProductDetailActionsProps) {
   const [isPending, startTransition] = useTransition(); // 추가
 
   const isBumpMaxed = bumpCount >= MAX_BUMP_COUNT;
+  const sp = useSearchParams();
+  const returnTo = sp.get("returnTo");
+  const editHref =
+    returnTo && isModalContext
+      ? `/products/view/${productId}/edit?returnTo=${encodeURIComponent(returnTo)}&flow=modal-edit`
+      : `/products/view/${productId}/edit`;
 
   // 끌어올리기 핸들러
   const handleBump = () => {
@@ -108,7 +118,8 @@ export default function ProductDetailActions({
 
               {/* 수정 버튼 (시맨틱 btn-primary 적용) */}
               <Link
-                href={`/products/view/${productId}/edit`}
+                href={editHref}
+                replace={!isModalContext}
                 className="flex-1 btn-primary flex items-center justify-center gap-1.5 h-12 shadow-sm"
               >
                 <PencilSquareIcon className="size-4" />

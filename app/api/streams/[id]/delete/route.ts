@@ -9,6 +9,7 @@
  * 2025.09.17  임도헌   Modified  비즈니스 로직 분리: deleteBroadcastTx 호출 구조
  * 2025.11.22  임도헌   Modified  broadcast-list 캐시 태그 제거 및 user-streams-id 태그 무효화 추가
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
+ * 2026.03.05  임도헌   Modified  방송 목록 갱신용 레거시 `revalidateTag` 제거 및 클라이언트 Query Cache로 무효화 책임 위임
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -103,9 +104,6 @@ export async function DELETE(
     // 6. 캐시 무효화 (상세 페이지 & 유저 방송 목록)
     try {
       revalidateTag(T.BROADCAST_DETAIL(row.id));
-      if (row.liveInput?.userId) {
-        revalidateTag(T.USER_STREAMS_ID(row.liveInput.userId));
-      }
     } catch (err) {
       console.warn("[DELETE STREAM] revalidateTag failed:", err);
     }

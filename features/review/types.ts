@@ -16,24 +16,24 @@
 
 /**
  * 리뷰 생성 서비스 결과
- * - 생성 성공 시, 캐시 무효화를 위한 메타데이터(productId, sellerId, buyerId)를 반환
+ * - 생성 성공 시, 캐시 무효화를 위한 메타데이터(productId)를 반환
  */
 export type ReviewServiceResult =
   | {
       success: true;
       review: ProductReview;
-      meta?: { productId: number; sellerId: number; buyerId: number | null };
+      meta?: { productId: number };
     }
   | { success: false; error: string };
 
 /**
  * 리뷰 삭제 서비스 결과
- * - 삭제 성공 시, 캐시 무효화를 위한 메타데이터(productId, sellerId, buyerId)를 반환
+ * - 삭제 성공 시, 캐시 무효화를 위한 메타데이터(productId)를 반환
  */
 export type DeleteReviewResult =
   | {
       success: true;
-      meta?: { productId: number; sellerId?: number; buyerId?: number };
+      meta?: { productId: number };
     }
   | { success: false; error: string };
 

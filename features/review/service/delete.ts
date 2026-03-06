@@ -56,8 +56,6 @@ export async function deleteReviewService(
       success: true,
       meta: {
         productId: rev.productId,
-        sellerId: rev.product?.userId,
-        buyerId: rev.product?.purchase_userId ?? undefined,
       },
     };
   } catch (error) {
@@ -100,8 +98,6 @@ export async function deleteAllReviewsService(
       success: true,
       meta: {
         productId,
-        sellerId: prod.userId,
-        buyerId: prod.purchase_userId ?? undefined,
       },
     };
   } catch (error) {

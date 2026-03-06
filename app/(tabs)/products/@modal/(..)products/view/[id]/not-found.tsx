@@ -15,17 +15,16 @@
 "use client";
 
 import NotFound from "@/components/ui/NotFound";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export default function ModalProductNotFound() {
+  const sp = useSearchParams();
   const router = useRouter();
 
   const handleClose = () => {
-    // 모달 닫기 (뒤로가기 또는 리스트로 이동)
-    // 404 상황이므로 history back 보다는 명시적 리스트 이동이 안전할 수 있으나,
-    // UX상 '닫기' 동작은 이전 목록을 보여주는 것이 자연스러움.
-    router.back();
+    const returnTo = sp.get("returnTo") || "/products";
+    router.replace(returnTo);
   };
 
   return (

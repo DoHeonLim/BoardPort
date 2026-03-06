@@ -26,37 +26,26 @@
  * 2026.01.24  임도헌   Modified   Service 경로 수정 및 타입 정합성
  * 2026.01.29  임도헌   Modified   내 프로필 페이지 주석 보강 및 구조 설명 추가
  * 2026.02.11  임도헌   Modified   NotificationBell 추가 및 unreadCount 조회 병렬 처리
+ * 2026.03.03  임도헌   Modified   서버 컴포넌트 하이드레이션(HydrationBoundary) 적용 및 initialReviews Prop Drilling 제거
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 
-// revalidateTag 트리거 메모
-// - 프로필 코어:     user-core-id-${userId}
-// - 팔로우 카운트:   user-followers-id-${userId}, user-following-id-${userId}
-// - 리뷰 변경:       user-reviews-initial-id-${userId}, user-average-rating-id-${userId}
-// - 배지 변경:       badges-all, user-badges-id-${userId}
-// - 방송(채널) 변경:  user-streams-id-${ownerId}
-
 import { redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import ThemeToggle from "@/components/global/ThemeToggle";
 import MyProfile from "@/features/user/components/profile/MyProfile";
 import ProfileSettingMenu from "@/features/user/components/profile/ProfileSettingMenu";
 import NotificationBell from "@/components/global/NotificationBell";
 import { getUserProfile } from "@/features/user/service/profile";
-import { getCachedInitialUserReviews } from "@/features/user/service/review";
-import { getCachedUserAverageRating } from "@/features/user/service/metric";
-import {
-  getCachedAllBadges,
-  getCachedUserBadges,
-} from "@/features/user/service/badge";
-import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
+import { getUserReviewsAction } from "@/features/user/actions/review";
+import { getUserAverageRating } from "@/features/user/service/metric";
+import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
+import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { logOut } from "@/features/auth/service/logout";
-import type { BroadcastSummary } from "@/features/stream/types";
-import type {
-  Badge,
-  ProfileAverageRating,
-  ProfileReview,
-} from "@/features/user/types";
 
 export const dynamic = "force-dynamic";
 
@@ -64,9 +53,10 @@ export const dynamic = "force-dynamic";
  * 내 프로필 페이지
  *
  * [기능]
- * 1. 세션을 확인하여 로그인 여부를 검증
- * 2. 내 프로필 정보(Core), 평점, 리뷰, 뱃지, 최근 방송 목록을 병렬로 로드
- * 3. `MyProfile` 컴포넌트를 통해 전체 UI를 구성
+ * - 세션 검증을 통한 로그인 여부 확인 및 비인가 사용자 리다이렉트 처리
+ * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록, 안 읽은 알림 수의 서버 사이드 병렬 로드(Promise.all) 적용
+ * - 유저의 리뷰 목록에 대한 TanStack Query 기반 서버 프리패치(Prefetch) 적용
+ * - HydrationBoundary를 통한 직렬화된 캐시 주입 및 `MyProfile` 클라이언트 UI 구성
  */
 export default async function ProfilePage() {
   // 1. 세션 및 유저 확인
@@ -75,31 +65,30 @@ export default async function ProfilePage() {
     redirect(`/login?callbackUrl=${encodeURIComponent("/profile")}`);
   }
   const userId = session.id;
-
   const isAdmin = session.role === "ADMIN";
 
   const user = await getUserProfile(userId, userId);
   if (!user) redirect("/login");
 
+  const queryClient = getQueryClient();
+
   // 2. 대량 데이터 병렬 로딩 (성능 최적화)
-  const [initialReviews, averageRating, badgesPair, streams, unreadCount]: [
-    ProfileReview[],
-    ProfileAverageRating | null,
-    { badges: Badge[]; userBadges: Badge[] },
-    BroadcastSummary[],
-    number
-  ] = await Promise.all([
-    getCachedInitialUserReviews(user.id, userId),
-    getCachedUserAverageRating(user.id),
+  const [averageRating, badgesPair, streams, unreadCount] = await Promise.all([
+    getUserAverageRating(user.id),
     (async () => {
-      const [badges, userBadges] = await Promise.all([
-        getCachedAllBadges(),
-        getCachedUserBadges(user.id),
+      const [badges, badgesEarned] = await Promise.all([
+        getAllBadges(),
+        getUserBadges(user.id),
       ]);
-      return { badges, userBadges };
+      return { badges, userBadges: badgesEarned };
     })(),
-    getCachedRecentBroadcasts(user.id, 6, true),
+    getRecentBroadcasts(user.id, 6, true),
     getUnreadNotificationCount(),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.reviews.user(user.id),
+      queryFn: () => getUserReviewsAction(user.id, null),
+      initialPageParam: null as any,
+    }),
   ]);
 
   return (
@@ -118,16 +107,17 @@ export default async function ProfilePage() {
       </div>
 
       <div className="px-page-x pt-2">
-        <MyProfile
-          user={user}
-          initialReviews={initialReviews}
-          averageRating={averageRating}
-          badges={badgesPair.badges}
-          userBadges={badgesPair.userBadges}
-          myStreams={streams}
-          viewerId={user.id}
-          logOut={logOut}
-        />
+        <HydrationBoundary state={dehydrate(queryClient)}>
+          <MyProfile
+            user={user}
+            averageRating={averageRating}
+            badges={badgesPair.badges}
+            userBadges={badgesPair.userBadges}
+            myStreams={streams}
+            viewerId={user.id}
+            logOut={logOut}
+          />
+        </HydrationBoundary>
       </div>
     </div>
   );

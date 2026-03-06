@@ -11,11 +11,13 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  스트리머 차단 및 방송 신고 통합 메뉴 구현
  * 2026.02.13  임도헌   Modified  로컬 handleShare 제거 및 lib/utils 통합
+ * 2026.03.04  임도헌   Modified  stream:chat:state/open CustomEvent 제거 및 useStreamChatUIStore 기반 채팅 열기 상태 연동
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
 
-import { useEffect, useState, useRef, useTransition } from "react";
+import { useState, useRef, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -32,6 +34,7 @@ import {
 } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import BackButton from "@/components/global/BackButton";
+import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
 import {
   STREAM_VISIBILITY,
   STREAM_VISIBILITY_DISPLAY,
@@ -60,13 +63,13 @@ type Props = {
 };
 
 /**
- * 스트리밍 상세 페이지 상단바
+ * 스트리밍 상세 상단바(Topbar) 컴포넌트
  *
- * [기능]
- * 1. 뒤로가기 버튼
- * 2. 방송 공개 상태(Public/Private/Followers) 뱃지 표시
- * 3. 공유 버튼 (링크 복사/Web Share API)
- * 4. 채팅 열기 버튼 (채팅이 닫혀있을 때만 노출)
+ * [상태 주입 및 상호작용 제어 로직]
+ * - `useStreamChatUIStore` 전역 상태를 활용한 모바일 채팅창 토글(열기) 기능 제공
+ * - 방송 권한(Public/Private/Followers) 속성에 따른 동적 뱃지 렌더링 적용
+ * - 스트리머 차단(`toggleBlockAction`) 및 방송 신고 모달(`ReportModal`) 연동
+ * - 뒤로가기 버튼(`BackButton`) 및 고유 URL 복사를 위한 공유하기(`handleShare`) 기능 포함
  */
 export default function StreamTopbar({
   streamId,
@@ -80,28 +83,16 @@ export default function StreamTopbar({
 }: Props) {
   const router = useRouter();
   // ---- 채팅 열림 상태: 채팅 컴포넌트가 브로드캐스트하는 이벤트를 수신해서 반영 ----
-  const [chatOpen, setChatOpen] = useState(true);
+  const chatOpen = useStreamChatUIStore((s) => s.isChatOpen);
+  const openChat = useStreamChatUIStore((s) => s.openChat);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onState = (e: Event) => {
-      const detail = (e as CustomEvent<{ open: boolean }>).detail;
-      if (typeof detail?.open === "boolean") setChatOpen(detail.open);
-    };
-    window.addEventListener("stream:chat:state", onState as EventListener);
-    return () =>
-      window.removeEventListener("stream:chat:state", onState as EventListener);
-  }, []);
-
   const openChatFromTopbar = () => {
-    // 채팅에게 열라고 브로드캐스트
-    const evt = new CustomEvent("stream:chat:open");
-    window.dispatchEvent(evt);
-    setChatOpen(true);
+    openChat();
   };
 
   // --- 가시성 라벨(타입 안전) ---

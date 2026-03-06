@@ -19,16 +19,21 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.01  임도헌   Modified  상태 변경(Optimistic Move) 로직을 QueryClient.setQueryData로 리팩토링 및 로딩 상태 세분화
+ * 2026.03.03  임도헌   Modified  initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent)를 분리하여 Suspense 최적화
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
-import { fetchUserProductsAction } from "@/features/user/actions/product";
+import { queryKeys } from "@/lib/queryKeys";
 import MySalesProductItem from "@/features/product/components/MySalesProductItem";
+import Skeleton from "@/components/ui/Skeleton";
 import {
   ListBulletIcon,
   Squares2X2Icon,
@@ -40,7 +45,6 @@ import {
 } from "@/features/product/constants";
 import type {
   MySalesListItem,
-  Paginated,
   TabCounts,
   ProductStatus,
   ViewMode,
@@ -49,120 +53,29 @@ import { cn } from "@/lib/utils";
 
 interface MySalesProductListProps {
   userId: number;
-  initialSelling: Paginated<MySalesListItem>;
   initialCounts: TabCounts;
 }
 
 /**
- * 내 판매 목록 리스트 컴포넌트
+ * 나의 판매 제품 목록 탭 컨테이너 컴포넌트
  *
- * [기능]
- * 1. 판매중/예약중/판매완료 3개의 탭으로 구분하여 상품을 보여줌
- * 2. `useProductPagination` 훅을 각 탭별로 독립적으로 사용하여 상태를 관리
- * 3. 상태 변경(예: 판매중 -> 예약중) 시 `onOptimisticMove`를 통해 즉시 UI를 반영
- * 4. 탭 전환 시 필요한 데이터를 서버 액션(`fetchUserProductsAction`)으로 지연 로딩
+ * [상태 주입 및 상호작용 로직]
+ * - 판매 중, 예약 중, 판매 완료 3개의 탭에 따라 각각의 `useProductPagination` 인스턴스를 격리 생성하여 캐시 충돌 방지
+ * - 상태 변경(예: 예약 -> 판매완료) 액션 발생 시 `onOptimisticMove`를 호출하여 Query Cache 간 아이템 이동 즉각 반영
+ * - 에러(onMoveFailed) 시 관련 쿼리 키(queryKeys.products.userScope) 무효화(invalidate)로 상태 복원(Rollback) 적용
+ * - 하위 탭 콘텐츠(`SalesTabContent`) 분리를 통한 React Suspense 기반 선언적 로딩 처리
  */
 export default function MySalesProductList({
   userId,
-  initialSelling,
   initialCounts,
 }: MySalesProductListProps) {
-  // --- State ---
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ProductStatus>("selling");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [counts, setCounts] = useState<TabCounts>(initialCounts);
-
-  // --- Pagination Hooks (각 탭별 독립 관리) ---
-
-  // 1. 판매 중 (초기 데이터 있음)
-  const selling = useProductPagination<MySalesListItem>({
-    mode: "profile",
-    scope: { type: "SELLING", userId },
-    initialProducts: initialSelling.products,
-    initialCursor: initialSelling.nextCursor,
-  });
-
-  // 2. 예약 중 (초기엔 빈 상태, 탭 클릭 시 로드)
-  const reserved = useProductPagination<MySalesListItem>({
-    mode: "profile",
-    scope: { type: "RESERVED", userId },
-    initialProducts: [],
-    initialCursor: null,
-  });
-
-  // 3. 판매 완료 (초기엔 빈 상태, 탭 클릭 시 로드)
-  const sold = useProductPagination<MySalesListItem>({
-    mode: "profile",
-    scope: { type: "SOLD", userId },
-    initialProducts: [],
-    initialCursor: null,
-  });
-
-  // 데이터 로드 여부 플래그 (중복 로딩 방지)
-  const [reservedLoaded, setReservedLoaded] = useState(false);
-  const [soldLoaded, setSoldLoaded] = useState(false);
-
-  // --- Methods ---
-
   /**
-   * 탭 데이터를 서버에서 새로고침
-   * 상태 변경 후 데이터 정합성을 맞추거나, 처음 탭을 열 때 사용
-   */
-  const refreshTab = useCallback(
-    async (tab: ProductStatus) => {
-      if (tab === "selling") {
-        const data = await fetchUserProductsAction<MySalesListItem>({
-          type: "SELLING",
-          userId,
-        });
-        selling.reset({ products: data.products, cursor: data.nextCursor });
-      } else if (tab === "reserved") {
-        const data = await fetchUserProductsAction<MySalesListItem>({
-          type: "RESERVED",
-          userId,
-        });
-        reserved.reset({ products: data.products, cursor: data.nextCursor });
-        setReservedLoaded(true);
-      } else {
-        const data = await fetchUserProductsAction<MySalesListItem>({
-          type: "SOLD",
-          userId,
-        });
-        sold.reset({ products: data.products, cursor: data.nextCursor });
-        setSoldLoaded(true);
-      }
-    },
-    [userId, selling, reserved, sold]
-  );
-
-  // 탭 전환 시 데이터 로딩 (Lazy Load)
-  useEffect(() => {
-    let mounted = true;
-    const loadTab = async () => {
-      try {
-        if (activeTab === "reserved" && !reservedLoaded) {
-          await refreshTab("reserved");
-        }
-        if (activeTab === "sold" && !soldLoaded) {
-          await refreshTab("sold");
-        }
-      } catch (e) {
-        console.warn(
-          `[MySalesProductList] Failed to load ${activeTab} tab:`,
-          e
-        );
-      }
-    };
-    if (mounted) loadTab();
-    return () => {
-      mounted = false;
-    };
-  }, [activeTab, reservedLoaded, soldLoaded, refreshTab]);
-
-  /**
-   * Optimistic UI Update 핸들러
-   * - 하위 아이템에서 상태 변경 요청이 오면, 현재 탭에서 제거하고 대상 탭으로 이동
-   * - 실패 시 롤백할 수 있는 함수를 반환
+   * 낙관적 상태 이동 (Optimistic Move) 핸들러
+   * - 탭 간 아이템 이동 시, Query Cache를 직접 조작함.
    */
   const onOptimisticMove = useCallback(
     ({
@@ -176,144 +89,102 @@ export default function MySalesProductList({
       product: MySalesListItem;
       modifiedProduct?: MySalesListItem;
     }): (() => void) => {
-      // 1. 현재 상태 스냅샷 저장 (롤백용)
-      const snap = {
-        selling: { products: selling.products, cursor: selling.cursor },
-        reserved: { products: reserved.products, cursor: reserved.cursor },
-        sold: { products: sold.products, cursor: sold.cursor },
-        counts,
-      };
+      const fromKey = queryKeys.products.userScope(from.toUpperCase(), userId);
+      const toKey = queryKeys.products.userScope(to.toUpperCase(), userId);
 
-      // 2. 이동할 제품 객체 준비
+      const prevFromData = queryClient.getQueryData(fromKey);
+      const prevToData = queryClient.getQueryData(toKey);
+      const prevCounts = { ...counts };
+
       let nextProduct = modifiedProduct ?? product;
-
-      // 예약 -> 판매완료 시 일부 필드 자동 보정 (예약자를 구매자로 승격 등)
       if (!modifiedProduct && from === "reserved" && to === "sold") {
         nextProduct = {
           ...product,
           purchase_userId: product.reservation_userId ?? null,
           purchase_user: product.reservation_user
-            ? {
-                username: product.reservation_user.username,
-                avatar: product.reservation_user.avatar ?? null,
-              }
+            ? { ...product.reservation_user }
             : null,
           purchased_at: new Date().toISOString(),
           reservation_userId: null,
           reservation_user: null,
           reservation_at: null,
-        } as MySalesListItem;
+        };
       }
 
-      const lists = {
-        selling: selling.products,
-        reserved: reserved.products,
-        sold: sold.products,
-      };
+      queryClient.setQueryData(fromKey, (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            products: page.products.filter((p: any) => p.id !== product.id),
+          })),
+        };
+      });
 
-      // 3. 리스트 조작 (제거 및 추가)
-      const fromList = lists[from].filter((p) => p.id !== product.id);
-      const toList = [
-        nextProduct,
-        ...lists[to].filter((p) => p.id !== product.id),
-      ].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i); // 중복 방지
+      queryClient.setQueryData(toKey, (oldData: any) => {
+        if (!oldData || !oldData.pages || oldData.pages.length === 0)
+          return oldData;
+        const newPages = [...oldData.pages];
+        const exists = newPages[0].products.some(
+          (p: any) => p.id === nextProduct.id
+        );
+        if (!exists) {
+          newPages[0] = {
+            ...newPages[0],
+            products: [nextProduct, ...newPages[0].products],
+          };
+        }
+        return { ...oldData, pages: newPages };
+      });
 
-      // 4. 각 훅의 상태 업데이트
-      const resetByTab = (
-        tab: ProductStatus,
-        nextProducts: MySalesListItem[],
-        keepCursor: number | null
-      ) => {
-        const target =
-          tab === "selling" ? selling : tab === "reserved" ? reserved : sold;
-        target.reset({ products: nextProducts, cursor: keepCursor });
-      };
-
-      resetByTab(from, fromList, snap[from].cursor);
-      resetByTab(to, toList, snap[to].cursor);
-
-      // 5. 카운트 업데이트
       setCounts((c) => ({
         ...c,
-        [from]: Math.max(0, c[from] - 1),
-        [to]: c[to] + 1,
+        [from as keyof TabCounts]: Math.max(0, c[from as keyof TabCounts] - 1),
+        [to as keyof TabCounts]: c[to as keyof TabCounts] + 1,
       }));
 
-      // 6. 롤백 함수 반환
       return () => {
-        selling.reset(snap.selling);
-        reserved.reset(snap.reserved);
-        sold.reset(snap.sold);
-        setCounts(snap.counts);
+        queryClient.setQueryData(fromKey, prevFromData);
+        queryClient.setQueryData(toKey, prevToData);
+        setCounts(prevCounts);
       };
     },
-    [selling, reserved, sold, counts]
+    [queryClient, userId, counts]
   );
 
   const onMoveFailed = useCallback(
-    async ({ from, to }: { from: ProductStatus; to: ProductStatus }) => {
-      // 실패 시 양쪽 탭 모두 새로고침하여 정합성 맞춤
-      await Promise.all([refreshTab(from), refreshTab(to)]);
+    async ({ from, to }: any) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.products.userScope(from.toUpperCase(), userId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.products.userScope(to.toUpperCase(), userId),
+      });
     },
-    [refreshTab]
+    [queryClient, userId]
   );
-
-  // 현재 활성 탭의 데이터 및 훅 선택
-  const current =
-    activeTab === "selling"
-      ? selling
-      : activeTab === "reserved"
-      ? reserved
-      : sold;
-  const currentProducts = current.products as MySalesListItem[];
-
-  // 리뷰 변경 등 부분 업데이트 처리
-  const applyPatchToCurrent = (id: number, patch: Partial<MySalesListItem>) => {
-    if (activeTab === "selling") selling.updateOne(id, patch);
-    else if (activeTab === "reserved") reserved.updateOne(id, patch);
-    else sold.updateOne(id, patch);
-  };
-
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const isVisible = usePageVisibility();
-
-  useInfiniteScroll({
-    triggerRef,
-    hasMore: current.hasMore,
-    isLoading: current.isLoading,
-    onLoadMore: current.loadMore,
-    enabled: isVisible,
-    rootMargin: "1000px 0px 0px 0px",
-    threshold: 0.01,
-  });
 
   return (
     <div className="flex flex-col px-page-x py-6">
-      {/* Tabs */}
       <div className="flex p-1 mb-6 bg-surface-dim rounded-xl border border-border">
-        {PRODUCT_STATUS_TYPES.map((tab) => {
-          const isActive = activeTab === tab;
-          const count = counts[tab];
-
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
-                isActive
-                  ? "bg-surface text-brand dark:text-brand-light shadow-sm"
-                  : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-              )}
-            >
-              {PRODUCT_STATUS_LABEL[tab]}{" "}
-              <span className="text-xs opacity-70 ml-0.5">({count})</span>
-            </button>
-          );
-        })}
+        {PRODUCT_STATUS_TYPES.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+              activeTab === tab
+                ? "bg-surface text-brand shadow-sm"
+                : "text-muted hover:text-primary"
+            )}
+          >
+            {PRODUCT_STATUS_LABEL[tab]}{" "}
+            <span className="text-xs opacity-70 ml-0.5">({counts[tab]})</span>
+          </button>
+        ))}
       </div>
 
-      {/* View Toggle */}
       <div className="flex justify-end gap-2 mb-3">
         <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
           <button
@@ -321,7 +192,7 @@ export default function MySalesProductList({
             className={cn(
               "p-1.5 rounded-md transition-all",
               viewMode === "list"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand dark:text-brand-light"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-brand"
                 : "text-muted hover:text-primary"
             )}
           >
@@ -332,7 +203,7 @@ export default function MySalesProductList({
             className={cn(
               "p-1.5 rounded-md transition-all",
               viewMode === "grid"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand dark:text-brand-light"
+                ? "bg-white dark:bg-gray-700 shadow-sm text-brand"
                 : "text-muted hover:text-primary"
             )}
           >
@@ -341,57 +212,107 @@ export default function MySalesProductList({
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex flex-col gap-4">
-        {currentProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
-            <div className="p-4 rounded-full bg-surface-dim mb-4">
-              <TagIcon className="size-10 text-muted/50" />
-            </div>
-            <p className="text-lg font-medium text-primary">
-              {activeTab === "selling"
-                ? "판매 중인 제품이 없습니다"
-                : activeTab === "reserved"
-                ? "예약 중인 제품이 없습니다"
-                : "판매 완료한 제품이 없습니다"}
-            </p>
+      {/* 선택된 탭만 마운트시켜 훅 렌더링 최적화 */}
+      <Suspense
+        fallback={
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
           </div>
-        ) : (
-          <div
-            className={cn(
-              "grid gap-4",
-              viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
-            )}
-          >
-            {currentProducts.map((product) => (
-              <MySalesProductItem
-                key={product.id}
-                product={product}
-                type={activeTab}
-                userId={userId}
-                viewMode={viewMode}
-                onOptimisticMove={onOptimisticMove}
-                onMoveFailed={onMoveFailed}
-                onReviewChanged={(patch) =>
-                  applyPatchToCurrent(product.id, patch)
-                }
-              />
-            ))}
+        }
+      >
+        <SalesTabContent
+          key={activeTab} // 탭이 바뀔 때마다 컴포넌트를 새로 마운트
+          type={activeTab}
+          userId={userId}
+          viewMode={viewMode}
+          onOptimisticMove={onOptimisticMove}
+          onMoveFailed={onMoveFailed}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// 내부 컴포넌트: 선택된 탭 전용 데이터 패칭 및 렌더링
+// ----------------------------------------------------------------------
+function SalesTabContent({
+  type,
+  userId,
+  viewMode,
+  onOptimisticMove,
+  onMoveFailed,
+}: any) {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const isVisible = usePageVisibility();
+
+  // 컴포넌트가 마운트된 해당 탭의 데이터만 패치함.
+  const current = useProductPagination<MySalesListItem>({
+    mode: "profile",
+    scope: { type: type.toUpperCase() as any, userId },
+  });
+
+  const products = current.products;
+
+  useInfiniteScroll({
+    triggerRef,
+    hasMore: current.hasMore,
+    isLoading: current.isFetchingNextPage,
+    onLoadMore: current.loadMore,
+    enabled: isVisible,
+    rootMargin: "1000px 0px 0px 0px",
+    threshold: 0.01,
+  });
+
+  if (products.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+        <div className="p-4 rounded-full bg-surface-dim mb-4">
+          <TagIcon className="size-10 text-muted/50" />
+        </div>
+        <p className="text-lg font-medium text-primary">
+          {type === "selling"
+            ? "판매 중인 제품이 없습니다"
+            : type === "reserved"
+              ? "예약 중인 제품이 없습니다"
+              : "판매 완료한 제품이 없습니다"}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div
+        className={cn(
+          "grid gap-4",
+          viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
+        )}
+      >
+        {products.map((product) => (
+          <MySalesProductItem
+            key={product.id}
+            product={product}
+            type={type}
+            userId={userId}
+            viewMode={viewMode}
+            onOptimisticMove={onOptimisticMove}
+            onMoveFailed={onMoveFailed}
+            onReviewChanged={(patch) => current.updateOne(product.id, patch)}
+          />
+        ))}
+      </div>
+      <div className="py-6 flex justify-center min-h-[40px]">
+        {current.hasMore && (
+          <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
+        )}
+        {current.isFetchingNextPage && (
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            <span>불러오는 중...</span>
           </div>
         )}
-
-        {/* Trigger */}
-        <div className="py-6 flex justify-center min-h-[40px]">
-          {current.hasMore && (
-            <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
-          )}
-          {current.isLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
-              <span>불러오는 중...</span>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

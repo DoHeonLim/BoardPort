@@ -12,6 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.06  임도헌   Modified  녹화본 댓글에 차단 및 신고 메뉴(Dropdown) 추가
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
@@ -38,22 +39,24 @@ const ReportModal = dynamic(
 );
 
 interface RecordingCommentItemProps {
+  vodId: number;
   comment: StreamComment;
   currentUserId: number;
 }
 
 /**
- * 개별 댓글 아이템
+ * 녹화본 개별 댓글 렌더링 컴포넌트
  *
- * - 작성자 정보, 시간, 내용을 표시
- * - 본인이 작성한 댓글일 경우 삭제 버튼을 노출
- * - `AnimatePresence` 동작을 위해 `forwardRef`를 사용
- * - 타인 댓글의 경우 더보기 메뉴를 통해 '차단' 및 '신고' 기능 제공
+ * [상태 제어 및 애니메이션 로직]
+ * - 작성자 정보(Avatar, Username), 작성 시간, 내용을 포맷팅하여 렌더링
+ * - 본인 댓글일 경우 삭제 버튼(`RecordingCommentDeleteButton`) 노출
+ * - 타인 댓글일 경우 더보기 메뉴를 통한 차단(`toggleBlockAction`) 및 신고(`ReportModal`) 연동
+ * - `AnimatePresence` 동작 지원을 위한 `forwardRef` 주입 및 Framer Motion 기반 등장/퇴장 애니메이션 적용
  */
 const RecordingCommentItem = forwardRef<
   HTMLDivElement,
   RecordingCommentItemProps
->(({ comment, currentUserId }, ref) => {
+>(({ vodId, comment, currentUserId }, ref) => {
   const isOwner = comment.user.id === currentUserId;
 
   // 상태 관리
@@ -123,7 +126,10 @@ const RecordingCommentItem = forwardRef<
 
           <div className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1">
             {isOwner ? (
-              <RecordingCommentDeleteButton commentId={comment.id} />
+              <RecordingCommentDeleteButton
+                vodId={vodId}
+                commentId={comment.id}
+              />
             ) : (
               <div className="relative" ref={menuRef}>
                 <button

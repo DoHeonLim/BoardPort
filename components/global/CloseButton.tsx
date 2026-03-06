@@ -40,17 +40,12 @@ export default function CloseButton({
   const router = useRouter();
   const sp = useSearchParams();
 
-  // history idx가 1 이상이면 back 가능 (브라우저 지원 여부 체크)
-  const canGoBack =
-    typeof window !== "undefined" && (window.history.state?.idx ?? 0) > 0;
-
   const resolvedReturnTo = returnTo || sp.get("returnTo") || fallbackHref;
 
   const onClose = useCallback(() => {
-    // [UX] 뒤로가기가 가능하면 back, 아니면 지정된 경로로 push
-    if (canGoBack) router.back();
-    else router.push(resolvedReturnTo);
-  }, [canGoBack, router, resolvedReturnTo]);
+    // Parallel/Intercepting Route 환경에서는 back()보다 명시 경로 replace가 안정적
+    router.replace(resolvedReturnTo);
+  }, [router, resolvedReturnTo]);
 
   // ESC로 닫기
   useEffect(() => {

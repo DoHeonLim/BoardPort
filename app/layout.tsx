@@ -4,6 +4,9 @@ import "./globals.css";
 import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import { Toaster } from "sonner";
 import AppWrapper from "@/components/global/AppWrapper";
+import QueryProvider from "@/components/global/providers/QueryProvider";
+import { NotificationStoreProvider } from "@/components/global/providers/NotificationStoreProvider";
+import { ModalStoreProvider } from "@/components/global/providers/ModalStoreProvider";
 import NotificationBoot from "@/features/notification/components/NotificationBoot";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -58,32 +61,38 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <Toaster
-              position="top-right"
-              richColors
-              toastOptions={{
-                style: {
-                  borderRadius: "12px",
-                  border: "1px solid var(--border)",
-                  fontSize: "14px",
-                },
-                classNames: {
-                  toast:
-                    "group-[.toaster]:bg-surface group-[.toaster]:text-primary group-[.toaster]:shadow-xl",
-                  description: "group-[.toast]:text-muted",
-                  actionButton:
-                    "group-[.toast]:bg-brand group-[.toast]:text-white",
-                  cancelButton:
-                    "group-[.toast]:bg-surface-dim group-[.toast]:text-muted",
-                  closeButton:
-                    "group-[.toast]:bg-surface group-[.toast]:border-border group-[.toast]:hover:bg-surface-dim",
-                },
-              }}
-            />
+            <QueryProvider>
+              <NotificationStoreProvider>
+                <ModalStoreProvider>
+                  <Toaster
+                    position="top-right"
+                    richColors
+                    toastOptions={{
+                      style: {
+                        borderRadius: "12px",
+                        border: "1px solid var(--border)",
+                        fontSize: "14px",
+                      },
+                      classNames: {
+                        toast:
+                          "group-[.toaster]:bg-surface group-[.toaster]:text-primary group-[.toaster]:shadow-xl",
+                        description: "group-[.toast]:text-muted",
+                        actionButton:
+                          "group-[.toast]:bg-brand group-[.toast]:text-white",
+                        cancelButton:
+                          "group-[.toast]:bg-surface-dim group-[.toast]:text-muted",
+                        closeButton:
+                          "group-[.toast]:bg-surface group-[.toast]:border-border group-[.toast]:hover:bg-surface-dim",
+                      },
+                    }}
+                  />
 
-            <NotificationBoot />
+                  <NotificationBoot />
 
-            {children}
+                  {children}
+                </ModalStoreProvider>
+              </NotificationStoreProvider>
+            </QueryProvider>
           </ThemeProvider>
         </AppWrapper>
       </body>

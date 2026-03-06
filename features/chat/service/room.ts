@@ -20,12 +20,11 @@
  * 2026.02.22  임도헌   Modified  채팅방 나가기 시 해당 방의 PENDING 약속 일괄 취소 로직 추가
  * 2026.02.22  임도헌   Modified  채팅방 나가기 시 상대방(Counterparty) ID 반환 추가
  * 2026.02.23  임도헌   Modified  나간 방 재입장 시 기존 대화 내역을 유지하며 양측 모두 재연결되도록 UX 개선
+ * 2026.03.03  임도헌   Modified  `unstable_cache` 및 `revalidateTag` 기반 서버 상태 갱신 방식 제거, 순수 DB 조회 로직으로 리팩토링
  */
 
 import "server-only";
-import { unstable_cache as nextCache } from "next/cache";
 import db from "@/lib/db";
-import * as T from "@/lib/cacheTags";
 import {
   getBlockedUserIds,
   checkBlockRelation,
@@ -67,7 +66,7 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
       users: {
         where: { NOT: { id: userId } }, // 상대방 유저 정보
         select: { id: true, username: true, avatar: true },
-        take: 1, // 1:1 채팅 가정
+        take: 1, // 1:1 채팅
       },
       product: {
         select: {
@@ -78,7 +77,7 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
       },
       messages: {
         orderBy: { created_at: "desc" },
-        take: 1, // 마지막 메시지 1개
+        take: 1,
         include: {
           user: { select: { id: true, username: true, avatar: true } },
           appointment: true,
@@ -152,23 +151,6 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
     ];
   });
 }
-
-/**
- * 채팅방 목록 캐시 Wrapper
- * - 사용자별 채팅방 목록을 캐싱하며, 상품/메시지 변화뿐만 아니라 차단 상태 변화 시에도 캐시를 갱신
- * - 태그: CHAT_ROOMS_ID(userId), CHAT_ROOMS(), USER_BLOCK_UPDATE(userId)
- *
- * @param {number} userId - 사용자 ID
- */
-export const getCachedChatRooms = (userId: number): Promise<ChatRoom[]> => {
-  return nextCache(() => getChatRooms(userId), [`chat-rooms-user-${userId}`], {
-    tags: [
-      T.CHAT_ROOMS_ID(userId),
-      T.CHAT_ROOMS(),
-      T.USER_BLOCK_UPDATE(userId), // 차단 시 목록 갱신
-    ],
-  })();
-};
 
 /**
  * 채팅방 상단에 표시할 제품 정보 조회 (이미지/가격/상태)

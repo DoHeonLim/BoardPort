@@ -22,14 +22,19 @@
  * 2026.01.22  임도헌   Modified  Service 직접 호출로 최적화 (Action 의존 제거)
  * 2026.01.24  임도헌   Modified  getSession 추가 및 getUserInfoById 호출 수정
  * 2026.01.28  임도헌   Modified  주석 보강
- * * 2026.02.04  임도헌   Modified  채팅방 상세 진입 시 양방향 차단 가드 로직 적용
+ * 2026.02.04  임도헌   Modified  채팅방 상세 진입 시 양방향 차단 가드 로직 적용
+ * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 initialMessages Prop 제거
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
 import getSession from "@/lib/session";
+import Skeleton from "@/components/ui/Skeleton";
 import ChatMessagesList from "@/features/chat/components/ChatMessagesList";
 import ChatHeader from "@/features/chat/components/ChatHeader";
 import { getUserInfoById } from "@/features/user/service/profile";
@@ -38,24 +43,19 @@ import {
   getCounterpartyInChatRoom,
   checkChatRoomAccess,
 } from "@/features/chat/service/room";
-import {
-  getInitialMessages,
-  markMessagesAsRead,
-} from "@/features/chat/service/message";
+import { markMessagesAsRead } from "@/features/chat/service/message";
+import { getMoreMessagesAction } from "@/features/chat/actions/messages";
 import { checkBlockRelation } from "@/features/user/service/block";
 
 /**
  * 채팅방 상세 페이지
  *
- * [보안 및 접근 제어]
- * 1. 로그인 세션을 확인하여 권한 없는 접근을 차단
- * 2. `checkChatRoomAccess`를 통해 해당 사용자가 실제 방의 참여자인지 검증
- * 3. `checkBlockRelation`을 통해 참여자 간에 차단 관계가 설정되어 있는지 확인
- *    - 차단된 경우 공용 접근 거부 페이지(`/403?reason=BLOCKED`)로 리다이렉트
- *
- * [데이터 처리]
- * - 제품 정보, 상대방 정보, 메시지 내역을 병렬로 로드하여 로딩 속도를 최적화
- * - 페이지 진입과 동시에 상대방이 보낸 메시지들을 읽음 처리하고 관련 알림 캐시를 갱신
+ * [기능]
+ * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
+ * - 채팅방 참여 권한(접근 인가) 및 대상 유저와의 양방향 차단 관계 검증 (차단 시 403 리다이렉트 처리)
+ * - 채팅방 정보 및 상대방 정보의 서버 사이드 병렬 로드 적용
+ * - TanStack Query를 활용한 초기 채팅 메시지 데이터 서버 프리패치(Prefetch) 적용
+ * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달 및 즉각적인 읽음 처리 수행
  */
 export default async function ChatRoom({ params }: { params: { id: string } }) {
   const chatRoomId = params.id;
@@ -77,10 +77,20 @@ export default async function ChatRoom({ params }: { params: { id: string } }) {
   if (!room) return notFound();
 
   // 4. 데이터 병렬 로딩 (Service 직접 호출)
-  const [product, counterparty, initialMessages] = await Promise.all([
+  const queryClient = getQueryClient();
+  const [product, counterparty] = await Promise.all([
     getChatRoomDetails(room.productId),
     getCounterpartyInChatRoom(chatRoomId, viewer.id),
-    getInitialMessages(chatRoomId, 20),
+    // 초기 메시지 데이터 프리패치
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.chats.messages(chatRoomId),
+      queryFn: async () => {
+        const res = await getMoreMessagesAction(chatRoomId, null);
+        if (!res.success) throw new Error(res.error);
+        return res.data ?? [];
+      },
+      initialPageParam: null as number | null,
+    }),
   ]);
 
   if (!product || !counterparty) return notFound();
@@ -99,15 +109,7 @@ export default async function ChatRoom({ params }: { params: { id: string } }) {
 
   // 6. 읽음 처리 (Service 직접 호출)
   // 진입 시점의 읽지 않은 메시지를 모두 읽음 처리
-  const readResult = await markMessagesAsRead(chatRoomId, viewer.id);
-  if (
-    readResult.success &&
-    readResult.readIds &&
-    readResult.readIds.length > 0
-  ) {
-    revalidateTag(T.CHAT_ROOMS_ID(viewer.id));
-    revalidateTag(T.CHAT_ROOMS());
-  }
+  await markMessagesAsRead(chatRoomId, viewer.id);
 
   return (
     <div
@@ -124,12 +126,28 @@ export default async function ChatRoom({ params }: { params: { id: string } }) {
         counterparty={counterparty}
         product={product}
       />
-      <ChatMessagesList
-        productChatRoomId={chatRoomId}
-        user={viewer}
-        initialMessages={initialMessages}
-        isCounterpartyLeft={counterparty.hasLeft}
-      />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <Suspense fallback={<MessageSkeleton />}>
+          <ChatMessagesList
+            productChatRoomId={chatRoomId}
+            user={viewer}
+            isCounterpartyLeft={counterparty.hasLeft}
+          />
+        </Suspense>
+      </HydrationBoundary>
+    </div>
+  );
+}
+
+function MessageSkeleton() {
+  return (
+    <div className="flex-1 p-4 space-y-4 overflow-hidden flex flex-col justify-end pb-20">
+      <div className="flex justify-start">
+        <Skeleton className="h-10 w-2/3 rounded-2xl rounded-bl-none" />
+      </div>
+      <div className="flex justify-end">
+        <Skeleton className="h-12 w-1/2 rounded-2xl rounded-br-none bg-brand/20" />
+      </div>
     </div>
   );
 }

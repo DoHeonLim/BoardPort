@@ -12,12 +12,12 @@
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Merged     lib/phone/*.ts 로직 이관
  * 2026.02.23  임도헌   Modified   토큰 검증 및 유저 업데이트 트랜잭션 적용
+ * 2026.03.05  임도헌   Modified   휴대폰 인증 완료 시의 개인화 캐시 태그 무효화 로직 제거 및 `revalidatePath` 기반 단순화 적용
  */
 
 import "server-only";
+import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
-import * as T from "@/lib/cacheTags";
-import { revalidateTag, revalidatePath } from "next/cache";
 import { sendSMS } from "@/features/auth/utils/smsSender";
 import { generateUniqueSmsToken } from "@/features/auth/service/token";
 import { badgeChecks } from "./badge";
@@ -107,9 +107,6 @@ export async function verifyProfilePhoneTokenService(
 
   // 3. 뱃지 체크 및 캐시 갱신 (트랜잭션 외부)
   await badgeChecks.onVerificationUpdate(userId);
-
-  revalidateTag(T.USER_CORE_ID(userId));
-  revalidateTag(T.USER_BADGES_ID(userId));
 
   // UI 갱신을 위해 관련 경로 리프레시
   revalidatePath("/profile");

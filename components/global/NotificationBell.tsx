@@ -9,15 +9,17 @@
  * 2026.02.11  임도헌   Modified  Supabase 구독 제거 -> window event 수신으로 변경 (BAN 기능 정상화)
  * 2026.02.12  임도헌   Modified  뱃지 UI 변경 (Dot -> Number Count)
  * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (DOM 이벤트 리스너 제거)
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
-
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { BellIcon as BellIconSolid } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
+import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 
 interface NotificationBellProps {
   initialCount?: number;
@@ -26,14 +28,12 @@ interface NotificationBellProps {
 }
 
 /**
- * 전역 알림 벨 컴포넌트
+ * 전역 상단 알림 벨 및 뱃지 UI 컴포넌트
  *
- * [동작 원리]
- * 1. 초기값(`initialCount`)을 받아 렌더링합
- * 2. 직접 네트워크 연결을 맺지 않음
- *    - `NotificationListener`가 수신한 알림 이벤트를 `window.dispatchEvent`로 전파하면,
- *    - 이 컴포넌트가 `sys:notification` 이벤트를 감지하여 카운트를 증가
- * 3. 이를 통해 페이지 이동 시 컴포넌트가 언마운트되어도 전역 Supabase 연결이 끊기는 부작용을 막음
+ * [상태 주입 및 동기화 로직]
+ * - 서버로부터 주입된 초기 카운트(`initialCount`)를 `useNotificationStore`에 하이드레이션(Hydration) 처리
+ * - Zustand 전역 상태(`unreadCount`) 구독을 통한 실시간 카운트 증감 및 뱃지 UI 조건부 렌더링 적용
+ * - 기존 Event Bus 리스너 방식 제거를 통한 메모리 누수 원천 차단
  *
  * @param {NotificationBellProps} props
  */
@@ -42,32 +42,16 @@ export default function NotificationBell({
   userId,
   className,
 }: NotificationBellProps) {
-  const [unreadCount, setUnreadCount] = useState(initialCount);
+  // Zustand 스토어 상태 및 액션 구독
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const setUnreadCount = useNotificationStore((state) => state.setUnreadCount);
 
-  // 서버 상태와 초기 동기화
+  // 컴포넌트 마운트 시 서버 상태(initialCount)로 스토어를 동기화
   useEffect(() => {
     setUnreadCount(initialCount);
-  }, [initialCount]);
+  }, [initialCount, setUnreadCount]);
 
-  // 로컬 이벤트 리스너 등록
-  useEffect(() => {
-    if (!userId) return;
-    const handleNew = () => setUnreadCount((prev) => prev + 1);
-
-    const handleRead = (e: any) =>
-      setUnreadCount((prev) => Math.max(0, prev - (e.detail?.count || 1)));
-    const handleReadAll = () => setUnreadCount(0);
-
-    window.addEventListener("sys:notification", handleNew);
-    window.addEventListener("sys:notification_read", handleRead);
-    window.addEventListener("sys:notification_read_all", handleReadAll);
-
-    return () => {
-      window.removeEventListener("sys:notification", handleNew);
-      window.removeEventListener("sys:notification_read", handleRead);
-      window.removeEventListener("sys:notification_read_all", handleReadAll);
-    };
-  }, [userId]);
+  if (!userId) return null;
 
   return (
     <Link

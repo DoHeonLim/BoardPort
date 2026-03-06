@@ -29,13 +29,15 @@
  * 2026.02.06  임도헌   Modified  메시지 호버 시 신고 아이콘(!) 노출 및 ReportModal 연동
  * 2026.02.06  임도헌   Modified  차단 시 메시지 즉시 숨김(Local Filtering) 로직 추가
  * 2026.02.22  임도헌   Modified  initialBlockedUserIds 프롭을 받아 기존 차단 유저 채팅 완벽 은닉
+ * 2026.03.04  임도헌   Modified  stream:chat:state 이벤트 리스너 제거 및 closeChat 액션 기반 Zustand 상태 제어로 전환
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
 import { useRef, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { sendStreamMessageAction } from "@/features/stream/actions/chat";
+import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
 import TimeAgo from "@/components/ui/TimeAgo";
 import { toast } from "sonner";
 import useStreamChatSubscription from "@/features/stream/hooks/useStreamChatSubscription";
@@ -47,6 +49,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import type { StreamChatMessage } from "@/features/chat/types";
+import { sendStreamMessageAction } from "@/features/stream/actions/chat";
 import { cn } from "@/lib/utils";
 
 const StreamChatUserModal = dynamic(() => import("./StreamChatUserModal"), {
@@ -75,15 +78,14 @@ interface Props {
 const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 유지 한도
 
 /**
- * 스트리밍 실시간 채팅창
+ * 스트리밍 실시간 채팅방 컴포넌트
  *
- * [기능]
- * 1. 실시간 통신: Supabase Broadcast를 통해 지연 없는 채팅 구현
- * 2. 스마트 스크롤: 사용자가 바닥을 보고 있을 때만 새 메시지 수신 시 자동 스크롤
- * 3. 도배 방지: Rate Limit 초과 시 쿨다운 UI 적용
- * 4. 관리 도구: 유저 클릭 시 '차단(강제 퇴장)' 및 '프로필 확인'이 가능한 모달 제공
- * 5. 메시지 호버 시 즉시 신고 가능한 아이콘 제공
- * 5. 반응형 대응: 데스크톱 사이드바 모드와 모바일 하단 확대 모드 지원
+ * [상태 주입 및 상호작용 제어 로직]
+ * - `useStreamChatUIStore` 상태 구독을 통한 모바일/데스크톱 채팅창 표시 여부 제어
+ * - `useInfiniteMessages` 훅을 활용한 이전 채팅 내역 페이징 조회 및 로컬 캐시 연동
+ * - Supabase 기반 `useStreamChatSubscription`을 통한 실시간 채팅 브로드캐스트 수신 및 Optimistic Update 적용
+ * - 쿨다운 타이머(Rate Limit) 적용 및 스크롤 바닥 감지(`IntersectionObserver`) 기반 자동 스크롤 로직 제공
+ * - 채팅 입력바, 프로필 미니 모달, 신고 모달 등 부가 기능 상태 제어
  */
 export default function StreamChatRoom({
   initialStreamMessage,
@@ -103,7 +105,9 @@ export default function StreamChatRoom({
     useState<StreamChatMessage[]>(initialStreamMessage);
   const [message, setMessage] = useState(""); // 입력 필드 텍스트
   const [cooldownUntil, setCooldownUntil] = useState<number>(0); // 쿨다운 만료 시각
-  const [isOpen, setIsOpen] = useState(true); // 채팅창 표시 여부 (Topbar와 연동)
+  const isOpen = useStreamChatUIStore((s) => s.isChatOpen);
+  const closeChatUI = useStreamChatUIStore((s) => s.closeChat);
+
   const [selectedUser, setSelectedUser] = useState<{
     id: number;
     username: string;
@@ -124,21 +128,7 @@ export default function StreamChatRoom({
   // 내가 호스트(방장)인지 판단 (차단 안내 문구 분기용)
   const isViewerHost = userId === streamChatRoomhost;
 
-  // --- 1. Topbar 이벤트 리스너 (열기/닫기 동기화) ---
-  useEffect(() => {
-    const handleState = (event: Event) => {
-      const { detail } = event as CustomEvent<{ open?: boolean }>;
-      if (typeof detail?.open === "boolean") setIsOpen(detail.open);
-    };
-    window.addEventListener("stream:chat:state", handleState as EventListener);
-    return () =>
-      window.removeEventListener(
-        "stream:chat:state",
-        handleState as EventListener
-      );
-  }, []);
-
-  // --- 2. 데이터 초기화 및 중복 방지 Set 갱신 ---
+  // --- 1. 데이터 초기화 및 중복 방지 Set 갱신 ---
   useEffect(() => {
     setMessages(initialStreamMessage);
     const s = new Set<string | number>();
@@ -153,7 +143,7 @@ export default function StreamChatRoom({
     });
   }, [streamChatRoomId, initialStreamMessage]);
 
-  // --- 3. 새 메시지 수신 시 스크롤 제어 ---
+  // --- 2. 새 메시지 수신 시 스크롤 제어 ---
   useEffect(() => {
     if (chatRef.current && atBottomRef.current) {
       requestAnimationFrame(() => {
@@ -163,7 +153,7 @@ export default function StreamChatRoom({
     }
   }, [messages]);
 
-  // --- 4. 스크롤 위치 감지 로직 ---
+  // --- 3. 스크롤 위치 감지 로직 ---
   useEffect(() => {
     const el = chatRef.current;
     if (!el) return;
@@ -176,7 +166,7 @@ export default function StreamChatRoom({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // --- 5. 쿨다운 타이머 관리 ---
+  // --- 4. 쿨다운 타이머 관리 ---
   useEffect(() => {
     if (!cooldownUntil) return;
     const ms = cooldownUntil - Date.now();
@@ -188,7 +178,7 @@ export default function StreamChatRoom({
     return () => clearTimeout(t);
   }, [cooldownUntil]);
 
-  // --- 6. 실시간 구독 (Supabase Hook) ---
+  // --- 5. 실시간 구독 (Supabase Hook) ---
   const sendChannel = useStreamChatSubscription({
     streamChatRoomId,
     userId,
@@ -208,7 +198,7 @@ export default function StreamChatRoom({
     if (sendChannel) sendChannelRef.current = sendChannel;
   }, [sendChannel]);
 
-  // --- 7. 입력창 높이 자동 조절 ---
+  // --- 6. 입력창 높이 자동 조절 ---
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -216,7 +206,7 @@ export default function StreamChatRoom({
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [message]);
 
-  // --- 8. 메시지 전송 로직 ---
+  // --- 7. 메시지 전송 로직 ---
   const onSubmit = async () => {
     if (Date.now() < cooldownUntil) return;
     const text = message.trim();
@@ -269,10 +259,7 @@ export default function StreamChatRoom({
   };
 
   const closeChat = () => {
-    setIsOpen(false);
-    window.dispatchEvent(
-      new CustomEvent("stream:chat:state", { detail: { open: false } })
-    );
+    closeChatUI();
   };
 
   if (!isOpen) return null;

@@ -11,13 +11,16 @@
  * 2025.12.20  임도헌   Modified   upsertLocal 신규 유저는 append(정렬/스크롤 안정성 우선)
  * 2025.12.23  임도헌   Modified   error 상태 추가(초기 로딩 실패 UX 개선) + 재시도 지원
  * 2025.12.23  임도헌   Modified   error stage(first/more) 구분 + retry() 제공(무한스크롤 루프 방지)
- * 2026.01.16  임도헌   Moved     hooks -> hooks/user
- * 2026.01.18  임도헌   Moved     hooks/user -> features/user/hooks
+ * 2026.01.16  임도헌   Moved      hooks -> hooks/user
+ * 2026.01.18  임도헌   Moved      hooks/user -> features/user/hooks
+ * 2026.03.01  임도헌   Modified   useInfiniteQuery 도입, 수동 상태(useState) 및 병합 로직 제거
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import type { FollowListUser, FollowListCursor } from "@/features/user/types";
 
 type Fetcher = (
@@ -25,136 +28,73 @@ type Fetcher = (
   cursor: FollowListCursor
 ) => Promise<{ users: FollowListUser[]; nextCursor: FollowListCursor }>;
 
-interface useFollowPaginationParams {
+interface UseFollowPaginationParams {
   username: string;
+  type: "followers" | "following"; // 캐시 식별자(Query Key) 분리용
   fetcher: Fetcher;
+  enabled: boolean; // 모달 오픈 여부 (지연 로딩 트리거)
 }
 
-type FollowPaginationError =
-  | { stage: "first"; message: string }
-  | { stage: "more"; message: string };
-
 /**
- * 팔로워/팔로잉 목록 페이지네이션 훅
+ * 팔로워 및 팔로잉 목록 공용 무한 스크롤 페이징 훅
  *
- * [기능]
- * 1. 키셋 커서(Keyset Cursor) 기반의 무한 스크롤 상태를 관리.
- * 2. `dedupMerge` 로직을 통해 중복 데이터를 제거하며 리스트를 병합
- * 3. 초기 로딩(`loadFirst`)과 추가 로딩(`loadMore`)을 분리하여 에러 핸들링을 세분화
- * 4. `upsertLocal` 및 `removeLocal` 메서드를 제공하여, 서버 재요청 없이 리스트 아이템을 즉시 갱신할 수 있음
+ * [상태 추출 및 데이터 페칭 로직]
+ * - `type`(followers/following) 식별자가 포함된 쿼리 키를 통한 캐시 상태 독립적 보존
+ * - `useInfiniteQuery`를 활용한 커서 기반 데이터 페칭 및 `enabled` 옵션 기반의 지연 로딩(Lazy Load) 적용
+ * - 초기 데이터가 없는 상태에서의 에러(first)와 스크롤 중 발생한 에러(more) 분기 처리를 통한 UX 최적화
  *
- * @param {useFollowPaginationParams} params - 데이터 Fetcher 함수 및 유저명
+ * @param {UseFollowPaginationParams} params - 유저명, 리스트 타입, 페칭 함수, 지연 로딩 트리거 플래그
  */
 export function useFollowPagination({
   username,
+  type,
   fetcher,
-}: useFollowPaginationParams) {
-  const [users, setUsers] = useState<FollowListUser[]>([]);
-  const [cursor, setCursor] = useState<FollowListCursor>(null);
-  const [loaded, setLoaded] = useState(false); // 초기 로딩 완료 여부
-  const [loading, setLoading] = useState(false); // 현재 로딩 중 여부
-  const [error, setError] = useState<FollowPaginationError | null>(null);
+  enabled,
+}: UseFollowPaginationParams) {
+  // 모달별, 유저별로 완벽히 분리되는 고유 캐시 키 구성
+  const queryKey = queryKeys.follows.list(username, type);
 
-  // 중복 제거 병합 헬퍼
-  const dedupMerge = useCallback(
-    (prev: FollowListUser[], incoming: FollowListUser[]) => {
-      const map = new Map(prev.map((u) => [u.id, u]));
-      for (const u of incoming) map.set(u.id, u);
-      // Map은 삽입 순서를 유지하므로, 기존 순서 + 신규 순서가 됨 (단, 기존 키는 위치 유지)
-      return Array.from(map.values());
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      // 서버 액션을 호출하여 팔로우 유저 데이터를 패칭함.
+      return await fetcher(username, pageParam as FollowListCursor);
     },
-    []
-  );
+    initialPageParam: null as FollowListCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled, // 모달이 닫혀있으면 쿼리를 대기 상태로 유지함.
+    staleTime: 5 * 60 * 1000, // 팔로우 목록은 변경 빈도를 고려하여 5분간 캐시를 유지함.
+  });
 
-  /**
-   * 초기 목록 로딩 (모달 열릴 때 1회)
-   */
-  const loadFirst = useCallback(async () => {
-    if (loaded || loading) return;
+  const users = data?.pages.flatMap((p) => p.users) ?? [];
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetcher(username, null);
-      setUsers(res.users);
-      setCursor(res.nextCursor);
-      setLoaded(true);
-    } catch (e) {
-      console.error("[follow] loadFirst failed:", e);
-      setError({
-        stage: "first",
-        message: "목록을 불러오지 못했습니다. 다시 시도해주세요.",
-      });
-      // 에러 시 상태 초기화
-      setUsers([]);
-      setCursor(null);
-      setLoaded(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetcher, username, loaded, loading]);
-
-  /**
-   * 추가 목록 로딩 (무한 스크롤)
-   */
-  const loadMore = useCallback(async () => {
-    if (loading || !cursor) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetcher(username, cursor);
-      setUsers((prev) => dedupMerge(prev, res.users));
-      setCursor(res.nextCursor);
-    } catch (e) {
-      console.error("[follow] loadMore failed:", e);
-      setError({
-        stage: "more",
-        message: "더 불러오지 못했습니다. 다시 시도해주세요.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [cursor, dedupMerge, fetcher, loading, username]);
-
-  /**
-   * 로컬 상태 업데이트 (Optimistic UI용)
-   * - 팔로우 토글 시 리스트 내 아이템 상태만 변경할 때 사용
-   */
-  const upsertLocal = useCallback((user: FollowListUser) => {
-    setUsers((prev) => {
-      const idx = prev.findIndex((u) => u.id === user.id);
-      if (idx === -1) return [...prev, user]; // 없으면 추가
-      const next = prev.slice();
-      next[idx] = user; // 있으면 교체
-      return next;
-    });
-  }, []);
-
-  const removeLocal = useCallback((id: number) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-  }, []);
-
-  // 에러 재시도
-  const retry = useCallback(async () => {
-    if (!error) return;
-    if (error.stage === "first") return loadFirst();
-    return loadMore();
-  }, [error, loadFirst, loadMore]);
+  // 에러 발생 시점 분기 처리
+  // 데이터가 하나도 없는 상태에서 발생한 에러는 초기 로딩 실패(first)로 간주함.
+  const isFirstError = isError && users.length === 0;
+  const customError = isError
+    ? {
+        stage: isFirstError ? ("first" as const) : ("more" as const),
+        message: error?.message || "데이터를 불러오지 못했습니다.",
+      }
+    : null;
 
   return {
     users,
-    cursor,
-    loaded,
-    loading,
-    loadFirst,
-    loadMore,
-    hasMore: !!cursor,
-    upsertLocal,
-    removeLocal,
-    error,
-    retry,
+    // 쿼리가 활성화되었으나 아직 캐시에 데이터가 없는 상태를 초기 로딩으로 정의함.
+    isLoading: isPending && enabled,
+    isFetchingNextPage,
+    hasMore: !!hasNextPage,
+    error: customError,
+    loadMore: fetchNextPage,
+    retry: refetch, // 에러 발생 시 수동 재시도를 지원하기 위해 쿼리 리패치 함수를 노출함.
   };
 }

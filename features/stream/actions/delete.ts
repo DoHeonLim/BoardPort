@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   Moved     app/streams/[id]/actions.ts (deleteBroadcastAction, deleteLiveInputAction) -> features/stream/actions/delete.ts
  * 2026.02.22  임도헌   Modified  본인 방송 삭제 시 메인 스트림 목록(/streams) 캐시 무효화 추가
+ * 2026.03.05  임도헌   Modified  개인화된 방송 목록 캐시의 `revalidateTag` 호출 제거 및 `revalidatePath` 기반 단순화 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use server";
@@ -40,7 +42,6 @@ export const deleteBroadcastAction = async (broadcastId: number) => {
 
   if (result.success) {
     revalidateTag(T.BROADCAST_DETAIL(broadcastId));
-    revalidateTag(T.USER_STREAMS_ID(session.id));
     revalidatePath("/streams");
   }
   return result;
@@ -65,7 +66,6 @@ export async function deleteLiveInputAction(liveInputId: number) {
     for (const b of affected) {
       revalidateTag(T.BROADCAST_DETAIL(b.id));
     }
-    revalidateTag(T.USER_STREAMS_ID(session.id));
   }
 
   return result;

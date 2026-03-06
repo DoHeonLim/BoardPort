@@ -11,6 +11,7 @@
  * 2026.01.22  임도헌   Modified  Service 연결
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/likes.ts -> features/post/actions/like.ts
+ * 2026.03.05  임도헌   Modified  `revalidateTag` 호출 제거 및 `queryClient.setQueryData`를 활용한 좋아요 상태 즉각적 UI 갱신(Optimistic Update) 적용
  */
 "use server";
 
@@ -33,9 +34,7 @@ export const likePost = async (postId: number) => {
   const result = await togglePostLike(session.id, postId, true);
 
   if (result.success) {
-    revalidateTag(T.POST_LIKE_STATUS(postId));
     revalidateTag(T.POST_DETAIL(postId));
-    revalidateTag(T.POST_LIST());
   }
 };
 
@@ -53,8 +52,6 @@ export const dislikePost = async (postId: number) => {
   const result = await togglePostLike(session.id, postId, false);
 
   if (result.success) {
-    revalidateTag(T.POST_LIKE_STATUS(postId));
     revalidateTag(T.POST_DETAIL(postId));
-    revalidateTag(T.POST_LIST());
   }
 };

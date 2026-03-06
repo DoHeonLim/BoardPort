@@ -31,11 +31,20 @@
  * 2026.02.04  임도헌   Modified   차단(isBlocked) 상태에 따른 조건부 렌더링 추가
  * 2026.02.05  임도헌   Modified   차단된 유저 화면에 '차단 해제' 버튼 추가 (UX 개선)
  * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
+ * 2026.03.03  임도헌   Modified   initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent) 분리를 통한 Suspense 최적화
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 
 "use client";
 
-import { useMemo, useRef, useState, useCallback, useTransition } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  useTransition,
+  Suspense,
+} from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -48,21 +57,17 @@ import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
 import ProductCard from "@/features/product/components/productCard";
 import StreamCard from "@/features/stream/components/StreamCard";
+import Skeleton from "@/components/ui/Skeleton";
 import {
   ListBulletIcon,
   Squares2X2Icon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-import type {
-  Paginated,
-  ProductType,
-  ViewMode,
-} from "@/features/product/types";
+import type { ProductType, ViewMode } from "@/features/product/types";
 import type {
   Badge,
   ProfileAverageRating,
-  ProfileReview,
   UserProfile as UserProfileType,
 } from "@/features/user/types";
 import type { BroadcastSummary } from "@/features/stream/types";
@@ -76,9 +81,6 @@ type ProductStatus = "selling" | "sold";
 
 interface Props {
   user: UserProfileType & { isFollowing?: boolean };
-  initialReviews: ProfileReview[];
-  initialSellingProducts: Paginated<ProductType>;
-  initialSoldProducts: Paginated<ProductType>;
   averageRating: ProfileAverageRating | null;
   userBadges: Badge[];
   myStreams?: BroadcastSummary[];
@@ -101,9 +103,6 @@ interface Props {
  */
 export default function UserProfile({
   user,
-  initialReviews,
-  initialSellingProducts,
-  initialSoldProducts,
   averageRating,
   userBadges,
   myStreams,
@@ -116,8 +115,6 @@ export default function UserProfile({
   const next = useMemo(() => pathname + (qs ? `?${qs}` : ""), [pathname, qs]);
 
   // 1. 팔로우 상태 관리 (Local State)
-  // - 헤더에서 팔로우 버튼을 누르면 이 상태가 변경
-  // - 이 상태는 하단의 '방송국' 섹션 내 '팔로워 전용 방송' 카드의 잠금 해제 여부에 즉시 영향
   const [isFollowing, setIsFollowing] = useState<boolean>(!!user.isFollowing);
 
   // 2. 뷰 및 탭 상태
@@ -128,68 +125,31 @@ export default function UserProfile({
   // 차단 해제 Transition
   const [isUnblocking, startUnblock] = useTransition();
 
-  // 3. 판매 목록 페이지네이션 설정 (각 탭별 독립 훅)
-  const selling = useProductPagination<ProductType>({
-    mode: "profile",
-    scope: { type: "SELLING", userId: user.id },
-    initialProducts: initialSellingProducts.products,
-    initialCursor: initialSellingProducts.nextCursor,
-  });
-  const sold = useProductPagination<ProductType>({
-    mode: "profile",
-    scope: { type: "SOLD", userId: user.id },
-    initialProducts: initialSoldProducts.products,
-    initialCursor: initialSoldProducts.nextCursor,
-  });
-
-  const current = activeTab === "selling" ? selling : sold;
-  const currentProducts = current.products as ProductType[];
-
-  // 4. 무한 스크롤 설정
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const isVisible = usePageVisibility();
-
-  useInfiniteScroll({
-    triggerRef,
-    hasMore: current.hasMore,
-    isLoading: current.isLoading,
-    onLoadMore: current.loadMore,
-    enabled: isVisible && !user.isBlocked,
-    rootMargin: "1400px 0px 0px 0px",
-    threshold: 0.01,
-  });
-
   const onRequireLogin = useCallback(() => {
     router.push(`/login?callbackUrl=${encodeURIComponent(next)}`);
   }, [router, next]);
 
   /**
    * [Interaction] 방송 레일에서 팔로우 유도 시
-   * - 비로그인 시 로그인 페이지로 안내
-   * - 로그인 시 헤더에 있는 팔로우 버튼을 자동으로 찾아 스크롤 및 클릭을 유도함
    */
   const followButtonId = "user-profile-follow-btn";
   const requestFollowFromRail = useCallback(() => {
-    // 비로그인 -> 로그인으로
     if (!viewerId) {
       onRequireLogin();
       return;
     }
-    // 이미 팔로잉이면 할 일 없음
     if (isFollowing) return;
 
-    // 헤더 팔로우 버튼을 찾아 클릭(UX 일관)
     const btn = document.getElementById(
       followButtonId
     ) as HTMLButtonElement | null;
     if (btn) {
       btn.scrollIntoView({ behavior: "smooth", block: "center" });
       if (!btn.disabled) btn.click();
-      else btn.focus(); // pending이면 포커스만
+      else btn.focus();
       return;
     }
 
-    // fallback: 못 찾으면 그냥 상단으로 유도(최소 안전)
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [viewerId, isFollowing, onRequireLogin]);
 
@@ -201,7 +161,7 @@ export default function UserProfile({
       const res = await toggleBlockAction(user.id, "unblock");
       if (res.success) {
         toast.success("차단을 해제했습니다.");
-        router.refresh(); // 페이지 새로고침하여 정상 UI로 복귀
+        router.refresh();
       } else {
         toast.error(res.error ?? "차단 해제 실패");
       }
@@ -210,7 +170,7 @@ export default function UserProfile({
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      {/* 1. Header (항상 표시: 차단 여부와 무관하게 기본 정보는 노출) */}
+      {/* 1. Header */}
       <div className="pt-2">
         <ProfileHeader
           ownerId={user.id}
@@ -222,7 +182,7 @@ export default function UserProfile({
           viewerId={viewerId}
           initialIsFollowing={!!user.isFollowing}
           avatarUrl={user.avatar ?? null}
-          showFollowButton={!user.isBlocked} // 차단 상태면 팔로우 버튼 숨김
+          showFollowButton={!user.isBlocked}
           onRequireLogin={onRequireLogin}
           onFollowingChange={setIsFollowing}
           followButtonId={followButtonId}
@@ -230,9 +190,8 @@ export default function UserProfile({
         />
       </div>
 
-      {/* 2. 조건부 렌더링 */}
+      {/* 2. 조건부 렌더링 (차단 여부) */}
       {user.isBlocked ? (
-        // [차단됨] 안내 메시지 및 해제 버튼
         <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in bg-surface-dim/50 rounded-3xl border-2 border-dashed border-border mx-auto max-w-sm w-full mt-4">
           <div className="p-4 bg-surface rounded-full shadow-sm mb-4">
             <span className="text-4xl">🚫</span>
@@ -258,7 +217,6 @@ export default function UserProfile({
           </button>
         </div>
       ) : (
-        // [정상] 전체 콘텐츠 노출
         <>
           {/* 3. 방송국 (최근 방송 Rail) */}
           <section>
@@ -279,7 +237,6 @@ export default function UserProfile({
             ) : (
               <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
                 {myStreams.map((s) => {
-                  // 팔로워 전용 잠금 로직 (로컬 state 연동)
                   const followersOnlyLocked =
                     s.visibility === "FOLLOWERS" && !isFollowing;
                   const requiresPassword = !!s.requiresPassword;
@@ -342,12 +299,12 @@ export default function UserProfile({
             </section>
           </div>
 
-          {/* 5. 판매 목록 (Tabs + List) */}
+          {/* 5. 판매 목록 (Tabs + Suspense List) */}
           <section>
             <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
             <div className="panel p-4 bg-surface">
               {/* 탭 전환 버튼 */}
-              <div className="flex p-1 bg-surface-dim rounded-lg border border-border mb-4">
+              <div className="flex p-1 mb-4 bg-surface-dim rounded-lg border border-border">
                 {(["selling", "sold"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -392,41 +349,22 @@ export default function UserProfile({
                 </div>
               </div>
 
-              {/* 목록 렌더링 */}
-              {currentProducts.length === 0 ? (
-                <div className="py-12 text-center text-muted text-sm border border-dashed border-border rounded-xl bg-surface-dim/30">
-                  {activeTab === "selling"
-                    ? "판매 중인 제품이 없습니다."
-                    : "판매 완료한 제품이 없습니다."}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div
-                    className={cn(
-                      "grid gap-4",
-                      viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
-                    )}
-                  >
-                    {currentProducts.map((product, i) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        viewMode={viewMode}
-                        isPriority={i < 4}
-                      />
-                    ))}
+              {/* 목록 렌더링 (Suspense 적용) */}
+              <Suspense
+                fallback={
+                  <div className="flex flex-col gap-4">
+                    <Skeleton className="h-32 w-full rounded-2xl" />
+                    <Skeleton className="h-32 w-full rounded-2xl" />
                   </div>
-                  {/* 트리거 & 로더 */}
-                  <div className="flex justify-center pt-2 min-h-[30px]">
-                    {current.hasMore && (
-                      <div ref={triggerRef} className="h-1 w-full" />
-                    )}
-                    {current.isLoading && (
-                      <div className="size-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
-                    )}
-                  </div>
-                </div>
-              )}
+                }
+              >
+                <SalesTabContent
+                  key={activeTab} // 탭 전환 시 컴포넌트를 새로 마운트
+                  type={activeTab}
+                  userId={user.id}
+                  viewMode={viewMode}
+                />
+              </Suspense>
             </div>
           </section>
 
@@ -435,12 +373,82 @@ export default function UserProfile({
             <ProfileReviewsModal
               isOpen={isReviewModalOpen}
               onClose={() => setIsReviewModalOpen(false)}
-              reviews={initialReviews}
               userId={user.id}
             />
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// 내부 컴포넌트: 선택된 탭 전용 데이터 패칭 및 렌더링 (선언적 로딩)
+// ----------------------------------------------------------------------
+function SalesTabContent({
+  type,
+  userId,
+  viewMode,
+}: {
+  type: ProductStatus;
+  userId: number;
+  viewMode: ViewMode;
+}) {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const isVisible = usePageVisibility();
+
+  // Suspense에 의해 data가 보장됨 (isLoading 분기 필요 없음)
+  const current = useProductPagination<ProductType>({
+    mode: "profile",
+    scope: { type: type.toUpperCase() as any, userId },
+  });
+
+  const products = current.products as ProductType[];
+
+  useInfiniteScroll({
+    triggerRef,
+    hasMore: current.hasMore,
+    isLoading: current.isFetchingNextPage,
+    onLoadMore: current.loadMore,
+    enabled: isVisible,
+    rootMargin: "1000px 0px 0px 0px",
+    threshold: 0.01,
+  });
+
+  if (products.length === 0) {
+    return (
+      <div className="py-12 text-center text-muted text-sm border border-dashed border-border rounded-xl bg-surface-dim/30">
+        {type === "selling"
+          ? "판매 중인 제품이 없습니다."
+          : "판매 완료한 제품이 없습니다."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div
+        className={cn(
+          "grid gap-4",
+          viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
+        )}
+      >
+        {products.map((product, i) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            viewMode={viewMode}
+            isPriority={i < 4}
+          />
+        ))}
+      </div>
+      {/* 트리거 & 스크롤 하단 로더 */}
+      <div className="flex justify-center pt-2 min-h-[30px]">
+        {current.hasMore && <div ref={triggerRef} className="h-1 w-full" />}
+        {current.isFetchingNextPage && (
+          <div className="size-5 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+        )}
+      </div>
     </div>
   );
 }

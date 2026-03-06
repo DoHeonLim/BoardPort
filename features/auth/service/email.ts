@@ -22,14 +22,15 @@
  * 2026.01.20  임도헌   Moved      lib/email/verifyEmail -> service/email (경로 수정)
  * 2026.01.25  임도헌   Modified   주석 보강
  * 2026.02.23  임도헌   Modified   토큰 삭제 및 인증 상태 업데이트 트랜잭션 원자성 보장
+ * 2026.03.05  임도헌   Modified   개인화 캐시 태그 파편화 제거 및 클라이언트 상태 동기화(`revalidatePath`) 기반 갱신으로 단순화
  */
 
 "use server";
 import { z, type typeToFlattenedError } from "zod";
 import validator from "validator";
-import { revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
-import * as T from "@/lib/cacheTags";
+
 import { badgeChecks } from "@/features/user/service/badge";
 import { sendEmail } from "@/features/auth/utils/mailer";
 import { handleGetToken } from "@/features/auth/service/token";
@@ -194,10 +195,7 @@ export async function verifyEmail(
   }
 
   await badgeChecks.onVerificationUpdate(tokenRow.userId);
-
-  // 캐시 무효화
-  revalidateTag(T.USER_CORE_ID(tokenRow.userId));
-  revalidateTag(T.USER_BADGES_ID(tokenRow.userId));
-
+  revalidatePath("/profile");
+  revalidatePath("/profile/edit");
   return { token: true, email, success: true };
 }

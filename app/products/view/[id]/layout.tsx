@@ -8,6 +8,7 @@
  * 2025.11.13  임도헌   Created   제품 상세 전용 상단바 도입
  * 2026.01.10  임도헌   Modified  [Rule 3.2]모바일 뷰 제약 준수 & 시맨틱 토큰 적용
  * 2026.02.13  임도헌   Modified  상단바에 공유하기 버튼 추가
+ * 2026.03.05  임도헌   Modified  상단 수정 링크를 replace로 변경해 뒤로가기 스택 최적화
  */
 
 import type { ReactNode } from "react";
@@ -84,6 +85,7 @@ export default async function ProductDetailLayout({
             {isOwner ? (
               <Link
                 href={`/products/view/${id}/edit`}
+                replace
                 className="hidden sm:inline-flex text-xs font-bold text-muted hover:text-primary transition-colors ml-2"
               >
                 수정

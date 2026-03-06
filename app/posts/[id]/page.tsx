@@ -29,17 +29,23 @@
  * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 로드
  * 2026.02.04  임도헌   Modified  차단 관계 확인 로직 추가
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
+ * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 댓글 데이터 Prefetch 로직 추가
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { incrementViews } from "@/features/common/service/view";
-import PostDetail from "@/features/post/components/postsDetail";
-import { getUserInfoById } from "@/features/user/service/profile";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import getSession from "@/lib/session";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
+import PostDetail from "@/features/post/components/postsDetail";
+import { incrementViews } from "@/features/common/service/view";
+import { getUserInfoById } from "@/features/user/service/profile";
 import { getCachedPost } from "@/features/post/service/post";
-import { getCachedPostLikeStatus } from "@/features/post/service/like";
+import { getPostLikeStatus } from "@/features/post/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
+import { getPostCommentsListAction } from "@/features/post/actions/comments";
 
 export async function generateMetadata({
   params,
@@ -63,7 +69,6 @@ export async function generateMetadata({
     openGraph: {
       title: post.title,
       description: desc,
-      // images: post.images[0]?.url ? [post.images[0].url] : [], // (선택) OG 이미지 생성기 쓰면 생략 가능
     },
   };
 }
@@ -71,11 +76,12 @@ export async function generateMetadata({
  * 게시글 상세 페이지
  *
  * [기능]
- * 1. 로그인 여부를 확인 (비로그인 시 로그인 페이지로 리다이렉트)
- * 2. 사용자의 조회수를 먼저 업데이트하고 기존 캐시를 무효화
- * 3. 최신 게시글 데이터, 좋아요 상태, 그리고 작성자 정보를 병렬로 호출
- * 4. 비로그인 사용자는 로그인 페이지로 리다이렉트
- * 5. `PostDetail` 컴포넌트를 렌더링
+ * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
+ * - 게시글 작성자와 조회자 간의 양방향 차단 관계 검증 (차단 시 403 리다이렉트 처리)
+ * - 데이터 조회 전 서버 사이드 조회수 증가 로직(View Increment) 선행 처리
+ * - 게시글 상세 정보, 유저 정보, 좋아요 상태의 서버 사이드 병렬 로드 적용
+ * - TanStack Query를 활용한 게시글 댓글 목록 서버 프리패치(Prefetch) 적용
+ * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달
  *
  * @param {Object} params - URL 파라미터 (id: 게시글 ID)
  */
@@ -102,11 +108,18 @@ export default async function PostDetailPage({
     viewerId: userId,
   });
 
-  // 2. [Read] 데이터 병렬 조회 (게시글 + 좋아요 + 유저)
+  // 2. QueryClient 초기화 및 데이터 병렬 조회
+  const queryClient = getQueryClient();
   const [post, likeStatus, viewerInfo] = await Promise.all([
     getCachedPost(id),
-    getCachedPostLikeStatus(id, userId),
+    getPostLikeStatus(id, userId),
     getUserInfoById(userId),
+    // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장함 (Prefetch)
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.posts.comments(id),
+      queryFn: () => getPostCommentsListAction(id),
+      initialPageParam: undefined as number | undefined,
+    }),
   ]);
 
   if (!post) return notFound();
@@ -124,11 +137,14 @@ export default async function PostDetailPage({
   }
 
   return (
-    <PostDetail
-      post={post}
-      user={viewerInfo}
-      likeCount={likeStatus.likeCount}
-      isLiked={likeStatus.isLiked}
-    />
+    // 3. 직렬화된 캐시 상태(dehydratedState)를 클라이언트로 전송
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <PostDetail
+        post={post}
+        user={viewerInfo}
+        likeCount={likeStatus.likeCount}
+        isLiked={likeStatus.isLiked}
+      />
+    </HydrationBoundary>
   );
 }

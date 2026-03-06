@@ -3,34 +3,24 @@
  * Description : 조회수 증가 공통 서비스 (ViewThrottle 3분 쿨다운 + DB increment + tag revalidate)
  * Author : 임도헌
  *
- * Key Points
- * - 제품/게시글/녹화(Recording) 조회수 증가 로직을 단일 진입점으로 통일.
- * - ViewThrottle(= shouldCountView) 로직을 이 파일로 흡수하여 파일 분산을 제거.
- * - 증가 성공 시에만 "views tag + detail tag"를 무효화하여 상세 정합성을 유지.
- * - 리스트는 무효화 X(성능 우선).
- *
- * Policy
- * - 동일 userId + 동일 targetType + 동일 targetId 는 3분 내 1회만 증가
- * - 상세 페이지는 didIncrement === true 일 때만 화면 표시값을 +1 보정
- * - 목록(list)은 캐시/스냅샷 유지 정책상 즉시 반영 X
- *
  * History
  * Date        Author   Status     Description
  * 2026.01.04  임도헌   Modified   ViewThrottle 로직 흡수 + 단일 진입점(incrementViews) 통일
  * 2026.01.04  임도헌   Modified   create 레이스(P2002) 방어 추가
  * 2026.01.19  임도헌   Renamed    incrementViews.ts-> viewCounter.ts
  * 2026.01.30  임도헌   Moved      lib/viewCounter.ts -> features/common/service/view.ts
+ * 2026.03.03  임도헌   Modified   목록 캐시 무효화
+ * 2026.03.05  임도헌   Modified   조회 경로의 revalidateTag 제거(고빈도 캐시 무효화 방지), 상세 캐시 무효화 책임을 mutation action으로 이관
+ * 2026.03.05  임도헌   Modified   주석 최신화
  */
 
 "use server";
 
-import { revalidateTag } from "next/cache";
 import db from "@/lib/db";
-import * as T from "@/lib/cacheTags";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { ViewTargetType } from "@/generated/prisma/client";
 
-export type IncrementViewsTarget = "PRODUCT" | "POST" | "RECORDING";
+export type IncrementViewsTarget = "PRODUCT" | "POST" | "VOD";
 
 // 조회수 중복 증가 방지 시간 (3분)
 const COOLDOWN_MS = 3 * 60 * 1000;
@@ -136,49 +126,29 @@ export async function incrementViews({
 }: IncrementViewsArgs): Promise<boolean> {
   if (!Number.isFinite(targetId) || targetId <= 0) return false;
 
-  // 1. PRODUCT
-  if (target === "PRODUCT") {
-    const ok = await shouldCountView(viewerId, "PRODUCT", targetId);
-    if (!ok) return false;
+  const ok = await shouldCountView(
+    viewerId,
+    target === "VOD" ? "VOD" : target,
+    targetId
+  );
+  if (!ok) return false;
 
+  if (target === "PRODUCT") {
     await db.product.update({
       where: { id: targetId },
       data: { views: { increment: 1 } },
-      select: { id: true },
     });
-
-    revalidateTag(T.PRODUCT_VIEWS(targetId));
-    revalidateTag(T.PRODUCT_DETAIL_ID(targetId));
-    return true;
-  }
-
-  // 2. POST
-  if (target === "POST") {
-    const ok = await shouldCountView(viewerId, "POST", targetId);
-    if (!ok) return false;
-
+  } else if (target === "POST") {
     await db.post.update({
       where: { id: targetId },
       data: { views: { increment: 1 } },
-      select: { id: true },
     });
-
-    revalidateTag(T.POST_VIEWS(targetId));
-    revalidateTag(T.POST_DETAIL(targetId));
-    return true;
+  } else if (target === "VOD") {
+    await db.vodAsset.update({
+      where: { id: targetId },
+      data: { views: { increment: 1 } },
+    });
+    // VOD는 BROADCAST_DETAIL에 묶여있거나 클라이언트 캐시로 관리되므로 별도 태그 불필요
   }
-
-  // 3. RECORDING (VOD)
-  // - ViewTargetType enum은 "VOD"를 사용함
-  const ok = await shouldCountView(viewerId, "VOD", targetId);
-  if (!ok) return false;
-
-  await db.vodAsset.update({
-    where: { id: targetId },
-    data: { views: { increment: 1 } },
-    select: { id: true },
-  });
-
-  revalidateTag(T.RECORDING_VIEWS(targetId));
   return true;
 }

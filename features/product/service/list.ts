@@ -12,35 +12,36 @@
  * 2026.02.15  임도헌   Modified  내 동네(Local-First) 필터링 로직 구현
  * 2026.02.20  임도헌   Modified  주석 최신화 및 JSDoc 적용
  * 2026.02.22  임도헌   Modified  정지된 유저(Banned)의 상품 완벽 은닉
+ * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 및 파편화된 페이징 로직 제거, 단일 함수(getProductsList)로 통합
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 import "server-only";
-import { unstable_cache as nextCache } from "next/cache";
 import db from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import * as T from "@/lib/cacheTags";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
 import { getBlockedUserIds } from "@/features/user/service/block";
 import { PRODUCT_SELECT } from "@/features/product/constants";
+import { buildRegionWhere } from "@/features/user/utils/region";
 import type {
   ProductSearchParams,
   Paginated,
   ProductType,
 } from "@/features/product/types";
-import { buildRegionWhere } from "@/features/user/utils/region";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
 
 /**
- * 검색 파라미터를 기반으로 Prisma Where 조건을 생성
- * (모든 접근은 로그인이 보장된 상태이므로 viewerId는 필수값)
+ * 제품 검색 조건 동적 쿼리 빌더
  *
- * [Region Filtering Policy]
- * - DB에 저장된 유저의 `regionRange`(DONG/GU/CITY/ALL) 및 지역 정보를 기준으로 필터를 생성
- * - `buildRegionWhere` 유틸을 사용하여 특수 행정구역 예외 처리를 포함
+ * [데이터 가공 전략]
+ * - 카테고리 파라미터 유무에 따른 대분류/소분류 조건 분기 구성
+ * - 사용자 위치 범위(`regionRange`) 기반의 동네 필터 동적 생성 적용 (특수 행정구역 방어 로직 포함)
+ * - 가격 범위, 게임 타입, 상품 상태 필터링 추가
+ * - 정지 유저(bannedAt) 콘텐츠의 글로벌 은닉 필터 적용
  *
- * @param {ProductSearchParams} params - 검색 필터 객체 (keyword, category 등)
+ * @param {ProductSearchParams} params - 클라이언트 검색 파라미터 (keyword, category 등)
  * @param {number} viewerId - 조회자 ID (DB 지역 설정 조회용)
- * @returns {Promise<Prisma.ProductWhereInput>} Prisma Where 조건 객체
+ * @returns {Promise<Prisma.ProductWhereInput>} 완성된 Prisma Where 조건 객체 반환
  */
 async function buildSearchWhere(
   params: ProductSearchParams,
@@ -124,12 +125,23 @@ async function buildSearchWhere(
 }
 
 /**
- * 제품 목록을 DB에서 조회 (Internal)
+ * 제품 목록 조회 및 페이징 로직 (항구 메인 페이지용)
+ *
+ * [데이터 페칭 및 가공 전략]
+ * - 검색 쿼리 빌더(`buildSearchWhere`) 적용 및 커서 기반 데이터 추출
+ * - 조회자(`viewerId`) 기준 차단된 유저의 상품 은닉 처리
+ * - 끌어올리기(`refreshed_at`)를 반영한 내림차순 1차 정렬 및 생성일 기준 2차 정렬 적용
+ * - 다음 페이지 존재 유무 판별을 위한 LIMIT + 1 레코드 조회 로직 포함
+ *
+ * @param {ProductSearchParams} params - 검색 조건
+ * @param {number} viewerId - 조회자 ID
+ * @param {number | null} cursor - 페이징 커서 (제품 ID)
+ * @returns {Promise<Paginated<ProductType>>} 페이징된 제품 목록과 다음 커서 반환
  */
-async function fetchProductsRaw(
+export async function getProductsList(
   params: ProductSearchParams,
   viewerId: number,
-  cursor?: number | null
+  cursor: number | null = null
 ): Promise<Paginated<ProductType>> {
   const where = await buildSearchWhere(params, viewerId);
 
@@ -147,7 +159,7 @@ async function fetchProductsRaw(
     // 끌어올리기 반영 정렬
     orderBy: [{ refreshed_at: "desc" }, { id: "desc" }],
     take: (params.take ?? TAKE) + 1,
-    skip: cursor ? 1 : params.skip ?? 0,
+    skip: cursor ? 1 : (params.skip ?? 0),
     cursor: cursorObj,
   });
 
@@ -157,61 +169,3 @@ async function fetchProductsRaw(
 
   return { products, nextCursor };
 }
-
-/**
- * 초기 목록 조회 (Cached)
- * - 필터가 없는 초기 진입 시 사용자별로 캐싱된 목록을 반환
- * - 필터가 있는 경우 실시간 데이터를 조회
- *
- * @param {ProductSearchParams} params - 검색 파라미터
- * @param {number} viewerId - 조회자 ID (필수)
- * @returns {Promise<Paginated<ProductType>>}
- */
-export async function getCachedProducts(
-  params: ProductSearchParams,
-  viewerId: number
-): Promise<Paginated<ProductType>> {
-  const hasFilter =
-    !!params.keyword ||
-    !!params.category ||
-    !!params.minPrice ||
-    !!params.maxPrice ||
-    !!params.game_type ||
-    !!params.condition;
-
-  // 필터가 있으면 실시간 조회
-  if (hasFilter) {
-    return fetchProductsRaw(params, viewerId, null);
-  }
-
-  // 필터 없는 초기 목록은 사용자별 캐싱
-  const key = `products-initial-user-${viewerId}`;
-  return nextCache(
-    async () => fetchProductsRaw(params, viewerId, null),
-    [key],
-    {
-      tags: [
-        T.PRODUCT_LIST(),
-        T.USER_BLOCK_UPDATE(viewerId),
-        T.USER_CORE_ID(viewerId), // 내 동네(Region) 변경 시 캐시 무효화
-      ],
-    }
-  )();
-}
-
-/**
- * 무한 스크롤용 추가 목록 조회
- * - 커서와 검색 조건을 받아 다음 페이지 데이터를 조회
- *
- * @param {number | null} cursor - 마지막 아이템 ID
- * @param {ProductSearchParams} params - 검색 조건 (필터링 유지용)
- * @param {number} viewerId - 조회자 ID (필수)
- * @returns {Promise<Paginated<ProductType>>}
- */
-export const getMoreProducts = async (
-  cursor: number | null,
-  params: ProductSearchParams,
-  viewerId: number
-): Promise<Paginated<ProductType>> => {
-  return fetchProductsRaw(params, viewerId, cursor);
-};

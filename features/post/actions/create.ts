@@ -17,12 +17,12 @@
  * 2026.02.01  임도헌   Modified  posts.ts에서 생성/수정 로직 분리(create.ts, update.ts)
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
  * 2026.02.26  임도헌   Modified  dto에 parsed.data.location 추가
+ * 2026.03.05  임도헌   Modified  게시글 목록 갱신용 레거시 `revalidateTag` 제거 및 `revalidatePath`와 클라이언트 캐시 무효화로 갱신 책임 분리
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
+import { revalidatePath } from "next/cache";
 import { createPost as createPostService } from "@/features/post/service/post";
 import { postFormSchema } from "@/features/post/schemas";
 import type { PostActionResponse, PostCreateDTO } from "@/features/post/types";
@@ -94,6 +94,6 @@ export async function createPostAction(
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.POST_LIST());
+  revalidatePath("/posts"); // 리스트 페이지 갱신
   return { success: true, postId: result.data.postId };
 }

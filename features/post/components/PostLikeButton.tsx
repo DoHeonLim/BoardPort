@@ -16,91 +16,100 @@
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.22  임도헌   Modified  useTransition 적용, 에러 핸들링 및 롤백 로직 추가
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.01  임도헌   Modified  React useOptimistic 제거 및 TanStack Query useMutation 도입
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { dislikePost, likePost } from "@/features/post/actions/likes";
+import { queryKeys } from "@/lib/queryKeys";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
-import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
-import { dislikePost, likePost } from "@/features/post/actions/likes";
 import { cn } from "@/lib/utils";
 
-interface ILikeButtonProps {
+interface PostLikeButtonProps {
+  postId: number;
   isLiked: boolean;
   likeCount: number;
-  postId: number;
 }
 
 /**
- * 좋아요 버튼 컴포넌트
- * - `useOptimistic`을 사용하여 즉각적인 UI 피드백을 제공
- * - `useTransition`으로 중복 요청을 방지
- * - 실패 시 자동으로 롤백
+ * 게시글 좋아요 버튼 컴포넌트
+ *
+ * [상태 주입 및 캐시 제어 로직]
+ * - `initialData`를 통한 초기 렌더링 깜빡임 방지 및 상태 하이드레이션 적용
+ * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 피드백 제공
+ * - `onError` 발생 시 `previous` 스냅샷을 활용한 이전 상태 복구(Rollback) 로직 포함
+ * - `onSettled` 단계에서 `invalidateQueries` 호출로 서버/클라이언트 데이터 최종 동기화 처리
  */
 export default function PostLikeButton({
-  isLiked,
-  likeCount,
   postId,
-}: ILikeButtonProps) {
-  const [optimisticState, setOptimisticState] = useOptimistic(
-    { isLiked, likeCount },
-    (state, newIsLiked: boolean) => ({
-      isLiked: newIsLiked,
-      likeCount: newIsLiked ? state.likeCount + 1 : state.likeCount - 1,
-    })
-  );
+  isLiked: initialIsLiked,
+  likeCount: initialLikeCount,
+}: PostLikeButtonProps) {
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.posts.likeStatus(postId);
 
-  const [isPending, startTransition] = useTransition();
+  // 1. 상태 조회 (초기값 하이드레이션)
+  const { data } = useQuery({
+    queryKey,
+    initialData: { isLiked: initialIsLiked, likeCount: initialLikeCount },
+    staleTime: Infinity, // Mutation이 일어나기 전까지 캐시 유지
+  });
 
-  const handleClick = async () => {
-    // 트랜잭션 진행 중 중복 클릭 방지
-    if (isPending) return;
+  // 2. 상태 변경 (Mutation)
+  const { mutate, isPending } = useMutation({
+    mutationFn: async () => {
+      if (data.isLiked) await dislikePost(postId);
+      else await likePost(postId);
+    },
+    // Mutate 발생 직후 실행 (낙관적 업데이트)
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey });
+      // 롤백을 위한 이전 상태 스냅샷 저장
+      const previous = queryClient.getQueryData(queryKey);
 
-    // 1. 낙관적 업데이트를 위한 다음 상태
-    const nextIsLiked = !optimisticState.isLiked;
+      // 캐시 강제 업데이트
+      queryClient.setQueryData(queryKey, {
+        isLiked: !data.isLiked,
+        likeCount: data.isLiked
+          ? Math.max(0, data.likeCount - 1)
+          : data.likeCount + 1,
+      });
 
-    // 2. startTransition으로 UI 업데이트와 서버 액션 래핑
-    startTransition(async () => {
-      // 2-1. UI를 즉시 업데이트
-      setOptimisticState(nextIsLiked);
-
-      try {
-        // 2-2. 서버 액션 호출
-        // 현재 '좋아요' 상태이므로 '싫어요' 액션 호출
-        if (nextIsLiked) await likePost(postId);
-        // 현재 '싫어요' 상태이므로 '좋아요' 액션 호출
-        else await dislikePost(postId);
-      } catch (error) {
-        // 2-3. 서버 액션 실패 시 롤백 (useOptimistic이 자동으로 처리하지만, 명시적 에러 메시지)
-        console.error("Like action failed:", error);
-        toast.error("좋아요 처리에 실패했습니다.");
-        // 실패 시 React가 자동으로 state를 롤백함
-      }
-    });
-  };
+      return { previous };
+    },
+    // 에러 발생 시 이전 상태로 복구
+    onError: (err, variables, context) => {
+      console.error("Like mutation failed:", err);
+      toast.error("처리에 실패했습니다.");
+      queryClient.setQueryData(queryKey, context?.previous);
+    },
+    // 성공/실패 무관하게 백그라운드 데이터 최신화
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
 
   return (
     <button
-      onClick={handleClick}
-      // isPending 상태를 사용하여 버튼 비활성화 (피드백 향상)
+      onClick={() => mutate()}
       disabled={isPending}
       className={cn(
         "flex items-center gap-1.5 transition-all p-1.5 -ml-1.5 rounded-lg hover:bg-surface-dim",
         "disabled:opacity-60 disabled:cursor-not-allowed",
-        optimisticState.isLiked
-          ? "text-rose-500"
-          : "text-muted hover:text-rose-500"
+        data.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500"
       )}
-      aria-label={optimisticState.isLiked ? "좋아요 취소" : "좋아요"}
-      aria-pressed={optimisticState.isLiked}
+      aria-label={data.isLiked ? "좋아요 취소" : "좋아요"}
     >
-      {optimisticState.isLiked ? (
+      {data.isLiked ? (
         <HeartIcon className="size-6" />
       ) : (
         <OutlineHeartIcon className="size-6" />
       )}
-      <span className="text-sm font-medium">{optimisticState.likeCount}</span>
+      <span className="text-sm font-medium">{data.likeCount}</span>
     </button>
   );
 }

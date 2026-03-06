@@ -20,11 +20,11 @@
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/products/actions/create.ts -> features/product/actions/create.ts
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
+ * 2026.03.05  임도헌   Modified  상품 등록 시 수반되던 파편화된 `revalidateTag` 제거, `queryClient`를 통한 캐시 무효화로 책임 위임
  */
 "use server";
 
-import { revalidateTag, revalidatePath } from "next/cache";
-import * as T from "@/lib/cacheTags";
+import { revalidatePath } from "next/cache";
 import getSession from "@/lib/session";
 import { createProduct } from "@/features/product/service/create";
 import { productFormSchema } from "@/features/product/schemas";
@@ -97,16 +97,9 @@ export async function createProductAction(
     return { success: false, error: result.error };
   }
 
-  const { productId } = result.data;
-
-  // 4. 캐시 무효화
-  revalidateTag(T.PRODUCT_LIST()); // 전체 목록
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", session.id)); // 내 판매 목록
-  revalidateTag(T.USER_PRODUCTS_COUNTS_ID(session.id)); // 탭 카운트
-  revalidateTag(T.PRODUCT_DETAIL_ID(productId)); // 상세 (혹시 미리 조회된 경우 대비)
-
   // 목록 페이지 강제 갱신
   revalidatePath("/products");
+  revalidatePath("/profile");
 
-  return { success: true, productId };
+  return { success: true, productId: result.data.productId };
 }

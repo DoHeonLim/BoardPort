@@ -28,6 +28,8 @@
  * 2026.02.04  임도헌   Modified  방송 상세 진입 시 차단 가드(checkBlockRelation) 추가
  * 2026.02.13  임도헌   Modified  generateMetadata 추가 및 캐시 함수 재사용
  * 2026.02.22  임도헌   Modified  라이브 채팅창에 기존 차단 목록(blockedIds) 주입
+ * 2026.03.04  임도헌   Modified  StreamChatUIStoreProvider 적용으로 스트림 채팅 UI 상태를 이벤트 버스에서 Zustand로 전환
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
@@ -37,6 +39,7 @@ import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import { getUserInfoById } from "@/features/user/service/profile";
 import type { StreamVisibility } from "@/features/stream/types";
+import { StreamChatUIStoreProvider } from "@/components/global/providers/StreamChatUIStoreProvider";
 import StreamDetail from "@/features/stream/components/StreamDetail";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import StreamTopbar from "@/features/stream/components/StreamTopBar";
@@ -87,12 +90,10 @@ export async function generateMetadata({
  * 라이브 방송 상세 페이지
  *
  * [기능]
- * 1. 로그인 세션을 확인
- * 2. 방송 정보를 조회하고, 접근 권한(Private/Followers)을 검증
- *    - 권한이 없으면 `/403` 페이지로 리다이렉트
- * 3. 채팅방 정보 및 초기 메시지를 조회
- * 4. 데스크톱(사이드바)과 모바일(하단)에 맞는 채팅 UI를 렌더링
- * 5. `StreamDetail` 컴포넌트로 방송 화면 및 정보를 표시
+ * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
+ * - 방송 정보 서버 사이드 캐시 조회 및 판매자-조회자 간 양방향 차단 관계 검증
+ * - 방송 공개 설정(PRIVATE, FOLLOWERS)에 따른 세션 언락 상태 및 팔로우 권한 검증 (권한 부족 시 403 리다이렉트 처리)
+ * - 채팅방 정보 및 초기 메시지 내역 서버 사이드 로드 적용
  *
  * @param {Object} params - URL 파라미터 (id: 방송 ID)
  */
@@ -168,61 +169,63 @@ export default async function StreamDetailPage({
   const blockedIds = session.id ? await getBlockedUserIds(session.id) : [];
 
   return (
-    <div className="flex flex-col min-h-screen bg-background transition-colors">
-      {/* 실시간 차단 감지 가드 추가 */}
-      <StreamBlockGuard
-        viewerId={session?.id ?? null}
-        ownerId={ownerId}
-        ownerUsername={initialBroadcast.user.username}
-      />
+    <StreamChatUIStoreProvider>
+      <div className="flex flex-col min-h-screen bg-background transition-colors">
+        {/* 실시간 차단 감지 가드 추가 */}
+        <StreamBlockGuard
+          viewerId={session?.id ?? null}
+          ownerId={ownerId}
+          ownerUsername={initialBroadcast.user.username}
+        />
 
-      <StreamTopbar
-        streamId={broadcastId}
-        ownerId={ownerId!}
-        ownerUsername={initialBroadcast.user.username}
-        title={initialBroadcast.title}
-        visibility={initialBroadcast.visibility}
-        isOwner={isOwner}
-      />
+        <StreamTopbar
+          streamId={broadcastId}
+          ownerId={ownerId!}
+          ownerUsername={initialBroadcast.user.username}
+          title={initialBroadcast.title}
+          visibility={initialBroadcast.visibility}
+          isOwner={isOwner}
+        />
 
-      <div className="flex-1 xl:grid xl:grid-cols-[1fr,min(100%,1000px),360px] 2xl:grid-cols-[1fr,min(100%,1100px),400px] xl:gap-4 xl:p-4">
-        {/* Left Spacer (Grid Centering) */}
-        <div className="hidden xl:block" />
+        <div className="flex-1 xl:grid xl:grid-cols-[1fr,min(100%,1000px),360px] 2xl:grid-cols-[1fr,min(100%,1100px),400px] xl:gap-4 xl:p-4">
+          {/* Left Spacer (Grid Centering) */}
+          <div className="hidden xl:block" />
 
-        {/* Main Content */}
-        <div className="w-full">
-          <StreamDetail
-            stream={initialBroadcast}
-            me={session?.id ?? null}
-            streamId={broadcastId}
-          />
+          {/* Main Content */}
+          <div className="w-full">
+            <StreamDetail
+              stream={initialBroadcast}
+              me={session?.id ?? null}
+              streamId={broadcastId}
+            />
+          </div>
+
+          {/* Chat Sidebar (Desktop) */}
+          <div className="hidden xl:block h-[calc(100vh-100px)] sticky top-20">
+            <StreamChatRoom
+              initialStreamMessage={initialStreamMessage}
+              streamChatRoomId={streamChatRoom.id}
+              streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
+              userId={session.id!}
+              username={user.username}
+              initialBlockedUserIds={blockedIds}
+              fillParent
+            />
+          </div>
         </div>
 
-        {/* Chat Sidebar (Desktop) */}
-        <div className="hidden xl:block h-[calc(100vh-100px)] sticky top-20">
-          <StreamChatRoom
+        {/* Chat Section (Mobile) */}
+        <div className="xl:hidden flex-1 flex flex-col min-h-0 bg-background">
+          <StreamMobileChatSection
             initialStreamMessage={initialStreamMessage}
             streamChatRoomId={streamChatRoom.id}
             streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
             userId={session.id!}
             username={user.username}
             initialBlockedUserIds={blockedIds}
-            fillParent
           />
         </div>
       </div>
-
-      {/* Chat Section (Mobile) */}
-      <div className="xl:hidden flex-1 flex flex-col min-h-0 bg-background">
-        <StreamMobileChatSection
-          initialStreamMessage={initialStreamMessage}
-          streamChatRoomId={streamChatRoom.id}
-          streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
-          userId={session.id!}
-          username={user.username}
-          initialBlockedUserIds={blockedIds}
-        />
-      </div>
-    </div>
+    </StreamChatUIStoreProvider>
   );
 }

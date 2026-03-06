@@ -22,6 +22,8 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface, border-border)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.04  임도헌   Modified  stream:chat:expand/layout-updated 이벤트 버스 제거, hiddenByChat 상태를 Zustand selector로 대체
+ * 2026.03.05  임도헌   Modified  주석 최신화
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - LiveViewerCount.tsx    : 실시간 시청자 수 (Supabase Presence)
@@ -40,6 +42,7 @@
 import { useEffect, useState } from "react";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
+import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
 import LiveStatusButton from "@/features/stream/components/StreamDetail/LiveStatusButton";
 import StreamEndedOverlay from "@/features/stream/components/StreamDetail/StreamEndedOverlay";
 import StreamCategoryTags from "@/features/stream/components/StreamDetail/StreamCategoryTags";
@@ -58,15 +61,13 @@ interface StreamDetailProps {
 }
 
 /**
- * 스트리밍 상세 페이지 컨테이너
+ * 스트리밍 상세 정보 및 메타 컨테이너 컴포넌트
  *
- * [구조]
- * 1. 플레이어 영역 (iframe + 오버레이 + 시청자 수 + 상태 뱃지)
- * 2. 정보 패널 (제목, 태그, 스트리머, 설명, OBS 정보)
- *
- * [기능]
- * - 아코디언 형태의 정보 패널 (모바일 기본 접힘, 데스크톱 기본 펼침)
- * - 모바일에서 채팅 확대 시 정보 패널 숨김 처리 (`stream:chat:expand` 이벤트 수신)
+ * [상태 주입 및 레이아웃 제어 로직]
+ * - 모바일(기본 접힘)과 데스크톱(기본 펼침) 화면 크기에 따른 `matchMedia` 기반 아코디언 초기 상태 자동 구성
+ * - `useStreamChatUIStore` 상태를 구독하여 모바일 채팅창 확대 모드(`isChatExpanded`) 시 정보 패널 시각적 은닉 처리
+ * - Cloudflare iframe 기반 라이브 플레이어, 실시간 시청자 수, 현재 방송 상태 뱃지 등 방송 메타데이터 렌더링
+ * - 방송 종료(ENDED) 상태 진입 시 `StreamEndedOverlay` 렌더링 적용
  */
 export default function StreamDetail({
   stream,
@@ -86,34 +87,7 @@ export default function StreamDetail({
   }, []);
 
   // 채팅 확대 모드일 때 모바일에서 방송 정보 숨기기
-  const [hiddenByChat, setHiddenByChat] = useState(false);
-  useEffect(() => {
-    const onChatExpand = (event: Event) => {
-      const { detail } = event as CustomEvent<{ expanded?: boolean }>;
-      if (typeof detail?.expanded === "boolean") {
-        setHiddenByChat(detail.expanded);
-      }
-    };
-    window.addEventListener(
-      "stream:chat:expand",
-      onChatExpand as EventListener
-    );
-    return () => {
-      window.removeEventListener(
-        "stream:chat:expand",
-        onChatExpand as EventListener
-      );
-    };
-  }, []);
-
-  // hiddenByChat 값이 바뀔 때마다, 레이아웃이 다시 잡힌 후라고 간주하고 신호를 보냄
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("stream:chat:layout-updated", {
-        detail: { hiddenByChat },
-      })
-    );
-  }, [hiddenByChat]);
+  const hiddenByChat = useStreamChatUIStore((s) => s.isChatExpanded);
 
   return (
     <div className="relative">
