@@ -15,6 +15,8 @@
  * 2026.02.23  임도헌   Modified  Webhook 재전송 시 VOD 중복 생성 방지(P2002 무시) 및 에러 로깅 강화
  * 2026.02.25  임도헌   Modified  순서 보장 가드, VOD 소유권 검증 강화
  * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 최초 등록용 테스트 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
+ * 2026.03.05  임도헌   Modified  공통 데이터(상세)는 `revalidateTag` 유지, 개인화 데이터(목록/상태)는 Query Cache 기반 혼합 캐싱 정책 적용
+ * 2026.03.07  임도헌   Modified  CONNECTED 재수신 시 ENDED -> CONNECTED 복구 허용, 재접속에는 시작 알림 재전송 방지
  */
 
 import "server-only";
@@ -305,8 +307,7 @@ function isAssetReadyPayload(body: any): boolean {
  */
 async function tryFillThumbnailFromCloudflare(
   liveInputUid: string,
-  broadcastId: number,
-  ownerId: number
+  broadcastId: number
 ) {
   if (!CF_ACCOUNT || !CF_TOKEN) return;
 
@@ -353,7 +354,6 @@ async function tryFillThumbnailFromCloudflare(
         // 관련 캐시 무효화 (비동기 처리)
         try {
           revalidateTag(T.BROADCAST_DETAIL(broadcastId));
-          revalidateTag(T.USER_STREAMS_ID(ownerId));
         } catch {}
       }
     }
@@ -389,8 +389,10 @@ async function onConnected(liveInputUid: string) {
 
   const b = li.broadcasts[0];
 
-  // 이미 CONNECTED가 아닐 때만 업데이트
-  if (b.status !== "CONNECTED" && b.status !== "ENDED") {
+  // 이미 CONNECTED 상태가 아닐 때만 업데이트
+  // ENDED였다가 재접속된 경우에도 상태 복구를 허용하되, 시작 알림은 재전송하지 않음
+  if (b.status !== "CONNECTED") {
+    const wasEnded = b.status === "ENDED";
     const now = new Date();
 
     // 상태 업데이트 + started_at 기본값 세팅 + ended_at 초기화
@@ -405,13 +407,12 @@ async function onConnected(liveInputUid: string) {
     });
     // 썸네일 자동 채우기 시도 (이미지는 있어도 무시)
     try {
-      await tryFillThumbnailFromCloudflare(liveInputUid, updated.id, li.userId);
+      await tryFillThumbnailFromCloudflare(liveInputUid, updated.id);
     } catch {}
 
     // 상태 변경에 대한 캐시 무효화 (썸네일 여부와 무관하게 항상 수행)
     try {
       revalidateTag(T.BROADCAST_DETAIL(updated.id));
-      revalidateTag(T.USER_STREAMS_ID(li.userId));
     } catch {}
 
     // 상태 변경을 Supabase Realtime 채널로 브로드캐스트
@@ -423,14 +424,16 @@ async function onConnected(liveInputUid: string) {
       });
     } catch {}
     // 방송 시작 알림: 팔로워에게 STREAM 알림 + 푸시
-    try {
-      await sendLiveStartNotifications({
-        broadcasterId: li.userId,
-        broadcastId: updated.id,
-        broadcastTitle: updated.title,
-        broadcastThumbnail: updated.thumbnail,
-      });
-    } catch {}
+    if (!wasEnded) {
+      try {
+        await sendLiveStartNotifications({
+          broadcasterId: li.userId,
+          broadcastId: updated.id,
+          broadcastTitle: updated.title,
+          broadcastThumbnail: updated.thumbnail,
+        });
+      } catch {}
+    }
   }
 }
 
@@ -468,7 +471,6 @@ async function onDisconnected(liveInputUid: string) {
 
     try {
       revalidateTag(T.BROADCAST_DETAIL(b.id));
-      revalidateTag(T.USER_STREAMS_ID(li.userId));
       await sendLiveStatusFromServer?.({
         streamId: liveInputUid,
         status: "ENDED",
@@ -513,8 +515,8 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   const ready_at: Date | null = src?.readyToStreamAt
     ? new Date(src.readyToStreamAt)
     : src?.created
-    ? new Date(src.created)
-    : null;
+      ? new Date(src.created)
+      : null;
 
   let broadcastIdResolved: number | null = null;
 
@@ -588,13 +590,10 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   revalidateTag(T.BROADCAST_DETAIL(broadcastIdResolved));
 
   try {
-    const owner = await db.broadcast.findUnique({
+    await db.broadcast.findUnique({
       where: { id: broadcastIdResolved },
       select: { liveInput: { select: { userId: true } } },
     });
-    if (owner?.liveInput?.userId) {
-      revalidateTag(T.USER_STREAMS_ID(owner.liveInput.userId));
-    }
   } catch (err) {
     console.warn("[onVideoReady] revalidateTag failed:", err);
   }
@@ -603,7 +602,7 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
 /*                            메인 핸들러: GET / POST                          */
 
 /**
- * 브라우저 접속(GET) 시 405 Method Not Allowed 대신 안내 문구를 출력합니다.
+ * 브라우저 접속(GET) 시 405 Method Not Allowed 대신 안내 문구를 출력
  * - 주로 엔드포인트 활성화 여부를 체크하거나 디버깅하는 용도
  */
 export async function GET() {
@@ -629,7 +628,7 @@ export async function POST(req: Request) {
     // Cloudflare 웹훅 등록 테스트용 빈 바디 대응
     if (!raw) return NextResponse.json({ ok: true });
 
-    // 1) 서명 검증을 위해 바디를 먼저 파싱합니다.
+    // 1) 서명 검증을 위해 바디를 먼저 파싱
     let body: any = {};
     try {
       body = JSON.parse(raw);
@@ -642,8 +641,8 @@ export async function POST(req: Request) {
     }
 
     // 2) [핵심] Cloudflare 웹훅 최초 등록용 테스트 메시지 우회 처리 (Handshake Bypass)
-    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냅니다.
-    // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 합니다.
+    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냄
+    // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 함
     if (
       body?.text &&
       typeof body.text === "string" &&
@@ -694,7 +693,7 @@ export async function POST(req: Request) {
 
     /**
      * Vercel Serverless 환경에서는 응답을 보내기 전에 비동기 작업이 완료되어야 하므로
-     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지함.
+     * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지
      */
     if (type === "unknown" && isReadyAsset) {
       // 무타입 ready 페이로드 대응

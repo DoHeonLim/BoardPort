@@ -13,9 +13,11 @@
  * 2026.01.25  임도헌   Modified  Unused types removed (BroadcastCard), VodForGrid에 tags 추가
  * 2026.01.28  임도헌   Modified  주석 및 타입 정리
  * 2026.02.07  임도헌   Modified  관리자용 DTO 추가
+ * 2026.03.07  임도헌   Modified  결과 타입 정리 및 중복 VodForPage 선언 제거
  */
 
 import { StreamChatMessage } from "@/features/chat/types";
+import type { ServiceFailure } from "@/lib/types";
 import {
   STREAM_VISIBILITY,
   STREAM_STATUS,
@@ -116,12 +118,6 @@ export interface VodForPage extends VodForGrid {
   description?: string | null; // 추가 메타(원하면 확장)
 }
 
-/** VOD 상세 페이지용 확장 DTO */
-export interface VodForPage extends VodForGrid {
-  broadcastStatus?: StreamStatus;
-  description?: string | null;
-}
-
 /** 댓글 타입 */
 export interface StreamComment {
   id: number;
@@ -142,10 +138,7 @@ export type CreateBroadcastResult =
       rtmpUrl: string; // OBS 입력용
       streamKey: string; // OBS 입력용
     }
-  | {
-      success: false;
-      error: string;
-    };
+  | ServiceFailure;
 
 export type UnlockErrorCode =
   | "NOT_LOGGED_IN"
@@ -179,7 +172,7 @@ export type GetStreamKeyResult =
 
 export type RotateLiveInputKeyResult =
   | { success: true; rtmpUrl: string; streamKey: string }
-  | { success: false; error: string };
+  | ServiceFailure;
 
 // =============================================================================
 // 4. Utils / Helpers

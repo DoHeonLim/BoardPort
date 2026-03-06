@@ -1,5 +1,5 @@
 /**
- * File Name : app/post/[id]/edit/page.tsx
+ * File Name : app/posts/[id]/edit/page.tsx
  * Description : 게시글 수정 페이지
  * Author : 임도헌
  *
@@ -12,24 +12,25 @@
  * 2025.11.20  임도헌   Modified  삭제 흐름 정리
  * 2026.01.19  임도헌   Modified  getIsOwner 제거 및 직접 비교
  * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  삭제 액션을 ConfirmDialog 기반 PostDeleteButton으로 분리하고 배경 토큰을 통일
  */
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import PostForm from "@/features/post/components/PostForm";
-import { getCachedPost } from "@/features/post/service/post";
+import PostDeleteButton from "@/features/post/components/PostDeleteButton";
+import { getPostDetail } from "@/features/post/service/post";
 import { updatePostAction } from "@/features/post/actions/update";
-import { deletePostAction } from "@/features/post/actions/delete";
 import { LocationData } from "@/features/map/types";
 
 /**
  * 게시글 수정 페이지
  *
  * [기능]
- * 1. 게시글 정보를 조회하고 작성자 본인인지 확인 (비권한 시 리스트로 이동)
- * 2. 기존 게시글 데이터를 폼 초기값으로 주입하여 `PostForm`을 렌더링
- * 3. 게시글 삭제 버튼(Server Action Form)을 별도로 제공
- *
- * @param {Object} params - URL 파라미터 (id: 게시글 ID)
+ * - URL 파라미터 기반 게시글 상세 정보 서버 사이드 로드 적용
+ * - 게시글 작성자와 현재 로그인 세션 정보 비교를 통한 소유권 검증
+ * - 비인가 사용자(소유자가 아닌 경우)의 비정상적 접근 시 게시글 목록 페이지로 리다이렉트 처리
+ * - 기존 게시글 데이터를 폼 컴포넌트의 초기값으로 주입 처리
  */
 export default async function PostEditPage({
   params,
@@ -40,20 +41,13 @@ export default async function PostEditPage({
   if (isNaN(id)) return notFound();
 
   // 1. 게시글 조회
-  const post = await getCachedPost(id);
+  const post = await getPostDetail(id);
   if (!post) return notFound();
 
   // 2. 권한 확인
   const session = await getSession();
   const isOwner = session?.id === post.user.id;
   if (!isOwner) redirect("/posts");
-
-  // 3. 삭제 핸들러 (Server Action Wrapper)
-  const handleDeletePost = async () => {
-    "use server";
-    await deletePostAction(id);
-    redirect("/posts"); // 삭제 후 목록으로 이동
-  };
 
   let initialLocation: LocationData | null = null;
 
@@ -69,7 +63,7 @@ export default async function PostEditPage({
   }
 
   return (
-    <div className="min-h-screen dark:bg-neutral-900 bg-white">
+    <div className="min-h-screen bg-background">
       <PostForm
         initialValues={{
           id: post.id,
@@ -85,14 +79,9 @@ export default async function PostEditPage({
         submitLabel="수정 완료"
         isEdit
       />
-      <form
-        action={handleDeletePost}
-        className="flex items-center justify-center"
-      >
-        <button className="bg-rose-700 hover:bg-rose-500 w-full mx-5 py-2 rounded-md text-white font-semibold sm:text-sm md:text-md transition-colors">
-          삭제하기
-        </button>
-      </form>
+      <div className="flex items-center justify-center pb-6">
+        <PostDeleteButton postId={id} />
+      </div>
     </div>
   );
 }

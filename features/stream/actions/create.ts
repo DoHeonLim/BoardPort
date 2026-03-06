@@ -17,6 +17,7 @@
  * 2026.01.23  임도헌   Modified   Service(createBroadcast) 연동 및 Session 검증 분리
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/add/actions.ts -> features/stream/actions/create.ts
+ * 2026.03.07  임도헌   Modified  태그 payload 파싱 오류를 ActionState 실패로 정규화
  */
 
 "use server";
@@ -49,9 +50,13 @@ export const createBroadcastAction = async (
     const rawTags = (formData.get("tags") as string) || "[]";
     let tagsSafe: string[] = [];
     try {
-      tagsSafe = JSON.parse(rawTags);
+      const parsedTags = JSON.parse(rawTags);
+      if (!Array.isArray(parsedTags)) {
+        return { success: false, error: "태그 형식이 올바르지 않습니다." };
+      }
+      tagsSafe = parsedTags.map(String);
     } catch {
-      tagsSafe = [];
+      return { success: false, error: "태그 형식이 올바르지 않습니다." };
     }
 
     // 2. 데이터 구성

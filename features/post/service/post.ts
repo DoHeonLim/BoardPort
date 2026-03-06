@@ -20,6 +20,10 @@
  * 2026.02.15  임도헌   Modified  카테고리별 지역 필터링 차별화 (정보성 글은 전국 기본)
  * 2026.02.20  임도헌   Modified  Hybrid Filtering 로직 명확화 및 JsDoc 개선
  * 2026.02.22  임도헌   Modified  글로벌 피드에서 정지된 유저(Banned)의 게시글 완벽 은닉
+ * 2026.03.05  임도헌   Modified  `unstable_cache` 및 관련 `revalidateTag` 레거시 제거, TanStack Query용 순수 DB 페칭 로직으로 단일화
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  사용자 노출용 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  PostTag.count 정합성 및 정지 유저 mutation 가드 보강
  */
 import "server-only";
 
@@ -51,10 +55,11 @@ const TAKE = POSTS_PAGE_TAKE;
 /**
  * 게시글 검색 조건 쿼리 빌더
  *
+ * [데이터 가공 전략]
  * - 커뮤니티 특성에 따라 지역 필터 적용 여부가 달라짐
  * - 지역성 카테고리 (CREW, FREE) : 유저의 DB 설정(RegionRange)에 따라 지역 필터를 적용
  * - 정보성 카테고리 (LOG, MAP, COMPASS) : 지역 필터 없이 전국(ALL) 단위로 조회
- * - 정지된 유저(Banned)의 게시글은 원천적으로 제외
+ *  - 정지 유저(bannedAt) 콘텐츠 은닉 필터 포함
  *
  * @param {PostSearchParams | undefined} params - 검색 조건
  * @param {number} viewerId - 조회자 ID
@@ -94,9 +99,15 @@ async function buildWhere(
 }
 
 /**
- * 게시글 상세 정보를 DB에서 조회 (Internal)
+ * 게시글 상세 정보 데이터 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 유저 정보, 태그, 이미지 목록, 카운트(댓글, 좋아요) 등 연관 데이터 조인 조회
+ * - 이미지 노출 순서(order) 기준 오름차순 정렬 반환
+ *
+ * @param {number} id - 게시글 ID
  */
-const getPostById = async (id: number): Promise<PostDetail | null> => {
+export async function getPostDetail(id: number): Promise<PostDetail | null> {
   try {
     const post = await db.post.findUnique({
       where: { id },
@@ -109,30 +120,43 @@ const getPostById = async (id: number): Promise<PostDetail | null> => {
     });
     return post as PostDetail | null;
   } catch (e) {
-    console.error("[getPostById] Error:", e);
+    console.error("[getPostDetail] Error:", e);
     return null;
   }
-};
+}
 
 /**
- * 게시글 상세 조회 캐시 Wrapper
- * - 태그: POST_DETAIL(id), POST_VIEWS(id)
+ * 게시글 상세 정보 캐시 Wrapper
+ *
+ * [캐시 제어 전략]
+ * - `unstable_cache`를 활용한 서버 사이드 렌더링 캐시 적용
+ * - `POST_DETAIL` 태그를 주입하여 생성/수정/삭제 시 On-demand 무효화 지원
  *
  * @param {number} id - 게시글 ID
  */
 export const getCachedPost = (id: number) => {
-  return nextCache(() => getPostById(id), ["post-detail", String(id)], {
-    tags: [T.POST_DETAIL(id), T.POST_VIEWS(id)],
+  return nextCache(() => getPostDetail(id), ["post-detail-data", String(id)], {
+    tags: [T.POST_DETAIL(id)],
+    revalidate: 3600,
   })();
 };
 
 /**
- * 게시글 목록을 DB에서 조회 (Internal)
+ * 게시글 목록 조회 및 페이징 로직
+ *
+ * [데이터 페칭 및 가공 전략]
+ * - 검색 조건(Where) 적용 및 커서 기반 페이지네이션 구현
+ * - 조회자 ID(viewerId) 기준 차단된 유저의 게시글 은닉 처리
+ * - 다음 페이지 존재 여부(nextCursor) 판별을 위해 LIMIT + 1 조회 적용
+ *
+ * @param {PostSearchParams | undefined} params - 검색 조건
+ * @param {number} viewerId - 조회자 ID
+ * @param {number | null} cursor - 페이지네이션 커서
  */
-async function fetchPostsRaw(
+export async function getPostsList(
   params: PostSearchParams | undefined,
   viewerId: number,
-  cursor?: number | null
+  cursor: number | null = null
 ): Promise<PostsPage> {
   const where = await buildWhere(params, viewerId);
 
@@ -157,62 +181,20 @@ async function fetchPostsRaw(
   return { posts: posts as PostDetail[], nextCursor };
 }
 
-/**
- * 초기 게시글 목록 조회 (Cached)
- * - 필터가 없는 초기 로딩이나 특정 검색어의 첫 페이지를 캐싱
- *
- * @param {PostSearchParams | undefined} params - 검색 파라미터
- * @param {number} viewerId - 조회자 ID (필수)
- */
-export const getCachedInitialPosts = (
-  params: PostSearchParams | undefined,
-  viewerId: number
-) => {
-  const hasFilter = !!params?.keyword || !!params?.category;
-
-  if (hasFilter) {
-    return fetchPostsRaw(params, viewerId, null);
-  }
-
-  const key = `post-list-initial-user-${viewerId}`;
-  return nextCache(() => fetchPostsRaw(params, viewerId, null), [key], {
-    tags: [
-      T.POST_LIST(),
-      T.USER_BLOCK_UPDATE(viewerId), // 차단 정보 변경 시 내 캐시만 무효화
-      T.USER_CORE_ID(viewerId), // 내 동네 변경 시 캐시 무효화
-    ],
-  })();
-};
-
-/**
- * 게시글 목록 추가 로드
- * - 커서와 검색 조건을 받아 다음 페이지 데이터를 조회
- *
- * @param {number | null} cursor - 마지막 게시글 ID
- * @param {PostSearchParams | undefined} params - 검색 파라미터
- * @param {number} viewerId - 조회자 ID (필수)
- */
-export const getMorePosts = async (
-  cursor: number | null,
-  params: PostSearchParams | undefined,
-  viewerId: number
-) => {
-  return fetchPostsRaw(params, viewerId, cursor);
-};
-
 /* -------------------------------------------------------------------------- */
 /*                                Write Logic                                 */
 /* -------------------------------------------------------------------------- */
 
 /**
  * 게시글 생성
- * - 정지 유저 체크: `validateUserStatus`를 통해 이용 정지 상태인지 확인
- * - 게시글 본문, 태그, 이미지를 트랜잭션으로 저장
- * - 생성 후 관련 뱃지 획득 조건을 비동기로 체크
+ *
+ * [데이터 가공 및 캐시 제어 전략]
+ * - 작성자의 정지 상태(bannedAt) 검증 및 차단 처리
+ * - 본문, 태그, 다중 이미지, 위치 정보(Location)의 DB 트랜잭션 동시 저장 적용
+ * - 비동기 방식을 활용한 게시글 등록 관련 뱃지 획득 조건 검사 수행
  *
  * @param {number} userId - 작성자 ID
- * @param {PostCreateDTO} data - 게시글 생성 데이터
- * @returns {Promise<ServiceResult<{ postId: number }>>} 생성된 게시글 ID
+ * @param {PostCreateDTO} data - 폼 입력 데이터 DTO
  */
 export async function createPost(
   userId: number,
@@ -222,6 +204,8 @@ export async function createPost(
     // 1. 정지 유저 체크
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
+
+    const nextTags = Array.from(new Set(data.tags));
 
     const post = await db.$transaction(async (tx) => {
       // 2. 게시글 본문 생성
@@ -243,8 +227,8 @@ export async function createPost(
       });
 
       // 3. 태그 처리 (중복 시 카운트 증가)
-      if (data.tags.length) {
-        for (const tagName of data.tags) {
+      if (nextTags.length) {
+        for (const tagName of nextTags) {
           const tag = await tx.postTag.upsert({
             where: { name: tagName },
             create: { name: tagName, count: 1 },
@@ -287,31 +271,48 @@ export async function createPost(
     return { success: true, data: { postId: post.id } };
   } catch (error) {
     console.error("createPost Error:", error);
-    return { success: false, error: "게시글 생성 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 등록에 실패했습니다. 입력 내용과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요.",
+    };
   }
 }
 
 /**
  * 게시글 수정
- * - 소유권을 확인하고 기존 이미지/태그를 정리한 뒤 업데이트
  *
- * @param {number} userId - 요청자(작성자) ID
- * @param {PostUpdateDTO} data - 수정할 데이터
+ * [데이터 가공 및 캐시 제어 전략]
+ * - 게시글 소유자 권한 확인 후 비인가 변경 차단
+ * - 트랜잭션을 통한 기존 태그/이미지 정보 초기화 및 신규 데이터 덮어쓰기 적용
+ * - 위치 정보(Location) 삭제 또는 갱신 처리 병행
+ *
+ * @param {number} userId - 요청자 ID
+ * @param {PostUpdateDTO} data - 수정 대상 폼 데이터 DTO
  */
 export async function updatePost(
   userId: number,
   data: PostUpdateDTO
 ): Promise<ServiceResult<{ postId: number }>> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     // 1. 소유권 확인
     const existing = await db.post.findUnique({
       where: { id: data.id },
-      select: { userId: true },
+      select: { userId: true, tags: { select: { name: true } } },
     });
     if (!existing)
       return { success: false, error: "게시글을 찾을 수 없습니다." };
     if (existing.userId !== userId)
       return { success: false, error: "권한이 없습니다." };
+
+    const prevTags = new Set(existing.tags.map((tag) => tag.name));
+    const nextTags = Array.from(new Set(data.tags));
+    const nextTagSet = new Set(nextTags);
+    const removedTags = Array.from(prevTags).filter((tag) => !nextTagSet.has(tag));
+    const addedTags = nextTags.filter((tag) => !prevTags.has(tag));
 
     // 위치 정보 업데이트 데이터 구성
     const locationUpdate = data.location
@@ -349,7 +350,7 @@ export async function updatePost(
           description: data.description,
           category: data.category,
           tags: {
-            connectOrCreate: data.tags.map((tag) => ({
+            connectOrCreate: nextTags.map((tag) => ({
               where: { name: tag },
               create: { name: tag },
             })),
@@ -357,6 +358,25 @@ export async function updatePost(
           ...locationUpdate,
         },
       });
+
+      if (removedTags.length) {
+        await tx.postTag.updateMany({
+          where: { name: { in: removedTags }, count: { gt: 0 } },
+          data: { count: { decrement: 1 } },
+        });
+      }
+
+      if (addedTags.length) {
+        await Promise.all(
+          addedTags.map((tagName) =>
+            tx.postTag.upsert({
+              where: { name: tagName },
+              create: { name: tagName, count: 1 },
+              update: { count: { increment: 1 } },
+            })
+          )
+        );
+      }
 
       // 새 이미지 저장
       if (data.photos.length) {
@@ -377,34 +397,60 @@ export async function updatePost(
     return { success: true, data: { postId: data.id } };
   } catch (error) {
     console.error("updatePost Error:", error);
-    return { success: false, error: "게시글 수정에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 수정에 실패했습니다. 변경한 내용과 첨부 이미지를 확인한 뒤 다시 시도해주세요.",
+    };
   }
 }
 
 /**
  * 게시글 삭제
  *
+ * [데이터 가공 및 권한 제어 전략]
+ * - 게시글 정보 조회 및 요청자와의 소유권 비교를 통한 권한 검증
+ * - DB 참조 제약(Cascade)을 활용한 관련 데이터 일괄 물리 삭제(Hard Delete) 적용
+ *
  * @param {number} userId - 요청자 ID
- * @param {number} postId - 삭제할 게시글 ID
+ * @param {number} postId - 게시글 ID
  */
 export async function deletePost(
   userId: number,
   postId: number
 ): Promise<ServiceResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     const post = await db.post.findUnique({
       where: { id: postId },
-      select: { userId: true },
+      select: { userId: true, tags: { select: { name: true } } },
     });
 
     if (!post) return { success: false, error: "게시글을 찾을 수 없습니다." };
     if (post.userId !== userId)
       return { success: false, error: "권한이 없습니다." };
 
-    await db.post.delete({ where: { id: postId } });
+    await db.$transaction(async (tx) => {
+      const tagNames = post.tags.map((tag) => tag.name);
+
+      if (tagNames.length) {
+        await tx.postTag.updateMany({
+          where: { name: { in: tagNames }, count: { gt: 0 } },
+          data: { count: { decrement: 1 } },
+        });
+      }
+
+      await tx.post.delete({ where: { id: postId } });
+    });
     return { success: true };
   } catch (error) {
     console.error("deletePost Error:", error);
-    return { success: false, error: "삭제 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

@@ -12,16 +12,19 @@
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Merged     lib/phone/*.ts 로직 이관
  * 2026.02.23  임도헌   Modified   토큰 검증 및 유저 업데이트 트랜잭션 적용
+ * 2026.03.05  임도헌   Modified   휴대폰 인증 완료 시의 개인화 캐시 태그 무효화 로직 제거 및 `revalidatePath` 기반 단순화 적용
+ * 2026.03.07  임도헌   Modified   인증 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified   정지 유저 가드 및 SMS 발송 실패 롤백 보강
  */
 
 import "server-only";
+import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
-import * as T from "@/lib/cacheTags";
-import { revalidateTag, revalidatePath } from "next/cache";
 import { sendSMS } from "@/features/auth/utils/smsSender";
 import { generateUniqueSmsToken } from "@/features/auth/service/token";
 import { badgeChecks } from "./badge";
 import { isUniqueConstraintError } from "@/lib/errors";
+import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
 
 /**
@@ -31,6 +34,11 @@ export async function sendProfilePhoneTokenService(
   userId: number,
   phone: string
 ): Promise<ServiceResult> {
+  const userStatus = await validateUserStatus(userId);
+  if (!userStatus.success) {
+    return { success: false, error: userStatus.error! };
+  }
+
   // 1. 이미 사용 중인 번호인지 확인 (본인 제외)
   const taken = await db.user.findFirst({
     where: { phone, NOT: { id: userId } },
@@ -52,7 +60,19 @@ export async function sendProfilePhoneTokenService(
   });
 
   // 4. SMS 발송
-  await sendSMS(phone, token);
+  try {
+    await sendSMS(phone, token);
+  } catch (error) {
+    console.error("sendProfilePhoneTokenService error:", error);
+    await db.sMSToken.deleteMany({
+      where: { token, phone, userId },
+    });
+    return {
+      success: false,
+      error:
+        "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
+  }
 
   return { success: true };
 }
@@ -68,6 +88,11 @@ export async function verifyProfilePhoneTokenService(
   phone: string,
   token: string
 ): Promise<ServiceResult> {
+  const userStatus = await validateUserStatus(userId);
+  if (!userStatus.success) {
+    return { success: false, error: userStatus.error! };
+  }
+
   // 1. 토큰 조회 (번호, 토큰, 유저 일치 여부)
   const verified = await db.sMSToken.findFirst({
     where: { token, phone, userId },
@@ -102,14 +127,15 @@ export async function verifyProfilePhoneTokenService(
       };
     }
     console.error("verifyProfilePhoneTokenService error:", e);
-    return { success: false, error: "인증 처리 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "휴대폰 인증 처리에 실패했습니다. 인증번호를 다시 확인한 뒤 시도해주세요.",
+    };
   }
 
   // 3. 뱃지 체크 및 캐시 갱신 (트랜잭션 외부)
   await badgeChecks.onVerificationUpdate(userId);
-
-  revalidateTag(T.USER_CORE_ID(userId));
-  revalidateTag(T.USER_BADGES_ID(userId));
 
   // UI 갱신을 위해 관련 경로 리프레시
   revalidatePath("/profile");

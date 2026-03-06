@@ -9,6 +9,7 @@
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/products/view/[id]/actions/delete.ts -> features/product/actions/delete.ts
  * 2026.02.22  임도헌   Modified  상품 삭제 시 관련된 모든 유저의 채팅방 목록 캐시 무효화 추가
+ * 2026.03.05  임도헌   Modified  삭제 시의 복잡한 개인화 캐시 `revalidateTag` 의존성 제거, 공통 상세 정보 캐시 무효화만 남겨 최적화
  */
 "use server";
 
@@ -41,38 +42,9 @@ export async function deleteProductAction(
     return { success: false, error: result.error };
   }
 
-  const meta = result.data;
-
-  // 캐시 무효화
-  revalidateTag(T.PRODUCT_DETAIL_ID(productId)); // 상세 페이지
-  revalidateTag(T.PRODUCT_LIST()); // 전체 목록
-
-  // 판매자의 프로필 목록 및 카운트
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", meta.userId));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("RESERVED", meta.userId));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", meta.userId));
-  revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.userId));
-
-  // 구매자가 있었다면 구매자의 구매 목록 및 카운트 갱신
-  if (meta.purchase_userId) {
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("PURCHASED", meta.purchase_userId));
-    revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.purchase_userId));
-  }
-
-  // 예약자 캐시 갱신
-  if (meta.reservation_userId) {
-    revalidateTag(
-      T.USER_PRODUCTS_SCOPE_ID("RESERVED", meta.reservation_userId)
-    );
-    revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.reservation_userId));
-  }
-
-  // 이 상품과 관련된 채팅방에 참여했던 모든 유저의 채팅 목록 캐시를 갱신하여 유령 채팅방 방지
-  meta.chatUserIds.forEach((uid) => {
-    revalidateTag(T.CHAT_ROOMS_ID(uid));
-  });
-
+  revalidateTag(T.PRODUCT_DETAIL(productId)); // 상세 캐시는 무효화
   revalidatePath("/products");
+  revalidatePath("/profile");
 
   return { success: true };
 }

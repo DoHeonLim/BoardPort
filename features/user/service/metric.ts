@@ -9,20 +9,22 @@
  * 2025.12.03  임도헌   Modified  메트릭 쿼리 기간 제한 추가(응답률/인기도 과부하 방지)
  * 2025.12.07  임도헌   Modified  인기도 기준 완화(BOARD_EXPLORER 기획 튜닝)
  * 2026.01.24  임도헌   Merged    getUserAverageRating, calculateChatResponseRate 등 이관
+ * 2026.03.03  임도헌   Modified  unstable_cache 래퍼 제거 및 함수명(getUserAverageRating) 단순화
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { Prisma } from "@/generated/prisma/client";
 import type { ProfileAverageRating } from "@/features/user/types";
 
-// 평점 계산 (Cached Helper)
-const _getUserAverageRatingBase = async (
+/**
+ * 유저의 평균 평점 조회
+ * - 내가 판매한 물건에 달린 리뷰 + 내가 구매한 물건에 달린 리뷰
+ */
+export async function getUserAverageRating(
   userId: number
-): Promise<ProfileAverageRating> => {
-  // 내가 판매한 물건에 달린 리뷰 + 내가 구매한 물건에 달린 리뷰 (상대방이 쓴 것)
+): Promise<ProfileAverageRating> {
   const where: Prisma.ReviewWhereInput = {
     userId: { not: userId },
     OR: [
@@ -42,20 +44,7 @@ const _getUserAverageRatingBase = async (
   const rounded = Math.round(clamped * 10) / 10;
 
   return { averageRating: rounded, reviewCount: Number(agg._count.rate ?? 0) };
-};
-
-/**
- * 유저의 평균 평점 조회 (Cached)
- * - 프로필 헤더 등에서 사용
- */
-export const getCachedUserAverageRating = (userId: number) => {
-  const cached = nextCache(
-    async (uid: number) => _getUserAverageRatingBase(uid),
-    ["user-average-rating-by-id"],
-    { tags: [T.USER_AVERAGE_RATING_ID(userId)] }
-  );
-  return cached(userId);
-};
+}
 
 /**
  * [뱃지용] 평균 평점 계산
@@ -65,7 +54,7 @@ export async function calculateAverageRating(userId: number): Promise<number> {
   const reviews = await db.product.findMany({
     where: {
       userId,
-      purchase_userId: { not: null }, // 판매 완료된 제품만
+      purchase_userId: { not: null },
     },
     select: {
       reviews: {

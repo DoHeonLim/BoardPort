@@ -15,6 +15,8 @@
  * 2026.01.24  임도헌   Modified  deleteAllProductReviewsAction Import 및 호출
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  상대방 차단 및 신고 통합 메뉴 구현
+ * 2026.02.26  임도헌   Modified  좁은 화면에서 UI깨짐 방지
+ * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet로 전환하고 44px 터치 타겟 기준을 적용
  */
 "use client";
 
@@ -26,17 +28,19 @@ import dynamic from "next/dynamic";
 import {
   EllipsisHorizontalIcon,
   UserMinusIcon,
-  ExclamationTriangleIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import UserAvatar from "@/components/global/UserAvatar";
 import BackButton from "@/components/global/BackButton";
+import BottomSheet from "@/components/global/BottomSheet";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { formatToWon } from "@/lib/utils";
 import type { ChatUser } from "@/features/chat/types";
 import { leaveChatRoomAction } from "@/features/chat/actions/room";
 import { updateProductStatusAction } from "@/features/product/actions/status";
 import { toggleBlockAction } from "@/features/user/actions/block";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // 신고 모달 Dynamic Import
 const ReportModal = dynamic(
@@ -74,7 +78,7 @@ export default function ChatHeader({
   chatRoomId,
   viewerId,
   counterparty,
-  product,
+  product
 }: ChatHeaderProps) {
   const router = useRouter();
 
@@ -90,6 +94,7 @@ export default function ChatHeader({
   const [productState, setProductState] = useState<ChatHeaderProduct>(product);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const isMobile = useIsMobile();
 
   // 상대방 이탈 여부 체크 (Ghost User)
   const isGhost = !!counterparty.hasLeft;
@@ -111,6 +116,8 @@ export default function ChatHeader({
 
   // 외부 클릭 감지
   useEffect(() => {
+    if (isMobile || !menuOpen) return;
+
     if (!menuOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -124,7 +131,7 @@ export default function ChatHeader({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  }, [isMobile, menuOpen]);
 
   // --- Handlers ---
 
@@ -146,7 +153,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           reservation_userId: counterparty.id,
-          purchase_userId: null,
+          purchase_userId: null
         }));
       } else {
         toast.error(res?.error ?? "예약자로 지정하는 데 실패했습니다.");
@@ -167,7 +174,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           reservation_userId: null,
-          purchase_userId: null,
+          purchase_userId: null
         }));
       } else {
         toast.error(res?.error ?? "판매중으로 변경하지 못했어요.");
@@ -187,7 +194,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           purchase_userId: prev.reservation_userId ?? counterparty.id,
-          reservation_userId: null,
+          reservation_userId: null
         }));
       } else {
         toast.error(res?.error ?? "판매완료로 변경하지 못했어요.");
@@ -210,7 +217,7 @@ export default function ChatHeader({
         setProductState((prev) => ({
           ...prev,
           reservation_userId: null,
-          purchase_userId: null,
+          purchase_userId: null
         }));
         setRevertDialogOpen(false);
         setMenuOpen(false);
@@ -255,15 +262,30 @@ export default function ChatHeader({
     });
   };
 
+  const handleGoToProfile = () => {
+    setMenuOpen(false);
+    router.push(profileHref);
+  };
+
+  const handleGoToProduct = () => {
+    setMenuOpen(false);
+    router.push(productHref);
+  };
+
+  const desktopActionClass =
+    "block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim";
+  const mobileActionClass =
+    "flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim";
+
   return (
     <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-border shadow-sm">
       <div className="mx-auto w-full px-2 h-14 flex items-center justify-between gap-2">
         {/* Left Section: Back + User */}
-        <div className="flex justify-center items-center gap-1 min-w-0 shrink-0 max-w-[35%]">
+        <div className="flex justify-center items-center ml-2 gap-1 min-w-0 shrink-0 max-w-[50%]">
           <BackButton
             fallbackHref="/chat"
             variant="appbar"
-            className="h-10 w-8 px-0 shrink-0"
+            className="size-10 px-0 shrink-0"
           />
           {/* Ghost User(나간 유저)일 경우 프로필 링크 비활성화 */}
           <UserAvatar
@@ -280,7 +302,7 @@ export default function ChatHeader({
         {/* Center Section: Product Info Link */}
         <Link
           href={productHref}
-          className="flex-1 flex items-center justify-end gap-2 min-w-0 bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors border border-transparent hover:border-border"
+          className="flex-1 flex items-center justify-end gap-1.5 min-w-0 bg-surface-dim/60 rounded-lg p-1.5 hover:bg-surface-dim transition-colors border border-transparent hover:border-border"
         >
           <div className="relative size-8 shrink-0 rounded bg-surface border border-border overflow-hidden hidden xs:block">
             {img ? (
@@ -294,22 +316,23 @@ export default function ChatHeader({
               <div className="bg-neutral-200 dark:bg-neutral-700 w-full h-full" />
             )}
           </div>
-          <div className="flex flex-col items-end min-w-0">
-            <span className="text-xs text-primary font-semibold truncate max-w-[120px]">
+
+          <div className="flex flex-1 flex-col items-end min-w-0">
+            <span className="text-xs text-primary font-semibold truncate w-full block text-right">
               {productState.title}
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 mt-0.5">
               {isReserved && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 whitespace-nowrap">
+                <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 whitespace-nowrap">
                   예약중
                 </span>
               )}
               {isSold && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 whitespace-nowrap">
                   판매완료
                 </span>
               )}
-              <span className="text-xs font-bold text-brand dark:text-brand-light">
+              <span className="text-xs font-bold text-brand dark:text-brand-light truncate">
                 {formatToWon(productState.price)}원
               </span>
             </div>
@@ -320,37 +343,36 @@ export default function ChatHeader({
         <div className="relative shrink-0">
           <button
             ref={buttonRef}
-            className="flex items-center justify-center size-9 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="메뉴 열기"
+            aria-expanded={menuOpen}
+            aria-haspopup={isMobile ? "dialog" : "menu"}
           >
             <EllipsisHorizontalIcon className="size-6" />
           </button>
 
-          {menuOpen && (
+          {!isMobile && menuOpen && (
             <div
               ref={menuRef}
+              role="menu"
               className="absolute right-0 mt-1 w-48 origin-top-right rounded-xl bg-surface shadow-xl border border-border text-sm py-1 z-50 animate-fade-in"
             >
               {/* Ghost가 아닐 때만 프로필 이동 가능 */}
               {!isGhost && (
                 <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push(profileHref);
-                  }}
-                  className="block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim"
+                  role="menuitem"
+                  onClick={handleGoToProfile}
+                  className={desktopActionClass}
                 >
                   상대 프로필
                 </button>
               )}
 
               <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  router.push(productHref);
-                }}
-                className="block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim"
+                role="menuitem"
+                onClick={handleGoToProduct}
+                className={desktopActionClass}
               >
                 상품 상세
               </button>
@@ -363,7 +385,8 @@ export default function ChatHeader({
                   {/* 판매중 -> 예약자 지정 (Ghost면 불가) */}
                   {isSelling && !isGhost && (
                     <button
-                      className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim"
+                      role="menuitem"
+                      className={desktopActionClass}
                       onClick={handleReserveCounterparty}
                     >
                       예약자로 지정
@@ -374,13 +397,15 @@ export default function ChatHeader({
                   {isReserved && isCurrentReservationHolder && (
                     <>
                       <button
-                        className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim"
+                        role="menuitem"
+                        className={desktopActionClass}
                         onClick={handleReservedToSelling}
                       >
                         예약 취소 (판매중)
                       </button>
                       <button
-                        className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim font-medium"
+                        role="menuitem"
+                        className={`${desktopActionClass} font-medium`}
                         onClick={handleReservedToSold}
                       >
                         판매완료 처리
@@ -391,7 +416,8 @@ export default function ChatHeader({
                   {/* 판매완료 -> 되돌리기 */}
                   {isSold && (
                     <button
-                      className="block w-full px-4 py-2.5 text-left hover:bg-surface-dim text-amber-600"
+                      role="menuitem"
+                      className="block w-full px-4 py-2.5 text-left text-amber-600 hover:bg-surface-dim"
                       onClick={() => {
                         setMenuOpen(false);
                         setRevertDialogOpen(true);
@@ -409,6 +435,7 @@ export default function ChatHeader({
               {!isGhost && (
                 <>
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setMenuOpen(false);
                       setBlockConfirmOpen(true);
@@ -418,6 +445,7 @@ export default function ChatHeader({
                     <UserMinusIcon className="size-4" /> 상대방 차단하기
                   </button>
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setMenuOpen(false);
                       setReportOpen(true);
@@ -433,6 +461,7 @@ export default function ChatHeader({
 
               {/* 채팅방 나가기 (항상 가능) */}
               <button
+                role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
                   setLeaveDialogOpen(true);
@@ -445,6 +474,121 @@ export default function ChatHeader({
           )}
         </div>
       </div>
+
+      <BottomSheet
+        open={isMobile && menuOpen}
+        title="채팅 옵션"
+        description="상대 프로필 이동, 거래 상태 변경, 차단/신고, 채팅방 나가기 기능을 제공합니다."
+        onClose={() => setMenuOpen(false)}
+      >
+        <div className="space-y-2 pt-2">
+          {!isGhost && (
+            <button
+              type="button"
+              onClick={handleGoToProfile}
+              className={mobileActionClass}
+            >
+              상대 프로필
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleGoToProduct}
+            className={mobileActionClass}
+          >
+            상품 상세
+          </button>
+
+          {isSeller && (
+            <>
+              <div className="my-2 border-t border-border" />
+
+              {isSelling && !isGhost && (
+                <button
+                  type="button"
+                  onClick={handleReserveCounterparty}
+                  className={mobileActionClass}
+                >
+                  예약자로 지정
+                </button>
+              )}
+
+              {isReserved && isCurrentReservationHolder && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleReservedToSelling}
+                    className={mobileActionClass}
+                  >
+                    예약 취소 (판매중)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReservedToSold}
+                    className={mobileActionClass}
+                  >
+                    판매완료 처리
+                  </button>
+                </>
+              )}
+
+              {isSold && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setRevertDialogOpen(true);
+                  }}
+                  className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-amber-600 transition-colors hover:bg-amber-50"
+                >
+                  판매중으로 되돌리기
+                </button>
+              )}
+            </>
+          )}
+
+          {!isGhost && (
+            <>
+              <div className="my-2 border-t border-border" />
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setBlockConfirmOpen(true);
+                }}
+                className={mobileActionClass}
+              >
+                <UserMinusIcon className="size-5 shrink-0" />
+                상대방 차단하기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setReportOpen(true);
+                }}
+                className={mobileActionClass}
+              >
+                <ExclamationTriangleIcon className="size-5 shrink-0" />
+                사용자 신고하기
+              </button>
+            </>
+          )}
+
+          <div className="my-2 border-t border-border" />
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setLeaveDialogOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+          >
+            채팅방 나가기
+          </button>
+        </div>
+      </BottomSheet>
 
       {/* --- Dialogs --- */}
       <ConfirmDialog

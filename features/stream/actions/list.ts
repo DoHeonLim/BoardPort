@@ -14,12 +14,14 @@
  * 2026.01.23  임도헌   Modified  getInitialStreams 제거(Page에서 Service 직접 호출), getMoreStreams만 유지
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/streams/actions/init.ts (getMoreStreams) -> features/stream/actions/list.ts
+ * 2026.03.04  임도헌   Modified  getStreamsListAction 명칭 변경 및 getStreamsList 서비스 연동
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use server";
 
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
-import { getStreams } from "@/features/stream/service/list";
+import { getStreamsList } from "@/features/stream/service/list";
 import type { BroadcastSummary } from "@/features/stream/types";
 import getSession from "@/lib/session";
 
@@ -38,18 +40,20 @@ function norm(v?: string) {
 }
 
 /**
- * 스트리밍 목록 추가 로드 Action (무한 스크롤)
+ * 스트리밍(방송) 목록 무한 스크롤 조회 Server Action
  *
- * - 클라이언트 컴포넌트(`StreamList`)에서 스크롤 끝 도달 시 호출
- * - 검색어, 카테고리, 스코프(전체/팔로잉) 필터를 적용하여 다음 페이지 데이터를 조회
+ * [데이터 페칭 및 권한 로직]
+ * - 뷰어(viewerId) 정보를 기반으로 팔로잉 전용 필터 적용 여부 판단
+ * - URL 검색 파라미터(카테고리, 키워드) 공백 정규화 처리 후 Service 레이어 전달
+ * - 무한 스크롤을 위한 현재 페이지 데이터(streams) 및 다음 커서(nextCursor) 도출
  *
  * @param {Scope} scope - 조회 범위 ("all" | "following")
- * @param {number | null} cursor - 마지막 아이템 ID
- * @param {Record<string, string>} searchParams - 검색 조건 (category, keyword)
- * @param {number | null} viewerId - 조회자 ID (팔로잉 목록 조회 시 필요)
- * @returns {Promise<StreamsPage>} 다음 페이지 데이터 및 커서
+ * @param {number | null} cursor - 이전 페이지의 마지막 방송 ID
+ * @param {Record<string, string>} searchParams - 카테고리 및 키워드 필터 조건
+ * @param {number | null} viewerId - 조회자 ID (팔로잉 목록 확인용)
+ * @returns {Promise<StreamsPage>} 평탄화된 방송 목록과 페이징 커서 반환
  */
-export async function getMoreStreams(
+export async function getStreamsListAction(
   scope: Scope,
   cursor: number | null,
   searchParams: Record<string, string>,
@@ -60,14 +64,13 @@ export async function getMoreStreams(
 
   if (!userId) return { streams: [], nextCursor: null };
 
-  const list = await getStreams({
+  const list = await getStreamsList({
     scope,
     category: norm(searchParams.category),
     keyword: norm(searchParams.keyword),
     viewerId: userId,
     cursor,
-    take: TAKE + 1, // 다음 페이지 존재 확인용 +1
-    // * 리스트에서 팔로우 전용 방송의 잠금 상태(lock UI)를 표시하기 위해 팔로우 여부 조인이 필요함 (Service 내부 로직 참조)
+    take: TAKE + 1,
   });
 
   const hasMore = list.length > TAKE;

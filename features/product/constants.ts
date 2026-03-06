@@ -15,6 +15,7 @@
  * 2026.01.25  임도헌   Modified  PRODUCT_STATUS_LABEL 및 PRODUCT_STATUS_TYPES 추가 및 주석 보강
  * 2026.02.03  임도헌   Modifeid  PRODUCT_SELECT에 refreshed_at, bump_count 필드 추가
  * 2026.02.15  임도헌   Modified  [Feature] PRODUCT_SELECT 및 PROFILE_SALES_UNIFIED_SELECT에 위치 정보(region) 필드 추가
+ * 2026.02.26  임도헌   Modified  PROFILE_SALES_UNIFIED_SELECT에 끌어올리기(bump_count) 추가(누락)
  */
 
 // =============================================================================
@@ -157,6 +158,7 @@ export const PROFILE_SALES_UNIFIED_SELECT = {
   // 카드 메타 정보
   views: true,
   game_type: true,
+  bump_count: true,
 
   category: {
     select: {

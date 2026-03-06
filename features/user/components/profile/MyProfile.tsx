@@ -29,18 +29,24 @@
  * 2025.11.29  임도헌   Modified   알림 설정 섹션 텍스트 정리 및 상세 설정 링크 추가
  * 2025.12.12  임도헌   Modified   상위 padding과 중복되는 mx 제거, 모달 조건부 렌더로 진짜 지연 로드
  * 2026.01.15  임도헌   Modified   섹션 간격 및 스타일 통일
- * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
- * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
- * 2026.02.15  임도헌   Modified  내 동네 설정 버튼(MyLocationButton) 추가
+ * 2026.01.17  임도헌   Moved      components/profile -> features/user/components/profile
+ * 2026.01.29  임도헌   Modified   주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.15  임도헌   Modified   내 동네 설정 버튼(MyLocationButton) 추가
+ * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
+ * 2026.03.01  임도헌   Modified   이벤트 리스너(window.addEventListener) 제거 및 Zustand(ModalStore) 도입
+ * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.06  임도헌   Modified   거래 정보 섹션에 '찜한 내역' 바로가기 링크 추가
+ * 2026.03.06  임도헌   Modified   공용 LogoutButton 적용으로 로그아웃 피드백 정합성 보강
  */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { toast } from "sonner";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
+import LogoutButton from "@/components/global/LogoutButton";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
 import StreamCard from "@/features/stream/components/StreamCard";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
@@ -50,15 +56,16 @@ import {
   TagIcon,
 } from "@heroicons/react/24/outline";
 import { getMyBlockedUsersAction } from "@/features/user/actions/block";
+import { useModalStore } from "@/components/global/providers/ModalStoreProvider";
+
 import type { BroadcastSummary } from "@/features/stream/types";
 import type {
   Badge,
   ProfileAverageRating,
-  ProfileReview,
   UserProfile,
 } from "@/features/user/types";
+import { HeartIcon } from "@heroicons/react/24/solid";
 
-// Dynamic Imports (Modals)
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
 });
@@ -79,96 +86,59 @@ const WithdrawalModal = dynamic(() => import("./WithdrawalModal"), {
   ssr: false,
 });
 
-type Props = {
+type MyProfileProps = {
   user: UserProfile;
-  initialReviews: ProfileReview[];
   averageRating: ProfileAverageRating | null;
   badges: Badge[];
   userBadges: Badge[];
   myStreams?: BroadcastSummary[];
   viewerId?: number;
-  logOut: () => Promise<void>;
 };
 
 /**
- * 내 프로필 페이지 UI
+ * 내 프로필 메인 UI 컴포넌트
  *
- * [구조]
- * 1. 헤더: 프로필 정보, 설정 메뉴, 테마 토글
- * 2. 알림 설정: 푸시 알림 간편 토글
- * 3. 거래 정보: 판매/구매 내역 바로가기 타일
- * 4. 내 방송국: 최근 방송 목록 (Rail)
- * 5. 리뷰 및 뱃지: 요약 정보 및 전체보기 모달
- * 6. 로그아웃 버튼
+ * [상태 주입 및 상호작용 제어 로직]
+ * - 서버로부터 하이드레이션(Hydration)된 유저 정보, 평점, 뱃지, 최근 방송 데이터 선언적 렌더링
+ * - `useModalStore` 기반 Zustand 전역 상태 구독을 통한 다중 모달(리뷰, 뱃지, 이메일, 비밀번호, 차단 관리 등) 표시 제어
+ * - 차단한 유저 데이터 로딩(Server Action) 중 토스트 피드백 표시 및 로딩 완료 시 상태 병합 처리
  */
 export default function MyProfile({
   user,
-  initialReviews,
   averageRating,
   badges,
   userBadges,
   myStreams,
   viewerId,
-  logOut,
-}: Props) {
-  const [modalState, setModalState] = useState({
-    password: false,
-    review: false,
-    badge: false,
-    email: false,
-    block: false,
-    withdraw: false,
-  });
+}: MyProfileProps) {
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const fullLocation = [user.region1, user.region2, user.region3]
     .filter(Boolean)
     .join(" ");
 
-  const toggleModal = useCallback(
-    (key: keyof typeof modalState, open: boolean) => {
-      setModalState((prev) => ({ ...prev, [key]: open }));
-    },
-    []
-  );
+  // Zustand 모달 스토어 구독
+  const modals = useModalStore((state) => state.modals);
+  const openModal = useModalStore((state) => state.openModal);
+  const closeModal = useModalStore((state) => state.closeModal);
 
-  // 설정 메뉴(ProfileSettingMenu)로부터 발생하는 이벤트 수신
+  // 차단 유저 목록 로드 및 모달 오픈
   useEffect(() => {
-    const onPass = () => toggleModal("password", true);
-    const onEmail = () => toggleModal("email", true);
-    const onWithdraw = () => toggleModal("withdraw", true);
-
-    // 로딩 피드백 추가
-    const onBlock = async () => {
-      // 1. 로딩 상태 토스트 표시
-      const toastId = toast.loading("차단한 선원 목록을 불러오는 중...");
-
-      try {
-        const data = await getMyBlockedUsersAction();
-        setBlockedUsers(data);
-
-        // 2. 모달 열기
-        toggleModal("block", true);
-
-        // 3. 로딩 토스트 제거
-        toast.dismiss(toastId);
-      } catch (error) {
-        console.error("Failed to load blocked users:", error);
-        toast.error("목록을 불러오는 데 실패했습니다.", { id: toastId });
-      }
-    };
-
-    window.addEventListener("open-password-modal", onPass);
-    window.addEventListener("open-email-verification-modal", onEmail);
-    window.addEventListener("open-block-list-modal", onBlock);
-    window.addEventListener("open-withdraw-modal", onWithdraw);
-
-    return () => {
-      window.removeEventListener("open-password-modal", onPass);
-      window.removeEventListener("open-email-verification-modal", onEmail);
-      window.removeEventListener("open-block-list-modal", onBlock);
-      window.removeEventListener("open-withdraw-modal", onWithdraw);
-    };
-  }, [toggleModal]);
+    if (modals.block && blockedUsers.length === 0) {
+      const loadBlockedUsers = async () => {
+        const toastId = toast.loading("차단한 선원 목록을 불러오는 중...");
+        try {
+          const data = await getMyBlockedUsersAction();
+          setBlockedUsers(data);
+          toast.dismiss(toastId);
+        } catch (error) {
+          console.error(error);
+          toast.error("목록을 불러오는 데 실패했습니다.", { id: toastId });
+          closeModal("block");
+        }
+      };
+      loadBlockedUsers();
+    }
+  }, [modals.block, blockedUsers.length, closeModal]);
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -182,28 +152,31 @@ export default function MyProfile({
         followingCount={user._count?.following ?? 0}
         viewerId={viewerId}
         avatarUrl={user.avatar ?? null}
-        showFollowButton={false} // 내 프로필이므로 숨김
-        className=""
+        showFollowButton={false}
       />
 
       {/* 2. Notification */}
       <section>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-end justify-between mb-3 px-1">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
             href="/profile/notifications/setting"
-            className="text-xs text-muted hover:text-brand transition-colors"
+            className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
           >
             상세 설정
           </Link>
         </div>
-        <div className="panel p-4 flex items-center justify-between">
-          <span className="text-sm text-primary font-medium">
+        <div className="panel p-4 flex items-center justify-between gap-4">
+          <span className="text-sm text-primary font-medium shrink-0">
             푸시 알림 받기
           </span>
-          <PushNotificationToggle />
+          <div className="flex-1 flex justify-end min-w-0">
+            {/* 우측 정렬 영역 확보 */}
+            <PushNotificationToggle />
+          </div>
         </div>
       </section>
+
       {/* 3. My Neighborhood */}
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">내 동네 설정</h2>
@@ -217,6 +190,7 @@ export default function MyProfile({
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">거래 정보</h2>
         <div className="grid grid-cols-2 gap-3">
+          {/*  판매 내역 */}
           <Link
             href="/profile/my-sales"
             className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
@@ -229,7 +203,7 @@ export default function MyProfile({
               판매 중인 물품 관리
             </p>
           </Link>
-
+          {/*  구매 내역 */}
           <Link
             href="/profile/my-purchases"
             className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
@@ -242,6 +216,22 @@ export default function MyProfile({
               구매한 물품 확인
             </p>
           </Link>
+          {/*  찜한 내역 */}
+          <Link
+            href="/profile/my-likes"
+            className="col-span-2 flex items-center justify-between group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
+          >
+            <div>
+              <div className="flex items-center gap-2 mb-1 text-rose-500">
+                <HeartIcon className="size-5" />
+                <span className="text-sm font-semibold">찜한 내역</span>
+              </div>
+              <p className="text-xs text-muted group-hover:text-primary transition-colors">
+                내가 찜한 관심 상품
+              </p>
+            </div>
+            <ChevronRightIcon className="size-5 text-muted group-hover:text-brand transition-colors" />
+          </Link>
         </div>
       </section>
 
@@ -251,7 +241,7 @@ export default function MyProfile({
           <h2 className="text-sm font-bold text-primary">내 방송국</h2>
           <Link
             href={`/profile/${user.username}/channel`}
-            className="text-xs text-muted hover:text-brand transition-colors flex items-center"
+            className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
           >
             전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
           </Link>
@@ -289,8 +279,8 @@ export default function MyProfile({
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold text-primary">받은 거래 후기</h2>
             <button
-              onClick={() => toggleModal("review", true)}
-              className="text-xs text-muted hover:text-brand"
+              onClick={() => openModal("review")}
+              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
             >
               전체 보기
             </button>
@@ -301,8 +291,8 @@ export default function MyProfile({
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
             <button
-              onClick={() => toggleModal("badge", true)}
-              className="text-xs text-muted hover:text-brand"
+              onClick={() => openModal("badge")}
+              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
             >
               전체 보기
             </button>
@@ -311,58 +301,52 @@ export default function MyProfile({
         </section>
       </div>
 
-      {/* Logout */}
       <div className="pt-6 border-t border-border mt-2">
-        <form action={logOut}>
-          <button className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 transition-colors text-sm font-semibold">
-            로그아웃
-          </button>
-        </form>
+        <LogoutButton
+          className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
+        />
       </div>
 
-      {/* Modals */}
-      {modalState.review && (
+      {/* Zustand 상태 기반 모달 렌더링 */}
+      {modals.review && (
         <ProfileReviewsModal
-          isOpen={modalState.review}
-          onClose={() => toggleModal("review", false)}
-          reviews={initialReviews}
+          isOpen={modals.review}
+          onClose={() => closeModal("review")}
           userId={user.id}
         />
       )}
-      {modalState.badge && (
+      {modals.badge && (
         <ProfileBadgesModal
-          isOpen={modalState.badge}
-          closeModal={() => toggleModal("badge", false)}
+          isOpen={modals.badge}
+          closeModal={() => closeModal("badge")}
           badges={badges}
           userBadges={userBadges}
         />
       )}
-      {modalState.email && (
+      {modals.email && (
         <EmailVerificationModal
-          isOpen={modalState.email}
-          onClose={() => toggleModal("email", false)}
+          isOpen={modals.email}
+          onClose={() => closeModal("email")}
           email={user.email || ""}
         />
       )}
-      {modalState.password && (
+      {modals.password && (
         <PasswordChangeModal
-          isOpen={modalState.password}
-          onClose={() => toggleModal("password", false)}
+          isOpen={modals.password}
+          onClose={() => closeModal("password")}
         />
       )}
-
-      {modalState.block && (
+      {modals.block && (
         <BlockedUsersModal
-          isOpen={modalState.block}
-          onClose={() => toggleModal("block", false)}
+          isOpen={modals.block}
+          onClose={() => closeModal("block")}
           initialBlockedUsers={blockedUsers}
         />
       )}
-
-      {modalState.withdraw && (
+      {modals.withdraw && (
         <WithdrawalModal
-          isOpen={modalState.withdraw}
-          onClose={() => toggleModal("withdraw", false)}
+          isOpen={modals.withdraw}
+          onClose={() => closeModal("withdraw")}
         />
       )}
     </div>

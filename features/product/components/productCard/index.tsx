@@ -28,6 +28,10 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.15  임도헌   Modified  ProductCardMeta에 region 정보 전달
+ * 2026.02.26  임도헌   Modified  제품 리스트 카드 찌그러짐 수정
+ * 2026.03.06  임도헌   Modified  모바일 그리드 카드를 압축형 정보 밀도로 재정렬하고 위치 정보 1줄을 복구
+ * 2026.03.06  임도헌   Modified  모바일 그리드 썸네일/헤더/가격 밀도를 추가 조정해 카드 비율을 최적화
+ * 2026.03.06  임도헌   Modified  리스트 뷰에서는 모바일도 태그를 확인할 수 있도록 노출 규칙을 조정
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -95,7 +99,7 @@ export default function ProductCard({
     <Link
       href={href}
       className={cn(
-        "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-all duration-300",
+        "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-light/50 dark:hover:border-brand-light/50",
         isGrid ? "flex-col h-full" : "flex-row h-28 sm:h-36 w-full"
       )}
@@ -103,8 +107,10 @@ export default function ProductCard({
       {/* 썸네일 영역 */}
       <div
         className={cn(
-          "relative shrink-0 overflow-hidden",
-          isGrid ? "aspect-[4/3] w-full" : "w-24 sm:w-36 h-full"
+          "relative shrink-0 overflow-hidden bg-surface-dim",
+          isGrid
+            ? "aspect-[3/2] w-full border-b border-border sm:aspect-[4/3]"
+            : "w-24 sm:w-36 h-full"
         )}
       >
         <ProductCardThumbnail
@@ -120,12 +126,16 @@ export default function ProductCard({
       {/* 정보 영역 */}
       <div
         className={cn(
-          "flex flex-1 flex-col justify-between p-3 sm:p-4 min-w-0",
-          isGrid ? "gap-2" : "gap-1"
+          "flex flex-1 min-w-0 p-2 sm:p-3",
+          isGrid ? "flex-col justify-start gap-1.5 sm:gap-2" : "flex-col justify-between gap-1"
         )}
       >
         <div className="flex flex-col gap-1">
-          <ProductCardHeader gameType={game_type} category={category} />
+          <ProductCardHeader
+            gameType={game_type}
+            category={category}
+            viewMode={viewMode}
+          />
 
           <div className="flex flex-col">
             <ProductCardTitle title={title} viewMode={viewMode} />
@@ -133,15 +143,16 @@ export default function ProductCard({
               price={price}
               reservation_userId={reservation_userId}
               purchase_userId={purchase_userId}
+              viewMode={viewMode}
             />
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 mt-auto">
-          {/* List View에서만 태그 표시 (공간 확보) */}
+        <div className={cn("flex flex-col", isGrid ? "gap-1.5" : "gap-2 mt-auto")}>
+          {/* List View에서만 태그 표시 (모바일 포함, 밀도 유지를 위해 최대 2개 노출) */}
           {!isGrid && (
-            <div className="hidden sm:block">
-              <ProductCardTags tags={search_tags} />
+            <div className="block">
+              <ProductCardTags tags={search_tags} maxTags={2} />
             </div>
           )}
 
@@ -152,6 +163,7 @@ export default function ProductCard({
             bumpCount={bump_count}
             region2={region2}
             region3={region3}
+            viewMode={viewMode}
           />
         </div>
       </div>

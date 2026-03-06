@@ -29,6 +29,10 @@
  * 2026.02.03  임도헌   Modified  판매 중 탭에 끌어올리기 버튼 추가
  * 2026.02.05  임도헌   Modified  끌어올리기 버튼에 횟수 제한(MAX_BUMP_COUNT) UI 적용
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ * 2026.02.26  임도헌   Modified  Grid View 지원, 다크모드 텍스트 가시성(brand-light) 개선, bump_count 방어코드
+ * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  상태 변경/리뷰 삭제 피드백 문구를 구체화(v1.2)
  */
 
 "use client";
@@ -66,6 +70,7 @@ import type {
   MySalesListItem,
   ProductStatus,
   GameType,
+  ViewMode,
 } from "@/features/product/types";
 import type { ProductReview } from "@/features/review/types";
 
@@ -87,6 +92,7 @@ interface ProductItemProps {
   product: MySalesListItem;
   type?: ProductStatus; // 현재 탭 상태
   userId: number; // 판매자(나) ID
+  viewMode?: ViewMode;
   onOptimisticMove?: (p: {
     from: ProductStatus;
     to: ProductStatus;
@@ -148,25 +154,24 @@ function Metric({
 }
 
 /**
- * 판매 상품 아이템 컴포넌트
+ * 나의 판매 제품 단일 항목 렌더링 컴포넌트
  *
- * [기능]
- * 1. 상품 정보 렌더링 (제목, 가격, 상태, 조회수 등)
- * 2. 현재 상태(탭)에 따른 액션 버튼 제공
- *    - 판매 중: 예약자 선택
- *    - 예약 중: 예약 취소, 판매 완료
- *    - 판매 완료: 판매 중으로 되돌리기, 리뷰 작성/보기
- * 3. Optimistic Update를 위한 상위 콜백 호출
- * 4. 리뷰 작성/삭제 및 각종 모달 연동
+ * [상호작용 및 상태 제어 로직]
+ * - 탭 간 상태 변경(예: 판매 중 -> 판매 완료) 시, 부모로부터 주입받은 `onOptimisticMove` 헬퍼를 호출하여 Query Cache 기반 낙관적 렌더링 수행
+ * - 리뷰 작성, 삭제, 끌어올리기 등 단일 아이템 속성 변경 시 `onReviewChanged` 콜백을 통한 캐시 부분 갱신(Patch) 유도
+ * - 서버 액션 에러 발생 시 `onMoveFailed`를 호출하여 이전 상태 스냅샷으로 롤백 처리
  */
 export default function MySalesProductItem({
   product,
   type,
   userId,
+  viewMode = "list",
   onOptimisticMove,
   onMoveFailed,
   onReviewChanged,
 }: ProductItemProps) {
+  // 그리드 상태 변수
+  const isGrid = viewMode === "grid";
   // 모달 상태 관리
   const [modalState, setModalState] = useState({
     reservation: false, // 예약자 선택
@@ -257,7 +262,10 @@ export default function MySalesProductItem({
         // 서버 액션 성공 즉시 UI 상의 카운트를 +1 하여 시각적 피드백 제공
         onReviewChanged?.({ bump_count: product.bump_count + 1 });
       } else {
-        toast.error(res.error ?? "실패했습니다.");
+        toast.error(
+          res.error ??
+            "게시글 끌어올리기에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       }
     });
   };
@@ -280,11 +288,16 @@ export default function MySalesProductItem({
         toggleModal("reviewSeller", false);
         toast.success("리뷰를 삭제했습니다.");
       } else {
-        toast.error(res.error || "삭제 실패");
+        toast.error(
+          res.error ??
+            "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       }
     } catch (e) {
       console.error(e);
-      toast.error("오류가 발생했습니다.");
+      toast.error(
+        "리뷰 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+      );
     } finally {
       setIsDeleting(false);
       toggleModal("deleteConfirm", false);
@@ -321,7 +334,9 @@ export default function MySalesProductItem({
       } catch {
         rollback?.(); // 실패 시 롤백
         await onMoveFailed?.({ from: type, to });
-        toast.error("상태 변경 실패");
+        toast.error(
+          "상품 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       } finally {
         setOpLoading(false);
       }
@@ -385,19 +400,35 @@ export default function MySalesProductItem({
   }, [product]);
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md">
+    <div
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition hover:shadow-md",
+        isGrid ? "h-full" : ""
+      )}
+    >
       {/* 1. 상단 정보 영역 */}
-      <div className="flex p-4 gap-4">
+      <div
+        className={cn(
+          "flex flex-1",
+          isGrid ? "flex-col" : "flex-row p-4 gap-4"
+        )}
+      >
         {/* Thumbnail */}
         <Link
           href={href}
-          className="relative shrink-0 size-24 sm:size-28 rounded-xl overflow-hidden bg-surface-dim"
+          className={cn(
+            "relative shrink-0 overflow-hidden bg-surface-dim",
+            isGrid
+              ? "aspect-[4/3] w-full border-b border-border"
+              : "size-24 sm:size-28 rounded-xl"
+          )}
         >
           {thumbUrl ? (
             <Image
               fill
               src={thumbUrl}
               alt={product.title}
+              sizes={isGrid ? "(max-width: 640px) 50vw, 33vw" : "112px"}
               className="object-cover transition-transform group-hover:scale-105"
             />
           ) : (
@@ -408,24 +439,36 @@ export default function MySalesProductItem({
         </Link>
 
         {/* Info */}
-        <div className="flex flex-1 flex-col justify-between min-w-0">
+        <div
+          className={cn(
+            "flex flex-col justify-between min-w-0 flex-1",
+            isGrid ? "p-3 gap-2" : ""
+          )}
+        >
           <div>
             <div className="flex justify-between items-start gap-2">
               <Link href={href} className="min-w-0">
-                <h3 className="truncate text-base font-semibold text-primary group-hover:text-brand transition-colors">
+                <h3
+                  className={cn(
+                    "font-semibold text-primary group-hover:text-brand transition-colors",
+                    isGrid
+                      ? "text-sm sm:text-base line-clamp-2"
+                      : "text-base truncate"
+                  )}
+                >
                   {product.title}
                 </h3>
               </Link>
-              {/* 상태/유저 배지 */}
+              {/* 상태/유저 배지 (그리드에서는 배지만 표시) */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <StatusPill tab={type} />
-                {type === "reserved" && (
+                {type === "reserved" && !isGrid && (
                   <ReservationUserInfo
                     userId={product.reservation_userId ?? null}
                     fallback={product.reservation_user}
                   />
                 )}
-                {type === "sold" && purchaseUserInfo.username && (
+                {type === "sold" && purchaseUserInfo.username && !isGrid && (
                   <UserAvatar
                     avatar={purchaseUserInfo.avatar}
                     username={purchaseUserInfo.username}
@@ -441,15 +484,17 @@ export default function MySalesProductItem({
           </div>
 
           <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex flex-wrap gap-1.5">
-              {gameChips.map((c) => (
-                <Chip key={c}>{c}</Chip>
-              ))}
-              {product.category?.kor_name && (
-                <Chip>{product.category.kor_name}</Chip>
-              )}
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted pt-1 border-t border-border/50">
+            {!isGrid && (
+              <div className="flex flex-wrap gap-1.5">
+                {gameChips.map((c) => (
+                  <Chip key={c}>{c}</Chip>
+                ))}
+                {product.category?.kor_name && (
+                  <Chip>{product.category.kor_name}</Chip>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted pt-1 border-t border-border/50">
               <div className="flex gap-3">
                 <Metric icon={<HeartIcon className="size-3.5 text-rose-500" />}>
                   {product._count.product_likes ?? 0}
@@ -464,39 +509,57 @@ export default function MySalesProductItem({
         </div>
       </div>
 
-      {/* 2. Actions (상태별 분기) */}
-      <div className="grid grid-flow-col auto-cols-fr border-t border-border divide-x divide-border bg-surface-dim/30">
+      {/* 2. Actions */}
+      <div
+        className={cn(
+          "border-t border-border bg-surface-dim/30 shrink-0",
+          isGrid
+            ? "flex flex-col divide-y divide-border"
+            : "grid grid-flow-col auto-cols-fr divide-x divide-border"
+        )}
+      >
         {type === "selling" && (
           <>
             <button
               onClick={handleBump}
               disabled={isBumping || isBumpMaxed || opLoading}
-              className="py-3 text-sm font-medium text-primary hover:bg-surface-dim transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={cn(
+                "font-medium hover:bg-surface-dim transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed text-primary",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
             >
               {isBumping ? (
-                <span className="size-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <span className="size-3 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
               ) : (
                 <ArrowUpIcon
                   className={cn(
                     "size-4",
-                    isBumpMaxed ? "text-muted" : "text-brand"
+                    isBumpMaxed
+                      ? "text-muted"
+                      : "text-brand dark:text-brand-light"
                   )}
                 />
               )}
-
-              <span className={cn(isBumpMaxed && "text-muted")}>
+              <span
+                className={cn(
+                  isBumpMaxed
+                    ? "text-muted"
+                    : "text-brand dark:text-brand-light"
+                )}
+              >
                 {isBumpMaxed ? "UP 마감" : "UP"}
               </span>
-
-              {/* 횟수 표시: (현재/최대) */}
               <span className="text-[10px] font-normal text-muted">
-                ({product.bump_count}/{MAX_BUMP_COUNT})
+                ({product.bump_count ?? 0}/{MAX_BUMP_COUNT})
               </span>
             </button>
             <button
               onClick={() => toggleModal("reservation", true)}
               disabled={opLoading}
-              className="py-3 text-sm font-medium text-brand hover:bg-surface-dim transition-colors disabled:opacity-50"
+              className={cn(
+                "font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
             >
               예약자 선택
             </button>
@@ -507,14 +570,20 @@ export default function MySalesProductItem({
             <button
               onClick={handleUpdateToSelling}
               disabled={opLoading}
-              className="py-3 text-sm font-medium text-muted hover:text-primary hover:bg-surface-dim"
+              className={cn(
+                "font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
             >
               예약 취소
             </button>
             <button
               onClick={handleUpdateToSold}
               disabled={opLoading}
-              className="py-3 text-sm font-medium text-brand hover:bg-brand/5"
+              className={cn(
+                "font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
             >
               판매 완료
             </button>
@@ -525,14 +594,20 @@ export default function MySalesProductItem({
             <button
               onClick={handleUpdateToSelling}
               disabled={opLoading}
-              className="py-3 text-sm font-medium text-muted hover:text-primary hover:bg-surface-dim"
+              className={cn(
+                "font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
             >
               판매중 변경
             </button>
             {sellerReviews.length > 0 ? (
               <button
                 onClick={() => toggleModal("reviewSeller", true)}
-                className="py-3 text-sm font-medium text-primary hover:bg-surface-dim"
+                className={cn(
+                  "font-medium text-primary hover:bg-surface-dim transition-colors",
+                  isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+                )}
               >
                 내 리뷰 보기
               </button>
@@ -540,14 +615,20 @@ export default function MySalesProductItem({
               <button
                 onClick={() => toggleModal("reviewCreate", true)}
                 disabled={reviewLoading}
-                className="py-3 text-sm font-medium text-brand hover:bg-brand/5 disabled:opacity-50"
+                className={cn(
+                  "font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
+                  isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+                )}
               >
                 {reviewLoading ? "처리 중..." : "리뷰 작성"}
               </button>
             )}
             <button
               onClick={() => toggleModal("reviewBuyer", true)}
-              className="py-3 text-sm font-medium text-muted hover:text-primary hover:bg-surface-dim"
+              className={cn(
+                "font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
             >
               구매자 리뷰
             </button>
@@ -575,6 +656,7 @@ export default function MySalesProductItem({
           title="내가 쓴 리뷰"
           review={sellerReviews[0]}
           onDelete={() => toggleModal("deleteConfirm", true)}
+          isOwnReview={true}
         />
       )}
 

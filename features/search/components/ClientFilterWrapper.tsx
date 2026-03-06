@@ -12,6 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ * 2026.03.06  임도헌   Modified  필터 트리거 버튼 터치 타겟 및 aria-label 보강
  */
 "use client";
 
@@ -45,7 +46,8 @@ export default function ClientFilterWrapper({ categories, filters }: Props) {
     <div className="relative flex justify-end">
       <button
         onClick={() => setIsFilterOpen(true)}
-        className="flex items-center gap-1.5 px-3 h-8 sm:h-9 text-xs sm:text-sm font-medium text-primary border border-border rounded-lg bg-surface hover:bg-surface-dim transition-colors shadow-sm"
+        aria-label="상세 필터 열기"
+        className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-xs font-medium text-primary shadow-sm transition-colors hover:bg-surface-dim sm:h-11 sm:text-sm"
       >
         <span>필터</span>
         <AdjustmentsHorizontalIcon className="size-4" />

@@ -8,6 +8,8 @@
  * 2026.02.07  임도헌   Created   초기 구현
  * 2026.02.07  임도헌   Modified  ServiceResult 및 DTO 타입 적용
  * 2026.02.22  임도헌   Modified  관리자 삭제 시 유저 프로필 및 채팅방 캐시 완벽 무효화
+ * 2026.03.05  임도헌   Modified  개인화 캐시 태그 파편화 제거 및 `revalidatePath` 기반 클라이언트 동기화로 단순화
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use server";
 
@@ -51,33 +53,8 @@ export async function deleteProductAdminAction(
   const res = await deleteProductByAdmin(auth.adminId, productId, reason);
 
   if (res.success && res.data) {
-    const meta = res.data;
-
     // 관리자가 지워도 유저의 프로필 탭과 채팅방에서 즉시 사라지도록 동기화
-    revalidateTag(T.PRODUCT_DETAIL_ID(productId));
-    revalidateTag(T.PRODUCT_LIST());
-
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", meta.userId));
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("RESERVED", meta.userId));
-    revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", meta.userId));
-    revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.userId));
-
-    if (meta.purchase_userId) {
-      revalidateTag(
-        T.USER_PRODUCTS_SCOPE_ID("PURCHASED", meta.purchase_userId)
-      );
-      revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.purchase_userId));
-    }
-    if (meta.reservation_userId) {
-      revalidateTag(
-        T.USER_PRODUCTS_SCOPE_ID("RESERVED", meta.reservation_userId)
-      );
-      revalidateTag(T.USER_PRODUCTS_COUNTS_ID(meta.reservation_userId));
-    }
-
-    meta.chatUserIds.forEach((uid) => {
-      revalidateTag(T.CHAT_ROOMS_ID(uid));
-    });
+    revalidateTag(T.PRODUCT_DETAIL(productId));
 
     revalidatePath("/admin/products");
     revalidatePath("/products");

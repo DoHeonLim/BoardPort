@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.08  임도헌   Created   컴포넌트 분리 및 반응형 대응
+ * 2026.02.26  임도헌   Modified  사유에 whitespace-normal 추가해서 줄바꿈 되도록 변경
  */
 
 "use client";
@@ -122,7 +123,7 @@ export default function AuditLogListContainer({ data }: Props) {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-col gap-0.5 max-w-md">
+                        <div className="flex flex-col gap-0.5 max-w-md whitespace-normal">
                           {isStructured && metaInfo && (
                             <span className="text-[10px] text-muted/60 truncate">
                               {metaInfo}

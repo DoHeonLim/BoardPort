@@ -8,37 +8,13 @@
  * 2026.01.24  임도헌   Created   Service/Action 공용 타입
  * 2026.01.24  임도헌   Modified  ProductReview, ReviewSubmitResult 추가
  * 2026.02.22  임도헌   Modified  ReviewServiceResult에 캐시 무효화용 meta 추가
+ * 2026.03.07  임도헌   Modified  공통 ServiceFailure 타입 재사용
  */
 
-// =============================================================================
-// 1. Service Layer Types (비즈니스 로직 결과)
-// =============================================================================
-
-/**
- * 리뷰 생성 서비스 결과
- * - 생성 성공 시, 캐시 무효화를 위한 메타데이터(productId, sellerId, buyerId)를 반환
- */
-export type ReviewServiceResult =
-  | {
-      success: true;
-      review: ProductReview;
-      meta?: { productId: number; sellerId: number; buyerId: number | null };
-    }
-  | { success: false; error: string };
-
-/**
- * 리뷰 삭제 서비스 결과
- * - 삭제 성공 시, 캐시 무효화를 위한 메타데이터(productId, sellerId, buyerId)를 반환
- */
-export type DeleteReviewResult =
-  | {
-      success: true;
-      meta?: { productId: number; sellerId?: number; buyerId?: number };
-    }
-  | { success: false; error: string };
+import type { ServiceFailure } from "@/lib/types";
 
 // =============================================================================
-// 2. Entity / Model Types (DB 모델)
+// 1. Entity / Model Types (DB 모델)
 // =============================================================================
 
 /**
@@ -55,7 +31,34 @@ export interface ProductReview {
 }
 
 // =============================================================================
-// 3. Client Layer Types (Hook/Component)
+// 2. Service Layer Types (비즈니스 로직 결과)
+// =============================================================================
+
+/**
+ * 리뷰 생성 서비스 결과
+ * - 생성 성공 시, 캐시 무효화를 위한 메타데이터(productId)를 반환
+ */
+export type ReviewServiceResult =
+  | {
+      success: true;
+      review: ProductReview;
+      meta?: { productId: number };
+    }
+  | ServiceFailure;
+
+/**
+ * 리뷰 삭제 서비스 결과
+ * - 삭제 성공 시, 캐시 무효화를 위한 메타데이터(productId)를 반환
+ */
+export type DeleteReviewResult =
+  | {
+      success: true;
+      meta?: { productId: number };
+    }
+  | ServiceFailure;
+
+// =============================================================================
+// 3. Client Layer Types (Hook / Component)
 // =============================================================================
 
 /**

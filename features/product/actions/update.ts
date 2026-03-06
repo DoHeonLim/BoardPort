@@ -9,16 +9,18 @@
  * 2024.11.02  임도헌   Modified  제품 편집 폼 액션
  * 2024.11.12  임도헌   Modified  제품 수정 클라우드 플레어로 리팩토링
  * 2024.12.12  임도헌   Modified  제품 편집 폼 액션 코드 추가(여러 이미지 업로드)
- * 2025.04.18  읻모헌   Modified  타입 상수 constants로 이동
+ * 2025.04.18  임도헌   Modified  타입 상수 constants로 이동
  * 2025.05.23  임도헌   Modified  카테고리 필드명 변경(name->kor_name)
  * 2025.06.15  임도헌   Modified  제품 수정 로직 lib로 분리 후 연결
  * 2026.01.20  임도헌   Modified  Service 연동, 세션 체크, 캐시 무효화
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
+ * 2026.03.05  임도헌   Modified  PRODUCT_DETAIL 태그 무효화 책임을 update action으로 이관(revalidateTag 적용), 조회 경로 무효화 제거로 캐시 최적화
+ * 2026.03.07  임도헌   Modified  태그/위치 JSON 파싱 예외를 정상 실패 응답으로 전환
  */
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
 import { updateProduct } from "@/features/product/service/update";
@@ -53,14 +55,33 @@ export async function updateProductAction(
   // 1. FormData 파싱
   const photos = formData.getAll("photos[]").map(String);
   const tagsString = formData.get("tags")?.toString() || "[]";
-  const tags = JSON.parse(tagsString);
+  let tags: string[] = [];
+  try {
+    const parsedTags = JSON.parse(tagsString);
+    if (!Array.isArray(parsedTags)) {
+      return {
+        success: false,
+        fieldErrors: { tags: ["태그 정보 형식이 올바르지 않습니다."] },
+      };
+    }
+    tags = parsedTags;
+  } catch {
+    return {
+      success: false,
+      fieldErrors: { tags: ["태그 정보 형식이 올바르지 않습니다."] },
+    };
+  }
+
   const locationRaw = formData.get("location")?.toString();
   let locationData = null;
   if (locationRaw) {
     try {
       locationData = JSON.parse(locationRaw);
     } catch {
-      console.error("Location parse error");
+      return {
+        success: false,
+        fieldErrors: { location: ["위치 정보 형식이 올바르지 않습니다."] },
+      };
     }
   }
 
@@ -100,11 +121,9 @@ export async function updateProductAction(
   }
 
   // 4. 캐시 무효화
-  revalidateTag(T.PRODUCT_DETAIL_ID(productId));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SELLING", session.id));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("RESERVED", session.id));
-  revalidateTag(T.USER_PRODUCTS_SCOPE_ID("SOLD", session.id));
-  revalidateTag(T.USER_PRODUCTS_COUNTS_ID(session.id));
+  revalidateTag(T.PRODUCT_DETAIL(productId));
+  revalidatePath("/products");
+  revalidatePath(`/products/view/${productId}`);
 
   return { success: true, productId };
 }

@@ -8,6 +8,7 @@
  * 2026.02.07  임도헌   Created   초기 구현
  * 2026.02.07  임도헌   Modified  Audit Log 연동 및 DTO(AdminPostListResponse) 타입 적용
  * 2026.02.08  임도헌   Modified  삭제 시 유저 알림(sendAdminActionNotification) 연동
+ * 2026.03.07  임도헌   Modified  관리자 액션 실패 문구를 구체화(v1.2)
  */
 
 import "server-only";
@@ -115,6 +116,10 @@ export async function deletePostByAdmin(
     return { success: true };
   } catch (e) {
     console.error(e);
-    return { success: false, error: "게시글 삭제에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

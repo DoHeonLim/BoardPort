@@ -21,6 +21,8 @@
  * 2026.01.24  임도헌   Modified   lib/createReview.ts 로직 이관 및 최적화
  * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  * 2026.02.20  임도헌   Modified  후기 작성 완료 시 채팅방에 시스템 메시지 발송
+ * 2026.03.07  임도헌   Modified  push 성공 판정 기준을 result.data.sent로 정정
+ * 2026.03.07  임도헌   Modified  차단 관계에서는 리뷰 작성 불가하도록 가드 추가
  */
 
 import "server-only";
@@ -31,6 +33,7 @@ import { isUniqueConstraintError } from "@/lib/errors";
 import { badgeChecks } from "@/features/user/service/badge";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import { validateUserStatus } from "@/features/user/service/admin";
+import { checkBlockRelation } from "@/features/user/service/block";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
 import {
   canSendPushForType,
@@ -63,7 +66,7 @@ async function sendPush(params: {
       topic: params.tag,
     });
 
-    if (result?.success && (result as any).sent > 0) {
+    if (result?.success && (result.data?.sent ?? 0) > 0) {
       await db.notification.update({
         where: { id: params.notificationId },
         data: { isPushSent: true, sentAt: new Date() },
@@ -133,6 +136,14 @@ export async function createReviewService(
     } else {
       if (sellerId !== userId)
         return { success: false, error: REVIEW_ERRORS.UNAUTHORIZED };
+    }
+
+    const reviewTargetId = data.type === "buyer" ? sellerId : buyerId;
+    if (await checkBlockRelation(userId, reviewTargetId)) {
+      return {
+        success: false,
+        error: "차단 관계에서는 리뷰를 작성할 수 없습니다.",
+      };
     }
 
     // 4. 리뷰 생성 (DB Insert)
@@ -238,7 +249,7 @@ export async function createReviewService(
       }
 
       // 5-3. 채팅방 시스템 메시지 전송
-      // 거래 당사자 간의 채팅방을 찾아 리뷰 작성 완료 사실을 채팅 로그에 남깁니다.
+      // 거래 당사자 간의 채팅방을 찾아 리뷰 작성 완료 사실을 채팅 로그에 남김
       try {
         const room = await db.productChatRoom.findFirst({
           where: {
@@ -286,8 +297,6 @@ export async function createReviewService(
       },
       meta: {
         productId: data.productId,
-        sellerId,
-        buyerId,
       },
     };
   } catch (error) {

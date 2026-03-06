@@ -11,6 +11,7 @@
  * 2025.12.28  임도헌   Modified  preferences 레코드가 없을 때도 안전하도록 upsert로 변경
  * 2026.01.23  임도헌   Modified  Service(updatePreferences) 호출로 변경
  * 2026.01.30  임도헌   Renamed   features/notification/actions.ts -> features/notification/actions/preference.ts
+ * 2026.03.07  임도헌   Modified  액션 실패 문구를 사용자 친화적으로 구체화(v1.2)
  */
 "use server";
 
@@ -62,6 +63,10 @@ export async function updateNotificationPreferences(
     return { ok: true };
   } catch (e) {
     console.error("[notifications] update failed:", e);
-    return { ok: false, error: "INTERNAL_ERROR" };
+    return {
+      ok: false,
+      error:
+        "알림 설정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

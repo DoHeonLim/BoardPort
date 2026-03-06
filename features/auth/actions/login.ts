@@ -13,6 +13,7 @@
  * 2025.12.10  임도헌   Modified  로그인 액션 리턴 타입(success/fieldErrors) 구조화 및 예외 처리 준비
  * 2026.01.20  임도헌   Modified  로직 단순화 및 Service 호출로 통합, 주석 보강
  * 2026.01.30  임도헌   Moved     app/(auth)/login/actions.ts -> features/auth/actions/login.ts
+ * 2026.03.07  임도헌   Modified  정지 계정 안내를 전역 에러로 분리하고 일반 인증 실패는 필드 에러로 유지
  */
 "use server";
 
@@ -54,6 +55,13 @@ export async function login(
   const result = await verifyLogin(parsed.data);
 
   if (!result.success) {
+    if (result.code === "BANNED") {
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
+
     return {
       success: false,
       fieldErrors: { password: [result.error] },

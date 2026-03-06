@@ -14,6 +14,7 @@
  *                                DB 동기화는 트랜잭션(return)으로 묶어 타입 안정성 강화
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
  * 2026.01.23  임도헌   Modified  Service(upsertSubscription) 호출로 변경
+ * 2026.03.07  임도헌   Modified  Welcome 푸시 이동 경로를 실제 알림 설정 페이지로 정정
  */
 import { NextResponse } from "next/server";
 import getSession from "@/lib/session";
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
           targetUserId: userId,
           title: "푸시 알림 설정 완료",
           message: "푸시 알림이 활성화되었습니다.",
-          url: "/profile/notifications",
+          url: "/profile/notifications/setting",
           type: "SYSTEM",
           tag: "welcome",
           renotify: false,

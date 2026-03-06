@@ -8,6 +8,7 @@
  * 2026.01.10  임도헌   Modified  레이아웃 및 오버레이 가시성 향상
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서는 썸네일 높이를 살짝 낮춰 정보 영역 비율을 균형화
  */
 "use client";
 

@@ -8,6 +8,7 @@
  * 2026.02.13  임도헌   Created
  * 2026.02.21  임도헌   Modified  키워드 범위(RegionRange) 선택 Select 추가
  * 2026.02.21  임도헌   Modified  Select 컴포넌트 초기값 Fallback 방어 로직 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
  */
 
 "use client";
@@ -137,9 +138,9 @@ export default function KeywordAlertManager({
             className="btn-primary h-10 px-4 shrink-0 flex items-center justify-center"
           >
             {isPending ? (
-              <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="size-4 border-2 border-white/30 border-t-white dark:border-gray-900/30 dark:border-t-gray-900 rounded-full animate-spin" />
             ) : (
-              <PlusIcon className="size-5" />
+              <PlusIcon className="size-5 dark:text-gray-100" />
             )}
           </button>
         </div>

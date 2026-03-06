@@ -8,6 +8,7 @@
  * 2025.09.17  임도헌   Created   VodAsset → Broadcast 삭제 유틸 (트랜잭션 주입)
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.03.07  임도헌   Modified  삭제 실패 문구를 구체화(v1.2)
  */
 
 import "server-only";
@@ -37,7 +38,11 @@ export async function deleteBroadcastTx(
     return { success: true };
   } catch (e) {
     console.error("[deleteBroadcastTx] failed:", e);
-    return { success: false, error: "방송 삭제 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "방송 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 

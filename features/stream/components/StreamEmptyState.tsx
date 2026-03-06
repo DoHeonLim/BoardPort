@@ -9,6 +9,10 @@
  * 2026.01.14  임도헌   Modified  [UI] 공통 Empty State 디자인 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.03.06  임도헌   Modified  Empty State 배경/보더 대비를 시맨틱 토큰 기준으로 재정렬
+ * 2026.03.06  임도헌   Modified  기본 Empty State에 CTA를 추가하고 문구/버튼 배치를 제품·게시글과 통일
+ * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸을 적용해 상태 화면 정합성을 높임
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
@@ -43,25 +47,41 @@ export default function StreamEmptyState({ keyword, category, scope }: Props) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
-      <div className="p-4 rounded-full bg-surface-dim mb-4">
-        <VideoCameraIcon className="size-10 text-muted/50" />
-      </div>
+    <div className="state-screen">
+      <div className="state-card">
+        <div className="state-icon-wrap">
+          <VideoCameraIcon className="size-10 text-muted/50" />
+        </div>
 
-      <h3 className="text-lg font-bold text-primary mb-1">{title}</h3>
-      <p className="text-sm text-muted mb-6">{description}</p>
+        <h3 className="state-title">{title}</h3>
+        <p className="state-description">{description}</p>
 
-      <div className="flex gap-3">
-        {(hasKeyword || hasCategory) && (
-          <Link href="/streams" className="btn-secondary h-10 text-sm">
-            전체 목록 보기
-          </Link>
-        )}
-        {isFollowingScope && (
-          <Link href="/streams" className="btn-primary h-10 text-sm">
-            전체 방송 보기
-          </Link>
-        )}
+        <div className="state-actions justify-center">
+          {!hasKeyword && !hasCategory && !isFollowingScope && (
+            <Link
+              href="/streams/add"
+              className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
+            >
+              방송 시작하기
+            </Link>
+          )}
+          {(hasKeyword || hasCategory) && (
+            <Link
+              href="/streams"
+              className="btn-secondary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
+            >
+              전체 목록 보기
+            </Link>
+          )}
+          {isFollowingScope && (
+            <Link
+              href="/streams"
+              className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
+            >
+              전체 방송 보기
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );

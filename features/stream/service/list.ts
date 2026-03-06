@@ -12,13 +12,13 @@
  * 2026.01.25  임도헌   Modified  getChannelLive 추가 (단일 라이브 조회 최적화)
  * 2026.01.24  임도헌   Refactor  목적별 함수 분리 (MainList / ProfileRail / ChannelLive / ChannelVods)
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수명(getStreamsList, getRecentBroadcasts) 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { serializeStream } from "@/features/stream/utils/serializer";
 import { BROADCAST_SUMMARY_SELECT } from "@/features/stream/constants";
 import { getBlockedUserIds } from "@/features/user/service/block";
@@ -29,18 +29,18 @@ import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
 /* -------------------------------------------------------------------------- */
 
 /**
- * 메인 스트리밍 목록 조회
+ * 메인 스트리밍 목록 필터링 및 페이징 조회 로직
  *
- * - 현재 방송 중(`CONNECTED`)인 항목만 조회
- * - [Security] `getBlockedUserIds`를 사용하여 나와 차단 관계(내가 차단했거나 나를 차단한)에 있는
- *   유저의 방송은 DB 쿼리 단계에서 원천적으로 제외
- * - 정지된(Banned) 유저의 방송도 노출 X
- * - 실시간성을 위해 별도의 캐싱을 적용 X (No-Store)
+ * [데이터 페칭 및 권한 제어 전략]
+ * - 현재 방송 중(`CONNECTED`)인 항목만 조회 대상으로 한정
+ * - 조회자(`viewerId`) 기반 차단 및 정지된 유저의 방송 원천 은닉 필터 적용
+ * - 스코프(`scope`) 파라미터에 따라 전체 공개 또는 팔로잉 전용(비공개 포함) 목록으로 분기 처리
+ * - 커서 기반 페이징 적용 및 직렬화 유틸(`serializeStream`)을 통한 DTO 변환 반환
  *
- * @param {Object} params - 검색 및 페이징 파라미터
- * @returns {Promise<BroadcastSummary[]>} 필터링된 방송 목록
+ * @param {Object} params - 검색 및 페이징 파라미터 (scope, category, keyword, viewerId 등)
+ * @returns {Promise<BroadcastSummary[]>} 필터링 및 직렬화가 완료된 방송 목록
  */
-export async function getStreams(params: {
+export async function getStreamsList(params: {
   scope: "all" | "following";
   category?: string;
   keyword?: string;
@@ -129,10 +129,7 @@ export async function getStreams(params: {
         user: b.liveInput.user,
         tags: b.tags,
       },
-      {
-        isFollowing: false, // 리스트에선 개별 팔로우 여부 확인 안 함 (필요시 클라 델타 사용)
-        isMine: b.liveInput.userId === viewerId,
-      }
+      { isFollowing: false, isMine: b.liveInput.userId === viewerId }
     )
   );
 }
@@ -142,23 +139,23 @@ export async function getStreams(params: {
 /* -------------------------------------------------------------------------- */
 
 /**
- * 2. 프로필 페이지 "최근 방송" Rail용 조회
- * - 특정 유저의 방송을 최신순으로 N개만 가져옴 (단순 리스트)
- * - `includePrivate` 옵션: 본인 프로필일 경우 비공개 방송도 포함
- * - 캐싱(`unstable_cache`)이 적용되어 있음 (USER_STREAMS_ID 태그)
+ * 유저 프로필 "최근 방송" 탭 전용 목록 조회 로직
+ *
+ * [데이터 가공 및 권한 제어 전략]
+ * - 특정 유저의 방송 이력을 최신순으로 정렬하여 제한된 개수(take)만큼 조회
+ * - 조회자가 소유자 본인일 경우에만 비공개(PRIVATE) 진행 중 방송 포함 로직 적용
+ * - 종료된 비공개 방송은 목록에 노출하되 잠금 처리를 위한 식별자(requiresPassword) 부여
  *
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수 (Default: 6)
- * @param {boolean} includePrivate - 비공개 방송 포함 여부 (본인이면 true)
+ * @param {boolean} includePrivate - 본인 프로필 여부에 따른 비공개 방송 포함 여부
  */
 export async function getRecentBroadcasts(
   ownerId: number,
   take: number = 6,
   includePrivate: boolean = false
 ): Promise<BroadcastSummary[]> {
-  const where: Prisma.BroadcastWhereInput = {
-    liveInput: { userId: ownerId },
-  };
+  const where: Prisma.BroadcastWhereInput = { liveInput: { userId: ownerId } };
 
   // 본인이 아니면 PRIVATE 진행 중 방송 숨김 (종료된 건 표시하되 잠금)
   if (!includePrivate) {
@@ -191,35 +188,16 @@ export async function getRecentBroadcasts(
   }));
 }
 
-/**
- * getRecentBroadcasts 캐시 Wrapper
- * - 태그: USER_STREAMS_ID(ownerId)
- */
-export const getCachedRecentBroadcasts = (
-  ownerId: number,
-  take: number,
-  includePrivate: boolean
-) => {
-  return nextCache(
-    () => getRecentBroadcasts(ownerId, take, includePrivate),
-    [
-      "recent-broadcasts",
-      String(ownerId),
-      String(take),
-      String(includePrivate),
-    ],
-    { tags: [T.USER_STREAMS_ID(ownerId)] }
-  )();
-};
-
 /* -------------------------------------------------------------------------- */
 /*                                3. Channel Live                               */
 /* -------------------------------------------------------------------------- */
 
 /**
- * 3. 채널 페이지 "현재 라이브" 조회 (단일)
- * - 특정 유저가 현재 진행 중인 방송 1개를 조회 (최신순)
- * - 방송이 없으면 null을 반환
+ * 유저 채널 "현재 진행 중인 방송(Live)" 단일 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 특정 소유자가 현재 송출 중(`CONNECTED`)인 방송 중 최신 항목 1개 추출
+ * - `serializeStream` 유틸을 활용하여 방송 요약(BroadcastSummary) DTO 포맷으로 변환 반환
  *
  * @param {number} ownerId - 방송 소유자 ID
  */
@@ -254,9 +232,11 @@ export async function getChannelLive(
 /* -------------------------------------------------------------------------- */
 
 /**
- * 4. 채널 페이지 "다시보기 그리드" 조회
- * - 특정 유저의 종료된(`ENDED`) 방송(VOD) 목록을 조회
- * - `ready_at` 및 `created_at` 기준으로 정렬
+ * 유저 채널 "다시보기(VOD)" 그리드 목록 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 종료된(`ENDED`) 방송에 매핑된 VodAsset 레코드를 처리 완료(`ready_at`) 및 생성일(`created_at`) 역순으로 조회
+ * - UI 그리드 렌더링에 최적화된 DTO(`VodForGrid`) 매핑 및 반환
  *
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수
@@ -314,8 +294,8 @@ export async function getChannelVods(
       viewCount: v.views,
       category: b.category,
       tags: b.tags,
-      requiresPassword: false, // Controller에서 처리
-      followersOnlyLocked: false, // Controller에서 처리
+      requiresPassword: false,
+      followersOnlyLocked: false,
     };
   });
 }

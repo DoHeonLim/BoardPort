@@ -9,6 +9,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.27  임도헌   Modified  주석 설명 보강
+ * 2026.02.26  임도헌   Modified  하단 플로팅 추가 버튼(+) 위치 조정
  */
 
 import Link from "next/link";
@@ -27,10 +28,11 @@ export default function AddProductButton() {
       aria-label="제품 추가"
       className={cn(
         "fixed z-40 flex items-center justify-center rounded-full transition-all duration-300",
-        "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-900 dark:hover:bg-brand",
+        "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
         "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
-        // [Size] 56px (mobile) ~ 64px (desktop)
-        "size-14 sm:size-16 bottom-20 sm:bottom-24 right-4 sm:right-8"
+        "size-14 sm:size-16 bottom-[84px] sm:bottom-24 right-4 sm:right-8",
+        // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산
+        "bottom-[calc(84px+env(safe-area-inset-bottom))] sm:bottom-24"
       )}
     >
       <PlusIcon className="size-8 sm:size-10" />

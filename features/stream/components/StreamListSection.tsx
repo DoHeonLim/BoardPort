@@ -12,6 +12,8 @@
  * 2025.09.17  임도헌   Modified  viewerId null 가드
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.03  임도헌   Modified  useFollowToggle 반환 타입 불일치(toggle 네이밍) 빌드 에러 수정
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use client";
@@ -20,7 +22,6 @@ import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import StreamList from "@/features/stream/components/StreamList";
-import type { BroadcastSummary } from "@/features/stream/types";
 
 // 이 파일에서만 쓰는 스코프 타입
 type StreamScope = "all" | "following";
@@ -28,19 +29,19 @@ type StreamScope = "all" | "following";
 type Props = {
   scope: StreamScope;
   searchParams: { category?: string; keyword?: string };
-  initialItems: BroadcastSummary[];
-  initialCursor: number | null;
   viewerId?: number | null;
 };
 
 /**
- * 스트리밍 목록 섹션
+ * 스트리밍 목록(StreamList) 권한 래퍼 컴포넌트
  *
- * - `StreamList`를 감싸서 팔로우 토글 기능(`useFollowToggle`)을 주입
- * - 팔로워 전용 방송 클릭 시 로그인 유도 및 팔로우 처리를 담당
+ * [상태 주입 및 상호작용 제어 로직]
+ * - `useFollowToggle` 훅의 팔로우 상태 제어 함수(`toggle`, `isPending`) 추출 및 자식 컴포넌트 주입
+ * - 사용자의 팔로우 액션 시 중복 클릭 방지 처리 및 비인가 유저 로그인 리다이렉트 유도 (URL 상태 보존)
+ * - 추출된 `handleRequestFollow` 콜백을 `StreamList`의 `onRequestFollow` 속성으로 전달하여 팔로워 전용 잠금 해제 기능 연동
  */
 export default function StreamListSection(props: Props) {
-  const { follow, isPending } = useFollowToggle();
+  const { toggle, isPending } = useFollowToggle();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -53,14 +54,14 @@ export default function StreamListSection(props: Props) {
     async ({ id: userId }: { id: number; username?: string }) => {
       if (isPending(userId)) return; // 중복 클릭 방지
 
-      await follow(userId, {
+      await toggle(userId, false, {
         viewerId: props.viewerId ?? null,
         // 미들웨어로 대부분 로그인 상태지만, 재사용을 위해 훅 옵션 유지
         onRequireLogin: () =>
           router.push(`/login?callbackUrl=${encodeURIComponent(nextPath)}`),
       });
     },
-    [follow, isPending, nextPath, router, props.viewerId]
+    [toggle, isPending, nextPath, router, props.viewerId]
   );
 
   return (

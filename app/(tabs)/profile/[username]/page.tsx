@@ -23,10 +23,16 @@
  * 2026.01.29  임도헌   Modified  타인 프로필 페이지 주석 보강 및 구조 설명 추가
  * 2026.02.04  임도헌   Modified  신고 및 차단 기능을 위한 ProfileOptionMenu 추가
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
+ * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 initialReviews Prop Drilling 제거
+ * 2026.03.03  임도헌   Modified  unstable_cache 래퍼(getCached~) 함수 호출을 순수 함수(getUserAverageRating 등)로 교체
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import BackButton from "@/components/global/BackButton";
 import UserProfile from "@/features/user/components/profile/UserProfile";
@@ -35,12 +41,11 @@ import {
   getUserProfile,
   resolveUserIdByUsername,
 } from "@/features/user/service/profile";
-import { getCachedInitialUserReviews } from "@/features/user/service/review";
-import { getCachedUserAverageRating } from "@/features/user/service/metric";
-import { getCachedUserBadges } from "@/features/user/service/badge";
-import { getInitialUserProducts } from "@/features/product/service/userList";
-import { getCachedRecentBroadcasts } from "@/features/stream/service/list";
-
+import { getUserReviewsAction } from "@/features/user/actions/review";
+import { getUserAverageRating } from "@/features/user/service/metric";
+import { getUserBadges } from "@/features/user/service/badge";
+import { getUserProductsAction } from "@/features/user/actions/product";
+import { getRecentBroadcasts } from "@/features/stream/service/list";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
@@ -49,7 +54,6 @@ export async function generateMetadata({
   params: { username: string };
 }): Promise<Metadata> {
   const username = decodeURIComponent(params.username);
-
   return {
     title: `${username}님의 선원증`,
     description: `${username}님의 보드포트 프로필입니다.`,
@@ -64,10 +68,11 @@ export async function generateMetadata({
  * 타인 프로필 페이지
  *
  * [기능]
- * 1. URL의 `username`을 기반으로 `userId`를 식별
- * 2. 현재 로그인한 사용자(Viewer)와의 관계(팔로우 여부 등)를 포함한 프로필 정보를 로드
- * 3. 대상 유저의 평점, 리뷰, 뱃지, 판매 중/완료 상품, 최근 방송(공개) 목록을 병렬로 조회
- * 4. 본인의 username인 경우 `/profile`로 리다이렉트
+ * - URL의 username을 활용한 대상 사용자 ID 식별 및 정보 로드
+ * - 본인 프로필 접근 시 내 프로필 페이지(`/profile`)로 강제 리다이렉트 처리
+ * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록의 서버 사이드 병렬 로드 적용
+ * - TanStack Query를 활용한 대상 유저의 리뷰, 판매 중/판매 완료 상품 목록 서버 프리패치(Prefetch) 적용
+ * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달
  */
 export default async function UserProfilePage({
   params,
@@ -91,21 +96,35 @@ export default async function UserProfilePage({
   const userProfile = await getUserProfile(targetId, viewerId);
   if (!userProfile) return notFound();
 
+  const queryClient = getQueryClient();
+
   // 4. 데이터 병렬 로딩
-  const [
-    averageRating,
-    initialReviews,
-    initialSellingProducts,
-    initialSoldProducts,
-    userBadges,
-    streams,
-  ] = await Promise.all([
-    getCachedUserAverageRating(userProfile.id),
-    getCachedInitialUserReviews(userProfile.id, viewerId),
-    getInitialUserProducts({ type: "SELLING", userId: userProfile.id }),
-    getInitialUserProducts({ type: "SOLD", userId: userProfile.id }),
-    getCachedUserBadges(userProfile.id),
-    getCachedRecentBroadcasts(userProfile.id, 6, false), // 타인이므로 비공개 방송 제외
+  const [averageRating, userBadges, streams] = await Promise.all([
+    getUserAverageRating(userProfile.id),
+    getUserBadges(userProfile.id),
+    getRecentBroadcasts(userProfile.id, 6, false),
+
+    // TanStack Query Prefetch
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.reviews.user(userProfile.id),
+      queryFn: () => getUserReviewsAction(userProfile.id, null),
+      initialPageParam: null as any,
+    }),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
+      queryFn: () =>
+        getUserProductsAction(
+          { type: "SELLING", userId: userProfile.id },
+          null
+        ),
+      initialPageParam: null as any,
+    }),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
+      queryFn: () =>
+        getUserProductsAction({ type: "SOLD", userId: userProfile.id }, null),
+      initialPageParam: null as any,
+    }),
   ]);
 
   return (
@@ -132,16 +151,15 @@ export default async function UserProfilePage({
           </div>
         )}
 
-        <UserProfile
-          user={userProfile}
-          initialReviews={initialReviews}
-          initialSellingProducts={initialSellingProducts}
-          initialSoldProducts={initialSoldProducts}
-          averageRating={averageRating}
-          userBadges={userBadges}
-          myStreams={streams}
-          viewerId={viewerId ?? undefined}
-        />
+        <HydrationBoundary state={dehydrate(queryClient)}>
+          <UserProfile
+            user={userProfile}
+            averageRating={averageRating}
+            userBadges={userBadges}
+            myStreams={streams}
+            viewerId={viewerId ?? undefined}
+          />
+        </HydrationBoundary>
       </div>
     </div>
   );

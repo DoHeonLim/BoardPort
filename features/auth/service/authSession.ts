@@ -49,7 +49,7 @@ export async function saveUserSession(userId: number) {
 
 /**
  * 관리자 권한 검증 가드 (Server Action용)
- * - 세션만 믿지 않고, 중요한 관리자 작업 수행 시에는 DB를 한 번 더 체크하는 것이 안전함.
+ * - 세션만 믿지 않고, 중요한 관리자 작업 수행 시에는 DB를 한 번 더 체크하는 것이 안전
  */
 export async function verifyAdminAccess(): Promise<{
   success: boolean;

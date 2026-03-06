@@ -20,8 +20,11 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.02.04  임도헌   Modified  메세지 수신 브로드캐스트에 image 추가
  * 2026.02.22  임도헌   Modified  채팅 읽음 처리 시 전역 알림 벨 카운트 즉시 동기화 추가
+ * 2026.02.28  임도헌   Modified  Zustand 기반 전역 상태 감소 로직 적용 (DOM 이벤트 제거)
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  onMessagesRead에 MessageReadPayload 전체 전달 및 readerId 기반 타입 정합성 보강
+ * 2026.03.07  임도헌   Modified  readMessageUpdateAction 결과 타입(MessageReadUpdateResult) 반영
  */
-
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -29,16 +32,17 @@ import { supabase } from "@/lib/supabase";
 import { ChatMessage, MessageReadPayload } from "@/features/chat/types";
 import { readMessageUpdateAction } from "@/features/chat/actions/messages";
 import type { AppointmentStatus } from "@/generated/prisma/enums";
+import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 
 interface UseChatSubscriptionOptions {
   chatRoomId: string; // Supabase 채널 식별용 채팅방 ID
   currentUserId: number; // 현재 로그인한 유저 ID
   onNewMessage: (message: ChatMessage) => void; // 메시지 수신 시 호출되는 콜백
-  onMessagesRead: (readIds: number[]) => void; // 읽음 처리 시 호출되는 콜백
+  onMessagesRead: (payload: MessageReadPayload) => void; // 읽음 처리 시 호출되는 콜백
   /**
    * (옵션) 읽음 처리 호출 폭주 방지
    * - 상대방 메시지가 연속으로 들어올 때 매번 readMessageUpdateAction을 호출하면 서버/DB 부담이 커질 수 있음
-   * - true면 "동일 tick에서 1회만" 호출되도록 간단한 게이트를 걸어줌
+   * - true일 경우 "동일 tick에서 1회만" 호출되도록 게이트를 설정
    * - 기본값: true
    */
   onAppointmentUpdate?: (id: number, status: AppointmentStatus) => void;
@@ -49,9 +53,10 @@ interface UseChatSubscriptionOptions {
  * 단일 채팅방에 대한 실시간 구독 훅
  *
  * [기능]
- * 1. `message` 이벤트: 새 메시지 수신 시 콜백 호출. 내가 보낸 메시지가 아니면 읽음 처리 API를 호출
- * 2. `message_read` 이벤트: 상대방이 메시지를 읽으면(서버에서 브로드캐스트) 콜백을 호출하여 UI를 갱신
- * 3. 콜백 함수 변경 시 재구독을 방지하기 위해 `useRef` 패턴을 사용
+ * 1. `message` 이벤트: 새 메시지 수신 시 콜백을 호출. 내가 보낸 메시지가 아닐 경우 읽음 처리 API를 호출
+ * 2. `message_read` 이벤트: 읽음 처리한 사용자(readerId)와 readIds를 함께 전달하여 UI를 갱신
+ * 3. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
+ * 4. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
  *
  * @param {UseChatSubscriptionOptions} options
  */
@@ -63,15 +68,14 @@ export default function useChatSubscription({
   onAppointmentUpdate,
   throttleReadUpdate = true,
 }: UseChatSubscriptionOptions) {
-  /**
-   * 콜백 ref
-   * - 상위 컴포넌트가 리렌더되면 onNewMessage/onMessagesRead 함수 identity가 바뀔 수 있음
-   * - 이를 deps에 넣으면 매 렌더마다 useEffect가 재실행되어 "구독이 반복 생성"될 수 있음
-   * - ref에 최신 콜백만 주입하고, 구독 effect는 chatRoomId/currentUserId만을 기준으로 1회 유지
-   */
+  // 상위 컴포넌트의 리렌더링으로 인해 콜백 참조값이 변경되더라도
+  // 불필요한 재구독이 발생하지 않도록 useRef를 사용하여 최신 콜백을 유지
   const onNewMessageRef = useRef(onNewMessage);
   const onMessagesReadRef = useRef(onMessagesRead);
   const onAppointmentUpdateRef = useRef(onAppointmentUpdate);
+
+  // Zustand 액션 가져오기 (이전의 window.dispatchEvent 대체)
+  const decrement = useNotificationStore((state) => state.decrement);
 
   useEffect(() => {
     onNewMessageRef.current = onNewMessage;
@@ -85,12 +89,7 @@ export default function useChatSubscription({
     onAppointmentUpdateRef.current = onAppointmentUpdate;
   }, [onAppointmentUpdate]);
 
-  /**
-   * 읽음 처리 호출 게이트(옵션)
-   * - 연속 수신 시 readMessageUpdateAction이 중복 호출되지 않게 간단히 막음
-   * - 더 정교하게 하려면 debounce(예: 150ms)로 바꿀 수도 있으나,
-   *   여기서는 "동일 렌더 tick에서 1회" 정도로 충분한 경우가 많음
-   */
+  // 읽음 처리 중복 호출 방지 플래그
   const readUpdateInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -113,17 +112,17 @@ export default function useChatSubscription({
               }
             : null,
           created_at: new Date(payload.created_at),
-          isRead: false, // 수신 시에는 읽지 않은 상태
+          isRead: false,
           productChatRoomId: payload.productChatRoomId,
           user: payload.user,
         };
 
         const isOwnMessage = payload.user?.id === currentUserId;
 
-        // 메시지를 상위 컴포넌트로 전달(항상 최신 ref 콜백 사용)
+        // 메시지를 상위 컴포넌트로 전달 (항상 최신 콜백 사용)
         onNewMessageRef.current(newMessage);
 
-        // 내가 보낸 메시지가 아니면 읽음 처리 요청
+        // 내가 보낸 메시지가 아닐 경우 읽음 처리 요청
         if (!isOwnMessage) {
           try {
             if (!throttleReadUpdate) {
@@ -131,18 +130,14 @@ export default function useChatSubscription({
                 chatRoomId,
                 currentUserId
               );
-              // 서버에서 읽음 처리된 개수만큼 전역 알림 벨 카운트를 즉시 차감
-              if (res.success && res.readIds && res.readIds.length > 0) {
-                window.dispatchEvent(
-                  new CustomEvent("sys:notification_read", {
-                    detail: { count: res.readIds.length },
-                  })
-                );
+              // 서버에서 읽음 처리된 개수만큼 전역 알림 벨 카운트를 즉시 차감 (Zustand)
+              if (res.success && res.readIds.length > 0) {
+                decrement(res.readIds.length);
               }
               return;
             }
 
-            // throttle: 이미 호출 중이면 스킵
+            // throttle: 이미 호출 중이면 생략함
             if (readUpdateInFlightRef.current) return;
             readUpdateInFlightRef.current = true;
 
@@ -150,16 +145,12 @@ export default function useChatSubscription({
               chatRoomId,
               currentUserId
             );
-            // 쓰로틀링 모드에서도 동일하게 알림 벨 카운트 차감
-            if (res.success && res.readIds && res.readIds.length > 0) {
-              window.dispatchEvent(
-                new CustomEvent("sys:notification_read", {
-                  detail: { count: res.readIds.length },
-                })
-              );
+            // 쓰로틀링 모드에서도 동일하게 스토어 상태를 차감함
+            if (res.success && res.readIds.length > 0) {
+              decrement(res.readIds.length);
             }
           } finally {
-            // 다음 메시지 수신에서 다시 호출 가능
+            // 다음 메시지 수신 시 다시 호출 가능하도록 락 해제
             readUpdateInFlightRef.current = false;
           }
         }
@@ -167,17 +158,24 @@ export default function useChatSubscription({
 
       /**
        * 2) 읽음 처리 브로드캐스트 수신
-       * - 서버에서 payload: { readIds: number[] } 구조로 전송
+       * - 서버에서 payload: { readIds: number[]; readerId: number } 구조로 전송함
        */
       .on("broadcast", { event: "message_read" }, ({ payload }) => {
-        const { readIds } = payload as MessageReadPayload;
+        const readPayload = payload as MessageReadPayload;
 
-        // payload 방어: readIds가 올바른 배열일 때만 반영
-        if (Array.isArray(readIds) && readIds.length > 0) {
-          onMessagesReadRef.current(readIds);
+        // payload 방어: readIds 배열과 readerId 숫자가 모두 유효할 때만 반영함
+        if (
+          Array.isArray(readPayload.readIds) &&
+          readPayload.readIds.length > 0 &&
+          typeof readPayload.readerId === "number"
+        ) {
+          onMessagesReadRef.current(readPayload);
         }
       })
-      // 약속 상태 업데이트 수신
+
+      /**
+       * 3) 약속 상태 업데이트 수신
+       */
       .on("broadcast", { event: "appointment_update" }, ({ payload }) => {
         if (payload?.id && payload?.status) {
           onAppointmentUpdateRef.current?.(payload.id, payload.status);
@@ -185,9 +183,9 @@ export default function useChatSubscription({
       })
       .subscribe();
 
-    // 언마운트/room 변경 시 채널 구독 해제
+    // 언마운트 또는 룸 변경 시 채널 구독 해제
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatRoomId, currentUserId, throttleReadUpdate]);
+  }, [chatRoomId, currentUserId, throttleReadUpdate, decrement]);
 }

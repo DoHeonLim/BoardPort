@@ -15,15 +15,17 @@
  * 2026.02.05  임도헌   Modified  댓글 작성 시 게시글 작성자와의 차단 관계 검증 추가
  * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  * 2026.02.23  임도헌   Modified  댓글 조회 시 정지유저(Banned) 콘텐츠 완벽 은닉 처리
+ * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 조회 함수(getPostCommentsList)로 통합
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  댓글 삭제에도 정지 유저 가드 적용 및 실패 문구 구체화
  */
-"use server";
-
+import "server-only";
 import db from "@/lib/db";
-import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { badgeChecks } from "@/features/user/service/badge";
-import { getBlockedUserIds } from "@/features/user/service/block";
-import { checkBlockRelation } from "@/features/user/service/block";
+import {
+  getBlockedUserIds,
+  checkBlockRelation,
+} from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { Prisma } from "@/generated/prisma/client";
 import type { PostComment } from "@/features/post/types";
@@ -33,12 +35,25 @@ import type { ServiceResult } from "@/lib/types";
 /*                                 Read Logic                                 */
 /* -------------------------------------------------------------------------- */
 
-const getCommentsRaw = async (
+/**
+ * 게시글 댓글 목록 조회 로직
+ *
+ * [데이터 가공 및 캐시 제어 전략]
+ * - 커서 기반의 페이징 쿼리 적용 및 작성자 정보(UserLite) 조인 반환
+ * - 조회자 ID(viewerId)를 기반으로 차단 유저의 댓글 필터링 적용
+ * - 정지 유저(bannedAt) 콘텐츠 은닉 처리
+ *
+ * @param {number} postId - 게시글 ID
+ * @param {number | undefined} cursor - 페이징 커서 (마지막 댓글 ID)
+ * @param {number} limit - 조회할 최대 개수
+ * @param {number | null} viewerId - 조회자 ID
+ */
+export async function getPostCommentsList(
   postId: number,
   cursor?: number | undefined,
-  limit = 10,
+  limit: number = 10,
   viewerId?: number | null
-): Promise<PostComment[]> => {
+): Promise<PostComment[]> {
   const where: Prisma.CommentWhereInput = {
     postId,
     user: { bannedAt: null },
@@ -69,56 +84,19 @@ const getCommentsRaw = async (
     },
   });
   return comments as unknown as PostComment[];
-};
-
-/**
- * 초기 댓글 목록 조회 (Cached)
- * - 첫 페이지 로딩 시 사용되며 캐싱
- * - 태그: POST_COMMENTS(postId), USER_BLOCK_UPDATE(viewerId)
- *
- * @param {number} postId - 게시글 ID
- * @param {number} viewerId - 조회자 ID
- */
-export const getCachedComments = (postId: number, viewerId: number) => {
-  return nextCache(
-    () => getCommentsRaw(postId, undefined, 10, viewerId),
-    ["post-comments", String(postId), `user-${viewerId}`],
-    {
-      tags: [
-        T.POST_COMMENTS(postId),
-        T.USER_BLOCK_UPDATE(viewerId), // 차단 시 댓글 목록 갱신
-      ],
-    }
-  )();
-};
-
-/**
- * 추가 댓글 로드 (Non-Cached)
- * - 무한 스크롤 시 커서 기반으로 조회
- *
- * @param {number} postId - 게시글 ID
- * @param {number} [cursor] - 마지막 댓글 ID
- * @param {number} limit
- * @param {number} viewerId
- */
-export const getMoreComments = (
-  postId: number,
-  cursor: number | undefined,
-  limit = 10,
-  viewerId: number
-) => {
-  return getCommentsRaw(postId, cursor, limit, viewerId);
-};
+}
 
 /* -------------------------------------------------------------------------- */
 /*                                Write Logic                                 */
 /* -------------------------------------------------------------------------- */
 
 /**
- * 댓글 생성
- * - 정지 유저인지 확인
- * - 게시글 존재 여부 및 작성자와의 차단 관계를 확인
- * - 댓글 저장 후 뱃지 체크를 수행
+ * 게시글 댓글 생성 로직
+ *
+ * [데이터 가공 및 캐시 제어 전략]
+ * - 작성자의 이용 정지 상태 검증 및 비인가 처리
+ * - 게시글 소유자와의 차단 관계 검증을 통한 상호작용 차단
+ * - 댓글 DB 저장 후 관련된 뱃지 획득 조건 비동기 검사 수행
  *
  * @param {number} userId - 작성자 ID
  * @param {number} postId - 게시글 ID
@@ -172,8 +150,11 @@ export async function createComment(
 }
 
 /**
- * 댓글 삭제
- * - 작성자 권한을 확인하고 삭제
+ * 게시글 댓글 삭제 로직
+ *
+ * [데이터 가공 및 권한 제어 전략]
+ * - 댓글 정보 조회 및 요청자와의 소유권 비교를 통한 권한 검증
+ * - 해당 댓글 데이터의 물리적 삭제(Hard Delete) 처리
  *
  * @param {number} userId - 요청자 ID
  * @param {number} commentId - 삭제할 댓글 ID
@@ -183,6 +164,9 @@ export async function deleteComment(
   commentId: number
 ): Promise<ServiceResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     const comment = await db.comment.findUnique({
       where: { id: commentId },
       select: { userId: true },
@@ -196,6 +180,10 @@ export async function deleteComment(
     return { success: true };
   } catch (e) {
     console.error("deleteComment failed:", e);
-    return { success: false, error: "댓글 삭제 실패" };
+    return {
+      success: false,
+      error:
+        "댓글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

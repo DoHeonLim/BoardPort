@@ -10,24 +10,26 @@
  * 2026.01.19  임도헌   Moved      lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved      lib/logOut -> service/logout
  * 2026.01.25  임도헌   Modified   주석 보강
+ * 2026.03.06  임도헌   Modified   결과 반환형으로 변경하여 pending/toast 처리 지원
  */
 
 "use server"; // 로그아웃은 보통 컴포넌트에서 바로 부르기도 하므로 use server 유지
 
-import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 
 /**
- * 현재 세션을 파기하고 홈 화면으로 리다이렉트
- * Server Action 또는 Client Component에서 호출 가능
- *
- * @returns {Promise<void>}
+ * 현재 세션을 파기
  */
 export const logOut = async () => {
-  // 1. 세션 파기
-  const session = await getSession();
-  if (session?.destroy) session.destroy();
-
-  // 2. 홈으로 이동
-  redirect("/");
+  try {
+    const session = await getSession();
+    if (session?.destroy) session.destroy();
+    return { success: true as const };
+  } catch (error) {
+    console.error("[logout] failed:", error);
+    return {
+      success: false as const,
+      error: "로그아웃 처리 중 오류가 발생했습니다.",
+    };
+  }
 };

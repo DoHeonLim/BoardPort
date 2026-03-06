@@ -13,6 +13,7 @@
  * 2026.01.23  임도헌   Modified  Service(like.ts) 연동 및 Controller 역할 정립
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/[id]/recording/actions/likes.ts -> features/stream/actions/like.ts
+ * 2026.03.07  임도헌   Modified  좋아요 에러 코드를 세분화
  */
 "use server";
 
@@ -46,8 +47,14 @@ export async function likeRecording(vodId: number): Promise<LikeResult> {
   try {
     const { likeCount } = await toggleRecordingLike(vodId, session.id, true);
     return { success: true, isLiked: true, likeCount };
-  } catch (e) {
+  } catch (e: any) {
     console.error("likeRecording error:", e);
+    if (e.message === "BANNED_USER")
+      return { success: false, error: "BANNED_USER" };
+    if (e.message === "FORBIDDEN")
+      return { success: false, error: "FORBIDDEN" };
+    if (e.message === "NOT_FOUND")
+      return { success: false, error: "NOT_FOUND" };
     return { success: false, error: "FAILED" };
   }
 }
@@ -62,8 +69,14 @@ export async function dislikeRecording(vodId: number): Promise<LikeResult> {
   try {
     const { likeCount } = await toggleRecordingLike(vodId, session.id, false);
     return { success: true, isLiked: false, likeCount };
-  } catch (e) {
+  } catch (e: any) {
     console.error("dislikeRecording error:", e);
+    if (e.message === "BANNED_USER")
+      return { success: false, error: "BANNED_USER" };
+    if (e.message === "FORBIDDEN")
+      return { success: false, error: "FORBIDDEN" };
+    if (e.message === "NOT_FOUND")
+      return { success: false, error: "NOT_FOUND" };
     return { success: false, error: "FAILED" };
   }
 }

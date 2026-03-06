@@ -16,6 +16,8 @@
  * 2026.01.23  임도헌   Modified  Session 의존성 제거 및 LiveInput 보장 로직 위임
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
+ * 2026.03.07  임도헌   Modified  생성 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  방송 태그 중복 제거 및 공백 정리
  */
 
 import "server-only";
@@ -59,6 +61,10 @@ export const createBroadcast = async (
     tags,
   } = data;
 
+  const nextTags = Array.from(
+    new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))
+  );
+
   // 비밀번호 해싱 (Private일 경우 필수)
   let passwordHash: string | null = null;
   if (visibility === STREAM_VISIBILITY.PRIVATE) {
@@ -80,7 +86,8 @@ export const createBroadcast = async (
     console.error("[createBroadcast] ensureLiveInput failed:", e);
     return {
       success: false,
-      error: "송출 채널(LiveInput) 준비에 실패했습니다.",
+      error:
+        "송출 채널 준비에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 
@@ -97,9 +104,9 @@ export const createBroadcast = async (
         status: "DISCONNECTED",
         streamCategoryId,
         tags:
-          tags && tags.length
+          nextTags.length
             ? {
-                connectOrCreate: tags.map((name) => ({
+                connectOrCreate: nextTags.map((name) => ({
                   where: { name },
                   create: { name },
                 })),
@@ -125,6 +132,10 @@ export const createBroadcast = async (
     };
   } catch (error) {
     console.error("[createBroadcast] DB failed:", error);
-    return { success: false, error: "스트리밍 생성에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "방송 생성에 실패했습니다. 제목, 카테고리, 공개 설정을 확인한 뒤 다시 시도해주세요.",
+    };
   }
 };

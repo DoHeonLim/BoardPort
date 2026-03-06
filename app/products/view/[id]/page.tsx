@@ -39,11 +39,15 @@
  * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 로드
  * 2026.02.04  임도헌   Modified  판매자와 조회자간의 차단 관계 확인 로직 추가(차단 관계일 경우 제품 정보 차단)
  * 2026.02.13  임도헌   Modified  generateMetadata 확장 (description 추가)
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 import { notFound, redirect } from "next/navigation";
-import { getCachedProduct } from "@/features/product/service/detail";
-import { getCachedProductLikeStatus } from "@/features/product/service/like";
+import {
+  getProductTitleById,
+  getCachedProduct,
+} from "@/features/product/service/detail";
+import { getProductLikeStatus } from "@/features/product/service/like";
 import { incrementViews } from "@/features/common/service/view";
 import { checkBlockRelation } from "@/features/user/service/block";
 import ProductDetailContainer from "@/features/product/components/productDetail";
@@ -58,19 +62,20 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const id = Number(params.id);
   // 캐시된 상세 데이터 재사용 (Service 내부에서 dedup됨)
-  const product = await getCachedProduct(id);
+  const product = await getProductTitleById(id);
 
   if (!product) {
     return { title: "제품을 찾을 수 없음" };
   }
+  // 본문 앞 100자 요약
+  const desc = product.description?.slice(0, 100).replace(/\n/g, " ") ?? "";
 
   return {
     title: product.title,
-    description: product.description?.slice(0, 100), // 본문 앞 100자 요약
+    description: desc,
     openGraph: {
       title: product.title,
-      description: product.description?.slice(0, 100),
-      // images: [] <-- 이건 opengraph-image.tsx가 자동으로 채워줌
+      description: desc,
     },
   };
 }
@@ -79,9 +84,10 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
  * 제품 상세 페이지
  *
  * [기능]
- * 1. 조회수 증가 로직을 가장 먼저 실행하여 캐시 무효화를 선행
- * 2. 최신화된 제품 정보와 유저의 좋아요 상태를 병렬로 조회
- * 3. 쿨다운 정책에 따라 조회수가 실제로 증가했다면 화면 표시값을 +1 보정
+ * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
+ * - 데이터 조회 전 서버 사이드 조회수 증가 로직(`incrementViews`) 선행 처리
+ * - 제품 상세 정보 및 유저의 좋아요 상태 서버 사이드 병렬 로드 적용
+ * - 판매자와 조회자 간의 양방향 차단 관계 검증 (차단 시 403 리다이렉트 처리)
  */
 export default async function ProductDetailPage({
   params,
@@ -111,7 +117,7 @@ export default async function ProductDetailPage({
   // 2. 상세 정보 및 상호작용 상태 병렬 조회
   const [product, likeStatus] = await Promise.all([
     getCachedProduct(id),
-    getCachedProductLikeStatus(id, userId),
+    getProductLikeStatus(id, userId),
   ]);
 
   if (!product) return notFound();

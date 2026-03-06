@@ -8,6 +8,7 @@
  * 2026.02.06  임도헌   Created   신고 목록 조회 및 처리 로직 구현
  * 2026.02.06  임도헌   Modified  adminComment 저장 로직 추가
  * 2026.02.07  임도헌   Refactor  AuditLog 연동 및 필터링 로직 강화
+ * 2026.03.07  임도헌   Modified  신고 상태 전이 및 관리자 코멘트 서버 검증 추가
  */
 
 import "server-only";
@@ -70,7 +71,10 @@ export async function getReportsAdmin(
     };
   } catch (error) {
     console.error("[getReportsAdmin Error]:", error);
-    return { success: false, error: "신고 목록 조회 실패" };
+    return {
+      success: false,
+      error: "신고 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 
@@ -94,18 +98,33 @@ export async function updateReportStatus(
   try {
     const report = await db.report.findUnique({
       where: { id: reportId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!report)
       return { success: false, error: "신고 내역을 찾을 수 없습니다." };
+
+    const trimmedComment = adminComment?.trim() ?? "";
+    if (trimmedComment.length < 5) {
+      return {
+        success: false,
+        error: "처리 사유는 5자 이상 입력해주세요.",
+      };
+    }
+
+    if (report.status !== "PENDING") {
+      return {
+        success: false,
+        error: "이미 처리된 신고입니다.",
+      };
+    }
 
     // 1. 신고 상태 업데이트
     await db.report.update({
       where: { id: reportId },
       data: {
         status,
-        adminComment,
+        adminComment: trimmedComment,
         updated_at: new Date(),
       },
     });
@@ -118,12 +137,15 @@ export async function updateReportStatus(
       action: actionType,
       targetType: "REPORT",
       targetId: reportId,
-      reason: adminComment || status,
+      reason: trimmedComment,
     });
 
     return { success: true };
   } catch (error) {
     console.error("[updateReportStatus Error]:", error);
-    return { success: false, error: "신고 처리에 실패했습니다." };
+    return {
+      success: false,
+      error: "신고 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

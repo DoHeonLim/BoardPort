@@ -23,34 +23,40 @@
  * 2026.01.16  임도헌   Renamed   CommentList -> PostCommentList
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.03  임도헌   Modified  명령형 로딩 상태(isLoading) 제거 및 usePostCommentsQuery 훅으로 교체
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
 import { useRef } from "react";
-import { usePostCommentContext } from "@/features/post/components/postComment/PostCommentContext";
-import PostCommentItem from "@/features/post/components/postComment/PostCommentItem";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { AnimatePresence } from "framer-motion";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
+import { usePostCommentsQuery } from "@/features/post/hooks/usePostCommentsQuery";
+import PostCommentItem from "@/features/post/components/postComment/PostCommentItem";
 
 /**
  * 댓글 목록 렌더링 컴포넌트
  *
- * [기능]
- * 1. Context에서 댓글 데이터를 받아와 렌더링
- * 2. `useInfiniteScroll`을 사용하여 스크롤 끝에 도달하면 추가 댓글을 로드
- * 3. `AnimatePresence`를 사용하여 댓글 추가/삭제 시 애니메이션을 적용
- * 4. 로딩 상태 및 빈 상태(Empty State) UI를 처리
+ * [상태 주입 및 페이징 로직]
+ * - `usePostCommentsQuery` 훅을 통한 서버 상태(캐시) 주입 및 페이징 제어
+ * - `useInfiniteScroll` 및 `usePageVisibility`를 활용한 사용자 가시성 기반 무한 스크롤 옵저버 연결
+ * - `AnimatePresence`를 적용하여 댓글 항목 추가/삭제 시 부드러운 전환 애니메이션 제공
+ * - 데이터 로딩(`isFetchingNextPage`) 상태 및 빈 배열(Empty State)에 따른 조건부 UI 렌더링
  */
 export default function PostCommentList({
+  postId,
   currentUser,
 }: {
+  postId: number;
   currentUser: { id: number; username: string; avatar: string | null };
 }) {
   const isVisible = usePageVisibility();
-  const { comments, isLoading, isFetchingNextPage, hasNextPage, loadMore } =
-    usePostCommentContext();
   const triggerRef = useRef<HTMLDivElement>(null);
+
+  const { comments, isFetchingNextPage, hasNextPage, loadMore } =
+    usePostCommentsQuery(postId);
 
   useInfiniteScroll({
     triggerRef,
@@ -68,33 +74,28 @@ export default function PostCommentList({
         {comments.map((comment) => (
           <PostCommentItem
             key={comment.id}
+            postId={postId}
             comment={comment}
             currentUser={currentUser}
           />
         ))}
       </AnimatePresence>
 
-      {/* Loading States */}
+      {/* Loading */}
       <div className="py-6 flex justify-center">
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
-            <span>댓글을 불러오는 중...</span>
-          </div>
-        ) : isFetchingNextPage ? (
-          <span className="size-5 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
+        {isFetchingNextPage ? (
+          <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
         ) : !hasNextPage && comments.length > 0 ? (
           <div className="text-xs text-muted/50 italic">
             모든 기록을 확인했습니다
           </div>
         ) : null}
 
-        {/* Infinite Scroll Trigger */}
         <div ref={triggerRef} aria-hidden="true" className="h-1" />
       </div>
 
       {/* Empty State */}
-      {!isLoading && comments.length === 0 && (
+      {comments.length === 0 && (
         <div className="py-10 text-center text-muted">
           <p className="text-sm">아직 작성된 로그가 없습니다.</p>
           <p className="text-xs mt-1">첫 번째 기록을 남겨보세요!</p>

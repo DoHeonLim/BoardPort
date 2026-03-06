@@ -33,9 +33,19 @@
  * 2026.02.15  임도헌   Modified  fullLocation 생성 및 UI 전달
  * 2026.02.21  임도헌   Modified  currentRange를 EmptyState 및 SearchSummary에 주입
  * 2026.02.21  임도헌   Modified  searchParams.region 레거시 제거 및 currentRange SSOT(DB) 고정
+ * 2026.02.26  임도헌   Modified  검색 결과 및 알림 버튼 줄바꿈 (모바일 겹침 현상)
+ * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용 및 Suspense 분리
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.05  임도헌   Modified  ProductModalReopenRelay 주입(모달 편집후 복귀)
+ * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 제품 카드 스켈레톤 구조로 통일
  */
 
+import { Suspense } from "react";
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { getCategoryName } from "@/lib/getCategoryName";
 import { SearchProvider } from "@/components/global/providers/SearchProvider";
@@ -43,21 +53,22 @@ import NotificationBell from "@/components/global/NotificationBell";
 import AddProductButton from "@/features/product/components/AddProductButton";
 import ProductEmptyState from "@/features/product/components/ProductEmptyState";
 import ProductList from "@/features/product/components/ProductList";
+import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
 import SearchResultSummary from "@/features/product/components/SearchResultSummary";
 import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
 import SearchSection from "@/features/search/components/SearchSection";
 import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
 import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
+import ProductModalReopenRelay from "@/features/product/components/ProductModalReopenRelay";
 import { fetchProductCategories } from "@/features/product/service/category";
 import {
   getUserSearchHistory,
   getPopularSearches,
 } from "@/features/product/service/history";
-import { getCachedProducts } from "@/features/product/service/list";
+import { getProductsAction } from "@/features/product/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { formatSearchSummary } from "@/features/product/utils/format";
-import { redirect } from "next/navigation";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { getUserLocation } from "@/features/user/service/profile";
 import type { RegionRange } from "@/generated/prisma/enums";
@@ -92,11 +103,14 @@ function parseNumberParam(val: string | undefined): number | undefined {
  * 제품 목록 페이지
  *
  * [기능]
- * 1. URL 검색 조건에 따라 제품 목록 조회
- * 2. 유저의 현재 탐색 범위(`currentRange`)를 계산 (오직 DB의 `User.regionRange`만 신뢰)
- * 3. 빈 검색 결과일 경우 `ProductEmptyState`에 탐색 범위를 주입하여 키워드 등록 지원
+ * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
+ * - URL 검색 파라미터 기반 제품 목록 쿼리 및 유저 지역 설정(DB `User.regionRange`) 기반의 서버 프리패치(Prefetch) 적용
+ * - HydrationBoundary를 이용한 초기 렌더링 시 클라이언트 캐시 하이드레이션 처리
+ * - 데이터 존재 여부에 따른 `ProductList` 또는 `ProductEmptyState` 조건부 렌더링 및 키워드 알림 버튼 주입
  */
-export default async function Products({ searchParams }: ProductsPageProps) {
+export default async function ProductsPage({
+  searchParams,
+}: ProductsPageProps) {
   const session = await getSession();
   const userId = session?.id ?? null;
 
@@ -104,14 +118,23 @@ export default async function Products({ searchParams }: ProductsPageProps) {
     redirect("/login?callbackUrl=/products");
   }
 
+  const queryClient = getQueryClient();
   const hasSearchParams = Object.keys(searchParams).length > 0;
   // 안전한 숫자 파싱 (가격 필터)
   const minPrice = parseNumberParam(searchParams.minPrice);
   const maxPrice = parseNumberParam(searchParams.maxPrice);
 
+  const queryParams = {
+    keyword: searchParams.keyword,
+    category: searchParams.category,
+    minPrice,
+    maxPrice,
+    game_type: searchParams.game_type,
+    condition: searchParams.condition,
+  };
+
   // 1. 데이터 병렬 로딩 (Service 직접 호출)
   const [
-    initialProducts,
     categories,
     searchHistory,
     popularSearches,
@@ -119,23 +142,18 @@ export default async function Products({ searchParams }: ProductsPageProps) {
     keywordAlerts,
     userLocation,
   ] = await Promise.all([
-    getCachedProducts(
-      {
-        keyword: searchParams.keyword,
-        category: searchParams.category,
-        minPrice,
-        maxPrice,
-        game_type: searchParams.game_type,
-        condition: searchParams.condition,
-      },
-      userId
-    ),
     fetchProductCategories(),
     getUserSearchHistory(userId),
     getPopularSearches(),
     getUnreadNotificationCount(),
     getMyKeywordAlerts(userId),
     getUserLocation(userId),
+    // 클라이언트에 내려줄 1페이지 데이터를 QueryClient에 심음.
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.products.list(queryParams),
+      queryFn: () => getProductsAction(null, queryParams),
+      initialPageParam: null as number | null,
+    }),
   ]);
 
   const userRegion1 = userLocation?.region1;
@@ -144,7 +162,7 @@ export default async function Products({ searchParams }: ProductsPageProps) {
 
   // 유저가 위치 설정을 안 했다면(userRegion1이 null), 무조건 ALL(전국)로 간주합니다.
   const currentRange = userRegion1
-    ? (userLocation?.regionRange as RegionRange) ?? "GU"
+    ? ((userLocation?.regionRange as RegionRange) ?? "GU")
     : "ALL";
 
   const fullLocation = userLocation
@@ -172,9 +190,16 @@ export default async function Products({ searchParams }: ProductsPageProps) {
       a.regionRange === currentRange
   );
 
+  // prefetch한 데이터를 꺼내서 결과가 비어있는지 확인 (Empty State 분기용)
+  const prefetchData = queryClient.getQueryData<any>(
+    queryKeys.products.list(queryParams)
+  );
+  const isDataEmpty = prefetchData?.pages[0]?.products.length === 0;
+
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
       <SearchProvider searchParams={searchParams}>
+        <ProductModalReopenRelay />
         {/* Sticky Header: 검색창 및 필터 */}
         <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
           {/* 상단 Row: 지역 필터 & 알림 */}
@@ -209,58 +234,57 @@ export default async function Products({ searchParams }: ProductsPageProps) {
 
         {/* Content Area */}
         <div className="flex-1 px-page-x py-6">
-          <div
-            className={`flex items-center mb-4 ${
-              hasSearchParams ? "justify-between" : "justify-end"
-            }`}
-          >
-            {/* 검색 결과 요약 (조건이 있을 때만 표시) */}
-            {hasSearchParams && (
-              <div className="flex items-center gap-3">
-                <SearchResultSummary
-                  count={initialProducts.products.length}
-                  summaryText={resultSearchParams}
-                />
-                {/* 검색어(keyword)가 있을 때만 알림 버튼 노출 */}
-                {searchParams.keyword && (
+          {/* 1. 검색 메타 정보 영역 (필터 적용 시에만 노출) */}
+          {hasSearchParams && (
+            <div className="flex flex-col gap-3 mb-6 animate-fade-in">
+              {/* 상단 라인: 요약 정보와 상세 필터 버튼 */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <SearchResultSummary
+                    count={prefetchData?.pages[0]?.products.length || 0}
+                    summaryText={resultSearchParams}
+                  />
+                </div>
+                <div className="shrink-0">
+                  <ClientFilterWrapper
+                    categories={categories}
+                    filters={searchParams}
+                  />
+                </div>
+              </div>
+
+              {/* 하단 라인: 키워드 알림 버튼 (검색어가 있을 때만 표시) */}
+              {searchParams.keyword && (
+                <div className="flex justify-start">
                   <KeywordAlertButton
                     keyword={searchParams.keyword}
                     alertId={matchedAlert?.id}
                     currentRange={currentRange}
                   />
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* 필터 버튼 (Client Component) */}
-            <ClientFilterWrapper
-              categories={categories}
-              filters={searchParams}
-            />
-          </div>
-
-          {/* 제품 목록 렌더링 */}
-          {initialProducts.products.length > 0 ? (
-            <ProductList
-              // 검색 조건 변경 시 스크롤/상태 초기화를 위해 key 부여
-              key={`${JSON.stringify(searchParams)}-${currentRange}`}
-              initialProducts={initialProducts}
-              searchParams={{
-                keyword: searchParams.keyword,
-                category: searchParams.category,
-                minPrice: minPrice,
-                maxPrice: maxPrice,
-                game_type: searchParams.game_type,
-                condition: searchParams.condition,
-              }}
-            />
-          ) : (
+          {/* 2. 제품 목록 섹션 */}
+          {isDataEmpty ? (
             <ProductEmptyState
               hasSearchParams={hasSearchParams}
               keyword={searchParams.keyword}
               alertId={matchedAlert?.id}
               currentRange={currentRange}
             />
+          ) : (
+            <HydrationBoundary state={dehydrate(queryClient)}>
+              <Suspense
+                fallback={<ProductListSkeleton viewMode="list" />}
+              >
+                <ProductList
+                  key={`${JSON.stringify(searchParams)}-${currentRange}`}
+                  searchParams={queryParams}
+                />
+              </Suspense>
+            </HydrationBoundary>
           )}
         </div>
       </SearchProvider>

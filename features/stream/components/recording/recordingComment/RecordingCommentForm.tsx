@@ -11,27 +11,30 @@
  * 2026.01.14  임도헌   Modified  [UI] ChatInputBar/CommentForm 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.03  임도헌   Modified  Context 참조 제거 및 useCreateRecordingCommentMutation 도입
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
 import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { useRecordingCommentContext } from "@/features/stream/components/recording/recordingComment/RecordingCommentContext";
+import { useCreateRecordingCommentMutation } from "@/features/stream/hooks/useCreateRecordingCommentMutation";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 
 /**
- * 댓글 작성 폼 컴포넌트
+ * 녹화본 댓글 작성 폼 컴포넌트
  *
- * [기능]
- * 1. 자동 높이 조절 Textarea 사용
- * 2. Enter 키 전송 지원 (Shift+Enter는 줄바꿈)
- * 3. Optimistic UI 패턴: 전송 시 입력창을 즉시 비우고, 실패 시 복원
+ * [상호작용 및 상태 제어 로직]
+ * - `useCreateRecordingCommentMutation` 훅을 활용한 댓글 데이터 서버 전송 및 캐시 갱신 유도
+ * - `textarea` 입력 텍스트 길이에 따른 자동 높이 조절 로직 적용
+ * - IME(한글 등) 조합 중 중복 전송 방지(`isComposing`) 및 단축키(Enter 전송, Shift+Enter 개행) 지원
+ * - 작성 시도 즉시 입력창 비움 처리(Optimistic Clear) 후, 실패 시 입력값 복원(Rollback) 수행
  */
 export default function RecordingCommentForm({ vodId }: { vodId: number }) {
-  const { createComment } = useRecordingCommentContext();
+  const { mutateAsync: createComment, isPending: isLoading } =
+    useCreateRecordingCommentMutation(vodId);
   const [text, setText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -48,8 +51,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    setIsLoading(true);
-    setText(""); // Optimistic Clear
+    setText(""); // 낙관적 폼 초기화
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     try {
@@ -58,12 +60,9 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
       formData.append("vodId", String(vodId));
 
       await createComment(formData);
-    } catch (e) {
-      setText(trimmed); // Rollback
-      console.error(e);
-      toast.error("댓글 작성 실패");
+    } catch {
+      setText(trimmed); // 에러 시 복구
     } finally {
-      setIsLoading(false);
       textareaRef.current?.focus();
     }
   };
@@ -76,13 +75,8 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
   };
 
   return (
-    <div
-      className={cn(
-        "w-full bg-surface border-t border-border py-3 transition-colors",
-        "flex items-end gap-2"
-      )}
-    >
-      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
+    <div className="w-full bg-surface border-t border-border py-3 transition-colors flex items-end gap-2">
+      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">
         <textarea
           ref={textareaRef}
           value={text}

@@ -8,13 +8,13 @@
  * 2026.02.06  임도헌   Created   유저 목록 조회, 권한 변경, 정지(Ban) 로직 구현
  * 2026.02.08  임도헌   Modified  정지 시 유저 알림(sendAdminActionNotification) 연동
  * 2026.02.08  임도헌   Modified  정지 기간(duration) 적용 및 실시간 강제 추가
+ * 2026.03.05  임도헌   Modified  권한 변경/이용 정지 시의 `revalidateTag` 의존성 제거, `revalidatePath` 및 클라이언트 상태 동기화로 대체
+ * 2026.03.07  임도헌   Modified  관리자 액션 실패 문구를 구체화(v1.2)
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { createAuditLog } from "@/features/report/service/audit";
 import { sendAdminActionNotification } from "@/features/notification/service/notification";
 import type { Role, Prisma } from "@/generated/prisma/client";
@@ -135,12 +135,14 @@ export async function updateUserRole(
       reason: `Changed role to ${newRole}`,
     });
 
-    revalidateTag(T.USER_CORE_ID(targetUserId));
-
     return { success: true };
   } catch (error) {
     console.error("[updateUserRole Error]:", error);
-    return { success: false, error: "권한 변경에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "유저 권한 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 
@@ -197,7 +199,6 @@ export async function toggleUserBan(
         reason,
       });
 
-      revalidateTag(T.USER_CORE_ID(targetUserId));
       return { success: true, data: { banned: false } };
     }
 
@@ -245,12 +246,14 @@ export async function toggleUserBan(
       },
     });
 
-    revalidateTag(T.USER_CORE_ID(targetUserId));
-
     return { success: true, data: { banned: true } };
   } catch (error) {
     console.error("[toggleUserBan Error]:", error);
-    return { success: false, error: "유저 상태 변경에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "유저 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 

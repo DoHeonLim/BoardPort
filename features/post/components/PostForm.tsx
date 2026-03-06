@@ -13,6 +13,11 @@
  * 2026.02.01  임도헌   Modified  Prop rename: onSubmit -> action
  * 2026.02.14  임도헌   Modified  지도 기능 추가
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.02.26  임도헌   Modified  게시글 작성 후 push에서 replace로 수정
+ * 2026.02.28  임도헌   Modified  formData 생성 로직 표준화 및 가독성 개선
+ * 2026.03.01  임도헌   Modified  tanstack query 도입
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  실패 토스트를 상황 중심 문구로 구체화(v1.2)
  */
 "use client";
 
@@ -20,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -31,6 +37,7 @@ import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { POST_CATEGORY } from "@/features/post/constants";
+import { queryKeys } from "@/lib/queryKeys";
 import { getUploadUrl } from "@/lib/cloudflareImages";
 import { postFormSchema, PostFormValues } from "@/features/post/schemas";
 import type { PostActionResponse } from "@/features/post/types";
@@ -44,14 +51,16 @@ interface PostFormProps {
   isEdit?: boolean;
 }
 
+const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+
 /**
  * 게시글 작성/수정 폼
  *
- * [기능]
- * 1. 이미지 업로드 (최대 5장, Cloudflare Images)
- * 2. 카테고리 선택, 태그, 장소 입력
- * 3. 게시글 제목/내용 입력 및 Zod 검증
- * 4. 폼 제출 및 서버 액션 호출 (성공 시 상세 페이지 이동)
+ * [상태 주입 및 상호작용 로직]
+ * - `useForm` 기반 폼 상태 관리 및 Zod 스키마 연동 유효성 검증 적용
+ * - Cloudflare Images API 연동을 통한 다중 이미지 업로드 및 미리보기 생성 로직 포함
+ * - 카테고리, 태그, 지도 기반 위치(Location) 데이터 매핑 기능 제공
+ * - 폼 제출 시 주입된 Action 호출 및 결과에 따른 화면 리다이렉트 처리
  *
  * @param {PostFormProps} props - 초기값, 액션 핸들러, 모드 설정 등
  */
@@ -63,6 +72,9 @@ export default function PostForm({
   isEdit = false,
 }: PostFormProps) {
   const router = useRouter();
+  // 쿼리 클라이언트 인스턴스 가져오기
+  const queryClient = useQueryClient();
+
   const [isUploading, setIsUploading] = useState(false);
   const [resetSignal, setResetSignal] = useState(0);
 
@@ -124,7 +136,7 @@ export default function PostForm({
     setIsMapOpen(false);
   };
 
-  const submitHandler = handleSubmit(async (data: PostFormValues) => {
+  const onSubmit = handleSubmit(async (data: PostFormValues) => {
     setIsUploading(true);
 
     try {
@@ -133,6 +145,8 @@ export default function PostForm({
 
       // 1. 신규 이미지 업로드
       if (newFiles.length > 0) {
+        if (!CF_HASH) throw new Error("Cloudflare 설정 오류");
+
         const uploadPromises = newFiles.map(async (file) => {
           const res = await getUploadUrl();
           if (!res.success) {
@@ -140,7 +154,6 @@ export default function PostForm({
           }
 
           const { uploadURL, id } = res.result;
-
           const cloudflareForm = new FormData();
           cloudflareForm.append("file", file);
 
@@ -150,8 +163,6 @@ export default function PostForm({
           });
 
           if (!response.ok) throw new Error("Failed to upload image");
-
-          const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
           return `https://imagedelivery.net/${CF_HASH}/${id}`;
         });
 
@@ -174,34 +185,54 @@ export default function PostForm({
         })
         .filter(Boolean);
 
-      // 3. 서버 액션 호출
+      // 3. 폼 데이터 생성 (표준화)
       const formData = new FormData();
+
+      // [특수 필드 1] ID (수정 모드)
       if (isEdit && initialValues?.id) {
         formData.append("id", initialValues.id.toString());
       }
-      // 위치 데이터(LocationData 객체)는 FormData에 바로 담을 수 없으므로 JSON 문자열로 직렬화하여 전송
+
+      // [특수 필드 2] JSON 직렬화
       if (data.location) {
         formData.append("location", JSON.stringify(data.location));
       }
-      formData.append("title", data.title);
-      formData.append("description", data.description);
-      formData.append("category", data.category);
-      data.tags?.forEach((tag) => formData.append("tags[]", tag));
+      formData.append("tags", JSON.stringify(data.tags || []));
+
+      // [특수 필드 3] 이미지 배열
       allPhotoUrls.forEach((url) => formData.append("photos[]", url));
+
+      // [일반 필드] 자동 매핑
+      const skipFields = ["id", "location", "tags", "photos"];
+      Object.entries(data).forEach(([key, value]) => {
+        if (
+          !skipFields.includes(key) &&
+          value !== undefined &&
+          value !== null
+        ) {
+          formData.append(key, value.toString());
+        }
+      });
 
       const result = await action(formData);
 
       if (result.success && result.postId) {
+        // 데이터 변경이 성공했으므로 캐시를 무효화하여 다음 방문 시 새로고침을 유도함
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
         toast.success(
           isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
         );
-        router.push(`/posts/${result.postId}`);
+        router.replace(`/posts/${result.postId}`);
       } else if (result.error) {
         toast.error(result.error);
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("게시글 처리에 실패했습니다.");
+      toast.error(
+        isEdit
+          ? "게시글 수정 중 문제가 발생했습니다. 입력 내용과 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          : "게시글 등록 중 문제가 발생했습니다. 이미지 업로드와 입력 내용을 확인한 뒤 다시 시도해주세요."
+      );
     } finally {
       setIsUploading(false);
     }
@@ -210,7 +241,7 @@ export default function PostForm({
   return (
     <div className="bg-background">
       <form
-        onSubmit={submitHandler}
+        onSubmit={onSubmit}
         className="flex flex-col gap-form-gap px-page-x py-page-y"
       >
         {/* Image Uploader */}
@@ -279,7 +310,7 @@ export default function PostForm({
           {location ? (
             <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-brand/10 rounded-full text-brand">
+                <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
                   <MapPinIcon className="size-5" />
                 </div>
                 <div>

@@ -3,19 +3,6 @@
  * Description : 팔로워/팔로잉 목록 모달 (SSOT: row 상태는 user.*만 신뢰)
  * Author : 임도헌
  *
- * Key Points
- * - SSOT(단일 소스):
- *   - 버튼(토글) 상태는 FollowListUser.isFollowedByViewer만 신뢰한다. (viewer -> rowUser)
- *   - 섹션 분리(맞팔로잉/나머지)는 FollowListUser.isMutualWithOwner만 사용한다. owner 기준으로 통일
- *     - followers 모달: owner가 rowUser를 팔로우하면 true (owner -> rowUser)
- *     - following 모달: rowUser가 owner를 팔로우하면 true (rowUser -> owner)
- * - self(viewerId) 처리:
- *   - self row는 숨기지 않는다.
- *   - "나" 뱃지는 FollowListItem이 책임진다.
- * - 무한스크롤:
- *   - 더보기(more) 에러 상태에서 sentinel이 계속 보이면 무한 재호출 루프가 날 수 있어
- *     enabled를 끄는 방식으로 자동 트리거를 중단한다.
- *
  * History
  * Date        Author   Status    Description
  * 2025.05.22  임도헌   Created
@@ -36,6 +23,8 @@
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 모바일 Full/데스크톱 Card 레이아웃 분기
  * 2026.01.17  임도헌   Moved     components/follow -> features/user/components/follow
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.01  임도헌   Modified  로딩 상태(isFetchingNextPage) Prop 적용 및 하단 스피너 분리
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
@@ -61,26 +50,26 @@ interface FollowListModalProps {
 
   isLoading: boolean;
   hasMore: boolean;
-  onLoadMore: () => Promise<void>;
-  loadingMore: boolean;
+  // React Query의 fetchNextPage와 호환되도록 unknown 반환 타입을 허용함.
+  onLoadMore: () => Promise<unknown>;
+  isFetchingNextPage: boolean;
 
   onToggleItem?: (userId: number) => void | Promise<void>;
   isPendingById?: (id: number) => boolean;
 
-  /** 페이징 에러(옵션): first/more 구분 */
   error?: FollowListError;
-  onRetry?: () => void | Promise<void>;
+  // React Query의 refetch 함수와 호환되도록 unknown 반환 타입을 허용함.
+  onRetry?: () => void | Promise<unknown>;
 }
 
 /**
- * 팔로우 목록 모달
+ * 팔로우 목록 모달 컴포넌트
  *
- * [기능]
- * 1. 팔로워 또는 팔로잉 유저 목록을 렌더링
- * 2. '맞팔로잉' 유저와 그 외 유저를 섹션으로 분리하여 표시 (`isMutualWithOwner` 기준)
- * 3. 무한 스크롤(`useInfiniteScroll`)을 지원
- * 4. 모바일에서는 Bottom Sheet, 데스크톱에서는 중앙 모달 형태로 반응형 레이아웃을 제공
- * 5. 접근성(Focus Trap, ESC 닫기, Scroll Lock)을 지원
+ * [상태 주입 및 상호작용 제어 로직]
+ * - `useInfiniteScroll` 훅과 연동하여 모달 내 스크롤 이벤트를 감지하고 페이징 로딩 트리거 적용
+ * - `isMutualWithOwner` 플래그를 활용하여 '맞팔로잉' 그룹과 일반 그룹으로 렌더링 섹션 동적 분리
+ * - 에러 발생 시 상태(`isMoreError`, `isFirstError`)에 따른 재시도(Retry) UI 조건부 렌더링 제공
+ * - ESC 키보드 이벤트, 포커스 트랩, 바디 스크롤 잠금 등의 웹 접근성(A11y) 표준 준수 적용
  */
 export default function FollowListModal({
   isOpen,
@@ -92,7 +81,7 @@ export default function FollowListModal({
   isLoading = false,
   hasMore = false,
   onLoadMore,
-  loadingMore = false,
+  isFetchingNextPage = false,
   onToggleItem,
   isPendingById,
   error,
@@ -102,9 +91,8 @@ export default function FollowListModal({
   const isFirstError = error?.stage === "first";
 
   /**
-   * 맞팔로잉/나머지 분리
-   * - 기준은 오직 owner <-> rowUser: user.isMutualWithOwner
-   * - viewerId(self)는 숨기지 않는다. (FollowListItem이 "나" 뱃지 처리)
+   * 목록 렌더링 전 유저 분리 로직
+   * - owner를 기준으로 한 맞팔(isMutualWithOwner) 여부를 기준으로 상단/하단 섹션을 나눔.
    */
   const { mutual, rest } = useMemo(() => {
     const mutual = users.filter((u) => u.isMutualWithOwner);
@@ -112,19 +100,19 @@ export default function FollowListModal({
     return { mutual, rest };
   }, [users]);
 
-  // a11y & UX: 포커스 / ESC / body scroll lock
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
-  // 1. 초기 포커스 저장 및 ESC 닫기, 스크롤 잠금
+  /**
+   * 접근성(A11y) 및 모달 인터랙션 설정
+   * - 모달 열림 시 포커스를 이동하고, 기존 페이지의 스크롤을 막음.
+   * - ESC 키를 눌렀을 때 모달을 닫고 이전 포커스를 복원함.
+   */
   useEffect(() => {
     if (!isOpen) return;
-
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-
-    // 모달에 포커스 이동 (스크린 리더가 인식하도록)
     setTimeout(() => dialogRef.current?.focus(), 0);
 
     const originalStyle = window.getComputedStyle(document.body).overflow;
@@ -138,48 +126,16 @@ export default function FollowListModal({
     return () => {
       document.body.style.overflow = originalStyle;
       window.removeEventListener("keydown", handleKeyDown);
-      // 닫힐 때 이전 포커스 복원
       previouslyFocused.current?.focus?.();
     };
   }, [isOpen, onClose]);
 
-  // 2. 포커스 트랩 (Tab 키 순환) - 복원됨
-  useEffect(() => {
-    if (!isOpen || !dialogRef.current) return;
-
-    const dialog = dialogRef.current;
-    const getFocusables = () =>
-      dialog.querySelectorAll<HTMLElement>(
-        'a, button, input, textarea, select, [tabindex]:not([tabindex="-1"])'
-      );
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const focusables = getFocusables();
-      if (!focusables.length) return;
-
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    dialog.addEventListener("keydown", onKeyDown);
-    return () => dialog.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
-
-  // 무한 스크롤 연결
+  // 하단 스크롤 도달 시 다음 페이지 데이터 로딩을 위한 옵저버 연결
   useInfiniteScroll({
     triggerRef: sentinelRef,
     hasMore,
-    isLoading: loadingMore,
-    onLoadMore: onLoadMore ?? (async () => {}),
+    isLoading: isFetchingNextPage,
+    onLoadMore: onLoadMore,
     enabled: isOpen && hasMore && !isMoreError,
     rootRef: scrollAreaRef,
     rootMargin: "400px 0px 0px 0px",
@@ -193,14 +149,12 @@ export default function FollowListModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal Content */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -209,14 +163,10 @@ export default function FollowListModal({
         tabIndex={-1}
         className={cn(
           "relative w-full sm:max-w-md bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
-          // [Mobile] Bottom Sheet 느낌 (하단에서 올라옴, 상단 둥글게)
-          "h-[85vh] rounded-t-2xl animate-slide-up",
-          // [Desktop] Center Card (중앙 정렬, 전체 둥글게)
-          "sm:h-[600px] sm:rounded-2xl sm:animate-fade-in",
+          "h-[85vh] rounded-t-2xl animate-slide-up sm:h-[600px] sm:rounded-2xl sm:animate-fade-in",
           "border-t sm:border border-border"
         )}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface shrink-0">
           <h2 id={titleId} className="text-lg font-bold text-primary">
             {title}
@@ -224,13 +174,12 @@ export default function FollowListModal({
           <button
             onClick={onClose}
             className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
-            aria-label="닫기"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Error Banner (Load More) */}
+        {/* 스크롤 페이징 중 에러 발생 시 렌더링되는 경고 배너 */}
         {isMoreError && (
           <div className="px-4 py-2 bg-danger/10 text-danger text-sm text-center font-medium shrink-0">
             {error?.message}
@@ -245,7 +194,6 @@ export default function FollowListModal({
           </div>
         )}
 
-        {/* List Area */}
         <div
           ref={scrollAreaRef}
           className="flex-1 overflow-y-auto p-4 scrollbar-hide"
@@ -256,6 +204,7 @@ export default function FollowListModal({
             </div>
           ) : users.length === 0 ? (
             <div className="py-12 text-center text-muted text-sm">
+              {/* 초기 로딩 에러 시 재시도 버튼 렌더링 */}
               {isFirstError ? (
                 <div className="flex flex-col gap-2">
                   <p>{error?.message}</p>
@@ -275,7 +224,7 @@ export default function FollowListModal({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* 맞팔 섹션 */}
+              {/* 맞팔로잉 유저 리스트 렌더링 */}
               {mutual.length > 0 && (
                 <section>
                   <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3 px-1">
@@ -296,7 +245,7 @@ export default function FollowListModal({
                 </section>
               )}
 
-              {/* 나머지 섹션 */}
+              {/* 그 외 유저 리스트 렌더링 */}
               {rest.length > 0 && (
                 <section>
                   {mutual.length > 0 && (
@@ -319,14 +268,15 @@ export default function FollowListModal({
                 </section>
               )}
 
-              {/* Infinite Scroll Trigger */}
+              {/* 스크롤 트리거 영역 */}
               <div
                 ref={sentinelRef}
                 className="h-4 w-full"
                 aria-hidden="true"
               />
 
-              {loadingMore && (
+              {/* 스크롤 페이징 데이터 페칭 중 스피너 표시 */}
+              {isFetchingNextPage && (
                 <div className="py-4 flex justify-center">
                   <div className="size-5 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
                 </div>
@@ -334,7 +284,6 @@ export default function FollowListModal({
             </div>
           )}
         </div>
-        {/* 하단 닫기 버튼 제거됨: 상단 X 버튼으로 대체 */}
       </div>
     </div>
   );

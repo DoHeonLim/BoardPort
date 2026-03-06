@@ -8,14 +8,17 @@
  * 2026.02.04  임도헌   Created   차단/해제 및 상태 확인 로직
  * 2026.02.04  임도헌   Modified  유저간 차단 관계 확인 로직 추가
  * 2026.02.05  임도헌   Modified  차단 시 실시간 'BLOCK' 이벤트 브로드캐스트 추가 (강제 퇴장용)
+ * 2026.03.05  임도헌   Modified  차단 처리에 동반되던 광범위한 서버 측 `revalidateTag` 파편화 코드 완전 제거
+ * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.07  임도헌   Modified  차단/차단 해제 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  정지 유저 차단/차단 해제 mutation 가드 추가
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { unfollowUserService } from "@/features/user/service/follow";
+import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
 
 /**
@@ -37,6 +40,11 @@ export async function blockUserService(
   blockedId: number
 ): Promise<ServiceResult> {
   try {
+    const blockerStatus = await validateUserStatus(blockerId);
+    if (!blockerStatus.success) {
+      return { success: false, error: blockerStatus.error! };
+    }
+
     if (blockerId === blockedId) {
       return { success: false, error: "자신을 차단할 수 없습니다." };
     }
@@ -68,21 +76,14 @@ export async function blockUserService(
       },
     });
 
-    // 4. 캐시 무효화
-    // - 내 프로필(팔로잉 수), 상대 프로필(팔로워 수) 갱신
-    // - 차단 여부 갱신 (UserProfile은 비캐시지만, 연관 데이터 정합성 위해)
-    revalidateTag(T.USER_FOLLOWERS_ID(blockedId));
-    revalidateTag(T.USER_FOLLOWING_ID(blockedId));
-    revalidateTag(T.USER_FOLLOWERS_ID(blockerId));
-    revalidateTag(T.USER_FOLLOWING_ID(blockerId));
-
-    // 내가 차단했으므로 나의 맞춤형 목록(제품, 게시글 등) 갱신
-    revalidateTag(T.USER_BLOCK_UPDATE(blockerId));
-
     return { success: true };
   } catch (error) {
     console.error("blockUserService error:", error);
-    return { success: false, error: "차단 처리에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "유저 차단에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 
@@ -98,6 +99,11 @@ export async function unblockUserService(
   blockedId: number
 ): Promise<ServiceResult> {
   try {
+    const blockerStatus = await validateUserStatus(blockerId);
+    if (!blockerStatus.success) {
+      return { success: false, error: blockerStatus.error! };
+    }
+
     await db.block.deleteMany({
       where: {
         blockerId,
@@ -105,13 +111,14 @@ export async function unblockUserService(
       },
     });
 
-    // 차단 해제 시에도 내 목록 갱신 필요 (숨겨졌던 콘텐츠 다시 보임)
-    revalidateTag(T.USER_BLOCK_UPDATE(blockerId));
-
     return { success: true };
   } catch (error) {
     console.error("unblockUserService error:", error);
-    return { success: false, error: "차단 해제에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "유저 차단 해제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 

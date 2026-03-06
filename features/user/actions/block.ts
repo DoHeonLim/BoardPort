@@ -6,12 +6,12 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.04  임도헌   Created   toggleBlockAction 구현
+ * 2026.03.05  임도헌   Modified  차단 시 발생하던 광범위한 `revalidateTag` 호출 제거 및 단일 진실 공급원(SSOT)을 로컬 Query Cache로 전환
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag, revalidatePath } from "next/cache";
-import * as T from "@/lib/cacheTags";
+import { revalidatePath } from "next/cache";
 import {
   blockUserService,
   getMyBlockedUsers,
@@ -50,19 +50,8 @@ export async function toggleBlockAction(
       ? await blockUserService(viewerId, targetId)
       : await unblockUserService(viewerId, targetId);
 
-  if (result.success) {
-    // 차단 관계 변경 시, 나의 맞춤형 목록 캐시(제품 목록, 팔로워 등) 무효화
-    revalidateTag(T.USER_BLOCK_UPDATE(viewerId));
-    // 내 팔로우 목록 초기화
-    revalidateTag(T.USER_FOLLOWERS_ID(viewerId));
-    revalidateTag(T.USER_FOLLOWING_ID(viewerId));
-    // 타겟 팔로우 목록 초기화
-    revalidateTag(T.USER_FOLLOWERS_ID(targetId));
-    revalidateTag(T.USER_FOLLOWING_ID(targetId));
-
-    if (path) {
-      revalidatePath(path);
-    }
+  if (result.success && path) {
+    revalidatePath(path);
   }
 
   return result;

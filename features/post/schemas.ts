@@ -12,6 +12,7 @@
  * 2026.01.22  임도헌   Merged    postFormSchema + commentFormSchema 통합
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.02.14  임도헌   Modified  location(위치) 객체 필드 추가
+ * 2026.02.28  임도헌   Modified  category 에러 메시지 한글화 (Invalid enum value UX 개선)
  */
 
 import { z } from "zod";
@@ -29,7 +30,7 @@ export const postFormSchema = z.object({
     .min(5, "5자 이상 적어주세요."),
   description: z.string().min(1, "내용을 입력해주세요."),
   category: z.enum(Object.keys(POST_CATEGORY) as [string, ...string[]], {
-    required_error: "카테고리를 선택해주세요.",
+    errorMap: () => ({ message: "카테고리를 선택해주세요." }),
   }),
   tags: z
     .array(z.string())

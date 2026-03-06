@@ -15,6 +15,7 @@
  * 2025.12.12  임도헌   Modified  sm에서 max-w 고정 유지(2중 래퍼), streams 텍스트 활성 버그 수정, Spacer 제거 전제 정리
  * 2026.01.11  임도헌   Modified  [Rule 4.1] 시맨틱 토큰 & 레이아웃 고정 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/global
+ * 2026.03.06  임도헌   Modified  최상위 탭 경로에서만 노출되도록 정리하고 데스크톱 중앙 하단 정렬을 보강
  */
 "use client";
 
@@ -75,22 +76,20 @@ export default function TabBar() {
   // [Rule 4.1.2] 최상위 루트 경로가 아니면 TabBar 숨김
   // 1. pathname이 탭 목록에 있는 경로 중 하나와 정확히 일치하는지 확인
   const isMainTab = tabs.some((tab) => tab.href === pathname);
-  
-  // 2. 예외 처리: 프로필 경로('/profile')로 시작하는 경우 (서브 페이지 포함)
-  const isProfileSection = pathname.startsWith("/profile");
 
-  // 메인 탭 경로와 정확히 일치하지 않고, 프로필 섹션도 아니라면 탭바를 숨김
-  if (!isMainTab && !isProfileSection) return null;
+  // 메인 탭 경로가 아니면 탭바를 숨김
+  if (!isMainTab) return null;
 
   return (
     <nav
       aria-label="글로벌 내비게이션"
       className={cn(
-        // [위치] 하단 고정, 하지만 max-w-mobile 너비로 제한하여 중앙 정렬 유지
-        "fixed bottom-0 z-40 w-full max-w-mobile",
+        // [위치] 하단 고정 + 중앙 정렬 유지
+        "fixed bottom-0 left-1/2 z-40 w-full max-w-mobile -translate-x-1/2",
         // [스타일] 배경 블러 처리 및 상단 테두리
         "bg-surface/90 backdrop-blur-md border-t border-border",
         "pb-[env(safe-area-inset-bottom)]", // 아이폰 홈 바 안전 영역 확보
+        "transform-gpu translate-z-0", // Safari 렌더링 고정용 가속 추가
         "transition-transform duration-300"
       )}
     >

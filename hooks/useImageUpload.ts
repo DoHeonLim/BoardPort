@@ -138,7 +138,7 @@ export function useImageUpload({
 
   /**
    * 이미지 삭제 핸들러
-   * - 특정 인덱스의 이미지를 미리보기 목록과 파일 목록에서 제거함.
+   * - 특정 인덱스의 이미지를 미리보기 목록과 파일 목록에서 제거
    */
   const handleDeleteImage = (index: number) => {
     const currentPhotos: string[] = getValues("photos");

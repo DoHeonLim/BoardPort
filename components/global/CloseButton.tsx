@@ -13,6 +13,7 @@
  * 2025.11.13  임도헌   Modified  router.back 가능시 back, 불가시 fallbackHref/returnTo로 push
  * 2026.01.10  임도헌   Modified  터치 타겟(44px) 확보 및 시맨틱 스타일 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/global
+ * 2026.03.06  임도헌   Modified  hover 배경을 공용 시맨틱 토큰(bg-surface-dim) 기준으로 정리
  */
 "use client";
 
@@ -40,17 +41,12 @@ export default function CloseButton({
   const router = useRouter();
   const sp = useSearchParams();
 
-  // history idx가 1 이상이면 back 가능 (브라우저 지원 여부 체크)
-  const canGoBack =
-    typeof window !== "undefined" && (window.history.state?.idx ?? 0) > 0;
-
   const resolvedReturnTo = returnTo || sp.get("returnTo") || fallbackHref;
 
   const onClose = useCallback(() => {
-    // [UX] 뒤로가기가 가능하면 back, 아니면 지정된 경로로 push
-    if (canGoBack) router.back();
-    else router.push(resolvedReturnTo);
-  }, [canGoBack, router, resolvedReturnTo]);
+    // Parallel/Intercepting Route 환경에서는 back()보다 명시 경로 replace가 안정적
+    router.replace(resolvedReturnTo);
+  }, [router, resolvedReturnTo]);
 
   // ESC로 닫기
   useEffect(() => {
@@ -72,7 +68,7 @@ export default function CloseButton({
         // [크기] 터치 타겟 확보 (40px ~ 44px)
         "size-10 sm:size-11",
         // [색상] 배경색: Surface Dim (연한 회색/어두운 회색) -> 호버 시 진하게
-        "bg-surface-dim hover:bg-black/10 dark:hover:bg-white/10",
+        "bg-surface-dim hover:bg-border/80",
         // [아이콘] 기본 Muted -> 호버 시 Primary
         "text-muted hover:text-primary",
         // [포커스] 접근성 포커스 링

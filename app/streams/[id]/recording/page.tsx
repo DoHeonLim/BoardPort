@@ -28,17 +28,15 @@
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 병렬 로드
  * 2026.02.23  임도헌   Modified  didIncrement 수동 보정 레거시 제거 및 서버 SSOT 조회수 패턴으로 전 도메인 통일
+ * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 녹화본 댓글 데이터 Prefetch 로직 추가
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
-/**
- * NOTE
- * - 이 페이지는 접근 가드(팔로우/PRIVATE 언락)에 강하게 의존한다.
- * - 따라서 cache/ISR로 인해 guard 판단이 stale 되는 것을 막기 위해 force-dynamic을 유지한다.
- * - getVodDetail은 nextCache로 감싸지 않고(=비캐시) 요청 시점의 최신 상태로 가드를 평가한다.
- * - 조회수는 ViewThrottle(3분) 기반으로 incrementViews에서 처리하고, didIncrement=true일 때만 화면 표시값을 +1 보정한다.
- */
-export const dynamic = "force-dynamic"; // 접근 가드 및 조회수 증가 로직 포함
+export const dynamic = "force-dynamic";
 
 import { notFound, redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import RecordingTopbar from "@/features/stream/components/recording/RecordingTopbar";
 import RecordingDetail from "@/features/stream/components/recording/recordingDetail";
@@ -50,16 +48,18 @@ import { getVodDetail } from "@/features/stream/service/detail";
 import { getRecordingLikeStatus } from "@/features/stream/service/like";
 import { incrementViews } from "@/features/common/service/view";
 import { checkBlockRelation } from "@/features/user/service/block";
+import { getRecordingCommentsListAction } from "@/features/stream/actions/comments";
 import type { StreamVisibility } from "@/features/stream/types";
 
 /**
  * 녹화본 상세 페이지 (VOD)
  *
  * [기능]
- * 1. 세션 확인 및 유저 식별
- * 2. 조회수 증가 및 캐시 무효화 (await incrementViews) - 3분 쿨다운 적용
- * 3. VOD 상세 정보 및 좋아요 상태 병렬 로드 (Promise.all)
- * 4. 방송 접근 권한(공개/팔로워/비공개) 검증
+ * - 로그인 세션 검증 및 비인가 사용자 리다이렉트 처리
+ * - 쿨다운 정책이 적용된 조회수 증가 로직 서버 사이드 선행 처리
+ * - 녹화본 상세 정보 및 좋아요 상태의 서버 사이드 병렬 로드 적용
+ * - 양방향 차단 가드 확인 및 방송 접근 권한(PRIVATE, FOLLOWERS) 세션 검증 처리
+ * - TanStack Query를 활용한 VOD 댓글 목록 서버 프리패치(Prefetch) 및 HydrationBoundary 적용
  */
 export default async function RecordingVodPage({
   params,
@@ -82,7 +82,7 @@ export default async function RecordingVodPage({
   // 2. 조회수 증가 및 무효화 선행
   try {
     await incrementViews({
-      target: "RECORDING",
+      target: "VOD",
       targetId: vodId,
       viewerId,
     });
@@ -90,10 +90,18 @@ export default async function RecordingVodPage({
     console.warn("[RecordingPage] incrementViews failed:", e);
   }
 
-  // 3. 상세 데이터 및 상호작용 상태 병렬 조회
+  // 3. QueryClient 초기화 및 데이터 병렬 로드 수행
+  const queryClient = getQueryClient();
+
   const [base, like] = await Promise.all([
     getVodDetail(vodId),
     getRecordingLikeStatus(vodId, viewerId),
+    // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장 (Prefetch)
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.streams.vodComments(vodId),
+      queryFn: () => getRecordingCommentsListAction(vodId), // Limit 10 (기본값)
+      initialPageParam: undefined as number | undefined,
+    }),
   ]);
 
   if (!base) return notFound();
@@ -107,15 +115,10 @@ export default async function RecordingVodPage({
     const isBlocked = await checkBlockRelation(viewerId, owner.id);
     if (isBlocked) {
       redirect(
-        `/403?reason=BLOCKED` +
-          `&username=${encodeURIComponent(owner.username)}` +
-          `&callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}`
+        `/403?reason=BLOCKED&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}`
       );
     }
-  }
-
-  // 4. 접근 권한 체크 (PRIVATE / FOLLOWERS)
-  if (!isOwner) {
+    // 4. 접근 권한 체크 (PRIVATE / FOLLOWERS)
     const isUnlocked = isBroadcastUnlockedFromSession(
       session,
       base.broadcast.id
@@ -131,11 +134,7 @@ export default async function RecordingVodPage({
 
     if (!guard.allowed) {
       redirect(
-        `/403?reason=${guard.reason}` +
-          `&username=${encodeURIComponent(owner.username)}` +
-          `&callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}` +
-          `&sid=${base.broadcast.id}` +
-          `&uid=${owner.id}`
+        `/403?reason=${guard.reason}&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}&sid=${base.broadcast.id}&uid=${owner.id}`
       );
     }
   }
@@ -189,7 +188,10 @@ export default async function RecordingVodPage({
           <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
             <span className="text-xl">💬</span> 댓글
           </h3>
-          <RecordingComment vodId={vodId} currentUserId={viewerId} />
+          {/* 직렬화된 캐시 상태(dehydratedState)를 하위 컴포넌트로 전송 */}
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <RecordingComment vodId={vodId} currentUserId={viewerId} />
+          </HydrationBoundary>
         </div>
       </main>
     </div>

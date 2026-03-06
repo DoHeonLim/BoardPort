@@ -18,6 +18,7 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 적용
  * 2026.01.22  임도헌   Modified  Service 직접 호출로 최적화
  * 2026.01.26  임도헌   Modified  주석 설명 보강
+ * 2026.03.05  임도헌   Modified  getProductDetail함수로 변경 및 주석 최신화
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -27,23 +28,30 @@ import { fetchProductCategories } from "@/features/product/service/category";
 import { convertProductToFormValues } from "@/features/product/utils/converter";
 import { updateProductAction } from "@/features/product/actions/update";
 import { deleteProductAction } from "@/features/product/actions/delete";
-import { getCachedProduct } from "@/features/product/service/detail";
+import { getProductDetail } from "@/features/product/service/detail";
 
 /**
  * 제품 수정 페이지
  *
  * [기능]
- * 1. 제품 정보를 조회하고 소유권을 검증 (비소유자 -> 목록 리다이렉트)
- * 2. 기존 제품 정보를 폼 데이터 형식으로 변환(`convertProductToFormValues`)
- * 3. `ProductForm`을 'edit' 모드로 렌더링
- * 4. 제품 삭제 기능(Server Action Form)을 별도로 제공
+ * - URL 파라미터 기반 제품 상세 정보 서버 사이드 로드 적용
+ * - 제품 소유자와 현재 로그인 세션 정보 비교를 통한 권한 검증
+ * - 비인가 사용자(소유자가 아닌 경우) 접근 시 제품 목록 페이지로 리다이렉트 처리
+ * - 서버에서 로드한 제품 정보를 클라이언트 폼 데이터 형식에 맞게 변환 및 주입
  */
-export default async function EditPage({ params }: { params: { id: string } }) {
+export default async function EditPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { returnTo?: string };
+}) {
   const id = Number(params.id);
+  const returnTo = searchParams?.returnTo;
   if (isNaN(id)) return notFound();
 
   // 1. 제품 조회 및 권한 확인
-  const product = await getCachedProduct(id);
+  const product = await getProductDetail(id);
   if (!product) return notFound();
 
   const session = await getSession();
@@ -73,7 +81,7 @@ export default async function EditPage({ params }: { params: { id: string } }) {
         defaultValues={defaultValues}
         categories={categories}
         // 취소 시 상세 페이지로 돌아가도록 설정
-        cancelHref={`/products/view/${id}`}
+        cancelHref={`/products/view/${id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
       />
 
       <form

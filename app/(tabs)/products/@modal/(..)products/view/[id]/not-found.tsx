@@ -11,21 +11,22 @@
  * 2025.06.08  임도헌   Modified  모달 제품 상세 페이지 Not Found UI 공통 컴포넌트 적용
  * 2025.06.12  임도헌   Modified  app/(tabs)/products/@modal/(..)products/view/[id]/not-found 로 이동
  * 2026.01.11  임도헌   Modified  시맨틱 토큰 적용 및 모달 스타일의 NotFound 페이지로 변경
+ * 2026.03.06  임도헌   Modified  닫기 버튼 접근성과 상태 화면 패딩을 공통 기준에 맞게 정리
  */
 "use client";
 
 import NotFound from "@/components/ui/NotFound";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import CloseButton from "@/components/global/CloseButton";
 
 export default function ModalProductNotFound() {
+  const sp = useSearchParams();
   const router = useRouter();
 
   const handleClose = () => {
-    // 모달 닫기 (뒤로가기 또는 리스트로 이동)
-    // 404 상황이므로 history back 보다는 명시적 리스트 이동이 안전할 수 있으나,
-    // UX상 '닫기' 동작은 이전 목록을 보여주는 것이 자연스러움.
-    router.back();
+    const returnTo = sp.get("returnTo") || "/products";
+    router.replace(returnTo);
   };
 
   return (
@@ -47,40 +48,19 @@ export default function ModalProductNotFound() {
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header (Close Button Only) */}
         <div className="flex justify-end p-4">
-          {/* 404에서는 returnTo 쿼리가 없을 수 있으므로 단순 back 처리 */}
-          <button
-            onClick={handleClose}
-            className="p-2 rounded-full hover:bg-surface-dim transition-colors"
-          >
-            <span className="sr-only">닫기</span>
-            {/* CloseButton 컴포넌트를 써도 되지만, router 제어를 위해 직접 구현하거나 CloseButton에 onClick 전달 */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              className="size-6 text-muted"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+          <CloseButton returnTo={sp.get("returnTo") || "/products"} label="모달 닫기" />
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-1 items-center justify-center px-4 pb-6">
           <NotFound
             title="제품이 없습니다"
             description="삭제되었거나 잘못된 접근입니다."
-            // 버튼 액션을 '닫기'로 대체
             action={
               <button
                 onClick={handleClose}
-                className="btn-primary w-full max-w-[200px]"
+                className="btn-primary w-full max-w-[200px] min-h-[44px]"
               >
                 목록으로 닫기
               </button>

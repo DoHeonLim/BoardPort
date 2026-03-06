@@ -107,7 +107,7 @@ export default function Carousel({ images, className = "" }: CarouselProps) {
             className="min-w-full h-full relative flex items-center justify-center"
           >
             <div
-              className="relative w-full h-full cursor-grab active:cursor-grabbing"
+              className="relative w-full h-full cursor-grab active:cursor-grabbing touch-pan-y"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}

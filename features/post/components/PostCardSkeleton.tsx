@@ -8,6 +8,7 @@
  * 2025.06.26  임도헌   Created   게시글 카드 스켈레톤 컴포넌트 구현
  * 2026.01.13  임도헌   Modified  [UI] PostCard 구조와 일치 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
+ * 2026.03.06  임도헌   Modified  모바일 그리드 카드 밀도와 동일한 썸네일 비율/메타 구조로 정리
  */
 "use client";
 
@@ -24,32 +25,37 @@ export default function PostCardSkeleton({ viewMode }: PostCardSkeletonProps) {
   return (
     <div
       className={cn(
-        "flex overflow-hidden rounded-2xl border border-border bg-surface p-4",
-        isGrid ? "flex-col h-full gap-3" : "flex-row gap-4 h-32 sm:h-36"
+        "flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm",
+        isGrid ? "flex-col h-full" : "flex-row h-28 gap-4 sm:h-36"
       )}
     >
       {/* Thumbnail */}
       <div
         className={cn(
           "shrink-0",
-          isGrid ? "w-full aspect-[4/3]" : "size-24 sm:size-28"
+          isGrid ? "w-full aspect-[3/2] sm:aspect-[4/3]" : "w-32 h-full"
         )}
       >
-        <Skeleton className="w-full h-full rounded-xl" />
+        <Skeleton className="w-full h-full" />
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-between min-w-0">
+      <div
+        className={cn(
+          "flex flex-1 min-w-0",
+          isGrid
+            ? "flex-col justify-start gap-1.5 p-2 sm:gap-2 sm:p-3"
+            : "flex-col justify-between p-3"
+        )}
+      >
         <div className="space-y-2">
-          <Skeleton className="h-4 w-16 rounded" /> {/* Category */}
-          <Skeleton className="h-5 w-3/4 rounded" /> {/* Title */}
+          <Skeleton className="h-4 w-16 rounded-full" />
+          <Skeleton className="h-5 w-3/4 rounded" />
+          {isGrid && <Skeleton className="h-3 w-24 rounded" />}
         </div>
 
-        <div className="flex flex-col gap-2 mt-auto">
-          {!isGrid && <Skeleton className="h-4 w-1/2 rounded" />} {/* Tags */}
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-3 w-24 rounded" /> {/* Meta */}
-          </div>
+        <div className={cn("mt-auto", isGrid ? "" : "pt-1")}>
+          <Skeleton className="h-3 w-28 rounded" />
         </div>
       </div>
     </div>

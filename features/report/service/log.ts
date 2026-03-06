@@ -11,6 +11,7 @@
 import "server-only";
 import db from "@/lib/db";
 import type { ServiceResult } from "@/lib/types";
+import type { AdminAuditLogListResponse } from "@/features/report/types";
 
 /**
  * 감사 로그 목록 조회
@@ -19,12 +20,12 @@ import type { ServiceResult } from "@/lib/types";
  *
  * @param page - 현재 페이지 (기본값: 1)
  * @param limit - 페이지당 항목 수 (기본값: 20)
- * @returns {Promise<ServiceResult>} 로그 목록 및 페이징 정보
+ * @returns {Promise<ServiceResult<AdminAuditLogListResponse>>} 로그 목록 및 페이징 정보
  */
 export async function getAuditLogsAdmin(
   page = 1,
   limit = 20
-): Promise<ServiceResult<any>> {
+): Promise<ServiceResult<AdminAuditLogListResponse>> {
   try {
     const skip = (page - 1) * limit;
     const [total, items] = await Promise.all([

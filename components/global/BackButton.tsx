@@ -12,6 +12,7 @@
  * 2025.12.02  임도헌   Modified  appbar 사이즈/반응형 조정
  * 2026.01.10  임도헌   Modified  터치 타겟(44px) 확보 및 시맨틱 스타일 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/global
+ * 2026.02.26  임도헌   Modified  버튼 사이즈 11로 통일
  */
 "use client";
 
@@ -61,15 +62,15 @@ export default function BackButton({
     variant === "appbar"
       ? cn(
           // [Appbar] 배경 있음, 테두리 있음
-          "h-10 w-10 sm:h-11 sm:w-11", // 터치 타겟 확보
+          "h-11 w-11 shrink-0",
           "border border-border",
           "bg-surface/80 backdrop-blur text-primary",
           "hover:bg-surface-dim"
         )
       : cn(
           // [Inline] 배경 없음, 텍스트만
-          "h-11 px-2 text-sm font-medium",
-          "text-muted hover:text-primary"
+          "h-11 px-2 text-sm font-medium transition-colors",
+          "text-muted hover:text-gray-900 dark:hover:text-white"
         );
 
   return (

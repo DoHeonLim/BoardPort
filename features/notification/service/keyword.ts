@@ -10,6 +10,8 @@
  * 2026.02.13  임도헌   Modified  빈 키워드 매칭 방지 및 본인 제외 로직 재확인
  * 2026.02.21  임도헌   Modified  키워드별 개별 지역 범위(regionRange) 정책 적용
  * 2026.02.22  임도헌   Modified  JSDoc 최신화 (URL Legacy 제거 및 DB SSOT 동기화) 및 Upsert 로직 개선
+ * 2026.03.07  임도헌   Modified  키워드 알림 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  push 성공 판정 기준을 res.data.sent로 정정
  */
 
 import "server-only";
@@ -178,7 +180,7 @@ export async function checkAndSendKeywordAlert({
           type: "KEYWORD",
           tag: `bp-keyword-${productId}`,
         }).then(async (res) => {
-          if (res?.success && (res as any).sent > 0) {
+          if (res?.success && (res.data?.sent ?? 0) > 0) {
             await db.notification.update({
               where: { id: notification.id },
               data: { isPushSent: true, sentAt: new Date() },
@@ -247,7 +249,11 @@ export async function addKeywordAlert(
     return { success: true };
   } catch (e) {
     console.error("addKeywordAlert error:", e);
-    return { success: false, error: "키워드 등록 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "키워드 등록에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 
@@ -264,7 +270,11 @@ export async function removeKeywordAlert(
     });
     return { success: true };
   } catch {
-    return { success: false, error: "키워드 삭제에 실패했습니다." };
+    return {
+      success: false,
+      error:
+        "키워드 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }
 

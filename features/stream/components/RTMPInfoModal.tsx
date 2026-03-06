@@ -14,6 +14,8 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  닫기/보기/재발급 버튼 접근성 및 포커스 복귀 보강
+ * 2026.03.07  임도헌   Modified  사용자 피드백 문구를 v1.2 기준으로 구체화
  */
 
 "use client";
@@ -74,6 +76,7 @@ export default function RTMPInfoModal({
   // 패널 참조 (포커스 트랩 등에서 사용)
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFocusRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // 트래킹: 사용자가 "스트리밍 페이지로 이동"을 눌러 네비게이션 했는지 여부
   // 네비게이션했으면 닫기 시 브로드캐스트 삭제를 수행하지 않음
@@ -106,12 +109,14 @@ export default function RTMPInfoModal({
   // 열릴 때 첫 포커스 + 바디 스크롤 잠금
   useEffect(() => {
     if (!open) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => firstFocusRef.current?.focus(), 0);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       clearTimeout(t);
       document.body.style.overflow = prevOverflow;
+      previousFocusRef.current?.focus?.();
     };
   }, [open]);
 
@@ -167,7 +172,7 @@ export default function RTMPInfoModal({
       }
       toast.success("클립보드에 복사되었습니다.");
     } catch {
-      toast.error("복사에 실패했습니다.");
+      toast.error("클립보드 복사에 실패했습니다. 브라우저 권한을 확인한 뒤 다시 시도해주세요.");
     }
   };
 
@@ -184,10 +189,15 @@ export default function RTMPInfoModal({
           toast.success("스트림 키가 재발급되었습니다.");
         } else {
           // 실패 타입 (error 존재)
-          toast.error(res.error ?? "키 재발급 실패");
+          toast.error(
+            res.error ??
+              "스트림 키 재발급에 실패했습니다. 잠시 후 다시 시도해주세요."
+          );
         }
       } catch {
-        toast.error("오류가 발생했습니다.");
+        toast.error(
+          "스트림 키 재발급 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+        );
       }
     });
   };
@@ -197,7 +207,10 @@ export default function RTMPInfoModal({
       try {
         const res = await deleteLiveInputAction(liveInputId);
         if (!res?.success) {
-          toast.error(res?.error ?? "삭제 실패");
+          toast.error(
+            res?.error ??
+              "송출 채널 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+          );
           return;
         }
         toast.success("Live Input이 삭제되었습니다.");
@@ -209,7 +222,7 @@ export default function RTMPInfoModal({
   };
 
   // 닫기 공통 로직: 사용자가 "스트리밍 페이지로 이동" 하지 않았다면
-  // 생성된 broadcast를 삭제하여 중복 생성을 방지합니다.
+  // 생성된 broadcast를 삭제하여 중복 생성을 방지
   const handleClose = () => {
     // 만약 네비게이트 했으면 즉시 닫기
     if (navigatedToBroadcastRef.current || !broadcastId) {
@@ -225,10 +238,15 @@ export default function RTMPInfoModal({
           toast.success("생성된 방송이 취소되었습니다.");
           // 캐시 무효화 등은 서버 action 내부에서 처리됨
         } else {
-          toast.error("취소 실패");
+          toast.error(
+            res?.error ??
+              "생성된 방송 취소에 실패했습니다. 잠시 후 다시 시도해주세요."
+          );
         }
       } catch {
-        toast.error("오류가 발생했습니다.");
+        toast.error(
+          "방송 취소 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+        );
       } finally {
         onOpenChange(false);
       }
@@ -257,7 +275,8 @@ export default function RTMPInfoModal({
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 text-muted hover:text-primary rounded-lg hover:bg-surface-dim transition-colors"
+            aria-label="송출 정보 모달 닫기"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             disabled={isDeleting}
           >
             <XMarkIcon className="size-6" />
@@ -308,7 +327,8 @@ export default function RTMPInfoModal({
               <button
                 type="button"
                 onClick={() => setShowKey((v) => !v)}
-                className="p-1 text-muted hover:text-primary transition-colors"
+                aria-label={showKey ? "스트림 키 숨기기" : "스트림 키 보기"}
+                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-primary"
                 title={showKey ? "숨기기" : "보기"}
               >
                 {showKey ? (
@@ -340,6 +360,7 @@ export default function RTMPInfoModal({
                 type="button"
                 onClick={handleRotate}
                 disabled={isRotating}
+                aria-label="스트림 키 재발급"
                 className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-amber-600 dark:text-amber-400"
                 title="키 재발급"
               >

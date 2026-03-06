@@ -9,22 +9,31 @@
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.02.05  임도헌   Modified  좋아요 시 게시글 작성자와의 차단 관계 검증 추가
  * 2026.02.23  임도헌   Modified  좋아요 뱃지 체크 비동기 병렬화(Promise.allSettled)로 응답 속도 최적화
+ * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수로 통일
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  정지 유저 가드 및 사용자 노출용 실패 문구 구체화
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { unstable_cache as nextCache } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import {
   checkBoardExplorerBadge,
   checkPopularWriterBadge,
 } from "@/features/user/service/badge";
 import { checkBlockRelation } from "@/features/user/service/block";
+import { validateUserStatus } from "@/features/user/service/admin";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { ServiceResult } from "@/lib/types";
 
 /**
- * 좋아요 상태 및 총 개수 조회 (Internal)
+ * 게시글 좋아요 상태 및 총 개수 조회 로직
+ *
+ * [데이터 가공 전략]
+ * - 게시글의 총 좋아요 개수 카운트 및 현재 유저의 좋아요 여부 병렬 조회
+ * - 비로그인(null) 사용자일 경우 좋아요 상태를 false로 반환
+ *
+ * @param {number} postId - 게시글 ID
+ * @param {number | null} userId - 조회 유저 ID
  */
 export async function getPostLikeStatus(postId: number, userId: number | null) {
   const [likeCount, likedRow] = await Promise.all([
@@ -40,43 +49,33 @@ export async function getPostLikeStatus(postId: number, userId: number | null) {
 }
 
 /**
- * 좋아요 상태 캐시 (User ID 포함)
- * - userId가 null(비로그인)이면 isLiked는 항상 false
- * - 태그: POST_LIKE_STATUS(postId)
+ * 게시글 좋아요 상태 토글 로직
  *
- * @param {number} postId - 게시글 ID
- * @param {number | null} userId - 유저 ID
- */
-export const getCachedPostLikeStatus = (
-  postId: number,
-  userId: number | null
-) => {
-  return nextCache(
-    async (pid, uid) => getPostLikeStatus(pid, uid),
-    ["post-like-status", String(postId), String(userId)],
-    { tags: [T.POST_LIKE_STATUS(postId)] }
-  )(postId, userId);
-};
-
-/**
- * 좋아요 토글
- * - 좋아요 추가 시 작성자 뱃지 체크를 수행
+ * [데이터 가공 및 상호작용 전략]
+ * - 게시글 작성자와의 양방향 차단 관계 검증 후 차단 시 액션 차단
+ * - 좋아요 추가(Create) 또는 취소(Delete) 로직 수행
+ * - 좋아요 추가 시 작성자에 대한 관련 뱃지 부여 로직 병렬 실행
+ * - 동시성 이슈 및 멱등성 보장을 위한 예외(P2025 등) 무시 처리
  *
  * @param {number} userId - 유저 ID
  * @param {number} postId - 게시글 ID
- * @param {boolean} isLike - true: 좋아요, false: 취소
+ * @param {boolean} isLike - true(좋아요 추가), false(좋아요 취소)
  */
 export async function togglePostLike(
   userId: number,
   postId: number,
   isLike: boolean
 ): Promise<ServiceResult> {
+  const status = await validateUserStatus(userId);
+  if (!status.success) return status;
+
   // post 소유자 확인 (뱃지 체크용)
   const post = await db.post.findUnique({
     where: { id: postId },
     select: { userId: true },
   });
-  if (!post) return { success: false, error: "Post not found" };
+  if (!post)
+    return { success: false, error: "게시글을 찾을 수 없습니다." };
 
   // 차단 확인
   const isBlocked = await checkBlockRelation(userId, post.userId);
@@ -106,6 +105,10 @@ export async function togglePostLike(
       return { success: true };
     }
     console.error("togglePostLike failed:", e);
-    return { success: false, error: "Failed to toggle like" };
+    return {
+      success: false,
+      error:
+        "좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

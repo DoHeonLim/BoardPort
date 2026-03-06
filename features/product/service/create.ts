@@ -13,6 +13,8 @@
  * 2026.02.12  임도헌   Modified  상품 등록 시 키워드 알림 발송 로직(checkAndSendKeywordAlert) 연결
  * 2026.02.14  임도헌   Modified  위치 정보 추가
  * 2026.02.23  임도헌   Modified  Serverless 환경에서 알림 누락 방지를 위해 비동기 작업 명시적 await 처리
+ * 2026.03.07  임도헌   Modified  사용자 노출용 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  태그 중복 입력 방지 및 count 증가 기준을 고유 태그 단위로 정리
  */
 import "server-only";
 
@@ -43,6 +45,8 @@ export const createProduct = async (
   if (!status.success) return status;
 
   try {
+    const uniqueTags = Array.from(new Set(data.tags));
+
     const productData: Prisma.ProductCreateInput = {
       title: data.title,
       description: data.description,
@@ -66,7 +70,7 @@ export const createProduct = async (
       category: { connect: { id: data.categoryId } },
       user: { connect: { id: userId } },
       search_tags: {
-        connectOrCreate: data.tags.map((tag) => ({
+        connectOrCreate: uniqueTags.map((tag) => ({
           where: { name: tag },
           create: { name: tag },
         })),
@@ -90,9 +94,9 @@ export const createProduct = async (
       }
 
       // 2-3. 태그 사용 횟수 증가
-      if (data.tags.length > 0) {
+      if (uniqueTags.length > 0) {
         await tx.searchTag.updateMany({
-          where: { name: { in: data.tags } },
+          where: { name: { in: uniqueTags } },
           data: { count: { increment: 1 } },
         });
       }
@@ -106,7 +110,7 @@ export const createProduct = async (
       await checkAndSendKeywordAlert({
         productId: product.id,
         title: product.title,
-        tags: data.tags,
+        tags: uniqueTags,
         sellerId: userId,
         region1: data.location?.region1,
         region2: data.location?.region2,
@@ -124,7 +128,8 @@ export const createProduct = async (
     console.error("createProduct Service Error:", error);
     return {
       success: false,
-      error: "제품 등록 중 오류가 발생했습니다.",
+      error:
+        "제품 등록에 실패했습니다. 필수 입력값과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요.",
     };
   }
 };

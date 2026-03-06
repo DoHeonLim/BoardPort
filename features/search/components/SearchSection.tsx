@@ -13,7 +13,7 @@
  * 2025.04.29  임도헌   Modified  최근 검색 기록 실시간으로 업데이트 되도록 변경
  * 2025.04.30  임도헌   Modified  성능 최적화 및 사용자 경험 개선
  * 2025.06.12  임도헌   Modified  카테고리 평탄화
- * 2025.06.15  임도헌   Modieifd  handleFilterRemove코드 수정(칩 삭제 시 페이지 이동)
+ * 2025.06.15  임도헌   Modified  handleFilterRemove코드 수정(칩 삭제 시 페이지 이동)
  * 2025.06.17  임도헌   Modified  useSearchHistory 및 모듈 분리 적용
  * 2025.06.18  임도헌   Modified  filterTags 가격 칩 2개 나오는 오류 수정
  * 2025.06.21  임도헌   Modified  SearchModal 컴포넌트로 모달 구조 분리
@@ -23,10 +23,13 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  * 2026.02.08  임도헌   Modified  헤더 우측 슬롯(rightAction) 추가 (알림 벨 배치용)
+ * 2026.03.06  임도헌   Modified  검색 트리거 버튼 터치 타겟과 hover 대비를 UI/UX 표준에 맞게 보정
+ * 2026.03.07  임도헌   Modified  모바일 제품 목록에서 핵심 게임 타입 옵션을 노출형 칩으로 분리(v1.2)
  */
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSearchHistory } from "@/features/search/hooks/useSearchHistory";
@@ -34,6 +37,7 @@ import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUti
 import { useSearchContext } from "@/components/global/providers/SearchProvider";
 import ProductCategoryDropdown from "@/features/search/components/ProductCategoryDropdown";
 import SearchChips from "@/features/search/components/SearchChips";
+import { GAME_TYPES, GAME_TYPE_DISPLAY } from "@/features/product/constants";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/generated/prisma/client";
 import type {
@@ -76,6 +80,8 @@ export default function SearchSection({
   basePath,
   rightAction,
 }: SearchSectionProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
   const { filters, setFilters, isSearchOpen, setIsSearchOpen } =
     useSearchContext();
@@ -94,6 +100,15 @@ export default function SearchSection({
     setIsSearchOpen(false);
   };
 
+  const selectedGameType = searchParams.get("game_type");
+
+  const handleQuickGameTypeSelect = (gameType: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedGameType === gameType) params.delete("game_type");
+    else params.set("game_type", gameType);
+    router.push(`${basePath}?${params.toString()}`);
+  };
+
   return (
     <div className="bg-background transition-colors">
       {/* 1. 상단 바 (검색 트리거) */}
@@ -107,8 +122,8 @@ export default function SearchSection({
           <button
             type="button"
             className={cn(
-              "w-full h-10 px-4 flex items-center gap-2 rounded-xl text-sm transition-colors",
-              "bg-surface-dim text-muted hover:bg-black/5 dark:hover:bg-white/10",
+              "flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm transition-colors",
+              "bg-surface-dim text-muted hover:bg-border/80",
               "border border-transparent focus:outline-none focus:ring-2 focus:ring-brand/50"
             )}
             onClick={() => setIsSearchOpen(true)}
@@ -127,6 +142,33 @@ export default function SearchSection({
         {/* 우측 액션 슬롯 (알림 벨 등) */}
         {rightAction && <div className="shrink-0">{rightAction}</div>}
       </div>
+
+      {basePath === "/products" && isMobile && (
+        <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-border/60 scrollbar-hide">
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            게임 타입
+          </span>
+          {GAME_TYPES.map((type) => {
+            const active = selectedGameType === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleQuickGameTypeSelect(type)}
+                className={cn(
+                  "inline-flex min-h-[36px] shrink-0 items-center rounded-full px-3 text-xs font-medium transition-colors",
+                  active
+                    ? "bg-brand text-white shadow-sm"
+                    : "bg-surface text-muted hover:bg-surface-dim hover:text-primary"
+                )}
+                aria-pressed={active}
+              >
+                {GAME_TYPE_DISPLAY[type]}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* 2. 필터 칩 (검색창이 닫혀있을 때만 노출) */}
       <div

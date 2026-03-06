@@ -13,6 +13,7 @@
  * 2026.02.02  임도헌   Modified   주석상세 설명 보강
  * 2026.02.08  임도헌   Modified   정지된 유저(BANNED)일 경우 사유 및 기간 조회 로직 추가
  * 2026.02.20  임도헌   Modified   미들웨어 데드락 방지: 403 페이지에서 정지 만료 시 자동 세션 복구 및 홈으로 구출
+ * 2026.03.06  임도헌   Modified   403 상태 화면 여백을 전역 상태 레이아웃 기준으로 정리
  */
 
 import { redirect } from "next/navigation";
@@ -90,7 +91,7 @@ export default async function AccessDeniedPage({
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center px-page-x py-10 sm:py-16">
       <AccessDenied
         reason={reason}
         username={username}

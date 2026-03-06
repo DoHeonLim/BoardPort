@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.04  임도헌   Created   차단/신고 드롭다운 메뉴
+ * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  */
 "use client";
 
@@ -101,7 +102,7 @@ export default function ProfileOptionMenu({
               "w-full text-left px-4 py-3 text-sm font-medium transition-colors",
               isBlocked
                 ? "text-primary hover:bg-surface-dim"
-                : "text-danger hover:bg-danger/10"
+                : "text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
             )}
           >
             {isBlocked ? "차단 해제하기" : "차단하기"}

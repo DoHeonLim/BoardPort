@@ -9,6 +9,8 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 No Image UI 개선
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강
+ * 2026.02.28  임도헌   Modified  썸네일 크기 미세 조정
+ * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서는 썸네일 높이를 낮춰 정보 영역 비율을 균형화
  */
 "use client";
 
@@ -39,8 +41,8 @@ export default function PostCardThumbnail({
       className={cn(
         "relative overflow-hidden bg-surface-dim border-r border-border shrink-0",
         isGrid
-          ? "aspect-[4/3] w-full rounded-t-xl border-b"
-          : "w-20 sm:w-28 h-full"
+          ? "aspect-[3/2] w-full rounded-t-xl border-b sm:aspect-[4/3]"
+          : "w-32 h-full"
       )}
     >
       {images[0] ? (

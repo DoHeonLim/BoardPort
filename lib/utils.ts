@@ -17,6 +17,7 @@
  * 2025.11.29  임도헌   Modified   formatToTimeAgo 로직 변경(nowInput 추가)
  * 2026.02.02  임도헌   Modified   JSDoc 표준화 및 유틸 역할 명확화
  * 2026.02.13  임도헌   Modified  공유하기 공용 유틸(handleShare) 추가
+ * 2026.02.26  임도헌   Modified  formatToTimeAgo 간소화
  */
 
 import { clsx, type ClassValue } from "clsx";
@@ -61,13 +62,7 @@ export const formatToTimeAgo = (date: string, nowInput?: number): string => {
     if (diffInDays >= 7) return `${Math.floor(diffInDays / 7)}주일 전`;
     return `${diffInDays}일 전`;
   }
-  if (diffInHours > 0) {
-    const koreaDate = new Date(koreaTime);
-    const hours = koreaDate.getHours();
-    const amPm = hours >= 12 ? "오후" : "오전";
-    const displayHours = hours % 12 || 12;
-    return `${amPm} ${displayHours}시 ${koreaDate.getMinutes()}분`;
-  }
+  if (diffInHours > 0) return `${diffInHours}시간 전`;
   if (diffInMinutes > 0) return `${diffInMinutes}분 전`;
   return `방금 전`;
 };

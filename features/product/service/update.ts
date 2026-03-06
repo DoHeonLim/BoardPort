@@ -15,6 +15,9 @@
  * 2026.02.05  임도헌   Modified  가격 하락 알림 대상에서 차단 관계 유저 제외 로직 추가
  * 2026.02.20  임도헌   Modified  가격 하락 시 활성화된 모든 채팅방에 시스템 메시지 발송
  * 2026.02.22  임도헌   Modified  가격 하락 알림 대상에서 정지된 유저(Banned) 완벽 배제
+ * 2026.03.07  임도헌   Modified  사용자 노출용 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  가격 하락 push 성공 판정 기준을 res.data.sent로 정정
+ * 2026.03.07  임도헌   Modified  정지 유저 가드와 태그 count 정산 로직 추가
  */
 import "server-only";
 
@@ -22,6 +25,7 @@ import db from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import { getBlockedUserIds } from "@/features/user/service/block";
+import { validateUserStatus } from "@/features/user/service/admin";
 import {
   canSendPushForType,
   isNotificationTypeEnabled,
@@ -107,7 +111,7 @@ async function notifyPriceDrop(params: {
             tag: `price-drop-${productId}`, // 중복 알림 방지 태그
             renotify: true,
           }).then(async (res: any) => {
-            if (res?.success && res.sent > 0) {
+            if (res?.success && (res.data?.sent ?? 0) > 0) {
               await db.notification.update({
                 where: { id: notification.id },
                 data: { isPushSent: true, sentAt: new Date() },
@@ -167,6 +171,9 @@ export async function updateProduct(
   data: ProductDTO
 ): Promise<ServiceResult<{ productId: number }>> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     // 1. 소유권 및 기존 데이터 확인 (가격 비교용)
     const existing = await db.product.findUnique({
       where: { id: productId },
@@ -175,6 +182,7 @@ export async function updateProduct(
         price: true,
         title: true,
         images: { take: 1, orderBy: { order: "asc" }, select: { url: true } },
+        search_tags: { select: { name: true } },
       },
     });
 
@@ -208,6 +216,10 @@ export async function updateProduct(
     // 가격 하락 여부 체크
     const isPriceDropped = data.price < existing.price;
     const oldPrice = existing.price;
+    const nextTags = Array.from(new Set(data.tags));
+    const prevTags = existing.search_tags.map((tag) => tag.name);
+    const removedTags = prevTags.filter((tag) => !nextTags.includes(tag));
+    const addedTags = nextTags.filter((tag) => !prevTags.includes(tag));
 
     // 2. 트랜잭션 업데이트
     await db.$transaction(async (tx) => {
@@ -239,7 +251,7 @@ export async function updateProduct(
           ...locationUpdate,
           category: { connect: { id: data.categoryId } },
           search_tags: {
-            connectOrCreate: data.tags.map((tag) => ({
+            connectOrCreate: nextTags.map((tag) => ({
               where: { name: tag },
               create: { name: tag },
             })),
@@ -255,6 +267,24 @@ export async function updateProduct(
             order: index,
             productId,
           })),
+        });
+      }
+
+      if (removedTags.length > 0) {
+        await Promise.all(
+          removedTags.map((tag) =>
+            tx.searchTag.updateMany({
+              where: { name: tag, count: { gt: 0 } },
+              data: { count: { decrement: 1 } },
+            })
+          )
+        );
+      }
+
+      if (addedTags.length > 0) {
+        await tx.searchTag.updateMany({
+          where: { name: { in: addedTags } },
+          data: { count: { increment: 1 } },
         });
       }
     });
@@ -300,7 +330,8 @@ export async function updateProduct(
     console.error("updateProduct Service Error:", err);
     return {
       success: false,
-      error: "제품 수정 중 오류가 발생했습니다.",
+      error:
+        "제품 수정에 실패했습니다. 변경한 항목과 이미지 상태를 확인한 뒤 다시 시도해주세요.",
     };
   }
 }

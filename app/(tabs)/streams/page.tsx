@@ -24,21 +24,31 @@
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.02.08  임도헌   Modified  헤더 우측에 알림 벨(NotificationBell) 추가, 검색창과 카테고리 탭 위치 변경
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
+ * 2026.02.26  임도헌   Modified  헤더 UI 수정
+ * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  스코프 탭 active 상태를 다크모드 대비 기준으로 재정렬
+ * 2026.03.06  임도헌   Modified  상단 검색/스코프/카테고리 행의 간격과 보더 구조를 제품/게시글 탭과 유사하게 통일
+ * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 스트림 카드 스켈레톤 구조로 통일
  */
+import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient } from "@/lib/getQueryClient";
+import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import NotificationBell from "@/components/global/NotificationBell";
 import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
 import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
 import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
 import AddStreamButton from "@/features/stream/components/AddStreamButton";
+import StreamListSkeleton from "@/features/stream/components/StreamListSkeleton";
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
-import { getStreams } from "@/features/stream/service/list";
+import { getStreamsListAction } from "@/features/stream/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 
 export const dynamic = "force-dynamic";
@@ -63,11 +73,10 @@ export const metadata: Metadata = {
  * 스트리밍 목록 페이지
  *
  * [기능]
- * 1. 검색 조건(키워드, 카테고리, 스코프)에 따라 방송 목록을 조회 (`getStreams` Service)
- * 2. `LiveStatusRealtimeSubscriber`를 통해 실시간 상태 갱신을 구독
- * 3. 카테고리 탭과 검색바를 상단에 고정 표시
- * 4. 목록(`StreamListSection`) 또는 빈 상태(`StreamEmptyState`)를 렌더링
- * 5. 우측 하단에 방송 시작 버튼(`AddStreamButton`)을 표시
+ * - 세션 검증을 통한 로그인 여부 확인 및 비인가 사용자 리다이렉트 처리
+ * - URL 검색 조건(키워드, 카테고리, 스코프) 기반 스트리밍 목록의 서버 프리패치(Prefetch) 적용
+ * - 안 읽은 알림 개수의 서버 사이드 병렬 로드 적용
+ * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달 및 초기 렌더링 최적화
  */
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const session = await getSession();
@@ -82,25 +91,22 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   const category = searchParams.category?.trim() || undefined;
   const keyword = searchParams.keyword?.trim() || undefined;
 
-  const TAKE = STREAMS_PAGE_TAKE;
+  const queryParams = { category: category ?? "", keyword: keyword ?? "" };
 
-  // Service 직접 호출 (Action Wrapper 제거)
-  const [allItems, unreadCount] = await Promise.all([
-    getStreams({
-      scope,
-      category,
-      keyword,
-      viewerId,
-      cursor: null,
-      take: TAKE + 1,
+  const queryClient = getQueryClient();
+  const [, unreadCount] = await Promise.all([
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.streams.list(scope, queryParams),
+      queryFn: () => getStreamsListAction(scope, null, queryParams, viewerId),
+      initialPageParam: null as number | null,
     }),
     getUnreadNotificationCount(),
   ]);
 
-  // Cursor 계산
-  const hasMore = allItems.length > TAKE;
-  const streams = hasMore ? allItems.slice(0, TAKE) : allItems;
-  const nextCursor = hasMore ? streams[streams.length - 1].id : null;
+  const prefetchData = queryClient.getQueryData<any>(
+    queryKeys.streams.list(scope, queryParams)
+  );
+  const isDataEmpty = prefetchData?.pages[0]?.streams.length === 0;
 
   // 탭 링크 빌더
   const buildHref = (nextScope: "all" | "following") => {
@@ -114,84 +120,79 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background transition-colors pb-24">
-      {/* 실시간 상태 구독 */}
       <LiveStatusRealtimeSubscriber />
 
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          {/* Search + Bell Group */}
-          <div className="flex flex-1 items-center gap-2 min-w-0">
-            <StreamSearchBarWrapper />
-            <div className="shrink-0">
-              <NotificationBell userId={viewerId} initialCount={unreadCount} />
-            </div>
+      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
+        {/* 1단: 검색 및 알림 벨 */}
+        <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
+          <StreamSearchBarWrapper />
+          <div className="shrink-0">
+            <NotificationBell userId={viewerId!} initialCount={unreadCount} />
           </div>
         </div>
 
-        <div className="flex justify-center items-center gap-3 mt-4">
+        {/* 2단: 페이지 스코프 선택 (전체 / 팔로잉) */}
+        <nav
+          aria-label="보기 범위"
+          className="border-b border-border/50 px-4 py-2"
+        >
+          <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
+            <Link
+              href={buildHref("all")}
+              className={cn(
+                "flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
+                scope === "all"
+                  ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                  : "text-muted hover:bg-background/70 hover:text-primary"
+              )}
+            >
+              전체 방송
+            </Link>
+            <Link
+              href={buildHref("following")}
+              className={cn(
+                "flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
+                scope === "following"
+                  ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                  : "text-muted hover:bg-background/70 hover:text-primary"
+              )}
+            >
+              팔로잉
+            </Link>
+          </div>
+        </nav>
+
+        {/* 3단: 카테고리 칩 */}
+        <div className="px-4 py-2 overflow-hidden">
           <StreamCategoryTabs currentCategory={category} />
-          {/* Scope Tab */}
-          <nav
-            aria-label="스트리밍 보기 범위"
-            role="tablist"
-            className="shrink-0"
-          >
-            <div className="flex p-1 bg-surface-dim rounded-xl border border-border">
-              <Link
-                href={buildHref("all")}
-                role="tab"
-                aria-selected={scope === "all"}
-                className={cn(
-                  "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap",
-                  scope === "all"
-                    ? "bg-surface text-brand shadow-sm"
-                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-              >
-                전체
-              </Link>
-              <Link
-                href={buildHref("following")}
-                role="tab"
-                aria-selected={scope === "following"}
-                className={cn(
-                  "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap",
-                  scope === "following"
-                    ? "bg-surface text-brand shadow-sm"
-                    : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-              >
-                팔로잉
-              </Link>
-            </div>
-          </nav>
         </div>
-      </div>
+      </header>
 
       {/* Content */}
       <div className="flex-1 px-page-x py-6">
-        {streams.length > 0 ? (
-          <StreamListSection
-            key={JSON.stringify(searchParams)}
-            scope={scope}
-            searchParams={{
-              category: category ?? "",
-              keyword: keyword ?? "",
-            }}
-            initialItems={streams}
-            initialCursor={nextCursor}
-            viewerId={viewerId}
-          />
-        ) : (
+        {isDataEmpty ? (
           <StreamEmptyState
             keyword={keyword}
             category={category}
             scope={scope}
           />
+        ) : (
+          <HydrationBoundary state={dehydrate(queryClient)}>
+            <Suspense
+              fallback={<StreamListSkeleton />}
+            >
+              <StreamListSection
+                key={JSON.stringify(searchParams)}
+                scope={scope}
+                searchParams={queryParams}
+                viewerId={viewerId}
+              />
+            </Suspense>
+          </HydrationBoundary>
         )}
       </div>
-
+      {/* 스트리밍 추가 플로팅 버튼 (FAB) */}
       <AddStreamButton />
     </div>
   );

@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.19  임도헌   Created   약속 데이터 입력 UI 및 지도 연동
+ * 2026.02.26  임도헌   Modified  다크모드 가시성(MapPinIcon, 변경버튼) 개선
+ * 2026.03.06  임도헌   Modified  닫기 버튼 터치 타겟과 버튼 hover 대비를 표준 규칙에 맞게 조정
  */
 
 "use client";
@@ -71,15 +73,15 @@ export default function ScheduleModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface-dim/30">
           <h3 className="font-bold text-primary text-lg flex items-center gap-2">
-            <CalendarIcon className="size-5 text-brand" />
+            <CalendarIcon className="size-5 text-brand dark:text-brand-light" />
             약속 잡기
           </h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-black/5 rounded-full"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
           >
-            <XMarkIcon className="size-6 text-muted" />
+            <XMarkIcon className="size-6" />
           </button>
         </div>
 
@@ -93,7 +95,7 @@ export default function ScheduleModal({
                 type="date"
                 value={dateStr}
                 onChange={(e) => setDateStr(e.target.value)}
-                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand"
+                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
               />
             </div>
             <div className="space-y-1.5">
@@ -102,7 +104,7 @@ export default function ScheduleModal({
                 type="time"
                 value={timeStr}
                 onChange={(e) => setTimeStr(e.target.value)}
-                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand"
+                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
               />
             </div>
           </div>
@@ -111,9 +113,9 @@ export default function ScheduleModal({
           <div className="space-y-2">
             <label className="text-xs font-bold text-muted">만날 장소</label>
             {location ? (
-              <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm group">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 dark:border-brand-light/30 shadow-sm group">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 bg-brand/10 rounded-full text-brand shrink-0">
+                  <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
                     <MapPinIcon className="size-5" />
                   </div>
                   <div className="min-w-0">
@@ -127,7 +129,7 @@ export default function ScheduleModal({
                 </div>
                 <button
                   onClick={() => setShowMap(true)}
-                  className="text-xs text-muted hover:text-brand px-2 py-1"
+                  className="rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
                 >
                   변경
                 </button>
@@ -135,7 +137,7 @@ export default function ScheduleModal({
             ) : (
               <button
                 onClick={() => setShowMap(true)}
-                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 transition-all"
+                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-all"
               >
                 <MapPinIcon className="size-5" />
                 <span className="text-sm font-medium">지도에서 장소 선택</span>

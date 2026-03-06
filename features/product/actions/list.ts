@@ -17,12 +17,14 @@
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/products/actions/init.ts -> features/product/actions/list.ts
  * 2026.02.05  임도헌   Modified  제품 목록 조회 시 viewerId 전달 (차단 필터링)
+ * 2026.03.04  임도헌   Modified  getProductsList로 조회 로직 통합 및 캐시 래퍼 제거
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 
 "use server";
 
 import getSession from "@/lib/session";
-import { getMoreProducts as fetchMore } from "@/features/product/service/list";
+import { getProductsList } from "@/features/product/service/list";
 import type {
   Paginated,
   ProductType,
@@ -30,19 +32,22 @@ import type {
 } from "@/features/product/types";
 
 /**
- * 무한 스크롤용 추가 제품 데이터 로드 Action
- * - 클라이언트 컴포넌트에서 다음 페이지 요청 시 호출
- * - 초기 로딩 시 적용된 검색 조건(params)을 그대로 유지하여 Service에 전달
+ * 제품 목록 조회 Server Action (무한 스크롤 및 필터링)
  *
- * @param cursor - 마지막 아이템 ID
+ * [데이터 페칭 및 권한 로직]
+ * - 클라이언트의 `useSuspenseInfiniteQuery` 연동을 위한 데이터 페칭 진입점
+ * - 로그인 세션 확인 및 조회자(viewerId) 추출을 통한 차단 유저/정지 유저 필터링 적용
+ * - 초기 렌더링 시 적용된 검색 조건(params)을 페이징 과정 전체에서 유지하며 Service로 전달
+ *
+ * @param cursor - 마지막 아이템 ID (커서)
  * @param params - 검색 파라미터 (keyword, region, category 등)
  */
-export const getMoreProducts = async (
+export const getProductsAction = async (
   cursor: number | null,
   params: ProductSearchParams
 ): Promise<Paginated<ProductType>> => {
   const session = await getSession();
   const viewerId = session?.id ?? -1; // 비로그인 시 -1 (필터링 없음)
 
-  return fetchMore(cursor, params, viewerId);
+  return getProductsList(params, viewerId, cursor);
 };

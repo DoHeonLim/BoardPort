@@ -14,25 +14,26 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 개선
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.01  임도헌   Modified  useStreamPagination 도입을 통해 내부 상태 및 팔로우 동기화 로직 제거
+ * 2026.03.03  임도헌   Modified  명령형 로딩(isLoading) 상태 제거 및 선언적 렌더링 적용
+ * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  모바일 카드 간격과 데스크톱 간격을 분리해 리스트 밀도를 정리
+ * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
  */
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
-import { onFollowDelta } from "@/features/user/utils/delta";
 import StreamCard from "@/features/stream/components/StreamCard";
-import { getMoreStreams } from "@/features/stream/actions/list";
-import type { BroadcastSummary } from "@/features/stream/types";
+import { useStreamPagination } from "@/features/stream/hooks/useStreamPagination";
 
 type Scope = "all" | "following";
 
 interface StreamListProps {
   scope: Scope;
   searchParams: { category?: string; keyword?: string };
-  initialItems: BroadcastSummary[];
-  initialCursor: number | null;
   onRequestFollow?: (streamer: { id: number; username: string }) => void;
   viewerId?: number | null;
 }
@@ -40,157 +41,50 @@ interface StreamListProps {
 /**
  * 스트리밍 목록 렌더링 컴포넌트
  *
- * [기능]
- * 1. 초기 방송 목록을 렌더링
- * 2. `useInfiniteScroll`을 사용하여 무한 스크롤을 처리
- * 3. `onFollowDelta` 이벤트를 구독하여 팔로우 상태 변경 시 해당 카드의 잠금 상태를 즉시 갱신
- * 4. 중복 데이터 병합 로직을 통해 리스트 정합성을 유지
+ * [상태 주입 및 스크롤 페이징 로직]
+ * - `useStreamPagination` 훅을 통한 서버 하이드레이션 데이터 추출 및 무한 스크롤 상태 자동화 적용
+ * - 사용자 가시성(`usePageVisibility`) 기반 `useInfiniteScroll` 감지를 활용한 불필요한 데이터 페칭 방지
+ * - `isFetchingNextPage` 플래그를 통한 스크롤 하단 로딩 스피너 분리 표시
+ * - 조회 범위(`scope`) 및 팔로우 액션 콜백 주입에 따른 렌더링 최적화
  */
 export default function StreamList({
   scope,
   searchParams,
-  initialItems,
-  initialCursor,
   onRequestFollow,
   viewerId = null,
 }: StreamListProps) {
-  const [items, setItems] = useState<BroadcastSummary[]>(initialItems);
-  const [cursor, setCursor] = useState<number | null>(initialCursor);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState<boolean>(initialCursor !== null);
-  const [error, setError] = useState<string | null>(null);
-
-  /**
-   * 검색 파라미터/초기값 변경 시 리스트 상태 리셋
-   * - page.tsx에서 key={JSON.stringify(searchParams)}로 리마운트를 유도하고 있지만,
-   *   혹시나 재사용되는 경우에도 안전하게 동작하도록 방어적으로 유지
-   */
-  useEffect(() => {
-    setItems(initialItems);
-    setCursor(initialCursor);
-    setHasMore(initialCursor !== null);
-    setError(null);
-  }, [initialItems, initialCursor]);
-
-  /**
-   * 팔로우 즉시 반영(리스트):
-   * - FollowSection이 아닌 곳에서는 followersOnlyLocked가 서버 플래그로만 남기 쉬움.
-   * - 같은 탭에서 내가 팔로우/언팔한 결과를 followDelta로 구독해
-   *   해당 스트리머의 FOLLOWERS 방송 카드 잠금을 즉시 갱신
-   */
-  useEffect(() => {
-    if (!viewerId) return;
-
-    return onFollowDelta((d) => {
-      // 내 액션만 반영(다른 사용자의 이벤트/테스트 노이즈 방지)
-      if ((d.viewerId ?? null) !== viewerId) return;
-
-      const serverIsFollowing = d.server?.isFollowing;
-      if (typeof serverIsFollowing !== "boolean") return;
-
-      const targetUserId = d.targetUserId;
-
-      setItems((prev) => {
-        let changed = false;
-
-        const next = prev.map((s) => {
-          if (s.user.id !== targetUserId) return s;
-          if (s.visibility !== "FOLLOWERS") return s;
-
-          const nextLocked = !serverIsFollowing;
-          if (!!s.followersOnlyLocked === nextLocked) return s;
-
-          changed = true;
-          return { ...s, followersOnlyLocked: nextLocked };
-        });
-
-        return changed ? next : prev;
-      });
-    });
-  }, [viewerId]);
-
-  const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  // 빈 문자열 방지(서버 액션에서 또 한번 정규화하지만 여기서도 가볍게)
+  // 검색 파라미터 정규화 (빈 문자열 제거)
   const category = (searchParams.category || "").trim();
   const keyword = (searchParams.keyword || "").trim();
 
+  // TanStack Query 기반 페이지네이션 훅 호출 (상태 관리 전임)
+  const { streams, isFetchingNextPage, hasMore, loadMore } =
+    useStreamPagination({
+      scope,
+      searchParams: { category, keyword },
+      viewerId,
+    });
+
+  // IntersectionObserver를 이용한 무한 스크롤 트리거 연결
   useInfiniteScroll({
     triggerRef,
     hasMore,
-    isLoading,
-    onLoadMore: async () => {
-      if (isLoading || !hasMore) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const data = await getMoreStreams(
-          scope,
-          cursor,
-          { category, keyword },
-          viewerId
-        );
-
-        /**
-         * 병합 정책(성능 최적화)
-         * - 기존 순서 유지
-         * - 동일 id는 “신규 데이터”로 덮어써 최신 상태 반영
-         * - prev에 없던 신규만 뒤에 추가
-         * - O(n²) find 제거 → O(n+m)
-         */
-        if (data.streams.length > 0) {
-          setItems((prev) => {
-            const byId = new Map<number, BroadcastSummary>();
-
-            // 1) prev로 기본 상태 확보(순서/기존 값)
-            for (const item of prev) byId.set(item.id, item);
-
-            // 2) 신규 데이터로 덮어쓰기(같은 id면 최신 상태)
-            for (const item of data.streams) byId.set(item.id, item);
-
-            // 3) 결과 배열: 기존 순서 유지 + 최신 값 반영
-            const next: BroadcastSummary[] = [];
-            for (const item of prev) {
-              const latest = byId.get(item.id);
-              if (latest) next.push(latest);
-              byId.delete(item.id); // 남는 건 “prev에 없던 신규”만 남김
-            }
-
-            // 4) prev에 없던 신규만 뒤에 추가
-            for (const item of data.streams) {
-              if (byId.has(item.id)) {
-                next.push(item);
-                byId.delete(item.id);
-              }
-            }
-
-            return next;
-          });
-        }
-
-        setCursor(data.nextCursor);
-        setHasMore(data.nextCursor !== null);
-      } catch (e) {
-        console.error("Failed to load more streams:", e);
-        setError("목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
-      } finally {
-        setIsLoading(false);
-      }
-    },
+    // 데이터 중복 로딩을 방지하기 위해 다음 페이지 패칭 상태(isFetchingNextPage)를 로딩 플래그로 전달함
+    isLoading: isFetchingNextPage,
+    onLoadMore: loadMore,
     enabled: isVisible,
-    rootMargin: "1200px 0px 0px 0px",
+    rootMargin: "1200px 0px 0px 0px", // 사용자 경험 향상을 위한 조기 프리패치 여유 공간
     threshold: 0.01,
   });
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-        {items.map((s) => {
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
+        {streams.map((s) => {
           const tags = s.tags ?? [];
-
           return (
             <StreamCard
               key={s.id}
@@ -223,24 +117,18 @@ export default function StreamList({
         })}
       </div>
 
-      {isLoading && (
-        <div
-          className="py-12 flex justify-center items-center gap-2 text-sm text-muted"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
-          <span>방송을 불러오는 중...</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="py-6 text-center text-sm text-danger bg-danger/5 rounded-lg border border-danger/10 mx-4">
-          {error}
-        </div>
-      )}
-
-      <div ref={triggerRef} className="h-8" aria-hidden="true" tabIndex={-1} />
+      {/* Loading */}
+      <div className="py-8 min-h-[40px]">
+        {hasMore && (
+          <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
+        )}
+        {isFetchingNextPage && (
+          <div className="list-loading-pill">
+            <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            <span className="whitespace-nowrap">더 불러오는 중...</span>
+          </div>
+        )}
+      </div>
     </>
   );
 }

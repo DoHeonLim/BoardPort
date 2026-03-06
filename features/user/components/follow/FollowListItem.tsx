@@ -14,6 +14,7 @@
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 버튼 스타일 세분화 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/follow -> features/user/components/follow
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드에서 Outline 버튼 가시성(brand-light) 개선
  */
 
 "use client";
@@ -78,8 +79,8 @@ export default function FollowListItem({
             following
               ? "bg-surface-dim text-muted border-border hover:bg-border/50" // Unfollow
               : buttonVariant === "primary"
-                ? "bg-brand text-white border-transparent hover:bg-brand-dark" // Primary Follow
-                : "bg-surface text-brand border-brand hover:bg-brand/5" // Outline Follow
+              ? "bg-brand text-white border-transparent hover:bg-brand-dark" // Primary Follow
+              : "bg-surface text-brand border-brand hover:bg-brand/5 dark:text-brand-light dark:border-brand-light/50 dark:hover:bg-brand-light/10"
           )}
         >
           {pending ? "..." : following ? "팔로잉" : "팔로우"}

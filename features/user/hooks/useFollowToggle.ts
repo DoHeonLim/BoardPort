@@ -1,12 +1,7 @@
 /**
  * File Name : features/user/hooks/useFollowToggle.ts
- * Description : 팔로우/언팔 API 래퍼(낙관 업데이트 + 서버 정합 보정 + followDelta 이벤트 발행)
+ * Description : 팔로우/언팔로우 토글 API 래퍼 (이벤트 버스 제거 및 Query Cache 직접 갱신)
  * Author : 임도헌
- *
- * Key Points
- * - 서버 응답(delta/isFollowing/counts)을 SSOT로 사용해 멱등/경합 상황에서도 최종 상태를 맞춘다.
- * - refresh 기본값은 false(모달 UX 보호). 필요 시 상위(헤더)에서만 opt-in 한다.
- * - 성공 흐름에서 followDelta 이벤트를 1회 발행하여 화면 간(헤더/모달/카드) 동기화를 돕는다.
  *
  * History
  * Date        Author   Status    Description
@@ -20,148 +15,111 @@
  * 2026.01.16  임도헌   Moved     hooks -> hooks/user
  * 2026.01.18  임도헌   Moved     hooks/user -> features/user/hooks
  * 2026.01.24  임도헌   Modified  Server Action 전환 (API Route 제거)
+ * 2026.03.01  임도헌   Modified  delta.ts(CustomEvent) 의존성 제거 및 queryClient.setQueryData 기반 전역 상태 갱신 적용
+ * 2026.03.03  임도헌   Modified  전역 캐시 조작 로직 보완
+ * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.07  임도헌   Modified   서버가 반환한 팔로우 실패 사유를 토스트로 직접 노출
  */
 
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { emitFollowDelta } from "@/features/user/utils/delta";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { queryKeys } from "@/lib/queryKeys";
 import { toggleFollowAction } from "@/features/user/actions/follow";
 
-type Counts = { viewerFollowing?: number; targetFollowers?: number };
-
-type Opts = {
-  viewerId?: number | null;
-  onOptimistic?(): void;
-  onRollback?(): void;
-  refresh?: boolean; // 성공 후 router.refresh() 여부
-  onRequireLogin?(): void;
-  onFollowersChange?(delta: number): void;
-  optimisticNextIsFollowing?: boolean;
-  onReconcileServerState?(payload: {
-    isFollowing: boolean;
-    counts?: Counts;
-  }): void;
-};
-
 /**
- * 팔로우/언팔로우 토글 훅
+ * 팔로우/언팔로우 토글 액션 및 낙관적 상태 갱신 훅
  *
- * [기능]
- * 1. 팔로우/언팔로우 API를 호출하고, 결과를 처리
- * 2. 낙관적 업데이트(Optimistic Update)를 지원하여 UI 반응성을 높임임
- * 3. 실패 시 롤백(Rollback) 로직을 수행
- * 4. 성공 시 `emitFollowDelta` 이벤트를 발행하여 전역 상태(다른 컴포넌트)를 동기화
- * 5. 중복 요청 방지(Pending 상태 관리)를 수행
+ * [상태 추출 및 사이드 이펙트 제어 로직]
+ * - `toggleFollowAction` 서버 액션을 호출하여 팔로우 상태 변경 데이터 영속화
+ * - `queryClient.setQueryData`를 활용한 헤더 팔로우 통계(`users.followStats`) 즉각적인 캐시 병합(Optimistic Update) 적용
+ * - `queryClient.setQueriesData`를 통한 스트리밍 목록 내 팔로워 전용 방송 잠금(`followersOnlyLocked`) 상태 실시간 동기화 처리
+ * - 모달 리스트 내부 상태 최신화를 위한 `queryKeys.follows.all` 무효화 유도
  */
 export function useFollowToggle() {
-  const router = useRouter();
-  // 중복 요청 방지 (ID별)
+  const queryClient = useQueryClient();
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
-
-  const setPending = useCallback((userId: number, v: boolean) => {
-    setPendingIds((prev) => {
-      const next = new Set(prev);
-      if (v) next.add(userId);
-      else next.delete(userId);
-      return next;
-    });
-  }, []);
 
   const isPending = useCallback(
     (id: number) => pendingIds.has(id),
     [pendingIds]
   );
 
-  /**
-   * 팔로우 상태 토글
-   */
   const toggle = useCallback(
-    async (userId: number, isFollowingNow: boolean, opts?: Opts) => {
+    async (userId: number, isFollowingNow: boolean, opts?: any) => {
       if (isPending(userId)) return;
-      setPending(userId, true);
-
-      // 낙관적 상태 계산
-      const optimisticNext =
-        typeof opts?.optimisticNextIsFollowing === "boolean"
-          ? opts.optimisticNextIsFollowing
-          : !isFollowingNow;
-
-      // 1. UI 즉시 반영 (Optimistic)
-      opts?.onOptimistic?.();
+      setPendingIds((prev) => new Set(prev).add(userId));
 
       try {
         const intent = isFollowingNow ? "unfollow" : "follow";
-
-        // 2. 서버 요청
         const res = await toggleFollowAction(userId, intent);
 
         if (!res.success) {
           if (res.code === "UNAUTHORIZED") {
-            opts?.onRollback?.();
             opts?.onRequireLogin?.();
             toast.error("로그인이 필요합니다.");
           } else {
-            throw new Error(res.error);
+            toast.error(res.error);
           }
           return;
         }
 
-        const { changed, delta, isFollowing, counts } = res;
+        const delta = res.changed ? (intent === "follow" ? 1 : -1) : 0;
 
-        // 3. 결과 알림
-        if (changed) {
-          toast.success(
-            intent === "follow" ? "팔로우 했습니다." : "언팔로우 했습니다."
-          );
-        } else {
-          // 이미 상태가 변경된 경우 (멱등성)
-          toast(
-            isFollowing ? "이미 팔로우 중입니다." : "이미 언팔로우 상태입니다."
-          );
-        }
+        // 1. 헤더 통계 갱신 (users 도메인 캐시 직접 조작)
+        queryClient.setQueryData(
+          queryKeys.users.followStats(userId),
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              isFollowing: res.isFollowing,
+              followerCount: Math.max(0, old.followerCount + delta),
+            };
+          }
+        );
 
-        // 4. 콜백 호출 (카운트 갱신 등)
-        opts?.onFollowersChange?.(delta);
-        opts?.onReconcileServerState?.({ isFollowing, counts });
+        // 2. 스트리밍 목록에서 Followers 잠금 상태 해제/설정 동기화를 적용
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.streams.lists() },
+          (oldData: any) => {
+            if (!oldData || !oldData.pages) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page: any) => ({
+                ...page,
+                streams: page.streams.map((stream: any) => {
+                  // 대상 유저의 방송이고 FOLLOWERS 전용일 경우에만 잠금 플래그를 변경
+                  if (
+                    stream.user.id === userId &&
+                    stream.visibility === "FOLLOWERS"
+                  ) {
+                    return { ...stream, followersOnlyLocked: !res.isFollowing };
+                  }
+                  return stream;
+                }),
+              })),
+            };
+          }
+        );
 
-        // 낙관적 결과와 서버 결과가 다르면 롤백
-        if (isFollowing !== optimisticNext) {
-          opts?.onRollback?.();
-        }
-
-        // 5. 전역 이벤트 발행 (다른 컴포넌트 동기화)
-        emitFollowDelta({
-          targetUserId: userId,
-          viewerId: opts?.viewerId ?? null,
-          delta: delta as 1 | -1 | 0,
-          server: { isFollowing, counts },
-        });
+        // 3. 모달 리스트 데이터 갱신을 위해 무효화 처리를 수행
+        queryClient.invalidateQueries({ queryKey: queryKeys.follows.all });
       } catch (e) {
-        console.error(e);
-        opts?.onRollback?.(); // 에러 시 롤백
+        console.error("Toggle Follow Error:", e);
         toast.error("요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
-        setPending(userId, false);
-        if (opts?.refresh === true) router.refresh();
+        setPendingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
       }
     },
-    [isPending, router, setPending]
+    [isPending, queryClient]
   );
 
-  const follow = useCallback(
-    (id: number, opts?: Opts) => toggle(id, false, opts),
-    [toggle]
-  );
-  const unfollow = useCallback(
-    (id: number, opts?: Opts) => toggle(id, true, opts),
-    [toggle]
-  );
-
-  return useMemo(
-    () => ({ follow, unfollow, toggle, isPending }),
-    [follow, unfollow, toggle, isPending]
-  );
+  return useMemo(() => ({ toggle, isPending }), [toggle, isPending]);
 }

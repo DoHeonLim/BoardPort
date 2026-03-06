@@ -12,11 +12,13 @@
  *                                폼에서는 알림 종류/방해금지 시간만 저장(푸시는 PushNotificationToggle로만 제어)
  * 2026.01.16  임도헌   Modified  폼 요소 개선
  * 2026.01.17  임도헌   Moved     components/notification -> features/notification/components
+ * 2026.03.06  임도헌   Modified  저장 버튼 pending 상태 및 중복 제출 방지 처리 추가
+ * 2026.03.07  임도헌   Modified  알림 유형/전역 푸시 관계 설명을 보강해 투명성 기준(v1.2) 반영
  */
 
 "use client";
 
-import { useFormState } from "react-dom";
+import { useFormState, useFormStatus } from "react-dom";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -69,10 +71,13 @@ export default function NotificationSettingsClient({ prefs }: Props) {
     if (!state) return;
 
     if (state.ok) {
-      toast.success("알림 설정이 저장되었습니다.");
+      toast.success("알림 종류와 방해 금지 시간이 저장되었습니다.");
       router.push("/profile");
     } else if (state.error) {
-      toast.error("알림 설정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      toast.error(
+        state.error ||
+          "알림 설정 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+      );
     }
   }, [state, router]);
 
@@ -90,11 +95,19 @@ export default function NotificationSettingsClient({ prefs }: Props) {
           </div>
           <PushNotificationToggle />
         </div>
+        <p className="px-1 text-xs leading-relaxed text-muted">
+          전체 푸시 알림을 끄면 아래 알림 종류가 켜져 있어도 기기 알림은 오지
+          않습니다. 알림 종류와 방해 금지 시간은 계정 설정으로 저장됩니다.
+        </p>
       </section>
 
       {/* 2. 알림 종류 설정 */}
       <section className="space-y-2">
         <h2 className="text-sm font-bold text-primary px-1">알림 종류</h2>
+        <p className="px-1 text-xs leading-relaxed text-muted">
+          어떤 상황에서 알림을 받을지 선택합니다. 필요한 유형만 켜 두면 알림
+          피로도를 줄일 수 있습니다.
+        </p>
         <div className="panel divide-y divide-border overflow-hidden">
           {rows.map((row) => (
             <label
@@ -133,7 +146,8 @@ export default function NotificationSettingsClient({ prefs }: Props) {
         <h2 className="text-sm font-bold text-primary px-1">방해 금지 시간</h2>
         <div className="panel p-4">
           <p className="text-xs text-muted mb-4">
-            설정한 시간 동안에는 푸시 알림이 울리지 않습니다. (중요 알림 제외)
+            설정한 시간 동안에는 푸시 알림이 울리지 않습니다. 긴급한 보안/정책
+            안내는 예외로 표시될 수 있습니다.
           </p>
 
           <div className="flex items-center gap-2">
@@ -162,11 +176,23 @@ export default function NotificationSettingsClient({ prefs }: Props) {
 
       {/* 저장 버튼 */}
       <div className="pt-4">
-        <button type="submit" className="w-full h-12 btn-primary rounded-xl">
-          설정 저장하기
-        </button>
+        <SubmitButton />
       </div>
     </form>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full h-12 btn-primary rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? "저장 중..." : "설정 저장하기"}
+    </button>
   );
 }
 

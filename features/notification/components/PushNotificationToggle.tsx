@@ -12,12 +12,15 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/notification
  * 2026.01.17  임도헌   Moved     components/notification -> features/notification/components
  * 2026.02.25  임도헌   Modified  구독/해제 중 로딩 상태(isLoading) 및 스피너 UI 추가
+ * 2026.02.26  임도헌   Modified  좁은 화면에서 UI 깨짐 수정
+ * 2026.02.28  임도헌   Modified  iOS 사파리 가이드 제공
  */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePushNotification } from "@/features/notification/hooks/usePushNotification";
+import { ShareIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,35 +36,70 @@ export function PushNotificationToggle() {
     usePushNotification();
 
   const [loading, setLoading] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
-  // 브라우저 미지원 처리
-  if (!isSupported) {
+  useEffect(() => {
+    // 1. iOS 계열 기기인지 확인
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const ios = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(ios);
+
+    // 2. 현재 '홈 화면에 추가'된 PWA 모드로 실행 중인지 확인
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    setIsStandalone(standalone);
+  }, []);
+
+  // [Case 1] iOS/사파리 브라우저에서 접속했을 때 (앱 설치 유도)
+  if (isIOS && !isStandalone) {
     return (
-      <div className="text-xs sm:text-sm text-muted text-center sm:text-left">
-        이 브라우저에서는 푸시 알림을 지원하지 않습니다.
+      <div className="flex flex-col gap-2.5 p-4 rounded-xl bg-brand/5 border border-dashed border-brand/20 animate-fade-in">
+        <div className="flex items-center gap-2 text-xs font-bold text-brand dark:text-brand-light">
+          <ShareIcon className="size-4" />
+          <span>알림을 켜는 방법</span>
+        </div>
+        <p className="text-[11px] sm:text-xs text-muted leading-relaxed">
+          아이폰(iOS) 사파리에서는{" "}
+          <span className="text-primary font-bold">공유</span> 버튼 클릭 후
+          <br />
+          <span className="text-primary font-bold underline underline-offset-2">
+            '홈 화면에 추가'
+          </span>
+          를 먼저 진행해 주세요.
+          <br />
+          설치된 앱을 실행하면 알림을 활성화할 수 있습니다. ⚓
+        </p>
       </div>
     );
   }
 
-  // 프라이빗 모드 처리 (Service Worker 제한)
+  // [Case 2] 브라우저가 푸시를 아예 지원하지 않는 경우
+  if (!isSupported) {
+    return (
+      <div className="text-xs sm:text-sm text-muted text-center sm:text-left py-2">
+        이 브라우저는 푸시 알림을 지원하지 않습니다.
+      </div>
+    );
+  }
+
+  // [Case 3] 프라이빗 모드(시크릿 모드)인 경우
   if (isPrivateMode) {
     return (
-      <div className="text-sm text-muted text-center sm:text-left">
+      <div className="text-sm text-muted text-center sm:text-left py-2">
         프라이빗 모드에서는 푸시 알림을 사용할 수 없습니다.
       </div>
     );
   }
 
+  // [Case 4] 정상 동작 (안드로이드 크롬 또는 설치된 iOS PWA)
   const handleToggle = async () => {
     if (loading) return;
-
     setLoading(true);
     try {
-      if (isSubscribed) {
-        await unsubscribe();
-      } else {
-        await subscribe();
-      }
+      if (isSubscribed) await unsubscribe();
+      else await subscribe();
     } finally {
       setLoading(false);
     }

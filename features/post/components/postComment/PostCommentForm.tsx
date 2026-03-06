@@ -16,11 +16,14 @@
  * 2026.01.16  임도헌   Renamed   CommentForm -> PostCommentForm
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.03  임도헌   Modified  Context 참조 제거 및 useCreatePostCommentMutation 도입
+ * 2026.03.05  임도헌   Modified  주석 최신화
  */
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { usePostCommentContext } from "@/features/post/components/postComment/PostCommentContext";
+import { useCreatePostCommentMutation } from "@/features/post/hooks/useCreatePostCommentMutation";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -28,14 +31,16 @@ import { toast } from "sonner";
 /**
  * 댓글 작성 폼 컴포넌트
  *
- * - 자동 높이 조절 Textarea를 사용
- * - Enter 키로 전송(Shift+Enter는 줄바꿈)을 지원
- * - 전송 중 로딩 상태를 표시하고 중복 전송을 방지
+ * [상호작용 및 상태 제어 로직]
+ * - `useCreatePostCommentMutation` 훅을 활용한 댓글 데이터 서버 전송 및 캐시 무효화 유도
+ * - `textarea` 입력 내용 기반 자동 높이 조절 로직 적용
+ * - IME(한글 등) 조합 중 중복 전송 방지(`isComposing`) 및 단축키(Enter 전송, Shift+Enter 개행) 처리
+ * - 작성 시도 즉시 입력창 초기화 후, 실패 시 입력값 복원(Rollback) 적용
  */
 export default function PostCommentForm({ postId }: { postId: number }) {
-  const { createComment } = usePostCommentContext();
+  const { mutateAsync: createComment, isPending } =
+    useCreatePostCommentMutation(postId);
   const [text, setText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isComposing, setIsComposing] = useState(false); // IME 입력 중 여부
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -48,7 +53,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
   }, [text]);
 
   const submit = async () => {
-    if (isLoading || isComposing) return;
+    if (isPending || isComposing) return;
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -57,20 +62,18 @@ export default function PostCommentForm({ postId }: { postId: number }) {
       return;
     }
 
-    setIsLoading(true);
-    setText(""); // Optimistic Clear
+    setText(""); // 낙관적 폼 초기화
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     try {
       const formData = new FormData();
       formData.append("payload", trimmed);
       formData.append("postId", postId.toString());
+
       await createComment(formData);
-    } catch (e) {
-      setText(trimmed); // Rollback
-      console.error(e);
+    } catch {
+      setText(trimmed); // 에러 시 복구함.
     } finally {
-      setIsLoading(false);
       textareaRef.current?.focus();
     }
   };
@@ -89,7 +92,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
         "flex items-end gap-2"
       )}
     >
-      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 focus-within:bg-surface transition-colors flex items-center">
+      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">
         <textarea
           ref={textareaRef}
           value={text}
@@ -105,7 +108,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
 
       <button
         onClick={submit}
-        disabled={isLoading || !text.trim()}
+        disabled={isPending || !text.trim()}
         className={cn(
           "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
           "bg-brand-light dark:bg-brand text-white hover:bg-brand hover:dark:bg-brand-light active:scale-95",
@@ -113,7 +116,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
         )}
         aria-label="댓글 등록"
       >
-        {isLoading ? (
+        {isPending ? (
           <div className="size-4 border-2 border-muted border-t-transparent rounded-full animate-spin" />
         ) : (
           <PaperAirplaneIcon className="size-5 pl-0.5" />

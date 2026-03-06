@@ -13,14 +13,17 @@
  * 2025.09.09  임도헌   Modified   Cloudflare Image URL에 variant(env) 추가, 소분류 초기화 resetField 적용, 타입/UX/a11y 보강
  * 2025.09.15  임도헌   Modified   LiveInput/Broadcast 모델 반영, 결과 모달 그대로 사용
  * 2026.01.14  임도헌   Modified   Select 컴포넌트 적용 및 스타일 통일
- * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
- * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
- * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
+ * 2026.01.17  임도헌   Moved      components/stream -> features/stream/components
+ * 2026.01.28  임도헌   Modified   주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.02.05  임도헌   Modified   모달 Dynamic Import 적용
+ * 2026.02.28  임도헌   Modified   formData 생성 로직 표준화 및 가독성 개선
+ * 2026.03.07  임도헌   Modified   실패 피드백 구체화 및 명시적 취소 경로 추가(v1.2)
  */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
@@ -49,6 +52,7 @@ interface StreamFormProps {
   action: (formData: FormData) => Promise<CreateBroadcastResult>;
   categories: StreamCategory[];
   defaultValues?: Partial<StreamFormValues>;
+  cancelHref?: string;
 }
 
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
@@ -69,6 +73,7 @@ export default function StreamForm({
   action,
   categories,
   defaultValues,
+  cancelHref = "/streams",
 }: StreamFormProps) {
   // 대분류 초기값 추론
   const initialMainCategory = useMemo<number | null>(() => {
@@ -159,9 +164,7 @@ export default function StreamForm({
 
       if (files.length > 0) {
         if (!CF_HASH) {
-          throw new Error(
-            "Cloudflare 공개 해시(NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH)가 설정되지 않았습니다."
-          );
+          throw new Error("Cloudflare 환경변수가 설정되지 않았습니다.");
         }
         const res = await getUploadUrl();
         if (!res.success) {
@@ -180,28 +183,41 @@ export default function StreamForm({
         thumbnail = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
       }
 
-      // 2) 서버 액션 호출
+      // 2. 폼 데이터 생성 (표준화)
       const formData = new FormData();
-      formData.append("title", data.title);
-      formData.append("description", data.description ?? "");
-      formData.append("thumbnail", thumbnail ?? "");
-      formData.append("visibility", data.visibility);
-      formData.append("password", data.password ?? "");
-      if (typeof data.streamCategoryId === "number") {
-        formData.append("streamCategoryId", String(data.streamCategoryId));
-      } else {
-        formData.append("streamCategoryId", "");
-      }
+
+      // [특수 필드 1] JSON 직렬화
       formData.append("tags", JSON.stringify((data.tags ?? []).slice(0, 5)));
 
+      // [자동화] 나머지 필드들
+      const skipFields = ["tags", "thumbnail"];
+      Object.entries(data).forEach(([key, value]) => {
+        if (
+          !skipFields.includes(key) &&
+          value !== undefined &&
+          value !== null
+        ) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      // 썸네일은 위에서 처리된 URL 할당
+      formData.append("thumbnail", thumbnail ?? "");
+
+      // 3. 서버 액션 호출
       const result = await action(formData);
 
       if (!result.success) {
-        toast.error(result.error ?? "스트리밍 처리 중 오류가 발생했습니다.");
+        toast.error(
+          result.error ??
+            (mode === "create"
+              ? "방송 생성에 실패했습니다. 제목, 카테고리, 공개 설정을 확인한 뒤 다시 시도해주세요."
+              : "방송 수정에 실패했습니다. 변경한 항목을 확인한 뒤 다시 시도해주세요.")
+        );
         return;
       }
 
-      // 성공 시 결과 저장 및 모달 오픈
+      // 4. 성공 시 결과 저장 및 모달 오픈
       setStreamInfo({
         liveInputId: result.liveInputId!,
         broadcastId: result.broadcastId ?? null,
@@ -210,10 +226,18 @@ export default function StreamForm({
       });
       setShowStreamInfo(true);
 
-      toast.success("스트리밍이 생성되었습니다.");
+      toast.success(
+        mode === "create"
+          ? "방송이 생성되었습니다. 송출 정보를 확인하고 바로 시작할 수 있습니다."
+          : "방송 정보가 수정되었습니다."
+      );
     } catch (error) {
       console.error("[StreamForm] submit failed:", error);
-      toast.error("스트리밍 처리 중 오류가 발생했습니다.");
+      toast.error(
+        mode === "create"
+          ? "방송 생성 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          : "방송 수정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+      );
     }
   };
 
@@ -325,10 +349,19 @@ export default function StreamForm({
           )}
         </div>
 
-        <Button
-          disabled={isSubmitting}
-          text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
-        />
+        <div className="pt-2 flex flex-col gap-3">
+          <Button
+            disabled={isSubmitting}
+            text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
+          />
+
+          <Link
+            href={cancelHref}
+            className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+          >
+            취소
+          </Link>
+        </div>
       </form>
 
       {/* OBS 정보 모달 */}

@@ -15,12 +15,17 @@
  * 2026.01.14  임도헌   Modified   시맨틱 토큰 및 레이아웃 적용
  * 2026.01.14  임도헌   Modified   헤더를 layout으로 위임하고 본문만 남김
  * 2026.01.29  임도헌   Modified   주석 설명 보강
+ * 2026.03.06  임도헌   Modified   작성 페이지 정적 프리렌더를 비활성화해 인증 기반 폼 진입 흐름을 안정화
+ * 2026.03.07  임도헌   Modified   StreamForm 취소 경로를 명시적으로 주입(v1.2 Cancelable Flow)
  */
 
 import type { Metadata } from "next";
 import StreamForm from "@/features/stream/components/StreamForm";
 import { fetchStreamCategories } from "@/features/stream/service/category";
 import { createBroadcastAction } from "@/features/stream/actions/create";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "새로운 스트리밍 시작하기 | BoardPort",
@@ -56,6 +61,7 @@ export default async function AddStreamPage() {
         mode="create"
         action={createBroadcastAction}
         categories={categories ?? []}
+        cancelHref="/streams"
       />
     </div>
   );

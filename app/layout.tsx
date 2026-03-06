@@ -1,17 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import { Toaster } from "sonner";
 import AppWrapper from "@/components/global/AppWrapper";
+import QueryProvider from "@/components/global/providers/QueryProvider";
+import { NotificationStoreProvider } from "@/components/global/providers/NotificationStoreProvider";
+import { ModalStoreProvider } from "@/components/global/providers/ModalStoreProvider";
 import NotificationBoot from "@/features/notification/components/NotificationBoot";
 
-const inter = Inter({ subsets: ["latin"] });
+const pretendard = localFont({
+  src: "../public/fonts/PretendardVariable.woff2",
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#1E40AF",
+  colorScheme: "light dark",
 };
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -49,7 +57,7 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={pretendard.variable}>
         <AppWrapper>
           <ThemeProvider
             attribute="class"
@@ -57,20 +65,38 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <Toaster
-              position="bottom-right"
-              richColors
-              toastOptions={{
-                closeButton: true,
-                classNames: {
-                  closeButton: "text-neutral-700 dark:text-neutral-200",
-                },
-              }}
-            />
+            <QueryProvider>
+              <NotificationStoreProvider>
+                <ModalStoreProvider>
+                  <Toaster
+                    position="top-right"
+                    richColors
+                    toastOptions={{
+                      style: {
+                        borderRadius: "12px",
+                        border: "1px solid var(--border)",
+                        fontSize: "14px",
+                      },
+                      classNames: {
+                        toast:
+                          "group-[.toaster]:bg-surface group-[.toaster]:text-primary group-[.toaster]:shadow-xl",
+                        description: "group-[.toast]:text-muted",
+                        actionButton:
+                          "group-[.toast]:bg-brand group-[.toast]:text-white",
+                        cancelButton:
+                          "group-[.toast]:bg-surface-dim group-[.toast]:text-muted",
+                        closeButton:
+                          "group-[.toast]:bg-surface group-[.toast]:border-border group-[.toast]:hover:bg-surface-dim",
+                      },
+                    }}
+                  />
 
-            <NotificationBoot />
+                  <NotificationBoot />
 
-            {children}
+                  {children}
+                </ModalStoreProvider>
+              </NotificationStoreProvider>
+            </QueryProvider>
           </ThemeProvider>
         </AppWrapper>
       </body>

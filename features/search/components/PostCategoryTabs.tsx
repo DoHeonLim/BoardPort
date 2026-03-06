@@ -16,6 +16,8 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.19  임도헌   Modified  탭 변경 시 region 파라미터 보존 및 자동 전환 로직 정교화
  * 2026.02.20  임도헌   Modified  지역 범위 관리가 DB로 이관됨에 따라 불필요한 URL 쿼리 제어 삭제
+ * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.06  임도헌   Modified  게시글 카테고리 탭의 높이/타이포를 스트림 탭과 동일한 밀도로 통일
  */
 "use client";
 
@@ -152,7 +154,11 @@ export default function PostCategoryTabs({
       <div className="relative px-0 sm:px-10">
         <div
           ref={scrollContainerRef}
-          className="flex gap-2 overflow-x-auto scrollbar-hide items-center h-12 px-4 sm:px-0"
+          className={cn(
+            "flex gap-2 overflow-x-auto scrollbar-hide items-center h-12 px-4 sm:px-0",
+            // 스크롤 맨 끝에 도달했을 때 우측 여백이 잘리지 않도록 투명 여백 강제 추가
+            "after:content-[''] after:pr-4 sm:after:pr-0"
+          )}
           style={{
             WebkitOverflowScrolling: "touch", // iOS 부드러운 스와이프
           }}
@@ -172,9 +178,9 @@ export default function PostCategoryTabs({
                 handleCategoryClick();
               }}
               className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+                "inline-flex min-h-[36px] items-center rounded-full px-4 text-sm font-medium transition-all whitespace-nowrap",
                 !currentCategory
-                  ? "bg-brand text-white shadow-md"
+                  ? "bg-brand text-white shadow-md dark:border dark:border-white/20"
                   : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
               )}
             >
@@ -231,9 +237,9 @@ export default function PostCategoryTabs({
                   handleCategoryClick(key);
                 }}
                 className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+                  "inline-flex min-h-[36px] items-center rounded-full px-4 text-sm font-medium transition-all whitespace-nowrap",
                   currentCategory === key
-                    ? "bg-brand text-white shadow-md"
+                    ? "bg-brand text-white shadow-md dark:border dark:border-white/20"
                     : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
                 )}
               >
