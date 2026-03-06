@@ -8,6 +8,7 @@
  * 2026.02.14  임도헌   Created   읽기 전용 지도 및 길찾기 링크 연결
  * 2026.02.15  임도헌   Modified  useKakaoLoader 적용하여 스크립트 미로드 시 크래시 방지
  * 2026.02.26  임도헌   Modified  지도 마커 및 헤더 텍스트 찌그러짐 픽스
+ * 2026.03.07  임도헌   Modified  외부 지도 링크의 장소명을 URL 인코딩하여 특수문자/공백 깨짐 방지
  */
 
 "use client";
@@ -44,7 +45,9 @@ export default function StaticMap({
   const { loading, error } = useKakaoLoader();
 
   // 카카오맵 길찾기 URL
-  const mapLink = `https://map.kakao.com/link/map/${locationName},${latitude},${longitude}`;
+  const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(
+    locationName
+  )},${latitude},${longitude}`;
 
   if (loading) {
     return (
@@ -84,6 +87,7 @@ export default function StaticMap({
           target="_blank"
           rel="noreferrer"
           className="shrink-0 text-xs font-medium text-muted hover:text-brand dark:hover:text-brand-light flex items-center gap-1 bg-surface-dim px-2 py-1.5 rounded-md transition-colors"
+          aria-label={`${locationName} 지도 보기`}
         >
           지도 보기 <ArrowTopRightOnSquareIcon className="size-3" />
         </a>
@@ -95,6 +99,7 @@ export default function StaticMap({
         target="_blank"
         rel="noreferrer"
         className="block w-full h-48 sm:h-56 rounded-xl overflow-hidden border border-border relative group"
+        aria-label={`${locationName} 외부 지도에서 열기`}
       >
         <Map
           center={{ lat: latitude, lng: longitude }}

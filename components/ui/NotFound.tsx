@@ -10,6 +10,7 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.02  임도헌   Modified  주석 상세 설명 및 Props 타입 정의 보강
  * 2026.02.24  임도헌   Modified  로고 추가
+ * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸을 적용해 404 톤을 전역 상태 화면과 통일
  */
 
 "use client";
@@ -54,7 +55,7 @@ export default function NotFound({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center p-6 min-h-[400px]",
+        "state-screen min-h-[400px] px-0 py-0",
         className
       )}
     >
@@ -64,25 +65,25 @@ export default function NotFound({
         <div className="absolute inset-0 bg-brand-light/20 blur-2xl rounded-full" />
         <Logo
           variant="symbol"
-          size={100}
+          size={88}
           className="relative opacity-50 grayscale"
         />
       </div>
 
       {/* 텍스트 영역 */}
-      <h1 className="text-2xl font-bold text-primary mb-2">{title}</h1>
+      <h1 className="state-title">{title}</h1>
 
-      <p className="text-muted mb-8 whitespace-pre-line leading-relaxed max-w-sm">
+      <p className="state-description whitespace-pre-line">
         {description}
       </p>
 
       {/* 액션 버튼 */}
       {action ? (
-        action
+        <div className="state-actions justify-center">{action}</div>
       ) : (
         <Link
           href={redirectHref}
-          className="btn-primary font-semibold inline-flex items-center justify-center min-w-[140px]"
+          className="btn-primary mt-6 inline-flex min-h-[44px] min-w-[160px] items-center justify-center font-semibold"
         >
           {redirectText}
         </Link>

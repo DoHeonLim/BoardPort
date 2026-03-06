@@ -10,6 +10,7 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  복사/보기 아이콘 버튼 터치 타겟을 44px 기준에 맞게 확장
  */
 "use client";
 
@@ -56,7 +57,7 @@ function IconGhostButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+        "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors",
         "border border-border bg-surface hover:bg-surface-dim disabled:opacity-50"
       )}
     >
@@ -201,7 +202,8 @@ export default function StreamSecretInfo({
                   if (!streamKey) fetchCreds();
                   setReveal((v) => !v);
                 }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface hover:bg-surface-dim"
+                aria-label={reveal ? "스트림 키 숨기기" : "스트림 키 보기"}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-border bg-surface hover:bg-surface-dim"
               >
                 {reveal ? (
                   <EyeSlashIcon className="h-4 w-4 text-muted" />

@@ -30,6 +30,9 @@
  * 2026.02.20  임도헌   Modified  상태 변경 시 해당 유저와의 채팅방에 SYSTEM 메시지 발송 로직 추가
  * 2026.02.22  임도헌   Modified  예약 취소(SELLING 복귀) 시 확정된 약속(ACCEPTED) 자동 취소 연동 및 JSDoc 최신화
  * 2026.02.23  임도헌   Modified  동시성 충돌(Race Condition) 방어를 위한 updateMany 기반 원자적 트랜잭션 적용
+ * 2026.03.07  임도헌   Modified  상태 변경 실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  SOLD -> SELLING 복귀 시 구매자 알림 누락 보완
+ * 2026.03.07  임도헌   Modified  상태 변경 전 정지 유저 가드 적용
  */
 
 import "server-only";
@@ -37,6 +40,7 @@ import "server-only";
 import db from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { badgeChecks } from "@/features/user/service/badge";
+import { validateUserStatus } from "@/features/user/service/admin";
 import {
   sendPushNotification,
   SendPushResult,
@@ -168,6 +172,9 @@ export async function updateProductStatus(
   options?: { skipSystemMessage?: boolean; actorId?: number }
 ): Promise<ServiceResult<ProductStatusMeta>> {
   try {
+    const statusGuard = await validateUserStatus(userId);
+    if (!statusGuard.success) return statusGuard;
+
     const owner = await db.product.findUnique({
       where: { id: productId },
       select: { userId: true },
@@ -622,9 +629,13 @@ export async function updateProductStatus(
       !!prev2.reservation_userId &&
       !prev2.purchase_userId &&
       !prev2.purchased_at;
+    const wasSold =
+      !prev2.reservation_userId &&
+      !!prev2.purchase_userId &&
+      !!prev2.purchased_at;
 
     // 취소 대상자(canceledUserId)가 행위자(actorId)가 아닐 때만 알림 전송
-    if (wasReserved && canceledUserId && canceledUserId !== actorId) {
+    if ((wasReserved || wasSold) && canceledUserId && canceledUserId !== actorId) {
       const imageUrl = prev2.images?.[0]?.url
         ? `${prev2.images[0].url}/public`
         : undefined;
@@ -632,12 +643,19 @@ export async function updateProductStatus(
         where: { userId: canceledUserId },
       });
 
+      const title = wasReserved
+        ? "상품 예약이 취소되었습니다"
+        : "완료된 거래가 취소되었습니다";
+      const body = wasReserved
+        ? `'${prev2.title}' 상품의 예약이 취소되었습니다.`
+        : `'${prev2.title}' 상품의 거래가 취소되어 다시 판매중으로 변경되었습니다.`;
+
       if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
         const noti = await db.notification.create({
           data: {
             userId: canceledUserId,
-            title: "상품 예약이 취소되었습니다",
-            body: `'${prev2.title}' 상품의 예약이 취소되었습니다.`,
+            title,
+            body,
             type: "TRADE",
             link: `/products/view/${productId}`,
             image: imageUrl,
@@ -693,6 +711,10 @@ export async function updateProductStatus(
       return { success: false, error: "이미 상태가 변경되었습니다." };
     }
     console.error("updateProductStatus Service Error:", err);
-    return { success: false, error: "상태 변경 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "상품 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

@@ -12,6 +12,7 @@
  * 2026.02.03  임도헌   Modified  끌어올리기(bumpCount) 표시 추가
  * 2026.02.15  임도헌   Modified  위치 정보(region) 표시 추가
  * 2026.02.26  임도헌   Modified  제품 리스트 카드 찌그러짐 수정 및 모달/모바일 레이아웃 최적화
+ * 2026.03.06  임도헌   Modified  모바일 그리드에서는 위치 정보 1줄을 노출하고 메타 배치를 압축형으로 조정
  */
 
 "use client";
@@ -54,62 +55,80 @@ export default function ProductCardMeta({
   viewMode = "list",
 }: ProductCardMetaProps) {
   const dateValue = createdAt ? createdAt.toString() : "";
-  const isGrid = viewMode === "grid";
   // 동 단위까지만 표시 (예: "동작구 사당동")
   const locationText = [region2, region3].filter(Boolean).join(" ");
+  const isGrid = viewMode === "grid";
+  const showLocationInGrid = isGrid && !!locationText;
 
   return (
-    <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted w-full min-w-0 overflow-hidden">
+    <div
+      className={cn(
+        "w-full min-w-0 overflow-hidden text-[10px] sm:text-xs text-muted",
+        isGrid ? "flex flex-col gap-1" : "flex items-center gap-2"
+      )}
+    >
       {/* 1. 끌어올리기 (있을 때만 표시) */}
-      {bumpCount > 0 && (
-        <div className="flex items-center gap-0.5 text-brand dark:text-brand-light font-bold shrink-0">
-          <ArrowUpIcon className="size-3" />
-          <span>{bumpCount}</span>
+      {showLocationInGrid && (
+        <div
+          className="flex items-center gap-1 min-w-0 text-muted"
+          title={locationText}
+        >
+          <MapPinIcon className="size-3 shrink-0" />
+          <span className="truncate">{locationText}</span>
         </div>
       )}
 
-      {/* 2. 통계 그룹 (좋아요 & 조회수) - 묶어서 고정 크기 유지 */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-0.5">
-          <HeartIcon
-            className={cn(
-              "size-3",
-              likes > 0 ? "text-rose-500" : "text-muted/70"
+      <div className="flex items-center gap-2 w-full min-w-0 overflow-hidden">
+        {bumpCount > 0 && (
+          <div className="flex items-center gap-0.5 text-brand dark:text-brand-light font-bold shrink-0">
+            <ArrowUpIcon className="size-3" />
+            <span>{bumpCount}</span>
+          </div>
+        )}
+
+        {/* 2. 통계 그룹 (좋아요 & 조회수) - 묶어서 고정 크기 유지 */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-0.5">
+            <HeartIcon
+              className={cn(
+                "size-3",
+                likes > 0 ? "text-rose-500" : "text-muted/70"
+              )}
+            />
+            <span>{likes}</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <EyeIcon className="size-3 text-muted/70" />
+            <span>{views}</span>
+          </div>
+        </div>
+
+        {/* 3. 위치 정보 - 가변 영역 (공간 부족 시 말줄임) */}
+        {!isGrid && (
+          <>
+            {locationText && (
+              <>
+                <span className="text-border dark:text-neutral-700 shrink-0">
+                  |
+                </span>
+                <div
+                  className="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden"
+                  title={locationText}
+                >
+                  <MapPinIcon className="size-3 shrink-0" />
+                  <span className="truncate">{locationText}</span>
+                </div>
+              </>
             )}
-          />
-          <span>{likes}</span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <EyeIcon className="size-3 text-muted/70" />
-          <span>{views}</span>
-        </div>
+            <span className="text-border dark:text-neutral-700 shrink-0">|</span>
+            {/* 4. 작성 시간 */}
+            <TimeAgo
+              date={dateValue}
+              className="text-muted whitespace-nowrap shrink-0"
+            />
+          </>
+        )}
       </div>
-
-      {/* 3. 위치 정보 - 가변 영역 (공간 부족 시 말줄임) */}
-      {!isGrid && (
-        <>
-          {locationText && (
-            <>
-              <span className="text-border dark:text-neutral-700 shrink-0">
-                |
-              </span>
-              <div
-                className="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden"
-                title={locationText}
-              >
-                <MapPinIcon className="size-3 shrink-0" />
-                <span className="truncate">{locationText}</span>
-              </div>
-            </>
-          )}
-          <span className="text-border dark:text-neutral-700 shrink-0">|</span>
-          {/* 4. 작성 시간 */}
-          <TimeAgo
-            date={dateValue}
-            className="text-muted whitespace-nowrap shrink-0"
-          />
-        </>
-      )}
     </div>
   );
 }

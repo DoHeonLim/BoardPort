@@ -10,12 +10,15 @@
  * 2026.02.22  임도헌   Modified  예약중/판매완료 상품 끌어올리기 어뷰징 차단 로직 추가
  * 2026.02.23  임도헌   Modified  동시성 이슈(Race Condition) 방어를 위한 원자적 업데이트 적용
  * 2026.03.05  임도헌   Modified  끌어올리기(Bump) 이후의 광범위한 `revalidateTag` 의존성 제거 및 클라이언트 상태 동기화로 대체
+ * 2026.03.07  임도헌   Modified  실패 문구를 구체화(v1.2)
+ * 2026.03.07  임도헌   Modified  정지 유저 가드 추가 및 실패 문구 오기 정정
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
+import { validateUserStatus } from "@/features/user/service/admin";
 import {
   BUMP_COOLDOWN_HOURS,
   MAX_BUMP_COUNT,
@@ -37,6 +40,9 @@ export async function bumpProduct(
   productId: number
 ): Promise<ServiceResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     // 1. 제품 조회 (소유자 및 쿨다운 확인용)
     const product = await db.product.findUnique({
       where: { id: productId },
@@ -122,6 +128,10 @@ export async function bumpProduct(
     return { success: true };
   } catch (e) {
     console.error("bumpProduct error:", e);
-    return { success: false, error: "끌어올리기 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "제품 끌어올리기에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

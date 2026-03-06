@@ -28,7 +28,7 @@ import type { ServiceResult } from "@/lib/types";
  */
 export async function createAndSendSmsToken(
   phone: string
-): Promise<ServiceResult> {
+): Promise<ServiceResult<void>> {
   try {
     // 1. 6자리 랜덤 토큰 생성
     const token = await generateUniqueSmsToken();
@@ -58,7 +58,7 @@ export async function createAndSendSmsToken(
     // 4. SMS 발송
     await sendSMS(phone, token);
 
-    return { success: true, data: undefined };
+    return { success: true };
   } catch (error) {
     console.error("SMS Send Error:", error);
     return { success: false, error: AUTH_ERRORS.SMS_SEND_FAILED };

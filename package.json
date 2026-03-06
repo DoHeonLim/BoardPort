@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.2",
@@ -20,7 +21,6 @@
     "@supabase/supabase-js": "^2.47.9",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-query-devtools": "^5.91.3",
-    "@types/bcrypt": "^5.0.2",
     "bcrypt": "^5.1.1",
     "clsx": "^2.1.1",
     "coolsms-node-sdk": "^2.1.0",
@@ -36,7 +36,6 @@
     "resend": "^4.2.0",
     "sharp": "^0.33.5",
     "sonner": "^1.7.4",
-    "swr": "^2.3.6",
     "tailwind-merge": "^3.3.0",
     "tailwind-scrollbar": "^3.1.0",
     "validator": "^13.12.0",
@@ -46,6 +45,7 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.9",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

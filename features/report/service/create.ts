@@ -8,6 +8,7 @@
  * 2026.02.05  임도헌   Created   중복 체크 및 Rate Limit 로직 포함 생성 기능 구현
  * 2026.02.06  임도헌   Modified  리뷰 신고(targetReviewId) 매핑 로직 추가
  * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 추가
+ * 2026.03.07  임도헌   Modified  타겟 실존 여부 검증 및 정지 유저 신고 가드 추가
  */
 
 import "server-only";
@@ -18,6 +19,7 @@ import {
   type ReportTargetType,
 } from "@/features/report/constants";
 import { CreateReportDTO } from "@/features/report/schemas";
+import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
 
 /**
@@ -34,6 +36,11 @@ export async function createReport(
   data: CreateReportDTO
 ): Promise<ServiceResult> {
   try {
+    const reporterStatus = await validateUserStatus(reporterId);
+    if (!reporterStatus.success) {
+      return { success: false, error: reporterStatus.error! };
+    }
+
     // 1. 대상 필드 매핑
     const targetFieldMap: Record<ReportTargetType, string> = {
       USER: "targetUserId",
@@ -48,70 +55,91 @@ export async function createReport(
 
     const targetField = targetFieldMap[data.targetType];
 
-    // [핵심] 2. 셀프 신고(Self-Report) 원천 차단 로직 확장
+    // 2. 타겟 실존 여부 검증
+    let targetExists = false;
+
+    // [핵심] 3. 셀프 신고(Self-Report) 원천 차단 로직 확장
     // USER뿐만 아니라 제품, 게시글, 댓글 등 내가 작성한 모든 데이터에 대해 신고를 차단
     let isSelfReport = false;
 
     switch (data.targetType) {
       case "USER":
+        targetExists = !!(await db.user.findUnique({
+          where: { id: data.targetId },
+          select: { id: true },
+        }));
         isSelfReport = data.targetId === reporterId;
         break;
       case "PRODUCT":
         const prod = await db.product.findUnique({
           where: { id: data.targetId },
-          select: { userId: true },
+          select: { id: true, userId: true },
         });
+        targetExists = !!prod;
         isSelfReport = prod?.userId === reporterId;
         break;
       case "POST":
         const post = await db.post.findUnique({
           where: { id: data.targetId },
-          select: { userId: true },
+          select: { id: true, userId: true },
         });
+        targetExists = !!post;
         isSelfReport = post?.userId === reporterId;
         break;
       case "COMMENT":
         const comment = await db.comment.findUnique({
           where: { id: data.targetId },
-          select: { userId: true },
+          select: { id: true, userId: true },
         });
+        targetExists = !!comment;
         isSelfReport = comment?.userId === reporterId;
         break;
       case "REVIEW":
         const review = await db.review.findUnique({
           where: { id: data.targetId },
-          select: { userId: true },
+          select: { id: true, userId: true },
         });
+        targetExists = !!review;
         isSelfReport = review?.userId === reporterId;
         break;
       case "STREAM":
         const stream = await db.broadcast.findUnique({
           where: { id: data.targetId },
-          select: { liveInput: { select: { userId: true } } },
+          select: { id: true, liveInput: { select: { userId: true } } },
         });
+        targetExists = !!stream;
         isSelfReport = stream?.liveInput?.userId === reporterId;
         break;
       case "PRODUCT_MESSAGE":
         const pMsg = await db.productMessage.findUnique({
           where: { id: data.targetId },
-          select: { userId: true },
+          select: { id: true, userId: true },
         });
+        targetExists = !!pMsg;
         isSelfReport = pMsg?.userId === reporterId;
         break;
       case "STREAM_MESSAGE":
         const sMsg = await db.streamMessage.findUnique({
           where: { id: data.targetId },
-          select: { userId: true },
+          select: { id: true, userId: true },
         });
+        targetExists = !!sMsg;
         isSelfReport = sMsg?.userId === reporterId;
         break;
+    }
+
+    if (!targetExists) {
+      return {
+        success: false,
+        error: "신고 대상이 존재하지 않습니다.",
+      };
     }
 
     if (isSelfReport) {
       return { success: false, error: "자신의 컨텐츠는 신고할 수 없습니다." };
     }
 
-    // 3. 중복 신고 체크 (1인 1대상 1회 제한)
+    // 4. 중복 신고 체크 (1인 1대상 1회 제한)
     const existing = await db.report.findFirst({
       where: {
         reporterId,
@@ -124,7 +152,7 @@ export async function createReport(
       return { success: false, error: REPORT_ERRORS.DUPLICATE_REPORT };
     }
 
-    // 4. Rate Limit 체크 (도배 방지)
+    // 5. Rate Limit 체크 (도배 방지)
     const limitWindow = new Date(
       Date.now() - REPORT_POLICY.WINDOW_MINUTES * 60 * 1000
     );
@@ -139,7 +167,7 @@ export async function createReport(
       return { success: false, error: REPORT_ERRORS.RATE_LIMIT };
     }
 
-    // 5. DB 저장
+    // 6. DB 저장
     await db.report.create({
       data: {
         reporterId,

@@ -9,10 +9,11 @@
  * 2026.01.20  임도헌   Modified  ServiceResult 및 DTO 타입 추가, 상속 구조 개선
  * 2026.01.24  임도헌   Moved     types/product.ts -> features/product/types.ts
  * 2026.01.25  임도헌   Modified  주석 표준화 및 역할별 그룹핑
- * 2026.02.03  임도헌   Modifeid  ProductType에 refreshed_at, bump_count 필드 추가
+ * 2026.02.03  임도헌   Modified  ProductType에 refreshed_at, bump_count 필드 추가
  * 2026.02.07  임도헌   Modified  관리자용 DTO (AdminProductItem, AdminProductListResponse) 추가
  * 2026.02.14  임도헌   Modified  location 속성 추가
  * 2026.02.15  임도헌   Modified  ProductType 및 리스트 아이템에 region 정보 타입 추가
+ * 2026.03.07  임도헌   Modified  타입 섹션 제목 및 히스토리 오탈자 정리
  */
 
 import {
@@ -252,11 +253,10 @@ export interface MySalesListItem extends ProductType {
 /**
  * 프로필: '나의 구매 제품' 리스트 아이템용
  */
-export interface MyPurchasedListItem
-  extends Pick<
-    ProductType,
-    "id" | "title" | "price" | "images" | "purchase_userId"
-  > {
+export interface MyPurchasedListItem extends Pick<
+  ProductType,
+  "id" | "title" | "price" | "images" | "purchase_userId"
+> {
   purchased_at: ISODate;
   user: ProfileUserLite; // 판매자 정보
   reviews: ProductReview[];

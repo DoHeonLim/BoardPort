@@ -8,10 +8,11 @@
  * 2026.02.05  임도헌   Created   라디오 버튼 기반 신고 사유 선택 및 제출 UI 구현
  * 2026.02.20  임도헌   Modified  레이아웃에서 모달 위치가 깨지지 않도록 createPortal 적용
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.03.06  임도헌   Modified  포커스 트랩/복귀와 닫기 버튼 접근성을 추가해 모달 a11y 기준을 맞춤
  */
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -46,6 +47,11 @@ export default function ReportModal({
   targetId,
   targetType,
 }: ReportModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
   const [reason, setReason] = useState<ReportReason | "">("");
   const [description, setDescription] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -70,6 +76,56 @@ export default function ReportModal({
       };
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const focusTimer = window.setTimeout(() => {
+      closeButtonRef.current?.focus();
+    }, 0);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!isPending) onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen, isPending, onClose]);
 
   if (!isOpen || !mounted) return null;
 
@@ -109,22 +165,27 @@ export default function ReportModal({
       <div
         className="relative bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="report-modal-title"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
       >
+        <p id={descriptionId} className="sr-only">
+          신고 사유를 선택하고 필요한 경우 상세 설명을 입력한 뒤 제출합니다.
+        </p>
+
         {/* header */}
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-dim/30">
-          <h2
-            id="report-modal-title"
-            className="font-bold text-primary text-lg"
-          >
+          <h2 id={titleId} className="font-bold text-primary text-lg">
             신고하기
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => !isPending && onClose()}
             disabled={isPending}
-            className="p-1 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            ref={closeButtonRef}
+            aria-label="신고 모달 닫기"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-6" />
           </button>

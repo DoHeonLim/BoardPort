@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   created   app/posts/[id]/actions/posts.ts (deletePost) -> features/post/actions/delete.ts
  * 2026.03.05  임도헌   Modified  개인화된 게시글 목록(POST_LIST 등)의 `revalidateTag` 부수 효과 제거, 공통 데이터(상세) 태그만 유지
+ * 2026.03.06  임도헌   Modified  삭제 확인 모달 연동을 위해 처리 결과를 클라이언트에서 소비 가능한 형태로 반환
  */
 "use server";
 
@@ -32,4 +33,6 @@ export async function deletePostAction(postId: number) {
     revalidateTag(T.POST_DETAIL(postId));
     revalidatePath("/posts");
   }
+
+  return result;
 }

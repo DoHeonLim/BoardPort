@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.19  임도헌   Created   약속 데이터 입력 UI 및 지도 연동
  * 2026.02.26  임도헌   Modified  다크모드 가시성(MapPinIcon, 변경버튼) 개선
+ * 2026.03.06  임도헌   Modified  닫기 버튼 터치 타겟과 버튼 hover 대비를 표준 규칙에 맞게 조정
  */
 
 "use client";
@@ -77,10 +78,10 @@ export default function ScheduleModal({
           </h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-black/5 rounded-full"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
           >
-            <XMarkIcon className="size-6 text-muted" />
+            <XMarkIcon className="size-6" />
           </button>
         </div>
 
@@ -128,7 +129,7 @@ export default function ScheduleModal({
                 </div>
                 <button
                   onClick={() => setShowMap(true)}
-                  className="text-xs text-muted hover:text-brand-dark dark:hover:text-brand-light px-2 py-1 transition-colors"
+                  className="rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
                 >
                   변경
                 </button>

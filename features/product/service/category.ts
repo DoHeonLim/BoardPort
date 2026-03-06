@@ -23,5 +23,5 @@ export const fetchProductCategories = nextCache(
     });
   },
   ["product-categories"],
-  { tags: [T.PRODUCT_CATEGORIES()], revalidate: 86400 } // 24?�간 캐시 ?��?
+  { tags: [T.PRODUCT_CATEGORIES()], revalidate: 86400 } // 24시간 캐시
 );

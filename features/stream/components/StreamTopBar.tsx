@@ -13,11 +13,13 @@
  * 2026.02.13  임도헌   Modified  로컬 handleShare 제거 및 lib/utils 통합
  * 2026.03.04  임도헌   Modified  stream:chat:state/open CustomEvent 제거 및 useStreamChatUIStore 기반 채팅 열기 상태 연동
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet로 전환하고 트리거 접근성을 보강
+ * 2026.03.06  임도헌   Modified  상세 상단 액션바 버튼/칩 스타일을 공통 규칙으로 통일
  */
 
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -34,7 +36,9 @@ import {
 } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import BackButton from "@/components/global/BackButton";
+import BottomSheet from "@/components/global/BottomSheet";
 import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   STREAM_VISIBILITY,
   STREAM_VISIBILITY_DISPLAY,
@@ -90,10 +94,24 @@ export default function StreamTopbar({
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const openChatFromTopbar = () => {
     openChat();
   };
+
+  useEffect(() => {
+    if (isMobile || !menuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMobile, menuOpen]);
 
   // --- 가시성 라벨(타입 안전) ---
   const visLabel =
@@ -155,7 +173,7 @@ export default function StreamTopbar({
             <button
               type="button"
               onClick={openChatFromTopbar}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-surface-dim hover:bg-border text-primary transition-colors"
+              className="appbar-link-btn hidden gap-1.5 border border-transparent bg-surface-dim hover:bg-border sm:inline-flex"
               aria-label="채팅 열기"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" />
@@ -167,7 +185,7 @@ export default function StreamTopbar({
         <div className="flex items-center gap-2">
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
+              "appbar-chip font-semibold",
               visChip.className
             )}
           >
@@ -178,7 +196,7 @@ export default function StreamTopbar({
           <button
             type="button"
             onClick={() => handleShare(`${ownerUsername}님의 방송: ${title}`)}
-            className="p-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="appbar-icon-btn"
             aria-label="공유하기"
           >
             <ShareIcon className="h-5 w-5" />
@@ -188,17 +206,24 @@ export default function StreamTopbar({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim"
+                aria-label="방송 옵션 열기"
+                aria-expanded={menuOpen}
+                aria-haspopup={isMobile ? "dialog" : "menu"}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
               >
                 <EllipsisVerticalIcon className="size-5" />
               </button>
-              {menuOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in">
+              {!isMobile && menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+                >
                   <button
                     onClick={() => {
                       setMenuOpen(false);
                       setBlockConfirmOpen(true);
                     }}
+                    role="menuitem"
                     className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2"
                   >
                     <UserMinusIcon className="size-4" /> 스트리머 차단하기
@@ -208,6 +233,7 @@ export default function StreamTopbar({
                       setMenuOpen(false);
                       setReportOpen(true);
                     }}
+                    role="menuitem"
                     className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border"
                   >
                     <ExclamationTriangleIcon className="size-4" /> 방송 신고하기
@@ -218,6 +244,38 @@ export default function StreamTopbar({
           )}
         </div>
       </div>
+
+      <BottomSheet
+        open={isMobile && menuOpen}
+        title="방송 옵션"
+        description="스트리머 차단 또는 방송 신고를 진행할 수 있습니다."
+        onClose={() => setMenuOpen(false)}
+      >
+        <div className="space-y-2 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setBlockConfirmOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+          >
+            <UserMinusIcon className="size-5 shrink-0" />
+            스트리머 차단하기
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+          >
+            <ExclamationTriangleIcon className="size-5 shrink-0" />
+            방송 신고하기
+          </button>
+        </div>
+      </BottomSheet>
 
       <ConfirmDialog
         open={blockConfirmOpen}

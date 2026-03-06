@@ -16,6 +16,7 @@
  * 2026.02.25  임도헌   Modified  순서 보장 가드, VOD 소유권 검증 강화
  * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 최초 등록용 테스트 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
  * 2026.03.05  임도헌   Modified  공통 데이터(상세)는 `revalidateTag` 유지, 개인화 데이터(목록/상태)는 Query Cache 기반 혼합 캐싱 정책 적용
+ * 2026.03.07  임도헌   Modified  CONNECTED 재수신 시 ENDED -> CONNECTED 복구 허용, 재접속에는 시작 알림 재전송 방지
  */
 
 import "server-only";
@@ -388,8 +389,10 @@ async function onConnected(liveInputUid: string) {
 
   const b = li.broadcasts[0];
 
-  // 이미 CONNECTED가 아닐 때만 업데이트
-  if (b.status !== "CONNECTED" && b.status !== "ENDED") {
+  // 이미 CONNECTED 상태가 아닐 때만 업데이트
+  // ENDED였다가 재접속된 경우에도 상태 복구를 허용하되, 시작 알림은 재전송하지 않음
+  if (b.status !== "CONNECTED") {
+    const wasEnded = b.status === "ENDED";
     const now = new Date();
 
     // 상태 업데이트 + started_at 기본값 세팅 + ended_at 초기화
@@ -421,14 +424,16 @@ async function onConnected(liveInputUid: string) {
       });
     } catch {}
     // 방송 시작 알림: 팔로워에게 STREAM 알림 + 푸시
-    try {
-      await sendLiveStartNotifications({
-        broadcasterId: li.userId,
-        broadcastId: updated.id,
-        broadcastTitle: updated.title,
-        broadcastThumbnail: updated.thumbnail,
-      });
-    } catch {}
+    if (!wasEnded) {
+      try {
+        await sendLiveStartNotifications({
+          broadcasterId: li.userId,
+          broadcastId: updated.id,
+          broadcastTitle: updated.title,
+          broadcastThumbnail: updated.thumbnail,
+        });
+      } catch {}
+    }
   }
 }
 

@@ -11,6 +11,7 @@
  * 2026.02.23  임도헌   Modified  좋아요 뱃지 체크 비동기 병렬화(Promise.allSettled)로 응답 속도 최적화
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수로 통일
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  정지 유저 가드 및 사용자 노출용 실패 문구 구체화
  */
 
 import "server-only";
@@ -20,6 +21,7 @@ import {
   checkPopularWriterBadge,
 } from "@/features/user/service/badge";
 import { checkBlockRelation } from "@/features/user/service/block";
+import { validateUserStatus } from "@/features/user/service/admin";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { ServiceResult } from "@/lib/types";
 
@@ -64,12 +66,16 @@ export async function togglePostLike(
   postId: number,
   isLike: boolean
 ): Promise<ServiceResult> {
+  const status = await validateUserStatus(userId);
+  if (!status.success) return status;
+
   // post 소유자 확인 (뱃지 체크용)
   const post = await db.post.findUnique({
     where: { id: postId },
     select: { userId: true },
   });
-  if (!post) return { success: false, error: "Post not found" };
+  if (!post)
+    return { success: false, error: "게시글을 찾을 수 없습니다." };
 
   // 차단 확인
   const isBlocked = await checkBlockRelation(userId, post.userId);
@@ -99,6 +105,10 @@ export async function togglePostLike(
       return { success: true };
     }
     console.error("togglePostLike failed:", e);
-    return { success: false, error: "Failed to toggle like" };
+    return {
+      success: false,
+      error:
+        "좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

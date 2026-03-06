@@ -29,6 +29,8 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  모달 Dynamic Import 적용
  * 2026.02.26  임도헌   Modified  좁은 화면에서 UI 깨짐 수정
+ * 2026.03.06  임도헌   Modified  모바일 카드 정보 영역의 간격과 메타 밀도를 조정해 목록 가독성을 개선
+ * 2026.03.06  임도헌   Modified  팔로워 전용 오버레이 CTA 터치 타겟을 44px 기준에 맞게 확장
  */
 
 "use client";
@@ -244,6 +246,7 @@ export default function StreamCard(props: StreamCardProps) {
     // 너무 길어지면 UI 깨지므로 2개까지만 노출하거나, css line-clamp로 처리
     return tags.map((t) => `#${t.name}`).join(" ");
   }, [tags]);
+  const isGridLayout = layout === "grid";
 
   return (
     <article
@@ -363,7 +366,7 @@ export default function StreamCard(props: StreamCardProps) {
                 {onRequestFollow && (
                   <button
                     type="button"
-                    className="btn-primary h-8 text-xs bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black border-none"
+                    className="btn-primary min-h-[44px] px-4 text-xs bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black border-none"
                   >
                     팔로우하기
                   </button>
@@ -374,9 +377,19 @@ export default function StreamCard(props: StreamCardProps) {
         </div>
 
         {/* 정보 영역 */}
-        <div className="flex flex-1 flex-col justify-between p-3 gap-2">
-          <div className="space-y-1.5">
-            <h3 className="line-clamp-2 text-sm font-semibold text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors">
+        <div
+          className={cn(
+            "flex flex-1 flex-col justify-between",
+            isGridLayout ? "gap-1.5 p-2.5 sm:gap-2 sm:p-3" : "gap-2 p-3"
+          )}
+        >
+          <div className={cn(isGridLayout ? "space-y-1" : "space-y-1.5")}>
+            <h3
+              className={cn(
+                "line-clamp-2 font-semibold text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors",
+                isGridLayout ? "text-sm min-h-[1.5rem]" : "text-sm"
+              )}
+            >
               {title}
             </h3>
 
@@ -397,10 +410,22 @@ export default function StreamCard(props: StreamCardProps) {
               startedAtIso ||
               duration ||
               viewCount != null) && (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-[11px] text-muted border-t border-border/50 pt-2 mt-auto min-w-0">
+              <div
+                className={cn(
+                  "flex flex-wrap items-center gap-y-1 text-[10px] sm:text-[11px] text-muted border-t border-border/50 mt-auto min-w-0",
+                  isGridLayout ? "gap-x-1.5 pt-1.5" : "gap-x-2 pt-2"
+                )}
+              >
                 {/* 1. 태그 (존재하면 우선 표시) */}
                 {formattedTags ? (
-                  <span className="truncate font-medium text-brand dark:text-brand-light max-w-[100px] sm:max-w-[150px]">
+                  <span
+                    className={cn(
+                      "truncate font-medium text-brand dark:text-brand-light",
+                      isGridLayout
+                        ? "max-w-[96px] sm:max-w-[150px]"
+                        : "max-w-[100px] sm:max-w-[150px]"
+                    )}
+                  >
                     {formattedTags}
                   </span>
                 ) : null}

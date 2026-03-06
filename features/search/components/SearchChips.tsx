@@ -9,6 +9,7 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 뱃지 전용 시맨틱 컬러(bg-badge) 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  검색 칩 높이와 텍스트 밀도를 상단 탭/필터 UI와 일관되게 조정
  */
 "use client";
 
@@ -50,7 +51,7 @@ export default function SearchChips({
     <div
       key={key}
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors",
+        "inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-3 text-[11px] font-medium transition-colors",
         "bg-brand/10 text-brand border border-brand/20",
         "dark:bg-brand-light/10 dark:text-brand-light dark:border-brand-light/20"
       )}

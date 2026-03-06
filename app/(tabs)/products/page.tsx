@@ -37,6 +37,7 @@
  * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용 및 Suspense 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  ProductModalReopenRelay 주입(모달 편집후 복귀)
+ * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 제품 카드 스켈레톤 구조로 통일
  */
 
 import { Suspense } from "react";
@@ -47,12 +48,12 @@ import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { getCategoryName } from "@/lib/getCategoryName";
-import Skeleton from "@/components/ui/Skeleton";
 import { SearchProvider } from "@/components/global/providers/SearchProvider";
 import NotificationBell from "@/components/global/NotificationBell";
 import AddProductButton from "@/features/product/components/AddProductButton";
 import ProductEmptyState from "@/features/product/components/ProductEmptyState";
 import ProductList from "@/features/product/components/ProductList";
+import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
 import SearchResultSummary from "@/features/product/components/SearchResultSummary";
 import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
 import SearchSection from "@/features/search/components/SearchSection";
@@ -276,12 +277,7 @@ export default async function ProductsPage({
           ) : (
             <HydrationBoundary state={dehydrate(queryClient)}>
               <Suspense
-                fallback={
-                  <div className="flex flex-col gap-4">
-                    <Skeleton className="h-32 w-full rounded-2xl" />
-                    <Skeleton className="h-32 w-full rounded-2xl" />
-                  </div>
-                }
+                fallback={<ProductListSkeleton viewMode="list" />}
               >
                 <ProductList
                   key={`${JSON.stringify(searchParams)}-${currentRange}`}

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   상수 정의
+ * 2026.03.07  임도헌   Modified  범용 서버 에러 문구를 v1.2 기준으로 구체화
  */
 
 // 유저 관련 에러 메시지
@@ -19,7 +20,7 @@ export const USER_ERRORS = {
   INVALID_INPUT: "입력값이 올바르지 않습니다.",
   PASSWORD_MISMATCH: "비밀번호가 일치하지 않습니다.",
   CURRENT_PASSWORD_WRONG: "현재 비밀번호가 일치하지 않습니다.",
-  SERVER_ERROR: "서버 처리 중 오류가 발생했습니다.",
+  SERVER_ERROR: "요청 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
 } as const;
 
 // 뱃지 한글 이름 매핑

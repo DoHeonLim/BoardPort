@@ -12,6 +12,8 @@
  * 2026.02.05  임도헌   Modified  신고 및 작성자 차단 통합 메뉴 구현
  * 2026.02.13  임도헌   Modified  상단바에 공유하기 버튼 추가
  * 2026.02.26  임도헌   Modified  카테고리 UI 수정
+ * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet로 전환하고 액션 버튼 접근성을 보강
+ * 2026.03.06  임도헌   Modified  상세 상단 액션바 버튼/칩 스타일을 공통 규칙으로 통일
  */
 "use client";
 
@@ -21,9 +23,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import BackButton from "@/components/global/BackButton";
+import BottomSheet from "@/components/global/BottomSheet";
 import UserAvatar from "@/components/global/UserAvatar";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { toggleBlockAction } from "@/features/user/actions/block";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   ShareIcon,
   PencilSquareIcon,
@@ -74,16 +78,19 @@ export default function PostDetailTopbar({
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // 외부 클릭 닫기
   useEffect(() => {
+    if (isMobile) return;
+
     const onClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node))
         setMenuOpen(false);
     };
     if (menuOpen) document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, [menuOpen]);
+  }, [isMobile, menuOpen]);
 
   const handleBlock = () => {
     startTransition(async () => {
@@ -126,7 +133,7 @@ export default function PostDetailTopbar({
           {categoryLabel && (
             <span
               className={cn(
-                "inline-flex px-3 py-1 text-xs font-medium rounded-full mr-2 transition-colors",
+                "appbar-chip mr-2",
                 "bg-brand/10 text-brand dark:bg-brand-light/50 dark:text-gray-100"
               )}
             >
@@ -135,7 +142,7 @@ export default function PostDetailTopbar({
           )}
           <button
             onClick={() => handleShare(title)}
-            className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+            className="appbar-icon-btn"
             aria-label="게시글 공유하기"
           >
             <ShareIcon className="size-5" />
@@ -144,7 +151,7 @@ export default function PostDetailTopbar({
           {canEdit ? (
             <Link
               href={editHref!}
-              className="flex items-center justify-center btn-secondary h-9 px-3 text-xs gap-1.5 border-none bg-surface-dim hover:bg-border text-muted hover:text-primary"
+              className="appbar-link-btn gap-1.5 border border-transparent bg-surface-dim hover:bg-border"
             >
               <PencilSquareIcon className="size-4" />
               <span>수정</span>
@@ -153,18 +160,25 @@ export default function PostDetailTopbar({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="p-2 text-muted hover:text-primary transition-colors rounded-full hover:bg-surface-dim"
+                aria-label="게시글 옵션 열기"
+                aria-expanded={menuOpen}
+                aria-haspopup={isMobile ? "dialog" : "menu"}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
               >
                 <EllipsisVerticalIcon className="size-5" />
               </button>
 
-              {menuOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in">
+              {!isMobile && menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+                >
                   <button
                     onClick={() => {
                       setMenuOpen(false);
                       setBlockConfirmOpen(true);
                     }}
+                    role="menuitem"
                     className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2"
                   >
                     <UserMinusIcon className="size-4" />
@@ -175,6 +189,7 @@ export default function PostDetailTopbar({
                       setMenuOpen(false);
                       setReportOpen(true);
                     }}
+                    role="menuitem"
                     className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border"
                   >
                     <ExclamationTriangleIcon className="size-4" />
@@ -186,6 +201,38 @@ export default function PostDetailTopbar({
           )}
         </div>
       </div>
+
+      <BottomSheet
+        open={isMobile && menuOpen}
+        title="게시글 옵션"
+        description="작성자 차단 또는 게시글 신고를 진행할 수 있습니다."
+        onClose={() => setMenuOpen(false)}
+      >
+        <div className="space-y-2 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setBlockConfirmOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+          >
+            <UserMinusIcon className="size-5 shrink-0" />
+            작성자 차단하기
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+          >
+            <ExclamationTriangleIcon className="size-5 shrink-0" />
+            게시글 신고하기
+          </button>
+        </div>
+      </BottomSheet>
 
       <ConfirmDialog
         open={blockConfirmOpen}

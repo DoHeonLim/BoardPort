@@ -17,6 +17,8 @@
  * 2026.03.01  임도헌   Modified  useStreamPagination 도입을 통해 내부 상태 및 팔로우 동기화 로직 제거
  * 2026.03.03  임도헌   Modified  명령형 로딩(isLoading) 상태 제거 및 선언적 렌더링 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  모바일 카드 간격과 데스크톱 간격을 분리해 리스트 밀도를 정리
+ * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
  */
 
 "use client";
@@ -80,7 +82,7 @@ export default function StreamList({
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
         {streams.map((s) => {
           const tags = s.tags ?? [];
           return (
@@ -121,7 +123,7 @@ export default function StreamList({
           <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
         )}
         {isFetchingNextPage && (
-          <div className="mt-3 mb-[calc(84px+env(safe-area-inset-bottom))] sm:mb-0 mx-auto w-fit flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full shadow-sm animate-fade-in whitespace-nowrap">
+          <div className="list-loading-pill">
             <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
             <span className="whitespace-nowrap">더 불러오는 중...</span>
           </div>

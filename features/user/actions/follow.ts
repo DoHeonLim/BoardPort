@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   API Route 대체
  * 2026.03.05  임도헌   Modified  서버 캐시 무효화(`revalidateTag`) 방식 탈피, `queryClient.setQueryData`를 활용한 즉각적 UI 갱신(Optimistic Update) 적용
+ * 2026.03.07  임도헌   Modified  팔로우 실패 사유를 구조화된 결과로 반환하도록 보강
  */
 "use server";
 
@@ -81,10 +82,24 @@ export async function toggleFollowAction(
     return { success: false, error: "자신을 팔로우할 수 없습니다." };
   }
 
-  const result =
-    intent === "follow"
-      ? await followUserService(viewerId, targetId)
-      : await unfollowUserService(viewerId, targetId);
+  let result;
+  try {
+    result =
+      intent === "follow"
+        ? await followUserService(viewerId, targetId)
+        : await unfollowUserService(viewerId, targetId);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "팔로우 처리에 실패했습니다. 잠시 후 다시 시도해주세요.";
+
+    let code: string | undefined;
+    if (message.includes("정지")) code = "BANNED_USER";
+    else if (message.includes("차단")) code = "FORBIDDEN";
+
+    return { success: false, error: message, code };
+  }
 
   return {
     success: true,

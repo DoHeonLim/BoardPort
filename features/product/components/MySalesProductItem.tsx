@@ -32,6 +32,7 @@
  * 2026.02.26  임도헌   Modified  Grid View 지원, 다크모드 텍스트 가시성(brand-light) 개선, bump_count 방어코드
  * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  상태 변경/리뷰 삭제 피드백 문구를 구체화(v1.2)
  */
 
 "use client";
@@ -261,7 +262,10 @@ export default function MySalesProductItem({
         // 서버 액션 성공 즉시 UI 상의 카운트를 +1 하여 시각적 피드백 제공
         onReviewChanged?.({ bump_count: product.bump_count + 1 });
       } else {
-        toast.error(res.error ?? "실패했습니다.");
+        toast.error(
+          res.error ??
+            "게시글 끌어올리기에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       }
     });
   };
@@ -284,11 +288,16 @@ export default function MySalesProductItem({
         toggleModal("reviewSeller", false);
         toast.success("리뷰를 삭제했습니다.");
       } else {
-        toast.error(res.error || "삭제 실패");
+        toast.error(
+          res.error ??
+            "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       }
     } catch (e) {
       console.error(e);
-      toast.error("오류가 발생했습니다.");
+      toast.error(
+        "리뷰 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+      );
     } finally {
       setIsDeleting(false);
       toggleModal("deleteConfirm", false);
@@ -325,7 +334,9 @@ export default function MySalesProductItem({
       } catch {
         rollback?.(); // 실패 시 롤백
         await onMoveFailed?.({ from: type, to });
-        toast.error("상태 변경 실패");
+        toast.error(
+          "상품 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요."
+        );
       } finally {
         setOpLoading(false);
       }

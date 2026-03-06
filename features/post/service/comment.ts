@@ -17,6 +17,7 @@
  * 2026.02.23  임도헌   Modified  댓글 조회 시 정지유저(Banned) 콘텐츠 완벽 은닉 처리
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 조회 함수(getPostCommentsList)로 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  댓글 삭제에도 정지 유저 가드 적용 및 실패 문구 구체화
  */
 import "server-only";
 import db from "@/lib/db";
@@ -163,6 +164,9 @@ export async function deleteComment(
   commentId: number
 ): Promise<ServiceResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
     const comment = await db.comment.findUnique({
       where: { id: commentId },
       select: { userId: true },
@@ -176,6 +180,10 @@ export async function deleteComment(
     return { success: true };
   } catch (e) {
     console.error("deleteComment failed:", e);
-    return { success: false, error: "댓글 삭제 실패" };
+    return {
+      success: false,
+      error:
+        "댓글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

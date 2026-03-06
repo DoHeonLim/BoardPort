@@ -18,17 +18,18 @@ import {
 import { verifyAdminAccess } from "@/features/auth/service/authSession";
 import { revalidatePath } from "next/cache";
 import type { ServiceResult } from "@/lib/types";
+import type { AdminReportListResponse } from "@/features/report/types";
 
 /**
  * 신고 목록 조회 Action
  * - 관리자 권한을 검증하고 Service 계층을 호출
  *
  * @param filter - 필터 조건 (상태, 페이지 등)
- * @returns {Promise<ServiceResult>} 신고 목록 및 페이징 정보
+ * @returns {Promise<ServiceResult<AdminReportListResponse>>} 신고 목록 및 페이징 정보
  */
 export async function getReportsAdminAction(
   filter: ReportFilter
-): Promise<ServiceResult<any>> {
+): Promise<ServiceResult<AdminReportListResponse>> {
   const auth = await verifyAdminAccess();
   if (!auth.success) return { success: false, error: auth.error! };
 

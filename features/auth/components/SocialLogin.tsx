@@ -13,6 +13,7 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  카카오 로그인 버튼 추가 및 최상단 배치
  * 2026.02.24  임도헌   Modified  각 소셜로그인 컬러 수정
+ * 2026.03.06  임도헌   Modified  소셜 로그인 버튼 스타일을 공통 유틸 클래스 기반으로 정리
  */
 
 import Link from "next/link";
@@ -33,9 +34,8 @@ export default function SocialLogin() {
       <a
         aria-label="카카오로 계속하기"
         className={cn(
+          "btn-social-kakao",
           "flex w-full items-center justify-center h-input-md gap-2.5",
-          "rounded-xl bg-[#FEE500] text-[#000000]", // 카카오 브랜드 컬러
-          "hover:bg-[#FADA0A] active:scale-[0.98] transition-all",
           "font-bold text-base" // 카카오는 좀 더 강조하기 위해 bold 적용
         )}
         href="/kakao/start"
@@ -53,10 +53,7 @@ export default function SocialLogin() {
       {/* GitHub Login */}
       <a
         aria-label="GitHub로 계속하기"
-        className={cn(
-          baseButtonClass,
-          "bg-white text-[#181717] hover:bg-neutral-100"
-        )}
+        className={cn(baseButtonClass, "btn-social-github")}
         href="/github/start"
       >
         <svg className="size-5" viewBox="0 0 15 15" fill="currentColor">
@@ -73,7 +70,7 @@ export default function SocialLogin() {
       <Link
         className={cn(
           baseButtonClass,
-          "bg-emerald-600 text-white hover:bg-emerald-700"
+          "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
         )}
         href="/sms"
       >

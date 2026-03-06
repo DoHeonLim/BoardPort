@@ -31,6 +31,7 @@
  * 2026.02.22  임도헌   Modified  initialBlockedUserIds 프롭을 받아 기존 차단 유저 채팅 완벽 은닉
  * 2026.03.04  임도헌   Modified  stream:chat:state 이벤트 리스너 제거 및 closeChat 액션 기반 Zustand 상태 제어로 전환
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  채팅 제어/신고 버튼 aria-label 및 hover 가시성 보강
  */
 "use client";
 
@@ -281,7 +282,8 @@ export default function StreamChatRoom({
           {showExpandToggle && (
             <button
               onClick={onToggleExpand}
-              className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              aria-label={isExpanded ? "채팅창 축소" : "채팅창 확대"}
+              className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             >
               {isExpanded ? (
                 <ArrowsPointingInIcon className="size-4" />
@@ -292,7 +294,8 @@ export default function StreamChatRoom({
           )}
           <button
             onClick={closeChat}
-            className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            aria-label="채팅 닫기"
+            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-5" />
           </button>
@@ -334,6 +337,7 @@ export default function StreamChatRoom({
                           avatar: msg.user?.avatar ?? null,
                         })
                       }
+                      aria-label={`${uname} 사용자 메뉴 열기`}
                       className="flex items-center gap-1.5 hover:bg-surface-dim px-1 -ml-1 rounded transition-colors"
                     >
                       <span
@@ -364,7 +368,8 @@ export default function StreamChatRoom({
                   {!isMine && (
                     <button
                       onClick={() => setReportMessageId(msg.id)}
-                      className="absolute right-0 top-1 p-1 text-muted/40 hover:text-danger opacity-0 group-hover:opacity-100 transition-all"
+                      aria-label="메시지 신고하기"
+                      className="absolute right-0 top-1 inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg text-muted/60 opacity-0 transition-all hover:bg-surface-dim hover:text-danger group-hover:opacity-100"
                       title="메시지 신고"
                     >
                       <ExclamationTriangleIcon className="size-4" />
@@ -393,6 +398,7 @@ export default function StreamChatRoom({
           <button
             onClick={onSubmit}
             disabled={Date.now() < cooldownUntil || !message.trim()}
+            aria-label="메시지 전송"
             className={cn(
               "shrink-0 size-10 rounded-full flex items-center justify-center transition-all",
               "bg-brand text-white hover:bg-brand-light active:scale-95 shadow-sm",

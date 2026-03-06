@@ -10,16 +10,18 @@
  * 2025.11.19  임도헌   Modified   리뷰 삭제 시 판매자 평균 평점, 리뷰 목록 및 해당 제품 상세 최신화
  * 2026.01.19  임도헌   Moved      lib/review -> features/review/lib
  * 2026.01.24  임도헌   Merged     lib/deleteReview & deleteAllProductReviews 통합
+ * 2026.03.07  임도헌   Modified   리뷰 삭제 계열에 정지 유저 가드 적용 및 주석 정합성 수정
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { REVIEW_ERRORS } from "@/features/review/constants";
+import { validateUserStatus } from "@/features/user/service/admin";
 import { DeleteReviewResult } from "@/features/review/types";
 
 /**
  * 단일 리뷰 삭제
- * - 작성자 또는 제품 소유자(판매자)만 삭제할 수 있음
+ * - 작성자만 삭제할 수 있음
  *
  * @param userId - 요청자 ID
  * @param reviewId - 삭제할 리뷰 ID
@@ -30,6 +32,11 @@ export async function deleteReviewService(
   reviewId: number
 ): Promise<DeleteReviewResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) {
+      return { success: false, error: status.error! };
+    }
+
     // 1. 리뷰 및 관련 제품 정보 조회
     const rev = await db.review.findUnique({
       where: { id: reviewId },
@@ -78,6 +85,11 @@ export async function deleteAllReviewsService(
   productId: number
 ): Promise<DeleteReviewResult> {
   try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) {
+      return { success: false, error: status.error! };
+    }
+
     // 1. 제품 소유권 확인
     const prod = await db.product.findUnique({
       where: { id: productId },

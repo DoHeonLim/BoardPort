@@ -18,6 +18,7 @@
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
  * 2026.02.26  임도헌   Modified  dto에 parsed.data.location 추가
  * 2026.03.05  임도헌   Modified  게시글 목록 갱신용 레거시 `revalidateTag` 제거 및 `revalidatePath`와 클라이언트 캐시 무효화로 갱신 책임 분리
+ * 2026.03.07  임도헌   Modified  태그/사진/위치 payload 파싱 오류를 ActionState 실패로 정규화
  */
 "use server";
 
@@ -45,9 +46,13 @@ export async function createPostAction(
   const tagsString = formData.get("tags")?.toString() || "[]";
   let tags: string[] = [];
   try {
-    tags = JSON.parse(tagsString);
+    const parsedTags = JSON.parse(tagsString);
+    if (!Array.isArray(parsedTags)) {
+      return { success: false, error: "태그 형식이 올바르지 않습니다." };
+    }
+    tags = parsedTags;
   } catch {
-    tags = [];
+    return { success: false, error: "태그 형식이 올바르지 않습니다." };
   }
   const photos = formData.getAll("photos[]").map(String);
   const locationRaw = formData.get("location")?.toString();
@@ -56,7 +61,20 @@ export async function createPostAction(
     try {
       locationData = JSON.parse(locationRaw);
     } catch {
-      console.error("Location parse error");
+      return { success: false, error: "위치 정보 형식이 올바르지 않습니다." };
+    }
+  }
+
+  let fallbackPhotos: string[] = [];
+  if (!photos.length) {
+    try {
+      const parsedPhotos = JSON.parse(formData.get("photos")?.toString() || "[]");
+      if (!Array.isArray(parsedPhotos)) {
+        return { success: false, error: "이미지 목록 형식이 올바르지 않습니다." };
+      }
+      fallbackPhotos = parsedPhotos.map(String);
+    } catch {
+      return { success: false, error: "이미지 목록 형식이 올바르지 않습니다." };
     }
   }
 
@@ -65,9 +83,7 @@ export async function createPostAction(
     description: formData.get("description"),
     category: formData.get("category"),
     tags,
-    photos: photos.length
-      ? photos
-      : JSON.parse(formData.get("photos")?.toString() || "[]"),
+    photos: photos.length ? photos : fallbackPhotos,
     location: locationData,
   };
 

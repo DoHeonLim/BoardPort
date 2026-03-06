@@ -9,6 +9,7 @@
  * 2026.01.10  임도헌   Modified  [Rule 3.2]모바일 뷰 제약 준수 & 시맨틱 토큰 적용
  * 2026.02.13  임도헌   Modified  상단바에 공유하기 버튼 추가
  * 2026.03.05  임도헌   Modified  상단 수정 링크를 replace로 변경해 뒤로가기 스택 최적화
+ * 2026.03.06  임도헌   Modified  제품 상세 상단 액션바 버튼/칩 스타일을 다른 상세 화면과 통일
  */
 
 import type { ReactNode } from "react";
@@ -69,7 +70,7 @@ export default async function ProductDetailLayout({
               <Link
                 href={`/products?category=${encodeURIComponent(String(categoryId))}`}
                 className={cn(
-                  "hidden xs:inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                  "appbar-chip hidden xs:inline-flex",
                   "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
                 )}
                 aria-label={`카테고리 ${categoryLabel}로 보기`}
@@ -86,7 +87,7 @@ export default async function ProductDetailLayout({
               <Link
                 href={`/products/view/${id}/edit`}
                 replace
-                className="hidden sm:inline-flex text-xs font-bold text-muted hover:text-primary transition-colors ml-2"
+                className="appbar-link-btn hidden sm:inline-flex"
               >
                 수정
               </Link>

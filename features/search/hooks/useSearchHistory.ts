@@ -12,6 +12,7 @@
  * 2026.01.28  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.03.01  임도헌   Modified  useState 제거 및 useQuery/useMutation을 활용한 서버 상태 동기화
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  검색 기록 낙관적 업데이트와 삭제에도 키워드 소문자 정규화 규칙을 적용
  */
 
 "use client";
@@ -25,6 +26,13 @@ import {
   createSearchHistory,
 } from "@/features/product/actions/history";
 import type { SearchHistoryItem } from "@/features/product/types";
+
+/**
+ * 검색어를 서버 저장 기준과 동일하게 정규화
+ * - 앞뒤 공백 제거
+ * - 소문자 통일
+ */
+const normalizeKeyword = (keyword: string) => keyword.trim().toLowerCase();
 
 /**
  * 검색 기록 관리 훅
@@ -53,10 +61,10 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
       const previous = queryClient.getQueryData<SearchHistoryItem[]>(queryKey);
 
       queryClient.setQueryData(queryKey, (old: SearchHistoryItem[] = []) => {
-        const trimmed = keyword.trim();
-        const filtered = old.filter((item) => item.keyword !== trimmed);
+        const normalized = normalizeKeyword(keyword);
+        const filtered = old.filter((item) => item.keyword !== normalized);
         return [
-          { keyword: trimmed, created_at: new Date() },
+          { keyword: normalized, created_at: new Date() },
           ...filtered,
         ].slice(0, 5);
       });
@@ -72,7 +80,8 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
   });
 
   const { mutate: removeHistory } = useMutation({
-    mutationFn: async (keyword: string) => await deleteSearchHistory(keyword),
+    mutationFn: async (keyword: string) =>
+      await deleteSearchHistory(normalizeKeyword(keyword)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 

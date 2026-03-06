@@ -14,6 +14,7 @@
  * 2026.03.04  임도헌   Modified  getRecordingCommentsListAction으로 명칭 변경 및 통합 로직 호출
  * 2026.03.05  임도헌   Modified  Action 내 서버 캐시 무효화(`revalidateTag`) 기능 완전 제거 및 순수 결과 반환 구조로 리팩토링
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  댓글 생성/삭제 에러 코드를 세분화
  */
 "use server";
 
@@ -77,8 +78,12 @@ export const createRecordingComment = async (formData: FormData) => {
     );
 
     return { success: true as const };
-  } catch (e) {
+  } catch (e: any) {
     console.error("댓글 생성 실패:", e);
+    if (e.message === "BANNED_USER")
+      return { success: false as const, error: "BANNED_USER" as const };
+    if (e.message === "FORBIDDEN")
+      return { success: false as const, error: "FORBIDDEN" as const };
     return { success: false as const, error: "CREATE_FAILED" as const };
   }
 };
@@ -102,6 +107,8 @@ export const deleteRecordingComment = async (commentId: number) => {
     return { success: true as const };
   } catch (e: any) {
     console.error("댓글 삭제 실패:", e);
+    if (e.message === "BANNED_USER")
+      return { success: false, error: "BANNED_USER" as const };
     if (e.message === "NOT_FOUND")
       return { success: false, error: "NOT_FOUND" as const };
     if (e.message === "FORBIDDEN")

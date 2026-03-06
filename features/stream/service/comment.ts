@@ -10,6 +10,7 @@
  * 2026.02.05  임도헌   Modified  댓글 목록 조회 시 차단된 유저 필터링 추가
  * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  * 2026.03.04  임도헌   Modified  `unstable_cache` 및 `revalidateTag` 기반 서버 상태 갱신 방식 제거, 순수 DB 쿼리 로직으로 단일화
+ * 2026.03.07  임도헌   Modified  댓글 목록의 정지 유저 은닉 및 삭제 액션 정지 유저 가드 적용
  */
 
 import "server-only";
@@ -38,7 +39,10 @@ export async function getRecordingCommentsList(
   limit = 10,
   viewerId?: number | null
 ) {
-  const where: any = { vodId };
+  const where: any = {
+    vodId,
+    user: { bannedAt: null },
+  };
 
   // 차단 유저 필터링
   if (viewerId) {
@@ -122,6 +126,9 @@ export const deleteRecordingComment = async (
   commentId: number,
   userId: number
 ) => {
+  const status = await validateUserStatus(userId);
+  if (!status.success) throw new Error("BANNED_USER");
+
   const target = await db.recordingComment.findUnique({
     where: { id: commentId },
     select: { userId: true },

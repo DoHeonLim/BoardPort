@@ -13,6 +13,7 @@
  * 2026.01.20  임도헌   Modified  app/actions/history -> service/history
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.22  임도헌   Modified  검색어 대소문자 정규화(toLowerCase) 적용으로 파편화 방지
+ * 2026.03.07  임도헌   Modified  검색 기록 삭제 시에도 동일한 키워드 정규화 규칙을 적용
  */
 
 import "server-only";
@@ -116,7 +117,9 @@ export async function getPopularSearches(): Promise<PopularSearchItem[]> {
  * @param {string} keyword - 삭제할 키워드
  */
 export async function deleteSearchHistory(userId: number, keyword: string) {
-  await db.searchHistory.deleteMany({ where: { userId, keyword } });
+  await db.searchHistory.deleteMany({
+    where: { userId, keyword: keyword.trim().toLowerCase() },
+  });
 }
 
 /**

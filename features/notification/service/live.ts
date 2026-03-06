@@ -11,6 +11,7 @@
  * 2025.12.28  임도헌   Modified  realtime payload에 userId 포함(클라 NotificationListener 필터와 정합)
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
  * 2026.01.23  임도헌   Modified  lib/sendLiveStartNotifications -> service/live 이동 및 경로 수정
+ * 2026.03.07  임도헌   Modified  push 전송 조건 분기 수정(canSendPushForType 부정 조건 제거)
  */
 
 import "server-only";
@@ -122,7 +123,7 @@ export async function sendLiveStartNotifications({
     }
 
     // 4-4. Push 알림 전송 가능 여부 체크 (방해 금지 시간 등)
-    if (!canSendPushForType(pref, "STREAM", now)) {
+    if (canSendPushForType(pref, "STREAM", now)) {
       // 4-5. Web Push 발송 (비동기)
       // tag를 사용하여 동일 방송 알림이 중복 쌓이지 않고 갱신되도록 함
       const result = await sendPushNotification({

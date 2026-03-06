@@ -21,6 +21,7 @@
  * 2026.02.04  임도헌   Modified  receiverId를 활용한 알림 전송 로직 최적화
  * 2026.02.19  임도헌   Modified  공통 converter 적용 및 약속(Appointment) 정보 포함
  * 2026.02.21  임도헌   Modified  수신자 이탈 여부 추가
+ * 2026.03.07  임도헌   Modified  읽음 브로드캐스트 payload에 readerId 추가
  */
 
 import "server-only";
@@ -36,7 +37,10 @@ import { checkBlockRelation } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
 import type { ServiceResult } from "@/lib/types";
-import type { ChatMessage } from "@/features/chat/types";
+import type {
+  ChatMessage,
+  MessageReadUpdateResult,
+} from "@/features/chat/types";
 import type { MessageType } from "@/generated/prisma/client";
 
 /* -------------------------------------------------------------------------- */
@@ -326,7 +330,10 @@ export async function createMessage(
  * @param {string} chatRoomId - 채팅방 ID
  * @param {number} userId - 읽은 사람(나) ID
  */
-export async function markMessagesAsRead(chatRoomId: string, userId: number) {
+export async function markMessagesAsRead(
+  chatRoomId: string,
+  userId: number
+): Promise<MessageReadUpdateResult> {
   // 1. 읽지 않은 메시지 조회 (상대방 메시지)
   const unreadIds = await db.$transaction(async (tx) => {
     const unread = await tx.productMessage.findMany({
@@ -356,7 +363,7 @@ export async function markMessagesAsRead(chatRoomId: string, userId: number) {
   await supabase.channel(`room-${chatRoomId}`).send({
     type: "broadcast",
     event: "message_read",
-    payload: { readIds: unreadIds },
+    payload: { readIds: unreadIds, readerId: userId },
   });
 
   // 3. 관련 Notification 읽음 처리

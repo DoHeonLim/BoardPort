@@ -16,6 +16,7 @@
  * 2026.03.03  임도헌   Modified  useState 기반 상태 제거 및 useSuspenseQuery / setQueryData 연동으로 구조 전면 개편
  * 2026.03.03  임도헌   Modified  getChatRoomsAction 서버 액션 호출로 변경 (Service 직접 호출 차단)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  message_read readerId 기준으로 unreadCount 초기화 조건 보강
  */
 
 "use client";
@@ -33,8 +34,9 @@ import type { ChatMessage, ChatRoom } from "@/features/chat/types";
  * [기능 및 동작 원리]
  * 1. `useSuspenseQuery`를 활용하여 하이드레이션된 채팅방 목록을 선언적으로 가져옴
  * 2. `subscribeToRoomUpdates`를 통해 각 채팅방의 웹소켓 이벤트를 구독
- * 3. 메시지 수신(`message`) 및 읽음 처리(`message_read`) 발생 시 `queryClient.setQueryData`를 사용하여 전역 캐시를 즉각적으로 갱신 (Optimistic Update)
- * 4. 로컬 상태(`useState`)를 완전히 제거하고 단일 진실 공급원(SSOT)을 TanStack Query Cache로 일원화
+ * 3. 메시지 수신(`message`) 및 읽음 처리(`message_read`) 발생 시 `queryClient.setQueryData`를 사용하여 전역 캐시를 즉각적으로 갱신
+ * 4. 읽음 이벤트는 `readerId === 현재 사용자`일 때만 unreadCount를 0으로 반영하여 상대방의 읽음 상태와 혼동되지 않도록 처리
+ * 5. 로컬 상태(`useState`)를 완전히 제거하고 단일 진실 공급원(SSOT)을 TanStack Query Cache로 일원화
  *
  * @param {number} userId - 현재 접속 중인 사용자 ID
  * @returns 최신화된 채팅방 목록 배열
@@ -89,7 +91,9 @@ export default function useChatRoomSubscription(userId: number) {
         );
       },
       // 3. 메시지 읽음 처리 시 캐시 카운트 초기화
-      onMessageRead: (roomId: string) => {
+      onMessageRead: ({ roomId, readerId }) => {
+        if (readerId !== userId) return;
+
         queryClient.setQueryData(
           queryKey,
           (oldRooms: ChatRoom[] | undefined) => {

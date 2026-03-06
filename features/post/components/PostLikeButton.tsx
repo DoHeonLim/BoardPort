@@ -18,6 +18,7 @@
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.01  임도헌   Modified  React useOptimistic 제거 및 TanStack Query useMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  실패 토스트를 구체화해 v1.2 피드백 기준 반영
  */
 "use client";
 
@@ -84,7 +85,7 @@ export default function PostLikeButton({
     // 에러 발생 시 이전 상태로 복구
     onError: (err, variables, context) => {
       console.error("Like mutation failed:", err);
-      toast.error("처리에 실패했습니다.");
+      toast.error("게시글 좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
       queryClient.setQueryData(queryKey, context?.previous);
     },
     // 성공/실패 무관하게 백그라운드 데이터 최신화

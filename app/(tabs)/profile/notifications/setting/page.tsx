@@ -11,6 +11,7 @@
  * 2026.01.29  임도헌   Modified  알림 설정 페이지 주석 보강 및 구조 설명 추가
  * 2026.02.08  임도헌   Modified  알림 목록 페이지 구현으로 인해 경로 변경 (settings)
  * 2026.02.12  임도헌   Modifeid  키워드 알림 설정 추가
+ * 2026.03.07  임도헌   Modified  로그인 콜백 경로를 실제 설정 페이지로 정정
  */
 
 import { redirect } from "next/navigation";
@@ -27,7 +28,7 @@ import NotificationSettingsClient from "@/features/notification/components/Notif
 export default async function NotificationSettingsPage() {
   const session = await getSession();
   if (!session.id) {
-    redirect("/login?callbackUrl=/profile/notifications");
+    redirect("/login?callbackUrl=/profile/notifications/setting");
   }
 
   const userId = session.id;

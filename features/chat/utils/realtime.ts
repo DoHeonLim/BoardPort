@@ -12,17 +12,18 @@
  * 2026.01.22  임도헌   Moved     lib/room/subscribeToRoomUpdates.ts -> utils/realtime.ts
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.02.19  임도헌   Modified  약속/시스템 메시지 타입 수신 대응 설명 추가
+ * 2026.03.07  임도헌   Modified  message_read payload에 readerId를 포함하도록 구조 보강
  */
 
 import { supabase } from "@/lib/supabase";
-import { ChatMessage } from "@/features/chat/types";
+import { ChatMessage, MessageReadPayload } from "@/features/chat/types";
 import { CHAT_EVENT } from "@/features/chat/constants";
 
 interface SubscribeOptions {
   userId: number; // 현재 로그인된 유저 ID
   roomIds: string[]; // 구독할 채팅방 ID 목록
   onMessage: (payload: ChatMessage) => void; // 새 메시지 수신 콜백
-  onMessageRead: (roomId: string) => void; // 읽음 처리 수신 콜백
+  onMessageRead: (payload: MessageReadPayload & { roomId: string }) => void; // 읽음 처리 수신 콜백 (readerId 포함)
 }
 
 /**
@@ -31,7 +32,7 @@ interface SubscribeOptions {
  * [기능]
  * 1. 전달받은 roomIds 각각에 대해 Supabase 채널을 생성하고 구독
  * 2. `message` 이벤트: 내가 보낸 것이 아닌 새 메시지를 수신하면 onMessage 콜백을 실행
- * 3. `message_read` 이벤트: 상대방이 메시지를 읽으면 onMessageRead 콜백을 실행
+ * 3. `message_read` 이벤트: 읽음 처리한 사용자 ID(readerId)와 메시지 ID 목록(readIds)을 함께 전달
  * 4. 구독 해제 함수(unsubscribe)를 반환하여 클린업을 지원
  * 5. TEXT, IMAGE 외에도 APPOINTMENT(약속), SYSTEM(알림) 타입의 메시지를 수신할 수 있음.
  * 6. 수신된 payload는 클라이언트 훅(useChatSubscription)에서 Date 객체로 변환됨.
@@ -59,10 +60,21 @@ export function subscribeToRoomUpdates({
     });
 
     // 2. 메시지 읽음 수신
-    channel.on("broadcast", { event: CHAT_EVENT.MESSAGE_READ }, () => {
-      // 읽음 처리 이벤트가 발생하면 해당 방의 unreadCount를 0으로 만들기 위해 콜백 호출
-      onMessageRead(roomId);
-    });
+    channel.on(
+      "broadcast",
+      { event: CHAT_EVENT.MESSAGE_READ },
+      ({ payload }) => {
+        const readPayload = payload as MessageReadPayload;
+        if (
+          !Array.isArray(readPayload.readIds) ||
+          typeof readPayload.readerId !== "number"
+        ) {
+          return;
+        }
+
+        onMessageRead({ ...readPayload, roomId });
+      }
+    );
 
     // 실시간 구독 활성화
     channel.subscribe();

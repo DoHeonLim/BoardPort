@@ -22,6 +22,8 @@
  * 2026.02.22  임도헌   Modified  채팅 읽음 처리 시 전역 알림 벨 카운트 즉시 동기화 추가
  * 2026.02.28  임도헌   Modified  Zustand 기반 전역 상태 감소 로직 적용 (DOM 이벤트 제거)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.07  임도헌   Modified  onMessagesRead에 MessageReadPayload 전체 전달 및 readerId 기반 타입 정합성 보강
+ * 2026.03.07  임도헌   Modified  readMessageUpdateAction 결과 타입(MessageReadUpdateResult) 반영
  */
 "use client";
 
@@ -36,7 +38,7 @@ interface UseChatSubscriptionOptions {
   chatRoomId: string; // Supabase 채널 식별용 채팅방 ID
   currentUserId: number; // 현재 로그인한 유저 ID
   onNewMessage: (message: ChatMessage) => void; // 메시지 수신 시 호출되는 콜백
-  onMessagesRead: (readIds: number[]) => void; // 읽음 처리 시 호출되는 콜백
+  onMessagesRead: (payload: MessageReadPayload) => void; // 읽음 처리 시 호출되는 콜백
   /**
    * (옵션) 읽음 처리 호출 폭주 방지
    * - 상대방 메시지가 연속으로 들어올 때 매번 readMessageUpdateAction을 호출하면 서버/DB 부담이 커질 수 있음
@@ -52,7 +54,7 @@ interface UseChatSubscriptionOptions {
  *
  * [기능]
  * 1. `message` 이벤트: 새 메시지 수신 시 콜백을 호출. 내가 보낸 메시지가 아닐 경우 읽음 처리 API를 호출
- * 2. `message_read` 이벤트: 상대방이 메시지를 읽으면 콜백을 호출하여 UI를 갱신
+ * 2. `message_read` 이벤트: 읽음 처리한 사용자(readerId)와 readIds를 함께 전달하여 UI를 갱신
  * 3. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
  * 4. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
  *
@@ -129,7 +131,7 @@ export default function useChatSubscription({
                 currentUserId
               );
               // 서버에서 읽음 처리된 개수만큼 전역 알림 벨 카운트를 즉시 차감 (Zustand)
-              if (res.success && res.readIds && res.readIds.length > 0) {
+              if (res.success && res.readIds.length > 0) {
                 decrement(res.readIds.length);
               }
               return;
@@ -144,7 +146,7 @@ export default function useChatSubscription({
               currentUserId
             );
             // 쓰로틀링 모드에서도 동일하게 스토어 상태를 차감함
-            if (res.success && res.readIds && res.readIds.length > 0) {
+            if (res.success && res.readIds.length > 0) {
               decrement(res.readIds.length);
             }
           } finally {
@@ -156,14 +158,18 @@ export default function useChatSubscription({
 
       /**
        * 2) 읽음 처리 브로드캐스트 수신
-       * - 서버에서 payload: { readIds: number[] } 구조로 전송함
+       * - 서버에서 payload: { readIds: number[]; readerId: number } 구조로 전송함
        */
       .on("broadcast", { event: "message_read" }, ({ payload }) => {
-        const { readIds } = payload as MessageReadPayload;
+        const readPayload = payload as MessageReadPayload;
 
-        // payload 방어: readIds가 올바른 배열일 경우에만 반영함
-        if (Array.isArray(readIds) && readIds.length > 0) {
-          onMessagesReadRef.current(readIds);
+        // payload 방어: readIds 배열과 readerId 숫자가 모두 유효할 때만 반영함
+        if (
+          Array.isArray(readPayload.readIds) &&
+          readPayload.readIds.length > 0 &&
+          typeof readPayload.readerId === "number"
+        ) {
+          onMessagesReadRef.current(readPayload);
         }
       })
 

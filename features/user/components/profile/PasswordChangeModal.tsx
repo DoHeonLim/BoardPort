@@ -19,6 +19,7 @@
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.24  임도헌   Modified  Action 연결 및 타입 호환성 수정
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.07  임도헌   Modified  비밀번호 변경 실패 피드백 문구를 구체화(v1.2)
  */
 "use client";
 
@@ -145,7 +146,9 @@ export default function PasswordChangeModal({
             }
           );
         } else {
-          toast.error("비밀번호 변경에 실패했습니다.");
+          toast.error(
+            "비밀번호 변경에 실패했습니다. 현재 비밀번호와 새 비밀번호 조건을 다시 확인해주세요."
+          );
         }
         return;
       }
@@ -154,7 +157,9 @@ export default function PasswordChangeModal({
       doClose();
     } catch (e) {
       console.error(e);
-      toast.error("알 수 없는 오류가 발생했습니다.");
+      toast.error(
+        "비밀번호 변경 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+      );
     } finally {
       setSubmitting(false);
     }

@@ -13,6 +13,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.06  임도헌   Modified  녹화본 댓글에 차단 및 신고 메뉴(Dropdown) 추가
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  댓글 옵션 메뉴 접근성과 hover 대비를 UI/UX 표준에 맞게 보강
  */
 "use client";
 
@@ -134,14 +135,21 @@ const RecordingCommentItem = forwardRef<
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
-                  className="p-1 text-muted hover:text-primary transition-colors"
+                  aria-label="녹화 댓글 옵션"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
                 >
                   <EllipsisHorizontalIcon className="size-5" />
                 </button>
                 {menuOpen && (
-                  <div className="absolute right-0 mt-1 w-40 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in">
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-1 w-40 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+                  >
                     <button
                       onClick={() => setBlockConfirmOpen(true)}
+                      role="menuitem"
                       className="w-full text-left px-4 py-2.5 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 transition-colors"
                     >
                       <UserMinusIcon className="size-4" />
@@ -152,6 +160,7 @@ const RecordingCommentItem = forwardRef<
                         setMenuOpen(false);
                         setReportOpen(true);
                       }}
+                      role="menuitem"
                       className="w-full text-left px-4 py-2.5 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border transition-colors"
                     >
                       <ExclamationTriangleIcon className="size-4" />

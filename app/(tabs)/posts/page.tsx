@@ -28,6 +28,8 @@
  * 2026.02.21  임도헌   Modified  searchParams.region 레거시 제거 및 DB 기반 currentRange 연동
  * 2026.03.03  임도헌   Modified  서버 컴포넌트 하이드레이션(HydrationBoundary) 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  상단 검색/카테고리 영역을 제품 탭과 유사한 행 분리 구조로 정리해 헤더 밀도를 통일
+ * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 게시글 카드 스켈레톤 구조로 통일
  */
 
 import { Suspense } from "react";
@@ -37,11 +39,11 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
-import Skeleton from "@/components/ui/Skeleton";
 import NotificationBell from "@/components/global/NotificationBell";
 import PostList from "@/features/post/components/PostList";
 import PostEmptyState from "@/features/post/components/PostEmptyState";
 import AddPostButton from "@/features/post/components/AddPostButton";
+import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import PostSearchBarWrapper from "@/features/post/components/PostSearchBarWrapper";
 import PostCategoryTabs from "@/features/search/components/PostCategoryTabs";
 import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
@@ -141,12 +143,13 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
           </div>
         </div>
 
-        {/* Bottom Row: Search & Tabs */}
-        <div className="flex flex-col gap-3 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <PostSearchBarWrapper />
-          </div>
-          {/* 게시글 카테고리 탭 */}
+        {/* Bottom Row: Search */}
+        <div className="border-b border-border/50 px-4 py-3">
+          <PostSearchBarWrapper />
+        </div>
+
+        {/* Category Tabs */}
+        <div className="px-4 py-2">
           <PostCategoryTabs currentCategory={searchParams.category} />
         </div>
       </header>
@@ -161,12 +164,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
         ) : (
           <HydrationBoundary state={dehydrate(queryClient)}>
             <Suspense
-              fallback={
-                <div className="space-y-4">
-                  <Skeleton className="h-32 w-full rounded-2xl" />
-                  <Skeleton className="h-32 w-full rounded-2xl" />
-                </div>
-              }
+              fallback={<PostListSkeleton viewMode="list" />}
             >
               <PostList
                 key={`${JSON.stringify(searchParams)}-${currentRange}`}

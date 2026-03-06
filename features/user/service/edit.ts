@@ -14,6 +14,7 @@
  * 2025.12.23  임도헌   Modified   P2002 meta.target(배열/문자열) 기반 필드 판별 안정화
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Modified   editProfile, changePassword 로직 통합
+ * 2026.03.07  임도헌   Modified   정지 유저 프로필 수정/비밀번호 변경 mutation 가드 추가
  */
 
 import "server-only";
@@ -23,6 +24,7 @@ import bcrypt from "bcrypt";
 import { Prisma } from "@/generated/prisma/client";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { USER_ERRORS } from "@/features/user/constants";
+import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
 import type { CurrentUserForEdit } from "@/features/user/types";
 
@@ -89,6 +91,11 @@ export async function updateProfileService(
 ): Promise<
   { success: true } | { success: false; field?: string; error: string }
 > {
+  const userStatus = await validateUserStatus(userId);
+  if (!userStatus.success) {
+    return { success: false, error: userStatus.error! };
+  }
+
   // 1. username 정규화 (소문자 저장 + NFC)
   const usernameForDb = data.username.trim().toLowerCase().normalize("NFC");
 
@@ -158,6 +165,11 @@ export async function changePasswordService(
   currentPw: string,
   newPw: string
 ): Promise<ServiceResult> {
+  const userStatus = await validateUserStatus(userId);
+  if (!userStatus.success) {
+    return { success: false, error: userStatus.error! };
+  }
+
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { password: true },

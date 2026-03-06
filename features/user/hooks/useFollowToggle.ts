@@ -18,6 +18,7 @@
  * 2026.03.01  임도헌   Modified  delta.ts(CustomEvent) 의존성 제거 및 queryClient.setQueryData 기반 전역 상태 갱신 적용
  * 2026.03.03  임도헌   Modified  전역 캐시 조작 로직 보완
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.07  임도헌   Modified   서버가 반환한 팔로우 실패 사유를 토스트로 직접 노출
  */
 
 "use client";
@@ -59,6 +60,8 @@ export function useFollowToggle() {
           if (res.code === "UNAUTHORIZED") {
             opts?.onRequireLogin?.();
             toast.error("로그인이 필요합니다.");
+          } else {
+            toast.error(res.error);
           }
           return;
         }

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.23  임도헌   Created   회원 탈퇴 로직 추가
+ * 2026.03.07  임도헌   Modified  탈퇴 실패 문구를 구체화(v1.2)
  */
 
 import "server-only";
@@ -27,6 +28,10 @@ export async function withdrawUser(userId: number): Promise<ServiceResult> {
     return { success: true };
   } catch (error) {
     console.error("withdrawUser service error:", error);
-    return { success: false, error: "계정 삭제 중 오류가 발생했습니다." };
+    return {
+      success: false,
+      error:
+        "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 }

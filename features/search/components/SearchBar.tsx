@@ -18,6 +18,7 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.06  임도헌   Modified  탭 간 상단 검색바 높이와 타이포 리듬을 통일
  */
 "use client";
 
@@ -74,11 +75,11 @@ export default function SearchBar({
         onChange={(e) => setKeyword(e.target.value)}
         autoFocus={autoFocus}
         className={cn(
-          "input-primary h-10 w-full pl-9 pr-8 text-base md:text-sm",
+          "input-primary h-11 w-full pl-10 pr-9 text-sm",
           "bg-surface-dim border border-border focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20"
         )}
       />
-      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted pointer-events-none" />
+      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-muted pointer-events-none" />
 
       {isPending && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">

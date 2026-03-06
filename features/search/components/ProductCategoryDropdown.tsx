@@ -18,6 +18,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.19  임도헌   Modified  카테고리/게임타입 변경 시 기존 region 파라미터 유지
  * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.03.07  임도헌   Modified  닫기 버튼 접근성을 보강하고 핵심 옵션 노출형 정책과 역할을 분리
  */
 "use client";
 
@@ -116,6 +117,7 @@ export default function ProductCategoryDropdown({
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-muted hover:text-primary transition-colors"
+                aria-label="카테고리 선택 닫기"
               >
                 <XMarkIcon className="size-4" />
               </button>

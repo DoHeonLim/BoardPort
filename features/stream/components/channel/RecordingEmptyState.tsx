@@ -10,6 +10,7 @@
  * 2026.01.14  임도헌   Modified  [UI] 공통 Empty State 스타일 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸과 CTA 높이 기준을 적용
  */
 
 "use client";
@@ -36,39 +37,43 @@ export default function RecordingEmptyState({
   const showFollowButton = role !== "OWNER" && isFollowing === false;
 
   return (
-    <div className="flex flex-col items-center justify-center py-12 mx-4 text-center">
-      <div className="p-4 rounded-full bg-surface-dim mb-4">
-        <VideoCameraSlashIcon className="size-8 text-muted/50" />
+    <div className="state-screen px-4 py-12">
+      <div className="state-card max-w-sm px-5 py-7">
+        <div className="state-icon-wrap mb-4 size-16">
+          <VideoCameraSlashIcon className="size-8 text-muted/50" />
+        </div>
+
+        <h3 className="text-lg font-bold text-primary">아직 다시보기가 없어요</h3>
+        <p className="state-description">
+          방송이 끝나면 녹화본이 여기에 표시됩니다.
+        </p>
+
+        {role === "OWNER" ? (
+          <div className="state-actions justify-center">
+            <Link
+              href="/streams/add"
+              className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
+            >
+              첫 라이브 시작하기
+            </Link>
+          </div>
+        ) : (
+          showFollowButton && (
+            <div className="state-actions justify-center">
+              <button
+                type="button"
+                onClick={onFollow}
+                className={cn(
+                  "btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm",
+                  !onFollow && "cursor-not-allowed opacity-50"
+                )}
+              >
+                팔로우하고 새 방송 알림 받기
+              </button>
+            </div>
+          )
+        )}
       </div>
-
-      <h3 className="text-base font-semibold text-primary mb-1">
-        아직 다시보기가 없어요
-      </h3>
-      <p className="text-sm text-muted mb-6">
-        방송이 끝나면 녹화본이 여기에 표시됩니다.
-      </p>
-
-      {role === "OWNER" ? (
-        <Link
-          href="/streams/add"
-          className="btn-primary text-sm h-10 px-6 inline-flex items-center"
-        >
-          첫 라이브 시작하기
-        </Link>
-      ) : (
-        showFollowButton && (
-          <button
-            type="button"
-            onClick={onFollow}
-            className={cn(
-              "btn-primary text-sm h-10 px-6",
-              !onFollow && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            팔로우하고 새 방송 알림 받기
-          </button>
-        )
-      )}
     </div>
   );
 }

@@ -33,6 +33,7 @@
  * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
  * 2026.03.03  임도헌   Modified   initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent) 분리를 통한 Suspense 최적화
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.06  임도헌   Modified   프로필 판매 탭 상태를 URL Query로 동기화하고 토글/탭 active 대비를 다크모드 기준으로 보강
  */
 
 "use client";
@@ -113,13 +114,16 @@ export default function UserProfile({
   const searchParams = useSearchParams();
   const qs = searchParams.toString();
   const next = useMemo(() => pathname + (qs ? `?${qs}` : ""), [pathname, qs]);
+  const activeTab = useMemo<ProductStatus>(() => {
+    const tab = searchParams.get("tab");
+    return tab === "sold" ? "sold" : "selling";
+  }, [searchParams]);
 
   // 1. 팔로우 상태 관리 (Local State)
   const [isFollowing, setIsFollowing] = useState<boolean>(!!user.isFollowing);
 
   // 2. 뷰 및 탭 상태
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [activeTab, setActiveTab] = useState<ProductStatus>("selling");
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // 차단 해제 Transition
@@ -167,6 +171,16 @@ export default function UserProfile({
       }
     });
   };
+
+  const handleTabChange = useCallback(
+    (tab: ProductStatus) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tab);
+      const query = params.toString();
+      router.replace(`${pathname}?${query}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -304,16 +318,16 @@ export default function UserProfile({
             <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
             <div className="panel p-4 bg-surface">
               {/* 탭 전환 버튼 */}
-              <div className="flex p-1 mb-4 bg-surface-dim rounded-lg border border-border">
+              <div className="mb-4 flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
                 {(["selling", "sold"] as const).map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => handleTabChange(tab)}
                     className={cn(
-                      "flex-1 py-2 text-sm font-medium rounded-md transition-all",
+                      "flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-all",
                       activeTab === tab
-                        ? "bg-surface text-brand shadow-sm"
-                        : "text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
+                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                        : "text-muted hover:bg-background/70 hover:text-primary"
                     )}
                   >
                     {tab === "selling" ? "판매 중" : "판매 완료"}
@@ -323,25 +337,27 @@ export default function UserProfile({
 
               {/* 뷰 모드 토글 */}
               <div className="flex justify-end mb-3">
-                <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
+                <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
                   <button
                     onClick={() => setViewMode("list")}
+                    aria-label="리스트 보기"
                     className={cn(
-                      "p-1.5 rounded-md",
+                      "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
                       viewMode === "list"
-                        ? "bg-surface text-brand shadow-sm"
-                        : "text-muted"
+                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                        : "text-muted hover:bg-background/70 hover:text-primary"
                     )}
                   >
                     <ListBulletIcon className="size-4" />
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
+                    aria-label="그리드 보기"
                     className={cn(
-                      "p-1.5 rounded-md",
+                      "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
                       viewMode === "grid"
-                        ? "bg-surface text-brand shadow-sm"
-                        : "text-muted"
+                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                        : "text-muted hover:bg-background/70 hover:text-primary"
                     )}
                   >
                     <Squares2X2Icon className="size-4" />

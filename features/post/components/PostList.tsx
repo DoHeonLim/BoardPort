@@ -15,6 +15,9 @@
  * 2026.03.01  임도헌   Modified  isFetchingNextPage 분리 및 하단 스피너 UI 통일 (Product 도메인과 정합성 확보)
  * 2026.03.03  임도헌   Modified  명령형 로딩(isLoading) 분기 제거, 선언적 렌더링 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.06  임도헌   Modified  뷰 토글 active 상태 및 다크모드 대비 보강
+ * 2026.03.06  임도헌   Modified  모바일 그리드 카드 간격을 조정해 게시글 카드 밀도를 더 촘촘하게 정리
+ * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
  */
 
 "use client";
@@ -66,14 +69,14 @@ export default function PostList({ searchParams }: PostListProps) {
     <>
       {/* 뷰 모드 전환 버튼 영역 */}
       <div className="flex justify-end mb-4">
-        <div className="flex p-1 bg-surface-dim rounded-lg border border-border">
+        <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
           <button
             onClick={() => setViewMode("list")}
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
               viewMode === "list"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand dark:text-brand-light"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
             aria-label="리스트 뷰"
           >
@@ -82,10 +85,10 @@ export default function PostList({ searchParams }: PostListProps) {
           <button
             onClick={() => setViewMode("grid")}
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
               viewMode === "grid"
-                ? "bg-white dark:bg-gray-700 shadow-sm text-brand dark:text-brand-light"
-                : "text-muted hover:text-primary"
+                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                : "text-muted hover:bg-background/70 hover:text-primary"
             )}
             aria-label="그리드 뷰"
           >
@@ -97,8 +100,9 @@ export default function PostList({ searchParams }: PostListProps) {
       {/* 제품 카드 */}
       <div
         className={cn(
-          "grid gap-4",
-          viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
+          viewMode === "grid"
+            ? "grid grid-cols-2 gap-3 sm:gap-4"
+            : "grid grid-cols-1 gap-4"
         )}
       >
         {posts.map((post) => (
@@ -116,7 +120,7 @@ export default function PostList({ searchParams }: PostListProps) {
           />
         )}
         {isFetchingNextPage && (
-          <div className="mt-3 mb-[calc(84px+env(safe-area-inset-bottom))] sm:mb-0 mx-auto w-fit flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full shadow-sm animate-fade-in whitespace-nowrap">
+          <div className="list-loading-pill">
             <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
             <span className="whitespace-nowrap">더 불러오는 중...</span>
           </div>
