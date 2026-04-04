@@ -13,6 +13,9 @@
  * 2026.01.16  임도헌   Moved     hooks -> hooks/stream
  * 2026.01.18  임도헌   Moved     hooks/stream -> features/stream/hooks
  * 2026.01.28  임도헌   Modified  주석 및 로직 설명 보강
+ * 2026.04.03  임도헌   Modified  message_deleted 이벤트 구독과 삭제 콜백 지원 추가
+ * 2026.04.03  임도헌   Modified  삭제 이벤트 payload에 deleted_at을 포함해 placeholder 동기화를 지원
+ * 2026.04.03  임도헌   Modified  고정 공지 변경 이벤트 구독과 콜백 지원 추가
  */
 
 "use client";
@@ -26,6 +29,8 @@ interface Props {
   streamChatRoomId: number;
   userId: number;
   onReceive: (message: StreamChatMessage) => void;
+  onDelete?: (payload: { messageId: number; deleted_at: Date }) => void;
+  onPinnedNoticeUpdate?: (payload: { notice: string | null }) => void;
   eventName?: string; // 기본 "message"
   channelName?: string; // 기본 `room-${id}`
   ignoreSelf?: boolean; // 기본 true → 낙관X 플로우에서는 false로 설정
@@ -34,6 +39,15 @@ interface Props {
 interface BroadcastEnvelope<T> {
   event: string;
   payload: T;
+}
+
+interface DeleteEnvelope {
+  messageId: number;
+  deleted_at: string;
+}
+
+interface PinnedNoticeEnvelope {
+  notice: string | null;
 }
 
 /**
@@ -51,6 +65,8 @@ export default function useStreamChatSubscription({
   streamChatRoomId,
   userId,
   onReceive,
+  onDelete,
+  onPinnedNoticeUpdate,
   eventName = "message",
   channelName,
   ignoreSelf = true,
@@ -64,24 +80,24 @@ export default function useStreamChatSubscription({
     onReceiveRef.current = onReceive;
   }, [onReceive]);
 
+  const onDeleteRef = useRef(onDelete);
+  useEffect(() => {
+    onDeleteRef.current = onDelete;
+  }, [onDelete]);
+
+  const onPinnedNoticeUpdateRef = useRef(onPinnedNoticeUpdate);
+  useEffect(() => {
+    onPinnedNoticeUpdateRef.current = onPinnedNoticeUpdate;
+  }, [onPinnedNoticeUpdate]);
+
   const seenIdsRef = useRef<Set<string | number>>(new Set());
-  const pausedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const name = channelName ?? `room-${streamChatRoomId}`;
     const channel: RealtimeChannel = supabase.channel(name);
     setChannelState(channel);
 
-    // 가시성 변화 감지
-    const onVisibility = () => {
-      pausedRef.current = document.visibilityState === "hidden";
-    };
-    onVisibility();
-    document.addEventListener("visibilitychange", onVisibility);
-
     const handler = (env: BroadcastEnvelope<StreamChatMessage>) => {
-      if (pausedRef.current) return;
-
       const msg = env?.payload;
       if (!msg || typeof msg !== "object") return;
 
@@ -98,7 +114,35 @@ export default function useStreamChatSubscription({
       onReceiveRef.current?.(msg);
     };
 
+    const deletedHandler = (env: BroadcastEnvelope<DeleteEnvelope>) => {
+      const messageId = env?.payload?.messageId;
+      const deleted_at = env?.payload?.deleted_at;
+      if (typeof messageId !== "number" || typeof deleted_at !== "string") return;
+
+      onDeleteRef.current?.({
+        messageId,
+        deleted_at: new Date(deleted_at),
+      });
+    };
+
+    const pinnedNoticeHandler = (
+      env: BroadcastEnvelope<PinnedNoticeEnvelope>
+    ) => {
+      const notice = env?.payload?.notice;
+      if (notice !== null && typeof notice !== "string") return;
+
+      onPinnedNoticeUpdateRef.current?.({
+        notice: notice ?? null,
+      });
+    };
+
     channel.on("broadcast", { event: eventName }, handler);
+    channel.on("broadcast", { event: "message_deleted" }, deletedHandler);
+    channel.on(
+      "broadcast",
+      { event: "pinned_notice_updated" },
+      pinnedNoticeHandler
+    );
     channel.subscribe();
 
     return () => {
@@ -108,9 +152,9 @@ export default function useStreamChatSubscription({
       try {
         supabase.removeChannel(channel);
       } catch {}
-      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [streamChatRoomId, userId, eventName, channelName, ignoreSelf]);
 
   return channelState;
 }
+

@@ -14,31 +14,54 @@
  * 2026.02.24  임도헌   Modified  카카오 로그인 버튼 추가 및 최상단 배치
  * 2026.02.24  임도헌   Modified  각 소셜로그인 컬러 수정
  * 2026.03.06  임도헌   Modified  소셜 로그인 버튼 스타일을 공통 유틸 클래스 기반으로 정리
+ * 2026.03.08  임도헌   Modified  OAuth 시작 시 callbackUrl을 함께 전달하도록 보강
+ * 2026.03.12  임도헌   Modified  callbackUrl 전달 규칙과 소셜 로그인 버튼 묶음 역할 명확화
+ * 2026.03.25  임도헌   Modified  인증 화면에서 소셜 로그인 묶음이 과하게 강하지 않도록 높이와 타이포 무게를 조정
  */
 
 import Link from "next/link";
 import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
-export default function SocialLogin() {
+/**
+ * 소셜 로그인 버튼 묶음
+ *
+ * [기능]
+ * - callbackUrl을 각 OAuth 시작 라우트에 전달
+ * - 카카오, GitHub, SMS 로그인 진입 버튼 제공
+ */
+export default function SocialLogin({
+  callbackUrl,
+}: {
+  callbackUrl?: string;
+}) {
   const baseButtonClass = cn(
-    "flex w-full items-center justify-center h-input-md gap-2.5",
+    "flex h-11 w-full items-center justify-center gap-2.5 sm:h-input-md",
     "rounded-xl border border-border bg-surface text-primary",
     "hover:bg-surface-dim active:scale-[0.98] transition-all",
-    "font-medium text-base"
+    "font-semibold text-[0.95rem] sm:text-base"
   );
+  const kakaoHref = callbackUrl
+    ? `/kakao/start?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : "/kakao/start";
+  const githubHref = callbackUrl
+    ? `/github/start?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : "/github/start";
+  const smsHref = callbackUrl
+    ? `/sms?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : "/sms";
 
   return (
-    <div className="flex flex-col gap-3 w-full">
+    <div className="flex w-full flex-col gap-2.5">
       {/* Kakao Login */}
       <a
         aria-label="카카오로 계속하기"
         className={cn(
           "btn-social-kakao",
-          "flex w-full items-center justify-center h-input-md gap-2.5",
-          "font-bold text-base" // 카카오는 좀 더 강조하기 위해 bold 적용
+          "flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-black/5 sm:h-input-md",
+          "font-semibold text-[0.95rem] sm:text-base"
         )}
-        href="/kakao/start"
+        href={kakaoHref}
       >
         <svg
           className="size-5"
@@ -54,7 +77,7 @@ export default function SocialLogin() {
       <a
         aria-label="GitHub로 계속하기"
         className={cn(baseButtonClass, "btn-social-github")}
-        href="/github/start"
+        href={githubHref}
       >
         <svg className="size-5" viewBox="0 0 15 15" fill="currentColor">
           <path
@@ -70,9 +93,9 @@ export default function SocialLogin() {
       <Link
         className={cn(
           baseButtonClass,
-          "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+          "bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-500/95 dark:hover:bg-emerald-400"
         )}
-        href="/sms"
+        href={smsHref}
       >
         <ChatBubbleOvalLeftEllipsisIcon className="size-5" />
         <span>SMS로 계속하기</span>

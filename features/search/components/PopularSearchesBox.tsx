@@ -10,12 +10,14 @@
  * 2026.01.12  임도헌   Modified  검색 기록 없을때 안내 메세지 표시
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.28  임도헌   Modified  장문 인기 검색어가 모바일에서도 자연스럽게 읽히도록 다중 줄 래핑 처리
+ * 2026.04.02  임도헌   Modified  인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
  */
 "use client";
 
 import Link from "next/link";
 import { FireIcon } from "@heroicons/react/24/solid";
-import type { PopularSearchItem } from "@/features/product/types";
+import type { PopularSearchItem } from "@/features/search/types";
 
 interface PopularSearchesBoxProps {
   popularSearches: PopularSearchItem[];
@@ -51,12 +53,12 @@ export default function PopularSearchesBox({
               key={index}
               href={`${basePath}?keyword=${encodeURIComponent(item.keyword)}`}
               onClick={() => onSearch(item.keyword)}
-              className="flex items-center gap-2 group p-2 -mx-2 rounded-lg hover:bg-surface-dim transition-colors"
+              className="group -mx-2 flex items-start gap-2 rounded-lg p-2 transition-colors hover:bg-surface-dim"
             >
-              <span className="w-5 text-center text-sm font-bold text-brand dark:text-brand-light">
+              <span className="mt-0.5 w-5 shrink-0 text-center text-sm font-bold text-brand dark:text-brand-light">
                 {index + 1}
               </span>
-              <span className="text-sm text-primary group-hover:underline decoration-brand/30 underline-offset-4">
+              <span className="min-w-0 break-all text-sm leading-6 text-primary line-clamp-2 sm:line-clamp-3 group-hover:underline decoration-brand/30 underline-offset-4">
                 {item.keyword}
               </span>
             </Link>

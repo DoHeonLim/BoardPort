@@ -14,12 +14,15 @@
  * 2026.01.20  임도헌   Modified  로직 단순화 및 Service 호출로 통합, 주석 보강
  * 2026.01.30  임도헌   Moved     app/(auth)/login/actions.ts -> features/auth/actions/login.ts
  * 2026.03.07  임도헌   Modified  정지 계정 안내를 전역 에러로 분리하고 일반 인증 실패는 필드 에러로 유지
+ * 2026.04.04  임도헌   Modified  검증/정지 분기/세션 저장 단계의 인라인 주석 보강
  */
 "use server";
 
 import { verifyLogin } from "@/features/auth/service/login";
-import { loginSchema } from "@/features/auth/schemas/login";
+import { loginSchema, type LoginSchema } from "@/features/auth/schemas/login";
 import { saveUserSession } from "@/features/auth/service/authSession";
+import { resolvePostAuthRedirectPath } from "@/features/auth/service/onboarding";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import type { ActionState } from "@/features/auth/types";
 
 /**
@@ -31,16 +34,22 @@ import type { ActionState } from "@/features/auth/types";
  *
  * @param {unknown} _prevState - 이전 상태
  * @param {FormData} formData - 폼 데이터
- * @returns {Promise<ActionState>} 처리 결과
+ * @returns {Promise<ActionState<keyof LoginSchema>>} 처리 결과
  */
 export async function login(
   _prevState: unknown,
   formData: FormData
-): Promise<ActionState> {
+): Promise<ActionState<keyof LoginSchema>> {
+  // 폼 원본 값 수집
   const data = {
     email: formData.get("email"),
     password: formData.get("password"),
   };
+
+  // 인증 후 복귀 문맥 정규화
+  const callbackUrl = sanitizeCallbackUrl(
+    formData.get("callbackUrl") ?? "/profile"
+  );
 
   // 1. 입력값 검증
   const parsed = await loginSchema.safeParseAsync(data);
@@ -55,6 +64,7 @@ export async function login(
   const result = await verifyLogin(parsed.data);
 
   if (!result.success) {
+    // 정지 계정은 전역 안내 배너용 에러로 분리
     if (result.code === "BANNED") {
       return {
         success: false,
@@ -62,14 +72,19 @@ export async function login(
       };
     }
 
+    // 일반 인증 실패는 비밀번호 필드 에러로 유지
     return {
       success: false,
       fieldErrors: { password: [result.error] },
     };
   }
 
-  // 3. 세션 저장
+  // 로그인 성공 후 세션 저장
   await saveUserSession(result.data.userId);
 
-  return { success: true };
+  return {
+    success: true,
+    // 온보딩 필요 여부를 반영한 인증 후 목적지 결정
+    redirectTo: await resolvePostAuthRedirectPath(result.data.userId, callbackUrl),
+  };
 }

@@ -31,6 +31,16 @@
  * 2026.02.26  임도헌   Modified  좁은 화면에서 UI 깨짐 수정
  * 2026.03.06  임도헌   Modified  모바일 카드 정보 영역의 간격과 메타 밀도를 조정해 목록 가독성을 개선
  * 2026.03.06  임도헌   Modified  팔로워 전용 오버레이 CTA 터치 타겟을 44px 기준에 맞게 확장
+ * 2026.03.09  임도헌   Modified  다시보기 배지를 명시 플래그 기반으로 전환해 CREATED 방송 오표시 방지
+ * 2026.03.12  임도헌   Modified  사용자 업로드 GIF만 썸네일 최적화 예외 처리하도록 thumbnailAnimated 메타 연동
+ * 2026.03.13  임도헌   Modified  스트림 목록/채널에서 상세 진입 시 현재 경로를 returnTo로 함께 전달
+ * 2026.03.17  임도헌   Modified  카드 외곽선 톤을 border-border-subtle로 완화하고 작은 화면 메타 줄을 2단 구조로 재정리
+ * 2026.03.17  임도헌   Modified  rail 레이아웃 카드 폭을 소폭 축소해 프로필 방송국 가로 스크롤 밀도 완화
+ * 2026.03.18  임도헌   Modified  직접 주입되는 href도 내부 경로 기준으로 정규화해 재사용 시 raw 링크 예외를 방어
+ * 2026.03.21  임도헌   Modified  프로필/채널 컨텍스트에서 스트리머 아바타/닉네임 숨김 옵션(showStreamer) 추가
+ * 2026.03.22  임도헌   Modified  팔로워 전용 잠금 CTA를 시맨틱 토큰 기준으로 정리해 다크모드 톤 일관성 보강
+ * 2026.03.25  임도헌   Modified  그리드 카드 썸네일 비중과 정보 영역 타이포를 재조정해 목록 가독성 보강
+ * 2026.04.02  임도헌   Modified  스트림 썸네일 URL 정규화를 stream image utils 기준으로 통일
  */
 
 "use client";
@@ -39,11 +49,14 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn, formatToTimeAgo, formatDuration } from "@/lib/utils";
 import UserAvatar from "@/components/global/UserAvatar";
 import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { StreamCategory, StreamVisibility } from "@/features/stream/types";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
 
 const PrivateAccessModal = dynamic(
   () => import("@/features/stream/components/PrivateAccessModal"),
@@ -55,7 +68,9 @@ interface StreamCardProps {
   vodIdForRecording?: number /** 녹화본 페이지로 이동할 때 사용할 VodAsset id (없으면 id로 폴백) */;
   title: string;
   thumbnail?: string | null;
+  thumbnailAnimated?: boolean;
   isLive: boolean /** 라이브 여부 (false면 다시보기 배지 표시) */;
+  showReplayBadge?: boolean;
   streamer: { username: string; avatar?: string | null };
   startedAt?:
     | Date
@@ -77,12 +92,8 @@ interface StreamCardProps {
   onRequestFollow?: () => void; // 팔로우 CTA// 옵션 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
-}
-
-function resolveThumbUrl(src?: string | null): string | null {
-  if (!src) return null;
-  if (src.startsWith("https://imagedelivery.net")) return `${src}/public`;
-  return src;
+  /** 프로필/채널처럼 소유자가 자명한 컨텍스트에서는 스트리머 정보를 숨길 수 있다 */
+  showStreamer?: boolean;
 }
 
 /**
@@ -94,6 +105,7 @@ function resolveThumbUrl(src?: string | null): string | null {
  * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공
  * 4. 마우스 호버 시 라이브 미리보기(iframe)를 로드
  * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행
+ * 6. 작은 화면에서는 태그/시간/조회수 메타를 2단으로 분리해 카드 밀도 완화
  *
  * [권한]
  * - `PRIVATE` 방송: `requiresPassword` prop을 SSOT로 사용 (서버에서 세션의 언락 여부까지 확인하여 주입됨)
@@ -101,12 +113,16 @@ function resolveThumbUrl(src?: string | null): string | null {
  *   클라이언트의 팔로우 상태(`isFollowing`) 변화를 실시간으로 반영하여 잠금을 즉시 해제/설정
  */
 export default function StreamCard(props: StreamCardProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const {
     id,
     vodIdForRecording,
     title,
     thumbnail,
+    thumbnailAnimated = false,
     isLive,
+    showReplayBadge = false,
     streamer,
     startedAt,
     category,
@@ -122,10 +138,14 @@ export default function StreamCard(props: StreamCardProps) {
     isPrivateType,
     onRequestFollow,
     layout = "grid",
+    showStreamer = true,
   } = props;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const thumb = useMemo(() => resolveThumbUrl(thumbnail), [thumbnail]);
+  const thumb = useMemo(
+    () => toStreamThumbnailPublicUrl(thumbnail),
+    [thumbnail]
+  );
 
   // 기본 라우팅: 라이브/녹화에 따라 자동 분기(직접 href 주면 우선)
   const computedHref = useMemo(
@@ -134,10 +154,24 @@ export default function StreamCard(props: StreamCardProps) {
       (isLive
         ? `/streams/${id}` // 라이브는 broadcastId
         : vodIdForRecording
-        ? `/streams/${vodIdForRecording}/recording` // 녹화는 vodId
-        : `/streams/${id}/recording`), // fallback: 예전 방식
+          ? `/streams/${vodIdForRecording}/recording` // 녹화는 vodId
+          : `/streams/${id}/recording`), // fallback: 예전 방식
     [href, isLive, id, vodIdForRecording]
   );
+  const currentHref = useMemo(
+    () =>
+      searchParams?.size ? `${pathname}?${searchParams.toString()}` : pathname,
+    [pathname, searchParams]
+  );
+  const navigableHref = useMemo(() => {
+    const safeHref = sanitizeCallbackUrl(computedHref);
+    if (safeHref.includes("returnTo=")) {
+      return safeHref;
+    }
+
+    const separator = safeHref.includes("?") ? "&" : "?";
+    return `${safeHref}${separator}returnTo=${encodeURIComponent(currentHref)}`;
+  }, [computedHref, currentHref]);
 
   // FOLLOWERS 배지/오버레이 판정 (prop 우선, 없으면 visibility로 계산)
   const derivedFollowersOnly =
@@ -230,7 +264,7 @@ export default function StreamCard(props: StreamCardProps) {
 
   // 배지: 타입별 개별 노출
   const showLive = isLive;
-  const showReplay = !isLive;
+  const showReplay = showReplayBadge;
   const showFollowers = derivedFollowersOnly;
   // 기본은 requiresPassword 기준, 필요 시 isPrivateType으로 강제 표시
   const showPrivate =
@@ -251,15 +285,15 @@ export default function StreamCard(props: StreamCardProps) {
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-all duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
         layout === "rail"
-          ? "w-[240px] sm:w-[260px] flex-none h-full snap-start"
+          ? "h-full w-[216px] flex-none snap-start sm:w-[232px]"
           : "w-full"
       )}
     >
       <Link
-        href={computedHref}
+        href={navigableHref}
         className="group flex flex-col flex-1 h-full"
         onClick={handleStreamClick}
         onKeyDown={handleKeyDown}
@@ -269,7 +303,12 @@ export default function StreamCard(props: StreamCardProps) {
       >
         {/* 썸네일 영역 */}
         <div
-          className="relative aspect-video w-full bg-surface-dim border-b border-border"
+          className={cn(
+            "relative w-full border-b border-border-subtle bg-surface-dim",
+            isGridLayout
+              ? "aspect-[16/8.7] sm:aspect-[16/8.85] lg:aspect-[16/9]"
+              : "aspect-video"
+          )}
           data-preview={shouldRenderPreview ? "true" : "false"}
           onMouseEnter={startHover}
           onMouseLeave={endHover}
@@ -302,6 +341,7 @@ export default function StreamCard(props: StreamCardProps) {
                 "object-cover transition-transform duration-300 group-hover:scale-105",
                 lockMask && "blur-[2px] brightness-75 scale-105"
               )}
+              unoptimized={thumbnailAnimated}
               loading="lazy"
               onError={() => {
                 setThumbError(true);
@@ -366,7 +406,7 @@ export default function StreamCard(props: StreamCardProps) {
                 {onRequestFollow && (
                   <button
                     type="button"
-                    className="btn-primary min-h-[44px] px-4 text-xs bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black border-none"
+                    className="btn-primary min-h-[44px] border border-border-subtle bg-surface px-4 text-xs text-primary hover:bg-surface-dim dark:bg-surface dark:text-primary dark:hover:bg-surface-dim"
                   >
                     팔로우하기
                   </button>
@@ -380,28 +420,32 @@ export default function StreamCard(props: StreamCardProps) {
         <div
           className={cn(
             "flex flex-1 flex-col justify-between",
-            isGridLayout ? "gap-1.5 p-2.5 sm:gap-2 sm:p-3" : "gap-2 p-3"
+            isGridLayout ? "gap-2 p-3 sm:gap-2.5 sm:p-3.5" : "gap-2.5 p-3.5"
           )}
         >
-          <div className={cn(isGridLayout ? "space-y-1" : "space-y-1.5")}>
+          <div className={cn(isGridLayout ? "space-y-1.5" : "space-y-2")}>
             <h3
               className={cn(
                 "line-clamp-2 font-semibold text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors",
-                isGridLayout ? "text-sm min-h-[1.5rem]" : "text-sm"
+                isGridLayout
+                  ? "min-h-[1.75rem] text-[15px] sm:min-h-[2rem] sm:text-base"
+                  : "text-base"
               )}
             >
               {title}
             </h3>
 
-            <div className="flex items-center gap-2">
-              <UserAvatar
-                avatar={streamer.avatar ?? null}
-                username={streamer.username}
-                size="sm"
-                compact
-                className="pointer-events-none"
-              />
-            </div>
+            {showStreamer && (
+              <div className="flex items-center gap-2.5">
+                <UserAvatar
+                  avatar={streamer.avatar ?? null}
+                  username={streamer.username}
+                  size="sm"
+                  compact
+                  className="pointer-events-none"
+                />
+              </div>
+            )}
           </div>
 
           {/* 하단 메타 정보 */}
@@ -412,58 +456,50 @@ export default function StreamCard(props: StreamCardProps) {
               viewCount != null) && (
               <div
                 className={cn(
-                  "flex flex-wrap items-center gap-y-1 text-[10px] sm:text-[11px] text-muted border-t border-border/50 mt-auto min-w-0",
-                  isGridLayout ? "gap-x-1.5 pt-1.5" : "gap-x-2 pt-2"
+                  "mt-auto min-w-0 border-t border-border-subtle text-[10px] text-muted sm:text-[11px]",
+                  isGridLayout ? "pt-1.5" : "pt-2"
                 )}
               >
-                {/* 1. 태그 (존재하면 우선 표시) */}
-                {formattedTags ? (
-                  <span
-                    className={cn(
-                      "truncate font-medium text-brand dark:text-brand-light",
-                      isGridLayout
-                        ? "max-w-[96px] sm:max-w-[150px]"
-                        : "max-w-[100px] sm:max-w-[150px]"
+                {/* 태그와 시간/길이/조회수를 분리해 작은 화면 카드 밀도 완화 */}
+                {formattedTags && (
+                  <div className="mb-1 min-w-0">
+                    <span
+                      className={cn(
+                        "block truncate font-medium text-brand dark:text-brand-light",
+                        isGridLayout
+                          ? "max-w-[120px] sm:max-w-[180px]"
+                          : "max-w-[160px] sm:max-w-[220px]"
+                      )}
+                    >
+                      {formattedTags}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    {!isLive && duration && duration > 0 && (
+                      <span className="shrink-0">
+                        {formatDuration(duration)}
+                      </span>
                     )}
-                  >
-                    {formattedTags}
-                  </span>
-                ) : null}
+                    {!isLive &&
+                      duration &&
+                      duration > 0 &&
+                      typeof viewCount === "number" && (
+                        <span className="text-border shrink-0">|</span>
+                      )}
+                    {!isLive && typeof viewCount === "number" && (
+                      <span className="shrink-0">
+                        조회 {viewCount.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
 
-                {/* 태그가 있고 뒤에 내용이 더 있으면 구분선 */}
-                {formattedTags &&
-                  (startedAtIso || duration || viewCount != null) && (
-                    <span className="text-border shrink-0">|</span>
-                  )}
-
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
-                  {/* 2. 시간 (시작시간 or 녹화일) */}
                   {startedAtIso && (
-                    <span className="shrink-0">
+                    <span className="ml-auto shrink-0 whitespace-nowrap">
                       {formatToTimeAgo(startedAtIso)} {isLive ? "시작" : ""}
                     </span>
-                  )}
-
-                  {/* 3. 녹화본 메타 (길이, 조회수) */}
-                  {!isLive && (
-                    <>
-                      {duration && duration > 0 && (
-                        <>
-                          <span className="text-border shrink-0">|</span>
-                          <span className="shrink-0">
-                            {formatDuration(duration)}
-                          </span>
-                        </>
-                      )}
-                      {typeof viewCount === "number" && (
-                        <>
-                          <span className="text-border shrink-0">|</span>
-                          <span className="shrink-0">
-                            조회 {viewCount.toLocaleString()}
-                          </span>
-                        </>
-                      )}
-                    </>
                   )}
                 </div>
               </div>
@@ -477,7 +513,7 @@ export default function StreamCard(props: StreamCardProps) {
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
           streamId={id}
-          redirectHref={computedHref}
+          redirectHref={navigableHref}
         />
       )}
     </article>

@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/actions/withdraw.ts
- * Description : 회원 탈퇴 Controller
+ * Description : 회원 탈퇴 서버 액션
  * Author : 임도헌
  *
  * History
@@ -16,10 +16,7 @@ import { USER_ERRORS } from "@/features/user/constants";
 import type { ServiceResult } from "@/lib/types";
 
 /**
- * 회원 탈퇴 Action
- * 1. 세션 확인
- * 2. Service 호출 (DB 삭제)
- * 3. 세션 파기 및 홈으로 리다이렉트
+ * 회원 탈퇴 액션
  */
 export async function withdrawAction(): Promise<ServiceResult> {
   const session = await getSession();
@@ -27,16 +24,16 @@ export async function withdrawAction(): Promise<ServiceResult> {
     return { success: false, error: USER_ERRORS.NOT_LOGGED_IN };
   }
 
-  // Service 호출
+  // 탈퇴 service 위임
   const result = await withdrawUser(session.id);
 
   if (!result.success) {
     return result;
   }
 
-  // 성공 시 세션 파기 (Action의 역할)
+  // 세션 파기
   session.destroy();
 
-  // 리다이렉트
+  // 홈 복귀
   redirect("/");
 }

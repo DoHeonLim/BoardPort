@@ -19,6 +19,9 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.06  임도헌   Modified  탭 간 상단 검색바 높이와 타이포 리듬을 통일
+ * 2026.03.11  임도헌   Modified  flat 헤더 톤에 맞춰 compact 높이와 border 토큰 사용 흐름 반영
+ * 2026.03.12  임도헌   Modified  compact 헤더 검색 트리거와 토큰 기반 입력 밀도 규칙 명확화
+ * 2026.03.27  임도헌   Modified  검색 중 로딩 인디케이터가 얇은 막대로 보이지 않도록 스피너 표시 요소를 보정
  */
 "use client";
 
@@ -31,6 +34,7 @@ interface SearchBarProps {
   value: string;
   className?: string;
   autoFocus?: boolean;
+  compact?: boolean;
   onSearch: (keyword: string) => void;
 }
 
@@ -39,12 +43,14 @@ interface SearchBarProps {
  *
  * - 입력값을 로컬 상태로 관리하고, 외부(`value` prop) 변경 시 동기화
  * - 폼 제출 시 `onSearch` 콜백을 호출하며, 잠시 로딩 스피너를 표시
+ * - `compact` 모드에서 헤더용 낮은 높이와 타이포 밀도를 적용
  */
 export default function SearchBar({
   placeholder = "검색",
   value,
   className = "",
   autoFocus = false,
+  compact = false,
   onSearch,
 }: SearchBarProps) {
   const [keyword, setKeyword] = useState(value);
@@ -75,7 +81,9 @@ export default function SearchBar({
         onChange={(e) => setKeyword(e.target.value)}
         autoFocus={autoFocus}
         className={cn(
-          "input-primary h-11 w-full pl-10 pr-9 text-sm",
+          compact
+            ? "input-primary h-10 w-full rounded-xl pl-10 pr-9 text-sm sm:h-11 sm:rounded-2xl"
+            : "input-primary h-11 w-full pl-10 pr-9 text-sm",
           "bg-surface-dim border border-border focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20"
         )}
       />
@@ -83,7 +91,7 @@ export default function SearchBar({
 
       {isPending && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-          <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
+          <span className="block size-4 rounded-full border-2 border-brand/30 border-t-brand animate-spin dark:border-brand-light/30 dark:border-t-brand-light" />
         </div>
       )}
     </form>

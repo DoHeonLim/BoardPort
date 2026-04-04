@@ -18,17 +18,27 @@
  *                                current.unsubscribe() best-effort 처리
  * 2026.01.16  임도헌   Moved     hooks -> hooks/notificaiton
  * 2026.01.18  임도헌   Moved     hooks/notification -> features/notification/hooks
+ * 2026.03.27  임도헌   Modified  iOS 설치 필요 상태를 포함할 수 있도록 푸시 상태 타입 확장
+ * 2026.04.02  임도헌   Modified  푸시 상태 타입을 notification/types 공용 정의로 분리
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { PushNotificationStatus } from "@/features/notification/types";
+
+export type { PushNotificationStatus } from "@/features/notification/types";
 
 interface PushSubscriptionData {
   endpoint: string;
   keys: { p256dh: string; auth: string };
 }
+
+type CheckSubscriptionResponse = {
+  isValid: boolean;
+  reason?: "active" | "disabled_by_user" | "needs_reconnect";
+};
 
 /**
  * 브라우저 환경 지원 여부 확인
@@ -121,6 +131,7 @@ export function usePushNotification() {
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
+  const [status, setStatus] = useState<PushNotificationStatus>("disabled");
 
   // 로컬 상태 초기화 헬퍼
   const clearLocalState = () => {
@@ -130,7 +141,9 @@ export function usePushNotification() {
 
   // 1. 지원 여부 체크 (Mount 시 1회)
   useEffect(() => {
-    setIsSupported(checkSupport());
+    const supported = checkSupport();
+    setIsSupported(supported);
+    if (!supported) setStatus("unsupported");
   }, []);
 
   // 2. 현재 구독 상태 확인 (초기화 로직)
@@ -151,7 +164,16 @@ export function usePushNotification() {
         } catch {
           if (mounted) {
             setIsPrivateMode(true);
+            setStatus("private_mode");
             clearLocalState(); // Private 모드면 사용 불가 처리
+          }
+          return;
+        }
+
+        if (Notification.permission === "denied") {
+          if (mounted) {
+            setStatus("permission_denied");
+            clearLocalState();
           }
           return;
         }
@@ -165,6 +187,7 @@ export function usePushNotification() {
         if (!mounted) return;
 
         if (!current) {
+          if (mounted) setStatus("disabled");
           clearLocalState(); // 구독 정보 없으면 초기화
           return;
         }
@@ -181,33 +204,65 @@ export function usePushNotification() {
         if (!mounted) return;
 
         if (res.ok) {
-          const { isValid } = await res.json();
+          const { isValid, reason } =
+            (await res.json()) as CheckSubscriptionResponse;
           if (!mounted) return;
 
           if (isValid) {
             // 유효함: 상태 동기화
             setIsSubscribed(true);
             setSubscription(current.toJSON() as PushSubscriptionData);
+            setStatus("active");
             return;
           }
 
-          // 유효하지 않음: 브라우저 구독도 해제하여 상태 일치
-          try {
-            await current.unsubscribe();
-          } catch (unsubErr) {
-            console.warn("[push] current.unsubscribe() failed:", unsubErr);
-          } finally {
-            if (mounted) clearLocalState();
+          if (reason === "disabled_by_user") {
+            // 전역 OFF 상태면 로컬 구독도 정리해 상태를 맞춘다.
+            try {
+              await current.unsubscribe();
+            } catch (unsubErr) {
+              console.warn("[push] current.unsubscribe() failed:", unsubErr);
+            } finally {
+              if (mounted) {
+                setStatus("disabled");
+                clearLocalState();
+              }
+            }
+            return;
+          }
+
+          if (reason === "needs_reconnect") {
+            // 브라우저에는 구독이 남아 있지만 서버/원격 상태와 끊어진 경우.
+            // 로컬 구독을 지우지 않고 재연결 액션을 유도
+            if (mounted) {
+              setSubscription(current.toJSON() as PushSubscriptionData);
+              setIsSubscribed(false);
+              setStatus("needs_reconnect");
+            }
+            return;
+          }
+
+          if (mounted) {
+            setStatus("disabled");
+            clearLocalState();
           }
           return;
         }
 
         // 서버 에러 시 보수적으로 로컬 상태 초기화
-        if (mounted) clearLocalState();
+        if (mounted) {
+          setStatus("disabled");
+          clearLocalState();
+        }
       } catch (e: any) {
         if (!mounted) return;
         console.error("[push] check failed:", e);
         clearLocalState();
+        setStatus(
+          Notification.permission === "denied"
+            ? "permission_denied"
+            : "disabled"
+        );
 
         if (e?.message === "SERVICE_WORKER_READY_TIMEOUT") {
           toast.error("푸시 알림 초기화 지연. 새로고침 후 다시 시도해주세요.");
@@ -246,20 +301,26 @@ export function usePushNotification() {
         return;
       }
 
-      toast.info(
-        "푸시 알림을 활성화하면 새 메시지/거래 알림을 받을 수 있어요."
-      );
-
       // 2. 권한 요청
       if (Notification.permission === "denied") {
+        setStatus("permission_denied");
         toast.error(
           "브라우저 알림 권한이 차단되어 있습니다. 사이트 권한을 허용해주세요."
         );
         return;
       }
 
+      if (status === "needs_reconnect") {
+        toast.info("이 기기의 알림 연결을 다시 확인하고 있어요.");
+      } else {
+        toast.info(
+          "푸시 알림을 활성화하면 새 메시지/거래 알림을 받을 수 있어요."
+        );
+      }
+
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
+        setStatus(permission === "denied" ? "permission_denied" : "disabled");
         toast.error(
           "알림 권한이 거부되었습니다. 브라우저 설정에서 허용해주세요."
         );
@@ -289,7 +350,12 @@ export function usePushNotification() {
         }
         setSubscription(reused);
         setIsSubscribed(true);
-        toast.success("푸시 알림이 활성화되었습니다.");
+        setStatus("active");
+        toast.success(
+          status === "needs_reconnect"
+            ? "기기 알림 연결이 다시 설정되었습니다."
+            : "푸시 알림이 활성화되었습니다."
+        );
         return;
       }
 
@@ -316,7 +382,12 @@ export function usePushNotification() {
 
       setSubscription(payload);
       setIsSubscribed(true);
-      toast.success("푸시 알림이 활성화되었습니다.");
+      setStatus("active");
+      toast.success(
+        status === "needs_reconnect"
+          ? "기기 알림 연결이 다시 설정되었습니다."
+          : "푸시 알림이 활성화되었습니다."
+      );
     } catch (e: any) {
       console.error("[push] subscribe failed:", e);
       if (e?.message === "SERVICE_WORKER_READY_TIMEOUT") {
@@ -344,6 +415,7 @@ export function usePushNotification() {
       }).catch(() => {});
 
       // 2. 로컬 상태 정리 (UX 우선)
+      setStatus("disabled");
       clearLocalState();
 
       // 3. 브라우저 구독 해제
@@ -366,6 +438,7 @@ export function usePushNotification() {
     isSupported,
     isSubscribed,
     isPrivateMode,
+    status,
     subscription,
     subscribe,
     unsubscribe,

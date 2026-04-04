@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2025.11.13  임도헌   Created   뒤로가기/제목 상단바 + 공통 컨테이너
  * 2026.01.11  임도헌   Modified  [Rule 3.2] 모바일 최대 너비 제약 및 시맨틱 토큰 적용
+ * 2026.03.12  임도헌   Modified  제품 등록 헤더를 flat 톤과 border-border-subtle 기준으로 통일
  */
 
 import type { ReactNode } from "react";
@@ -24,7 +25,7 @@ export default function AddProductLayout({
       <header
         className={cn(
           "sticky top-0 z-40 h-14 w-full",
-          "bg-background/80 backdrop-blur-md border-b border-border",
+          "border-b border-border-subtle bg-background shadow-sm",
           "transition-colors"
         )}
         role="banner"

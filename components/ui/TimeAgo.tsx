@@ -16,6 +16,7 @@
  * 2026.01.11  임도헌   Modified  시맨틱 텍스트 색상 적용 (text-muted)
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.26  임도헌   Modified  텍스트 크기 10px로 수정
+ * 2026.04.04  임도헌   Modified  export 주석을 보강해 상대 시간 자동 갱신 정책을 더 명확히 정리
  */
 
 "use client";
@@ -75,6 +76,16 @@ function computeAutoInterval(now: number, target: number): number {
   return 60 * m; // 그 외 : 1시간
 }
 
+/**
+ * 상대 시간 텍스트와 절대 시간 tooltip을 함께 제공하는 공용 시간 표시 컴포넌트
+ *
+ * - SSR-세이프 상대 시간 렌더링
+ * - 경과 시간 기반 자동 갱신 주기 계산
+ * - 비가시 상태에서의 자동 갱신 중단
+ *
+ * @param {TimeAgoProps} props - 상대 시간 계산 대상과 갱신/표시 옵션
+ * @returns {JSX.Element} 상대 시간 표시용 time 요소
+ */
 export default function TimeAgo({
   date,
   refreshMs = "auto",

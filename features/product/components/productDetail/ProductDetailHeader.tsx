@@ -11,6 +11,8 @@
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.03  임도헌   Modified  [UI] 끌어올리기 횟수 뱃지 추가
  * 2026.02.26  임도헌   Modified  게임 타입 UI 수정
+ * 2026.03.15  임도헌   Modified  게임 타입 배지 앞 시스템 이모지를 heroicons 기반 아이콘으로 교체
+ * 2026.03.25  임도헌   Modified  다크 모드 UP 뱃지 대비 보강 및 모바일 배지 밀도 축소
  */
 
 "use client";
@@ -19,7 +21,10 @@ import { formatToWon } from "@/lib/utils";
 import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
 import { GameType } from "@/features/product/types";
 import Link from "next/link";
-import { ArrowUpIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUpIcon,
+  PuzzlePieceIcon,
+} from "@heroicons/react/24/outline";
 
 interface ProductDetailHeaderProps {
   title: string;
@@ -41,16 +46,17 @@ export default function ProductDetailHeader({
   return (
     <div className="flex flex-col gap-3">
       {/* 게임 타입 뱃지 */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/products?game_type=${game_type}`}
           className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-gray-100 hover:bg-brand/20 transition-colors"
         >
-          🎲 {GAME_TYPE_DISPLAY[game_type as GameType] || game_type}
+          <PuzzlePieceIcon className="size-4" />
+          {GAME_TYPE_DISPLAY[game_type as GameType] || game_type}
         </Link>
         {/* 끌어올리기 횟수 뱃지 (상세 페이지 강조형) */}
         {bumpCount > 0 && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-md bg-surface-dim text-brand border border-border shadow-sm">
+          <span className="inline-flex items-center gap-1 rounded-full border border-brand/20 bg-brand/10 px-2 py-1 text-[10px] font-semibold text-brand shadow-sm dark:border-brand-light/25 dark:bg-brand-light/12 dark:text-brand-light sm:px-2.5 sm:text-[11px]">
             <ArrowUpIcon className="size-3" />
             UP {bumpCount}회
           </span>

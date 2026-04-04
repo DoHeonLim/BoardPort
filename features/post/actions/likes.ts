@@ -12,6 +12,7 @@
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/likes.ts -> features/post/actions/like.ts
  * 2026.03.05  임도헌   Modified  `revalidateTag` 호출 제거 및 `queryClient.setQueryData`를 활용한 좋아요 상태 즉각적 UI 갱신(Optimistic Update) 적용
+ * 2026.04.02  임도헌   Modified  좋아요 액션 반환 설명 JSDoc 보강
  */
 "use server";
 
@@ -22,10 +23,14 @@ import { togglePostLike } from "@/features/post/service/like";
 
 /**
  * 게시글 좋아요 추가 Action
- * - 로그인 확인 후 Service를 호출
- * - 성공 시 좋아요 상태, 게시글 상세, 목록 캐시를 무효화하여 UI를 갱신
+ *
+ * [기능]
+ * - 로그인 세션을 확인하고
+ * - 좋아요 추가를 service 계층에 위임
+ * - 성공 시 상세 화면 캐시를 무효화해 카운트와 상태를 최신화
  *
  * @param {number} postId - 게시글 ID
+ * @returns {Promise<void>} 좋아요 반영 후 상세 캐시 최신화
  */
 export const likePost = async (postId: number) => {
   const session = await getSession();
@@ -40,10 +45,14 @@ export const likePost = async (postId: number) => {
 
 /**
  * 게시글 좋아요 취소 Action
- * - 로그인 확인 후 Service를 호출
- * - 성공 시 관련 캐시를 무효화
+ *
+ * [기능]
+ * - 로그인 세션을 확인하고
+ * - 좋아요 취소를 service 계층에 위임
+ * - 성공 시 상세 화면 캐시를 무효화해 카운트와 상태를 최신화
  *
  * @param {number} postId - 게시글 ID
+ * @returns {Promise<void>} 좋아요 취소 반영 후 상세 캐시 최신화
  */
 export const dislikePost = async (postId: number) => {
   const session = await getSession();

@@ -1,6 +1,6 @@
 /**
  * File Name : features/chat/actions/messages.ts
- * Description : 채팅 메시지 관리 Controller (전송, 조회, 읽음)
+ * Description : 채팅 메시지 관련 서버 액션 (전송, 조회, 읽음, 삭제, 반응)
  * Author : 임도헌
  *
  * History
@@ -25,10 +25,13 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/chats/[id]/actions/messages.ts -> features/chat/actions/message.ts
  * 2026.02.04  임도헌   Modified  sendMessageAction에 이미지 URL 파라미터 추가
+ * 2026.03.12  임도헌   Modified  GIF 조건부 최적화를 위한 imageIsAnimated 메타 전달 추가
  * 2026.03.03  임도헌   Modified  getMoreMessagesAction에서 cursor(null) 기반 초기 조회 로직 통합
  * 2026.03.04  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  채팅방 목록 및 메시지 갱신용 `revalidateTag` 호출 제거, 단일 진실 공급원(SSOT)을 로컬 Query Cache로 전환
  * 2026.03.07  임도헌   Modified  메시지 조회/읽음 Server Action에 세션 및 채팅방 접근 권한 검증 추가
+ * 2026.04.01  임도헌   Modified  본인 채팅 메시지 삭제 Server Action 추가
+ * 2026.04.02  임도헌   Modified  채팅 메시지 반응 토글 Server Action 추가 및 설명 톤 정리
  */
 "use server";
 
@@ -38,10 +41,16 @@ import {
   getMoreMessages,
   markMessagesAsRead,
   getInitialMessages,
+  deleteMessage,
+  toggleMessageReaction,
 } from "@/features/chat/service/message";
 import { checkChatRoomAccess } from "@/features/chat/service/room";
 import type { ServiceResult } from "@/lib/types";
-import type { ChatMessage, MessageReadUpdateResult } from "@/features/chat/types";
+import type {
+  ChatMessage,
+  MessageReadUpdateResult,
+} from "@/features/chat/types";
+import type { ChatMessageReactionKey } from "@/features/chat/constants";
 
 /**
  * 채팅 메시지 전송 Server Action
@@ -53,16 +62,25 @@ import type { ChatMessage, MessageReadUpdateResult } from "@/features/chat/types
  * @param {string} chatRoomId - 메시지를 전송할 채팅방 ID
  * @param {string | null} [payload] - 전송할 텍스트 내용
  * @param {string | null} [image] - 첨부 이미지 URL
+ * @param {boolean} [imageIsAnimated] - 첨부 이미지 GIF 여부
+ * @returns {Promise<ServiceResult<{ message: ChatMessage; receiverId: number }>>} 저장/브로드캐스트 결과
  */
 export const sendMessageAction = async (
   chatRoomId: string,
   payload?: string | null,
-  image?: string | null
+  image?: string | null,
+  imageIsAnimated?: boolean
 ) => {
   const session = await getSession();
   if (!session?.id) throw new Error("로그인이 필요합니다.");
 
-  const result = await createMessage(chatRoomId, session.id, payload, image);
+  const result = await createMessage(
+    chatRoomId,
+    session.id,
+    payload,
+    image,
+    imageIsAnimated
+  );
 
   return result;
 };
@@ -110,6 +128,7 @@ export const getMoreMessagesAction = async (
  *
  * @param {string} chatRoomId - 대상 채팅방 ID
  * @param {number} userId - 메시지를 읽은 사용자 ID (본인)
+ * @returns {Promise<MessageReadUpdateResult>} 읽음 처리된 메시지 ID 목록 또는 실패 정보
  */
 export const readMessageUpdateAction = async (
   chatRoomId: string,
@@ -132,4 +151,46 @@ export const readMessageUpdateAction = async (
   const result = await markMessagesAsRead(chatRoomId, session.id);
 
   return result;
+};
+
+/**
+ * 채팅 메시지 삭제 Server Action
+ *
+ * [기능]
+ * - 로그인 세션과 메시지 소유권을 검증한 뒤, 텍스트/이미지 메시지를 삭제 상태로 전환
+ * - 삭제 결과는 실시간 브로드캐스트를 통해 같은 채팅방 참가자에게 즉시 동기화
+ *
+ * @param {number} messageId - 삭제할 채팅 메시지 ID
+ * @returns {Promise<ServiceResult<ChatMessage>>} 삭제 상태로 전환된 메시지 또는 실패 정보
+ */
+export const deleteMessageAction = async (messageId: number) => {
+  const session = await getSession();
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." } as const;
+  }
+
+  return await deleteMessage(messageId, session.id);
+};
+
+/**
+ * 채팅 메시지 반응 토글 Server Action
+ *
+ * [기능]
+ * - 로그인 세션을 확인한 뒤, 메시지 반응을 추가/교체/해제하는 Service 로직에 위임
+ * - 처리 결과는 실시간 브로드캐스트로 같은 채팅방 참여자에게 즉시 동기화
+ *
+ * @param {number} messageId - 반응을 토글할 채팅 메시지 ID
+ * @param {ChatMessageReactionKey} reactionKey - 선택한 반응 키
+ * @returns {Promise<ServiceResult<ChatMessage>>} 반응이 반영된 최신 메시지 또는 실패 정보
+ */
+export const toggleMessageReactionAction = async (
+  messageId: number,
+  reactionKey: ChatMessageReactionKey
+) => {
+  const session = await getSession();
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." } as const;
+  }
+
+  return await toggleMessageReaction(messageId, session.id, reactionKey);
 };

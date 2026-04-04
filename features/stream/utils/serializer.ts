@@ -9,6 +9,7 @@
  * 2025.09.23  임도헌   Modified  BroadcastSummary 최신 스펙 반영(stream_id/status/started_at/ended_at, isFollowing 제거)
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Moved     lib/stream/serializeStream -> utils/serializer
+ * 2026.03.12  임도헌   Modified  스트림 카드용 썸네일 애니메이션 메타 직렬화 추가
  */
 
 import type {
@@ -26,6 +27,7 @@ type RawRow = {
   title: string;
   description: string | null;
   thumbnail: string | null;
+  thumbnailAnimated?: boolean;
   visibility: StreamVisibility;
   status: string;
   started_at: Date | null;
@@ -68,6 +70,7 @@ export function serializeStream(
     stream_id: s.stream_id,
     title: s.title,
     thumbnail: s.thumbnail ?? null,
+    thumbnailAnimated: s.thumbnailAnimated ?? false,
     isLive: (s.status ?? "").toUpperCase() === CONNECTED,
     status: s.status,
     visibility: s.visibility,

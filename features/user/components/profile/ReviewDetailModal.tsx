@@ -13,6 +13,9 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.06  임도헌   Modified  리뷰 상세 모달에 신고 버튼 추가 및 ReportModal 연동
  * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 적용
+ * 2026.03.12  임도헌   Modified  리뷰 상세 별점 색상을 채움형 노란 별 기준으로 복원
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.03.23  임도헌   Modified  데스크톱에서 텍스트형 모달이 세로로만 길어지지 않도록 폭을 한 단계 확장
  */
 "use client";
 
@@ -101,13 +104,13 @@ export default function ReviewDetailModal({
       <div
         ref={dialogRef}
         className={cn(
-          "relative w-full max-w-md rounded-2xl shadow-2xl animate-fade-in mx-4 overflow-hidden",
-          "bg-surface border border-border"
+          "relative mx-4 w-full max-w-md overflow-hidden rounded-2xl shadow-2xl sm:max-w-lg",
+          "bg-surface border border-border-subtle"
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border bg-surface-dim/30">
+        <div className="px-6 py-4 border-b border-border-subtle bg-surface">
           <div className="flex items-center justify-between">
             <h3
               id="review-detail-title"
@@ -127,7 +130,7 @@ export default function ReviewDetailModal({
                       "w-4 h-4",
                       star <= review.rate
                         ? "text-yellow-400"
-                        : "text-neutral-200 dark:text-neutral-700"
+                        : "text-neutral-300 dark:text-neutral-700"
                     )}
                   />
                 ))}
@@ -150,7 +153,7 @@ export default function ReviewDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-between gap-2">
+        <div className="px-6 py-4 border-t border-border-subtle bg-surface flex justify-between gap-2">
           {/* 신고 버튼 (좌측 배치) */}
           <div className="flex items-center">
             {review && !isOwnReview && (
@@ -176,7 +179,7 @@ export default function ReviewDetailModal({
             )}
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border rounded-xl transition-colors"
+              className="px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border-subtle rounded-xl transition-colors"
             >
               닫기
             </button>

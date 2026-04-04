@@ -13,10 +13,16 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.02.19  임도헌   Modified  약속/시스템 메시지 타입 수신 대응 설명 추가
  * 2026.03.07  임도헌   Modified  message_read payload에 readerId를 포함하도록 구조 보강
+ * 2026.04.01  임도헌   Modified  message_deleted 실시간 이벤트 payload 전달 추가
+ * 2026.04.02  임도헌   Modified  실시간 구독 유틸 JSDoc 반환 설명 보강
  */
 
 import { supabase } from "@/lib/supabase";
-import { ChatMessage, MessageReadPayload } from "@/features/chat/types";
+import {
+  ChatMessage,
+  MessageDeletedPayload,
+  MessageReadPayload,
+} from "@/features/chat/types";
 import { CHAT_EVENT } from "@/features/chat/constants";
 
 interface SubscribeOptions {
@@ -24,6 +30,26 @@ interface SubscribeOptions {
   roomIds: string[]; // 구독할 채팅방 ID 목록
   onMessage: (payload: ChatMessage) => void; // 새 메시지 수신 콜백
   onMessageRead: (payload: MessageReadPayload & { roomId: string }) => void; // 읽음 처리 수신 콜백 (readerId 포함)
+  onMessageDeleted?: (
+    payload: MessageDeletedPayload & { roomId: string }
+  ) => void; // 메시지 삭제 수신 콜백
+  onMessageReaction?: (payload: ChatMessage & { roomId: string }) => void; // 메시지 반응 수신 콜백
+}
+
+type RealtimeChatMessagePayload = Omit<ChatMessage, "created_at" | "deleted_at"> & {
+  created_at: string | Date;
+  deleted_at?: string | Date | null;
+};
+
+function normalizeRealtimeMessage(
+  payload: RealtimeChatMessagePayload
+): ChatMessage {
+  return {
+    ...payload,
+    reactions: payload.reactions ?? [],
+    created_at: new Date(payload.created_at),
+    deleted_at: payload.deleted_at ? new Date(payload.deleted_at) : null,
+  };
 }
 
 /**
@@ -38,12 +64,15 @@ interface SubscribeOptions {
  * 6. 수신된 payload는 클라이언트 훅(useChatSubscription)에서 Date 객체로 변환됨.
  *
  * @param {SubscribeOptions} options - 구독 설정 (유저 ID, 방 목록, 콜백)
+ * @returns {() => void} 모든 채널 구독을 해제하는 클린업 함수
  */
 export function subscribeToRoomUpdates({
   userId,
   roomIds,
   onMessage,
   onMessageRead,
+  onMessageDeleted,
+  onMessageReaction,
 }: SubscribeOptions) {
   // 각 채팅방에 대해 Supabase 채널 구독 설정
   const channels = roomIds.map((roomId) => {
@@ -56,7 +85,7 @@ export function subscribeToRoomUpdates({
       // (기존 코드 로직 유지: payload.user.id === userId 체크는 훅에서 수행)
       if (payload.user.id === userId) return;
 
-      onMessage(payload as ChatMessage);
+      onMessage(normalizeRealtimeMessage(payload));
     });
 
     // 2. 메시지 읽음 수신
@@ -76,6 +105,38 @@ export function subscribeToRoomUpdates({
       }
     );
 
+    channel.on(
+      "broadcast",
+      { event: CHAT_EVENT.MESSAGE_DELETED },
+      ({ payload }) => {
+        const deletedPayload = payload as MessageDeletedPayload;
+        if (!deletedPayload?.message?.id) {
+          return;
+        }
+
+        onMessageDeleted?.({
+          ...deletedPayload,
+          roomId,
+          message: normalizeRealtimeMessage(deletedPayload.message),
+        });
+      }
+    );
+
+    channel.on(
+      "broadcast",
+      { event: CHAT_EVENT.MESSAGE_REACTION },
+      ({ payload }) => {
+        if (!payload?.id) {
+          return;
+        }
+
+        onMessageReaction?.({
+          ...normalizeRealtimeMessage(payload),
+          roomId,
+        });
+      }
+    );
+
     // 실시간 구독 활성화
     channel.subscribe();
     return channel;
@@ -86,3 +147,4 @@ export function subscribeToRoomUpdates({
     channels.forEach((channel) => channel.unsubscribe());
   };
 }
+

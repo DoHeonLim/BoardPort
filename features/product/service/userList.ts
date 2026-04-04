@@ -20,18 +20,21 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  'LIKED' 스코프 추가 및 조건 매핑 (내가 찜한 상품 조회)
  * 2026.03.06  임도헌   Modified  getUserProductsList 제네릭 기본 타입에 ProductType 추가(LIKED 스코프 타입 정합성 강화)
+ * 2026.03.26  임도헌   Modified  LIKED 목록에 productLike.created_at 기반 liked_at을 함께 매핑
+ * 2026.04.02  임도헌   Modified  scope where helper JSDoc 보강
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
-import { PROFILE_SALES_UNIFIED_SELECT } from "@/features/product/constants";
+import { PROFILE_SALES_UNIFIED_SELECT } from "@/features/product/selects";
 import type {
   Paginated,
   TabCounts,
   MySalesListItem,
   MyPurchasedListItem,
   ProductType,
+  LikedProductListItem,
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
@@ -51,7 +54,12 @@ export type UserProductsScope =
   | { type: "PURCHASED"; userId: number }
   | { type: "LIKED"; userId: number };
 
-/** Prisma Where Input 생성 헬퍼 */
+/**
+ * Scope별 Prisma where 조건 생성
+ *
+ * @param {UserProductsScope} scope - 조회할 프로필 탭 범위와 대상 유저 ID
+ * @returns 객체 리터럴 기반 Prisma where 조건
+ */
 function whereFor(scope: UserProductsScope) {
   switch (scope.type) {
     case "SELLING":
@@ -99,7 +107,11 @@ function whereFor(scope: UserProductsScope) {
  * @returns {Promise<Paginated<T>>} 페이징된 목록 및 커서 반환
  */
 export async function getUserProductsList<
-  T = MySalesListItem | MyPurchasedListItem | ProductType,
+  T =
+    | MySalesListItem
+    | MyPurchasedListItem
+    | LikedProductListItem
+    | ProductType,
 >(scope: UserProductsScope, cursor?: number | null): Promise<Paginated<T>> {
   // LIKED는 ProductLike.created_at 기준(최근 찜한 순)으로 별도 처리
   if (scope.type === "LIKED") {
@@ -152,7 +164,10 @@ export async function getUserProductsList<
 
     const hasNext = likedRows.length > TAKE;
     const pageRows = hasNext ? likedRows.slice(0, TAKE) : likedRows;
-    const products = pageRows.map((r) => r.product) as unknown as T[];
+    const products = pageRows.map((r) => ({
+      ...r.product,
+      liked_at: r.created_at,
+    })) as unknown as T[];
     const nextCursor = hasNext
       ? (pageRows[pageRows.length - 1]?.productId ?? null)
       : null;

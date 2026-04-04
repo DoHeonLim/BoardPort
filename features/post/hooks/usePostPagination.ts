@@ -16,6 +16,9 @@
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialData Prop Drilling 제거
  * 2026.03.04  임도헌   Modified  getPostsListAction 연동 및 쿼리 조회 로직 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.12  임도헌   Modified  currentRange를 포함한 게시글 무한스크롤 캐시 분리 규칙 명확화
+ * 2026.03.12  임도헌   Modified  currentRange 전환 시 stale 방지를 위한 queryKeyExtra 분기 설명 추가
+ * 2026.03.14  임도헌   Modified  첫 페이지 totalCount를 노출해 무한스크롤 중에도 총 게시글 수를 고정 표시
  */
 "use client";
 
@@ -30,12 +33,14 @@ import type { PostDetail, PostSearchParams } from "@/features/post/types";
 
 interface UsePostPaginationParams {
   searchParams: PostSearchParams;
+  queryKeyExtra?: unknown;
 }
 
-/** 훅 반환 타입 인터페이스 */
+/** 훅 반환 타입 */
 export interface UsePostPaginationResult {
   posts: PostDetail[];
-  isFetchingNextPage: boolean; // 스크롤 하단 도달 시 추가 데이터를 가져오는 상태
+  totalCount?: number;
+  isFetchingNextPage: boolean; // 다음 페이지 로딩 상태
   hasMore: boolean;
   loadMore: () => Promise<unknown>;
 }
@@ -45,24 +50,23 @@ export interface UsePostPaginationResult {
 // =============================================================================
 
 /**
- * 게시글 목록 페이징 전용 Suspense Query 훅
- *
- * [상태 추출 및 사이드 이펙트 제어 로직]
- * - `searchParams`를 쿼리 키에 포함하여 필터 조건 변경 시 자동 캐시 분리 및 새 쿼리 생성
- * - `useSuspenseInfiniteQuery`를 활용한 서버 액션(`getPostsListAction`) 호출 및 무한 스크롤 상태 자동화
- * - 평탄화된 게시글 배열(posts) 및 로딩 상태(isFetchingNextPage) 추출 및 반환
- *
- * @param {UsePostPaginationParams} params - 검색 조건 파라미터
- * @returns {UsePostPaginationResult} 페이징 상태 및 추출된 게시글 데이터
+ * 게시글 목록 Suspense 무한 스크롤 훅
+ * - searchParams 기준 캐시 분리
+ * - queryKeyExtra(currentRange) 기준 추가 캐시 분리
+ * - 서버 액션 기반 다음 페이지 조회
  */
 export function usePostPagination({
   searchParams,
+  queryKeyExtra,
 }: UsePostPaginationParams): UsePostPaginationResult {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
-      queryKey: queryKeys.posts.list(searchParams),
+      queryKey: queryKeys.posts.list({
+        ...searchParams,
+        __scope: queryKeyExtra,
+      }),
       queryFn: async ({ pageParam }) => {
-        // 서버 액션 호출 (커서 및 검색 조건 전달)
+        // 서버 액션 호출
         return await getPostsListAction(
           pageParam as number | null,
           searchParams
@@ -75,9 +79,11 @@ export function usePostPagination({
     });
 
   const posts = data.pages.flatMap((page) => page.posts);
+  const totalCount = data.pages[0]?.totalCount;
 
   return {
     posts,
+    totalCount,
     isFetchingNextPage,
     hasMore: !!hasNextPage,
     loadMore: fetchNextPage,

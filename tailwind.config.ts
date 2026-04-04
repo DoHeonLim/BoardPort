@@ -1,6 +1,7 @@
 // 2024.11.23  임도헌 tailwind 스크롤 바 커스텀
 // 2026.01.10  임도헌 BoardPort Design Standard v1.1 적용
 // 2026.01.19  임도헌 features 경로 추가
+// 2026.03.11  임도헌 border subtle/default/strong 디자인 토큰 추가
 
 import type { Config } from "tailwindcss";
 import formsPlugin from "@tailwindcss/forms";
@@ -54,7 +55,11 @@ const config: Config = {
         danger: {
           DEFAULT: "#EF4444", // red-500 (삭제/경고)
         },
-        border: "var(--border)", // 경계선
+        border: {
+          DEFAULT: "var(--border)", // 기본 경계선
+          subtle: "var(--border-subtle)", // 약한 구분선
+          strong: "var(--border-strong)", // 강조 경계선
+        },
 
         // 기존 색상 호환성 유지 (점진적 리팩토링을 위해 남겨둠)
         secondary: {
@@ -93,25 +98,14 @@ const config: Config = {
         "page-y": "2.5rem", // py-10 (Page vertical padding)
         "form-gap": "1.25rem", // gap-5 (Between form fields)
       },
-      // 애니메이션 (기존 애니메이션 + 신규 추가)
+      // 애니메이션
       animation: {
-        "fade-in": "fadeIn 0.3s ease-out",
         "slide-up": "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-        float: "float 3s ease-in-out infinite", // 기존 float 애니메이션 유지
       },
       keyframes: {
-        fadeIn: {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
         slideUp: {
           "0%": { transform: "translateY(100%)" },
           "100%": { transform: "translateY(0)" },
-        },
-        float: {
-          // 기존 float 키프레임 유지
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-10px)" },
         },
       },
     },

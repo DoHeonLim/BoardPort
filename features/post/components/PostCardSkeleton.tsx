@@ -9,6 +9,8 @@
  * 2026.01.13  임도헌   Modified  [UI] PostCard 구조와 일치 및 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드 밀도와 동일한 썸네일 비율/메타 구조로 정리
+ * 2026.03.19  임도헌   Modified  실제 PostCard와 동일하게 border-border-subtle 기준으로 스켈레톤 외곽선을 통일
+ * 2026.03.26  임도헌   Modified  리스트 카드 실구조 변경에 맞춰 썸네일 폭과 카드 높이 규칙을 동기화
  */
 "use client";
 
@@ -25,15 +27,17 @@ export default function PostCardSkeleton({ viewMode }: PostCardSkeletonProps) {
   return (
     <div
       className={cn(
-        "flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm",
-        isGrid ? "flex-col h-full" : "flex-row h-28 gap-4 sm:h-36"
+        "flex overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm",
+        isGrid ? "flex-col h-full" : "flex-row min-h-28 gap-4 sm:min-h-36"
       )}
     >
       {/* Thumbnail */}
       <div
         className={cn(
           "shrink-0",
-          isGrid ? "w-full aspect-[3/2] sm:aspect-[4/3]" : "w-32 h-full"
+          isGrid
+            ? "w-full aspect-[3/2] sm:aspect-[4/3]"
+            : "h-full w-28 sm:w-32"
         )}
       >
         <Skeleton className="w-full h-full" />

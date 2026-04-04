@@ -7,10 +7,13 @@
  * Date        Author   Status    Description
  * 2026.02.15  임도헌   Created   variant(header/profile)에 따른 조건부 렌더링 구현
  * 2026.02.26  임도헌   Modified  동네 설정 버튼 UI 개선
+ * 2026.03.12  임도헌   Modified  위치 저장 성공 후 router.refresh로 현재 화면 지역 정보 즉시 갱신
+ * 2026.03.27  임도헌   Modified  프로필 카드 우측 변경/설정 액션 텍스트의 다크모드 가시성 보강
  */
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { MapPinIcon } from "@heroicons/react/24/solid";
 import { MapPinIcon as OutlineMapPin } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -38,6 +41,7 @@ export default function MyLocationButton({
   fullLocation,
   variant = "profile",
 }: Props) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -49,6 +53,7 @@ export default function MyLocationButton({
           `'${data.region2} ${data.region3}'(으)로 동네가 설정되었습니다.`
         );
         setIsOpen(false);
+        router.refresh();
       } else {
         toast.error(res.error);
       }
@@ -114,7 +119,7 @@ export default function MyLocationButton({
             </p>
           </div>
         </div>
-        <div className="text-xs font-medium text-brand">
+        <div className="text-xs font-medium text-brand transition-colors dark:text-brand-light group-hover:text-brand-dark dark:group-hover:text-brand-light/85">
           {currentRegion ? "변경" : "설정"}
         </div>
       </button>

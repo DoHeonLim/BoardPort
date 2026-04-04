@@ -6,15 +6,17 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.14  임도헌   Created
+ * 2026.03.12  임도헌   Modified  현재 로그인 히어로/폼 밀도에 맞춰 스켈레톤 구조 정리
+ * 2026.03.17  임도헌   Modified  이메일 우선 로그인 흐름과 소셜 하단 배치 기준으로 로딩 순서 재정렬
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="flex flex-col min-h-screen px-6 py-10 bg-background">
+    <div className="flex min-h-screen flex-col bg-background px-6 py-10">
       {/* Header Skeleton */}
-      <div className="flex flex-col items-center gap-4 mt-10 mb-8">
+      <div className="mt-10 mb-8 flex flex-col items-center gap-4">
         <Skeleton className="size-14 rounded-2xl" /> {/* Icon */}
         <div className="flex flex-col items-center gap-2">
           <Skeleton className="h-8 w-32 rounded" />
@@ -23,15 +25,32 @@ export default function Loading() {
       </div>
 
       {/* Form Skeleton */}
-      <div className="w-full max-w-sm mx-auto space-y-5">
-        <Skeleton className="h-12 w-full rounded-xl" /> {/* Email */}
-        <Skeleton className="h-12 w-full rounded-xl" /> {/* Password */}
-        <Skeleton className="h-12 w-full rounded-xl mt-6" /> {/* Submit */}
-        <div className="flex justify-center mt-4">
-          <Skeleton className="h-4 w-32 rounded" />
+      <div className="mx-auto w-full max-w-sm space-y-5">
+        <div className="space-y-5">
+          <Skeleton className="h-12 w-full rounded-xl" /> {/* Email */}
+          <Skeleton className="h-12 w-full rounded-xl" /> {/* Password */}
+          <div className="flex justify-end">
+            <Skeleton className="h-4 w-28 rounded" />
+          </div>
+          <Skeleton className="h-12 w-full rounded-xl" /> {/* Submit */}
         </div>
-        <div className="pt-4 border-t border-border mt-4">
-          <Skeleton className="h-12 w-full rounded-xl" /> {/* Social */}
+
+        <div className="relative py-1">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border-subtle" />
+          </div>
+          <div className="relative flex justify-center">
+            <Skeleton className="h-4 w-20 rounded bg-background" />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+        </div>
+
+        <div className="flex justify-center pt-1">
+          <Skeleton className="h-4 w-32 rounded" />
         </div>
       </div>
     </div>

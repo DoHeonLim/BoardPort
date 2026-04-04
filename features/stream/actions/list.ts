@@ -16,13 +16,15 @@
  * 2026.01.30  임도헌   Moved     app/(tabs)/streams/actions/init.ts (getMoreStreams) -> features/stream/actions/list.ts
  * 2026.03.04  임도헌   Modified  getStreamsListAction 명칭 변경 및 getStreamsList 서비스 연동
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.29  임도헌   Modified  다시보기 최신/인기 정렬과 팔로잉만 보조 필터 액션 파라미터 정리
+ * 2026.03.31  임도헌   Modified  방송/다시보기 목록 액션 역할이 보이도록 설명 톤 통일
  */
 
 "use server";
 
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
-import { getStreamsList } from "@/features/stream/service/list";
-import type { BroadcastSummary } from "@/features/stream/types";
+import { getRecordingsList, getStreamsList } from "@/features/stream/service/list";
+import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
 import getSession from "@/lib/session";
 
 export type StreamsPage = {
@@ -30,10 +32,18 @@ export type StreamsPage = {
   nextCursor: number | null;
 };
 
+export type RecordingsPage = {
+  recordings: VodForGrid[];
+  nextCursor: number | null;
+};
+
 type Scope = "all" | "following";
 const TAKE = STREAMS_PAGE_TAKE;
 
-// 입력값 정규화 (빈 문자열 -> undefined)
+/**
+ * 입력값 정규화
+ * 빈 문자열 검색 파라미터를 undefined로 바꿔 service 조건 분기와 맞춥니다.
+ */
 function norm(v?: string) {
   const t = v?.trim();
   return t ? t : undefined;
@@ -78,4 +88,42 @@ export async function getStreamsListAction(
   const nextCursor = hasMore ? trimmed[trimmed.length - 1].id : null;
 
   return { streams: trimmed, nextCursor };
+}
+
+/**
+ * 다시보기 목록 무한 스크롤 조회 Server Action
+ *
+ * [기능]
+ * - 정렬 기준(latest/popular)과 팔로잉 전용 필터를 service 계층에 위임
+ * - 카테고리/키워드 검색 파라미터를 공백 정규화 후 전달
+ * - 무한 스크롤용 recordings 배열과 다음 커서(nextCursor)를 반환
+ */
+export async function getRecordingsListAction(
+  sort: "latest" | "popular",
+  followingOnly: boolean,
+  cursor: number | null,
+  searchParams: Record<string, string>,
+  viewerId: number | null
+): Promise<RecordingsPage> {
+  const session = await getSession();
+  const userId = session?.id ?? viewerId;
+
+  if (!userId) return { recordings: [], nextCursor: null };
+
+  // 다시보기 service는 TAKE + 1 규칙으로 다음 페이지 존재 여부를 판별
+  const list = await getRecordingsList({
+    sort,
+    followingOnly,
+    category: norm(searchParams.category),
+    keyword: norm(searchParams.keyword),
+    viewerId: userId,
+    cursor,
+    take: TAKE + 1,
+  });
+
+  const hasMore = list.length > TAKE;
+  const trimmed = hasMore ? list.slice(0, TAKE) : list;
+  const nextCursor = hasMore ? trimmed[trimmed.length - 1].vodId : null;
+
+  return { recordings: trimmed, nextCursor };
 }

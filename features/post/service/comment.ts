@@ -47,6 +47,7 @@ import type { ServiceResult } from "@/lib/types";
  * @param {number | undefined} cursor - 페이징 커서 (마지막 댓글 ID)
  * @param {number} limit - 조회할 최대 개수
  * @param {number | null} viewerId - 조회자 ID
+ * @returns {Promise<PostComment[]>} 차단/정지 필터링이 적용된 댓글 목록
  */
 export async function getPostCommentsList(
   postId: number,
@@ -59,7 +60,8 @@ export async function getPostCommentsList(
     user: { bannedAt: null },
   };
 
-  //차단 유저 댓글 제외
+  // 차단 유저 댓글 제외
+  // 조회자 기준 차단 관계가 있는 작성자의 댓글은 목록에서 숨김
   if (viewerId) {
     const blockedIds = await getBlockedUserIds(viewerId);
     if (blockedIds.length > 0) {
@@ -101,6 +103,7 @@ export async function getPostCommentsList(
  * @param {number} userId - 작성자 ID
  * @param {number} postId - 게시글 ID
  * @param {string} payload - 댓글 내용
+ * @returns {Promise<ServiceResult<{ id: number }>>} 생성된 댓글 ID 또는 실패 정보
  */
 export async function createComment(
   userId: number,
@@ -108,11 +111,12 @@ export async function createComment(
   payload: string
 ): Promise<ServiceResult<{ id: number }>> {
   try {
-    // 정지 유저 체크
+    // 작성 가능 상태 확인
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
     // 게시글 작성자 식별 및 차단 확인
+    // 양방향 차단 관계가 있으면 댓글 상호작용 자체를 막음
     const post = await db.post.findUnique({
       where: { id: postId },
       select: { userId: true },
@@ -136,7 +140,7 @@ export async function createComment(
       },
     });
 
-    // 뱃지 체크
+    // 댓글 작성 관련 뱃지 체크
     await Promise.allSettled([
       badgeChecks.onCommentCreate(userId),
       badgeChecks.onEventParticipation(userId),
@@ -158,15 +162,18 @@ export async function createComment(
  *
  * @param {number} userId - 요청자 ID
  * @param {number} commentId - 삭제할 댓글 ID
+ * @returns {Promise<ServiceResult>} 댓글 삭제 처리 결과
  */
 export async function deleteComment(
   userId: number,
   commentId: number
 ): Promise<ServiceResult> {
   try {
+    // 삭제 요청 가능 상태 확인
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
+    // 소유권 확인
     const comment = await db.comment.findUnique({
       where: { id: commentId },
       select: { userId: true },

@@ -11,6 +11,9 @@
  * 2026.02.15  임도헌   Modified  UserProfile에 location 관련 필드 추가
  * 2026.02.24  임도헌   Modified  CurrentUserForEdit 타입에 kakao_id를 추가
  * 2026.03.07  임도헌   Modified  섹션 제목 및 타입 설명 정리
+ * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타 저장용 avatarAnimated 필드 추가
+ * 2026.03.21  임도헌   Modified  방송국 소개 수정용 ChannelDescriptionActionState 타입 추가
+ * 2026.04.03  임도헌   Modified  관리자 필터 및 액션 상태 type alias 설명 보강
  */
 
 import type { Role } from "@/generated/prisma/enums";
@@ -111,6 +114,7 @@ export type CurrentUserForEdit = {
   username: string;
   email: string | null;
   avatar: string | null;
+  avatarAnimated: boolean;
   phone: string | null;
   github_id: string | null;
   kakao_id: string | null;
@@ -145,10 +149,39 @@ export type AdminUserListResponse = {
   currentPage: number;
 };
 
+/** 관리자 유저 목록 조회 입력값 */
+export type UserFilter = {
+  query?: string;
+  role?: Role | "ALL" | "BANNED";
+  page?: number;
+  limit?: number;
+};
+
+export interface AdminUserInsights {
+  labels: string[];
+  signupSeries: {
+    name: string;
+    color: string;
+    values: number[];
+  }[];
+  statusSlices: {
+    label: string;
+    value: number;
+    color: string;
+  }[];
+  summary: {
+    totalUsers: number;
+    todaySignups: number;
+    bannedUsers: number;
+    adminUsers: number;
+  };
+}
+
 // =============================================================================
 // 2. Action / Form State Types
 // =============================================================================
 
+/** 프로필 편집 액션의 폼 검증 및 제출 결과 */
 export type EditProfileActionState = {
   success: boolean;
   errors?: {
@@ -157,6 +190,14 @@ export type EditProfileActionState = {
   };
 };
 
+/** 방송국 소개 수정 액션의 단순 결과 상태 */
+export type ChannelDescriptionActionState = {
+  success: boolean;
+  error?: string;
+  value?: string | null;
+};
+
+/** 비밀번호 변경 액션의 필드별 오류 상태 */
 export type ChangePasswordActionState = {
   success: boolean;
   errors?: {

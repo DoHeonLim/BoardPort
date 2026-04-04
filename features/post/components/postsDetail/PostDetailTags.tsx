@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.26  임도헌   Created   상세 페이지 태그 노출 누락분 추가 및 컴포넌트화
+ * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
+ * 2026.03.27  임도헌   Modified  제목 근처 배치에 맞춰 고정 하단 여백을 제거하고 흐름형 간격으로 정리
  */
 "use client";
 
@@ -21,7 +23,7 @@ export default function PostDetailTags({ tags }: PostDetailTagsProps) {
   if (!tags || tags.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mb-2">
+    <div className="flex flex-wrap gap-2">
       {tags.map((tag, index) => (
         <Link
           key={index}
@@ -33,7 +35,7 @@ export default function PostDetailTags({ tags }: PostDetailTagsProps) {
             "border border-transparent dark:border-white/10"
           )}
         >
-          🏷️ {tag.name}
+          #{tag.name}
         </Link>
       ))}
     </div>

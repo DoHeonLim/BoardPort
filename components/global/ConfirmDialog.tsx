@@ -10,11 +10,15 @@
  * 2026.01.10  임도헌   Modified  [Rule 3.1.2] Danger 색상 및 시맨틱 토큰 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/global
  * 2026.02.04  임도헌   Modified  Stacking Context 문제 해결을 위해 createPortal 적용
+ * 2026.03.08  임도헌   Modified  모달 진입 fade 애니메이션 제거
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.23  임도헌   Modified  구조 구분선 성격에 맞게 공용 확인 모달 외곽선을 subtle 기준으로 정리
  */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
@@ -63,12 +67,11 @@ export default function ConfirmDialog({
     prevFocusedRef.current = document.activeElement as HTMLElement | null;
 
     const t = setTimeout(() => firstRef.current?.focus(), 0);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     return () => {
       clearTimeout(t);
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       // 닫히면 이전 포커스로 복귀
       prevFocusedRef.current?.focus?.();
     };
@@ -133,7 +136,7 @@ export default function ConfirmDialog({
         aria-describedby={descId}
         className={cn(
           "relative mx-auto mt-40 w-[min(480px,92vw)] p-6 shadow-2xl",
-          "bg-surface rounded-2xl border border-border animate-fade-in"
+          "bg-surface rounded-2xl border border-border-subtle"
         )}
         onClick={stop}
       >

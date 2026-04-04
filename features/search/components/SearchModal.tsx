@@ -12,6 +12,11 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  Content에 overflow-y-auto 추가
  * 2026.02.27  임도헌   Modified  CreatePortal적용 및 커맨드 팔레트 UI 도입
+ * 2026.03.08  임도헌   Modified  검색 모달의 기본 진입 애니메이션을 제거해 빠른 탐색 흐름에 맞는 정적인 인터랙션으로 조정
+ * 2026.03.10  임도헌   Modified  모바일 검색 모달 내부 스크롤 안정화 및 iOS 터치 스크롤 대응
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 검색 모달/시트 중첩 상황에서도 스크롤 잠금 복구를 안정화
+ * 2026.03.23  임도헌   Modified  구조 구분선 성격에 맞게 모달 셸과 헤더/푸터/분할선 보더를 subtle 기준으로 정리
+ * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
  */
 "use client";
 
@@ -23,8 +28,9 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import type {
   SearchHistoryItem,
   PopularSearchItem,
-} from "@/features/product/types";
+} from "@/features/search/types";
 import { createPortal } from "react-dom";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -75,8 +81,7 @@ export default function SearchModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalStyle = window.getComputedStyle(document.body).overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -84,7 +89,7 @@ export default function SearchModal({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalStyle;
+      unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -96,9 +101,9 @@ export default function SearchModal({
   // [Mobile Layout] Full Screen Fixed
   if (isMobile) {
     return createPortal(
-      <div className="fixed inset-0 z-[100] flex flex-col animate-fade-in bg-background">
+      <div className="fixed inset-0 z-[100] flex flex-col bg-background">
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-border bg-background shrink-0">
+        <div className="flex items-center gap-3 border-b border-border-subtle bg-background p-4 shrink-0">
           <button
             onClick={onClose}
             className="p-2 -ml-2 text-muted hover:text-primary transition-colors"
@@ -110,7 +115,10 @@ export default function SearchModal({
         </div>
 
         {/* Content */}
-        <div className="bg-background flex-1 overflow-y-auto">
+        <div
+          className="bg-background flex-1 min-h-0 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <div className="p-4 flex flex-col gap-8 pb-20">
             <SearchHistoryBox
               history={searchHistory}
@@ -120,7 +128,7 @@ export default function SearchModal({
               basePath={basePath}
               isMobile
             />
-            <div className="border-t border-border" />
+            <div className="border-t border-border-subtle" />
             <PopularSearchesBox
               popularSearches={popularSearches}
               onSearch={onSearch}
@@ -144,11 +152,11 @@ export default function SearchModal({
 
       {/* Modal Card */}
       <div
-        className="relative w-full max-w-3xl h-fit max-h-[75vh] bg-surface border border-border shadow-2xl rounded-2xl flex flex-col overflow-hidden animate-slide-up"
+        className="relative flex h-fit max-h-[75vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >
         {/* Search Input Area */}
-        <div className="p-6 border-b border-border bg-surface shrink-0">
+        <div className="shrink-0 border-b border-border-subtle bg-surface p-6">
           <SearchBar onSearch={onSearch} value={value} className="mx-0" />
         </div>
 
@@ -162,7 +170,7 @@ export default function SearchModal({
               onClear={onClearHistory}
               basePath={basePath}
             />
-            <div className="pl-8 border-l border-border">
+            <div className="border-l border-border-subtle pl-8">
               <PopularSearchesBox
                 popularSearches={popularSearches}
                 onSearch={onSearch}
@@ -173,7 +181,7 @@ export default function SearchModal({
         </div>
 
         {/* Footer Area */}
-        <div className="p-4 border-t border-border flex justify-end bg-surface shrink-0">
+        <div className="flex justify-end border-t border-border-subtle bg-surface p-4 shrink-0">
           <button
             onClick={onClose}
             className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-colors"

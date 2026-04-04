@@ -10,10 +10,13 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.02.26  임도헌   Modified  하단 플로팅 추가 버튼(+) 위치 조정
+ * 2026.03.09  임도헌   Modified  모바일 리스트 가림을 줄이기 위해 FAB 크기와 하단 여백 미세 조정
+ * 2026.03.15  임도헌   Modified  최근 본 상품 원형 진입점을 FAB 위에 함께 배치
  */
 
 import Link from "next/link";
 import { PlusIcon } from "@heroicons/react/24/solid";
+import RecentViewedProductsFab from "@/features/product/components/RecentViewedProductsFab";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,20 +25,24 @@ import { cn } from "@/lib/utils";
  */
 export default function AddProductButton() {
   return (
-    <Link
-      href="/products/add"
-      title="새 제품 추가"
-      aria-label="제품 추가"
-      className={cn(
-        "fixed z-40 flex items-center justify-center rounded-full transition-all duration-300",
-        "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
-        "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
-        "size-14 sm:size-16 bottom-[84px] sm:bottom-24 right-4 sm:right-8",
-        // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산
-        "bottom-[calc(84px+env(safe-area-inset-bottom))] sm:bottom-24"
-      )}
-    >
-      <PlusIcon className="size-8 sm:size-10" />
-    </Link>
+    <>
+      <RecentViewedProductsFab />
+
+      <Link
+        href="/products/add"
+        title="새 제품 추가"
+        aria-label="제품 추가"
+        className={cn(
+          "fixed z-40 flex items-center justify-center rounded-full transition-all duration-300",
+          "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
+          "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
+          "size-12 sm:size-16 bottom-[80px] sm:bottom-24 right-4 sm:right-8",
+          // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산
+          "bottom-[calc(80px+env(safe-area-inset-bottom))] sm:bottom-24"
+        )}
+      >
+        <PlusIcon className="size-7 sm:size-10" />
+      </Link>
+    </>
   );
 }

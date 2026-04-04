@@ -58,7 +58,7 @@ export default function ReservationUserInfo({
   if (!user) return null;
 
   return (
-    <div className="flex items-center gap-1.5 animate-fade-in">
+    <div className="flex items-center gap-1.5">
       <UserAvatar
         avatar={user.avatar}
         username={user.username}

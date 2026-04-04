@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/profile/ProfileSettingMenu.tsx
- * Description : 프로필 설정 드롭다운 메뉴(프로필 수정 / 비밀 항해 코드 수정 / 이메일 인증)
+ * Description : 프로필 설정 드롭다운 메뉴(프로필 수정 / 비밀번호 변경 / 이메일 인증)
  * Author : 임도헌
  *
  * History
@@ -17,16 +17,22 @@
  * 2026.03.01  임도헌   Modified  window.dispatchEvent 제거 및 Zustand(useModalStore) 연동
  * 2026.03.03  임도헌   Modified  로컬 핸들러 잔재 제거 및 openModal 인자 매핑 수정
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.12  임도헌   Modified  설정 메뉴 주의 액션 링크를 danger 토큰 기준으로 정리
+ * 2026.03.12  임도헌   Modified  설정 메뉴 패널과 구분선을 subtle 보더 톤으로 통일
+ * 2026.03.13  임도헌   Modified  프로필 수정 진입 시 현재 경로를 returnTo로 함께 전달해 복귀 맥락 유지
+ * 2026.03.14  임도헌   Modified  회원 탈퇴를 드롭다운 밖 독립 위험 액션으로 분리해 설정 메뉴 혼재를 완화
+ * 2026.03.18  임도헌   Modified  설정 메뉴 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
  */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Cog6ToothIcon,
   ComputerDesktopIcon,
-  UserMinusIcon,
 } from "@heroicons/react/24/outline";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
 import { useModalStore } from "@/components/global/providers/ModalStoreProvider";
 
@@ -49,11 +55,17 @@ export default function ProfileSettingMenu({
   hasEmail,
   isAdmin,
 }: Props) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Zustand 스토어 액션 호출 (명시적 상태 변경)
   const openModal = useModalStore((state) => state.openModal);
+  const currentSearch = searchParams?.toString();
+  const returnTo = sanitizeCallbackUrl(
+    `${pathname}${currentSearch ? `?${currentSearch}` : ""}`
+  );
 
   // 1. 바깥 클릭 및 ESC 닫기
   useEffect(() => {
@@ -122,7 +134,7 @@ export default function ProfileSettingMenu({
         title="설정"
         className={cn(
           "flex items-center justify-center size-10 rounded-xl transition-colors shadow-sm",
-          "bg-surface border border-border text-muted hover:text-primary hover:bg-surface-dim",
+          "bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface-dim",
           isAdmin && "border-brand/30 text-brand dark:text-brand-light"
         )}
       >
@@ -133,7 +145,7 @@ export default function ProfileSettingMenu({
         <div
           role="menu"
           aria-label="프로필 설정"
-          className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl overflow-hidden z-50 animate-fade-in bg-surface border border-border"
+          className="absolute right-0 mt-2 w-48 rounded-xl shadow-xl overflow-hidden z-50 bg-surface border border-border-subtle"
         >
           {/* 관리자 콘솔 바로가기 */}
           {isAdmin && (
@@ -148,13 +160,13 @@ export default function ProfileSettingMenu({
                 <ComputerDesktopIcon className="size-4" />
                 관리자 콘솔
               </Link>
-              <div className="h-px bg-border" role="separator" />
+              <div className="h-px bg-border-subtle" role="separator" />
             </>
           )}
 
           {/* 항목 1: 프로필 수정 */}
           <Link
-            href="/profile/edit"
+            href={`/profile/edit?returnTo=${encodeURIComponent(returnTo)}`}
             role="menuitem"
             data-menuitem="true"
             className="block px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
@@ -163,7 +175,7 @@ export default function ProfileSettingMenu({
             프로필 수정
           </Link>
 
-          <div className="h-px bg-border" role="separator" />
+          <div className="h-px bg-border-subtle" role="separator" />
 
           {/* 항목 2: 비밀번호 변경 */}
           <button
@@ -175,10 +187,10 @@ export default function ProfileSettingMenu({
             }}
             className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
           >
-            비밀 항해 코드 변경
+            비밀번호 변경
           </button>
 
-          <div role="separator" className="h-px bg-border" />
+          <div role="separator" className="h-px bg-border-subtle" />
 
           {/* 항목 3: 이메일 인증 (상태에 따라 다르게 표시) */}
           {emailVerified ? (
@@ -202,17 +214,17 @@ export default function ProfileSettingMenu({
             </button>
           ) : (
             <Link
-              href="/profile/edit"
+              href={`/profile/edit?returnTo=${encodeURIComponent(returnTo)}`}
               role="menuitem"
               data-menuitem="true"
-              className="block px-4 py-3 text-sm text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+              className="block px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors"
               onClick={() => setOpen(false)}
             >
               이메일 설정 필요
             </Link>
           )}
 
-          <div role="separator" className="h-px bg-border" />
+          <div role="separator" className="h-px bg-border-subtle" />
 
           {/* 항목 4: 차단된 유저 관리 */}
           <button
@@ -227,21 +239,6 @@ export default function ProfileSettingMenu({
             차단한 선원 관리
           </button>
 
-          <div role="separator" className="h-px bg-border" />
-
-          {/* 항목 5: 회원 탈퇴 */}
-          <button
-            role="menuitem"
-            data-menuitem="true"
-            onClick={() => {
-              setOpen(false);
-              openModal("withdraw"); // Zustand 액션으로 교체
-            }}
-            className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 transition-colors flex items-center gap-2"
-          >
-            <UserMinusIcon className="size-4" />
-            회원 탈퇴
-          </button>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/StreamMobileChatSection.tsx
- * Description : 스트리밍 모바일 채팅 섹션(확대 모드 지원)
+ * Description : 스트리밍 모바일 채팅 섹션(인라인 카드형 채팅 래퍼)
  * Author : 임도헌
  *
  * History
@@ -15,99 +15,74 @@
  * 2026.02.22  임도헌   Modified  props에 차단 목록(initialBlockedUserIds) 추가
  * 2026.03.04  임도헌   Modified  stream:chat:* 이벤트 버스 제거 및 채팅 확대 상태를 Zustand Store로 일원화
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.21  임도헌   Modified  JS 높이 고정을 제거하고 상세 레이아웃 내부 남은 높이를 그대로 상속받는 구조로 단순화
+ * 2026.03.24  임도헌   Modified  모바일 채팅 확대/축소를 제거하고 인라인 채팅 카드 흐름만 유지하도록 단순화
+ * 2026.03.24  임도헌   Modified  채팅 열림 상태를 스트림 상세 전용 props로 주입받도록 단순화
+ * 2026.04.03  임도헌   Modified  스트림 전용 강제 퇴장 액션을 위해 방송 ID 전달 props 추가
+ * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 초기 상태 전달 props 추가
+ * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지 초기 상태 전달 props 추가
  */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import type { StreamChatMessage } from "@/features/chat/types";
 
 interface Props {
   initialStreamMessage: StreamChatMessage[];
+  streamId: number;
   streamChatRoomId: number;
   streamChatRoomhost: number;
   userId: number;
   username: string;
   initialBlockedUserIds?: number[]; // 차단한 유저의 ID들
+  initialMutedUserIds?: number[]; // 호스트 기준 초기 채팅 금지 대상 유저 ID들
+  initiallyMuted?: boolean; // 현재 시청자의 초기 채팅 금지 상태
+  initialPinnedChatNotice?: string | null; // 채팅 상단 고정 공지 초기값
+  isChatOpen: boolean;
+  onCloseChat: () => void;
 }
 
 /**
  * 모바일 스트리밍 채팅 섹션 래퍼 컴포넌트
  *
  * [상태 주입 및 레이아웃 제어 로직]
- * - 모바일 환경(키보드 활성화 시) 레이아웃 깨짐 방지를 위한 동적 높이(`computedHeight`) 계산 로직 적용
- * - `useStreamChatUIStore` 상태 구독을 통한 채팅창 확대/축소(`isExpanded`) 상태 전역 제어
- * - 화면 리사이즈 및 회전(Orientation) 이벤트 감지 기반 높이 재계산 로직 포함
- * - `StreamChatRoom` 컴포넌트 호출 및 하위 모달(확대 토글, 차단 등) 상태 전달
+ * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 사용해 모바일 채팅 카드 노출 여부를 제어
+ * - 채팅 섹션은 상세 레이아웃이 남겨주는 높이를 그대로 상속받아 정보 패널과 자연스럽게 세로 흐름을 구성
+ * - `StreamChatRoom` 컴포넌트를 감싸는 외곽 카드 역할만 담당하며, 모바일에서는 추가 확대 토글 없이 단일 동선으로 사용
  */
 export default function StreamMobileChatSection({
   initialStreamMessage,
+  streamId,
   streamChatRoomId,
   streamChatRoomhost,
   userId,
   username,
   initialBlockedUserIds = [],
+  initialMutedUserIds = [],
+  initiallyMuted = false,
+  initialPinnedChatNotice = null,
+  isChatOpen,
+  onCloseChat,
 }: Props) {
-  const expanded = useStreamChatUIStore((s) => s.isChatExpanded);
-  const setChatExpanded = useStreamChatUIStore((s) => s.setChatExpanded);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [computedHeight, setComputedHeight] = useState<number | null>(null);
-
-  /**
-   * 채팅 영역 높이 계산 함수
-   * - 현재 요소의 화면상 top 위치부터 뷰포트 바닥까지의 높이를 계산
-   * - 최소 높이(300px)를 보장하여 키보드가 올라와도 UI가 깨지지 않도록 함
-   */
-  const updateHeight = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    // 하단 안전 영역 및 최소 높이 고려
-    const h = Math.max(300, vh - rect.top);
-    setComputedHeight(h);
-  }, []);
-
-  /**
-   * 화면 리사이즈 및 회전 감지
-   * - 높이를 실시간으로 재계산하여 레이아웃을 맞춤
-   */
-  useEffect(() => {
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    window.addEventListener("orientationchange", updateHeight);
-    return () => {
-      window.removeEventListener("resize", updateHeight);
-      window.removeEventListener("orientationchange", updateHeight);
-    };
-  }, [updateHeight]);
-
-  /**
-   * 채팅 확대/축소 상태 변경 시 레이아웃 계산을 한 번 더 수행
-   */
-  useEffect(() => {
-    requestAnimationFrame(() => updateHeight());
-  }, [expanded, updateHeight]);
+  if (!isChatOpen) return null;
 
   return (
-    <div
-      ref={containerRef}
-      style={computedHeight != null ? { height: computedHeight } : undefined}
-      className="flex flex-col w-full bg-background border-t border-border"
-    >
+    <div className="z-20 flex h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-all duration-200">
       <StreamChatRoom
         initialStreamMessage={initialStreamMessage}
+        streamId={streamId}
         streamChatRoomId={streamChatRoomId}
         streamChatRoomhost={streamChatRoomhost}
         userId={userId}
         username={username}
         initialBlockedUserIds={initialBlockedUserIds}
+        initialMutedUserIds={initialMutedUserIds}
+        initiallyMuted={initiallyMuted}
+        initialPinnedChatNotice={initialPinnedChatNotice}
         fillParent
-        showExpandToggle
-        isExpanded={expanded}
-        onToggleExpand={() => setChatExpanded(!expanded)}
-        containerClassName="border-none rounded-none shadow-none" // 모바일은 카드 스타일 제거
+        isOpen={isChatOpen}
+        onCloseChat={onCloseChat}
+        containerClassName="h-full border-none rounded-none shadow-none" // 모바일은 외곽 래퍼가 카드 역할 수행
       />
     </div>
   );

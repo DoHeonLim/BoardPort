@@ -11,18 +11,20 @@
  * 2026.01.18  임도헌   Moved     hooks/search -> features/search/hooks
  * 2026.01.28  임도헌   Modified  주석 표준화 및 로직 설명 보강
  * 2026.03.07  임도헌   Modified  App Router 검색 파라미터 변경 시 불필요한 router.refresh()를 제거
+ * 2026.03.14  임도헌   Modified  검색어는 유지한 채 필터만 적용/초기화할 수 있도록 필터 전용 파라미터 유틸 추가
+ * 2026.03.18  임도헌   Modified  검색 파라미터 이동을 공통 헬퍼로 정리하고 빈 쿼리 처리 보강
+ * 2026.04.02  임도헌   Modified  검색 필터 키와 필터 값 타입을 search 도메인 공용 파일로 분리
  */
 
 "use client";
 
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SEARCH_FILTER_KEYS } from "@/features/search/constants";
+import type { SearchFilterValues } from "@/features/search/types";
 
 /**
  * URL Query Parameter 조작 훅
- *
- * 1. 검색어(`keyword`), 카테고리, 가격 등 필터 파라미터를 조작
- * 2. `router.push`를 호출하여 서버 컴포넌트의 데이터 갱신을 유도
  */
 export function useSearchParamsUtils() {
   const router = useRouter();
@@ -30,8 +32,21 @@ export function useSearchParamsUtils() {
   const searchParams = useSearchParams();
 
   /**
+   * 검색 쿼리 변경 시 공통 URL 이동
+   * - 빈 쿼리일 때 불필요한 `?` 제거
+   */
+  const pushWithParams = useCallback(
+    (params: URLSearchParams) => {
+      // 빈 쿼리에서는 경로만 유지해 불필요한 ? 제거
+      const nextQuery = params.toString();
+      router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+    },
+    [pathname, router]
+  );
+
+  /**
    * 검색어(keyword) 업데이트
-   * - 기존 파라미터를 유지한 채 keyword만 변경하거나 삭제합
+   * - 기존 파라미터를 유지한 채 keyword만 변경 또는 삭제
    */
   const updateKeyword = useCallback(
     (keyword: string) => {
@@ -41,9 +56,9 @@ export function useSearchParamsUtils() {
       } else {
         params.delete("keyword");
       }
-      router.push(`${pathname}?${params.toString()}`);
+      pushWithParams(params);
     },
-    [searchParams, pathname, router]
+    [searchParams, pushWithParams]
   );
 
   /**
@@ -57,9 +72,9 @@ export function useSearchParamsUtils() {
       } else {
         params.delete(key);
       }
-      router.push(`${pathname}?${params.toString()}`);
+      pushWithParams(params);
     },
-    [searchParams, pathname, router]
+    [searchParams, pushWithParams]
   );
 
   /**
@@ -69,38 +84,75 @@ export function useSearchParamsUtils() {
     (key: string) => {
       const params = new URLSearchParams(searchParams.toString());
       params.delete(key);
-      router.push(`${pathname}?${params.toString()}`);
+      pushWithParams(params);
     },
-    [searchParams, pathname, router]
+    [searchParams, pushWithParams]
   );
 
   /**
    * 여러 파라미터 일괄 삭제
    */
   const removeParams = (...keys: string[]) => {
+    // 전달된 키 기준 일괄 제거
     const params = new URLSearchParams(searchParams.toString());
     keys.forEach((key) => params.delete(key));
-    router.push(`${pathname}?${params.toString()}`);
+    pushWithParams(params);
   };
 
   /**
    * 전체 필터 일괄 적용 (기존 쿼리 덮어쓰기)
-   * - 전달받은 객체(values)에 있는 값으로 쿼리를 재구성
-   * - 값이 없는 키는 쿼리에서 제외
+   * - 전달받은 값 기준 새 쿼리 재구성
+   * - 빈 값 키 자동 제외
    */
   const buildSearchParams = useCallback(
-    (values: Record<string, string>) => {
+    (values: SearchFilterValues) => {
       const params = new URLSearchParams();
-      // 기존 쿼리를 유지하지 않고, 입력된 values만으로 새로 구성 (초기화 효과)
+      // 입력값만으로 새 쿼리 재구성
+      // 검색 저장/공유 시 현재 필터 상태를 하나의 완성된 URL로 만드는 경로
       for (const [key, value] of Object.entries(values)) {
         if (value) {
           params.set(key, value);
         }
       }
-      router.push(`${pathname}?${params.toString()}`);
+      pushWithParams(params);
     },
-    [pathname, router]
+    [pushWithParams]
   );
+
+  /**
+   * 필터 파라미터만 갱신
+   * - 기존 keyword 유지
+   * - 전달되지 않은 필터 키 제거
+   */
+  const applyFilterParams = useCallback(
+    (values: SearchFilterValues) => {
+      const params = new URLSearchParams(searchParams.toString());
+      // 기존 필터 키 초기화
+      // keyword는 유지하고 filter 계열 키만 교체하는 경로
+      SEARCH_FILTER_KEYS.forEach((key) => params.delete(key));
+
+      // 새 필터 값 반영
+      for (const [key, value] of Object.entries(values)) {
+        if (value) {
+          params.set(key, value);
+        }
+      }
+
+      pushWithParams(params);
+    },
+    [searchParams, pushWithParams]
+  );
+
+  /**
+   * 필터 파라미터만 초기화
+   * - 검색어(keyword) 유지
+   */
+  const resetFilterParams = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    // 검색어 유지 상태에서 필터만 비우는 초기화 경로
+    SEARCH_FILTER_KEYS.forEach((key) => params.delete(key));
+    pushWithParams(params);
+  }, [searchParams, pushWithParams]);
 
   return {
     updateKeyword,
@@ -108,5 +160,7 @@ export function useSearchParamsUtils() {
     removeParam,
     removeParams,
     buildSearchParams,
+    applyFilterParams,
+    resetFilterParams,
   };
 }

@@ -13,6 +13,7 @@
  * 2026.01.20  임도헌   Modified  Service(history.service) 연동
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/products/actions/history.ts -> features/product/actions/history.ts
+ * 2026.04.02  임도헌   Modified  검색 기록 액션 JSDoc 보강
  */
 
 "use server";
@@ -29,6 +30,9 @@ import type { ProductSearchParams } from "@/features/product/types";
 
 /**
  * 단순 검색어 저장 Action
+ *
+ * @param {string} keyword - 저장할 검색어
+ * @returns {Promise<void>} 반환값 없음
  */
 export const createSearchHistory = async (keyword: string) => {
   const session = await getSession();
@@ -38,6 +42,10 @@ export const createSearchHistory = async (keyword: string) => {
 
 /**
  * 검색어 및 필터 조건 저장 Action
+ *
+ * @param {number | null} userId - 검색 기록 저장 대상 유저 ID
+ * @param {ProductSearchParams} params - 검색어와 필터 조건
+ * @returns {Promise<void>} 반환값 없음
  */
 export const saveSearchHistoryAction = async (
   userId: number | null,
@@ -48,6 +56,8 @@ export const saveSearchHistoryAction = async (
 
 /**
  * 최근 검색어 목록 조회 Action
+ *
+ * @returns {Promise<Awaited<ReturnType<typeof fetchUserHistory>> | []>} 로그인 유저의 최근 검색어 목록
  */
 export const getUserSearchHistory = async () => {
   const session = await getSession();
@@ -57,6 +67,8 @@ export const getUserSearchHistory = async () => {
 
 /**
  * 인기 검색어 목록 조회 Action
+ *
+ * @returns {Promise<Awaited<ReturnType<typeof fetchPopular>>>} 인기 검색어 목록
  */
 export const getPopularSearches = async () => {
   return fetchPopular();
@@ -64,6 +76,9 @@ export const getPopularSearches = async () => {
 
 /**
  * 특정 검색 기록 삭제 Action
+ *
+ * @param {string} keyword - 삭제할 검색어
+ * @returns {Promise<void>} 반환값 없음
  */
 export const deleteSearchHistory = async (keyword: string) => {
   const session = await getSession();
@@ -73,6 +88,8 @@ export const deleteSearchHistory = async (keyword: string) => {
 
 /**
  * 검색 기록 전체 삭제 Action
+ *
+ * @returns {Promise<void>} 반환값 없음
  */
 export const deleteAllSearchHistory = async () => {
   const session = await getSession();

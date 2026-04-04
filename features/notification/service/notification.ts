@@ -7,6 +7,11 @@
  * Date        Author   Status    Description
  * 2026.02.08  임도헌   Created   알림 목록 조회, 읽음 처리, 관리자 알림 발송 추가
  * 2026.02.12  임도헌   Modified  UNBAN_USER, CHANGE_ROLE 타입 추가 및 알림 생성 로직 보강
+ * 2026.03.09  임도헌   Modified  신고 조치용 경고/댓글/리뷰/메시지 삭제 알림 타입 추가
+ * 2026.03.12  임도헌   Modified  페이지 파라미터를 총 페이지 수 기준으로 clamp하여 잘못된 페이지 표기 방지
+ * 2026.03.12  임도헌   Modified  페이지당 10개 기준과 currentPage 보정 로직 추가
+ * 2026.03.16  임도헌   Modified  알림 센터 서버 필터와 전체 필터 개수 집계 응답 추가
+ * 2026.04.02  임도헌   Modified  공용 알림 타입과 필터 상수를 types/constants 파일로 분리
  */
 
 import "server-only";
@@ -14,37 +19,62 @@ import db from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import {
+  DIRECT_NOTIFICATION_FILTERS,
+  NOTIFICATION_PAGE_SIZE,
+} from "@/features/notification/constants";
+import {
   canSendPushForType,
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
+import type {
+  AdminNotificationType,
+  NotificationFilter,
+  NotificationListResponse,
+} from "@/features/notification/types";
 import type { ServiceResult } from "@/lib/types";
 
-// AdminActionNotification에서 사용하는 타입
-export type AdminNotificationType =
-  | "DELETE_PRODUCT"
-  | "DELETE_POST"
-  | "DELETE_STREAM"
-  | "BAN_USER"
-  | "UNBAN_USER"
-  | "CHANGE_ROLE";
-
-// 알림 목록 DTO
-export interface NotificationItem {
-  id: number;
-  title: string;
-  body: string;
-  image: string | null;
-  type: string;
-  link: string | null;
-  isRead: boolean;
-  created_at: Date;
+/**
+ * DB 알림 타입을 알림 센터 필터 그룹으로 정규화
+ *
+ * [그룹 규칙]
+ * - 거래/채팅/후기/뱃지/방송/키워드는 원본 타입 유지
+ * - 관리자 조치, 시스템 안내 등 나머지 타입은 시스템 그룹으로 통합
+ */
+export function mapNotificationTypeToFilter(
+  type: string
+): Exclude<NotificationFilter, "ALL"> {
+  if (
+    DIRECT_NOTIFICATION_FILTERS.includes(
+      type as (typeof DIRECT_NOTIFICATION_FILTERS)[number]
+    )
+  ) {
+    return type as Exclude<NotificationFilter, "ALL">;
+  }
+  return "SYSTEM";
 }
 
-export interface NotificationListResponse {
-  items: NotificationItem[];
-  total: number;
-  totalPages: number;
-  currentPage: number;
+/**
+ * URL 쿼리로 들어오는 알림 필터를 허용된 그룹으로 보정
+ *
+ * [보정 규칙]
+ * - 비어 있거나 알 수 없는 값은 전체로 복귀
+ * - 알림 센터에서 허용한 그룹만 유효 필터로 인정
+ */
+export function normalizeNotificationFilter(
+  filter?: string | null
+): NotificationFilter {
+  if (!filter) return "ALL";
+  const upper = filter.toUpperCase();
+  if (upper === "ALL") return "ALL";
+  if (
+    DIRECT_NOTIFICATION_FILTERS.includes(
+      upper as (typeof DIRECT_NOTIFICATION_FILTERS)[number]
+    )
+  ) {
+    return upper as NotificationFilter;
+  }
+  if (upper === "SYSTEM") return "SYSTEM";
+  return "ALL";
 }
 
 /**
@@ -56,17 +86,24 @@ export async function sendAdminActionNotification({
   type,
   title,
   reason,
+  link,
 }: {
   targetUserId: number;
   type: AdminNotificationType;
   title?: string;
   reason: string;
+  link?: string;
 }) {
   try {
     let notiTitle = "알림";
     let notiBody = "";
 
+    // 관리자 조치 타입별 카피 구성
     switch (type) {
+      case "WARN_USER":
+        notiTitle = "운영 정책 경고";
+        notiBody = `신고 검토 결과 운영 정책 위반이 확인되었습니다.\n조치 내용: ${reason}`;
+        break;
       case "DELETE_PRODUCT":
         notiTitle = "상품이 삭제되었습니다";
         notiBody = `'${title}' 상품이 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
@@ -74,6 +111,18 @@ export async function sendAdminActionNotification({
       case "DELETE_POST":
         notiTitle = "게시글이 삭제되었습니다";
         notiBody = `'${title}' 게시글이 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
+        break;
+      case "DELETE_COMMENT":
+        notiTitle = "댓글이 삭제되었습니다";
+        notiBody = `작성하신 댓글이 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
+        break;
+      case "DELETE_REVIEW":
+        notiTitle = "리뷰가 삭제되었습니다";
+        notiBody = `작성하신 리뷰가 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
+        break;
+      case "DELETE_MESSAGE":
+        notiTitle = "메시지가 삭제되었습니다";
+        notiBody = `작성하신 메시지가 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
         break;
       case "DELETE_STREAM":
         notiTitle = "방송이 강제 종료되었습니다";
@@ -85,12 +134,11 @@ export async function sendAdminActionNotification({
         break;
       case "UNBAN_USER":
         notiTitle = "이용 정지가 해제되었습니다";
-        notiBody =
-          "이제 보드포트의 모든 서비스를 정상적으로 이용하실 수 있습니다. 항해를 다시 시작해보세요! ⚓";
+        notiBody = `이제 보드포트의 모든 서비스를 정상적으로 이용하실 수 있습니다.\n사유: ${reason}`;
         break;
       case "CHANGE_ROLE":
         notiTitle = "계정 권한이 변경되었습니다";
-        notiBody = `관리자에 의해 계정 권한이 '${title}'(으)로 변경되었습니다.`;
+        notiBody = `관리자에 의해 계정 권한이 '${title}'(으)로 변경되었습니다.\n사유: ${reason}`;
         break;
     }
 
@@ -100,19 +148,19 @@ export async function sendAdminActionNotification({
 
     if (!isNotificationTypeEnabled(pref, "SYSTEM")) return;
 
-    // 1. DB 알림 레코드 생성 (이 부분이 핵심)
+    // DB 알림 레코드 생성
     const notification = await db.notification.create({
       data: {
         userId: targetUserId,
         title: notiTitle,
         body: notiBody,
         type: "SYSTEM",
-        link: "/profile/notifications/list",
+        link: link ?? "/profile/notifications/list",
         isPushSent: false,
       },
     });
 
-    // 2. 실시간 브로드캐스트
+    // 실시간 브로드캐스트
     await supabase.channel(`user-${targetUserId}-notifications`).send({
       type: "broadcast",
       event: "notification",
@@ -127,13 +175,13 @@ export async function sendAdminActionNotification({
       },
     });
 
-    // 3. 웹 푸시 발송
+    // 웹 푸시 발송
     if (canSendPushForType(pref, "SYSTEM")) {
       const pushRes = await sendPushNotification({
         targetUserId,
         title: notiTitle,
         message: notiBody,
-        url: "/profile/notifications/list",
+        url: link ?? "/profile/notifications/list",
         type: "SYSTEM",
       });
 
@@ -152,42 +200,95 @@ export async function sendAdminActionNotification({
 /**
  * 알림 목록 조회
  * - 사용자가 받은 모든 알림을 최신순으로 조회
+ * - page를 1 이상, totalPages 이하 범위로 보정
+ * - 선택한 필터 그룹 기준으로 전체 개수와 페이지 결과를 반환
+ * - 페이지당 10개 기준 응답 반환
  */
 export async function getNotifications(
   userId: number,
   page: number = 1,
-  limit: number = 20
+  limit: number = NOTIFICATION_PAGE_SIZE,
+  filter: NotificationFilter = "ALL"
 ): Promise<ServiceResult<NotificationListResponse>> {
   try {
-    const skip = (page - 1) * limit;
+    // 페이지/필터 입력 정규화
+    const normalizedPage = Number.isFinite(page)
+      ? Math.max(1, Math.floor(page))
+      : 1;
+    const activeFilter = normalizeNotificationFilter(filter);
+    const where =
+      activeFilter === "ALL"
+        ? { userId }
+        : activeFilter === "SYSTEM"
+          ? {
+              userId,
+              type: {
+                notIn: DIRECT_NOTIFICATION_FILTERS,
+              },
+            }
+          : { userId, type: activeFilter };
 
-    const [total, items] = await Promise.all([
-      db.notification.count({ where: { userId } }),
-      db.notification.findMany({
-        where: { userId },
-        select: {
-          id: true,
-          title: true,
-          body: true,
-          image: true,
-          type: true,
-          link: true,
-          isRead: true,
-          created_at: true,
-        },
-        orderBy: { created_at: "desc" },
-        skip,
-        take: limit,
-      }),
-    ]);
+    // 필터별 개수 집계
+    const groupedCounts = await db.notification.groupBy({
+      by: ["type"],
+      where: { userId },
+      _count: { _all: true },
+    });
+    const filterCounts = groupedCounts.reduce<
+      Record<NotificationFilter, number>
+    >(
+      (acc, row) => {
+        const mappedFilter = mapNotificationTypeToFilter(row.type);
+        acc[mappedFilter] += row._count._all;
+        acc.ALL += row._count._all;
+        return acc;
+      },
+      {
+        ALL: 0,
+        TRADE: 0,
+        CHAT: 0,
+        REVIEW: 0,
+        BADGE: 0,
+        STREAM: 0,
+        KEYWORD: 0,
+        SYSTEM: 0,
+      }
+    );
+
+    // 선택 필터 기준 페이지 계산
+    const total = await db.notification.count({ where });
+    const totalPages = Math.ceil(total / limit);
+    const currentPage =
+      totalPages > 0 ? Math.min(normalizedPage, totalPages) : 1;
+    const skip = (currentPage - 1) * limit;
+
+    // 현재 페이지 알림 조회
+    const items = await db.notification.findMany({
+      where,
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        image: true,
+        type: true,
+        link: true,
+        isRead: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+      skip,
+      take: limit,
+    });
 
     return {
       success: true,
       data: {
         items,
         total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
+        totalPages,
+        currentPage,
+        activeFilter,
+        filterCounts,
       },
     };
   } catch (error) {

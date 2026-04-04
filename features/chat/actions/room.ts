@@ -16,6 +16,7 @@
  * 2026.03.03  임도헌   Modified  채팅방 목록 조회 액션(getChatRoomsAction) 추가
  * 2026.03.04  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  레거시 `revalidateTag` 의존성 제거 및 `invalidateQueries`를 통한 클라이언트 캐시 무효화로 대체
+ * 2026.04.02  임도헌   Modified  채팅방 액션 JSDoc 반환 설명 보강
  */
 "use server";
 
@@ -49,6 +50,7 @@ export async function getChatRoomsAction(): Promise<ChatRoom[]> {
  * - 클라이언트에서는 성공 시 TanStack Query 캐시 수동 무효화 처리
  *
  * @param {string} chatRoomId - 퇴장할 채팅방 ID
+ * @returns {Promise<ServiceResult<{ userId: number; counterpartyId?: number }>>} 캐시 동기화용 사용자 ID 또는 실패 정보
  */
 export const leaveChatRoomAction = async (chatRoomId: string) => {
   const session = await getSession();

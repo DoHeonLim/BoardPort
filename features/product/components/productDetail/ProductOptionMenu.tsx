@@ -9,14 +9,19 @@
  * 2026.02.05  임도헌   Modified  판매자 차단 기능 추가 (신고와 통합)
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet로 전환하고 트리거 접근성을 보강
+ * 2026.03.13  임도헌   Modified  판매자 차단 성공 후 returnTo 또는 상품 목록 fallback 경로로 복귀하도록 보강
+ * 2026.03.18  임도헌   Modified  차단 후 복귀 경로를 정규화하고 이동 흐름의 중복 router.refresh를 제거해 안전성과 재요청 비용을 함께 정리
+ * 2026.03.23  임도헌   Modified  데스크톱 옵션 메뉴 셸과 내부 구분선을 구조 구분용 border-border-subtle 기준으로 정리
+ * 2026.04.03  임도헌   Modified  판매자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  */
 "use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { toggleBlockAction } from "@/features/user/actions/block";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
   EllipsisVerticalIcon,
   UserMinusIcon,
@@ -56,6 +61,7 @@ export default function ProductOptionMenu({
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -73,11 +79,20 @@ export default function ProductOptionMenu({
 
   const handleBlock = () => {
     startTransition(async () => {
-      const result = await toggleBlockAction(sellerId, "block");
+      // 현재 상세 URL의 returnTo를 정제해 차단 후 안전한 내부 경로로만 복귀
+      const fallbackHref = sanitizeCallbackUrl(
+        searchParams.get("returnTo") ?? "/products"
+      );
+      const resolvedNextHref = fallbackHref;
+
+      const result = await toggleBlockAction(
+        sellerId,
+        "block",
+        resolvedNextHref
+      );
       if (result.success) {
         toast.success("판매자를 차단했습니다.");
-        router.replace("/products"); // 차단 후 목록으로 이동
-        router.refresh();
+        router.replace(resolvedNextHref);
       } else {
         toast.error(result.error);
       }
@@ -101,7 +116,7 @@ export default function ProductOptionMenu({
       {!isMobile && isOpen && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+          className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border-subtle z-50 overflow-hidden"
         >
           <button
             onClick={() => {
@@ -120,7 +135,7 @@ export default function ProductOptionMenu({
               setReportOpen(true);
             }}
             role="menuitem"
-            className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border"
+            className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border-subtle"
           >
             <ExclamationTriangleIcon className="size-4" />
             상품 신고하기
@@ -164,7 +179,7 @@ export default function ProductOptionMenu({
       <ConfirmDialog
         open={blockConfirmOpen}
         title="판매자 차단"
-        description={`${sellerName}님을 차단하시겠습니까?`}
+        description={`${sellerName}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`}
         onConfirm={handleBlock}
         onCancel={() => setBlockConfirmOpen(false)}
         loading={isPending}

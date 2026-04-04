@@ -18,6 +18,13 @@
  * 2026.02.05  임도헌   Modified   모달 Dynamic Import 적용
  * 2026.02.28  임도헌   Modified   formData 생성 로직 표준화 및 가독성 개선
  * 2026.03.07  임도헌   Modified   실패 피드백 구체화 및 명시적 취소 경로 추가(v1.2)
+ * 2026.03.08  임도헌   Modified   FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반 커스텀 검증 UX 및 대/소분류 에러 표시 위치 정리
+ * 2026.03.12  임도헌   Modified   방송 카테고리 검증, RTMP 안내, 서버 fieldErrors 처리 흐름 명확화
+ * 2026.03.12  임도헌   Modified   사용자 업로드 썸네일의 애니메이션 메타를 저장하고 GIF만 조건부 최적화 예외 처리
+ * 2026.03.14  임도헌   Modified   썸네일 최대 수 안내와 공개 설정 섹션 레이아웃을 보강해 모바일/데스크톱 작성 흐름을 정리
+ * 2026.03.24  임도헌   Modified   생성 성공 토스트를 송출 준비 단계에 맞는 문구로 조정
+ * 2026.03.28  임도헌   Modified   추가/수정 폼 카테고리 Select는 이모지 없이 텍스트 라벨만 노출하도록 정리
+ * 2026.04.02  임도헌   Modified   Cloudflare 썸네일 base URL 생성을 stream image utils 기준으로 통일
  */
 "use client";
 
@@ -38,9 +45,14 @@ import Button from "@/components/ui/Button";
 import ImageUploader from "@/components/global/ImageUploader";
 import Select from "@/components/ui/Select";
 import TagInput from "@/components/ui/TagInput";
+import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
 import type { StreamCategory } from "@/features/stream/types";
 import type { CreateBroadcastResult } from "@/features/stream/types";
+import { buildStreamImageDeliveryUrl } from "@/features/stream/utils/image";
+import { applyFieldErrors } from "@/lib/applyFieldErrors";
+import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { cn } from "@/lib/utils";
 
 const RTMPInfoModal = dynamic(
   () => import("@/features/stream/components/RTMPInfoModal"),
@@ -105,6 +117,8 @@ export default function StreamForm({
     resetField,
     control,
     watch,
+    setError,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<StreamFormValues>({
     resolver: zodResolver(streamFormSchema),
@@ -112,6 +126,7 @@ export default function StreamForm({
       title: "",
       description: "",
       thumbnail: "",
+      thumbnailAnimated: false,
       visibility: STREAM_VISIBILITY.PUBLIC,
       password: "",
       streamCategoryId: undefined as unknown as number,
@@ -121,6 +136,8 @@ export default function StreamForm({
   });
 
   const watchVisibility = watch("visibility");
+  const isPrivateVisibilitySelected =
+    watchVisibility === STREAM_VISIBILITY.PRIVATE;
 
   // PRIVATE가 아니면 password 필드 초기화
   useEffect(() => {
@@ -150,6 +167,11 @@ export default function StreamForm({
     () => categories.filter((c: any) => c.parentId === selectedMainCategory),
     [categories, selectedMainCategory]
   );
+  const categoryErrorMessage = errors.streamCategoryId?.message;
+  const mainCategoryErrors =
+    categoryErrorMessage && !selectedMainCategory ? [categoryErrorMessage] : [];
+  const subCategoryErrors =
+    categoryErrorMessage && selectedMainCategory ? [categoryErrorMessage] : [];
 
   const handleMainCategoryChange = (value: string) => {
     const id = value ? Number(value) : null;
@@ -161,6 +183,7 @@ export default function StreamForm({
     try {
       // 1) 썸네일 업로드
       let thumbnail = data.thumbnail;
+      let thumbnailAnimated = data.thumbnailAnimated ?? false;
 
       if (files.length > 0) {
         if (!CF_HASH) {
@@ -180,7 +203,8 @@ export default function StreamForm({
         });
         if (!uploadResp.ok) throw new Error("이미지 업로드 실패");
 
-        thumbnail = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
+        thumbnail = buildStreamImageDeliveryUrl(CF_HASH, res.result.id);
+        thumbnailAnimated = files[0]?.type === "image/gif";
       }
 
       // 2. 폼 데이터 생성 (표준화)
@@ -203,11 +227,17 @@ export default function StreamForm({
 
       // 썸네일은 위에서 처리된 URL 할당
       formData.append("thumbnail", thumbnail ?? "");
+      formData.append("thumbnailAnimated", String(thumbnailAnimated));
 
       // 3. 서버 액션 호출
       const result = await action(formData);
 
       if (!result.success) {
+        if (result.fieldErrors) {
+          applyFieldErrors<StreamFormValues>(setError, result.fieldErrors, {
+            setFocus,
+          });
+        }
         toast.error(
           result.error ??
             (mode === "create"
@@ -228,8 +258,9 @@ export default function StreamForm({
 
       toast.success(
         mode === "create"
-          ? "방송이 생성되었습니다. 송출 정보를 확인하고 바로 시작할 수 있습니다."
-          : "방송 정보가 수정되었습니다."
+          ? "송출 정보가 준비되었습니다. RTMP 정보를 확인한 뒤 방송을 시작하세요."
+          : "방송 정보가 수정되었습니다.",
+        { duration: 3000 }
       );
     } catch (error) {
       console.error("[StreamForm] submit failed:", error);
@@ -241,9 +272,19 @@ export default function StreamForm({
     }
   };
 
+  const onInvalid = (formErrors: typeof errors) => {
+    focusFirstFieldError<StreamFormValues>(formErrors, setFocus);
+  };
+
   return (
     <div className="bg-background px-4 py-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        className="flex flex-col gap-6"
+        noValidate
+      >
+        <FormErrorSummary errors={errors} />
+
         <Input
           label="방송 제목"
           placeholder="방송 제목을 입력하세요 (5자 이상)"
@@ -274,6 +315,9 @@ export default function StreamForm({
             maxImages={1}
             optional
           />
+          <p className="text-xs text-muted pl-1">
+            방송 썸네일은 최대 1장까지 업로드할 수 있습니다.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -281,16 +325,12 @@ export default function StreamForm({
             label="대분류"
             value={selectedMainCategory?.toString() || ""}
             onChange={(e) => handleMainCategoryChange(e.target.value)}
-            errors={
-              errors.streamCategoryId?.message
-                ? [errors.streamCategoryId.message]
-                : []
-            }
+            errors={mainCategoryErrors}
           >
             <option value="">대분류 선택</option>
             {mainCategories.map((c: any) => (
               <option key={c.id} value={String(c.id)}>
-                {c.icon} {c.kor_name}
+                {c.kor_name}
               </option>
             ))}
           </Select>
@@ -299,16 +339,12 @@ export default function StreamForm({
             label="소분류"
             {...register("streamCategoryId")}
             disabled={!selectedMainCategory}
-            errors={
-              errors.streamCategoryId?.message
-                ? [errors.streamCategoryId.message]
-                : []
-            }
+            errors={subCategoryErrors}
           >
             <option value="">소분류 선택</option>
             {subCategories.map((c: any) => (
               <option key={c.id} value={String(c.id)}>
-                {c.icon} {c.kor_name}
+                {c.kor_name}
               </option>
             ))}
           </Select>
@@ -316,29 +352,43 @@ export default function StreamForm({
 
         <TagInput name="tags" control={control} maxTags={5} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="공개 설정"
-            {...register("visibility", {
-              onChange: (e) =>
-                setValue(
-                  "visibility",
-                  e.target.value as StreamFormValues["visibility"]
-                ),
-            })}
-          >
-            <option value={STREAM_VISIBILITY.PUBLIC}>
-              {STREAM_VISIBILITY_DISPLAY.PUBLIC}
-            </option>
-            <option value={STREAM_VISIBILITY.PRIVATE}>
-              {STREAM_VISIBILITY_DISPLAY.PRIVATE}
-            </option>
-            <option value={STREAM_VISIBILITY.FOLLOWERS}>
-              {STREAM_VISIBILITY_DISPLAY.FOLLOWERS}
-            </option>
-          </Select>
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-4",
+            isPrivateVisibilitySelected && "md:grid-cols-2"
+          )}
+        >
+          <div className="flex flex-col gap-2">
+            <Select
+              label="공개 설정"
+              {...register("visibility", {
+                onChange: (e) =>
+                  setValue(
+                    "visibility",
+                    e.target.value as StreamFormValues["visibility"]
+                  ),
+              })}
+            >
+              <option value={STREAM_VISIBILITY.PUBLIC}>
+                {STREAM_VISIBILITY_DISPLAY.PUBLIC}
+              </option>
+              <option value={STREAM_VISIBILITY.PRIVATE}>
+                {STREAM_VISIBILITY_DISPLAY.PRIVATE}
+              </option>
+              <option value={STREAM_VISIBILITY.FOLLOWERS}>
+                {STREAM_VISIBILITY_DISPLAY.FOLLOWERS}
+              </option>
+            </Select>
+            <p className="text-xs text-muted pl-1">
+              {isPrivateVisibilitySelected
+                ? "비밀번호를 아는 사용자만 방송에 입장할 수 있습니다."
+                : watchVisibility === STREAM_VISIBILITY.FOLLOWERS
+                  ? "나를 팔로우한 사용자만 방송에 입장할 수 있습니다."
+                  : "누구나 바로 입장할 수 있는 공개 방송입니다."}
+            </p>
+          </div>
 
-          {watchVisibility === STREAM_VISIBILITY.PRIVATE && (
+          {isPrivateVisibilitySelected && (
             <Input
               label="비밀번호"
               type="password"

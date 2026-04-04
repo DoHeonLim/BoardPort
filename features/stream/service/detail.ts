@@ -13,6 +13,8 @@
  * 2026.02.13  임도헌   Modified  getCachedBroadcastDetail 캐시 함수 export (Metadata용)
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수(getBroadcastDetail)로 통일
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  상세 DTO와 조회 함수 반환 설명 보강
+ * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지(pinnedChatNotice) 필드 조회 추가
  */
 
 import "server-only";
@@ -21,7 +23,7 @@ import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import type { StreamVisibility } from "@/features/stream/types";
 
-// 내부 DTO (페이지에서 사용)
+/** 방송 상세 페이지 조립용 내부 DTO */
 export type StreamDetailDTO = {
   title: string;
   stream_id: string; // CF UID
@@ -38,6 +40,7 @@ export type StreamDetailDTO = {
   tags?: { name: string }[] | null;
   started_at?: Date | null;
   description?: string | null;
+  pinnedChatNotice?: string | null;
   status: string;
   visibility: StreamVisibility;
 };
@@ -50,6 +53,7 @@ export type StreamDetailDTO = {
  * - 방송 소유자의 정보 및 CF Live Input UID 연동 데이터 조인 반환
  *
  * @param {number} id - 방송 ID
+ * @returns {Promise<StreamDetailDTO | null>} 방송 상세 데이터
  */
 export async function getBroadcastDetail(
   id: number
@@ -60,6 +64,7 @@ export async function getBroadcastDetail(
       select: {
         title: true,
         description: true,
+        pinnedChatNotice: true,
         started_at: true,
         status: true,
         visibility: true,
@@ -92,6 +97,7 @@ export async function getBroadcastDetail(
       tags: b.tags ?? [],
       started_at: b.started_at ?? null,
       description: b.description ?? null,
+      pinnedChatNotice: b.pinnedChatNotice ?? null,
       status: b.status,
       visibility: b.visibility,
     };
@@ -109,6 +115,7 @@ export async function getBroadcastDetail(
  * - `BROADCAST_DETAIL(id)` 태그를 주입하여 상태 변경(Connected/Ended) 시 주문형 무효화 지원
  *
  * @param {number} id - 방송 ID
+ * @returns {Promise<StreamDetailDTO | null>} 캐시가 적용된 방송 상세 데이터
  */
 export const getCachedBroadcastDetail = (id: number) => {
   return nextCache(
@@ -118,6 +125,7 @@ export const getCachedBroadcastDetail = (id: number) => {
   )();
 };
 
+/** 녹화본 상세 페이지 조립용 내부 DTO */
 export type VodDetailDTO = {
   vodId: number;
   uid: string;
@@ -150,6 +158,7 @@ export type VodDetailDTO = {
  * - 조회수, 좋아요, 댓글 등의 집계 데이터(Counts) 병합 반환
  *
  * @param {number} vodId - VOD ID
+ * @returns {Promise<VodDetailDTO | null>} 녹화본 상세 데이터
  */
 export async function getVodDetail(
   vodId: number

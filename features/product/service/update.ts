@@ -18,6 +18,10 @@
  * 2026.03.07  임도헌   Modified  사용자 노출용 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  가격 하락 push 성공 판정 기준을 res.data.sent로 정정
  * 2026.03.07  임도헌   Modified  정지 유저 가드와 태그 count 정산 로직 추가
+ * 2026.03.12  임도헌   Modified  제품 이미지 교체 시 애니메이션 여부 메타를 함께 재저장
+ * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
+ * 2026.04.02  임도헌   Modified  가격 인하 helper JSDoc 보강
+ * 2026.04.04  임도헌   Modified  제품 수정 트랜잭션/가격 인하 후처리 단계의 인라인 주석 보강
  */
 import "server-only";
 
@@ -33,8 +37,19 @@ import {
 import type { ServiceResult } from "@/lib/types";
 import type { ProductDTO } from "@/features/product/types";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
+import { toProductImagePublicUrl } from "@/features/product/utils/image";
 
-// 알림 발송 헬퍼 (비동기 Fire-and-Forget용)
+/**
+ * 가격 인하 대상자에게 인앱/푸시 알림 일괄 전송
+ *
+ * [동작]
+ * - 수신자 알림 설정을 먼저 조회한 뒤 허용된 유저에게만 TRADE 알림 생성
+ * - 인앱 broadcast와 푸시를 병렬 처리하고, 실제 푸시 성공 시 Notification 전송 상태 반영
+ * - 개별 수신자 실패가 전체 제품 수정 흐름을 막지 않도록 allSettled 기반으로 처리
+ *
+ * @param params - 가격 인하 상품 정보와 수신자 목록
+ * @returns {Promise<void>} 반환값 없음
+ */
 async function notifyPriceDrop(params: {
   productId: number;
   productTitle: string;
@@ -126,6 +141,14 @@ async function notifyPriceDrop(params: {
   );
 }
 
+/**
+ * 활성 상품 채팅방에 가격 인하 시스템 메시지 일괄 전송
+ *
+ * @param {number} productId - 가격이 인하된 상품 ID
+ * @param {number} newPrice - 변경 후 가격
+ * @param {number} sellerId - 가격을 변경한 판매자 ID
+ * @returns {Promise<void>} 반환값 없음
+ */
 async function notifyPriceDropInChats(
   productId: number,
   newPrice: number,
@@ -171,6 +194,7 @@ export async function updateProduct(
   data: ProductDTO
 ): Promise<ServiceResult<{ productId: number }>> {
   try {
+    // 정지 유저 수정 차단
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
@@ -193,8 +217,7 @@ export async function updateProduct(
       return { success: false, error: "수정 권한이 없습니다." };
     }
 
-    // 위치 정보 업데이트 데이터 구성
-    // data.location이 null이면 DB 필드도 null로 초기화(위치 삭제)해야 함
+    // 위치 삭제까지 포함한 위치 필드 payload 구성
     const locationUpdate = data.location
       ? {
           latitude: data.location.latitude,
@@ -213,7 +236,7 @@ export async function updateProduct(
           region3: null,
         };
 
-    // 가격 하락 여부 체크
+    // 가격/태그 변경 diff 계산
     const isPriceDropped = data.price < existing.price;
     const oldPrice = existing.price;
     const nextTags = Array.from(new Set(data.tags));
@@ -228,13 +251,13 @@ export async function updateProduct(
         where: { productId },
       });
 
-      // 2-2. 기존 태그 연결 해제 (새로 덮어쓰기 위해)
+      // 기존 태그 연결 초기화
       await tx.product.update({
         where: { id: productId },
         data: { search_tags: { set: [] } },
       });
 
-      // 2-3. 제품 정보 업데이트 및 태그 재연결
+      // 상품 본문 갱신 및 새 태그 재연결
       await tx.product.update({
         where: { id: productId },
         data: {
@@ -259,17 +282,19 @@ export async function updateProduct(
         },
       });
 
-      // 2-4. 새 이미지 추가
+      // 교체된 이미지와 애니메이션 메타 재저장
       if (data.photos.length > 0) {
         await tx.productImage.createMany({
           data: data.photos.map((url, index) => ({
             url,
             order: index,
+            isAnimated: data.photosAnimated?.[index] ?? false,
             productId,
           })),
         });
       }
 
+      // 제거된 태그 count 감소
       if (removedTags.length > 0) {
         await Promise.all(
           removedTags.map((tag) =>
@@ -281,6 +306,7 @@ export async function updateProduct(
         );
       }
 
+      // 새로 추가된 태그 count 증가
       if (addedTags.length > 0) {
         await tx.searchTag.updateMany({
           where: { name: { in: addedTags } },
@@ -289,9 +315,9 @@ export async function updateProduct(
       }
     });
 
-    // 3. 가격 하락 알림 발송 (비동기)
+    // 가격 인하 시 좋아요/채팅 문맥 후처리
     if (isPriceDropped) {
-      // 찜한 유저 ID 목록 조회
+      // 정지 유저를 제외한 찜 유저 조회
       const likedUsers = await db.productLike.findMany({
         where: {
           productId,
@@ -301,24 +327,23 @@ export async function updateProduct(
         select: { userId: true },
       });
 
-      const blockedIds = await getBlockedUserIds(userId); // 판매자 기준 차단 목록
+      // 판매자 기준 차단 관계 제외
+      const blockedIds = await getBlockedUserIds(userId);
       const recipientIds = likedUsers
         .map((u) => u.userId)
-        .filter((id) => !blockedIds.includes(id)); // 차단된 유저 제외
+        .filter((id) => !blockedIds.includes(id));
 
-      // 1. 전역 푸시
-      // Fire-and-forget: 알림 발송을 기다리지 않고 바로 응답 반환
+      // 가격 인하 좋아요 알림의 fire-and-forget 처리
       void notifyPriceDrop({
         productId,
         productTitle: existing.title,
         oldPrice,
         newPrice: data.price,
-        image: existing.images[0]?.url
-          ? `${existing.images[0].url}/public`
-          : undefined,
+        image: toProductImagePublicUrl(existing.images[0]?.url),
         recipients: recipientIds,
       });
-      // 2. 진행 중인 모든 채팅방에 시스템 메시지 전송
+
+      // 활성 채팅방 시스템 메시지 fire-and-forget 처리
       void notifyPriceDropInChats(productId, data.price, userId);
     }
 

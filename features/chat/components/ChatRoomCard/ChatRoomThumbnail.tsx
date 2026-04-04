@@ -10,6 +10,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  채팅방 썸네일에 GIF 조건부 최적화 예외 처리를 imageAnimated 메타로 연동
  */
 "use client";
 
@@ -37,6 +38,7 @@ export default function ChatRoomThumbnail({ product }: ChatRoomThumbnailProps) {
           src={`${product.imageUrl}/avatar`}
           alt={product.title}
           fill
+          unoptimized={!!product.imageAnimated}
           className="object-cover"
           priority
         />

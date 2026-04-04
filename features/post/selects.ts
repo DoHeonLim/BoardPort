@@ -1,0 +1,53 @@
+/**
+ * File Name : features/post/selects.ts
+ * Description : 게시글 Prisma 조회 shape 상수
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2026.04.02  임도헌   Created   constants.ts에서 게시글 목록/상세 조회용 Prisma select 분리
+ */
+
+import { Prisma } from "@/generated/prisma/client";
+
+/** 게시글 목록/상세 조회용 기본 Select Query */
+export const POST_SELECT: Prisma.PostSelect = {
+  id: true,
+  title: true,
+  description: true,
+  category: true,
+  views: true,
+  created_at: true,
+  updated_at: true,
+  user: {
+    select: {
+      id: true,
+      username: true,
+      avatar: true,
+    },
+  },
+  tags: {
+    select: {
+      name: true,
+    },
+  },
+  images: {
+    select: {
+      url: true,
+      isAnimated: true,
+    },
+    take: 1,
+  },
+  latitude: true,
+  longitude: true,
+  locationName: true,
+  region1: true,
+  region2: true,
+  region3: true,
+  _count: {
+    select: {
+      comments: true,
+      post_likes: true,
+    },
+  },
+};

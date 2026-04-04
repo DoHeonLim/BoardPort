@@ -8,6 +8,8 @@
  * 2025.10.07  임도헌   Created   로딩 스켈레톤 추가
  * 2025.11.13  임도헌   Modified  UserProfile 섹션 구조에 맞춰 스켈레톤 정비
  * 2026.01.15  임도헌   Modified  UserProfile 구조 재반영
+ * 2026.03.17  임도헌   Modified  방송국 rail 카드 폭과 판매 패널 외곽선을 현재 프로필 톤에 맞춰 정리
+ * 2026.03.28  임도헌   Modified  타인 프로필 sticky 액션 헤더와 현재 판매 패널 문법에 맞춰 로딩 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -15,7 +17,12 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
-      <div className="px-page-x py-8 flex flex-col gap-8">
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border-subtle bg-background px-4 py-3 shadow-sm sm:border-none">
+        <Skeleton className="size-10 rounded-xl" />
+        <Skeleton className="size-10 rounded-xl" />
+      </div>
+
+      <div className="px-page-x pb-10 pt-4 flex flex-col gap-8">
         {/* 1. Header Skeleton (ProfileHeader) */}
         <div className="flex items-start gap-4 sm:gap-5">
           {/* Avatar */}
@@ -57,9 +64,10 @@ export default function Loading() {
           {/* Rail Cards */}
           <div className="flex gap-3 overflow-hidden">
             {[1, 2].map((i) => (
-              <div key={i} className="w-[200px] shrink-0 space-y-2">
+              <div key={i} className="w-[216px] shrink-0 space-y-2 sm:w-[232px]">
                 <Skeleton className="aspect-video w-full rounded-xl" />
                 <Skeleton className="h-4 w-3/4 rounded" />
+                <Skeleton className="h-3 w-24 rounded" />
               </div>
             ))}
           </div>
@@ -92,17 +100,17 @@ export default function Loading() {
         {/* 4. Products Tab (Sales) */}
         <div className="space-y-4">
           <Skeleton className="h-5 w-20 rounded" />
-          <div className="p-4 rounded-xl border border-border bg-surface">
+          <div className="panel bg-surface p-4">
             {/* Tabs */}
             <div className="flex gap-1 mb-4 bg-surface-dim rounded-lg p-1">
-              <Skeleton className="h-9 flex-1 rounded-md" />
-              <Skeleton className="h-9 flex-1 rounded-md" />
+              <Skeleton className="h-11 flex-1 rounded-lg" />
+              <Skeleton className="h-11 flex-1 rounded-lg" />
             </div>
 
             {/* View Toggle */}
             <div className="flex justify-end gap-1 mb-3">
-              <Skeleton className="size-8 rounded-md" />
-              <Skeleton className="size-8 rounded-md" />
+              <Skeleton className="size-11 rounded-lg" />
+              <Skeleton className="size-11 rounded-lg" />
             </div>
 
             {/* List Items */}
@@ -110,7 +118,7 @@ export default function Loading() {
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="flex gap-4 p-3 border border-border rounded-xl"
+                  className="flex gap-4 rounded-xl border border-border-subtle p-3"
                 >
                   <Skeleton className="size-24 rounded-lg shrink-0" />
                   <div className="flex-1 space-y-2 py-1">

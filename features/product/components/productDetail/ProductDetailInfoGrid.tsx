@@ -9,6 +9,8 @@
  * 2026.01.10  임도헌   Modified  시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.03.15  임도헌   Modified  시스템 정보 라벨 이모지를 heroicons 기반 아이콘으로 교체
+ * 2026.03.23  임도헌   Modified  최근 제품 상세 메타 톤에 맞춰 정보 카드 외곽선을 subtle 기준으로 정리
  */
 
 "use client";
@@ -19,6 +21,16 @@ import {
 } from "@/features/product/constants";
 import { ConditionType, CompletenessType } from "@/features/product/types";
 import ProductInfoItem from "@/features/product/components/ProductInfoItem";
+import {
+  BookOpenIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  CubeIcon,
+  FolderIcon,
+  PuzzlePieceIcon,
+  UserGroupIcon,
+  XCircleIcon,
+} from "@heroicons/react/24/outline";
 
 interface ProductDetailInfoGridProps {
   category: {
@@ -51,10 +63,20 @@ export default function ProductDetailInfoGrid({
   completeness,
   has_manual,
 }: ProductDetailInfoGridProps) {
+  const renderLabel = (
+    Icon: React.ComponentType<{ className?: string }>,
+    text: string
+  ) => (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="size-3.5" />
+      {text}
+    </span>
+  );
+
   return (
-    <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-surface-dim border border-border">
+    <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border-subtle bg-surface-dim p-5">
       <ProductInfoItem
-        label="📁 카테고리"
+        label={renderLabel(FolderIcon, "카테고리")}
         value={
           <span className="flex items-center gap-1.5 flex-wrap">
             {category.parent && (
@@ -69,21 +91,33 @@ export default function ProductDetailInfoGrid({
         }
       />
       <ProductInfoItem
-        label="🎮 게임 인원"
+        label={renderLabel(UserGroupIcon, "게임 인원")}
         value={`${min_players} - ${max_players}명`}
       />
-      <ProductInfoItem label="⌛ 플레이 시간" value={play_time} />
       <ProductInfoItem
-        label="📦 제품 상태"
+        label={renderLabel(ClockIcon, "플레이 시간")}
+        value={play_time}
+      />
+      <ProductInfoItem
+        label={renderLabel(CubeIcon, "제품 상태")}
         value={CONDITION_DISPLAY[condition as ConditionType]}
       />
       <ProductInfoItem
-        label="🧩 구성품 상태"
+        label={renderLabel(PuzzlePieceIcon, "구성품 상태")}
         value={COMPLETENESS_DISPLAY[completeness as CompletenessType]}
       />
       <ProductInfoItem
-        label="📖 설명서"
-        value={has_manual ? "✅ 포함" : "❌ 미포함"}
+        label={renderLabel(BookOpenIcon, "설명서")}
+        value={
+          <span className="inline-flex items-center gap-1.5">
+            {has_manual ? (
+              <CheckCircleIcon className="size-4 text-success" />
+            ) : (
+              <XCircleIcon className="size-4 text-danger" />
+            )}
+            {has_manual ? "포함" : "미포함"}
+          </span>
+        }
       />
     </div>
   );

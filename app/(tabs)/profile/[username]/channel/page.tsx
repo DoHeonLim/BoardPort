@@ -23,10 +23,14 @@
  *                                PRIVATE 언락 세션 기반 requiresPassword 보정(채널/그리드 일관성)
  * 2026.01.25  임도헌   Modified  getUserStream를 단일 라이브(getChannelLive)와 녹화본(getChannelVods)으로 분리
  * 2026.01.29  임도헌   Modified  유저 방송국 페이지 주석 보강 및 구조 설명 추가
+ * 2026.03.21  임도헌   Modified  owner 전용 채널 소개 수정 액션을 헤더에 주입
+ * 2026.03.22  임도헌   Modified  유저 방송국 전용 메타데이터를 추가해 채널 소개와 제목을 페이지 문맥에 맞게 노출
  */
 
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import getSession from "@/lib/session";
+import { updateChannelDescriptionAction } from "@/features/user/actions/profile";
 import { getUserChannel } from "@/features/user/service/profile";
 import UserChannelContainer from "@/features/stream/components/channel";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
@@ -41,6 +45,32 @@ import type {
 
 // 세션/팔로우 상태에 따라 UI가 달라지는 페이지 → 캐시 강제 비활성화
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { username: string };
+}): Promise<Metadata> {
+  const username = decodeURIComponent(params.username);
+  const channel = await getUserChannel(username);
+
+  if (!channel) {
+    return { title: "방송국을 찾을 수 없음" };
+  }
+
+  const description =
+    channel.channelDescription?.trim() ||
+    `${channel.username}님의 실시간 방송과 다시보기를 확인하세요.`;
+
+  return {
+    title: `${channel.username}님의 방송국`,
+    description,
+    openGraph: {
+      title: `${channel.username} - 보드포트 방송국`,
+      description,
+    },
+  };
+}
 
 /**
  * 유저 방송국 페이지
@@ -113,6 +143,7 @@ export default async function ChannelPage({
       userInfo={{ ...userInfo, isFollowing, isBlocked }}
       me={resolvedRole === "OWNER"}
       viewerId={viewerId ?? undefined}
+      channelDescriptionAction={updateChannelDescriptionAction}
     />
   );
 }

@@ -36,10 +36,12 @@ export async function createReviewAction(
   rate: number,
   type: "buyer" | "seller"
 ): Promise<ReviewServiceResult> {
+  // 로그인 세션 확인
   const session = await getSession();
   if (!session?.id)
     return { success: false, error: REVIEW_ERRORS.NOT_LOGGED_IN };
 
+  // 입력 검증
   const parsed = createReviewSchema.safeParse({
     productId,
     payload,
@@ -51,11 +53,13 @@ export async function createReviewAction(
     return { success: false, error: parsed.error.errors[0].message };
   }
 
+  // 리뷰 생성 service 위임
   const result = await createReviewService(session.id, parsed.data);
 
   if (result.success && result.meta) {
     const { productId } = result.meta;
 
+    // 상품 상세 캐시 재검증
     revalidateTag(T.PRODUCT_DETAIL(productId));
   }
 

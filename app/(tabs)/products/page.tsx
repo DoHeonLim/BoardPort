@@ -38,27 +38,32 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  ProductModalReopenRelay 주입(모달 편집후 복귀)
  * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 제품 카드 스켈레톤 구조로 통일
+ * 2026.03.09  임도헌   Modified  모바일 상단 검색/필터 영역 높이를 줄여 리스트 가시 영역 확보
+ * 2026.03.09  임도헌   Modified  제품 목록 헤더를 단일 패널 구조로 재배치하고 다크모드 보더 노출을 완화
+ * 2026.03.09  임도헌   Modified  모바일 전용 2줄 헤더와 스크롤 hide/reveal 동작 추가
+ * 2026.03.10  임도헌   Modified  데스크톱 제품 헤더도 모바일과 동일한 정보 구조(지역/검색/알림, 분류/요약/필터)로 재구성
+ * 2026.03.11  임도헌   Modified  무한스크롤 중에도 전체 검색 결과 수를 고정 표시할 수 있도록 서버 totalCount를 연결
+ * 2026.03.11  임도헌   Modified  헤더 내 요약/필터와 중복되던 본문 상단 검색결과 요약 및 데스크톱 추가 필터 버튼 제거
+ * 2026.03.11  임도헌   Modified  키워드 알림 버튼을 제품 목록 헤더 row(총 상품 수 옆)로 이동해 뷰 토글과 같은 행에 재배치
+ * 2026.03.11  임도헌   Modified  더 이상 소비되지 않는 SearchProvider 래핑을 제거해 헤더 개편 이후 남은 제품 검색 레거시 정리
+ * 2026.03.12  임도헌   Modified  카테고리/검색기록/인기검색어/알림/키워드 알림/지역 정보를 헤더 초기 상태용으로 병렬 preload
+ * 2026.03.16  임도헌   Modified  모바일 목록 영역 pull-to-refresh 지원 추가
  */
 
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import PullToRefresh from "@/components/global/PullToRefresh";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
-import { getCategoryName } from "@/lib/getCategoryName";
-import { SearchProvider } from "@/components/global/providers/SearchProvider";
-import NotificationBell from "@/components/global/NotificationBell";
 import AddProductButton from "@/features/product/components/AddProductButton";
+import ProductDesktopHeader from "@/features/product/components/ProductDesktopHeader";
 import ProductEmptyState from "@/features/product/components/ProductEmptyState";
+import ProductMobileHeader from "@/features/product/components/ProductMobileHeader";
 import ProductList from "@/features/product/components/ProductList";
 import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
-import SearchResultSummary from "@/features/product/components/SearchResultSummary";
-import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
-import SearchSection from "@/features/search/components/SearchSection";
-import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
-import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
 import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
 import ProductModalReopenRelay from "@/features/product/components/ProductModalReopenRelay";
 import { fetchProductCategories } from "@/features/product/service/category";
@@ -68,7 +73,6 @@ import {
 } from "@/features/product/service/history";
 import { getProductsAction } from "@/features/product/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
-import { formatSearchSummary } from "@/features/product/utils/format";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { getUserLocation } from "@/features/user/service/profile";
 import type { RegionRange } from "@/generated/prisma/enums";
@@ -104,7 +108,9 @@ function parseNumberParam(val: string | undefined): number | undefined {
  *
  * [기능]
  * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
+ * - 카테고리, 검색 기록, 인기 검색어, 안 읽은 알림 수, 키워드 알림, 지역 정보를 병렬 로드하여 헤더 초기 상태 구성
  * - URL 검색 파라미터 기반 제품 목록 쿼리 및 유저 지역 설정(DB `User.regionRange`) 기반의 서버 프리패치(Prefetch) 적용
+ * - 모바일/데스크톱 헤더를 분리 렌더링하여 동일한 검색 UX를 기기별 레이아웃에 맞게 제공
  * - HydrationBoundary를 이용한 초기 렌더링 시 클라이언트 캐시 하이드레이션 처리
  * - 데이터 존재 여부에 따른 `ProductList` 또는 `ProductEmptyState` 조건부 렌더링 및 키워드 알림 버튼 주입
  */
@@ -148,12 +154,6 @@ export default async function ProductsPage({
     getUnreadNotificationCount(),
     getMyKeywordAlerts(userId),
     getUserLocation(userId),
-    // 클라이언트에 내려줄 1페이지 데이터를 QueryClient에 심음.
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.products.list(queryParams),
-      queryFn: () => getProductsAction(null, queryParams),
-      initialPageParam: null as number | null,
-    }),
   ]);
 
   const userRegion1 = userLocation?.region1;
@@ -164,23 +164,22 @@ export default async function ProductsPage({
   const currentRange = userRegion1
     ? ((userLocation?.regionRange as RegionRange) ?? "GU")
     : "ALL";
+  const productListQueryKey = {
+    ...queryParams,
+    __scope: currentRange,
+  };
+
+  await queryClient.prefetchInfiniteQuery({
+    queryKey: queryKeys.products.list(productListQueryKey),
+    queryFn: () => getProductsAction(null, queryParams),
+    initialPageParam: null as number | null,
+  });
 
   const fullLocation = userLocation
     ? [userLocation.region1, userLocation.region2, userLocation.region3]
         .filter(Boolean)
         .join(" ")
     : null;
-
-  // 검색 요약 텍스트 생성
-  const categoryName = searchParams.category
-    ? getCategoryName(searchParams.category, categories)
-    : "";
-
-  const resultSearchParams = formatSearchSummary(
-    categoryName,
-    searchParams.game_type,
-    searchParams.keyword
-  );
 
   const currentSearchKeyword = searchParams.keyword?.trim().toLowerCase();
   // 키워드, 지역 범위(currentRange)까지 일치하는가?
@@ -192,81 +191,49 @@ export default async function ProductsPage({
 
   // prefetch한 데이터를 꺼내서 결과가 비어있는지 확인 (Empty State 분기용)
   const prefetchData = queryClient.getQueryData<any>(
-    queryKeys.products.list(queryParams)
+    queryKeys.products.list(productListQueryKey)
   );
   const isDataEmpty = prefetchData?.pages[0]?.products.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
-      <SearchProvider searchParams={searchParams}>
-        <ProductModalReopenRelay />
-        {/* Sticky Header: 검색창 및 필터 */}
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
-          {/* 상단 Row: 지역 필터 & 알림 */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
-            {/* 왼쪽: 지역 토글 또는 설정 버튼 */}
-            {userRegion1 ? (
-              <RegionFilterToggle
-                userRegion1={userRegion1}
-                userRegion2={userRegion2}
-                userRegion3={userRegion3}
-                currentRange={currentRange}
-              />
-            ) : (
-              // 동네 미설정 시 헤더용 버튼 표시 (fullLocation 전달)
-              <MyLocationButton variant="header" fullLocation={fullLocation} />
-            )}
+      <ProductModalReopenRelay />
+      <div className="md:hidden">
+        <ProductMobileHeader
+          categories={categories}
+          keyword={searchParams.keyword}
+          searchHistory={searchHistory}
+          popularSearches={popularSearches}
+          filters={searchParams}
+          userId={userId}
+          unreadCount={unreadCount}
+          userRegion1={userRegion1}
+          userRegion2={userRegion2}
+          userRegion3={userRegion3}
+          currentRange={currentRange}
+          fullLocation={fullLocation}
+        />
+      </div>
 
-            <div className="shrink-0">
-              <NotificationBell userId={userId} initialCount={unreadCount} />
-            </div>
-          </div>
+      <ProductDesktopHeader
+        categories={categories}
+        keyword={searchParams.keyword}
+        searchHistory={searchHistory}
+        popularSearches={popularSearches}
+        filters={searchParams}
+        userId={userId}
+        unreadCount={unreadCount}
+        userRegion1={userRegion1}
+        userRegion2={userRegion2}
+        userRegion3={userRegion3}
+        currentRange={currentRange}
+        fullLocation={fullLocation}
+      />
 
-          {/* 하단 Row: 검색창 */}
-          <SearchSection
-            categories={categories}
-            keyword={searchParams.keyword}
-            searchHistory={searchHistory}
-            popularSearches={popularSearches}
-            basePath="/products"
-          />
-        </header>
-
-        {/* Content Area */}
-        <div className="flex-1 px-page-x py-6">
-          {/* 1. 검색 메타 정보 영역 (필터 적용 시에만 노출) */}
-          {hasSearchParams && (
-            <div className="flex flex-col gap-3 mb-6 animate-fade-in">
-              {/* 상단 라인: 요약 정보와 상세 필터 버튼 */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <SearchResultSummary
-                    count={prefetchData?.pages[0]?.products.length || 0}
-                    summaryText={resultSearchParams}
-                  />
-                </div>
-                <div className="shrink-0">
-                  <ClientFilterWrapper
-                    categories={categories}
-                    filters={searchParams}
-                  />
-                </div>
-              </div>
-
-              {/* 하단 라인: 키워드 알림 버튼 (검색어가 있을 때만 표시) */}
-              {searchParams.keyword && (
-                <div className="flex justify-start">
-                  <KeywordAlertButton
-                    keyword={searchParams.keyword}
-                    alertId={matchedAlert?.id}
-                    currentRange={currentRange}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 2. 제품 목록 섹션 */}
+      {/* Content Area */}
+      <PullToRefresh className="flex-1">
+        <div className="flex-1 px-page-x pt-1 pb-4 md:pt-2 md:pb-6">
+          {/* 1. 제품 목록 섹션 */}
           {isDataEmpty ? (
             <ProductEmptyState
               hasSearchParams={hasSearchParams}
@@ -276,18 +243,26 @@ export default async function ProductsPage({
             />
           ) : (
             <HydrationBoundary state={dehydrate(queryClient)}>
-              <Suspense
-                fallback={<ProductListSkeleton viewMode="list" />}
-              >
+              <Suspense fallback={<ProductListSkeleton viewMode="list" />}>
                 <ProductList
                   key={`${JSON.stringify(searchParams)}-${currentRange}`}
                   searchParams={queryParams}
+                  queryKeyExtra={currentRange}
+                  headerAction={
+                    searchParams.keyword ? (
+                      <KeywordAlertButton
+                        keyword={searchParams.keyword}
+                        alertId={matchedAlert?.id}
+                        currentRange={currentRange}
+                      />
+                    ) : undefined
+                  }
                 />
               </Suspense>
             </HydrationBoundary>
           )}
         </div>
-      </SearchProvider>
+      </PullToRefresh>
 
       {/* 제품 추가 플로팅 버튼 (FAB) */}
       <AddProductButton />

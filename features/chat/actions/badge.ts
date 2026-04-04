@@ -8,6 +8,7 @@
  * 2025.12.07  임도헌   Modified  badgeChecks.onChatResponse 사용으로 통일
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/chats/[id]/actions/badge.ts -> features/chat/actions/badge.ts
+ * 2026.04.02  임도헌   Modified  뱃지 액션 JSDoc 반환 설명 보강
  */
 "use server";
 
@@ -19,6 +20,7 @@ import { badgeChecks } from "@/features/user/service/badge";
  * (web-push 의존성 격리를 위해 서버 액션으로 분리됨)
  *
  * @param {number} userId - 뱃지 체크 대상 유저 ID
+ * @returns {Promise<{ success: boolean; error?: string }>} 뱃지 체크 성공 여부
  */
 export async function checkQuickResponseBadgeAction(userId: number) {
   try {

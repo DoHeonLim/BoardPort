@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/actions/update.ts
- * Description : 제품 수정 Controller
+ * Description : 제품 수정 서버 액션
  * Author : 임도헌
  *
  * History
@@ -17,6 +17,8 @@
  * 2026.02.14  임도헌   Modified  location 파싱 후 FormData에 추가
  * 2026.03.05  임도헌   Modified  PRODUCT_DETAIL 태그 무효화 책임을 update action으로 이관(revalidateTag 적용), 조회 경로 무효화 제거로 캐시 최적화
  * 2026.03.07  임도헌   Modified  태그/위치 JSON 파싱 예외를 정상 실패 응답으로 전환
+ * 2026.03.12  임도헌   Modified  GIF 조건부 최적화를 위한 photosAnimated 메타 파싱 및 전달 추가
+ * 2026.04.02  임도헌   Modified  파일 설명과 수정 액션 주석을 현재 서버 액션 톤으로 정리
  */
 "use server";
 
@@ -28,14 +30,16 @@ import { productFormSchema } from "@/features/product/schemas";
 import type { ProductFormResponse, ProductDTO } from "@/features/product/types";
 
 /**
- * 기존 제품 정보 수정 Action
- * - 폼 데이터를 파싱하고 검증
- * - 로그인 세션을 확인
- * - Service 계층을 호출하여 제품 정보를 업데이트 (소유권 검증 포함)
- * - 성공 시 제품 상세 및 판매자 관련 캐시 태그를 무효화
+ * 기존 제품 정보 수정 서버 액션
+ *
+ * [기능]
+ * - 로그인 세션과 제품 ID를 확인
+ * - FormData를 파싱하고 Zod로 검증
+ * - 제품 수정 service를 호출해 소유권 검증과 갱신을 수행
+ * - 성공 시 상세/목록 경로 캐시를 무효화
  *
  * @param {FormData} formData - 수정할 데이터가 담긴 폼 데이터
- * @returns {Promise<ProductFormResponse>} 성공 여부 및 productId
+ * @returns {Promise<ProductFormResponse>} 수정 결과와 productId
  */
 export async function updateProductAction(
   formData: FormData
@@ -52,8 +56,32 @@ export async function updateProductAction(
     return { success: false, error: "잘못된 제품 ID입니다." };
   }
 
-  // 1. FormData 파싱
+  // 이미지 메타 파싱
   const photos = formData.getAll("photos[]").map(String);
+  const photosAnimatedString =
+    formData.get("photosAnimated")?.toString() || "[]";
+  let photosAnimated: boolean[] = [];
+  try {
+    const parsedPhotosAnimated = JSON.parse(photosAnimatedString);
+    if (!Array.isArray(parsedPhotosAnimated)) {
+      return {
+        success: false,
+        fieldErrors: {
+          photos: ["이미지 애니메이션 메타 형식이 올바르지 않습니다."],
+        },
+      };
+    }
+    photosAnimated = parsedPhotosAnimated.map(Boolean);
+  } catch {
+    return {
+      success: false,
+      fieldErrors: {
+        photos: ["이미지 애니메이션 메타 형식이 올바르지 않습니다."],
+      },
+    };
+  }
+
+  // 태그 메타 파싱
   const tagsString = formData.get("tags")?.toString() || "[]";
   let tags: string[] = [];
   try {
@@ -72,6 +100,7 @@ export async function updateProductAction(
     };
   }
 
+  // 위치 메타 파싱
   const locationRaw = formData.get("location")?.toString();
   let locationData = null;
   if (locationRaw) {
@@ -91,6 +120,7 @@ export async function updateProductAction(
     description: formData.get("description"),
     price: formData.get("price"),
     photos,
+    photosAnimated,
     game_type: formData.get("game_type"),
     min_players: formData.get("min_players"),
     max_players: formData.get("max_players"),
@@ -103,7 +133,7 @@ export async function updateProductAction(
     location: locationData,
   };
 
-  // 2. Zod 검증
+  // 폼 스키마 검증
   const parsed = productFormSchema.safeParse(rawData);
   if (!parsed.success) {
     return {
@@ -112,7 +142,7 @@ export async function updateProductAction(
     };
   }
 
-  // 3. Service 호출
+  // 수정 DTO 변환 및 서비스 위임
   const dto = parsed.data as unknown as ProductDTO;
   const result = await updateProduct(session.id, productId, dto);
 
@@ -120,7 +150,7 @@ export async function updateProductAction(
     return { success: false, error: result.error };
   }
 
-  // 4. 캐시 무효화
+  // 상세/목록 캐시 무효화
   revalidateTag(T.PRODUCT_DETAIL(productId));
   revalidatePath("/products");
   revalidatePath(`/products/view/${productId}`);

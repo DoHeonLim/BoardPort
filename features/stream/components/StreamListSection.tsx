@@ -14,12 +14,14 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.03  임도헌   Modified  useFollowToggle 반환 타입 불일치(toggle 네이밍) 빌드 에러 수정
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.18  임도헌   Modified  로그인 복귀용 현재 목록 경로도 내부 경로 기준으로 정규화해 nested callbackUrl 예외를 완화
  */
 
 "use client";
 
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import StreamList from "@/features/stream/components/StreamList";
 
@@ -46,9 +48,10 @@ export default function StreamListSection(props: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // 현재 경로 + 쿼리를 그대로 next에 보존
-  const nextPath =
-    pathname + (searchParams.size ? `?${searchParams.toString()}` : "");
+  // 로그인 복귀용 현재 목록 경로도 내부 경로 기준으로만 보존
+  const nextPath = sanitizeCallbackUrl(
+    pathname + (searchParams.size ? `?${searchParams.toString()}` : "")
+  );
 
   const handleRequestFollow = useCallback(
     async ({ id: userId }: { id: number; username?: string }) => {

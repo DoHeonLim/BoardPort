@@ -9,6 +9,7 @@ x * Description : 스트리밍 카드 스켈레톤
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.06  임도헌   Modified  StreamCard의 최신 정보 밀도와 동일한 패딩/메타 간격으로 정리
+ * 2026.03.19  임도헌   Modified  실제 StreamCard와 동일하게 border-border-subtle 기준으로 스켈레톤 외곽선을 통일
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -19,9 +20,9 @@ import Skeleton from "@/components/ui/Skeleton";
  */
 export default function StreamCardSkeleton() {
   return (
-    <div className="flex flex-col rounded-2xl overflow-hidden border border-border bg-surface shadow-sm h-full">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
       {/* Thumbnail (16:9) */}
-      <div className="relative aspect-video w-full bg-surface-dim border-b border-border">
+      <div className="relative aspect-video w-full border-b border-border-subtle bg-surface-dim">
         <Skeleton className="w-full h-full" />
       </div>
 
@@ -35,7 +36,7 @@ export default function StreamCardSkeleton() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/50">
+        <div className="flex items-center gap-1.5 border-t border-border-subtle pt-1.5">
           <Skeleton className="h-3 w-16 rounded" /> {/* Category */}
           <Skeleton className="h-3 w-12 rounded" /> {/* Time */}
         </div>

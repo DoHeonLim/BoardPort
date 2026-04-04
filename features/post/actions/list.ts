@@ -19,6 +19,7 @@
  * 2026.02.15  임도헌   Modified  searchParams 전달 로직 추가
  * 2026.03.04  임도헌   Modified  getPostsListAction으로 명칭 변경 및 페이징 조회 로직 통합 호출
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  서버 액션 JSDoc 태그 형식 정리
  */
 "use server";
 
@@ -34,8 +35,9 @@ import getSession from "@/lib/session";
  * - 검색 조건(키워드, 카테고리) 및 사용자 위치 설정(RegionRange) 기반 필터링 쿼리 적용
  * - 세션 검증을 통한 정지/차단 유저 콘텐츠 완벽 은닉 처리
  *
- * @param cursor - 무한 스크롤 커서 (마지막 게시글 ID)
- * @param searchParams - 검색 조건 파라미터
+ * @param {number | null} cursor - 무한 스크롤 커서 (마지막 게시글 ID)
+ * @param {PostSearchParams} searchParams - 검색 조건 파라미터
+ * @returns {Promise<PostsPage>} 게시글 목록 페이지 데이터
  */
 export const getPostsListAction = async (
   cursor: number | null,

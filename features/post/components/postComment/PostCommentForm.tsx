@@ -19,6 +19,8 @@
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.03  임도헌   Modified  Context 참조 제거 및 useCreatePostCommentMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.19  임도헌   Modified  댓글 입력바 외곽 패널을 solid 톤으로 정리해 상세 섹션 시작 가시성을 보강
+ * 2026.03.30  임도헌   Modified  게시글 카테고리 plain 라벨 정리에 맞춰 댓글 플레이스홀더를 일반 문맥으로 조정
  */
 "use client";
 
@@ -72,7 +74,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
 
       await createComment(formData);
     } catch {
-      setText(trimmed); // 에러 시 복구함.
+      setText(trimmed); // 에러 시 복구
     } finally {
       textareaRef.current?.focus();
     }
@@ -88,7 +90,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
   return (
     <div
       className={cn(
-        "w-full bg-transparent py-1 transition-colors",
+        "w-full rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm transition-colors",
         "flex items-end gap-2"
       )}
     >
@@ -100,7 +102,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
           onKeyDown={onKeyDown}
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
-          placeholder="항해 일지를 남겨보세요..."
+          placeholder="댓글을 남겨보세요..."
           className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
           rows={1}
         />

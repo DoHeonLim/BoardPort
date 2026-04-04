@@ -15,12 +15,17 @@
  * 2026.03.01  임도헌   Modified  TanStack Query(useInfiniteQuery) 기반으로 리팩토링 및 수동 상태 동기화 제거
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialMessages Prop Drilling 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.12  임도헌   Modified  채팅방 검색 시 결과가 없으면 과거 메시지를 순차적으로 더 불러오도록 loadMore 노출
+ * 2026.03.14  임도헌   Modified  최초 하단 정렬이 끝나기 전에는 상단 IntersectionObserver를 지연해 초기 진입 스크롤과 과거 메시지 로드를 분리
+ * 2026.04.01  임도헌   Modified  실시간 삭제 반영을 위한 replaceMessage 캐시 조작 함수 추가
+ * 2026.04.02  임도헌   Modified  무한 메시지 훅 JSDoc 반환 설명 보강
  */
 
 "use client";
 
 import { useCallback, useEffect, useRef, useMemo } from "react";
 import {
+  InfiniteData,
   useSuspenseInfiniteQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -30,6 +35,8 @@ import { MESSAGE_LOAD_LIMIT } from "@/features/chat/constants";
 import type { ChatMessage } from "@/features/chat/types";
 import type { AppointmentStatus } from "@/generated/prisma/enums";
 
+type MessagesInfiniteData = InfiniteData<ChatMessage[]>;
+
 /**
  * 채팅방 메시지 무한 스크롤 및 캐시 상태 관리 훅
  *
@@ -38,10 +45,16 @@ import type { AppointmentStatus } from "@/generated/prisma/enums";
  * 2. 역방향 페이징: 서버에서 최신 메시지부터 역순으로 가져오므로, 가져온 데이터의 첫 번째(`lastPage[0].id`)를 다음 커서로 사용
  * 3. 캐시 조작: 실시간 웹소켓(Supabase) 이벤트 발생 시 화면 전체를 리패치하지 않도록 `addMessage`, `updateMessagesRead` 등의 로컬 갱신 함수를 노출
  * 4. 스크롤 보정: 과거 메시지를 렌더링하기 전후의 `scrollHeight`를 비교하여 상단으로 튀는 현상을 방지
+ * 5. 채팅방 내부 검색: `loadMore`를 노출해 상위 컴포넌트가 이전 메시지까지 순차 검색할 수 있도록 지원
  *
  * @param {string} chatRoomId - 채팅방 ID
+ * @param {boolean} enableTopPagination - 최초 하단 정렬 이후에만 상단 무한 스크롤을 활성화할지 여부
+ * @returns {object} 메시지 배열, 무한 스크롤 제어기, 캐시 조작 함수, 스크롤 ref 묶음
  */
-export default function useInfiniteMessages(chatRoomId: string) {
+export default function useInfiniteMessages(
+  chatRoomId: string,
+  enableTopPagination = true
+) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.chats.messages(chatRoomId);
 
@@ -86,7 +99,7 @@ export default function useInfiniteMessages(chatRoomId: string) {
 
   const addMessage = useCallback(
     (newMessage: ChatMessage) => {
-      queryClient.setQueryData(queryKey, (oldData: any) => {
+      queryClient.setQueryData<MessagesInfiniteData>(queryKey, (oldData) => {
         if (!oldData || !oldData.pages || oldData.pages.length === 0)
           return oldData;
 
@@ -110,7 +123,7 @@ export default function useInfiniteMessages(chatRoomId: string) {
 
   const updateMessagesRead = useCallback(
     (readIds: number[]) => {
-      queryClient.setQueryData(queryKey, (oldData: any) => {
+      queryClient.setQueryData<MessagesInfiniteData>(queryKey, (oldData) => {
         if (!oldData || !oldData.pages || oldData.pages.length === 0)
           return oldData;
         return {
@@ -128,7 +141,7 @@ export default function useInfiniteMessages(chatRoomId: string) {
 
   const updateAppointmentStatus = useCallback(
     (appId: number, status: AppointmentStatus) => {
-      queryClient.setQueryData(queryKey, (oldData: any) => {
+      queryClient.setQueryData<MessagesInfiniteData>(queryKey, (oldData) => {
         if (!oldData || !oldData.pages || oldData.pages.length === 0)
           return oldData;
         return {
@@ -139,6 +152,24 @@ export default function useInfiniteMessages(chatRoomId: string) {
                 ? { ...msg, appointment: { ...msg.appointment, status } }
                 : msg
             )
+          ),
+        };
+      });
+    },
+    [queryClient, queryKey]
+  );
+
+  const replaceMessage = useCallback(
+    (nextMessage: ChatMessage) => {
+      queryClient.setQueryData<MessagesInfiniteData>(queryKey, (oldData) => {
+        if (!oldData || !oldData.pages || oldData.pages.length === 0) {
+          return oldData;
+        }
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: ChatMessage[]) =>
+            page.map((msg) => (msg.id === nextMessage.id ? nextMessage : msg))
           ),
         };
       });
@@ -171,7 +202,7 @@ export default function useInfiniteMessages(chatRoomId: string) {
     const rootEl = containerRef.current;
     const target = sentinelRef.current;
 
-    if (!rootEl || !target || !hasNextPage) return;
+    if (!rootEl || !target || !hasNextPage || !enableTopPagination) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -188,16 +219,18 @@ export default function useInfiniteMessages(chatRoomId: string) {
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [fetchMore, hasNextPage]);
+  }, [enableTopPagination, fetchMore, hasNextPage]);
 
   return {
     messages,
     isFetchingNextPage,
     hasMore: !!hasNextPage,
+    loadMore: fetchMore,
     containerRef,
     sentinelRef,
     messagesEndRef,
     addMessage,
+    replaceMessage,
     updateMessagesRead,
     updateAppointmentStatus,
   };

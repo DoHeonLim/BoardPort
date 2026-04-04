@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2025.11.13  임도헌   Created   뒤로가기/제목 상단바 + 공통 컨테이너
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 헤더 통일
+ * 2026.03.23  임도헌   Modified  게시글 작성 헤더 하단 구조선을 border-border-subtle 기준으로 정리
  */
 
 import type { ReactNode } from "react";
@@ -19,7 +20,7 @@ export default function AddPostLayout({ children }: { children: ReactNode }) {
       <header
         className={cn(
           "sticky top-0 z-40 h-14 w-full",
-          "bg-background/80 backdrop-blur-md border-b border-border",
+          "bg-background/80 backdrop-blur-md border-b border-border-subtle",
           "transition-colors"
         )}
       >

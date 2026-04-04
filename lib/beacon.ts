@@ -1,5 +1,5 @@
 /**
- * File Name : lib/utils/beacon.ts
+ * File Name : lib/beacon.ts
  * Description : 언로드 시 신뢰도 높은 전송을 위한 유틸 (sendBeacon / fetch keepalive)
  * Author : 임도헌
  *

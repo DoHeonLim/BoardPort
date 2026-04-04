@@ -1,5 +1,5 @@
 /**
- * File Name : components/image/DraggableImageList.tsx
+ * File Name : components/global/DraggableImageList.tsx
  * Description : 이미지 드래그 앤 드롭 컴포넌트 (시맨틱 토큰 적용)
  * Author : 임도헌
  *
@@ -10,6 +10,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 스타일 개선
  * 2026.01.16  임도헌   Moved     components/image -> components/global
  * 2026.02.26  임도헌   Modified  이미지 업로드 X 버튼 크기 수정
+ * 2026.04.04  임도헌   Modified  export/props 주석을 보강해 이미지 순서 편집 컴포넌트의 사용 의도를 명확히 정리
  */
 import dynamic from "next/dynamic";
 import type { DropResult } from "@hello-pangea/dnd";
@@ -35,11 +36,24 @@ const Draggable = dynamic(
 );
 
 interface DraggableImageListProps {
+  /** 현재 노출 중인 업로드 이미지 미리보기 URL 목록 */
   previews: string[];
+  /** 특정 index 이미지를 목록에서 제거 */
   onDeleteImage: (index: number) => void;
+  /** 드래그 종료 결과를 받아 상위에서 순서를 재정렬 */
   onDragEnd: (result: DropResult) => void;
 }
 
+/**
+ * 업로드 이미지 미리보기 순서를 드래그로 재정렬하는 공용 리스트 컴포넌트
+ *
+ * - 이미지 미리보기 그리드 렌더링
+ * - 드래그 기반 순서 변경
+ * - 개별 이미지 삭제 버튼 제공
+ *
+ * @param {DraggableImageListProps} props - 미리보기 목록과 삭제/정렬 핸들러
+ * @returns {JSX.Element} 드래그 가능한 이미지 리스트
+ */
 export default function DraggableImageList({
   previews,
   onDeleteImage,

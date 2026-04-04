@@ -17,6 +17,10 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.01  임도헌   Modified  useFollowController에서 반환하는 isOpen 플래그를 사용하여 모달 상태 연동
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.16  임도헌   Modified  프로필 헤더 팔로우 버튼 색상 및 팔로우 취소 액션 문구를 공통 규칙에 맞게 정리
+ * 2026.03.19  임도헌   Modified  compact 팔로우 섹션의 터치 타겟을 36px 이상으로 보강해 모바일 누름 UX 개선
+ * 2026.03.28  임도헌   Modified  프로필/채널 헤더 팔로우 CTA의 높이와 세로 정렬을 고정 규격으로 정리해 카운트 텍스트와 리듬 통일
+ * 2026.03.28  임도헌   Modified  compact 팔로우 CTA의 높이/패딩/그림자를 한 단계 낮춰 헤더에서 과하게 커 보이던 무게를 보정
  */
 "use client";
 
@@ -62,10 +66,10 @@ export type FollowSectionProps = {
  * 팔로우 섹션 컴포넌트 (오케스트레이션 역할)
  *
  * [핵심 기능 및 동작 원리]
- * 1. UI 렌더링: 프로필 상단이나 방송국 헤더에 '팔로워 N명', '팔로잉 M명' 및 팔로우 버튼을 렌더링함.
- * 2. 상태 위임: 모든 상태 관리, 낙관적 업데이트, 캐시 조작은 `useFollowController` 훅에 위임함.
+ * 1. UI 렌더링: 프로필 상단이나 방송국 헤더에 '팔로워 N명', '팔로잉 M명' 및 팔로우 버튼을 렌더링
+ * 2. 상태 위임: 모든 상태 관리, 낙관적 업데이트, 캐시 조작은 `useFollowController` 훅에 위임
  * 3. 지연 로딩 연동: 사용자가 팔로워/팔로잉 텍스트를 클릭하면, 컨트롤러의 `openFollowers()`를 호출하여 모달을 열고
- *    동시에 TanStack Query의 `enabled` 플래그를 true로 변경시켜 데이터를 페칭함.
+ *    동시에 TanStack Query의 `enabled` 플래그를 true로 변경시켜 데이터를 페칭
  */
 export default function FollowSection({
   ownerId,
@@ -83,7 +87,7 @@ export default function FollowSection({
 }: FollowSectionProps) {
   const viewerId = viewer?.id ?? undefined;
 
-  // 내 프로필/내 채널에서는 팔로우 버튼이 논리적으로 의미가 없으므로 자동으로 숨김 처리함.
+  // 내 프로필/내 채널에서는 팔로우 버튼이 논리적으로 의미가 없으므로 자동으로 숨김 처리
   const isSelf = viewerId != null && viewerId === ownerId;
   const resolvedShowButton = showButton && !isSelf;
 
@@ -115,7 +119,7 @@ export default function FollowSection({
   });
 
   // 상위 컴포넌트와의 동기화 로직
-  // 마운트 시 초기값으로 덮어쓰는 것을 방지하기 위해 첫 렌더링(didMount)은 스킵함.
+  // 마운트 시 초기값으로 덮어쓰는 것을 방지하기 위해 첫 렌더링(didMount)은 스킵
   const didMount = useRef(false);
   useEffect(() => {
     if (!onFollowingChange) return;
@@ -129,17 +133,23 @@ export default function FollowSection({
   const sizes = useMemo(
     () =>
       size === "compact"
-        ? { numCls: "text-sm", btnCls: "px-1 py-0.5 text-sm" }
-        : { numCls: "text-base", btnCls: "px-1.5 py-0.5 text-base" },
+        ? {
+            numCls: "h-9 px-1 text-sm",
+            btnCls: "h-8 px-2.5 text-[13px]",
+          }
+        : {
+            numCls: "min-h-[40px] px-1.5 text-base",
+            btnCls: "min-h-[40px] px-3 py-1.5 text-base",
+          },
     [size]
   );
 
   const alignCls = useMemo(
     () =>
       ({
-        start: "items-start",
-        center: "items-center",
-        end: "items-end",
+        start: "justify-start",
+        center: "justify-center",
+        end: "justify-end",
       })[align],
     [align]
   );
@@ -163,7 +173,7 @@ export default function FollowSection({
         // 컨트롤러의 상태를 변경하여 모달을 열고 쿼리를 활성화함
         onClick={openFollowers}
         aria-label={`팔로워 ${followerCount.toLocaleString()}명 보기`}
-        className={`hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
+        className={`inline-flex items-center hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
       >
         팔로워 {followerCount.toLocaleString()}
       </button>
@@ -172,7 +182,7 @@ export default function FollowSection({
         type="button"
         onClick={openFollowing}
         aria-label={`팔로잉 ${followingCount.toLocaleString()}명 보기`}
-        className={`hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
+        className={`inline-flex items-center hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
       >
         팔로잉 {followingCount.toLocaleString()}
       </button>
@@ -195,15 +205,16 @@ export default function FollowSection({
                 : "팔로우"
           }
           className={[
-            "rounded-lg shadow transition-colors whitespace-nowrap",
+            "inline-flex items-center justify-center rounded-lg border transition-colors whitespace-nowrap font-semibold",
             "disabled:opacity-60 disabled:cursor-not-allowed",
+            size === "compact" ? "shadow-none" : "shadow-sm",
             sizes.btnCls,
             isFollowing
-              ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-300 dark:hover:bg-neutral-600"
-              : "bg-primary text-white hover:bg-primary/90",
+              ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger dark:border-border dark:bg-surface-dim dark:text-primary dark:hover:border-danger/30 dark:hover:bg-danger/10 dark:hover:text-danger"
+              : "border-transparent bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
           ].join(" ")}
         >
-          {isPending ? "처리 중..." : isFollowing ? "팔로잉 취소" : "팔로우"}
+          {isPending ? "처리 중..." : isFollowing ? "팔로우 취소" : "팔로우"}
         </button>
       )}
 

@@ -9,6 +9,10 @@
    2026.03.06  임도헌 - 상세 상단 액션바용 공통 버튼/칩 유틸 클래스를 추가
    2026.03.06  임도헌 - 목록 하단 무한스크롤 로딩 배지 유틸 클래스를 추가
    2026.03.06  임도헌 - Empty/Error/Forbidden 상태 화면 공통 레이아웃 유틸 클래스를 추가
+   2026.03.11  임도헌 - border subtle/default/strong 토큰과 모바일 토스트 폭/위치 스타일을 추가
+   2026.03.11  임도헌 - 모바일 토스트를 하단 중앙 기준으로 재배치하고 폭을 재조정
+   2026.03.25  임도헌 - 로그인 전 메인페이지 소형 화면 헤드라인과 갈매기 애니메이션 타이밍을 미세 조정
+   2026.03.27  임도헌 - 다크 밀집 화면용 조용한 primary 버튼 변형(btn-primary-quiet-dark, btn-primary-quiet-dark-icon) 추가
 */
 
 @tailwind base;
@@ -51,7 +55,9 @@
     --text-muted: #64748b; /* slate-500 */
 
     /* 테두리 */
+    --border-subtle: #edf2f7; /* slate-100 */
     --border: #e2e8f0; /* slate-200 */
+    --border-strong: #cbd5e1; /* slate-300 */
 
     /* [기존 유지] 그라데이션 및 그림자 변수 */
     --gradient-ocean: linear-gradient(to bottom, #60a5fa, #1e40af);
@@ -89,7 +95,9 @@
     --text-primary: #f8fafc; /* slate-50 */
     --text-muted: #94a3b8; /* slate-400 */
 
+    --border-subtle: #1e293b; /* slate-800 */
     --border: #334155; /* slate-700 */
+    --border-strong: #475569; /* slate-600 */
 
     /* [기존 유지] */
     --panel: #0b0f14;
@@ -137,6 +145,24 @@
     disabled:cursor-not-allowed;
   }
 
+  .btn-primary-quiet-dark {
+    @apply bg-brand hover:bg-brand-dark dark:bg-brand-dark dark:hover:bg-brand-dark
+    text-white dark:text-white
+    px-4 py-2 rounded-xl transition-colors
+    disabled:bg-neutral-400 dark:disabled:bg-neutral-700
+    disabled:text-neutral-300 dark:disabled:text-neutral-500
+    disabled:cursor-not-allowed;
+  }
+
+  .btn-primary-quiet-dark-icon {
+    @apply bg-brand hover:bg-brand-dark dark:bg-brand-dark dark:hover:bg-brand-dark
+    text-white dark:text-white
+    transition-colors
+    disabled:bg-neutral-400 dark:disabled:bg-neutral-700
+    disabled:text-neutral-300 dark:disabled:text-neutral-500
+    disabled:cursor-not-allowed;
+  }
+
   .btn-secondary {
     @apply bg-surface text-brand border border-brand
     hover:bg-surface-dim dark:bg-surface dark:text-brand-light dark:border-brand-light
@@ -170,21 +196,21 @@
   }
 
   .list-loading-pill {
-    @apply mx-auto mt-3 flex w-fit items-center gap-2 whitespace-nowrap rounded-full bg-surface-dim px-4 py-2 text-sm text-muted shadow-sm animate-fade-in;
+    @apply mx-auto mt-3 flex w-fit items-center gap-2 whitespace-nowrap rounded-full bg-surface-dim px-4 py-2 text-sm text-muted shadow-sm;
     margin-bottom: calc(84px + env(safe-area-inset-bottom));
   }
 
   .state-screen {
-    @apply flex flex-col items-center justify-center px-6 py-20 text-center animate-fade-in;
+    @apply flex flex-col items-center justify-center px-6 py-20 text-center;
   }
 
   .state-card {
-    @apply w-full max-w-md rounded-2xl border border-border bg-surface px-6 py-8 shadow-sm backdrop-blur-sm;
+    @apply w-full max-w-md rounded-2xl border border-border-subtle bg-surface px-6 py-8 shadow-sm backdrop-blur-sm;
     background-color: color-mix(in srgb, var(--surface) 88%, transparent);
   }
 
   .state-icon-wrap {
-    @apply mx-auto mb-5 flex items-center justify-center rounded-full border border-border bg-surface-dim text-muted;
+    @apply mx-auto mb-5 flex items-center justify-center rounded-full border border-border-subtle bg-surface-dim text-muted;
     width: 4.5rem;
     height: 4.5rem;
   }
@@ -203,7 +229,7 @@
 
   .card {
     @apply bg-surface text-primary
-    rounded-2xl shadow-sm border border-border p-4 
+    rounded-2xl shadow-sm border border-border-subtle p-4 
     hover:shadow-md transition-shadow;
   }
 
@@ -219,7 +245,7 @@
 
   /* 라이트/다크 공용 패널 */
   .panel {
-    @apply bg-surface border border-border shadow-sm rounded-xl;
+    @apply bg-surface border border-border-subtle shadow-sm rounded-xl;
   }
 
   .btn-ghost {
@@ -247,7 +273,7 @@
     @apply mt-4;
   }
   .section-divider {
-    @apply border-t border-border -mx-4 sm:-mx-6 px-4 sm:px-6 pt-6;
+    @apply border-t border-border-subtle -mx-4 sm:-mx-6 px-4 sm:px-6 pt-6;
   }
 }
 
@@ -593,37 +619,6 @@
   }
 }
 
-/* 부드러운 float 애니메이션 */
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* 페이드인 애니메이션 */
-.animate-fade-in {
-  animation: fadeIn 1s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* 글래스모피즘(반투명 유리) 효과 */
 .backdrop-blur-sm {
   backdrop-filter: blur(8px);
@@ -636,6 +631,10 @@
   }
   .text-2xl {
     font-size: 1.25rem;
+  }
+  .cloud {
+    opacity: 0.22;
+    filter: blur(14px);
   }
   .lighthouse-light {
     width: 20px;
@@ -654,8 +653,18 @@
     height: 30px;
   }
   .seagull {
-    width: 40px;
-    height: 30px;
+    width: 36px;
+    height: 28px;
+    opacity: 0.58;
+  }
+  .seagull1 {
+    top: 42%;
+    animation-delay: -1.5s;
+  }
+  .seagull2 {
+    top: 56%;
+    opacity: 0.42;
+    animation-delay: -7s;
   }
   .wave {
     height: 60px;
@@ -665,15 +674,6 @@
 @media (min-width: 640px) {
   .list-loading-pill {
     margin-bottom: 0;
-  }
-}
-
-/* 동작 줄이기 설정일 때: UI 쪽 애니메이션만 최소화 */
-@media (prefers-reduced-motion: reduce) {
-  .animate-float,
-  .animate-fade-in {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
   }
 }
 
@@ -695,4 +695,22 @@ input::-webkit-credentials-auto-fill-button {
 [data-sonner-toaster] {
   top: env(safe-area-inset-top, 16px) !important;
   margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  [data-sonner-toaster] {
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: calc(env(safe-area-inset-bottom) + 84px) !important;
+    width: auto !important;
+    margin-top: 0 !important;
+  }
+
+  [data-sonner-toast] {
+    width: min(340px, calc(100vw - 24px)) !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+  }
 }

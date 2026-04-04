@@ -60,7 +60,7 @@ export default function NotFound({
       )}
     >
       {/* 아이콘 영역 (둥둥 떠다니는 효과) */}
-      <div className="relative mb-6 animate-float">
+      <div className="relative mb-6">
         {/* 뒤쪽 은은한 광원 효과 */}
         <div className="absolute inset-0 bg-brand-light/20 blur-2xl rounded-full" />
         <Logo

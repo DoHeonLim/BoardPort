@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/constants.ts
- * Description : 공통 제품 select 쿼리 상수
+ * Description : 제품 도메인 공용 상수
  * Author : 임도헌
  *
  * History
@@ -13,38 +13,47 @@
  * 2026.01.21  임도헌   Moved     features/product/lib -> features/product/constants.ts
  * 2026.01.24  임도헌   Modified  lib/constants.ts에서 제품 Enum 및 Display Map 이관 및 통합
  * 2026.01.25  임도헌   Modified  PRODUCT_STATUS_LABEL 및 PRODUCT_STATUS_TYPES 추가 및 주석 보강
- * 2026.02.03  임도헌   Modifeid  PRODUCT_SELECT에 refreshed_at, bump_count 필드 추가
- * 2026.02.15  임도헌   Modified  [Feature] PRODUCT_SELECT 및 PROFILE_SALES_UNIFIED_SELECT에 위치 정보(region) 필드 추가
- * 2026.02.26  임도헌   Modified  PROFILE_SALES_UNIFIED_SELECT에 끌어올리기(bump_count) 추가(누락)
+ * 2026.03.12  임도헌   Modified  사용자 업로드 이미지의 애니메이션 메타 조회 필드 추가
+ * 2026.04.02  임도헌   Modified  Prisma select 쿼리 상수를 selects.ts로 분리해 역할 정리
+ * 2026.04.02  임도헌   Modified  Enum/정책/라벨 상수 설명 보강
  */
 
 // =============================================================================
 // 1. Enum Arrays (유효성 검사 및 타입 정의용)
 // =============================================================================
+/** 지원하는 게임 장르 목록 */
 export const GAME_TYPES = ["BOARD_GAME", "TRPG", "CARD_GAME"] as const;
+/** 상품 상태 등급 목록 */
 export const CONDITION_TYPES = ["NEW", "LIKE_NEW", "GOOD", "USED"] as const;
+/** 구성품 완전성 등급 목록 */
 export const COMPLETENESS_TYPES = [
   "PERFECT",
   "USED",
   "REPLACEMENT",
   "INCOMPLETE",
 ] as const;
+/** 판매 상태 목록 */
 export const PRODUCT_STATUS_TYPES = ["selling", "reserved", "sold"] as const;
+/** 기타 카테고리 영문 키 */
+export const PRODUCT_OTHER_CATEGORY_ENG_NAME = "OTHER" as const;
 
-// [끌어올리기]
+/** 끌어올리기 가능 주기(시간) */
 export const BUMP_COOLDOWN_HOURS = 24;
+/** 상품별 최대 끌어올리기 횟수 */
 export const MAX_BUMP_COUNT = 5;
 
 // =============================================================================
 // 2. Display Maps (UI 표시용 라벨)
 // =============================================================================
 
+/** 게임 장르 표시 라벨 */
 export const GAME_TYPE_DISPLAY = {
   BOARD_GAME: "보드게임",
   TRPG: "TRPG",
   CARD_GAME: "카드게임",
 } as const;
 
+/** 상품 상태 등급 표시 라벨 */
 export const CONDITION_DISPLAY = {
   NEW: "새제품급",
   LIKE_NEW: "거의새것",
@@ -52,6 +61,7 @@ export const CONDITION_DISPLAY = {
   USED: "많이사용됨",
 } as const;
 
+/** 구성품 완전성 표시 라벨 */
 export const COMPLETENESS_DISPLAY = {
   PERFECT: "완벽",
   USED: "사용감 있음",
@@ -66,122 +76,3 @@ export const PRODUCT_STATUS_LABEL = {
   sold: "판매 완료",
 } as const;
 
-// =============================================================================
-// 3. Prisma Select Queries
-// =============================================================================
-
-/** 기본 제품 목록 조회용 Select (ProductList, Search 등) */
-export const PRODUCT_SELECT = {
-  id: true,
-  title: true,
-  price: true,
-  created_at: true,
-  refreshed_at: true,
-  views: true,
-  reservation_userId: true,
-  purchase_userId: true,
-  game_type: true,
-  bump_count: true,
-  region1: true,
-  region2: true,
-  region3: true,
-  // 이미지 (대표 이미지 1장)
-  images: {
-    where: { order: 0 },
-    take: 1,
-    select: {
-      url: true,
-      order: true,
-    },
-  },
-
-  // 카테고리 (계층 구조 포함)
-  category: {
-    select: {
-      kor_name: true,
-      eng_name: true,
-      icon: true,
-      parent: {
-        select: {
-          kor_name: true,
-          eng_name: true,
-          icon: true,
-        },
-      },
-    },
-  },
-
-  // 좋아요 개수
-  _count: {
-    select: {
-      product_likes: true,
-    },
-  },
-
-  // 검색 태그
-  search_tags: {
-    select: {
-      name: true,
-    },
-  },
-} as const;
-
-/**
- * 프로필(판매/구매) 목록 조회용 Unified Select
- * - MySales/MyPurchases 양쪽에서 필요한 모든 필드를 포함하여 쿼리 재사용성을 높임
- */
-export const PROFILE_SALES_UNIFIED_SELECT = {
-  id: true,
-  title: true,
-  price: true,
-
-  // 리스트 공통 타임스탬프
-  created_at: true,
-  updated_at: true,
-
-  // 위치 정보
-  region1: true,
-  region2: true,
-  region3: true,
-  // 대표 이미지 1장
-  images: { where: { order: 0 }, take: 1, select: { url: true, order: true } },
-
-  // 거래 상태 및 상대방 정보
-  reservation_userId: true,
-  reservation_at: true,
-  reservation_user: { select: { id: true, username: true, avatar: true } },
-
-  purchase_userId: true,
-  purchased_at: true,
-  purchase_user: { select: { id: true, username: true, avatar: true } },
-
-  // 카드 메타 정보
-  views: true,
-  game_type: true,
-  bump_count: true,
-
-  category: {
-    select: {
-      kor_name: true,
-      icon: true,
-      parent: { select: { kor_name: true, icon: true } },
-    },
-  },
-
-  _count: { select: { product_likes: true } },
-  search_tags: { select: { name: true } },
-
-  // 판매자 정보 (구매 목록에서 필요)
-  user: { select: { username: true, avatar: true } },
-
-  // 리뷰 상태 확인용
-  reviews: {
-    select: {
-      id: true,
-      userId: true,
-      productId: true,
-      payload: true,
-      rate: true,
-    },
-  },
-} as const;

@@ -22,6 +22,10 @@ interface ConditionFilterProps {
   onChange: (value: string) => void;
 }
 
+/**
+ * 상품 상태 조건을 선택하는 필터 셀렉트
+ * - 전체/새상품/중고 상태 옵션을 공용 상수 기준으로 렌더링
+ */
 export default function ConditionFilter({
   value,
   onChange,

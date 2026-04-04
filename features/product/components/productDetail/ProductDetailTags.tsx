@@ -9,6 +9,7 @@
  * 2026.01.10  임도헌   Modified  시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
+ * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
  */
 
 import Link from "next/link";
@@ -39,7 +40,7 @@ export default function ProductDetailTags({ tags }: ProductDetailTagsProps) {
             "border border-transparent dark:border-white/10"
           )}
         >
-          🏷️{tag.name}
+          #{tag.name}
         </Link>
       ))}
     </div>

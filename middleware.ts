@@ -32,6 +32,8 @@ const authGuestOnlyUrls: IRoutes = {
   "/login": true,
   "/sms": true,
   "/create-account": true,
+  "/forgot-password": true,
+  "/reset-password": true,
   "/github/start": true,
   "/github/complete": true,
   "/kakao/start": true,

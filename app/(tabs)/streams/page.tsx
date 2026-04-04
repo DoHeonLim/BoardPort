@@ -30,26 +30,38 @@
  * 2026.03.06  임도헌   Modified  스코프 탭 active 상태를 다크모드 대비 기준으로 재정렬
  * 2026.03.06  임도헌   Modified  상단 검색/스코프/카테고리 행의 간격과 보더 구조를 제품/게시글 탭과 유사하게 통일
  * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 스트림 카드 스켈레톤 구조로 통일
+ * 2026.03.11  임도헌   Modified  모바일 스트림 헤더를 제품/게시글과 동일한 2단 구조 및 스크롤 숨김 동작으로 통일
+ * 2026.03.11  임도헌   Modified  헤더와 탭 영역의 글래스모피즘을 제거하고 평면형 디자인 토큰 기준으로 정리
+ * 2026.03.12  임도헌   Modified  모바일 스트림 헤더를 검색/알림, 스코프, 카테고리의 3단 구조로 개편
+ * 2026.03.16  임도헌   Modified  모바일 목록 영역 pull-to-refresh 지원 추가
+ * 2026.03.25  임도헌   Modified  데스크톱 헤더 크롬 무게를 낮추고 콘텐츠 리듬을 정리하도록 간격/표면 강도 조정
+ * 2026.03.28  임도헌   Modified  라이브/다시보기 최상단 모드를 추가하고 메인 다시보기 목록 분기를 도입
+ * 2026.03.29  임도헌   Modified  다시보기는 최신/인기를 메인 정렬로 두고 팔로잉은 보조 필터로 분리
  */
 import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import PullToRefresh from "@/components/global/PullToRefresh";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { cn } from "@/lib/utils";
 import NotificationBell from "@/components/global/NotificationBell";
+import StreamModeTabs from "@/features/stream/components/StreamModeTabs";
 import StreamCategoryTabs from "@/features/search/components/StreamCategoryTabs";
+import RecordingListSection from "@/features/stream/components/RecordingListSection";
+import StreamMobileHeader from "@/features/stream/components/StreamMobileHeader";
 import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBarWrapper";
 import StreamEmptyState from "@/features/stream/components/StreamEmptyState";
 import AddStreamButton from "@/features/stream/components/AddStreamButton";
 import StreamListSkeleton from "@/features/stream/components/StreamListSkeleton";
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
-import { getStreamsListAction } from "@/features/stream/actions/list";
+import { getRecordingsListAction, getStreamsListAction } from "@/features/stream/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import type { RecordingSort, StreamMode } from "@/features/stream/types";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +69,8 @@ interface StreamsPageProps {
   searchParams: {
     keyword?: string;
     category?: string;
+    mode?: StreamMode;
+    sort?: RecordingSort;
     scope?: "all" | "following";
   };
 }
@@ -76,6 +90,7 @@ export const metadata: Metadata = {
  * - 세션 검증을 통한 로그인 여부 확인 및 비인가 사용자 리다이렉트 처리
  * - URL 검색 조건(키워드, 카테고리, 스코프) 기반 스트리밍 목록의 서버 프리패치(Prefetch) 적용
  * - 안 읽은 알림 개수의 서버 사이드 병렬 로드 적용
+ * - 모바일/데스크톱 헤더를 분리 렌더링하여 검색/스코프/카테고리 제어를 기기별 밀도에 맞게 제공
  * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달 및 초기 렌더링 최적화
  */
 export default async function StreamsPage({ searchParams }: StreamsPageProps) {
@@ -87,33 +102,105 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   }
 
   // 파라미터 정규화
+  const mode = searchParams.mode === "recordings" ? "recordings" : "live";
   const scope = searchParams.scope === "following" ? "following" : "all";
+  const recordingSort =
+    searchParams.sort === "popular" ? "popular" : "latest";
   const category = searchParams.category?.trim() || undefined;
   const keyword = searchParams.keyword?.trim() || undefined;
-
-  const queryParams = { category: category ?? "", keyword: keyword ?? "" };
+  const liveQueryParams: Record<string, string> = {
+    category: category ?? "",
+    keyword: keyword ?? "",
+  };
+  const recordingQueryParams: Record<string, string> = {
+    category: category ?? "",
+    keyword: keyword ?? "",
+    sort: recordingSort,
+    scope: scope === "following" ? "following" : "",
+  };
 
   const queryClient = getQueryClient();
   const [, unreadCount] = await Promise.all([
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.streams.list(scope, queryParams),
-      queryFn: () => getStreamsListAction(scope, null, queryParams, viewerId),
-      initialPageParam: null as number | null,
-    }),
+    mode === "recordings"
+      ? queryClient.prefetchInfiniteQuery({
+          queryKey: queryKeys.streams.recordingList(
+            recordingSort,
+            recordingQueryParams
+          ),
+          queryFn: () =>
+            getRecordingsListAction(
+              recordingSort,
+              scope === "following",
+              null,
+              recordingQueryParams,
+              viewerId
+            ),
+          initialPageParam: null as number | null,
+        })
+      : queryClient.prefetchInfiniteQuery({
+          queryKey: queryKeys.streams.list(scope, liveQueryParams),
+          queryFn: () =>
+            getStreamsListAction(scope, null, liveQueryParams, viewerId),
+          initialPageParam: null as number | null,
+        }),
     getUnreadNotificationCount(),
   ]);
 
   const prefetchData = queryClient.getQueryData<any>(
-    queryKeys.streams.list(scope, queryParams)
+    mode === "recordings"
+      ? queryKeys.streams.recordingList(recordingSort, recordingQueryParams)
+      : queryKeys.streams.list(scope, liveQueryParams)
   );
-  const isDataEmpty = prefetchData?.pages[0]?.streams.length === 0;
+  const isDataEmpty =
+    mode === "recordings"
+      ? prefetchData?.pages[0]?.recordings.length === 0
+      : prefetchData?.pages[0]?.streams.length === 0;
 
   // 탭 링크 빌더
   const buildHref = (nextScope: "all" | "following") => {
     const sp = new URLSearchParams();
+    if (mode !== "live") sp.set("mode", mode);
+    if (mode === "recordings" && recordingSort !== "latest") {
+      sp.set("sort", recordingSort);
+    }
     if (category) sp.set("category", category);
     if (keyword) sp.set("keyword", keyword);
     if (nextScope !== "all") sp.set("scope", nextScope);
+    const q = sp.toString();
+    return q ? `/streams?${q}` : `/streams`;
+  };
+
+  const buildModeHref = (nextMode: StreamMode) => {
+    const sp = new URLSearchParams();
+    if (nextMode !== "live") sp.set("mode", nextMode);
+    if (nextMode === "recordings" && recordingSort !== "latest") {
+      sp.set("sort", recordingSort);
+    }
+    if (category) sp.set("category", category);
+    if (keyword) sp.set("keyword", keyword);
+    if (nextMode === "live" && scope !== "all") sp.set("scope", scope);
+    const q = sp.toString();
+    return q ? `/streams?${q}` : `/streams`;
+  };
+
+  const buildRecordingSortHref = (nextSort: RecordingSort) => {
+    const sp = new URLSearchParams();
+    sp.set("mode", "recordings");
+    if (category) sp.set("category", category);
+    if (keyword) sp.set("keyword", keyword);
+    if (scope === "following") sp.set("scope", "following");
+    if (nextSort !== "latest") sp.set("sort", nextSort);
+    const q = sp.toString();
+    return q ? `/streams?${q}` : `/streams`;
+  };
+
+  const buildRecordingFollowingHref = (nextFollowingOnly: boolean) => {
+    const sp = new URLSearchParams();
+    sp.set("mode", "recordings");
+    if (category) sp.set("category", category);
+    if (keyword) sp.set("keyword", keyword);
+    if (recordingSort !== "latest") sp.set("sort", recordingSort);
+    if (nextFollowingOnly) sp.set("scope", "following");
     const q = sp.toString();
     return q ? `/streams?${q}` : `/streams`;
   };
@@ -122,76 +209,161 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
     <div className="flex min-h-screen flex-col bg-background transition-colors pb-24">
       <LiveStatusRealtimeSubscriber />
 
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-        {/* 1단: 검색 및 알림 벨 */}
-        <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
-          <StreamSearchBarWrapper />
-          <div className="shrink-0">
-            <NotificationBell userId={viewerId!} initialCount={unreadCount} />
-          </div>
-        </div>
+      <div className="md:hidden">
+        <StreamMobileHeader
+          viewerId={viewerId!}
+          unreadCount={unreadCount}
+          mode={mode}
+          scope={scope}
+          recordingSort={recordingSort}
+          category={category}
+          keyword={keyword}
+        />
+      </div>
 
-        {/* 2단: 페이지 스코프 선택 (전체 / 팔로잉) */}
-        <nav
-          aria-label="보기 범위"
-          className="border-b border-border/50 px-4 py-2"
-        >
-          <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
-            <Link
-              href={buildHref("all")}
-              className={cn(
-                "flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
-                scope === "all"
-                  ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                  : "text-muted hover:bg-background/70 hover:text-primary"
-              )}
-            >
-              전체 방송
-            </Link>
-            <Link
-              href={buildHref("following")}
-              className={cn(
-                "flex flex-1 items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
-                scope === "following"
-                  ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                  : "text-muted hover:bg-background/70 hover:text-primary"
-              )}
-            >
-              팔로잉
-            </Link>
+      <header className="sticky top-0 z-30 hidden border-b border-border-subtle bg-background/95 backdrop-blur-sm md:block">
+        <div className="px-3 py-2 md:px-5 md:py-2.5 lg:px-6">
+          <div className="flex items-center gap-2">
+            <StreamModeTabs
+              mode={mode}
+              liveHref={buildModeHref("live")}
+              recordingsHref={buildModeHref("recordings")}
+            />
           </div>
-        </nav>
+          <div className="mt-2 flex items-center gap-2">
+            <StreamSearchBarWrapper
+              className="flex-1"
+              compact
+              placeholder={mode === "recordings" ? "다시보기 검색" : "방송 검색"}
+            />
+            <div className="shrink-0">
+              <NotificationBell
+                userId={viewerId!}
+                initialCount={unreadCount}
+              />
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-center gap-2">
+            {mode === "live" ? (
+              <nav
+                aria-label="보기 범위"
+                className="shrink-0 rounded-xl border border-border-subtle bg-background/70 p-0.5"
+              >
+                <div className="flex items-center">
+                  <Link
+                    href={buildHref("all")}
+                    className={cn(
+                      "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
+                      scope === "all"
+                        ? "bg-surface text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                        : "text-muted hover:bg-surface/80 hover:text-primary"
+                    )}
+                  >
+                    전체
+                  </Link>
+                  <Link
+                    href={buildHref("following")}
+                    className={cn(
+                      "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
+                      scope === "following"
+                        ? "bg-surface text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                        : "text-muted hover:bg-surface/80 hover:text-primary"
+                    )}
+                  >
+                    팔로잉
+                  </Link>
+                </div>
+              </nav>
+            ) : (
+              <>
+                <nav
+                  aria-label="다시보기 정렬"
+                  className="shrink-0 rounded-xl border border-border-subtle bg-background/70 p-0.5"
+                >
+                  <div className="flex items-center">
+                    <Link
+                      href={buildRecordingSortHref("latest")}
+                      className={cn(
+                        "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
+                        recordingSort === "latest"
+                          ? "bg-surface text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                          : "text-muted hover:bg-surface/80 hover:text-primary"
+                      )}
+                    >
+                      최신
+                    </Link>
+                    <Link
+                      href={buildRecordingSortHref("popular")}
+                      className={cn(
+                        "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-bold transition-all",
+                        recordingSort === "popular"
+                          ? "bg-surface text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                          : "text-muted hover:bg-surface/80 hover:text-primary"
+                      )}
+                    >
+                      인기
+                    </Link>
+                  </div>
+                </nav>
+                <Link
+                  href={buildRecordingFollowingHref(scope !== "following")}
+                  className={cn(
+                    "inline-flex h-10 shrink-0 items-center justify-center rounded-xl border px-3 text-sm font-semibold transition-colors",
+                    scope === "following"
+                      ? "border-border-subtle bg-surface text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                      : "border-border-subtle bg-background/70 text-muted hover:bg-surface/80 hover:text-primary"
+                  )}
+                >
+                  팔로잉만
+                </Link>
+              </>
+            )}
 
-        {/* 3단: 카테고리 칩 */}
-        <div className="px-4 py-2 overflow-hidden">
-          <StreamCategoryTabs currentCategory={category} />
+            <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border-subtle bg-surface/40">
+              <StreamCategoryTabs
+                currentCategory={category}
+                compact
+                tone="neutral"
+              />
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 px-page-x py-6">
-        {isDataEmpty ? (
-          <StreamEmptyState
-            keyword={keyword}
-            category={category}
-            scope={scope}
-          />
-        ) : (
-          <HydrationBoundary state={dehydrate(queryClient)}>
-            <Suspense
-              fallback={<StreamListSkeleton />}
-            >
-              <StreamListSection
-                key={JSON.stringify(searchParams)}
+      <PullToRefresh className="flex-1">
+        <div className="flex-1 px-page-x py-5 md:py-6">
+            {isDataEmpty ? (
+              <StreamEmptyState
+                keyword={keyword}
+                category={category}
                 scope={scope}
-                searchParams={queryParams}
-                viewerId={viewerId}
+                mode={mode}
               />
-            </Suspense>
-          </HydrationBoundary>
-        )}
-      </div>
+            ) : (
+              <HydrationBoundary state={dehydrate(queryClient)}>
+                <Suspense fallback={<StreamListSkeleton />}>
+                  {mode === "recordings" ? (
+                    <RecordingListSection
+                      key={`recordings-${JSON.stringify(searchParams)}`}
+                      sort={recordingSort}
+                      followingOnly={scope === "following"}
+                      searchParams={recordingQueryParams}
+                      viewerId={viewerId}
+                    />
+                  ) : (
+                    <StreamListSection
+                      key={`live-${JSON.stringify(searchParams)}`}
+                      scope={scope}
+                      searchParams={liveQueryParams}
+                      viewerId={viewerId}
+                    />
+                  )}
+                </Suspense>
+              </HydrationBoundary>
+            )}
+        </div>
+      </PullToRefresh>
       {/* 스트리밍 추가 플로팅 버튼 (FAB) */}
       <AddStreamButton />
     </div>

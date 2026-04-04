@@ -14,18 +14,31 @@
  * 2026.03.05  임도헌   Modified  ProductDetailContainer에 isModalContext 전달
  * 2026.03.06  임도헌   Modified  상단 공유/옵션 메뉴 추가 및 포커스 복귀 처리 보강
  * 2026.03.06  임도헌   Modified  상세 상단 액션바 버튼 스타일을 공통 규칙으로 통일
+ * 2026.03.09  임도헌   Modified  X/배경 닫기 시 history back 우선 처리로 뒤로가기 중복 방지
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.13  임도헌   Modified  모달 상세 수정 진입에 returnTo/flow=modal-edit를 연결해 편집 문맥을 유지
+ * 2026.03.14  임도헌   Modified  공통 세션 refresh 플래그를 소비해 모달 편집 저장 완료 후 목록 릴레이로 다시 열린 상세를 1회만 새로고침하도록 보강
+ * 2026.03.18  임도헌   Modified  모달 상세의 returnTo를 sanitizeCallbackUrl 기준으로 정리해 닫기/수정 복귀 경로 안전성 보강
+ * 2026.03.22  임도헌   Modified  데스크톱 모달 높이와 보더 톤을 최근 상세 모달 기준으로 정리
+ * 2026.04.02  임도헌   Modified  모달 상세에서 수정 진입은 push를 유지하고 저장 후 목록 릴레이 재오픈 흐름과 정합성을 맞춤
  */
 "use client";
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import ProductDetailContainer from "@/features/product/components/productDetail";
 import CloseButton from "@/components/global/CloseButton";
 import ProductOptionMenu from "@/features/product/components/productDetail/ProductOptionMenu";
 import ProductShareButton from "@/features/product/components/ProductShareButton";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import type { ProductDetailType } from "@/features/product/types";
 import { cn } from "@/lib/utils";
+import {
+  consumeNavigationRefreshFlag,
+  createNavigationRefreshFlagKey,
+} from "@/lib/navigationRefreshFlag";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -40,6 +53,7 @@ interface ProductDetailProps {
  * - 목록 페이지에서 상세로 이동 시, 전체 페이지 전환 대신 모달로 띄워 UX를 향상 (Next.js Parallel Routes)
  * - 배경 스크롤 잠금, 포커스 트랩, ESC 닫기 등 모달 필수 기능을 제공
  * - 닫기 시 `returnTo` 쿼리 파라미터를 사용하여 이전 목록 상태를 유지하며 복귀
+ * - 모달 편집은 `flow=modal-edit`로 진입하고 저장 후 목록 릴레이를 통해 같은 모달 상세를 다시 연다
  */
 export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
@@ -50,10 +64,9 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   // Body 스크롤 잠금
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     return () => {
-      document.body.style.overflow = prev;
+      unlockBodyScroll();
       previousFocusRef.current?.focus?.();
     };
   }, []);
@@ -63,10 +76,29 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     dialogRef.current?.focus();
   }, []);
 
-  const returnTo = sp.get("returnTo") || "/products";
+  useEffect(() => {
+    const refreshKey = createNavigationRefreshFlagKey(
+      "product-modal-refresh",
+      props.product.id
+    );
+    // 모달 편집 저장 후 목록 릴레이를 거쳐 다시 열린 상세만
+    // 세션 플래그를 1회 소비해 최신 데이터로 다시 동기화.
+    if (!consumeNavigationRefreshFlag(refreshKey)) return;
+    router.refresh();
+  }, [props.product.id, router]);
+
+  // 모달 닫기와 편집 진입에 재사용하는 복귀 경로 정제
+  const returnTo = sanitizeCallbackUrl(sp.get("returnTo") ?? "/products");
+  const editHref = `/products/view/${props.product.id}/edit?returnTo=${encodeURIComponent(
+    returnTo
+  )}&flow=modal-edit`;
 
   const handleOverlayClick = () => {
-    // Intercepting Route 종료는 replace로 슬롯 상태를 안정적으로 정리
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
     router.replace(returnTo);
   };
 
@@ -86,18 +118,21 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
           // [Mobile] 부모의 inset-0에 완벽하게 맞추어 짤림 원천 차단
           "w-full h-full rounded-none",
           // [Desktop] 중앙 모달 형태
-          "sm:h-auto sm:max-h-[85vh] sm:min-h-[500px] sm:max-w-screen-sm sm:rounded-2xl sm:border sm:border-border"
+          "sm:h-auto sm:max-h-[80dvh] sm:min-h-[500px] sm:max-w-screen-sm sm:rounded-2xl sm:border sm:border-border-subtle"
         )}
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-surface px-3 py-2 shrink-0">
-          <CloseButton fallbackHref="/products" returnTo={returnTo} />
+        <div className="flex items-center justify-between gap-3 border-b border-border-subtle bg-surface px-3 py-2 shrink-0">
+          <CloseButton
+            fallbackHref="/products"
+            returnTo={returnTo}
+            preferHistoryBack
+          />
           <div className="flex items-center gap-1">
             <ProductShareButton title={props.product.title} />
             {props.isOwner ? (
               <Link
-                href={`/products/view/${props.product.id}/edit`}
-                replace
+                href={editHref}
                 className="appbar-link-btn"
               >
                 수정

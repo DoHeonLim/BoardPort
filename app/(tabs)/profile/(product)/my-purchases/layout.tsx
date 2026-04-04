@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2025.11.13  임도헌   Created   섹션 전용 레이아웃 추가(모바일 sticky 앱바, 데스크톱 동일 스타일)
  * 2026.01.15  임도헌   Modified   [Rule 3.2] max-w-mobile 및 시맨틱 토큰 적용
+ * 2026.03.12  임도헌   Modified  프로필 구매 내역 헤더를 flat 톤과 border-border-subtle 기준으로 통일
  */
 
 import type { ReactNode } from "react";
@@ -24,7 +25,7 @@ export default function MyPurchasesLayout({
       <header
         className={cn(
           "sticky top-0 z-40 h-14 w-full",
-          "bg-background/80 backdrop-blur-md border-b border-border",
+          "border-b border-border-subtle bg-background shadow-sm",
           "transition-colors"
         )}
       >

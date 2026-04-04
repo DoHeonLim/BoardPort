@@ -13,6 +13,7 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.07  임도헌   Modified  정지 유저 체크
  * 2026.02.08  임도헌   Modified  로그인 시 bannedUntil 체크 및 자동 해제(Lazy Unban) 로직 추가
+ * 2026.04.04  임도헌   Modified  계정 조회/정지 분기/비밀번호 검증 단계의 인라인 주석 보강
  */
 
 import "server-only";
@@ -35,7 +36,7 @@ export async function verifyLogin({
   email,
   password,
 }: LoginSchema): Promise<ServiceResult<{ userId: number }>> {
-  // 1. 유저 조회
+  // 이메일 기준의 로그인 대상 계정 조회
   const user = await db.user.findUnique({
     where: { email },
     select: {
@@ -51,19 +52,18 @@ export async function verifyLogin({
     return { success: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };
   }
 
-  // 2. 이용 정지 체크 및 자동 해제 (Lazy Unban)
+  // 이용 정지 상태 확인 및 만료 시 지연 해제
   if (user.bannedAt) {
     const now = new Date();
 
-    // 기간제 정지이고, 기간이 만료된 경우 -> 해제
+    // 기간제 정지 만료 계정 자동 해제
     if (user.bannedUntil && now > user.bannedUntil) {
       await db.user.update({
         where: { id: user.id },
         data: { bannedAt: null, bannedUntil: null },
       });
-      // 정지가 풀렸으므로 아래 로직(비밀번호 검증)으로 진행
     } else {
-      // 영구 정지이거나 아직 기간이 남은 경우 -> 차단
+      // 영구 정지 또는 현재도 기간이 남은 계정 차단
       let errorMsg = "운영 정책에 의해 이용이 정지된 계정입니다.";
       if (user.bannedUntil) {
         if (user.bannedUntil.getFullYear() >= 9999) {
@@ -81,7 +81,7 @@ export async function verifyLogin({
     }
   }
 
-  // 3. 비밀번호 검증
+  // 저장된 해시 기준의 비밀번호 검증
   const isCorrect = await bcrypt.compare(password, user.password);
   if (!isCorrect) {
     return { success: false, error: AUTH_ERRORS.INVALID_CREDENTIALS };

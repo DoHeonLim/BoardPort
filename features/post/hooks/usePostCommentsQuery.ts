@@ -14,6 +14,7 @@
  * 2026.03.03  임도헌   Modified  useState 기반 상태 관리 제거 및 TanStack Query(useInfiniteQuery, useMutation)로 전면 마이그레이션
  * 2026.03.03  임도헌   Modified  usePostComment에서 Read 로직 분리 및 useSuspenseInfiniteQuery 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.31  임도헌   Modified  커서 조회와 평탄화 반환 역할이 보이도록 설명 톤 통일
  */
 "use client";
 
@@ -24,10 +25,10 @@ import { queryKeys } from "@/lib/queryKeys";
 /**
  * 게시글 댓글 목록 조회 전용 Suspense Query 훅
  *
- * [상태 추출 및 사이드 이펙트 제어 로직]
- * - `useSuspenseInfiniteQuery`를 사용하여 선언적 데이터 페칭 및 에러 바운더리 연동 지원
- * - 서버 액션(`getPostCommentsListAction`)을 호출하여 커서 기반 다음 페이지 데이터 조회
- * - 평탄화된 배열(comments) 및 페이징 상태(hasNextPage, loadMore 등) 추출 및 반환
+ * [기능]
+ * - `useSuspenseInfiniteQuery`로 댓글 목록을 커서 기반으로 조회
+ * - 서버 액션(`getPostCommentsListAction`)을 호출해 다음 페이지를 이어서 읽음
+ * - 평탄화된 comments 배열과 페이지네이션 상태를 함께 반환
  *
  * @param {number} postId - 댓글을 조회할 게시글 ID
  * @param {number} [pageSize=10] - 페이지당 로드할 댓글 수
@@ -52,7 +53,7 @@ export function usePostCommentsQuery(postId: number, pageSize = 10) {
       staleTime: 60 * 1000,
     });
 
-  // Suspense가 동작하므로 data는 undefined일 수 없음을 보장
+  // Suspense 환경 기준 평탄화
   const comments = data.pages.flat();
 
   return {

@@ -88,6 +88,9 @@ export const queryKeys = {
     lists: () => [...queryKeys.streams.all, "list"] as const,
     list: (scope: string, filters: Record<string, any>) =>
       [...queryKeys.streams.lists(), scope, filters] as const,
+    recordingLists: () => [...queryKeys.streams.all, "recordings"] as const,
+    recordingList: (scope: string, filters: Record<string, any>) =>
+      [...queryKeys.streams.recordingLists(), scope, filters] as const,
     vodComments: (vodId: number) =>
       [...queryKeys.streams.all, "vodComments", vodId] as const,
     likeStatus: (vodId: number) =>

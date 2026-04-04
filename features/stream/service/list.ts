@@ -14,13 +14,17 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수명(getStreamsList, getRecentBroadcasts) 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.09  임도헌   Modified  최근 방송 목록에서 CREATED/DISCONNECTED를 제외하고 준비 완료 VOD만 다시보기로 노출
+ * 2026.03.25  임도헌   Modified  메인 스트리밍 리스트에서 실제 팔로우 상태를 함께 조회해 FOLLOWERS 잠금 플래그를 정확히 계산
+ * 2026.03.29  임도헌   Modified  메인 다시보기 목록에 최신/인기 정렬과 팔로잉만 보조 필터를 분리 적용
+ * 2026.04.02  임도헌   Modified  방송 요약 Prisma select import를 selects.ts 기준으로 정리
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeStream } from "@/features/stream/utils/serializer";
-import { BROADCAST_SUMMARY_SELECT } from "@/features/stream/constants";
+import { BROADCAST_SUMMARY_SELECT } from "@/features/stream/selects";
 import { getBlockedUserIds } from "@/features/user/service/block";
 import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
 
@@ -49,6 +53,28 @@ export async function getStreamsList(params: {
   take: number;
 }): Promise<BroadcastSummary[]> {
   const { scope, category, keyword, viewerId, cursor, take } = params;
+
+  const summarySelectWithViewerFollow = {
+    ...BROADCAST_SUMMARY_SELECT,
+    liveInput: {
+      select: {
+        provider_uid: true,
+        userId: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+            followers: {
+              where: { followerId: viewerId },
+              select: { id: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    },
+  } satisfies Prisma.BroadcastSelect;
 
   // 1. 차단된 유저 ID 목록 조회
   const blockedIds = await getBlockedUserIds(viewerId);
@@ -115,7 +141,7 @@ export async function getStreamsList(params: {
 
   const rows = await db.broadcast.findMany({
     where: { AND: conditions },
-    select: BROADCAST_SUMMARY_SELECT,
+    select: summarySelectWithViewerFollow,
     orderBy: { id: "desc" },
     take,
   });
@@ -126,12 +152,183 @@ export async function getStreamsList(params: {
         ...b,
         stream_id: b.liveInput.provider_uid,
         userId: b.liveInput.userId,
-        user: b.liveInput.user,
+        user: {
+          id: b.liveInput.user.id,
+          username: b.liveInput.user.username,
+          avatar: b.liveInput.user.avatar,
+        },
         tags: b.tags,
       },
-      { isFollowing: false, isMine: b.liveInput.userId === viewerId }
+      {
+        isFollowing: b.liveInput.user.followers.length > 0,
+        isMine: b.liveInput.userId === viewerId,
+      }
     )
   );
+}
+
+/**
+ * 메인 다시보기 목록 필터링 및 페이징 조회 로직
+ *
+ * [데이터 페칭 및 권한 제어 전략]
+ * - 처리 완료된 VOD(`ready_at`)만 조회 대상으로 한정
+ * - 조회자 기반 차단 및 정지 유저 필터를 동일하게 적용
+ * - `followingOnly` 보조 필터로 팔로잉한 스트리머의 다시보기만 좁혀볼 수 있음
+ * - 카드에서 필요한 접근 제어 플래그와 메타데이터를 함께 반환
+ */
+export async function getRecordingsList(params: {
+  sort: "latest" | "popular";
+  followingOnly?: boolean;
+  category?: string;
+  keyword?: string;
+  viewerId: number;
+  cursor: number | null;
+  take: number;
+}): Promise<VodForGrid[]> {
+  const { sort, followingOnly = false, category, keyword, viewerId, cursor, take } = params;
+  const blockedIds = await getBlockedUserIds(viewerId);
+
+  const conditions: Prisma.VodAssetWhereInput[] = [
+    { ready_at: { not: null } },
+    { broadcast: { status: "ENDED" } },
+    { broadcast: { liveInput: { user: { bannedAt: null } } } },
+    { broadcast: { liveInput: { userId: { notIn: blockedIds } } } },
+  ];
+
+  if (cursor) conditions.push({ id: { lt: cursor } });
+
+  if (category) {
+    conditions.push({
+      broadcast: {
+        OR: [
+          { category: { eng_name: category } },
+          { category: { parent: { eng_name: category } } },
+        ],
+      },
+    });
+  }
+
+  if (keyword) {
+    conditions.push({
+      OR: [
+        { broadcast: { title: { contains: keyword, mode: "insensitive" } } },
+        {
+          broadcast: {
+            description: { contains: keyword, mode: "insensitive" },
+          },
+        },
+        {
+          broadcast: {
+            liveInput: {
+              user: { username: { contains: keyword, mode: "insensitive" } },
+            },
+          },
+        },
+        {
+          broadcast: {
+            tags: {
+              some: { name: { contains: keyword, mode: "insensitive" } },
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  conditions.push({
+    broadcast: { visibility: { in: ["PUBLIC", "FOLLOWERS"] } },
+  });
+
+  if (followingOnly) {
+    conditions.push({
+      broadcast: {
+        liveInput: {
+          user: {
+            OR: [
+              { id: viewerId },
+              { followers: { some: { followerId: viewerId } } },
+            ],
+          },
+        },
+      },
+    });
+  }
+
+  const vods = await db.vodAsset.findMany({
+    where: { AND: conditions },
+    select: {
+      id: true,
+      duration_sec: true,
+      ready_at: true,
+      views: true,
+      thumbnail_url: true,
+      created_at: true,
+      broadcastId: true,
+      broadcast: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          thumbnail: true,
+          thumbnailAnimated: true,
+          visibility: true,
+          category: { select: { id: true, kor_name: true, icon: true } },
+          tags: { select: { id: true, name: true } },
+          liveInput: {
+            select: {
+              userId: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatar: true,
+                  followers: {
+                    where: { followerId: viewerId },
+                    select: { id: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy:
+      sort === "popular"
+        ? [{ views: "desc" }, { ready_at: "desc" }, { id: "desc" }]
+        : [{ ready_at: "desc" }, { id: "desc" }],
+    take,
+  });
+
+  return vods.map((v) => {
+    const b = v.broadcast;
+    const isMine = b.liveInput.userId === viewerId;
+    const isFollowing = b.liveInput.user.followers.length > 0;
+
+    return {
+      vodId: v.id,
+      broadcastId: b.id,
+      title: b.title,
+      thumbnail: v.thumbnail_url ?? b.thumbnail,
+      thumbnailAnimated: v.thumbnail_url ? false : (b.thumbnailAnimated ?? false),
+      visibility: b.visibility,
+      user: {
+        id: b.liveInput.user.id,
+        username: b.liveInput.user.username,
+        avatar: b.liveInput.user.avatar,
+      },
+      href: `/streams/${v.id}/recording`,
+      readyAt: v.ready_at,
+      duration: v.duration_sec ?? 0,
+      viewCount: v.views,
+      category: b.category,
+      tags: b.tags,
+      requiresPassword: b.visibility === "PRIVATE" ? !isMine : false,
+      followersOnlyLocked:
+        b.visibility === "FOLLOWERS" ? !isMine && !isFollowing : false,
+    };
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -156,6 +353,19 @@ export async function getRecentBroadcasts(
   includePrivate: boolean = false
 ): Promise<BroadcastSummary[]> {
   const where: Prisma.BroadcastWhereInput = { liveInput: { userId: ownerId } };
+  where.AND = [
+    {
+      OR: [
+        { status: "CONNECTED" },
+        {
+          status: "ENDED",
+          vodAssets: {
+            some: { ready_at: { not: null } },
+          },
+        },
+      ],
+    },
+  ];
 
   // 본인이 아니면 PRIVATE 진행 중 방송 숨김 (종료된 건 표시하되 잠금)
   if (!includePrivate) {
@@ -264,6 +474,7 @@ export async function getChannelVods(
           id: true,
           title: true,
           thumbnail: true,
+          thumbnailAnimated: true,
           visibility: true,
           category: { select: { id: true, kor_name: true, icon: true } },
           tags: { select: { id: true, name: true } },
@@ -286,6 +497,7 @@ export async function getChannelVods(
       broadcastId: b.id,
       title: b.title,
       thumbnail: v.thumbnail_url ?? b.thumbnail,
+      thumbnailAnimated: v.thumbnail_url ? false : (b.thumbnailAnimated ?? false),
       visibility: b.visibility,
       user: b.liveInput.user,
       href: `/streams/${v.id}/recording`,

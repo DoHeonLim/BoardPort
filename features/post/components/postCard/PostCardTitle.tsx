@@ -10,6 +10,7 @@
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.03.06  임도헌   Modified  모바일 그리드 제목 줄간격 및 최소 높이를 조정해 카드 하단 공백을 완화
+ * 2026.03.26  임도헌   Modified  리스트 카드 모바일 제목을 2줄까지 허용해 긴 제목 가독성을 보강
  */
 "use client";
 
@@ -32,7 +33,7 @@ export default function PostCardTitle({ title, viewMode }: PostCardTitleProps) {
         "font-semibold text-primary transition-colors group-hover:text-brand dark:group-hover:text-brand-light leading-snug",
         viewMode === "grid"
           ? "text-sm sm:text-base line-clamp-2 min-h-[1.5rem] sm:min-h-[2.5rem]"
-          : "text-base sm:text-lg line-clamp-1"
+          : "text-[15px] sm:text-lg line-clamp-2 sm:line-clamp-1"
       )}
     >
       {title}

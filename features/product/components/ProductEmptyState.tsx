@@ -14,6 +14,10 @@
  * 2026.03.06  임도헌   Modified  비검색 빈 상태에 첫 상품 등록 CTA 추가
  * 2026.03.06  임도헌   Modified  Empty State 문구 톤과 CTA 배치를 게시글/스트림과 동일한 리듬으로 정리
  * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸을 적용해 상태 화면 정합성을 높임
+ * 2026.03.14  임도헌   Modified  현재 범위(GU)가 너무 좁을 때 "범위를 시/전국으로 넓혀보기" CTA 추가
+ * 2026.03.23  임도헌   Modified  키워드 알림 유도 점선 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
+ * 2026.03.25  임도헌   Modified  검색 결과 없음 상태에서 키워드 알림 카드를 메인 empty state보다 더 보조적으로 보이게 polish
+ * 2026.03.28  임도헌   Modified  제품 검색 결과 없음 상태에서 검색어를 제목 대신 보조 문구로 다시 노출해 게시글과 피드백 문법을 통일
  */
 "use client";
 
@@ -46,6 +50,13 @@ export default function ProductEmptyState({
   alertId,
   currentRange,
 }: ProductEmptyStateProps) {
+  // 범위가 동/구로 좁을 때 안내가 필요한지 판별
+  const isNarrowRange = currentRange === "DONG" || currentRange === "GU";
+  const keywordHint =
+    hasSearchParams && keyword
+      ? `'${keyword}'에 대한 결과를 찾지 못했어요.`
+      : null;
+
   return (
     <div className="state-screen">
       <div className="state-card">
@@ -61,9 +72,16 @@ export default function ProductEmptyState({
           </p>
           <p className="state-description">
             {hasSearchParams
-              ? "다른 검색어로 다시 시도해보세요."
+              ? isNarrowRange
+                ? "다른 검색어로 다시 시도하거나, 동네 범위를 넓혀보세요."
+                : "다른 검색어로 다시 시도해보세요."
               : "첫 번째 상품을 등록해 항구를 채워보세요."}
           </p>
+          {keywordHint && (
+            <p className="mt-2 break-all text-xs font-medium leading-5 text-muted/90 line-clamp-2 sm:line-clamp-3">
+              {keywordHint}
+            </p>
+          )}
         </div>
 
         {!hasSearchParams && (
@@ -79,8 +97,8 @@ export default function ProductEmptyState({
 
         {/* 키워드 검색 중이지만 결과가 없을 때 -> 알림 등록 유도 */}
         {keyword && (
-          <div className="mt-6 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 p-4 dark:bg-white/5">
-            <p className="text-xs font-medium text-muted">
+          <div className="mt-7 flex flex-col items-center gap-2 rounded-xl border border-dashed border-border-subtle bg-surface-dim/20 p-4 dark:bg-white/5">
+            <p className="text-xs font-medium text-muted/90">
               이 키워드로 새 상품이 등록되면 알려드릴까요?
             </p>
             <KeywordAlertButton

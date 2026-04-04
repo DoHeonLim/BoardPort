@@ -30,6 +30,34 @@ const DEFAULT_RTMPS_URL =
   "rtmps://live.cloudflare.com:443/live/";
 
 /**
+ * Cloudflare Live Input 외부 자산 삭제
+ *
+ * [기능]
+ * - 회원 탈퇴나 채널 정리처럼 DB row 외부의 송출 채널 자산도 함께 정리해야 하는 흐름에서 재사용
+ * - 404는 이미 삭제된 상태로 보고 성공처럼 취급
+ */
+export async function deleteCloudflareLiveInputAsset(
+  providerUid: string
+): Promise<void> {
+  if (!CF_ACCOUNT_ID || !CF_TOKEN || !providerUid) return;
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/accounts/${CF_ACCOUNT_ID}/stream/live_inputs/${providerUid}`,
+      { method: "DELETE", headers: { Authorization: AUTH } }
+    );
+
+    if (!response.ok && response.status !== 404) {
+      console.warn(
+        `[deleteCloudflareLiveInputAsset] unexpected status=${response.status} providerUid=${providerUid}`
+      );
+    }
+  } catch (error) {
+    console.error("[deleteCloudflareLiveInputAsset] failed:", error);
+  }
+}
+
+/**
  * 유저의 LiveInput(채널)을 보장
  *
  * 1. DB에서 기존 LiveInput을 조회하여 존재하면 즉시 반환

@@ -6,28 +6,41 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.14  임도헌   Created
+ * 2026.03.12  임도헌   Modified  현재 스트림 생성 폼과 flat 헤더 밀도에 맞춰 스켈레톤 정리
+ * 2026.03.29  임도헌   Modified  add layout의 공통 헤더를 따르도록 본문-only 스켈레톤으로 정리
  */
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background px-6 py-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="bg-background px-page-x py-6 transition-colors">
+      <div className="mx-auto max-w-mobile space-y-6">
         <div className="space-y-2 mb-6">
-          <Skeleton className="h-8 w-48 rounded" />
           <Skeleton className="h-4 w-full max-w-sm rounded" />
+          <Skeleton className="h-4 w-full max-w-xs rounded" />
         </div>
 
         {/* Form */}
-        <Skeleton className="h-12 w-full rounded-xl" />
+        <Skeleton className="h-14 w-full rounded-xl" />
         <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-12 w-full rounded-xl" />
 
         <div className="grid grid-cols-2 gap-4">
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-12 w-full rounded-xl" />
         </div>
 
-        <Skeleton className="h-12 w-full rounded-xl mt-4" />
+        <Skeleton className="h-12 w-full rounded-xl" />
+
+        <div className="rounded-xl border border-border-subtle bg-surface p-4">
+          <Skeleton className="h-4 w-40 rounded" />
+          <Skeleton className="mt-3 h-12 w-full rounded-xl" />
+        </div>
+
+        <div className="pt-2 flex flex-col gap-3">
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+        </div>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@
  * 2026.01.14  임도헌   Modified  공통 SearchBar 사용 및 코드 단순화
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.11  임도헌   Modified  스트림 헤더 flat 톤에 맞춰 compact 검색바 밀도 분기 지원
  */
 
 "use client";
@@ -17,14 +18,25 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchBar from "@/features/search/components/SearchBar";
 
+interface StreamSearchBarWrapperProps {
+  className?: string;
+  compact?: boolean;
+  placeholder?: string;
+}
+
 /**
  * 스트리밍 목록용 검색바 래퍼 컴포넌트
  *
  * - 공통 `SearchBar` 컴포넌트를 사용하여 UI를 렌더링
  * - 검색어 입력 시 URL 쿼리 파라미터(`keyword`)를 업데이트하여 검색을 수행
  * - 검색어가 있을 경우 `/streams?keyword=...`로 이동하고, 없으면 `/streams`로 초기화
+ * - `compact` 모드에서 모바일/헤더용 낮은 검색바 밀도를 사용
  */
-export default function StreamSearchBarWrapper() {
+export default function StreamSearchBarWrapper({
+  className,
+  compact = true,
+  placeholder = "스트리밍 검색",
+}: StreamSearchBarWrapperProps) {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -40,8 +52,10 @@ export default function StreamSearchBarWrapper() {
 
   return (
     <SearchBar
-      placeholder="스트리밍 검색"
+      placeholder={placeholder}
       value={sp.get("keyword") || ""}
+      className={className}
+      compact={compact}
       onSearch={handleSearch}
       autoFocus={false}
     />

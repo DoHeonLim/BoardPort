@@ -25,6 +25,15 @@
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.27  임도헌   Modified  모달 Dynamic Import 적용 및 본인 리뷰 신고 방지 적용
  * 2026.03.07  임도헌   Modified  리뷰 삭제 실패 피드백 문구를 구체화(v1.2)
+ * 2026.03.12  임도헌   Modified  사용자 업로드 GIF만 썸네일 최적화 예외 처리하도록 이미지 메타 연동
+ * 2026.03.12  임도헌   Modified  프로필 구매 카드 구분선을 border-border-subtle 톤으로 통일
+ * 2026.03.13  임도헌   Modified  구매 내역에서 제품 상세 진입 시 현재 경로를 returnTo로 함께 전달
+ * 2026.03.18  임도헌   Modified  구매 내역 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
+ * 2026.03.26  임도헌   Modified  카드 정보 위계와 구매 메타 영역을 최근 프로필 제품 패턴에 맞게 정리
+ * 2026.03.26  임도헌   Modified  구매 카드의 상태 pill, 메타행, 리뷰 액션 위계를 arrange/quieter 기준으로 정리
+ * 2026.03.26  임도헌   Modified  내 판매 카드 패턴에 맞춰 게임/카테고리 태그를 구매 카드에도 노출
+ * 2026.03.26  임도헌   Modified  구매 카드 액션바 톤을 판매 완료 카드와 같은 위계로 정리
+ * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  */
 
 "use client";
@@ -32,14 +41,19 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { EyeIcon, HeartIcon } from "@heroicons/react/24/solid";
 import { toast } from "sonner";
 import { formatToWon } from "@/lib/utils";
+import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
 import { useReview } from "@/features/review/hooks/useReview";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { deleteReviewAction } from "@/features/review/actions/delete";
-import type { MyPurchasedListItem } from "@/features/product/types";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { toProductImagePublicUrl } from "@/features/product/utils/image";
+import type { GameType, MyPurchasedListItem } from "@/features/product/types";
 import type { ProductReview } from "@/features/review/types";
 import dynamic from "next/dynamic";
 
@@ -57,6 +71,36 @@ type Props = {
   onReviewChanged?: (patch: Partial<MyPurchasedListItem>) => void;
 };
 
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-[11px] font-semibold leading-none text-primary shadow-sm">
+      {children}
+    </span>
+  );
+}
+
+function PurchasePill() {
+  return (
+    <span className="rounded px-2 py-0.5 text-[10px] font-bold text-white shadow-sm bg-neutral-500">
+      구매완료
+    </span>
+  );
+}
+
+function Metric({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted">
+      {icon} {children}
+    </span>
+  );
+}
+
 /**
  * 내 구매 목록의 개별 아이템 카드
  *
@@ -72,6 +116,8 @@ export default function MyPurchasesProductItem({
   product,
   onReviewChanged,
 }: Props) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   // 모달 상태 관리
   const [modalState, setModalState] = useState({
     create: false, // 리뷰 작성 모달
@@ -160,19 +206,36 @@ export default function MyPurchasesProductItem({
   };
 
   const sellerName = product.user?.username ?? "판매자";
-  const thumbUrl = product.images?.[0]?.url
-    ? `${product.images[0].url}/public`
-    : null;
-  const href = `/products/view/${product.id}`;
+  const thumbUrl = toProductImagePublicUrl(product.images?.[0]?.url);
+  const metaChips = useMemo(() => {
+    const chips = [];
+    const gameType = product.game_type as GameType;
+
+    if (gameType && GAME_TYPE_DISPLAY[gameType]) {
+      chips.push(GAME_TYPE_DISPLAY[gameType]);
+    }
+
+    if (product.category?.kor_name) {
+      chips.push(product.category.kor_name);
+    }
+
+    return chips;
+  }, [product.category?.kor_name, product.game_type]);
+  const currentQuery = searchParams.toString();
+  // 상세 재진입 링크도 현재 목록 문맥을 내부 경로 기준으로만 전달
+  const returnTo = sanitizeCallbackUrl(
+    currentQuery ? `${pathname}?${currentQuery}` : pathname
+  );
+  const href = `/products/view/${product.id}?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all hover:shadow-md">
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition hover:shadow-md">
       {/* 제품 정보 영역 (클릭 시 상세 이동) */}
-      <div className="flex p-4 gap-4">
+      <div className="flex gap-3 p-4 sm:gap-4">
         {/* Thumbnail */}
         <Link
           href={href}
-          className="relative shrink-0 size-24 sm:size-28 rounded-xl overflow-hidden bg-surface-dim"
+          className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-surface-dim sm:size-28"
         >
           {thumbUrl ? (
             <Image
@@ -180,6 +243,7 @@ export default function MyPurchasesProductItem({
               src={thumbUrl}
               alt={product.title}
               className="object-cover transition-transform group-hover:scale-105"
+              unoptimized={!!product.images[0]?.isAnimated}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted text-xs">
@@ -189,48 +253,58 @@ export default function MyPurchasesProductItem({
         </Link>
 
         {/* Info */}
-        <div className="flex flex-1 flex-col justify-between min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
           <div>
-            <div className="flex justify-between items-start gap-2">
-              <Link href={href} className="min-w-0">
-                <h3 className="truncate text-base font-semibold text-primary leading-tight group-hover:text-brand transition-colors">
+            <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:justify-between sm:gap-2">
+              <Link href={href} className="block min-w-0 flex-1">
+                <h3 className="line-clamp-2 text-[15px] font-semibold leading-5 text-primary transition-colors group-hover:text-brand sm:line-clamp-1 sm:text-base sm:leading-6">
                   {product.title}
                 </h3>
               </Link>
-              <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
-                구매완료
-              </span>
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5 self-start">
+                <PurchasePill />
+                <UserAvatar
+                  avatar={product.user?.avatar}
+                  username={sellerName}
+                  size="sm"
+                  compact
+                />
+              </div>
             </div>
-            <div className="text-sm font-bold text-brand dark:text-brand-light mt-1">
+            <div className="mt-1 text-sm font-bold text-brand dark:text-brand-light sm:text-base">
               {formatToWon(product.price)}원
             </div>
+            {metaChips.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {metaChips.map((chip) => (
+                  <Chip key={chip}>{chip}</Chip>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted">판매자</span>
-              <UserAvatar
-                avatar={product.user?.avatar}
-                username={sellerName}
-                size="sm"
-                compact
-              />
+          <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-1 text-[10px] text-muted sm:text-xs">
+            <div className="flex gap-3">
+              <Metric icon={<HeartIcon className="size-3.5 text-rose-500" />}>
+                {product._count.product_likes ?? 0}
+              </Metric>
+              <Metric icon={<EyeIcon className="size-3.5" />}>
+                {product.views ?? 0}
+              </Metric>
             </div>
             {product.purchased_at && (
-              <span className="text-xs text-muted">
-                <TimeAgo date={product.purchased_at.toString()} />
-              </span>
+              <TimeAgo date={product.purchased_at.toString()} />
             )}
           </div>
         </div>
       </div>
 
       {/* Actions (리뷰 관리) */}
-      <div className="grid grid-cols-2 divide-x divide-border border-t border-border bg-surface-dim/30">
+      <div className="grid grid-cols-2 divide-x divide-border-subtle border-t border-border-subtle bg-surface-dim/30">
         {buyerReview ? (
           <button
             onClick={() => toggleModal("viewMine", true)}
-            className="py-3 text-sm font-medium text-primary hover:bg-surface-dim transition-colors"
+            className="py-3 text-xs font-medium text-primary transition-colors hover:bg-surface-dim sm:text-sm"
           >
             내 리뷰 보기
           </button>
@@ -238,7 +312,7 @@ export default function MyPurchasesProductItem({
           <button
             onClick={() => toggleModal("create", true)}
             disabled={isSubmitting}
-            className="py-3 text-sm font-medium text-brand dark:text-brand-light hover:bg-brand/5 transition-colors disabled:opacity-50"
+            className="py-3 text-xs font-medium text-brand transition-colors hover:bg-brand/5 disabled:opacity-50 dark:text-brand-light dark:hover:bg-brand-light/10 sm:text-sm"
           >
             {isSubmitting ? "작성 중..." : "리뷰 작성하기"}
           </button>
@@ -246,7 +320,7 @@ export default function MyPurchasesProductItem({
 
         <button
           onClick={() => toggleModal("viewSeller", true)}
-          className="py-3 text-sm font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors"
+          className="py-3 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:text-sm"
         >
           판매자 리뷰
         </button>

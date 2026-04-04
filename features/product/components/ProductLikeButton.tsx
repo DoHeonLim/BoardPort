@@ -19,6 +19,8 @@
  * 2026.03.06  임도헌   Modified  LIKED 캐시 갱신 predicate 범위 정교화(구조 일치 키만 타겟팅)
  * 2026.03.06  임도헌   Modified  products 목록 캐시(_count.product_likes) 낙관적 업데이트 및 롤백 추가
  * 2026.03.06  임도헌   Modified  좋아요 추가 시 LIKED 목록 첫 페이지 prepend 낙관적 반영 추가
+ * 2026.03.26  임도헌   Modified  찜한 내역 카드 상단 빠른 해제를 위한 quick-remove variant 지원
+ * 2026.03.26  임도헌   Modified  quick-remove 버튼의 모바일 라벨/톤을 줄여 제목 공간과 액션 위계를 보정
  */
 "use client";
 
@@ -26,7 +28,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { dislikeProduct, likeProduct } from "@/features/product/actions/like";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
-import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
+import {
+  HeartIcon as OutlineHeartIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
   isLikedScopeKey,
@@ -38,6 +43,8 @@ interface ProductLikeButtonProps {
   isLiked: boolean;
   likeCount: number;
   productId: number;
+  variant?: "stack" | "quick-remove";
+  className?: string;
 }
 
 /**
@@ -54,6 +61,8 @@ export default function ProductLikeButton({
   isLiked: initialIsLiked,
   likeCount: initialLikeCount,
   productId,
+  variant = "stack",
+  className = "",
 }: ProductLikeButtonProps) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.products.likeStatus(productId);
@@ -199,21 +208,67 @@ export default function ProductLikeButton({
 
   return (
     <button
+      type="button"
       onClick={() => mutate()}
       className={cn(
-        "flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
-        "hover:bg-surface-dim disabled:opacity-50 disabled:cursor-not-allowed",
-        data.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500"
+        variant === "quick-remove"
+          ? [
+              "inline-flex h-7 items-center justify-center gap-1 rounded-full border border-border-subtle bg-surface/92 px-2 text-muted shadow-sm transition-all sm:h-8 sm:gap-1.5 sm:px-3",
+              "hover:-translate-y-0.5 hover:bg-surface-dim hover:text-primary active:scale-95",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            ]
+          : [
+              "flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
+              "hover:bg-surface-dim disabled:opacity-50 disabled:cursor-not-allowed",
+            ],
+        variant === "quick-remove"
+          ? "text-muted"
+          : data.isLiked
+            ? "text-rose-500"
+            : "text-muted hover:text-rose-500",
+        className
       )}
       disabled={isPending}
-      aria-label={data.isLiked ? "좋아요 취소" : "좋아요"}
+      aria-label={
+        variant === "quick-remove"
+          ? data.isLiked
+            ? "찜 해제"
+            : "찜하기"
+          : data.isLiked
+            ? "좋아요 취소"
+            : "좋아요"
+      }
     >
-      {data.isLiked ? (
+      {variant === "quick-remove" ? (
+        <>
+          {data.isLiked ? (
+            <XMarkIcon className="size-3 shrink-0 sm:size-3.5" />
+          ) : (
+            <OutlineHeartIcon className="size-3 shrink-0 sm:size-3.5" />
+          )}
+          <span className="text-[10px] font-medium leading-none sm:text-[11px] sm:font-semibold">
+            {data.isLiked ? (
+              <>
+                <span className="sm:hidden">해제</span>
+                <span className="hidden sm:inline">찜 해제</span>
+              </>
+            ) : (
+              <>
+                <span className="sm:hidden">찜</span>
+                <span className="hidden sm:inline">찜하기</span>
+              </>
+            )}
+          </span>
+        </>
+      ) : data.isLiked ? (
         <HeartIcon className="size-6" />
       ) : (
         <OutlineHeartIcon className="size-6" />
       )}
-      <span className="text-xs font-medium mt-0.5">{data.likeCount}</span>
+      {variant === "stack" && (
+        <span className="text-xs font-medium mt-0.5">{data.likeCount}</span>
+      )}
     </button>
   );
 }

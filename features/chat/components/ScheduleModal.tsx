@@ -8,6 +8,7 @@
  * 2026.02.19  임도헌   Created   약속 데이터 입력 UI 및 지도 연동
  * 2026.02.26  임도헌   Modified  다크모드 가시성(MapPinIcon, 변경버튼) 개선
  * 2026.03.06  임도헌   Modified  닫기 버튼 터치 타겟과 버튼 hover 대비를 표준 규칙에 맞게 조정
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  */
 
 "use client";
@@ -69,9 +70,9 @@ export default function ScheduleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border animate-fade-in">
+      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border-subtle">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface-dim/30">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface">
           <h3 className="font-bold text-primary text-lg flex items-center gap-2">
             <CalendarIcon className="size-5 text-brand dark:text-brand-light" />
             약속 잡기
@@ -147,7 +148,7 @@ export default function ScheduleModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-surface-dim/30 flex justify-end gap-2">
+        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end gap-2">
           <button
             onClick={onClose}
             className="btn-secondary h-10 text-sm border-transparent"

@@ -6,20 +6,26 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.14  임도헌   Created   라이브 상세 로딩 페이지 추가
+ * 2026.03.12  임도헌   Modified  flat 헤더 톤과 현재 라이브 상세 레이아웃 밀도에 맞춰 스켈레톤 정리
+ * 2026.03.29  임도헌   Modified  StreamTopbar의 뒤로가기/가시성 칩/액션 버튼 구조에 맞춰 상단 스켈레톤 재정렬
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Topbar */}
-      <div className="h-14 w-full border-b border-border bg-surface flex items-center px-4 justify-between">
+      <div className="flex h-14 w-full items-center justify-between border-b border-border-subtle bg-background px-3 shadow-sm sm:px-4 lg:px-6">
         <div className="flex items-center gap-2">
           <Skeleton className="size-10 rounded-xl" />
-          <Skeleton className="h-4 w-24 rounded" />
+          <Skeleton className="h-10 w-28 rounded-full" />
         </div>
-        <Skeleton className="h-8 w-20 rounded-full" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-20 rounded-full" />
+          <Skeleton className="size-10 rounded-full" />
+          <Skeleton className="size-10 rounded-full" />
+        </div>
       </div>
 
       <div className="flex-1 xl:grid xl:grid-cols-[1fr,min(100%,1000px),360px] xl:gap-4 xl:p-4">
@@ -28,10 +34,10 @@ export default function Loading() {
         {/* Main Content */}
         <div className="w-full space-y-4">
           {/* Player */}
-          <div className="aspect-video w-full bg-black/10 dark:bg-white/5 rounded-lg animate-pulse" />
+          <Skeleton className="aspect-video w-full rounded-none lg:rounded-lg" />
 
           {/* Info Panel */}
-          <div className="p-4 rounded-xl border border-border bg-surface space-y-4">
+          <div className="space-y-4 rounded-xl border border-border-subtle bg-surface p-4">
             <Skeleton className="h-6 w-3/4 rounded" />
             <div className="flex items-center gap-2">
               <Skeleton className="size-10 rounded-full" />
@@ -41,7 +47,7 @@ export default function Loading() {
         </div>
 
         {/* Chat Sidebar (Desktop) */}
-        <div className="hidden xl:block h-[calc(100vh-100px)] rounded-xl border border-border bg-surface p-4">
+        <div className="hidden h-[calc(100vh-100px)] rounded-xl border border-border-subtle bg-surface p-4 xl:block">
           <Skeleton className="h-full w-full rounded-lg" />
         </div>
       </div>

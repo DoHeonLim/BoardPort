@@ -9,6 +9,7 @@
  * 2026.01.24  임도헌   Modified  ProductReview, ReviewSubmitResult 추가
  * 2026.02.22  임도헌   Modified  ReviewServiceResult에 캐시 무효화용 meta 추가
  * 2026.03.07  임도헌   Modified  공통 ServiceFailure 타입 재사용
+ * 2026.04.03  임도헌   Modified  리뷰 서비스/훅 결과 타입 설명 보강
  */
 
 import type { ServiceFailure } from "@/lib/types";
@@ -63,6 +64,7 @@ export type DeleteReviewResult =
 
 /**
  * useReview 훅의 리뷰 작성 결과 타입
+ * - 모달/폼 UI가 성공 여부와 에러 문구를 단순하게 분기할 때 사용
  */
 export type ReviewSubmitResult =
   | { ok: true; review: ProductReview }

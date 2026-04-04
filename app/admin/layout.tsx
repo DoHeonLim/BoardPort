@@ -7,12 +7,15 @@
  * Date        Author   Status    Description
  * 2026.02.06  임도헌   Created   관리자 권한 가드 및 Full-Width 사이드바 레이아웃 적용
  * 2026.02.24  임도헌   Modified  로고 추가
+ * 2026.03.23  임도헌   Modified  관리자 셸 구조선 기준으로 사이드바/헤더 보더를 border-border-subtle에 맞춰 정리
+ * 2026.03.29  임도헌   Modified  모바일 가독성을 위해 sticky 헤더의 blur를 제거하고 불투명 표면으로 정리
+ * 2026.03.30  임도헌   Modified  현재 섹션 헤더와 모바일 드로어 네비게이션을 보강해 운영 문맥을 쉽게 파악하도록 정리
+ * 2026.03.30  임도헌   Modified  세션·DB 직접 조회를 제거하고 관리자 인증 서비스를 재사용하도록 구조 정리
  */
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import getSession from "@/lib/session";
-import db from "@/lib/db";
+import { verifyAdminAccess } from "@/features/auth/service/authSession";
 import {
   ChartBarIcon,
   ExclamationTriangleIcon,
@@ -26,41 +29,38 @@ import {
 import Logo from "@/components/ui/Logo";
 import AdminNavLink from "@/features/user/components/admin/AdminNavLink";
 import MobileSidebar from "@/features/user/components/admin/MobileSidebar";
+import AdminSectionHeading from "@/features/user/components/admin/AdminSectionHeading";
 import ThemeToggle from "@/components/global/ThemeToggle";
 import UserAvatar from "@/components/global/UserAvatar";
 
 /**
- * 관리자 레이아웃
- * 1. 세션 확인 및 DB 조회를 통한 관리자 권한(Role=ADMIN) 2중 검증 (SSOT)
- * 2. 권한 없을 시 홈으로 강제 리다이렉트
- * 3. 데스크톱 사이드바 및 모바일 드로어 네비게이션 제공
+ * 관리자 전용 앱 셸 레이아웃
+ *
+ * - 관리자 인증 서비스 기반 권한 검증
+ * - 비관리자 접근 차단 및 홈 리다이렉트
+ * - 데스크톱 사이드바와 모바일 드로어 공존 구조
+ * - sticky 헤더 기반 현재 운영 섹션 문맥 유지
+ *
+ * @param {{ children: React.ReactNode }} props - 관리자 페이지 콘텐츠
+ * @returns {Promise<JSX.Element>} 관리자 셸 레이아웃
  */
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // 1. 세션 확인
-  const session = await getSession();
-  if (!session?.id) redirect("/login");
-
-  // 2. 권한 확인 (DB SSOT)
-  const user = await db.user.findUnique({
-    where: { id: session.id },
-    select: { role: true, username: true, avatar: true },
-  });
-
-  // 3. 관리자가 아니면 홈으로 리다이렉트
-  if (!user || user.role !== "ADMIN") {
+  const auth = await verifyAdminAccess();
+  if (!auth.success || !auth.adminUser) {
     redirect("/");
   }
 
+  const user = auth.adminUser;
+
   return (
     <div className="flex min-h-screen w-full bg-background transition-colors">
-      {/* [Desktop Sidebar] md 이상에서만 표시 */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-surface fixed inset-y-0 left-0 z-50">
-        <div className="h-16 flex items-center px-6 border-b border-border gap-3">
-          {/* 작은 심볼 로고 배치 */}
+      {/* 데스크톱 전용 사이드바 */}
+      <aside className="hidden md:flex w-64 flex-col border-r border-border-subtle bg-surface fixed inset-y-0 left-0 z-50">
+        <div className="h-16 flex items-center px-6 border-b border-border-subtle gap-3">
           <Logo variant="symbol" size={32} />
           <Link
             href="/admin"
@@ -117,7 +117,7 @@ export default async function AdminLayout({
           />
         </nav>
 
-        <div className="p-4 border-t border-border bg-surface-dim/20">
+        <div className="p-4 border-t border-border-subtle bg-surface-dim/20">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center px-4 min-w-0">
               <UserAvatar
@@ -139,20 +139,17 @@ export default async function AdminLayout({
         </div>
       </aside>
 
-      {/* [Main Area] md 이상에서는 사이드바 너비만큼 왼쪽 마진 확보 */}
+      {/* 사이드바 폭을 고려한 메인 셸 */}
       <main className="flex-1 md:ml-64 min-w-0 flex flex-col">
-        {/* Header: sticky 및 backdrop-blur 적용 */}
-        <header className="h-16 bg-surface/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border-subtle bg-surface px-4 md:px-8">
           <div className="flex items-center gap-4">
-            {/* MobileSidebar 컴포넌트 내부에서 Portal을 사용하여 드로어 렌더링 */}
             <MobileSidebar user={user} />
-            <h2 className="font-bold text-primary">관리자 콘솔</h2>
+            <AdminSectionHeading />
           </div>
           <ThemeToggle />
         </header>
 
-        {/* Content Section */}
-        <div className="p-4 md:p-8 max-w-[1600px] w-full mx-auto animate-fade-in flex-1">
+        <div className="p-4 md:p-8 max-w-[1600px] w-full mx-auto flex-1">
           {children}
         </div>
       </main>

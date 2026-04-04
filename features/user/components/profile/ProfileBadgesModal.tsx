@@ -16,6 +16,13 @@
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  모달 애니메이션 도중 툴팁 오작동 방지를 위해 autoUpdate 적용
+ * 2026.03.08  임도헌   Modified  모달 진입 transform 애니메이션을 제거해 Floating UI 툴팁 위치가 초기 프레임부터 안정적으로 계산되도록 조정
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.12  임도헌   Modified  뱃지 툴팁을 시맨틱 토큰 기반 패널 톤으로 정리
+ * 2026.03.14  임도헌   Modified  모바일에서 뱃지 타일 높이와 내부 패딩을 줄여 컬렉션 밀도를 보강
+ * 2026.03.17  임도헌   Modified  다크/라이트 모드 모두에서 툴팁 가시성이 유지되도록 solid 패널 톤과 대비를 보강
+ * 2026.03.22  임도헌   Modified  최근 프로필 모달 톤에 맞춰 높이 단위와 외곽선/헤더 보더 강도 정리
+ * 2026.03.27  임도헌   Modified  모바일에서는 hover 툴팁 대신 선택된 뱃지 설명 패널을 사용하고 데스크톱 hover 툴팁 대비를 보강
  */
 "use client";
 
@@ -28,15 +35,12 @@ import {
   shift,
   flip,
   arrow,
-  useHover,
-  useDismiss,
-  useRole,
-  useInteractions,
   FloatingArrow,
   autoUpdate,
   type Placement,
 } from "@floating-ui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import type { Badge } from "@/features/user/types";
 
@@ -50,7 +54,19 @@ interface ProfileBadgesModalProps {
 /**
  * 개별 뱃지 아이템 (Tooltip 포함)
  */
-function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
+function BadgeItem({
+  badge,
+  isEarned,
+  showDesktopTooltip,
+  selected,
+  onSelect,
+}: {
+  badge: Badge;
+  isEarned: boolean;
+  showDesktopTooltip: boolean;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [arrowRef, setArrowRef] = useState<SVGSVGElement | null>(null);
 
@@ -68,35 +84,44 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
     ],
   });
 
-  // 2. 인터랙션 훅 결합 (Hover, Dismiss, Role)
-  const hover = useHover(context, {
-    move: false,
-    delay: { open: 100, close: 200 },
-    restMs: 40,
-  });
-  const dismiss = useDismiss(context);
-  const role = useRole(context, { role: "tooltip" });
-
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    hover,
-    dismiss,
-    role,
-  ]);
+  useEffect(() => {
+    if (!showDesktopTooltip) {
+      setIsOpen(false);
+    }
+  }, [showDesktopTooltip]);
 
   return (
     <>
       {/* 뱃지 아이콘 */}
-      <div
+      <button
+        type="button"
         ref={refs.setReference}
-        {...getReferenceProps()}
+        onClick={onSelect}
+        onMouseEnter={() => {
+          if (showDesktopTooltip) setIsOpen(true);
+        }}
+        onMouseLeave={() => {
+          if (showDesktopTooltip) setIsOpen(false);
+        }}
+        onFocus={() => {
+          if (showDesktopTooltip) setIsOpen(true);
+        }}
+        onBlur={() => {
+          if (showDesktopTooltip) setIsOpen(false);
+        }}
+        aria-label={`${getBadgeKoreanName(badge.name)} 설명 보기`}
+        aria-pressed={!showDesktopTooltip ? selected : undefined}
         className={cn(
-          "flex flex-col items-center justify-center p-3 rounded-xl border transition-all aspect-square",
+          "flex aspect-square w-full flex-col items-center justify-center rounded-xl border p-2.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 sm:p-3",
           isEarned
             ? "bg-brand/5 border-brand/20 dark:bg-brand-light/10 dark:border-brand-light/20"
-            : "bg-surface-dim/30 border-border opacity-50 grayscale"
+            : "bg-surface-dim/30 border-border opacity-50 grayscale",
+          !showDesktopTooltip &&
+            selected &&
+            "border-brand/35 bg-brand/10 shadow-sm ring-2 ring-brand/15 dark:border-brand-light/35 dark:bg-brand-light/12 dark:ring-brand-light/20"
         )}
       >
-        <div className="relative w-12 h-12 mb-2">
+        <div className="relative mb-1.5 h-10 w-10 sm:mb-2 sm:h-12 sm:w-12">
           <Image
             src={`${badge.icon}/public`}
             alt={badge.name}
@@ -106,30 +131,30 @@ function BadgeItem({ badge, isEarned }: { badge: Badge; isEarned: boolean }) {
         </div>
         <span
           className={cn(
-            "text-[11px] text-center font-medium leading-tight",
+            "text-[10px] text-center font-medium leading-tight sm:text-[11px]",
             isEarned ? "text-primary" : "text-muted"
           )}
-        >
-          {getBadgeKoreanName(badge.name)}
-        </span>
-      </div>
+          >
+            {getBadgeKoreanName(badge.name)}
+          </span>
+      </button>
 
       {/* 툴팁 (Hover 시 표시) */}
-      {isOpen && (
+      {showDesktopTooltip && isOpen && (
         <div
           ref={refs.setFloating}
-          {...getFloatingProps()}
+          role="tooltip"
           style={{ ...floatingStyles, zIndex: 9999 }}
-          className="max-w-[240px] bg-neutral-900 text-white p-3 rounded-xl text-xs leading-relaxed shadow-xl animate-fade-in"
+          className="max-w-[280px] rounded-xl border border-border-strong bg-background px-4 py-3.5 text-sm leading-relaxed text-primary shadow-2xl ring-1 ring-black/5 dark:ring-white/10"
         >
-          <div className="font-bold mb-1 text-accent-light">
+          <div className="mb-1.5 font-bold text-primary">
             {getBadgeKoreanName(badge.name)}
           </div>
-          {badge.description}
+          <p className="text-muted">{badge.description}</p>
           <FloatingArrow
             ref={setArrowRef}
             context={context}
-            className="fill-neutral-900"
+            className="fill-background"
           />
         </div>
       )}
@@ -152,6 +177,8 @@ export default function ProfileBadgesModal({
   userBadges,
 }: ProfileBadgesModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [showDesktopTooltip, setShowDesktopTooltip] = useState(false);
+  const [selectedBadgeId, setSelectedBadgeId] = useState<number | null>(null);
 
   // 접근성 (포커스 & 스크롤락 & ESC 닫기)
   useEffect(() => {
@@ -161,11 +188,10 @@ export default function ProfileBadgesModal({
       if (e.key === "Escape") closeModal();
     };
     window.addEventListener("keydown", handleKey);
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     return () => {
       window.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = original;
+      unlockBodyScroll();
     };
   }, [isOpen, closeModal]);
 
@@ -174,6 +200,31 @@ export default function ProfileBadgesModal({
     () => new Set(userBadges.map((b) => b.id)),
     [userBadges]
   );
+  const initialSelectedBadgeId = useMemo(
+    () => userBadges[0]?.id ?? badges[0]?.id ?? null,
+    [userBadges, badges]
+  );
+  const selectedBadge = useMemo(
+    () =>
+      badges.find((badge) => badge.id === selectedBadgeId) ??
+      badges.find((badge) => badge.id === initialSelectedBadgeId) ??
+      null,
+    [badges, selectedBadgeId, initialSelectedBadgeId]
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedBadgeId(initialSelectedBadgeId);
+  }, [isOpen, initialSelectedBadgeId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const sync = () => setShowDesktopTooltip(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -193,11 +244,11 @@ export default function ProfileBadgesModal({
         tabIndex={-1}
         className={cn(
           "relative w-full sm:max-w-3xl bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
-          "h-[80vh] rounded-t-2xl sm:rounded-2xl animate-slide-up sm:animate-fade-in",
-          "border-t sm:border border-border"
+          "h-[80dvh] rounded-t-2xl sm:rounded-2xl",
+          "border-t sm:border border-border-subtle"
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-5 py-4 sm:px-6">
           <h2 id="badges-title" className="text-lg font-bold text-primary">
             뱃지 컬렉션 ({userBadges.length}/{badges.length})
           </h2>
@@ -209,13 +260,38 @@ export default function ProfileBadgesModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+        {!showDesktopTooltip && selectedBadge && (
+          <div className="shrink-0 border-b border-border-subtle bg-surface px-5 py-4 sm:hidden">
+            <div className="rounded-xl border border-border-subtle bg-background px-4 py-3.5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-primary">
+                    {getBadgeKoreanName(selectedBadge.name)}
+                  </div>
+                  <div className="mt-1 text-xs font-medium text-muted">
+                    {earnedSet.has(selectedBadge.id)
+                      ? "획득한 뱃지"
+                      : "아직 획득하지 않은 뱃지"}
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-muted">
+                {selectedBadge.description}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-5 scrollbar-hide sm:p-6">
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5">
             {badges.map((badge) => (
               <BadgeItem
                 key={badge.id}
                 badge={badge}
                 isEarned={earnedSet.has(badge.id)}
+                showDesktopTooltip={showDesktopTooltip}
+                selected={selectedBadge?.id === badge.id}
+                onSelect={() => setSelectedBadgeId(badge.id)}
               />
             ))}
           </div>

@@ -1,5 +1,5 @@
 /**
- * File Name : components/providers/ThemeProvider
+ * File Name : components/global/providers/ThemeProvider.tsx
  * Description : 시스템 테마(다크모드) 설정 Provider
  * Author : 임도헌
  *

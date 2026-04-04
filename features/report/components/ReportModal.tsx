@@ -9,19 +9,24 @@
  * 2026.02.20  임도헌   Modified  레이아웃에서 모달 위치가 깨지지 않도록 createPortal 적용
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  * 2026.03.06  임도헌   Modified  포커스 트랩/복귀와 닫기 버튼 접근성을 추가해 모달 a11y 기준을 맞춤
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.18  임도헌   Modified  비로그인 신고 진입용 현재 경로를 내부 경로 기준으로 정규화한 callbackUrl로 전달해 로그인 복귀와 nested callbackUrl 예외를 함께 완화
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.04.03  임도헌   Modified  신고 대상 타입 import를 report/types 공용 정의로 정리
  */
 "use client";
 
 import { useState, useTransition, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { submitReportAction } from "@/features/report/actions/create";
-import {
-  REPORT_REASON_LABELS,
-  type ReportTargetType,
-} from "@/features/report/constants";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { REPORT_REASON_LABELS, REPORT_ERRORS } from "@/features/report/constants";
+import type { ReportTargetType } from "@/features/report/types";
 import { ReportReason } from "@/generated/prisma/client";
 
 interface ReportModalProps {
@@ -47,6 +52,9 @@ export default function ReportModal({
   targetId,
   targetType,
 }: ReportModalProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -55,6 +63,11 @@ export default function ReportModal({
   const [reason, setReason] = useState<ReportReason | "">("");
   const [description, setDescription] = useState("");
   const [isPending, startTransition] = useTransition();
+  const currentSearch = searchParams?.toString();
+  // 로그인 유도 callbackUrl도 현재 내부 경로 기준으로만 보존
+  const currentPath = sanitizeCallbackUrl(
+    `${pathname}${currentSearch ? `?${currentSearch}` : ""}`
+  );
 
   // SSR 환경 대응 (마운트 여부 확인)
   const [mounted, setMounted] = useState(false);
@@ -69,10 +82,9 @@ export default function ReportModal({
       setDescription("");
     } else {
       // 열렸을 때 배경 스크롤 방지
-      const originalStyle = window.getComputedStyle(document.body).overflow;
-      document.body.style.overflow = "hidden";
+      lockBodyScroll();
       return () => {
-        document.body.style.overflow = originalStyle;
+        unlockBodyScroll();
       };
     }
   }, [isOpen]);
@@ -148,6 +160,12 @@ export default function ReportModal({
           "신고가 정상적으로 접수되었습니다. 깨끗한 바다를 만들어주셔서 감사합니다! ⚓"
         );
         onClose();
+      } else if (res.error === REPORT_ERRORS.NOT_LOGGED_IN) {
+        // 신고 맥락을 잃지 않도록 현재 경로를 로그인 callbackUrl로 전달
+        onClose();
+        router.push(
+          `/login?callbackUrl=${encodeURIComponent(currentPath)}`
+        );
       } else {
         toast.error(res.error);
       }
@@ -155,7 +173,7 @@ export default function ReportModal({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       {/* Background Click to Close */}
       <div
         className="absolute inset-0"
@@ -163,7 +181,7 @@ export default function ReportModal({
       />
 
       <div
-        className="relative bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border"
+        className="relative bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border-subtle"
         onClick={(e) => e.stopPropagation()}
         ref={dialogRef}
         role="dialog"
@@ -176,7 +194,7 @@ export default function ReportModal({
         </p>
 
         {/* header */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-dim/30">
+        <div className="px-6 py-4 border-b border-border-subtle flex justify-between items-center bg-surface">
           <h2 id={titleId} className="font-bold text-primary text-lg">
             신고하기
           </h2>
@@ -246,7 +264,7 @@ export default function ReportModal({
         </div>
 
         {/* footer */}
-        <div className="p-4 border-t border-border bg-surface-dim/30 flex justify-end gap-3">
+        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
           <button
             onClick={onClose}
             className="btn-secondary h-11 px-6 border-transparent"

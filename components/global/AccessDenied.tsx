@@ -17,6 +17,10 @@
  * 2026.02.08  임도헌   Modified  BANNED 상태 시 '홈으로' 대신 명시적 '로그아웃' 버튼 제공
  * 2026.03.06  임도헌   Modified  LogoutButton 적용으로 로그아웃 pending/toast 처리 일원화
  * 2026.03.06  임도헌   Modified  Forbidden 상태 화면 공통 레이아웃 유틸을 적용해 안내/CTA 톤을 통일
+ * 2026.03.13  임도헌   Modified  팔로워 전용/차단 안내 화면에서 프로필 이동 시 callbackUrl을 returnTo로 함께 전달
+ * 2026.03.18  임도헌   Modified  FOLLOWERS_ONLY CTA를 실제 세션 기준으로 분기하고, callbackUrl/returnTo 복원 + 도메인별 목록 fallback으로 403 복귀 문맥을 통합 정리
+ * 2026.03.23  임도헌   Modified  금지 상태 상세 카드와 내부 구분선을 구조 구분용 border-border-subtle 기준으로 정리
+ * 2026.04.04  임도헌   Modified  helper/props 설명을 보강해 사유별 복귀 문맥과 CTA 분기 의도를 더 명확히 정리
  */
 
 "use client";
@@ -24,6 +28,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import {
   LockClosedIcon,
@@ -53,10 +58,39 @@ interface AccessDeniedProps {
 }
 
 /**
- * - BLOCKED: 유저 차단 관계인 경우
- * - FOLLOWERS_ONLY: 팔로워 전용 콘텐츠인 경우
- * - PRIVATE: 비밀번호가 필요한 경우
- * - BANNED : 유저 정지
+ * 차단 화면에서 돌아갈 기본 문맥을 callbackUrl 기준으로 복원
+ *
+ * - 상세 페이지가 returnTo로 한 번 더 감싼 경우 nested returnTo 우선 복원
+ * - 복원 정보가 없으면 현재 접근 경로 접두사 기준의 목록 fallback 결정
+ */
+function inferContextListHref(callbackUrl: string) {
+  const queryString = callbackUrl.split("?")[1] ?? "";
+  const params = new URLSearchParams(queryString);
+  const nestedReturnTo = params.get("returnTo");
+  if (nestedReturnTo) {
+    return sanitizeCallbackUrl(nestedReturnTo);
+  }
+
+  if (callbackUrl.startsWith("/products")) return "/products";
+  if (callbackUrl.startsWith("/posts")) return "/posts";
+  if (callbackUrl.startsWith("/streams")) return "/streams";
+  if (callbackUrl.startsWith("/chat") || callbackUrl.startsWith("/chats")) {
+    return "/chat";
+  }
+  if (callbackUrl.startsWith("/profile")) return "/profile";
+
+  return "/";
+}
+
+/**
+ * 403 상태 화면을 사유별 CTA와 함께 렌더링하는 전역 공통 UI 컴포넌트
+ *
+ * - nested returnTo 우선 복원
+ * - 도메인별 목록 fallback 복원
+ * - 로그인, 팔로우, 비밀번호 입력, 목록 복귀 CTA 분기
+ *
+ * @param {AccessDeniedProps} props - 접근 차단 사유와 복귀 문맥, CTA 분기 정보
+ * @returns {JSX.Element} 접근 차단 안내 화면
  */
 export default function AccessDenied({
   reason,
@@ -73,13 +107,21 @@ export default function AccessDenied({
 
   const pending = typeof ownerId === "number" ? isPending(ownerId) : false;
 
+  // 상세 callbackUrl 안에 감긴 원래 목록/채널 문맥을 우선 복원
+  // nested returnTo가 없을 때만 현재 경로 접두사로 도메인 fallback 복원
+  const contextListHref = inferContextListHref(callbackUrl);
+
   const goLogin = () =>
     router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
 
   const goProfileForFollow = () =>
-    router.push(`/profile/${encodeURIComponent(username)}`);
+    router.push(
+      `/profile/${encodeURIComponent(username)}?returnTo=${encodeURIComponent(callbackUrl)}`
+    );
 
-  const goHome = () => router.push("/");
+  const goContextList = () => router.push(contextListHref);
+  const blockedFallbackLabel =
+    contextListHref === "/" ? "홈으로 가기" : "목록으로 가기";
 
   const doFollow = async () => {
     if (!ownerId) return goProfileForFollow();
@@ -119,12 +161,15 @@ export default function AccessDenied({
         {reason === "BLOCKED" && (
           <>
             <p className="state-description">
-              <span className="font-semibold text-primary">@{username}</span>님과
-              차단 관계가 설정되어 있어 페이지에 접근할 수 없습니다.
+              <span className="font-semibold text-primary">@{username}</span>
+              님과 차단 관계가 설정되어 있어 페이지에 접근할 수 없습니다.
             </p>
             <div className="state-actions">
-              <button onClick={goHome} className="btn-primary min-h-[44px] w-full">
-                홈으로 가기
+              <button
+                onClick={goContextList}
+                className="btn-primary min-h-[44px] w-full"
+              >
+                {blockedFallbackLabel}
               </button>
               <button
                 onClick={() => router.back()}
@@ -139,8 +184,9 @@ export default function AccessDenied({
         {reason === "FOLLOWERS_ONLY" && (
           <>
             <p className="state-description">
-              <span className="font-semibold text-primary">@{username}</span>님의
-              방송은 <span className="font-medium text-indigo-500">팔로워 전용</span>
+              <span className="font-semibold text-primary">@{username}</span>
+              님의 방송은{" "}
+              <span className="font-medium text-indigo-500">팔로워 전용</span>
               입니다.
             </p>
             <div className="state-actions">
@@ -160,12 +206,21 @@ export default function AccessDenied({
                   프로필로 이동
                 </button>
               )}
-              <button
-                onClick={goLogin}
-                className="btn-secondary min-h-[44px] w-full"
-              >
-                로그인
-              </button>
+              {viewerId ? (
+                <button
+                  onClick={() => router.push(contextListHref)}
+                  className="btn-secondary min-h-[44px] w-full"
+                >
+                  목록으로
+                </button>
+              ) : (
+                <button
+                  onClick={goLogin}
+                  className="btn-secondary min-h-[44px] w-full"
+                >
+                  로그인
+                </button>
+              )}
             </div>
           </>
         )}
@@ -173,8 +228,9 @@ export default function AccessDenied({
         {reason === "PRIVATE" && (
           <>
             <p className="state-description">
-              <span className="font-semibold text-primary">@{username}</span>님의
-              방송은 <span className="font-medium text-amber-500">비밀번호</span>가
+              <span className="font-semibold text-primary">@{username}</span>
+              님의 방송은{" "}
+              <span className="font-medium text-amber-500">비밀번호</span>가
               필요합니다.
             </p>
             <div className="state-actions">
@@ -183,7 +239,7 @@ export default function AccessDenied({
                   onClick={() => setOpen(true)}
                   className="btn-primary min-h-[44px] w-full bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600"
                 >
-                  비밀번호 입력
+                  입장하기
                 </button>
               ) : (
                 <button
@@ -194,7 +250,7 @@ export default function AccessDenied({
                 </button>
               )}
               <button
-                onClick={() => router.push("/streams")}
+                onClick={() => router.push(contextListHref)}
                 className="btn-secondary min-h-[44px] w-full"
               >
                 목록으로
@@ -219,14 +275,14 @@ export default function AccessDenied({
             </p>
 
             {banDetails && (
-              <div className="mt-6 w-full rounded-xl border border-border bg-surface p-4 text-left shadow-sm">
+              <div className="mt-6 w-full rounded-xl border border-border-subtle bg-surface p-4 text-left shadow-sm">
                 <div>
                   <span className="mb-0.5 block text-xs font-bold text-muted">
                     정지 사유
                   </span>
                   <p className="text-sm text-primary">{banDetails.reason}</p>
                 </div>
-                <div className="my-3 border-t border-border" />
+                <div className="my-3 border-t border-border-subtle" />
                 <div>
                   <span className="mb-0.5 block text-xs font-bold text-muted">
                     해제 예정일
@@ -253,12 +309,10 @@ export default function AccessDenied({
 
         {reason === "UNKNOWN" && (
           <>
-            <p className="state-description">
-              접근 권한을 확인할 수 없습니다.
-            </p>
+            <p className="state-description">접근 권한을 확인할 수 없습니다.</p>
             <div className="state-actions justify-center">
               <button
-                onClick={() => router.push("/streams")}
+                onClick={() => router.push(contextListHref)}
                 className="btn-secondary min-h-[44px] w-full"
               >
                 목록으로 돌아가기

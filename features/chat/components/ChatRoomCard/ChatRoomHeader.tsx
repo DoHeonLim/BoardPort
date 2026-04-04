@@ -9,6 +9,7 @@
  * 2025.07.24  임도헌   Modified  BoardPort 스타일 적용
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.27  임도헌   Modified  상품 중심 채팅 목록 위계에 맞춰 상대방 행을 보조 메타 톤으로 정리
  */
 "use client";
 
@@ -24,15 +25,19 @@ interface ChatRoomHeaderProps {
  */
 export default function ChatRoomHeader({ user }: ChatRoomHeaderProps) {
   return (
-    <div className="flex items-center">
+    <div className="flex min-w-0 items-center gap-2">
       <UserAvatar
         avatar={user.avatar}
         username={user.username}
         size="sm"
-        showUsername={true}
+        showUsername={false}
         disabled={true} // 카드 클릭과 충돌 방지를 위해 링크 비활성화
+        compact={true}
         className="p-0 hover:bg-transparent"
       />
+      <span className="truncate text-sm font-semibold text-primary">
+        {user.username}
+      </span>
     </div>
   );
 }

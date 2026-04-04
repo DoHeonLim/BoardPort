@@ -15,6 +15,11 @@
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
  * 2026.01.20  임도헌   Modified  전역 에러(toast) 처리 추가
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.03.08  임도헌   Modified  FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반의 커스텀 검증 UX 적용
+ * 2026.03.12  임도헌   Modified  회원가입 폼의 커스텀 검증 UX와 서버 fieldErrors 처리 흐름 명확화
+ * 2026.03.14  임도헌   Modified  회원가입 성공 후 callbackUrl/온보딩 판단을 포함한 서버 redirectTo 규칙으로 replace 복귀하도록 정리
+ * 2026.03.23  임도헌   Modified  회원가입 폼 내 소셜 로그인 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.03.25  임도헌   Modified  반복적인 입력 필드를 두 묶음으로 나눠 가입 흐름의 리듬을 정리하고 소셜 구분선을 통일
  */
 "use client";
 
@@ -37,22 +42,35 @@ import {
 } from "@/features/auth/schemas/register";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import SocialLogin from "@/features/auth/components/SocialLogin";
 import { submitCreateAccount } from "@/features/auth/actions/register";
+import { applyFieldErrors } from "@/lib/applyFieldErrors";
+import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 
 type FormData = CreateAccountSchema;
 
 /**
  * 회원가입 폼
  * - 닉네임/이메일/비밀번호 입력 및 검증
+ * - FormErrorSummary 기반 상단 에러 요약 노출
+ * - 서버 fieldErrors를 Input 하단 에러와 첫 필드 포커스로 연결
  * - 중복 검사 결과 처리 및 가입 액션 호출
+ *
+ * @param {Object} props - 컴포넌트 속성
+ * @param {string} [props.callbackUrl] - 회원가입 완료 후 복귀할 내부 경로
  */
-export default function CreateAccountForm() {
+export default function CreateAccountForm({
+  callbackUrl = "/profile",
+}: {
+  callbackUrl?: string;
+}) {
   const {
     register,
     handleSubmit,
     formState: { errors },
     setError,
+    setFocus,
   } = useForm<FormData>({
     resolver: zodResolver(createAccountSchema),
     mode: "onBlur",
@@ -70,6 +88,7 @@ export default function CreateAccountForm() {
         formData.append("email", data.email);
         formData.append("password", data.password);
         formData.append("confirmPassword", data.confirmPassword);
+        formData.append("callbackUrl", callbackUrl);
 
         // 1. 서버 액션 호출
         const result = await submitCreateAccount(null, formData);
@@ -77,12 +96,8 @@ export default function CreateAccountForm() {
         if (!result.success) {
           // 2. 필드 에러 처리 (닉네임/이메일 중복 등)
           if (result.fieldErrors) {
-            const fieldErrors = result.fieldErrors as Partial<
-              Record<keyof FormData, string[]>
-            >;
-            (Object.keys(fieldErrors) as (keyof FormData)[]).forEach((key) => {
-              const message = fieldErrors[key]?.[0];
-              if (message) setError(key, { message });
+            applyFieldErrors<FormData>(setError, result.fieldErrors, {
+              setFocus,
             });
           }
           // 3. 전역 에러 처리
@@ -94,62 +109,74 @@ export default function CreateAccountForm() {
 
         // 4. 성공 시 이동
         toast.success("환영합니다! 선원 등록이 완료되었습니다.");
-        router.push("/profile");
+        router.replace(result.redirectTo ?? callbackUrl);
       } catch {
         toast.error("일시적인 오류가 발생했습니다.");
       }
     });
   };
 
+  const onInvalid = (formErrors: typeof errors) => {
+    focusFirstFieldError<FormData>(formErrors, setFocus);
+  };
+
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="flex flex-col gap-form-gap"
+      noValidate
     >
+      <FormErrorSummary errors={errors} />
+
       <div className="flex flex-col gap-form-gap">
-        <Input
-          {...register("username")}
-          placeholder="선원 닉네임"
-          autoComplete="username"
-          icon={<UserIcon className="size-5" />}
-          errors={errors.username?.message ? [errors.username.message] : []}
-        />
-        <Input
-          {...register("email")}
-          type="email"
-          placeholder="이메일 주소"
-          autoComplete="email"
-          icon={<EnvelopeIcon className="size-5" />}
-          errors={errors.email?.message ? [errors.email.message] : []}
-        />
-        <Input
-          {...register("password")}
-          type="password"
-          passwordToggle
-          placeholder="비밀번호"
-          minLength={PASSWORD_MIN_LENGTH}
-          autoComplete="new-password"
-          icon={<LockClosedIcon className="size-5" />}
-          errors={errors.password?.message ? [errors.password.message] : []}
-        />
-        <Input
-          {...register("confirmPassword")}
-          type="password"
-          passwordToggle
-          placeholder="비밀번호 확인"
-          minLength={PASSWORD_MIN_LENGTH}
-          autoComplete="new-password"
-          icon={<KeyIcon className="size-5" />}
-          passwordToggleLabels={{
-            show: "비밀번호 확인 표시",
-            hide: "비밀번호 확인 숨기기",
-          }}
-          errors={
-            errors.confirmPassword?.message
-              ? [errors.confirmPassword.message]
-              : []
-          }
-        />
+        <div className="flex flex-col gap-form-gap">
+          <Input
+            {...register("username")}
+            placeholder="선원 닉네임"
+            autoComplete="username"
+            icon={<UserIcon className="size-5" />}
+            errors={errors.username?.message ? [errors.username.message] : []}
+          />
+          <Input
+            {...register("email")}
+            type="email"
+            placeholder="이메일 주소"
+            autoComplete="email"
+            icon={<EnvelopeIcon className="size-5" />}
+            errors={errors.email?.message ? [errors.email.message] : []}
+          />
+        </div>
+
+        <div className="flex flex-col gap-form-gap pt-1.5">
+          <Input
+            {...register("password")}
+            type="password"
+            passwordToggle
+            placeholder="비밀번호"
+            minLength={PASSWORD_MIN_LENGTH}
+            autoComplete="new-password"
+            icon={<LockClosedIcon className="size-5" />}
+            errors={errors.password?.message ? [errors.password.message] : []}
+          />
+          <Input
+            {...register("confirmPassword")}
+            type="password"
+            passwordToggle
+            placeholder="비밀번호 확인"
+            minLength={PASSWORD_MIN_LENGTH}
+            autoComplete="new-password"
+            icon={<KeyIcon className="size-5" />}
+            passwordToggleLabels={{
+              show: "비밀번호 확인 표시",
+              hide: "비밀번호 확인 숨기기",
+            }}
+            errors={
+              errors.confirmPassword?.message
+                ? [errors.confirmPassword.message]
+                : []
+            }
+          />
+        </div>
       </div>
 
       <Button
@@ -161,7 +188,7 @@ export default function CreateAccountForm() {
       <div className="mt-4 text-center text-sm text-muted">
         이미 선원이신가요?{" "}
         <Link
-          href="/login"
+          href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
           className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
         >
           항해 시작하기
@@ -170,14 +197,14 @@ export default function CreateAccountForm() {
 
       <div className="relative py-4">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border" />
+          <div className="w-full border-t border-border-subtle" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted">또는</span>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-background px-2 text-muted">또는 간편하게</span>
         </div>
       </div>
 
-      <SocialLogin />
+      <SocialLogin callbackUrl={callbackUrl} />
     </form>
   );
 }

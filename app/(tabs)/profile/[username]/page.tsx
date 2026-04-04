@@ -26,11 +26,18 @@
  * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 initialReviews Prop Drilling 제거
  * 2026.03.03  임도헌   Modified  unstable_cache 래퍼(getCached~) 함수 호출을 순수 함수(getUserAverageRating 등)로 교체
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.12  임도헌   Modified  타인 프로필 상단 액션바를 flat 헤더 톤으로 통일
+ * 2026.03.13  임도헌   Modified  타인/본인 프로필 분기 모두에서 returnTo 복귀 경로를 유지하도록 정리
+ * 2026.03.14  임도헌   Modified  타인 프로필에서도 전체 뱃지 모달을 열 수 있도록 전체 뱃지 메타를 함께 주입
+ * 2026.03.15  임도헌   Modified  차단 안내 시스템 이모지를 heroicons 기반 아이콘으로 교체
+ * 2026.03.18  임도헌   Modified  본인 프로필 리다이렉트 시 /profile 대상 nested returnTo를 평탄화해 자기 자신 체인 누적을 완화
+ * 2026.03.22  임도헌   Modified  generateMetadata 설명을 현재 프로필 문맥(방송/판매/활동)에 맞게 정리
  */
 
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { NoSymbolIcon } from "@heroicons/react/24/outline";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
@@ -42,10 +49,12 @@ import {
   resolveUserIdByUsername,
 } from "@/features/user/service/profile";
 import { getUserReviewsAction } from "@/features/user/actions/review";
+import { getUserReviews } from "@/features/user/service/review";
 import { getUserAverageRating } from "@/features/user/service/metric";
-import { getUserBadges } from "@/features/user/service/badge";
+import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
 import { getUserProductsAction } from "@/features/user/actions/product";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
@@ -59,7 +68,7 @@ export async function generateMetadata({
     description: `${username}님의 보드포트 프로필입니다.`,
     openGraph: {
       title: `${username} - 보드포트`,
-      description: `${username}님의 활동 내역과 판매 물품을 확인하세요.`,
+      description: `${username}님의 활동, 방송, 판매 정보를 확인하세요.`,
     },
   };
 }
@@ -69,6 +78,7 @@ export async function generateMetadata({
  *
  * [기능]
  * - URL의 username을 활용한 대상 사용자 ID 식별 및 정보 로드
+ * - returnTo 쿼리를 안전하게 정규화해 상단 뒤로가기 폴백 경로로 사용
  * - 본인 프로필 접근 시 내 프로필 페이지(`/profile`)로 강제 리다이렉트 처리
  * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록의 서버 사이드 병렬 로드 적용
  * - TanStack Query를 활용한 대상 유저의 리뷰, 판매 중/판매 완료 상품 목록 서버 프리패치(Prefetch) 적용
@@ -76,9 +86,13 @@ export async function generateMetadata({
  */
 export default async function UserProfilePage({
   params,
+  searchParams,
 }: {
   params: { username: string };
+  searchParams?: { returnTo?: string };
 }) {
+  const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/profile");
+
   // 1. Username -> ID 변환
   const targetId = await resolveUserIdByUsername(params.username);
   if (!targetId) return notFound();
@@ -89,7 +103,17 @@ export default async function UserProfilePage({
 
   // 본인이면 내 프로필로 이동
   if (viewerId === targetId) {
-    redirect("/profile");
+    // /profile 자신을 다시 returnTo로 감는 대신, 안쪽 nested returnTo를 우선 복원
+    const profileReturnTo = (() => {
+      if (!returnTo.startsWith("/profile")) return returnTo;
+      const queryString = returnTo.split("?")[1] ?? "";
+      const nested = new URLSearchParams(queryString).get("returnTo");
+      return sanitizeCallbackUrl(nested ?? "/profile");
+    })();
+
+    redirect(
+      `/profile${profileReturnTo !== "/profile" ? `?returnTo=${encodeURIComponent(profileReturnTo)}` : ""}`
+    );
   }
 
   // 3. 프로필 기본 정보 로드
@@ -99,10 +123,12 @@ export default async function UserProfilePage({
   const queryClient = getQueryClient();
 
   // 4. 데이터 병렬 로딩
-  const [averageRating, userBadges, streams] = await Promise.all([
+  const [averageRating, badges, userBadges, streams, previewReviews] = await Promise.all([
     getUserAverageRating(userProfile.id),
+    getAllBadges(),
     getUserBadges(userProfile.id),
     getRecentBroadcasts(userProfile.id, 6, false),
+    getUserReviews(userProfile.id, null, 2, viewerId).then((res) => res.reviews),
 
     // TanStack Query Prefetch
     queryClient.prefetchInfiniteQuery({
@@ -130,8 +156,12 @@ export default async function UserProfilePage({
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* 상단 액션바: 뒤로가기 + 옵션 메뉴 */}
-      <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-sm border-b border-border sm:border-none">
-        <BackButton fallbackHref="/profile" variant="appbar" className="px-0" />
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border-subtle bg-background px-4 py-3 shadow-sm sm:border-none">
+        <BackButton
+          fallbackHref={returnTo}
+          variant="appbar"
+          className="border-border-subtle bg-surface px-0 shadow-sm backdrop-blur-none"
+        />
 
         {/* 로그인 상태일 때만 옵션 메뉴 노출 */}
         {viewerId && (
@@ -147,7 +177,10 @@ export default async function UserProfilePage({
         {/* 차단된 유저일 경우 안내 메시지 표시 */}
         {userProfile.isBlocked && (
           <div className="mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-medium text-center">
-            🚫 차단한 사용자입니다.
+            <div className="flex items-center justify-center gap-2">
+              <NoSymbolIcon className="size-4" />
+              <span>차단한 사용자입니다.</span>
+            </div>
           </div>
         )}
 
@@ -155,7 +188,9 @@ export default async function UserProfilePage({
           <UserProfile
             user={userProfile}
             averageRating={averageRating}
+            badges={badges}
             userBadges={userBadges}
+            previewReviews={previewReviews}
             myStreams={streams}
             viewerId={viewerId ?? undefined}
           />

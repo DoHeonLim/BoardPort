@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/like.ts
- * Description : 녹화본 좋아요 Controller
+ * Description : 녹화본 좋아요 서버 액션
  * Author : 임도헌
  *
  * History
@@ -14,6 +14,8 @@
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/[id]/recording/actions/likes.ts -> features/stream/actions/like.ts
  * 2026.03.07  임도헌   Modified  좋아요 에러 코드를 세분화
+ * 2026.03.31  임도헌   Modified  상태 조회와 토글 액션 반환 맥락이 보이도록 설명 보강
+ * 2026.04.02  임도헌   Modified  파일 설명과 좋아요 액션 주석을 현재 서버 액션 톤으로 정리
  */
 "use server";
 
@@ -24,7 +26,15 @@ import {
 } from "@/features/stream/service/like";
 
 /**
- * 현재 VodAsset에 대한 좋아요 상태/개수 조회 Action
+ * 현재 녹화본 좋아요 상태/개수 조회 서버 액션
+ *
+ * [기능]
+ * - 녹화본 좋아요 상태 조회를 service 계층에 위임
+ * - 비로그인 사용자 여부와 관계없이 현재 반응 상태와 총 개수를 함께 반환
+ *
+ * @param {number} vodId - 상태를 조회할 VOD ID
+ * @param {number | null} userId - 현재 사용자 ID
+ * @returns {ReturnType<typeof getStatusService>} 현재 좋아요 상태와 개수
  */
 export async function getRecordingLikeStatus(
   vodId: number,
@@ -38,7 +48,15 @@ type LikeResult =
   | { success: false; error: string };
 
 /**
- * 좋아요 추가 Action
+ * 녹화본 좋아요 추가 서버 액션
+ *
+ * [기능]
+ * - 로그인 세션을 확인하고
+ * - 좋아요 추가를 service 계층에 위임
+ * - 실패 코드는 클라이언트 토스트/낙관적 업데이트 분기에 맞춰 표준화된 상수로 반환
+ *
+ * @param {number} vodId - 좋아요를 추가할 VOD ID
+ * @returns {Promise<LikeResult>} 토글 결과
  */
 export async function likeRecording(vodId: number): Promise<LikeResult> {
   const session = await getSession();
@@ -60,7 +78,15 @@ export async function likeRecording(vodId: number): Promise<LikeResult> {
 }
 
 /**
- * 좋아요 취소 Action
+ * 녹화본 좋아요 취소 서버 액션
+ *
+ * [기능]
+ * - 로그인 세션을 확인하고
+ * - 좋아요 취소를 service 계층에 위임
+ * - 실패 코드는 클라이언트 토스트/낙관적 업데이트 분기에 맞춰 표준화된 상수로 반환
+ *
+ * @param {number} vodId - 좋아요를 취소할 VOD ID
+ * @returns {Promise<LikeResult>} 토글 결과
  */
 export async function dislikeRecording(vodId: number): Promise<LikeResult> {
   const session = await getSession();

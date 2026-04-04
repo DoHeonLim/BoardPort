@@ -14,28 +14,49 @@
  * 2026.01.22  임도헌   Modified  user 타입 정의 완화 (User -> UserLite)
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  UI 순서 재배치
+ * 2026.03.08  임도헌   Modified  상세 본문 기본 진입 애니메이션을 제거해 읽기 흐름을 방해하지 않도록 정리
+ * 2026.03.13  임도헌   Modified  상세 상단바의 뒤로가기와 수정 진입 경로에 returnTo를 연동
+ * 2026.03.14  임도헌   Modified  공통 세션 refresh 플래그를 소비해 상세에서 진입한 수정 흐름의 저장 후 back 복귀를 1회 최신화로 안정화
+ * 2026.03.14  임도헌   Modified  지도 섹션 제목의 이모지를 아이콘 기반으로 교체해 제품 상세와 톤을 통일
+ * 2026.03.15  임도헌   Modified  댓글 섹션 제목의 시스템 이모지를 heroicons 기반 아이콘으로 교체
+ * 2026.03.17  임도헌   Modified  작은 모바일 화면에서는 카테고리 칩을 본문 상단으로 이동해 헤더 과밀 완화
+ * 2026.03.18  임도헌   Modified  비채팅 returnTo 문맥의 detail-edit는 replace 기반 진입으로 정리해 삭제 후 stale history를 방지
+ * 2026.04.01  임도헌   Modified  게시글 detail-edit는 push 진입으로 되돌리고 저장/취소 복귀는 상세 재진입으로 분리
+ * 2026.03.23  임도헌   Modified  본문 섹션 구분선과 이미지 카드 외곽선을 구조 구분선 성격에 맞춰 subtle 기준으로 정리
+ * 2026.03.27  임도헌   Modified  상세 본문을 읽기 컬럼 폭으로 정리하고 태그/댓글 섹션 흐름을 재배치
+ * 2026.03.30  임도헌   Modified  PostBlock 기반 본문/미디어 렌더링 구조 도입
+ * 2026.03.31  임도헌   Modified  새 게시글 구조 기준으로 blocks 전용 렌더링으로 단순화
  * ===============================================================================================
- * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
+ * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
- * - PostDetailTopbar.tsx      : 상단바 (뒤로가기, 카테고리 칩, 수정 버튼)
- * - PostDetailTitle.tsx       : 게시글 제목
- * - PostDetailDescription.tsx : 게시글 본문 내용
- * - PostDetailMeta.tsx        : 작성일, 조회수, 좋아요 버튼 등 메타 정보
- * - index.tsx                 : 위 컴포넌트들을 조합하고 애니메이션/댓글 섹션을 포함한 최종 컨테이너
+ * - PostDetailTopbar.tsx : 상단바 (뒤로가기, 카테고리 칩, 수정 버튼)
+ * - PostDetailTitle.tsx  : 게시글 제목
+ * - PostDetailBlocks.tsx : TEXT / IMAGE / VIDEO 블록 렌더링
+ * - PostDetailMeta.tsx   : 작성일, 조회수, 좋아요 버튼 등 메타 정보
+ * - index.tsx            : 위 컴포넌트들을 조합하고 댓글 섹션을 포함한 최종 컨테이너
  * ===============================================================================================
  */
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { PostDetail as PostDetailType } from "@/features/post/types";
-import { motion } from "framer-motion";
-import Carousel from "@/components/ui/Carousel";
 import PostDetailTitle from "@/features/post/components/postsDetail/PostDetailTitle";
-import PostDetailDescription from "@/features/post/components/postsDetail/PostDetailDescription";
+import PostDetailBlocks from "@/features/post/components/postsDetail/PostDetailBlocks";
 import PostDetailTags from "@/features/post/components/postsDetail/PostDetailTags";
 import StaticMap from "@/features/map/components/StaticMap";
 import PostDetailMeta from "@/features/post/components/postsDetail/PostDetailMeta";
 import PostDetailTopbar from "@/features/post/components/postsDetail/PostDetailTopbar";
 import PostComment from "@/features/post/components/postComment";
+import {
+  ChatBubbleLeftEllipsisIcon,
+  MapPinIcon,
+} from "@heroicons/react/24/outline";
+import { POST_CATEGORY, type PostCategoryType } from "@/features/post/constants";
+import {
+  consumeNavigationRefreshFlag,
+  createNavigationRefreshFlagKey,
+} from "@/lib/navigationRefreshFlag";
 
 interface UserLite {
   id: number;
@@ -48,31 +69,51 @@ interface PostDetailProps {
   user: UserLite;
   likeCount: number;
   isLiked: boolean;
+  returnTo?: string;
+  hasExplicitReturnTo?: boolean;
 }
 
 /**
  * 게시글 상세 페이지 컨테이너
  *
  * [구조]
- * 1. 상단바 (Topbar)
- * 2. 본문 영역 (제목 -> 설명 -> 이미지 캐러셀 -> 지도 -> 태그 -> 메타 정보)
- * 3. 댓글 섹션 (PostComment)
+ * 1. 상단바
+ * 2. 제목
+ * 3. PostBlock 기반 본문/미디어
+ * 4. 태그 / 장소 / 메타
+ * 5. 댓글 섹션
  *
- * Framer Motion을 사용하여 본문 영역에 진입 애니메이션 적용
  */
 export default function PostDetail({
   post,
   user,
   likeCount,
   isLiked,
+  returnTo,
+  hasExplicitReturnTo = false,
 }: PostDetailProps) {
+  const router = useRouter();
   const canEdit = post.user.id === user.id;
+  const categoryLabel =
+    post.category && POST_CATEGORY[post.category as PostCategoryType];
+  const editHref = hasExplicitReturnTo && returnTo
+    ? `/posts/${post.id}/edit?returnTo=${encodeURIComponent(returnTo)}&flow=detail-edit`
+    : `/posts/${post.id}/edit?flow=detail-edit`;
+  useEffect(() => {
+    const refreshKey = createNavigationRefreshFlagKey(
+      "post-detail-refresh",
+      post.id
+    );
+    // 수정 완료 후 back 복귀한 상세 화면은 세션 플래그를 1회만 소비해
+    // App Router 캐시에 남아 있던 이전 상세 데이터를 즉시 최신화
+    if (!consumeNavigationRefreshFlag(refreshKey)) return;
+    router.refresh();
+  }, [post.id, router]);
 
   // 주소 문자열 조합
   const regionString = [post.region1, post.region2, post.region3]
     .filter(Boolean)
     .join(" ");
-
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">
       {/* 1. 상단바 */}
@@ -83,36 +124,37 @@ export default function PostDetail({
         authorUsername={post.user.username}
         authorAvatar={post.user.avatar}
         category={post.category}
+        backHref={returnTo}
         canEdit={canEdit}
-        editHref={`/posts/${post.id}/edit`}
+        editHref={editHref}
+        replaceEditHref={false}
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="px-page-x py-6 flex flex-col gap-8" // 섹션 간 간격을 더 넉넉히 조정
-      >
-        {/* 2. 제목 (제목) */}
-        <PostDetailTitle title={post.title} />
-
-        {/* 3. 본문 내용 (글) */}
-        <PostDetailDescription description={post.description} />
-
-        {/* 4. 이미지 캐러셀 (그림) */}
-        {post.images.length > 0 && (
-          <div className="pt-4 border-t border-border">
-            <div className="relative aspect-video w-full overflow-hidden rounded-2xl shadow-sm bg-surface-dim border border-border">
-              <Carousel images={post.images} className="w-full h-full" />
-            </div>
+      <div className="mx-auto flex w-full max-w-mobile flex-col gap-8 px-page-x py-6">
+        {/* 작은 모바일 화면에서는 카테고리 칩을 본문으로 내려 작성자 영역 과밀 완화 */}
+        {categoryLabel && (
+          <div className="sm:hidden -mb-4">
+            <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand dark:bg-brand-light/20 dark:text-gray-100">
+              {categoryLabel}
+            </span>
           </div>
         )}
 
+        {/* 2. 제목 */}
+        <PostDetailTitle title={post.title} />
+
+        {/* 3. 본문/미디어 영역 */}
+        <PostDetailBlocks blocks={post.blocks ?? []} />
+
+        {/* 4. 태그 */}
+        <PostDetailTags tags={post.tags} />
+
         {/* 5. 지도 (장소) */}
         {post.latitude && post.longitude && post.locationName && (
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-bold text-primary mb-4">
-              📍 모임 및 거래 희망 장소
+          <div className="border-t border-border-subtle pt-4">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-primary">
+              <MapPinIcon className="size-4 text-brand" />
+              모임 및 거래 희망 장소
             </h3>
             <StaticMap
               latitude={post.latitude}
@@ -123,11 +165,8 @@ export default function PostDetail({
           </div>
         )}
 
-        {/* 6. 태그 */}
-        <PostDetailTags tags={post.tags} />
-
-        {/* 7. 메타 정보 (하단 반응 섹션) */}
-        <div className="border-t border-border pt-4">
+        {/* 6. 메타 정보 (하단 반응 섹션) */}
+        <div className="border-t border-border-subtle pt-4">
           <PostDetailMeta
             postId={post.id}
             isLiked={isLiked}
@@ -137,14 +176,15 @@ export default function PostDetail({
           />
         </div>
 
-        {/* 8. 댓글 섹션 */}
-        <section className="pt-4">
+        {/* 7. 댓글 섹션 */}
+        <section className="border-t border-border-subtle pt-6">
           <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
-            <span className="text-xl">💬</span> 항해 로그
+            <ChatBubbleLeftEllipsisIcon className="size-5 text-brand" />
+            항해 로그
           </h3>
           <PostComment postId={post.id} user={user} />
         </section>
-      </motion.div>
+      </div>
     </div>
   );
 }

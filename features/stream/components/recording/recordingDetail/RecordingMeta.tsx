@@ -10,6 +10,7 @@
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 아이콘 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.02.13  임도헌   Modified  handleCopyLink 제거 및 handleShare 통합
+ * 2026.03.21  임도헌   Modified  녹화 메타 하단 구분선을 제거해 통계 행과 댓글 섹션 사이 시각적 중복을 정리
  */
 
 "use client";
@@ -45,7 +46,7 @@ export default function RecordingMeta({
   LikeButtonComponent,
 }: RecordingMetaProps) {
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-4">
+    <div className="flex flex-col gap-4">
       {/* 1. 시간 및 공유 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-muted">

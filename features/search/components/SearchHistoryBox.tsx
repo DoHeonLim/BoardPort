@@ -11,13 +11,14 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.06  임도헌   Modified  삭제 버튼 hover 대비를 시맨틱 토큰 기반으로 정리
+ * 2026.04.02  임도헌   Modified  검색 기록 타입 import를 search 도메인 공용 타입 기준으로 정리
  */
 "use client";
 
 import Link from "next/link";
 import { XMarkIcon, ClockIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
-import type { SearchHistoryItem } from "@/features/product/types";
+import type { SearchHistoryItem } from "@/features/search/types";
 
 interface SearchHistoryBoxProps {
   history: SearchHistoryItem[];

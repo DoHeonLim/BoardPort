@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   created   app/streams/[id]/actions.ts (unlockPrivateBroadcastAction) -> features/stream/actions/access.ts
+ * 2026.04.02  임도헌   Modified  비공개 방송 잠금 해제 액션 JSDoc 보강
  */
 
 "use server";
@@ -16,6 +17,10 @@ import { verifyBroadcastPassword } from "@/features/stream/service/access";
 /**
  * PRIVATE 방송 잠금 해제 Action
  * - 비밀번호 검증 성공 시 세션에 언락 정보(`unlockedBroadcastIds`)를 저장
+ *
+ * @param {number} broadcastId - 잠금 해제할 방송 ID
+ * @param {string} password - 사용자가 입력한 방송 비밀번호
+ * @returns {Promise<{ success: true } | { success: false; error: "NOT_LOGGED_IN" | "NOT_FOUND" | "NOT_PRIVATE_STREAM" | "NO_PASSWORD_SET" | "INVALID_PASSWORD" | "BAD_REQUEST" | "MISSING_PASSWORD" | "INTERNAL_ERROR" }>} 잠금 해제 결과
  */
 export const unlockPrivateBroadcastAction = async (
   broadcastId: number,

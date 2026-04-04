@@ -14,19 +14,15 @@
  * 2026.01.23  임도헌   Modified  lib/push-notification -> service/sender 이동 및 경로 수정
  * 2026.02.12  임도헌   Modified  KEYWORD 타입 푸시 정책(Tag, Defaults) 추가
  * 2026.03.07  임도헌   Modified  SYSTEM 기본 tag가 KEYWORD로 폴스루되지 않도록 분기 수정
+ * 2026.04.02  임도헌   Modified  푸시 결과 타입과 알림 타입을 notification/types 공용 정의로 분리
  */
 
 import webPush from "web-push";
 import db from "@/lib/db";
-import type { NotificationType } from "@/features/notification/utils/policy";
+import type { NotificationType, SendPushResult } from "@/features/notification/types";
 import type { ServiceResult } from "@/lib/types";
 
-export type SendPushResult = {
-  sent: number;
-  removed: number;
-  disabled: number;
-  errors: number;
-};
+export type { SendPushResult } from "@/features/notification/types";
 
 // Web Push 에러 타입 정의 (라이브러리 응답 구조 매핑)
 interface WebPushError extends Error {

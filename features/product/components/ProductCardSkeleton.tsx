@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   ProductCard 구조와 동일한 밀도의 스켈레톤 컴포넌트 추가
+ * 2026.03.19  임도헌   Modified  실제 ProductCard와 동일하게 border-border-subtle 기준으로 스켈레톤 외곽선을 통일
+ * 2026.03.19  임도헌   Modified  모바일 리스트 높이를 실제 ProductCard(h-32)와 맞춰 전환 시 밀도 점프를 완화
  */
 "use client";
 
@@ -25,8 +27,8 @@ export default function ProductCardSkeleton({
   return (
     <div
       className={cn(
-        "flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm",
-        isGrid ? "flex-col h-full" : "h-28 w-full flex-row sm:h-36"
+        "flex overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-sm",
+        isGrid ? "flex-col h-full" : "h-32 w-full flex-row sm:h-36"
       )}
     >
       <div

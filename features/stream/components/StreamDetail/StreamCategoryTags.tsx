@@ -10,6 +10,7 @@
  * 2025.09.15  임도헌   Modified  inline/compact 옵션 추가(한 줄 섞어쓰기 & 작은 pill), 불필요한 mb 제거
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 뱃지 스타일 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.03.20  임도헌   Modified  스트림 상세 카드 톤에 맞춰 카테고리/태그 pill의 반경과 대비를 더 부드럽게 정리
  */
 
 "use client";
@@ -50,14 +51,14 @@ export default function StreamCategoryTags({
     ? "inline-flex flex-wrap items-center gap-1.5"
     : "flex flex-wrap items-center gap-1.5";
 
-  const sizeClass = compact ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-sm";
+  const sizeClass = compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm";
 
   return (
     <div className={wrapClass} role="group" aria-label="카테고리 및 태그">
       {categoryLabel && (
         <span
           className={cn(
-            "rounded-md font-medium transition-colors",
+            "rounded-full font-medium transition-colors",
             "bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-brand-light",
             sizeClass
           )}
@@ -71,8 +72,8 @@ export default function StreamCategoryTags({
         <span
           key={name}
           className={cn(
-            "rounded-md font-medium transition-colors",
-            "bg-surface-dim text-muted border border-border",
+            "rounded-full font-medium transition-colors",
+            "border border-border-subtle bg-surface-dim/70 text-muted",
             sizeClass
           )}
           title={`#${name}`}

@@ -18,6 +18,7 @@
  * 2026.03.01  임도헌   Modified  useInfiniteQuery 도입 및 수동 상태(useState) 관리 제거 및 로딩 상태 세분화
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialData Prop Drilling 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.11  임도헌   Modified  첫 페이지 totalCount를 노출해 무한스크롤 중에도 전체 검색 결과 수를 고정 표시
  */
 
 "use client";
@@ -40,7 +41,11 @@ import type { Paginated, ProductSearchParams } from "@/features/product/types";
 type ProductsEnvelope<T> = Paginated<T>;
 
 /** [Mode 1] 기본 제품 목록 (항구 메인 페이지 등) */
-type ProductMode = { mode: "product"; searchParams?: ProductSearchParams };
+type ProductMode = {
+  mode: "product";
+  searchParams?: ProductSearchParams;
+  queryKeyExtra?: unknown;
+};
 
 /** [Mode 2] 프로필 탭 목록 (판매중, 판매완료, 구매내역 등) */
 type ProfileMode<T> = {
@@ -66,6 +71,7 @@ export type UseProductPaginationParams<T extends { id: number }> =
 /** 훅 반환 타입 인터페이스 */
 export interface UseProductPaginationResult<T extends { id: number }> {
   products: T[]; // 평탄화된 전체 제품 배열
+  totalCount?: number; // 서버에서 내려준 전체 결과 수 (지원 모드에서만 사용)
   cursor: number | null; // 다음 페이지 요청을 위한 커서 ID
   isFetchingNextPage: boolean; // 스크롤 하단에 도달하여 다음 페이지를 불러오는 중인지 여부
   hasMore: boolean; // 불러올 데이터가 더 남아있는지 여부
@@ -94,6 +100,8 @@ export function useProductPagination<T extends { id: number }>(
 
   // 의존성 배열(deps) 최적화를 위해 구조 분해 할당으로 필요한 값만 추출
   const searchParams = mode === "product" ? params.searchParams : undefined;
+  const productQueryKeyExtra =
+    mode === "product" ? params.queryKeyExtra : undefined;
   const profileScope = mode === "profile" ? params.scope : undefined;
   const customFetcher = mode === "custom" ? params.fetcher : undefined;
 
@@ -103,7 +111,12 @@ export function useProductPagination<T extends { id: number }>(
    *   TanStack Query가 알아서 캐시를 분리하고 새 데이터를 요청
    */
   const queryKey = useMemo(() => {
-    if (mode === "product") return queryKeys.products.list(searchParams || {});
+    if (mode === "product") {
+      return queryKeys.products.list({
+        ...(searchParams || {}),
+        __scope: productQueryKeyExtra,
+      });
+    }
     if (mode === "profile" && profileScope) {
       return queryKeys.products.userScope(
         profileScope.type,
@@ -112,7 +125,7 @@ export function useProductPagination<T extends { id: number }>(
     }
     if (mode === "custom") return params.queryKey;
     return ["products", "unreachable"];
-  }, [mode, searchParams, profileScope, params]);
+  }, [mode, searchParams, productQueryKeyExtra, profileScope, params]);
 
   /**
    * 무한 쿼리 인스턴스 생성
@@ -150,6 +163,7 @@ export function useProductPagination<T extends { id: number }>(
 
   // Suspense 환경이므로 data는 반드시 존재
   const products = data.pages.flatMap((page) => page.products);
+  const totalCount = data.pages[0]?.totalCount;
 
   /**
    * 단일 아이템 로컬 캐시 업데이트 (Optimistic UI용)
@@ -177,6 +191,7 @@ export function useProductPagination<T extends { id: number }>(
 
   return {
     products,
+    totalCount,
     cursor: data?.pages[data.pages.length - 1]?.nextCursor ?? null,
     isFetchingNextPage,
     hasMore: !!hasNextPage,

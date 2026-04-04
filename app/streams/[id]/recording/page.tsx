@@ -30,18 +30,22 @@
  * 2026.02.23  임도헌   Modified  didIncrement 수동 보정 레거시 제거 및 서버 SSOT 조회수 패턴으로 전 도메인 통일
  * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 녹화본 댓글 데이터 Prefetch 로직 추가
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.13  임도헌   Modified  returnTo 복귀 경로를 녹화 상세 뒤로가기 및 삭제 완료 흐름에 반영
+ * 2026.03.13  임도헌   Modified  returnTo를 로그인/차단/권한 가드 callbackUrl에 반영
+ * 2026.03.22  임도헌   Modified  녹화본 댓글 섹션 상단 절개선을 제거해 메타 정보 아래 흐름을 단순화
+ * 2026.03.25  임도헌   Modified  owner 삭제 액션을 본문 버튼 대신 상단 관리 메뉴로 이동해 시청 흐름 우선순위 정리
  */
 export const dynamic = "force-dynamic";
 
 import { notFound, redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import RecordingTopbar from "@/features/stream/components/recording/RecordingTopbar";
 import RecordingDetail from "@/features/stream/components/recording/recordingDetail";
 import RecordingComment from "@/features/stream/components/recording/recordingComment";
-import RecordingDeleteButton from "@/features/stream/components/recording/recordingDetail/RecordingDeleteButton";
 import { checkBroadcastAccess } from "@/features/stream/service/access";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import { getVodDetail } from "@/features/stream/service/detail";
@@ -50,6 +54,7 @@ import { incrementViews } from "@/features/common/service/view";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { getRecordingCommentsListAction } from "@/features/stream/actions/comments";
 import type { StreamVisibility } from "@/features/stream/types";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 /**
  * 녹화본 상세 페이지 (VOD)
@@ -60,23 +65,30 @@ import type { StreamVisibility } from "@/features/stream/types";
  * - 녹화본 상세 정보 및 좋아요 상태의 서버 사이드 병렬 로드 적용
  * - 양방향 차단 가드 확인 및 방송 접근 권한(PRIVATE, FOLLOWERS) 세션 검증 처리
  * - TanStack Query를 활용한 VOD 댓글 목록 서버 프리패치(Prefetch) 및 HydrationBoundary 적용
+ *
+ * @param {Object} params - URL 파라미터 (id: 녹화본 ID)
+ * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
  */
 export default async function RecordingVodPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { returnTo?: string };
 }) {
   const vodId = Number(params.id);
   if (!Number.isFinite(vodId) || vodId <= 0) return notFound();
+  const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/streams");
+  const detailHref = `/streams/${vodId}/recording?returnTo=${encodeURIComponent(
+    returnTo
+  )}`;
 
   // 1. 세션 및 유저 확인
   const session = await getSession();
   const viewerId = session?.id ?? null;
 
   if (!viewerId) {
-    redirect(
-      `/login?callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}`
-    );
+    redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
 
   // 2. 조회수 증가 및 무효화 선행
@@ -115,7 +127,7 @@ export default async function RecordingVodPage({
     const isBlocked = await checkBlockRelation(viewerId, owner.id);
     if (isBlocked) {
       redirect(
-        `/403?reason=BLOCKED&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}`
+        `/403?reason=BLOCKED&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(detailHref)}`
       );
     }
     // 4. 접근 권한 체크 (PRIVATE / FOLLOWERS)
@@ -134,7 +146,7 @@ export default async function RecordingVodPage({
 
     if (!guard.allowed) {
       redirect(
-        `/403?reason=${guard.reason}&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(`/streams/${vodId}/recording`)}&sid=${base.broadcast.id}&uid=${owner.id}`
+        `/403?reason=${guard.reason}&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(detailHref)}&sid=${base.broadcast.id}&uid=${owner.id}`
       );
     }
   }
@@ -153,12 +165,13 @@ export default async function RecordingVodPage({
         username={owner.username}
         avatar={owner.avatar}
         isOwner={isOwner}
-        backHref="/streams"
+        backHref={returnTo}
+        liveInputUid={base.broadcast.stream_id}
         categoryLabel={category?.kor_name ?? null}
         categoryIcon={category?.icon ?? null}
       />
 
-      <main className="flex-1 flex flex-col items-center gap-6 pb-20 px-page-x py-6 w-full max-w-mobile mx-auto">
+      <main className="flex-1 flex flex-col items-center gap-3 pb-20 px-page-x py-6 w-full max-w-mobile mx-auto">
         {/* 비디오 플레이어 및 메타 정보 */}
         <RecordingDetail
           broadcast={base.broadcast}
@@ -172,21 +185,11 @@ export default async function RecordingVodPage({
           viewCount={base.views}
         />
 
-        {/* 소유자 전용: 삭제 버튼 */}
-        {isOwner && (
-          <div className="w-full">
-            <RecordingDeleteButton
-              broadcastId={base.broadcast.id}
-              liveInputUid={base.broadcast.stream_id}
-              username={owner.username}
-            />
-          </div>
-        )}
-
         {/* 댓글 섹션 */}
-        <div className="w-full pt-4 border-t border-border">
+        <div className="w-full">
           <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
-            <span className="text-xl">💬</span> 댓글
+            <ChatBubbleLeftEllipsisIcon className="size-5 text-brand" />
+            댓글
           </h3>
           {/* 직렬화된 캐시 상태(dehydratedState)를 하위 컴포넌트로 전송 */}
           <HydrationBoundary state={dehydrate(queryClient)}>

@@ -18,10 +18,10 @@
 // 패스워드 설정 (Auth/User 공용 - 여러 도메인에 걸쳐있어 Global 유지)
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_REGEX = new RegExp(
-  /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).+$/
+  /^(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).+$/
 );
 export const PASSWORD_REGEX_ERROR =
-  "비밀번호는 소문자, 대문자, 숫자, 특수문자를 포함해야 합니다.";
+  "비밀번호는 소문자, 숫자, 특수문자를 포함해야 합니다.";
 
 // 이미지 최대 크기 (Global Utils에서 사용)
 export const MAX_PHOTO_SIZE = 3 * 1024 * 1024;
@@ -44,6 +44,8 @@ export const PUBLIC_ONLY_URLS = [
   "/login",
   "/sms",
   "/create-account",
+  "/forgot-password",
+  "/reset-password",
   "/kakao/start",
   "/kakao/complete",
   "/github/start",
