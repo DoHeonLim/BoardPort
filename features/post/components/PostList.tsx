@@ -18,6 +18,10 @@
  * 2026.03.06  임도헌   Modified  뷰 토글 active 상태 및 다크모드 대비 보강
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드 간격을 조정해 게시글 카드 밀도를 더 촘촘하게 정리
  * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
+ * 2026.03.11  임도헌   Modified  currentRange를 queryKeyExtra로 전달해 지역 범위 전환 시 캐시 stale 방지
+ * 2026.03.12  임도헌   Modified  게시글 뷰 토글 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.14  임도헌   Modified  첫 페이지 totalCount를 활용해 총 게시글 수와 뷰 토글을 같은 헤더 row로 정리
+ * 2026.03.26  임도헌   Modified  리스트 뷰 본문 폭과 헤더 간격을 조정해 게시글 카드 리듬을 정리
  */
 
 "use client";
@@ -33,6 +37,7 @@ import { cn } from "@/lib/utils";
 
 interface PostListProps {
   searchParams: PostSearchParams;
+  queryKeyExtra?: unknown;
 }
 
 /**
@@ -40,19 +45,28 @@ interface PostListProps {
  *
  * [상태 주입 및 페이징 로직]
  * - `usePostPagination` 훅을 통한 캐시 데이터 추출 및 무한 스크롤 상태 전역 관리
+ * - queryKeyExtra(currentRange) 기준 캐시 분리
  * - 사용자 가시성(`usePageVisibility`) 기반의 `useInfiniteScroll` 스크롤 감지 및 페이징 요청 제어
  * - 뷰 모드(List/Grid) 전환 로컬 상태 관리 및 적용
+ * - 첫 페이지 `totalCount`를 활용한 총 게시글 수 문구 고정 표시
  * - 데이터 페칭 상태(`isFetchingNextPage`)에 따른 하단 스피너 조건부 렌더링 적용
  */
-export default function PostList({ searchParams }: PostListProps) {
+export default function PostList({
+  searchParams,
+  queryKeyExtra,
+}: PostListProps) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
   const triggerRef = useRef<HTMLDivElement | null>(null);
 
   // Suspense에 의해 data 보장
-  const { posts, isFetchingNextPage, hasMore, loadMore } = usePostPagination({
-    searchParams,
-  });
+  const { posts, totalCount, isFetchingNextPage, hasMore, loadMore } =
+    usePostPagination({
+      searchParams,
+      queryKeyExtra,
+    });
+
+  const displayCount = totalCount ?? posts.length;
 
   useInfiniteScroll({
     triggerRef,
@@ -67,9 +81,14 @@ export default function PostList({ searchParams }: PostListProps) {
 
   return (
     <>
-      {/* 뷰 모드 전환 버튼 영역 */}
-      <div className="flex justify-end mb-4">
-        <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
+      <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-6">
+        <span className="shrink-0 text-sm font-medium text-muted">
+          총 <span className="font-bold text-primary">{displayCount}</span>개의
+          게시글
+        </span>
+
+        {/* 뷰 모드 전환 버튼 영역 */}
+        <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
           <button
             onClick={() => setViewMode("list")}
             className={cn(
@@ -102,7 +121,7 @@ export default function PostList({ searchParams }: PostListProps) {
         className={cn(
           viewMode === "grid"
             ? "grid grid-cols-2 gap-3 sm:gap-4"
-            : "grid grid-cols-1 gap-4"
+            : "mx-auto grid max-w-4xl grid-cols-1 gap-3 sm:gap-4"
         )}
       >
         {posts.map((post) => (

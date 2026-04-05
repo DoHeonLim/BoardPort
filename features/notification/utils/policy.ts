@@ -9,31 +9,14 @@
  * 2025.12.21  임도헌   Modified  pushEnabled는 푸시에만 영향, 앱 내 알림 생성은 타입 토글로만 제어
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
  * 2026.02.12  임도헌   Modified  KEYWORD 알림 타입 추가
+ * 2026.04.02  임도헌   Modified  알림 타입과 설정 유사 타입을 notification/types 공용 정의로 분리
  */
 
 import { isWithinQuietHours } from "@/features/notification/utils/quietHours";
-
-export type NotificationType =
-  | "CHAT"
-  | "TRADE"
-  | "REVIEW"
-  | "BADGE"
-  | "STREAM"
-  | "SYSTEM"
-  | "KEYWORD";
-
-export type NotificationPreferencesLike = {
-  chat?: boolean;
-  trade?: boolean;
-  review?: boolean;
-  badge?: boolean;
-  system?: boolean;
-  stream?: boolean;
-  keyword?: boolean;
-  pushEnabled?: boolean;
-  quietHoursStart?: string | null;
-  quietHoursEnd?: string | null;
-};
+import type {
+  NotificationPreferencesLike,
+  NotificationType,
+} from "@/features/notification/types";
 
 /**
  * 앱 내 알림 생성 허용 여부 판단

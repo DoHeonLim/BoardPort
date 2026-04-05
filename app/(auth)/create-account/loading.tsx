@@ -6,14 +6,15 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.14  임도헌   Created
+ * 2026.03.12  임도헌   Modified  현재 회원가입 히어로/폼 밀도에 맞춰 스켈레톤 구조 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="flex flex-col min-h-screen px-6 py-10 bg-background">
-      <div className="flex flex-col items-center gap-4 mt-10 mb-8">
+    <div className="flex min-h-screen flex-col bg-background px-6 py-10">
+      <div className="mt-10 mb-8 flex flex-col items-center gap-4">
         <Skeleton className="size-14 rounded-2xl" />
         <div className="flex flex-col items-center gap-2">
           <Skeleton className="h-8 w-32 rounded" />
@@ -21,7 +22,8 @@ export default function Loading() {
         </div>
       </div>
 
-      <div className="w-full max-w-sm mx-auto space-y-5">
+      <div className="mx-auto w-full max-w-sm space-y-5">
+        <Skeleton className="h-16 w-full rounded-2xl" />
         {/* Inputs */}
         <Skeleton className="h-12 w-full rounded-xl" />
         <Skeleton className="h-12 w-full rounded-xl" />
@@ -29,7 +31,7 @@ export default function Loading() {
         <Skeleton className="h-12 w-full rounded-xl" />
 
         {/* Button */}
-        <Skeleton className="h-12 w-full rounded-xl mt-6" />
+        <Skeleton className="mt-6 h-12 w-full rounded-xl" />
 
         {/* Link */}
         <div className="flex justify-center mt-4">

@@ -11,6 +11,7 @@
  * 2026.01.19  임도헌   Moved      lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved      lib/email/mailer -> utils/mailer
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.03.14  임도헌   Modified  비밀번호 재설정 메일 발송 함수를 추가해 인증 메일과 목적을 분리
  */
 
 import "server-only";
@@ -53,5 +54,46 @@ export const sendEmail = async (
   } catch (error) {
     console.error("이메일 전송 실패:", error);
     throw new Error("이메일 전송에 실패했습니다.");
+  }
+};
+
+/**
+ * 비밀번호 재설정 링크가 포함된 이메일을 발송
+ *
+ * @param {string} email - 수신자 이메일 주소
+ * @param {string} resetUrl - 재설정 링크
+ */
+export const sendPasswordResetEmail = async (
+  email: string,
+  resetUrl: string
+): Promise<void> => {
+  try {
+    await resend.emails.send({
+      from: "Board Port <noreply@boardport.xyz>",
+      to: email,
+      subject: "비밀번호 재설정",
+      html: `
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: sans-serif;">
+          <h2 style="color: #333; text-align: center;">비밀번호 재설정</h2>
+          <p style="color: #666; line-height: 1.6;">아래 버튼을 눌러 새 비밀번호를 설정해주세요.</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a
+              href="${resetUrl}"
+              style="display: inline-block; padding: 14px 22px; border-radius: 10px; background: #2563eb; color: #fff; text-decoration: none; font-weight: 600;"
+            >
+              비밀번호 재설정하기
+            </a>
+          </div>
+          <p style="color: #666; line-height: 1.6;">이 링크는 30분 동안 유효합니다.</p>
+          <p style="color: #666; line-height: 1.6; font-size: 14px;">본인이 요청하지 않은 경우 이 이메일을 무시하셔도 됩니다.</p>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 12px;">
+            <p>© 2025 Board Port. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("비밀번호 재설정 이메일 전송 실패:", error);
+    throw new Error("비밀번호 재설정 이메일 전송에 실패했습니다.");
   }
 };

@@ -18,6 +18,9 @@
  * 2026.01.11  임도헌   Modified  [UX] 스피너 제거 & 스크롤 변경 방지
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.26  임도헌   Modified  autoFocus 제거
+ * 2026.03.26  임도헌   Modified  textarea 하단 우측 resize affordance를 강화해 모바일에서도 크기 조절 가능성을 더 잘 드러냄
+ * 2026.03.27  임도헌   Modified  textarea 기본 리사이저와 커스텀 affordance가 중복되지 않도록 브라우저 기본 핸들 표시 정리
+ * 2026.04.04  임도헌   Modified  forwardRef export 주석을 보강해 input/textarea 공용 정책을 더 명확히 정리
  */
 "use client";
 
@@ -34,6 +37,17 @@ interface IInputProps
   passwordToggleLabels?: { show?: string; hide?: string };
 }
 
+/**
+ * input과 textarea를 같은 검증/에러/스타일 규칙으로 감싸는 공용 폼 필드 컴포넌트
+ *
+ * - input/textarea 단일 인터페이스 제공
+ * - 비밀번호 표시 전환 지원
+ * - number 스피너 억제와 textarea affordance 공통 처리
+ *
+ * @param {IInputProps} props - 라벨, 에러, 아이콘, 입력 타입을 포함한 필드 설정
+ * @param {ForwardedRef<HTMLInputElement | HTMLTextAreaElement>} ref - 실제 input/textarea 참조
+ * @returns {JSX.Element} 공용 폼 필드
+ */
 const Input = (
   {
     errors = [],
@@ -68,18 +82,34 @@ const Input = (
             {rest.label}
           </label>
         )}
-        <textarea
-          id={inputId}
-          ref={ref as ForwardedRef<HTMLTextAreaElement>}
-          name={name}
-          className={cn(
-            "input-primary min-h-[120px] resize-y p-3",
-            filteredErrors.length > 0 && "ring-2 ring-danger/50",
-            className
+        <div className="relative">
+          <style jsx>{`
+            textarea::-webkit-resizer {
+              display: none;
+            }
+          `}</style>
+          <textarea
+            id={inputId}
+            ref={ref as ForwardedRef<HTMLTextAreaElement>}
+            name={name}
+            className={cn(
+              "input-primary min-h-[120px] resize-y p-3 pb-8 pr-8",
+              filteredErrors.length > 0 && "ring-2 ring-danger/50",
+              className
+            )}
+            aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
+            {...rest}
+          />
+          {!rest.disabled && !rest.readOnly && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-3 right-3 flex flex-col items-end gap-0.5 opacity-80"
+            >
+              <span className="block h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-muted/80" />
+              <span className="block h-1.5 w-1.5 rounded-br-sm border-b-2 border-r-2 border-muted/60" />
+            </div>
           )}
-          aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
-          {...rest}
-        />
+        </div>
         {filteredErrors.map((error, index) => (
           <span key={index} className="text-xs text-danger font-medium pl-1">
             {error}
@@ -156,7 +186,7 @@ const Input = (
       {filteredErrors.map((error, index) => (
         <span
           key={index}
-          className="text-xs text-danger font-medium pl-1 animate-fade-in"
+          className="text-xs text-danger font-medium pl-1"
         >
           {error}
         </span>

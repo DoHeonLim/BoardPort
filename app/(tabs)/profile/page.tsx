@@ -29,6 +29,8 @@
  * 2026.03.03  임도헌   Modified   서버 컴포넌트 하이드레이션(HydrationBoundary) 적용 및 initialReviews Prop Drilling 제거
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.06  임도헌   Modified   로그아웃 UX를 공용 LogoutButton(pending/toast) 기반으로 정리
+ * 2026.03.08  임도헌   Modified   삼성 인터넷에서만 표시되는 다크모드 안내문 추가
+ * 2026.03.12  임도헌   Modified   프로필 상단 액션바를 flat 헤더 톤으로 통일해 탭 UI와 시각적 일관성 확보
  */
 
 import { redirect } from "next/navigation";
@@ -37,11 +39,13 @@ import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import ThemeToggle from "@/components/global/ThemeToggle";
+import SamsungInternetThemeNotice from "@/components/global/SamsungInternetThemeNotice";
 import MyProfile from "@/features/user/components/profile/MyProfile";
 import ProfileSettingMenu from "@/features/user/components/profile/ProfileSettingMenu";
 import NotificationBell from "@/components/global/NotificationBell";
 import { getUserProfile } from "@/features/user/service/profile";
 import { getUserReviewsAction } from "@/features/user/actions/review";
+import { getUserReviews } from "@/features/user/service/review";
 import { getUserAverageRating } from "@/features/user/service/metric";
 import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
@@ -56,6 +60,7 @@ export const dynamic = "force-dynamic";
  * - 세션 검증을 통한 로그인 여부 확인 및 비인가 사용자 리다이렉트 처리
  * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록, 안 읽은 알림 수의 서버 사이드 병렬 로드(Promise.all) 적용
  * - 유저의 리뷰 목록에 대한 TanStack Query 기반 서버 프리패치(Prefetch) 적용
+ * - 상단 액션바를 flat 헤더 톤으로 유지하고 삼성 인터넷 다크모드 안내문을 조건부 노출
  * - HydrationBoundary를 통한 직렬화된 캐시 주입 및 `MyProfile` 클라이언트 UI 구성
  */
 export default async function ProfilePage() {
@@ -73,7 +78,7 @@ export default async function ProfilePage() {
   const queryClient = getQueryClient();
 
   // 2. 대량 데이터 병렬 로딩 (성능 최적화)
-  const [averageRating, badgesPair, streams, unreadCount] = await Promise.all([
+  const [averageRating, badgesPair, streams, unreadCount, previewReviews] = await Promise.all([
     getUserAverageRating(user.id),
     (async () => {
       const [badges, badgesEarned] = await Promise.all([
@@ -84,6 +89,7 @@ export default async function ProfilePage() {
     })(),
     getRecentBroadcasts(user.id, 6, true),
     getUnreadNotificationCount(),
+    getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.reviews.user(user.id),
       queryFn: () => getUserReviewsAction(user.id, null),
@@ -93,17 +99,22 @@ export default async function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
-      {/* 상단 액션바: 설정 메뉴 및 테마 토글 */}
-      <div className="sticky top-0 z-30 flex items-center justify-end gap-2 px-page-x h-16 bg-background/80 backdrop-blur-sm">
-        {/* 알림 벨 추가 */}
-        <NotificationBell userId={userId} initialCount={unreadCount} />
+      <header className="sticky top-0 z-30 h-16 border-b border-border-subtle bg-background shadow-sm">
+        <div className="flex h-full items-center justify-end gap-2 px-page-x">
+          {/* 알림 벨 추가 */}
+          <NotificationBell userId={userId} initialCount={unreadCount} />
 
-        <ProfileSettingMenu
-          emailVerified={!!user.emailVerified}
-          hasEmail={!!user.email}
-          isAdmin={isAdmin}
-        />
-        <ThemeToggle />
+          <ProfileSettingMenu
+            emailVerified={!!user.emailVerified}
+            hasEmail={!!user.email}
+            isAdmin={isAdmin}
+          />
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <div className="px-page-x">
+        <SamsungInternetThemeNotice />
       </div>
 
       <div className="px-page-x pt-2">
@@ -113,6 +124,7 @@ export default async function ProfilePage() {
             averageRating={averageRating}
             badges={badgesPair.badges}
             userBadges={badgesPair.userBadges}
+            previewReviews={previewReviews}
             myStreams={streams}
             viewerId={user.id}
           />

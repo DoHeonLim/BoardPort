@@ -11,13 +11,18 @@
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (DOM 이벤트 리스너 제거)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.08  임도헌   Modified  알림 배지 진입 애니메이션 제거
+ * 2026.03.12  임도헌   Modified  현재 페이지를 returnTo로 전달해 알림 센터 복귀 경로 보존
+ * 2026.03.18  임도헌   Modified  알림 센터 진입/재진입 경로를 현재 filter/page 문맥 기준으로 유지하고 내부 경로 정규화로 nested returnTo 예외를 완화
  */
 "use client";
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { BellIcon as BellIconSolid } from "@heroicons/react/24/solid";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 
@@ -45,6 +50,8 @@ export default function NotificationBell({
   // Zustand 스토어 상태 및 액션 구독
   const unreadCount = useNotificationStore((state) => state.unreadCount);
   const setUnreadCount = useNotificationStore((state) => state.setUnreadCount);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // 컴포넌트 마운트 시 서버 상태(initialCount)로 스토어를 동기화
   useEffect(() => {
@@ -53,9 +60,19 @@ export default function NotificationBell({
 
   if (!userId) return null;
 
+  const currentQuery = searchParams.toString();
+  const currentPath = sanitizeCallbackUrl(
+    `${pathname}${currentQuery ? `?${currentQuery}` : ""}`
+  );
+  // 알림 센터 내부에서는 현재 filter/page 문맥을 유지하고, 외부 페이지에서만 returnTo를 덧붙임
+  const href =
+    pathname === "/profile/notifications/list"
+      ? currentPath
+      : `/profile/notifications/list?returnTo=${encodeURIComponent(currentPath)}`;
+
   return (
     <Link
-      href="/profile/notifications/list"
+      href={href}
       className={cn(
         "relative flex items-center justify-center size-10 rounded-xl transition-colors",
         "bg-surface border border-border text-muted hover:text-primary hover:bg-surface-dim active:scale-95",
@@ -76,8 +93,7 @@ export default function NotificationBell({
             "absolute -top-0.5 -right-0.5 flex items-center justify-center",
             "min-w-[18px] h-[18px] px-1",
             "text-[10px] font-bold text-white leading-none",
-            "bg-danger rounded-full border-2 border-surface shadow-sm",
-            "animate-fade-in"
+            "bg-danger rounded-full border-2 border-surface shadow-sm"
           )}
         >
           {unreadCount > 99 ? "99+" : unreadCount}

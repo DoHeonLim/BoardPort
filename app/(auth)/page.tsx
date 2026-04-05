@@ -15,6 +15,7 @@
  * 2025.05.30  임도헌   Modified  메인 콘텐츠, 버튼 영역 컴포넌트로 분리
  * 2026.01.10  임도헌   Modified  구조 개선
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.03.25  임도헌   Modified  랜딩 히어로와 CTA 간 간격을 줄이고 모바일 첫인상 위계를 정리
  */
 
 import AccountBox from "@/features/auth/components/AccountBox";
@@ -45,7 +46,7 @@ export default function Main() {
       <Seagulls />
 
       {/* 메인 콘텐츠 (z-index: 10) */}
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center w-full px-4 pt-10 pb-32">
+      <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-8 px-4 pt-8 pb-28 sm:gap-10 sm:pt-10 sm:pb-32">
         <HeroSection />
         <AccountBox />
       </div>

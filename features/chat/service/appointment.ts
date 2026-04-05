@@ -11,6 +11,7 @@
  * 2026.02.22  임도헌   Modified  약속 수락 트랜잭션 통합(원자성 보장) 및 알림 발송 로직 독립 구현
  * 2026.02.23  임도헌   Modified  보안 가드(과거 시간, IDOR, Ghost User) 및 동시성 제어 강화
  * 2026.03.07  임도헌   Modified  약속 관련 실패 문구를 구체화(v1.2)
+ * 2026.04.02  임도헌   Modified  약속 서비스 JSDoc 태그 형식 정리
  */
 
 import "server-only";
@@ -39,10 +40,10 @@ import type { LocationData } from "@/features/map/types";
  *    - 새 약속 및 제안 메시지 생성
  * 4. 실시간 브로드캐스트 (기존 약속 취소 알림 + 새 제안 메시지)
  *
- * @param userId - 제안자 ID
- * @param chatRoomId - 채팅방 ID
- * @param data - { meetDate: 약속 일시, location: 장소 정보 }
- * @returns {Promise<ServiceResult>} - 약속 정보
+ * @param {number} userId - 제안자 ID
+ * @param {string} chatRoomId - 채팅방 ID
+ * @param {{ meetDate: Date; location: LocationData }} data - 약속 일시와 장소 정보
+ * @returns {Promise<ServiceResult<ChatMessage>>} 생성된 약속 메시지 또는 실패 정보
  */
 export async function proposeAppointment(
   userId: number,
@@ -218,9 +219,9 @@ export async function proposeAppointment(
  *    - 시스템 메시지 생성 및 채팅방 최신화
  * 5. 알림 스마트 라우팅: 수락 행위자를 제외한 상대방에게만 In-App/Push 알림 전송
  *
- * @param userId - 수락 요청자 ID
- * @param appointmentId - 약속 ID
- * @returns 변경된 상품 및 거래자 정보 (캐시 무효화용)
+ * @param {number} userId - 수락 요청자 ID
+ * @param {number} appointmentId - 약속 ID
+ * @returns {Promise<ServiceResult<{ productId: number; sellerId: number; buyerId: number }>>} 변경된 상품 및 거래자 정보
  */
 export async function acceptAppointment(
   userId: number,
@@ -457,9 +458,9 @@ export async function acceptAppointment(
  * - 수신자(Receiver)가 호출 시: REJECTED (거절)
  * - 트랜잭션 내에서 상태 변경과 시스템 메시지 생성을 수행하여 히스토리 보존
  *
- * @param userId - 취소자
- * @param appointmentId - 해당 약속 ID
- * @returns {Promise<ServiceResult>} 처리 결과
+ * @param {number} userId - 취소/거절 요청자 ID
+ * @param {number} appointmentId - 해당 약속 ID
+ * @returns {Promise<ServiceResult>} 취소 또는 거절 처리 결과
  */
 export async function cancelAppointment(
   userId: number,

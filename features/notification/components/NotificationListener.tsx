@@ -20,15 +20,18 @@
  * 2026.02.22  임도헌   Modified  현재 페이지 알림 수신 시 벨 카운트 깜빡임(Flicker) 방지
  * 2026.02.28  임도헌   Modified  Zustand 스토어 도입 및 알림 로직 통합 (dispatchEvent 제거)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.12  임도헌   Modified  BAN 실시간 이벤트는 무한 토스트 대신 세션 갱신 후 403 페이지 리다이렉트로 단일화
+ * 2026.03.18  임도헌   Modified  실시간 토스트 링크와 현재 경로를 내부 경로 기준으로 정규화하고, 보기 액션의 returnTo 유지 및 중복 토스트 비교 로직을 함께 보강
  */
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import Image from "next/image";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 type NotiPayload = {
   id?: number;
@@ -61,15 +64,56 @@ type SysEventPayload = {
 export default function NotificationListener({ userId }: { userId: number }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const pathnameRef = useRef(pathname);
+  const searchRef = useRef("");
 
   // Zustand 스토어에서 알림 카운트 증가 액션 가져오기
   const increment = useNotificationStore((state) => state.increment);
 
-  // 현재 경로 추적 (알림 클릭 시 중복 이동 방지 및 현재 방 알림 무시용)
+  // 현재 경로 추적 (알림 클릭 시 중복 이동 방지 및 현재 문맥 returnTo 보존용)
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
+
+  useEffect(() => {
+    const query = searchParams.toString();
+    searchRef.current = query ? `?${query}` : "";
+  }, [searchParams]);
+
+  /**
+   * 실시간 토스트의 상세 이동 경로 계산
+   * - 이미 returnTo/callbackUrl이 있는 링크는 중복 부여 방지
+   * - 현재 경로를 returnTo로 덧붙여 알림 센터와 같은 복귀 문맥 유지
+   */
+  const buildToastHref = (href?: string) => {
+    if (!href) return "";
+    const safeHref = sanitizeCallbackUrl(href);
+    if (safeHref.includes("returnTo=") || safeHref.includes("callbackUrl=")) {
+      return safeHref;
+    }
+    const currentPath = sanitizeCallbackUrl(
+      `${pathnameRef.current}${searchRef.current}`
+    );
+    if (safeHref === pathnameRef.current || safeHref === currentPath) {
+      return currentPath;
+    }
+    const separator = safeHref.includes("?") ? "&" : "?";
+    return `${safeHref}${separator}returnTo=${encodeURIComponent(currentPath)}`;
+  };
+
+  /**
+   * 현재 페이지 비교용 경로 정규화
+   * - returnTo/callbackUrl 차이를 제거해 같은 상세 문맥이면 중복 토스트 생략
+   */
+  const normalizeComparableHref = (href: string) => {
+    const [path, queryString = ""] = sanitizeCallbackUrl(href).split("?");
+    const params = new URLSearchParams(queryString);
+    params.delete("returnTo");
+    params.delete("callbackUrl");
+    const normalizedQuery = params.toString();
+    return normalizedQuery ? `${path}?${normalizedQuery}` : path;
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -89,7 +133,8 @@ export default function NotificationListener({ userId }: { userId: number }) {
           typeof document !== "undefined" &&
           !document.hidden &&
           p.link &&
-          pathnameRef.current === p.link
+          normalizeComparableHref(`${pathnameRef.current}${searchRef.current}`) ===
+            normalizeComparableHref(p.link)
         ) {
           return;
         }
@@ -118,7 +163,10 @@ export default function NotificationListener({ userId }: { userId: number }) {
             </div>
           ) : undefined,
           action: p.link
-            ? { label: "보기", onClick: () => router.push(p.link!) }
+            ? {
+                label: "보기",
+                onClick: () => router.push(buildToastHref(p.link!)),
+              }
             : undefined,
         });
       })
@@ -134,18 +182,10 @@ export default function NotificationListener({ userId }: { userId: number }) {
             console.error("Session refresh failed", e);
           }
 
-          // 2. 사용자 피드백
-          toast.error(`서비스 이용이 정지되었습니다.\n사유: ${p.reason}`, {
-            duration: Infinity,
-            position: "top-center",
-          });
-
-          // 3. 강제 페이지 이동 (SPA 라우팅 대신 href를 사용하여 미들웨어를 거치도록 강제)
-          setTimeout(() => {
-            window.location.href = `/403?reason=BANNED&banReason=${encodeURIComponent(
-              p.reason || ""
-            )}`;
-          }, 1000);
+          // 2. 강제 페이지 이동 (SPA 라우팅 대신 href를 사용하여 미들웨어를 거치도록 강제)
+          window.location.href = `/403?reason=BANNED&banReason=${encodeURIComponent(
+            p.reason || ""
+          )}`;
         }
       });
 

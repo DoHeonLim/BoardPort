@@ -10,6 +10,7 @@
  * 2026.01.14  임도헌   Modifeid  시멘틱 토큰 적용
  * 2026.02.02  임도헌   Modified  주석 상세 설명 보강
  * 2026.02.25  임도헌   Modified  로고 컴포넌트 적용 및 오프라인 테마 강화
+ * 2026.03.23  임도헌   Modified  오프라인 안내 카드와 아이콘 링 보더를 구조 구분용 border-border-subtle 기준으로 정리
  */
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
@@ -30,10 +31,10 @@ export default function OfflinePage() {
     <main className="flex flex-col items-center justify-center min-h-screen px-6 bg-background transition-colors text-center">
       {/* 로고 및 아이콘 영역 */}
       <div className="mb-8 flex flex-col items-center gap-4">
-        <div className="relative p-5 rounded-full bg-surface-dim border border-border animate-float shadow-sm">
+        <div className="relative rounded-full border border-border-subtle bg-surface-dim p-5 shadow-sm">
           {/* 심볼 로고를 반투명/그레이스케일로 처리하여 오프라인 느낌 강조 */}
           <Logo variant="symbol" size={80} className="grayscale opacity-40" />
-          <div className="absolute -bottom-1 -right-1 bg-background p-1 rounded-full border border-border">
+          <div className="absolute -bottom-1 -right-1 rounded-full border border-border-subtle bg-background p-1">
             <SignalSlashIcon className="size-6 text-danger" />
           </div>
         </div>
@@ -49,7 +50,7 @@ export default function OfflinePage() {
         보드포트에 접속할 수 없습니다.
       </p>
 
-      <div className="w-full max-w-sm rounded-2xl bg-surface border border-border p-5 text-left mb-8 shadow-sm">
+      <div className="mb-8 w-full max-w-sm rounded-2xl border border-border-subtle bg-surface p-5 text-left shadow-sm">
         <h3 className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
           💡 연결 확인하기
         </h3>

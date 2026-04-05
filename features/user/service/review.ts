@@ -15,6 +15,7 @@
  * 2026.01.24  임도헌   Moved      features/user/lib -> features/service
  * 2026.02.05  임도헌   Modified   리뷰 조회 시 차단 유저 필터링 로직 추가
  * 2026.03.05  임도헌   Modified  서버 캐싱(`unstable_cache`) 래퍼 제거 및 파편화된 조회 함수를 단일 페이징 함수(`getUserReviews`)로 통합
+ * 2026.03.26  임도헌   Modified   차단 필터 병합 시 자기 작성 리뷰 제외 조건이 유지되도록 received 조건 정정
  */
 import "server-only";
 import db from "@/lib/db";
@@ -22,7 +23,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { ProfileReview, ReviewCursor } from "@/features/user/types";
 import { getBlockedUserIds } from "@/features/user/service/block";
 
-// 1. Prisma -> DTO 매핑
+// Prisma -> DTO 매핑
 function toProfileReviewDTO(r: any): ProfileReview {
   return {
     id: r.id,
@@ -34,26 +35,24 @@ function toProfileReviewDTO(r: any): ProfileReview {
   };
 }
 
-// 2. 조회 조건 생성 (내가 받은 리뷰 + 차단 필터링)
+// 조회 조건 생성
+// 내가 받은 리뷰 조건과 조회자 기준 차단 필터 결합
 async function receivedReviewsWhere(
   targetUserId: number,
   viewerId: number | null
 ): Promise<Prisma.ReviewWhereInput> {
+  const blockedIds = viewerId !== null ? await getBlockedUserIds(viewerId) : [];
+
   const base: Prisma.ReviewWhereInput = {
-    userId: { not: targetUserId }, // 작성자가 내가 아님
+    userId: {
+      not: targetUserId, // 작성자가 대상 유저 본인이 아님
+      ...(blockedIds.length > 0 ? { notIn: blockedIds } : {}),
+    },
     OR: [
       { product: { userId: targetUserId, purchase_userId: { not: null } } },
       { product: { purchase_userId: targetUserId } },
     ],
   };
-
-  // 차단된 유저가 쓴 리뷰 제외
-  if (viewerId) {
-    const blockedIds = await getBlockedUserIds(viewerId);
-    if (blockedIds.length > 0) {
-      base.userId = { notIn: blockedIds };
-    }
-  }
 
   return base;
 }
@@ -88,7 +87,9 @@ export async function getUserReviews(
   limit = 10,
   viewerId: number | null = null
 ) {
+  // 기본 조회 조건 계산
   const base = await receivedReviewsWhere(targetUserId, viewerId);
+  // 커서 기반 키셋 조건 조립
   const where: Prisma.ReviewWhereInput = cursor
     ? {
         ...base,
@@ -108,6 +109,7 @@ export async function getUserReviews(
       }
     : base;
 
+  // 페이지 크기 제한 및 리뷰 row 조회
   const take = Math.max(1, Math.min(limit, 50));
   const rows = await db.review.findMany({
     where,
@@ -116,6 +118,7 @@ export async function getUserReviews(
     take,
   });
 
+  // DTO 변환 및 다음 커서 계산
   const reviews = rows.map(toProfileReviewDTO);
   const tail = rows[rows.length - 1];
   const nextCursor = tail

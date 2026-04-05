@@ -45,7 +45,7 @@ export default async function MyPurchasesPage() {
   const userId = session.id;
   const queryClient = getQueryClient();
 
-  // 1. 구매한 상품 첫 페이지를 미리 가져와 캐시에 저장함 (Prefetch).
+  // 1. 구매한 상품 첫 페이지를 미리 가져와 캐시에 저장 (Prefetch)
   await queryClient.prefetchInfiniteQuery({
     queryKey: queryKeys.products.userScope("PURCHASED", userId),
     queryFn: () => getUserProductsList({ type: "PURCHASED", userId }, null),
@@ -53,7 +53,7 @@ export default async function MyPurchasesPage() {
   });
 
   return (
-    // 2. 직렬화된 캐시 상태를 클라이언트로 전송함.
+    // 2. 직렬화된 캐시 상태를 클라이언트로 전송
     <HydrationBoundary state={dehydrate(queryClient)}>
       <Suspense fallback={<ListSkeleton />}>
         <MyPurchasesList userId={userId} />

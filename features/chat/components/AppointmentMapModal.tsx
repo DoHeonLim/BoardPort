@@ -6,6 +6,9 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.20  임도헌   Created   지도 클릭 확대(Zoom/Pan) 지원 모달
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.22  임도헌   Modified  최근 모달 셸 기준에 맞춰 높이 단위와 외곽선/헤더/푸터 보더 강도 정리
+ * 2026.04.02  임도헌   Modified  약속 지도 모달 컴포넌트 JSDoc 보강
  */
 "use client";
 
@@ -18,6 +21,7 @@ import {
   MapPinIcon,
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,6 +31,12 @@ interface Props {
   locationName: string;
 }
 
+/**
+ * 약속 장소를 확대 지도와 외부 길찾기 링크로 보여주는 모달
+ *
+ * @param {Props} props - 닫기 핸들러와 약속 장소 좌표/이름 정보
+ * @returns {JSX.Element | null} 카카오맵 확대 모달
+ */
 export default function AppointmentMapModal({
   onClose,
   latitude,
@@ -43,8 +53,7 @@ export default function AppointmentMapModal({
 
   // 모달 제어 (ESC 닫기, 스크롤 잠금)
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     dialogRef.current?.focus();
 
@@ -54,7 +63,7 @@ export default function AppointmentMapModal({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);
@@ -72,12 +81,12 @@ export default function AppointmentMapModal({
         role="dialog"
         aria-label="약속 장소 상세 지도"
         className={cn(
-          "relative w-full max-w-2xl bg-surface shadow-2xl flex flex-col overflow-hidden outline-none animate-fade-in",
-          "h-[80vh] sm:h-[70vh] rounded-3xl border border-border"
+          "relative w-full max-w-2xl bg-surface shadow-2xl flex flex-col overflow-hidden outline-none",
+          "h-[80dvh] sm:h-[70dvh] rounded-3xl border border-border-subtle"
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface shrink-0 z-10">
+        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-5 py-4">
           <h3 className="font-bold text-primary flex items-center gap-2">
             <MapPinIcon className="size-5 text-brand" />
             약속 장소
@@ -111,7 +120,7 @@ export default function AppointmentMapModal({
         </div>
 
         {/* Footer Info & Action */}
-        <div className="p-5 border-t border-border bg-surface shrink-0 z-10">
+        <div className="z-10 shrink-0 border-t border-border-subtle bg-surface p-5">
           <p className="text-base font-bold text-primary mb-4 leading-snug">
             {locationName}
           </p>
@@ -125,7 +134,7 @@ export default function AppointmentMapModal({
             <a
               href={mapLink}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="flex-1 btn-primary h-12 text-sm flex items-center justify-center gap-2"
             >
               <span>길찾기</span>

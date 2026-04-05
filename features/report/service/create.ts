@@ -9,18 +9,16 @@
  * 2026.02.06  임도헌   Modified  리뷰 신고(targetReviewId) 매핑 로직 추가
  * 2026.02.27  임도헌   Modified  본인 리뷰 신고 방지 추가
  * 2026.03.07  임도헌   Modified  타겟 실존 여부 검증 및 정지 유저 신고 가드 추가
+ * 2026.04.03  임도헌   Modified  신고 대상 타입 import를 report/types 공용 정의로 정리
  */
 
 import "server-only";
 import db from "@/lib/db";
-import {
-  REPORT_ERRORS,
-  REPORT_POLICY,
-  type ReportTargetType,
-} from "@/features/report/constants";
+import { REPORT_ERRORS, REPORT_POLICY } from "@/features/report/constants";
 import { CreateReportDTO } from "@/features/report/schemas";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
+import type { ReportTargetType } from "@/features/report/types";
 
 /**
  * 신규 신고 접수 처리
@@ -36,12 +34,13 @@ export async function createReport(
   data: CreateReportDTO
 ): Promise<ServiceResult> {
   try {
+    // 신고자 상태 확인
     const reporterStatus = await validateUserStatus(reporterId);
     if (!reporterStatus.success) {
       return { success: false, error: reporterStatus.error! };
     }
 
-    // 1. 대상 필드 매핑
+    // 대상 필드 매핑
     const targetFieldMap: Record<ReportTargetType, string> = {
       USER: "targetUserId",
       PRODUCT: "targetProductId",
@@ -55,11 +54,11 @@ export async function createReport(
 
     const targetField = targetFieldMap[data.targetType];
 
-    // 2. 타겟 실존 여부 검증
+    // 타깃 실존 여부 검증 준비
     let targetExists = false;
 
-    // [핵심] 3. 셀프 신고(Self-Report) 원천 차단 로직 확장
-    // USER뿐만 아니라 제품, 게시글, 댓글 등 내가 작성한 모든 데이터에 대해 신고를 차단
+    // 셀프 신고 차단 준비
+    // USER뿐 아니라 제품, 게시글, 댓글, 메시지 등 작성자 본인 대상 신고 차단
     let isSelfReport = false;
 
     switch (data.targetType) {
@@ -139,7 +138,8 @@ export async function createReport(
       return { success: false, error: "자신의 컨텐츠는 신고할 수 없습니다." };
     }
 
-    // 4. 중복 신고 체크 (1인 1대상 1회 제한)
+    // 중복 신고 확인
+    // 1인 1대상 1회 제한 기준
     const existing = await db.report.findFirst({
       where: {
         reporterId,
@@ -152,7 +152,8 @@ export async function createReport(
       return { success: false, error: REPORT_ERRORS.DUPLICATE_REPORT };
     }
 
-    // 5. Rate Limit 체크 (도배 방지)
+    // Rate limit 확인
+    // 도배성 신고 방지 기준
     const limitWindow = new Date(
       Date.now() - REPORT_POLICY.WINDOW_MINUTES * 60 * 1000
     );
@@ -167,7 +168,7 @@ export async function createReport(
       return { success: false, error: REPORT_ERRORS.RATE_LIMIT };
     }
 
-    // 6. DB 저장
+    // 신고 레코드 저장
     await db.report.create({
       data: {
         reporterId,

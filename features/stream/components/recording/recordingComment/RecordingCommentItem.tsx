@@ -14,20 +14,29 @@
  * 2026.02.06  임도헌   Modified  녹화본 댓글에 차단 및 신고 메뉴(Dropdown) 추가
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  댓글 옵션 메뉴 접근성과 hover 대비를 UI/UX 표준에 맞게 보강
+ * 2026.03.08  임도헌   Modified  framer-motion 기반 댓글 애니메이션 제거
+ * 2026.03.14  임도헌   Modified  모바일에서는 댓글 옵션 버튼이 항상 보이도록 조정해 신고/차단 접근성을 복구
+ * 2026.03.18  임도헌   Modified  차단 성공 후 router.refresh 대신 녹화 댓글 쿼리 무효화로 국소 갱신
+ * 2026.03.19  임도헌   Modified  작은 화면에서는 상단 메타와 옵션 메뉴를 2행으로 풀어 긴 닉네임과 액션 버튼 충돌을 완화
+ * 2026.03.21  임도헌   Modified  댓글 항목 구분선을 subtle 톤으로 낮춰 녹화 상세 패널과 밀도 차이를 완화
+ * 2026.04.03  임도헌   Modified  녹화 댓글 옵션을 게시글 댓글과 같은 모바일 BottomSheet / 데스크톱 드롭다운 문법으로 통일
+ * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  */
 "use client";
 
 import { forwardRef, useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import UserAvatar from "@/components/global/UserAvatar";
 import TimeAgo from "@/components/ui/TimeAgo";
+import BottomSheet from "@/components/global/BottomSheet";
 import RecordingCommentDeleteButton from "@/features/stream/components/recording/recordingComment/RecordingCommentDeleteButton";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { toggleBlockAction } from "@/features/user/actions/block";
 import { StreamComment } from "@/features/stream/types";
+import { queryKeys } from "@/lib/queryKeys";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   EllipsisHorizontalIcon,
   UserMinusIcon,
@@ -52,7 +61,8 @@ interface RecordingCommentItemProps {
  * - 작성자 정보(Avatar, Username), 작성 시간, 내용을 포맷팅하여 렌더링
  * - 본인 댓글일 경우 삭제 버튼(`RecordingCommentDeleteButton`) 노출
  * - 타인 댓글일 경우 더보기 메뉴를 통한 차단(`toggleBlockAction`) 및 신고(`ReportModal`) 연동
- * - `AnimatePresence` 동작 지원을 위한 `forwardRef` 주입 및 Framer Motion 기반 등장/퇴장 애니메이션 적용
+ * - 차단 성공 시 녹화 댓글 쿼리만 무효화해 작성자 필터링을 국소 반영
+ * - `forwardRef`를 주입하여 리스트 렌더링과 DOM 접근을 안정적으로 지원
  */
 const RecordingCommentItem = forwardRef<
   HTMLDivElement,
@@ -61,24 +71,27 @@ const RecordingCommentItem = forwardRef<
   const isOwner = comment.user.id === currentUserId;
 
   // 상태 관리
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
+  const commentsQueryKey = queryKeys.streams.vodComments(vodId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // 외부 클릭 시 메뉴 닫기
   useEffect(() => {
-    if (!menuOpen) return;
+    if (isMobile) return;
+
     const onClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
     };
-    document.addEventListener("mousedown", onClick);
+    if (menuOpen) document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, [menuOpen]);
+  }, [isMobile, menuOpen]);
 
   //  차단 핸들러
   const handleBlock = () => {
@@ -88,7 +101,8 @@ const RecordingCommentItem = forwardRef<
         toast.success(`${comment.user.username}님을 차단했습니다.`);
         setBlockConfirmOpen(false);
         setMenuOpen(false);
-        router.refresh();
+        // 차단 관계가 반영된 녹화 댓글 목록만 다시 읽어 국소 갱신
+        queryClient.invalidateQueries({ queryKey: commentsQueryKey });
       } else {
         toast.error(result.error);
       }
@@ -96,14 +110,9 @@ const RecordingCommentItem = forwardRef<
   };
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.2 }}
-      className="flex gap-3 py-3 border-b border-border last:border-none group"
+      className="group flex gap-3 border-b border-border-subtle py-3 last:border-none"
     >
       <UserAvatar
         avatar={comment.user.avatar}
@@ -117,7 +126,7 @@ const RecordingCommentItem = forwardRef<
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start leading-none">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-primary">
+            <span className="min-w-0 truncate text-sm font-semibold text-primary">
               {comment.user.username}
             </span>
             <span className="text-xs text-muted">
@@ -125,7 +134,7 @@ const RecordingCommentItem = forwardRef<
             </span>
           </div>
 
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1">
+          <div className="flex items-center">
             {isOwner ? (
               <RecordingCommentDeleteButton
                 vodId={vodId}
@@ -138,14 +147,15 @@ const RecordingCommentItem = forwardRef<
                   aria-label="녹화 댓글 옵션"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
-                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary md:opacity-0 md:group-hover:opacity-100"
                 >
                   <EllipsisHorizontalIcon className="size-5" />
                 </button>
-                {menuOpen && (
+
+                {!isMobile && menuOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-1 w-40 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+                    className="absolute right-0 z-50 mt-1 w-40 overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-xl"
                   >
                     <button
                       onClick={() => setBlockConfirmOpen(true)}
@@ -161,7 +171,7 @@ const RecordingCommentItem = forwardRef<
                         setReportOpen(true);
                       }}
                       role="menuitem"
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border transition-colors"
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border-subtle transition-colors"
                     >
                       <ExclamationTriangleIcon className="size-4" />
                       댓글 신고
@@ -173,7 +183,7 @@ const RecordingCommentItem = forwardRef<
           </div>
         </div>
 
-        <p className="mt-1 text-sm text-primary leading-relaxed break-words whitespace-pre-wrap">
+        <p className="text-sm text-primary leading-relaxed break-words whitespace-pre-wrap">
           {comment.payload}
         </p>
       </div>
@@ -182,12 +192,44 @@ const RecordingCommentItem = forwardRef<
       <ConfirmDialog
         open={blockConfirmOpen}
         title="유저 차단"
-        description={`${comment.user.username}님을 차단하시겠습니까?`}
+        description={`${comment.user.username}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`}
         confirmLabel="차단"
         onConfirm={handleBlock}
         onCancel={() => setBlockConfirmOpen(false)}
         loading={isPending}
       />
+
+      <BottomSheet
+        open={!isOwner && isMobile && menuOpen}
+        title="댓글 옵션"
+        description="작성자 차단 또는 댓글 신고를 진행할 수 있습니다."
+        onClose={() => setMenuOpen(false)}
+      >
+        <div className="space-y-2 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setBlockConfirmOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+          >
+            <UserMinusIcon className="size-5 shrink-0" />
+            작성자 차단
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            }}
+            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+          >
+            <ExclamationTriangleIcon className="size-5 shrink-0" />
+            댓글 신고
+          </button>
+        </div>
+      </BottomSheet>
 
       <ReportModal
         isOpen={reportOpen}
@@ -195,7 +237,7 @@ const RecordingCommentItem = forwardRef<
         targetId={comment.id}
         targetType="COMMENT"
       />
-    </motion.div>
+    </div>
   );
 });
 

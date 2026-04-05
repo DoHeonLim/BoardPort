@@ -17,6 +17,10 @@ interface PriceFilterProps {
   onChangeKeyValue: (key: "minPrice" | "maxPrice", value: string) => void;
 }
 
+/**
+ * 최소/최대 가격 범위를 입력하는 필터
+ * - 숫자 입력 스피너와 위아래 화살표 입력을 막아 모바일/데스크톱 입력 경험을 통일
+ */
 export default function PriceFilter({
   minPrice,
   maxPrice,

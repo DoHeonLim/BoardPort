@@ -9,6 +9,8 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서는 썸네일 높이를 살짝 낮춰 정보 영역 비율을 균형화
+ * 2026.03.12  임도헌   Modified  사용자 업로드 GIF만 Next 최적화 예외 처리하도록 isAnimated 플래그 반영
+ * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  */
 "use client";
 
@@ -16,9 +18,11 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import type { ViewMode } from "@/features/product/types";
+import { toProductImagePublicUrl } from "@/features/product/utils/image";
 
 interface ProductCardThumbnailProps {
   imageUrl?: string;
+  isAnimated?: boolean;
   viewMode: ViewMode;
   title: string;
   isPriority?: boolean;
@@ -34,6 +38,7 @@ interface ProductCardThumbnailProps {
  */
 export default function ProductCardThumbnail({
   imageUrl,
+  isAnimated = false,
   viewMode,
   title,
   isPriority,
@@ -42,12 +47,13 @@ export default function ProductCardThumbnail({
 }: ProductCardThumbnailProps) {
   const isSold = !!purchase_userId;
   const isReserved = !!reservation_userId && !isSold;
+  const thumbnailUrl = toProductImagePublicUrl(imageUrl);
 
   return (
     <div className="relative h-full w-full bg-surface-dim flex items-center justify-center overflow-hidden">
-      {imageUrl ? (
+      {thumbnailUrl ? (
         <Image
-          src={`${imageUrl}/public`}
+          src={thumbnailUrl}
           alt={title}
           fill
           priority={isPriority}
@@ -60,6 +66,7 @@ export default function ProductCardThumbnail({
             "object-cover transition-transform duration-500 group-hover:scale-105",
             (isSold || isReserved) && "opacity-60 grayscale-[0.5]"
           )}
+          unoptimized={isAnimated}
         />
       ) : (
         <div className="flex flex-col items-center justify-center text-muted/50 gap-1">

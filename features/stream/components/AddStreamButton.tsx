@@ -10,6 +10,7 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.02.26  임도헌   Modified  하단 플로팅 추가 버튼(+) 위치 조정
+ * 2026.03.11  임도헌   Modified  모바일 FAB 크기와 하단 여백을 제품/게시글 탭과 통일
  */
 
 import Link from "next/link";
@@ -30,12 +31,12 @@ export default function AddStreamButton() {
         "fixed z-40 flex items-center justify-center rounded-full transition-all duration-300",
         "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
         "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
-        "size-14 sm:size-16 bottom-[84px] sm:bottom-24 right-4 sm:right-8",
+        "size-12 sm:size-16 bottom-[80px] sm:bottom-24 right-4 sm:right-8",
         // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산
-        "bottom-[calc(84px+env(safe-area-inset-bottom))] sm:bottom-24"
+        "bottom-[calc(80px+env(safe-area-inset-bottom))] sm:bottom-24"
       )}
     >
-      <PlusIcon aria-hidden="true" className="size-8 sm:size-10" />
+      <PlusIcon aria-hidden="true" className="size-7 sm:size-10" />
     </Link>
   );
 }

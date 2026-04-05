@@ -20,6 +20,11 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface, border-border)
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  채팅 목록 헤더와 톤을 맞추기 위해 카드 hover shadow 대비를 한 단계 낮춤
+ * 2026.03.12  임도헌   Modified  채팅방 카드 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.14  임도헌   Modified  목록 카드에서도 예약중/판매완료 거래 상태를 배지로 노출
+ * 2026.03.27  임도헌   Modified  채팅방 카드에 상품명과 거래 상태를 함께 노출해 목록 스캔성과 검색 문맥을 보강
+ * 2026.03.27  임도헌   Modified  상품 대화 우선 구조에 맞춰 카드 위계를 상품명 중심으로 재배치
  * ===============================================================================================
  * ChatRoomCard (채팅방 목록 아이템)를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  *
@@ -50,28 +55,53 @@ interface ChatRoomCardProps {
  * 채팅방 목록 아이템 카드
  */
 export default function ChatRoomCard({ room, unreadCount }: ChatRoomCardProps) {
+  const isSold = !!room.product.purchase_userId;
+  const isReserved = !!room.product.reservation_userId && !isSold;
+
   return (
     <Link
       href={`/chats/${room.id}`}
       className={cn(
-        "group w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200",
-        "bg-surface border border-border shadow-sm",
-        "hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30 active:scale-[0.99]"
+        "group flex w-full items-start gap-4 rounded-2xl p-4 transition-all duration-200",
+        "border border-border-subtle bg-surface shadow-sm",
+        "hover:shadow-sm hover:border-brand/30 dark:hover:border-brand-light/30 active:scale-[0.99]"
       )}
     >
       {/* 썸네일 */}
       <ChatRoomThumbnail product={room.product} />
 
       {/* 유저 + 메시지 */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-        <div className="flex justify-between items-start">
-          <ChatRoomHeader user={room.users[0]} />
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p
+              className="truncate text-[15px] font-semibold leading-5 text-primary sm:text-base"
+              title={room.product.title}
+            >
+              {room.product.title}
+            </p>
+            <div className="mt-1.5 flex min-w-0 items-center gap-2">
+              <ChatRoomHeader user={room.users[0]} />
+              {isReserved && (
+                <span className="inline-flex shrink-0 items-center rounded bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand dark:bg-brand-light/15 dark:text-brand-light">
+                  예약중
+                </span>
+              )}
+              {isSold && (
+                <span className="inline-flex shrink-0 items-center rounded bg-surface-dim px-1.5 py-0.5 text-[9px] font-bold text-muted">
+                  판매완료
+                </span>
+              )}
+            </div>
+          </div>
           <ChatRoomUnreadBadge
             count={unreadCount}
             date={room.lastMessage?.created_at?.toString() ?? ""}
           />
         </div>
-        <ChatRoomLastMessage message={room.lastMessage ?? undefined} />
+        <div className="mt-2">
+          <ChatRoomLastMessage message={room.lastMessage ?? undefined} />
+        </div>
       </div>
     </Link>
   );

@@ -19,6 +19,16 @@
  * 2026.01.22  임도헌   Modified  Service 직접 호출로 최적화
  * 2026.01.26  임도헌   Modified  주석 설명 보강
  * 2026.03.05  임도헌   Modified  getProductDetail함수로 변경 및 주석 최신화
+ * 2026.03.09  임도헌   Modified  삭제 실패 시 편집 페이지에 잔류하며 에러 배너 표시
+ * 2026.03.13  임도헌   Modified  삭제 완료 후 returnTo 복귀 경로를 우선 사용하도록 보강
+ * 2026.03.13  임도헌   Modified  채팅 경로 returnTo는 삭제 완료 복귀에서 제외해 상품 목록으로 이동하도록 예외 처리
+ * 2026.03.13  임도헌   Modified  모달 편집 흐름에서는 취소 시 목록 릴레이를 통해 모달 상세를 다시 열도록 조정
+ * 2026.03.14  임도헌   Modified  제품 수정 헤더를 페이지 내부로 이동해 상세 헤더와 복귀 규칙을 분리
+ * 2026.03.14  임도헌   Modified  삭제 액션을 ConfirmDialog 기반 ProductDeleteButton으로 분리해 실수 방지 UX를 보강
+ * 2026.03.17  임도헌   Modified  상세에서 진입한 편집 흐름은 삭제 후 목록 refresh 플래그를 함께 사용하도록 조정
+ * 2026.03.18  임도헌   Modified  detail-edit/modal-edit의 비채팅 returnTo 복귀를 정규화된 안전 경로 기준으로 통일해 stale history와 목록 중복을 함께 방지
+ * 2026.03.23  임도헌   Modified  제품 수정 페이지 id 가드를 상세 본문과 같은 유효 숫자/양수 기준으로 통일
+ * 2026.03.26  임도헌   Modified  수정 CTA와 삭제 CTA 사이에 구분 여백을 둬 긴 폼의 종료 지점을 더 명확하게 정리
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -27,8 +37,11 @@ import ProductForm from "@/features/product/components/ProductForm";
 import { fetchProductCategories } from "@/features/product/service/category";
 import { convertProductToFormValues } from "@/features/product/utils/converter";
 import { updateProductAction } from "@/features/product/actions/update";
-import { deleteProductAction } from "@/features/product/actions/delete";
 import { getProductDetail } from "@/features/product/service/detail";
+import BackButton from "@/components/global/BackButton";
+import ProductDeleteButton from "@/features/product/components/ProductDeleteButton";
+import { createNavigationRefreshFlagKey } from "@/lib/navigationRefreshFlag";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 /**
  * 제품 수정 페이지
@@ -44,11 +57,32 @@ export default async function EditPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams?: { returnTo?: string };
+  searchParams?: {
+    returnTo?: string;
+    flow?: string;
+  };
 }) {
   const id = Number(params.id);
-  const returnTo = searchParams?.returnTo;
-  if (isNaN(id)) return notFound();
+  const rawReturnTo = searchParams?.returnTo;
+  const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : null;
+  const isModalEditFlow = searchParams?.flow === "modal-edit";
+  const isDetailEditFlow = searchParams?.flow === "detail-edit";
+  const nextAfterDelete =
+    returnTo && !returnTo.startsWith("/chats/") ? returnTo : "/products";
+  const listRefreshFlagKey = createNavigationRefreshFlagKey(
+    "products-list-refresh",
+    "root"
+  );
+  // 비채팅 returnTo를 가진 detail/modal 편집 삭제만 back 복귀로 정리
+  const shouldPreferHistoryBack =
+    !!returnTo &&
+    !returnTo.startsWith("/chats/") &&
+    (isModalEditFlow || isDetailEditFlow);
+  const cancelHref =
+    isModalEditFlow && returnTo
+      ? `/products?openProductId=${id}&returnTo=${encodeURIComponent(returnTo)}`
+      : `/products/view/${id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+  if (!Number.isFinite(id) || id <= 0) return notFound();
 
   // 1. 제품 조회 및 권한 확인
   const product = await getProductDetail(id);
@@ -62,37 +96,42 @@ export default async function EditPage({
   const categories = await fetchProductCategories();
   const defaultValues = convertProductToFormValues(product);
 
-  // 3. 삭제 핸들러 (Server Action Wrapper)
-  const handleDeleteProduct = async () => {
-    "use server";
-    await deleteProductAction(id);
-    redirect("/products");
-  };
-
   return (
-    <div className="min-h-screen bg-background px-page-x py-page-y">
-      <h1 className="text-2xl font-bold mb-6 text-primary">
-        보드게임 제품 수정
-      </h1>
-
-      <ProductForm
-        mode="edit"
-        action={updateProductAction}
-        defaultValues={defaultValues}
-        categories={categories}
-        // 취소 시 상세 페이지로 돌아가도록 설정
-        cancelHref={`/products/view/${id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
-      />
-
-      <form
-        action={handleDeleteProduct}
-        className="flex items-center justify-center mt-8"
+    <div className="min-h-screen bg-background text-primary transition-colors">
+      <header
+        className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
+        role="banner"
       >
-        {/* 삭제 버튼 */}
-        <button className="w-full h-12 rounded-xl bg-danger/10 text-danger hover:bg-danger/20 font-semibold text-base transition-colors">
-          제품 삭제하기
-        </button>
-      </form>
+        <div className="mx-auto max-w-mobile h-full flex items-center gap-3 px-4">
+          <BackButton
+            fallbackHref={cancelHref}
+            variant="appbar"
+            className="px-0"
+          />
+          <h1 className="text-base font-semibold text-primary">
+            보드게임 제품 수정
+          </h1>
+        </div>
+      </header>
+
+      <div className="px-page-x py-page-y">
+        <ProductForm
+          mode="edit"
+          action={updateProductAction}
+          defaultValues={defaultValues}
+          categories={categories}
+          cancelHref={cancelHref}
+        />
+
+        <div className="mt-6 border-t border-border-subtle pt-5">
+          <ProductDeleteButton
+            productId={id}
+            nextHref={nextAfterDelete}
+            preferHistoryBack={shouldPreferHistoryBack}
+            refreshFlagKey={shouldPreferHistoryBack ? listRefreshFlagKey : undefined}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -7,6 +7,9 @@
  * Date        Author   Status    Description
  * 2026.02.12  임도헌   Created   알림 등록 UI 및 액션 연동
  * 2026.02.21  임도헌   Modified  currentRange Prop 적용 하여 알림에 범위 적용
+ * 2026.03.17  임도헌   Modified  작은 화면 제품 목록 헤더 밀도 완화를 위해 모바일 버튼 문구 축약
+ * 2026.03.28  임도헌   Modified  다크모드 제품 검색 헤더에서 과하게 튀지 않도록 구독 버튼 톤을 quiet-dark 계열로 조정
+ * 2026.03.28  임도헌   Modified  미구독 상태의 다크 버튼을 보조 액션 톤으로 눌러 검색 empty state와 헤더 밀도를 정리
  */
 "use client";
 
@@ -75,22 +78,28 @@ export default function KeywordAlertButton({
       onClick={handleToggle}
       disabled={isPending}
       className={cn(
-        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shadow-sm",
+        "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold shadow-sm transition-all sm:px-3",
         "disabled:opacity-50 active:scale-95",
         isSubscribed
-          ? "bg-brand dark:bg-brand-light text-white dark:text-gray-900 border-transparent"
-          : "bg-surface text-brand dark:text-brand-light border-brand/20 dark:border-brand-light/30 hover:bg-surface-dim"
+          ? "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand-dark dark:text-white dark:hover:bg-brand-dark/80"
+          : "bg-surface text-brand border-brand/20 hover:bg-surface-dim dark:bg-surface-dim dark:text-brand-light dark:border-border-strong dark:hover:bg-surface"
       )}
     >
       {isSubscribed ? (
         <>
-          <BellSlashIcon className="size-3.5" />
-          <span>알림 취소</span>
+          <BellSlashIcon
+            className={cn("size-3.5", isPending && "animate-pulse")}
+          />
+          <span className="sm:hidden">{isPending ? "처리" : "취소"}</span>
+          <span className="hidden sm:inline">
+            {isPending ? "처리 중..." : "알림 취소"}
+          </span>
         </>
       ) : (
         <>
           <BellIcon className={cn("size-3.5", isPending && "animate-pulse")} />
-          <span>
+          <span className="sm:hidden">{isPending ? "처리" : "받기"}</span>
+          <span className="hidden sm:inline">
             {isPending
               ? "처리 중..."
               : `${rangeLabels[currentRange]} 알림 받기`}

@@ -8,9 +8,11 @@
  * 2026.01.24  임도헌   Created   API Route 대체
  * 2026.03.05  임도헌   Modified  서버 캐시 무효화(`revalidateTag`) 방식 탈피, `queryClient.setQueryData`를 활용한 즉각적 UI 갱신(Optimistic Update) 적용
  * 2026.03.07  임도헌   Modified  팔로우 실패 사유를 구조화된 결과로 반환하도록 보강
+ * 2026.03.27  임도헌   Modified  팔로우 직후 스트림 팔로잉 탭 진입 시 stale 목록이 재사용되지 않도록 /streams 경로 캐시 무효화 추가
  */
 "use server";
 
+import { revalidatePath } from "next/cache";
 import getSession from "@/lib/session";
 import {
   followUserService,
@@ -100,6 +102,8 @@ export async function toggleFollowAction(
 
     return { success: false, error: message, code };
   }
+
+  revalidatePath("/streams");
 
   return {
     success: true,

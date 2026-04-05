@@ -11,6 +11,9 @@
  * 2026.01.27  임도헌   Modified  주석 보강
  * 2026.02.28  임도헌   Modified  썸네일 크기 미세 조정
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서는 썸네일 높이를 낮춰 정보 영역 비율을 균형화
+ * 2026.03.12  임도헌   Modified  사용자 업로드 GIF만 썸네일 최적화 예외 처리하도록 이미지 메타 연동
+ * 2026.03.23  임도헌   Modified  썸네일과 본문 사이의 구조 구분선 성격에 맞게 카드 분할 보더를 subtle 기준으로 정리
+ * 2026.03.26  임도헌   Modified  리스트 카드 모바일 썸네일 폭을 미세 조정해 텍스트 가시 영역을 확보
  */
 "use client";
 
@@ -39,10 +42,10 @@ export default function PostCardThumbnail({
   return (
     <div
       className={cn(
-        "relative overflow-hidden bg-surface-dim border-r border-border shrink-0",
+        "relative overflow-hidden bg-surface-dim border-r border-border-subtle shrink-0",
         isGrid
           ? "aspect-[3/2] w-full rounded-t-xl border-b sm:aspect-[4/3]"
-          : "w-32 h-full"
+          : "h-full w-28 sm:w-32"
       )}
     >
       {images[0] ? (
@@ -56,6 +59,7 @@ export default function PostCardThumbnail({
               : "120px"
           }
           className="object-cover transition-transform duration-300 group-hover:scale-105"
+          unoptimized={!!images[0].isAnimated}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-muted/40">

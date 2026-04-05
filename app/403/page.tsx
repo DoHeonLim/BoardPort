@@ -14,6 +14,7 @@
  * 2026.02.08  임도헌   Modified   정지된 유저(BANNED)일 경우 사유 및 기간 조회 로직 추가
  * 2026.02.20  임도헌   Modified   미들웨어 데드락 방지: 403 페이지에서 정지 만료 시 자동 세션 복구 및 홈으로 구출
  * 2026.03.06  임도헌   Modified   403 상태 화면 여백을 전역 상태 레이아웃 기준으로 정리
+ * 2026.03.18  임도헌   Modified   sid/uid가 없거나 0인 경우 undefined로 정리해 잘못된 CTA 노출 방지
  */
 
 import { redirect } from "next/navigation";
@@ -22,6 +23,11 @@ import db from "@/lib/db";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import AccessDenied from "@/components/global/AccessDenied";
 import { getUserBanDetails } from "@/features/user/service/ban";
+
+function parsePositiveInt(value: string | undefined) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
 
 /**
  * 접근 권한이 부족할 때 리다이렉트되는 페이지
@@ -58,8 +64,9 @@ export default async function AccessDeniedPage({
   // sanitize로 한 번만 정리 (보안 강화)
   const callbackUrl = sanitizeCallbackUrl(searchParams.callbackUrl ?? "/");
 
-  const sid = Number(searchParams.sid ?? 0);
-  const uid = Number(searchParams.uid ?? 0);
+  // sid/uid가 없으면 0 대신 undefined로 정리해 PRIVATE/FOLLOWERS_ONLY CTA 오판정 방지
+  const sid = parsePositiveInt(searchParams.sid);
+  const uid = parsePositiveInt(searchParams.uid);
 
   let banDetails = null;
   if (reason === "BANNED" && viewerId) {
@@ -96,8 +103,8 @@ export default async function AccessDeniedPage({
         reason={reason}
         username={username}
         callbackUrl={callbackUrl}
-        streamId={Number.isFinite(sid) ? sid : undefined}
-        ownerId={Number.isFinite(uid) ? uid : undefined}
+        streamId={sid}
+        ownerId={uid}
         viewerId={viewerId}
         banDetails={banDetails}
       />

@@ -10,6 +10,7 @@
  * 2026.02.22  임도헌   Modified  관리자 삭제 시 유저 프로필 및 채팅방 캐시 완벽 무효화
  * 2026.03.05  임도헌   Modified  개인화 캐시 태그 파편화 제거 및 `revalidatePath` 기반 클라이언트 동기화로 단순화
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  관리자 액션 JSDoc 보강
  */
 "use server";
 
@@ -26,6 +27,10 @@ import type { AdminProductListResponse } from "@/features/product/types";
 /**
  * 관리자 상품 목록 조회 Action
  * - 관리자 권한을 검증하고 Service를 호출
+ *
+ * @param {number} page - 조회할 페이지 번호
+ * @param {string} [query] - 관리자 검색어
+ * @returns {Promise<ServiceResult<AdminProductListResponse>>} 관리자 상품 목록과 페이징 결과
  */
 export async function getProductsAdminAction(
   page: number,
@@ -40,6 +45,10 @@ export async function getProductsAdminAction(
  * 관리자 상품 삭제 Action
  * - 관리자 권한을 검증하고 상품을 삭제
  * - 삭제 후 관리자 목록 및 공개 목록 페이지를 갱신
+ *
+ * @param {number} productId - 삭제할 상품 ID
+ * @param {string} reason - 관리자 삭제 사유
+ * @returns {Promise<Awaited<ReturnType<typeof deleteProductByAdmin>>>} 관리자 삭제 결과
  */
 export async function deleteProductAdminAction(
   productId: number,

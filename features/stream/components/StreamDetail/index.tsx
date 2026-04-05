@@ -24,16 +24,23 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.04  임도헌   Modified  stream:chat:expand/layout-updated 이벤트 버스 제거, hiddenByChat 상태를 Zustand selector로 대체
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.20  임도헌   Modified  플레이어 아래 정보를 summary + detail 구조로 재구성하고 StreamStatusOverlay 기반 상태 표현으로 전환
+ * 2026.03.21  임도헌   Modified  모바일은 정보를 기본 숨김 처리하고 플레이어 버튼으로만 노출해 채팅 공간을 우선 확보
+ * 2026.03.21  임도헌   Modified  모바일 정보 밀도를 낮추고 스트리머명 옆 팔로우 CTA를 배치해 액션 우선순위를 정리
+ * 2026.03.24  임도헌   Modified  모바일 정보 패널 밀도를 추가로 낮추고 데스크톱 유저 행 폭을 압축해 시각적 소음을 줄임
+ * 2026.03.24  임도헌   Modified  모바일은 방송 정보 토글만 남기고 채팅 확대/축소 흐름을 제거해 상호작용을 단순화
+ * 2026.03.24  임도헌   Modified  모바일 정보 토글 칩 존재감을 낮추고 데스크톱 정보 헤더 밀도를 줄여 플레이어/정보/채팅 리듬을 정리
+ * 2026.03.24  임도헌   Modified  다크 모드 열림 상태 정보 칩을 밝은 흰색 대신 어두운 표면 톤으로 맞춰 오버레이와의 이질감을 완화
+ * 2026.03.24  임도헌   Modified  모바일 owner도 정보 패널을 열면 송출 정보를 확인할 수 있도록 데스크톱 전용 가드를 제거
+ * 2026.03.24  임도헌   Modified  데스크톱 라이트 모드 위계를 조금 더 분리하고 owner 송출 정보 영역 폭을 줄여 관리 정보의 무게를 완화
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
- * - LiveViewerCount.tsx    : 실시간 시청자 수 (Supabase Presence)
- * - LiveStatusButton.tsx   : 방송 상태 뱃지 (ON/OFF/READY)
- * - StreamEndedOverlay.tsx : 방송 종료 시 플레이어 위 오버레이
+ * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
  * - StreamTitle.tsx        : 방송 제목
  * - StreamCategoryTags.tsx : 카테고리 및 태그 뱃지
  * - StreamDescription.tsx  : 방송 설명 (더보기/접기)
- * - StreamSecretInfo.tsx   : 소유자 전용 OBS 송출 정보 (URL/Key)
- * - index.tsx              : 위 컴포넌트들을 조합한 최종 컨테이너 (아코디언 UI 포함)
+ * - StreamSecretInfo.tsx   : 소유자 전용 송출 정보
+ * - index.tsx              : 위 컴포넌트들을 조합한 최종 정보 패널 컨테이너
  * ===============================================================================================
  */
 
@@ -42,63 +49,82 @@
 import { useEffect, useState } from "react";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
-import { useStreamChatUIStore } from "@/components/global/providers/StreamChatUIStoreProvider";
-import LiveStatusButton from "@/features/stream/components/StreamDetail/LiveStatusButton";
-import StreamEndedOverlay from "@/features/stream/components/StreamDetail/StreamEndedOverlay";
+import StreamStatusOverlay from "@/features/stream/components/StreamDetail/StreamStatusOverlay";
 import StreamCategoryTags from "@/features/stream/components/StreamDetail/StreamCategoryTags";
 import StreamDescription from "@/features/stream/components/StreamDetail/StreamDescription";
 import StreamSecretInfo from "@/features/stream/components/StreamDetail/StreamSecretInfo";
-import LiveViewerCount from "@/features/stream/components/StreamDetail/LiveViewerCount";
 import StreamTitle from "@/features/stream/components/StreamDetail/StreamTitle";
+import { useFollowController } from "@/features/user/hooks/useFollowController";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import { StreamDetailDTO } from "@/features/stream/service/detail";
+import type { UserProfile } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
 interface StreamDetailProps {
   stream: StreamDetailDTO;
   me: number | null; // 현재 로그인 유저 id
   streamId: number; // Broadcast id
+  ownerProfile: Pick<
+    UserProfile,
+    "id" | "username" | "isFollowing" | "isBlocked" | "viewerId" | "_count"
+  >;
 }
 
 /**
  * 스트리밍 상세 정보 및 메타 컨테이너 컴포넌트
  *
  * [상태 주입 및 레이아웃 제어 로직]
- * - 모바일(기본 접힘)과 데스크톱(기본 펼침) 화면 크기에 따른 `matchMedia` 기반 아코디언 초기 상태 자동 구성
- * - `useStreamChatUIStore` 상태를 구독하여 모바일 채팅창 확대 모드(`isChatExpanded`) 시 정보 패널 시각적 은닉 처리
- * - Cloudflare iframe 기반 라이브 플레이어, 실시간 시청자 수, 현재 방송 상태 뱃지 등 방송 메타데이터 렌더링
- * - 방송 종료(ENDED) 상태 진입 시 `StreamEndedOverlay` 렌더링 적용
+ * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
+ * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`를 배치하고, 모바일 정보 토글은 플레이어 우상단 칩으로 제어
+ * - 모바일은 cross-origin iframe 제약 때문에 플레이어 자체 클릭 대신 플레이어 안 우상단 정보 토글 버튼으로 상세 정보를 열고 닫는다
+ * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
+ * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키를 확인할 수 있다
  */
 export default function StreamDetail({
   stream,
   me,
   streamId,
+  ownerProfile,
 }: StreamDetailProps) {
   const isOwner = !!me && stream.user.id === me;
 
-  // 모바일 기본 접힘, 데스크톱 기본 펼침
+  // 모바일은 기본 숨김, 데스크톱은 기본 펼침으로 시작
   const [opened, setOpened] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    const mql = window.matchMedia("(min-width: 1280px)");
-    const apply = () => setOpened(mql.matches);
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const apply = () => {
+      setIsDesktop(mql.matches);
+      setOpened(mql.matches);
+    };
     apply();
     mql.addEventListener?.("change", apply);
     return () => mql.removeEventListener?.("change", apply);
   }, []);
 
-  // 채팅 확대 모드일 때 모바일에서 방송 정보 숨기기
-  const hiddenByChat = useStreamChatUIStore((s) => s.isChatExpanded);
+  const canFollowOwner =
+    !!ownerProfile.viewerId &&
+    ownerProfile.viewerId !== ownerProfile.id &&
+    !ownerProfile.isBlocked;
+  const { isFollowing, isPending, onToggleFollow } = useFollowController({
+    ownerId: ownerProfile.id,
+    ownerUsername: ownerProfile.username,
+    initialIsFollowing: !!ownerProfile.isFollowing,
+    initialFollowerCount: ownerProfile._count.followers ?? 0,
+    initialFollowingCount: ownerProfile._count.following ?? 0,
+    viewerId: ownerProfile.viewerId ?? undefined,
+  });
+  const showInfoSection = isDesktop || opened;
+  const normalizedStatus = (stream.status?.toUpperCase?.() ?? "DISCONNECTED") as
+    | "CONNECTED"
+    | "ENDED"
+    | "DISCONNECTED"
+    | "READY";
+  const hasStatusOverlay = normalizedStatus !== "CONNECTED";
 
   return (
-    <div className="relative">
-      {/* 우상단 실시간 시청자 수 */}
-      <div className="absolute top-2 right-2 z-10">
-        {me != null && <LiveViewerCount streamId={streamId} me={me} />}
-      </div>
-
-      <LiveStatusButton status={stream.status} streamId={stream.stream_id} />
-
-      <div className="relative mb-1 aspect-video overflow-hidden bg-black rounded-xl shadow-sm border border-black/10 dark:border-white/10">
+    <div className="relative space-y-2">
+      <div className="relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10 sm:mb-0">
         {/* Cloudflare Player Iframe */}
         {(() => {
           const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
@@ -126,91 +152,144 @@ export default function StreamDetail({
             />
           );
         })()}
-        {stream.status === "ENDED" && (
-          <StreamEndedOverlay username={stream.user.username} />
-        )}
+        <StreamStatusOverlay
+          username={stream.user.username}
+          status={stream.status}
+          streamId={stream.stream_id}
+          isOwner={isOwner}
+        />
+        <button
+          type="button"
+          className={cn(
+            "absolute right-3 top-3 z-50 inline-flex min-h-[30px] items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors lg:hidden",
+            opened
+              ? "border-black/8 bg-surface-dim text-primary dark:border-white/10 dark:bg-surface-dim dark:text-white"
+              : hasStatusOverlay
+                ? "border-black/10 bg-white text-primary dark:border-white/10 dark:bg-black/45 dark:text-white/90"
+                : "border-border-subtle bg-surface text-muted hover:text-primary"
+          )}
+          aria-pressed={opened}
+          aria-label={opened ? "방송 정보 숨기기" : "방송 정보 보기"}
+          onClick={() => setOpened((prev) => !prev)}
+        >
+          {opened ? "정보 숨기기" : "방송 정보"}
+        </button>
       </div>
 
       {/* 정보 패널 (아코디언) */}
       <section
         className={cn(
-          "mb-1 overflow-hidden rounded-xl border transition-colors",
-          "bg-surface border-border",
-          hiddenByChat && "hidden xl:block"
+          "overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-[0_10px_28px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03] transition-colors lg:shadow-[0_16px_36px_rgba(15,23,42,0.07)] lg:ring-black/[0.045] dark:shadow-sm dark:ring-white/[0.03]",
+          !showInfoSection && "hidden"
         )}
       >
-        <button
-          type="button"
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface-dim transition-colors"
-          aria-expanded={opened}
-          onClick={() => setOpened((v) => !v)}
-        >
-          <span className="text-sm md:text-base font-semibold text-primary">
+        <div className="hidden items-center justify-between gap-3 px-3 py-2 sm:px-4 sm:py-2.5 lg:flex">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             방송 정보
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted">
-              {opened ? "접기" : "펼치기"}
+          </div>
+
+          <button
+            type="button"
+            className="inline-flex min-h-[28px] shrink-0 items-center justify-end text-muted/90 transition-colors hover:text-primary"
+            aria-expanded={opened}
+            aria-label={opened ? "방송 정보 숨기기" : "방송 정보 보기"}
+            onClick={() => setOpened((v) => !v)}
+          >
+            <span className="mr-1 whitespace-nowrap text-xs">
+              {opened ? "정보 숨기기" : "정보 보기"}
             </span>
             <ChevronDownIcon
               className={cn(
-                "size-4 text-muted transition-transform",
+                "size-4 transition-transform",
                 opened && "rotate-180"
               )}
               aria-hidden="true"
             />
-          </div>
-        </button>
+          </button>
+        </div>
 
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-            opened ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-          )}
-        >
-          <div className="min-h-0 overflow-hidden px-4 pb-4">
-            <div className="pt-2">
-              <StreamTitle title={stream.title} />
-            </div>
-
-            <div className="mb-4 mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
-              <StreamCategoryTags
-                category={stream.category ?? undefined}
-                tags={stream.tags ?? undefined}
+        {opened && (
+          <div className="px-3 pb-3.5 pt-2.5 sm:px-4 sm:pb-5 sm:pt-4 lg:max-h-none lg:overflow-visible lg:border-t lg:border-border-subtle max-lg:max-h-[32dvh] max-lg:overflow-y-auto max-lg:overscroll-contain">
+            <div className="min-w-0">
+              <StreamTitle
+                title={stream.title}
+                compact
+                size="sm"
+                className="mb-0 sm:text-base"
               />
-              {stream.started_at && (
-                <span className="flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-border" />
-                  <TimeAgo
-                    date={stream.started_at}
-                    className="text-muted"
-                  />{" "}
-                  시작
-                </span>
-              )}
-            </div>
 
-            <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-surface-dim/50 border border-border/50">
-              <UserAvatar
-                avatar={stream.user.avatar}
-                username={stream.user.username}
-                size="md"
-              />
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted sm:mt-2.5 sm:gap-2 sm:text-xs">
+                <StreamCategoryTags
+                  category={stream.category ?? undefined}
+                  tags={stream.tags ?? undefined}
+                />
+                {isDesktop && stream.started_at && (
+                  <span className="text-[11px] text-muted sm:text-xs">
+                    <TimeAgo date={stream.started_at} className="text-muted" />{" "}
+                    시작
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2 flex w-full items-center gap-2 rounded-xl bg-surface-dim/30 px-2.5 py-1.5 sm:mt-3.5 sm:gap-3 sm:px-3 sm:py-2.5 lg:inline-flex lg:w-auto lg:min-w-[380px] lg:max-w-[480px] xl:min-w-[420px] xl:max-w-[540px]">
+                <UserAvatar
+                  avatar={stream.user.avatar}
+                  username={stream.user.username}
+                  size="sm"
+                  showUsername={false}
+                />
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 lg:flex-none">
+                  <div className="min-w-0 max-w-[180px] sm:max-w-[220px] lg:max-w-[200px] xl:max-w-[230px]">
+                    <div className="truncate text-sm font-semibold text-primary sm:text-base">
+                      {stream.user.username}
+                    </div>
+                  </div>
+                  {canFollowOwner && (
+                    <button
+                      type="button"
+                      onClick={onToggleFollow}
+                      disabled={isPending}
+                      aria-pressed={isFollowing}
+                      aria-busy={isPending}
+                      aria-label={
+                        isPending
+                          ? "팔로우 처리 중"
+                          : isFollowing
+                            ? "팔로우 취소"
+                            : "팔로우"
+                      }
+                      className={cn(
+                        "shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors lg:px-3.5",
+                        "disabled:cursor-not-allowed disabled:opacity-60",
+                        isFollowing
+                          ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger"
+                          : "border-transparent bg-brand text-white hover:bg-brand-dark"
+                      )}
+                    >
+                      {isPending
+                        ? "처리 중..."
+                        : isFollowing
+                          ? "팔로우 취소"
+                          : "팔로우"}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {stream.description && (
-              <div className="mt-2 text-sm text-primary">
+              <div className="mt-2.5 border-t border-border-subtle pt-2.5 text-[13px] leading-5 text-primary sm:mt-3.5 sm:pt-3.5 sm:text-sm sm:leading-6">
                 <StreamDescription description={stream.description} />
               </div>
             )}
 
             {isOwner && (
-              <div className="mt-4 pt-4 border-t border-border">
+              <div className="mt-3 border-t border-border-subtle pt-3 sm:mt-3.5 sm:pt-3.5 lg:max-w-[640px]">
                 <StreamSecretInfo broadcastId={streamId} />
               </div>
             )}
           </div>
-        </div>
+        )}
       </section>
     </div>
   );

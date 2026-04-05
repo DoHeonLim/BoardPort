@@ -11,6 +11,7 @@
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  텍스트 너비를 w-full로 수정
+ * 2026.04.01  임도헌   Modified  삭제된 메시지 placeholder 미리보기 처리 추가
  */
 "use client";
 
@@ -33,6 +34,14 @@ export default function ChatRoomLastMessage({
     return <p className="text-sm text-muted/60 italic">대화를 시작해보세요</p>;
   }
 
+  if (message.deleted_at) {
+    return (
+      <p className="text-sm text-muted/70 italic truncate w-full">
+        삭제된 메시지입니다.
+      </p>
+    );
+  }
+
   // 텍스트가 있는 경우
   if (message.payload) {
     return (
@@ -52,3 +61,4 @@ export default function ChatRoomLastMessage({
 
   return <p className="text-sm text-muted/60 italic">내용 없음</p>;
 }
+

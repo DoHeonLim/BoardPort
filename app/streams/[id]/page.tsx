@@ -31,6 +31,13 @@
  * 2026.03.04  임도헌   Modified  StreamChatUIStoreProvider 적용으로 스트림 채팅 UI 상태를 이벤트 버스에서 Zustand로 전환
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  데스크톱에서도 모바일과 동일한 중앙 정렬 단일 컬럼 흐름으로 레이아웃을 통일
+ * 2026.03.18  임도헌   Modified  returnTo 기본 경로를 /streams로 고정하고 로그인/권한 가드 복귀 흐름을 정리
+ * 2026.03.21  임도헌   Modified  full-width 스트림 셸, 우측 sticky 채팅 레일, 모바일 인라인 채팅 섹션 구조로 상세 레이아웃을 재정리
+ * 2026.03.21  임도헌   Modified  방송 정보 카드 팔로우 CTA를 위해 소유자 프로필 초기 상태를 함께 주입
+ * 2026.03.24  임도헌   Modified  스트림 상세 전용 Client Shell로 채팅 열림 상태를 로컬 관리하도록 단순화
+ * 2026.03.27  임도헌   Modified  라이브 상세 본문은 최신 상태를 직접 조회하도록 바꿔 CONNECTED/ENDED 오버레이 stale 현상 방지
+ * 2026.04.03  임도헌   Modified  전역 차단과 방송 전용 강제 퇴장을 구분하기 위해 StreamBlockGuard에 방송 ID를 함께 전달
+ * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 초기 상태를 상세 클라이언트 셸에 함께 주입
  */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
@@ -38,23 +45,23 @@ export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
-import { getUserInfoById } from "@/features/user/service/profile";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { getUserInfoById, getUserProfile } from "@/features/user/service/profile";
 import type { StreamVisibility } from "@/features/stream/types";
-import { StreamChatUIStoreProvider } from "@/components/global/providers/StreamChatUIStoreProvider";
-import StreamDetail from "@/features/stream/components/StreamDetail";
-import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
-import StreamTopbar from "@/features/stream/components/StreamTopBar";
-import StreamMobileChatSection from "@/features/stream/components/StreamMobileChatSection";
+import StreamDetailClientShell from "@/features/stream/components/StreamDetailClientShell";
 import StreamBlockGuard from "@/features/stream/components/StreamBlockGuard";
 import {
+  getBroadcastDetail,
   getCachedBroadcastDetail,
   StreamDetailDTO,
 } from "@/features/stream/service/detail";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import { checkBroadcastAccess } from "@/features/stream/service/access";
 import {
+  getMutedStreamViewerIds,
   getInitialStreamMessages,
   getStreamChatRoom,
+  isStreamViewerMuted,
 } from "@/features/stream/service/chat";
 import {
   checkBlockRelation,
@@ -68,6 +75,9 @@ export async function generateMetadata({
   params: { id: string };
 }): Promise<Metadata> {
   const id = Number(params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return { title: "방송을 찾을 수 없음" };
+  }
   const stream = await getCachedBroadcastDetail(id);
 
   if (!stream) {
@@ -92,29 +102,36 @@ export async function generateMetadata({
  *
  * [기능]
  * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
- * - 방송 정보 서버 사이드 캐시 조회 및 판매자-조회자 간 양방향 차단 관계 검증
- * - 방송 공개 설정(PRIVATE, FOLLOWERS)에 따른 세션 언락 상태 및 팔로우 권한 검증 (권한 부족 시 403 리다이렉트 처리)
- * - 채팅방 정보 및 초기 메시지 내역 서버 사이드 로드 적용
+ * - 방송 정보 서버 캐시 조회 및 판매자-조회자 간 양방향 차단 관계 검증
+ * - 방송 공개 설정(PRIVATE, FOLLOWERS)에 따른 세션 언락 상태 및 팔로우 권한 검증
+ * - 채팅방 정보, 초기 메시지, 차단 목록, 소유자 프로필을 함께 로드해 상세 UI 초기 상태 구성
+ * - returnTo 미지정 시 스트림 목록(`/streams`) 복귀 경로 사용
  *
  * @param {Object} params - URL 파라미터 (id: 방송 ID)
+ * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
  */
 export default async function StreamDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { returnTo?: string };
 }) {
   const broadcastId = Number(params.id);
   if (!Number.isFinite(broadcastId) || broadcastId <= 0) notFound();
+  // 라이브 상세 복귀 기본 경로 고정
+  const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/streams");
+  const detailHref = `/streams/${broadcastId}?returnTo=${encodeURIComponent(
+    returnTo
+  )}`;
 
   const [session, fetched] = await Promise.all([
     getSession(),
-    getCachedBroadcastDetail(broadcastId),
+    getBroadcastDetail(broadcastId),
   ]);
 
   if (!session?.id) {
-    redirect(
-      `/login?callbackUrl=${encodeURIComponent(`/streams/${broadcastId}`)}`
-    );
+    redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
   if (!fetched) notFound();
 
@@ -128,7 +145,7 @@ export default async function StreamDetailPage({
       redirect(
         `/403?reason=BLOCKED` +
           `&username=${encodeURIComponent(initialBroadcast.user.username)}` +
-          `&callbackUrl=${encodeURIComponent(`/streams/${broadcastId}`)}`
+          `&callbackUrl=${encodeURIComponent(detailHref)}`
       );
     }
   }
@@ -150,79 +167,56 @@ export default async function StreamDetailPage({
       redirect(
         `/403?reason=${guard.reason}` +
           `&username=${encodeURIComponent(initialBroadcast.user.username)}` +
-          `&callbackUrl=${encodeURIComponent(`/streams/${broadcastId}`)}` +
+          `&callbackUrl=${encodeURIComponent(detailHref)}` +
           `&sid=${broadcastId}&uid=${ownerId}`
       );
     }
   }
 
   // 3. 채팅방 및 유저 정보 조회
-  const [streamChatRoom, user] = await Promise.all([
+  const [streamChatRoom, user, ownerProfile] = await Promise.all([
     getStreamChatRoom(broadcastId),
     getUserInfoById(session.id),
+    getUserProfile(ownerId, session.id),
   ]);
-  if (!streamChatRoom || !user) notFound();
+  if (!streamChatRoom || !user || !ownerProfile) notFound();
 
-  const initialStreamMessage = await getInitialStreamMessages(
-    streamChatRoom.id
-  );
+  const [initialStreamMessage, initialMutedUserIds, initiallyMuted] =
+    await Promise.all([
+      getInitialStreamMessages(streamChatRoom.id),
+      isOwner ? getMutedStreamViewerIds(broadcastId) : Promise.resolve([]),
+      isOwner
+        ? Promise.resolve(false)
+        : isStreamViewerMuted(broadcastId, session.id),
+    ]);
   // 현재 접속한 유저가 과거에 차단했던 유저 목록을 DB에서 가져옴(기존 채팅에서 차단한 유저의 메세지 지우기 위해서)
   const blockedIds = session.id ? await getBlockedUserIds(session.id) : [];
 
   return (
-    <StreamChatUIStoreProvider>
-      <div className="flex flex-col min-h-screen bg-background transition-colors">
-        {/* 실시간 차단 감지 가드 추가 */}
-        <StreamBlockGuard
-          viewerId={session?.id ?? null}
-          ownerId={ownerId}
-          ownerUsername={initialBroadcast.user.username}
-        />
+    <>
+      {/* 실시간 차단 감지 가드 추가 */}
+      <StreamBlockGuard
+        viewerId={session?.id ?? null}
+        ownerId={ownerId}
+        ownerUsername={initialBroadcast.user.username}
+        streamId={broadcastId}
+      />
 
-        <StreamTopbar
-          streamId={broadcastId}
-          ownerId={ownerId!}
-          ownerUsername={initialBroadcast.user.username}
-          title={initialBroadcast.title}
-          visibility={initialBroadcast.visibility}
-          isOwner={isOwner}
-        />
-
-        <div className="mx-auto flex w-full max-w-mobile flex-1 flex-col px-3 pb-4 sm:px-4">
-          <div className="pt-3">
-            <StreamDetail
-              stream={initialBroadcast}
-              me={session?.id ?? null}
-              streamId={broadcastId}
-            />
-          </div>
-
-          {/* Chat Section (Desktop) */}
-          <div className="mt-3 hidden xl:block">
-            <StreamChatRoom
-              initialStreamMessage={initialStreamMessage}
-              streamChatRoomId={streamChatRoom.id}
-              streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
-              userId={session.id!}
-              username={user.username}
-              initialBlockedUserIds={blockedIds}
-              containerClassName="xl:h-[36rem]"
-            />
-          </div>
-        </div>
-
-        {/* Chat Section (Mobile) */}
-        <div className="xl:hidden flex-1 flex flex-col min-h-0 bg-background">
-          <StreamMobileChatSection
-            initialStreamMessage={initialStreamMessage}
-            streamChatRoomId={streamChatRoom.id}
-            streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
-            userId={session.id!}
-            username={user.username}
-            initialBlockedUserIds={blockedIds}
-          />
-        </div>
-      </div>
-    </StreamChatUIStoreProvider>
+      <StreamDetailClientShell
+        stream={initialBroadcast}
+        viewerId={session.id}
+        streamId={broadcastId}
+        ownerProfile={ownerProfile}
+        returnTo={returnTo}
+        isOwner={isOwner}
+        initialStreamMessage={initialStreamMessage}
+        streamChatRoomId={streamChatRoom.id}
+        streamChatRoomhost={streamChatRoom.broadcast.liveInput.userId}
+        username={user.username}
+        blockedUserIds={blockedIds}
+        mutedUserIds={initialMutedUserIds}
+        initiallyMuted={initiallyMuted}
+      />
+    </>
   );
 }

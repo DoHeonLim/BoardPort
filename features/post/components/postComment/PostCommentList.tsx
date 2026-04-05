@@ -26,11 +26,15 @@
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.03  임도헌   Modified  명령형 로딩 상태(isLoading) 제거 및 usePostCommentsQuery 훅으로 교체
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.08  임도헌   Modified  댓글 목록의 기본 항목 애니메이션 의존성을 제거해 읽기 중심 화면으로 정리
+ * 2026.03.12  임도헌   Modified  usePageVisibility 기반 옵저버 활성화 조건 추가
+ * 2026.03.22  임도헌   Modified  무한 스크롤 트리거 하단 여백을 줄여 댓글 리스트 끝 간격을 자연스럽게 조정
+ * 2026.03.27  임도헌   Modified  댓글 목록 종료 문구를 제거해 읽기 흐름을 단순화
+ * 2026.04.03  임도헌   Modified  댓글 empty state 문구를 실제 콘텐츠 의미에 맞게 정리
  */
 "use client";
 
 import { useRef } from "react";
-import { AnimatePresence } from "framer-motion";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { usePostCommentsQuery } from "@/features/post/hooks/usePostCommentsQuery";
@@ -42,7 +46,6 @@ import PostCommentItem from "@/features/post/components/postComment/PostCommentI
  * [상태 주입 및 페이징 로직]
  * - `usePostCommentsQuery` 훅을 통한 서버 상태(캐시) 주입 및 페이징 제어
  * - `useInfiniteScroll` 및 `usePageVisibility`를 활용한 사용자 가시성 기반 무한 스크롤 옵저버 연결
- * - `AnimatePresence`를 적용하여 댓글 항목 추가/삭제 시 부드러운 전환 애니메이션 제공
  * - 데이터 로딩(`isFetchingNextPage`) 상태 및 빈 배열(Empty State)에 따른 조건부 UI 렌더링
  */
 export default function PostCommentList({
@@ -70,25 +73,19 @@ export default function PostCommentList({
 
   return (
     <div className="flex flex-col mt-6">
-      <AnimatePresence initial={false} mode="popLayout">
-        {comments.map((comment) => (
-          <PostCommentItem
-            key={comment.id}
-            postId={postId}
-            comment={comment}
-            currentUser={currentUser}
-          />
-        ))}
-      </AnimatePresence>
+      {comments.map((comment) => (
+        <PostCommentItem
+          key={comment.id}
+          postId={postId}
+          comment={comment}
+          currentUser={currentUser}
+        />
+      ))}
 
       {/* Loading */}
-      <div className="py-6 flex justify-center">
+      <div className="py-3 flex justify-center">
         {isFetchingNextPage ? (
           <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
-        ) : !hasNextPage && comments.length > 0 ? (
-          <div className="text-xs text-muted/50 italic">
-            모든 기록을 확인했습니다
-          </div>
         ) : null}
 
         <div ref={triggerRef} aria-hidden="true" className="h-1" />
@@ -97,8 +94,8 @@ export default function PostCommentList({
       {/* Empty State */}
       {comments.length === 0 && (
         <div className="py-10 text-center text-muted">
-          <p className="text-sm">아직 작성된 로그가 없습니다.</p>
-          <p className="text-xs mt-1">첫 번째 기록을 남겨보세요!</p>
+          <p className="text-sm">아직 작성된 댓글이 없습니다.</p>
+          <p className="text-xs mt-1">첫 번째 댓글을 남겨보세요!</p>
         </div>
       )}
     </div>

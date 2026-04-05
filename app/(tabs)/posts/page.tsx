@@ -30,24 +30,32 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  상단 검색/카테고리 영역을 제품 탭과 유사한 행 분리 구조로 정리해 헤더 밀도를 통일
  * 2026.03.06  임도헌   Modified  Suspense fallback을 실제 게시글 카드 스켈레톤 구조로 통일
+ * 2026.03.09  임도헌   Modified  모바일 상단 검색/카테고리 영역 높이를 압축해 리스트 가시 영역 확보
+ * 2026.03.11  임도헌   Modified  모바일 게시글 헤더를 제품 탭과 동일한 2단 구조 및 스크롤 숨김 동작으로 통일
+ * 2026.03.11  임도헌   Modified  지역 범위(currentRange)를 게시글 목록 쿼리 키에 포함해 범위 전환 시 캐시 stale 문제 방지
+ * 2026.03.12  임도헌   Modified  모바일/데스크톱 헤더 분기와 알림/지역 정보 preload 흐름 추가
+ * 2026.03.14  임도헌   Modified  총 게시글 수 고정 표시를 위한 totalCount 연결 및 EmptyState에 currentRange 힌트 전달
+ * 2026.03.14  임도헌   Modified  데스크톱 헤더를 전용 컴포넌트로 분리하고 지역 중심 카테고리 범위 안내 힌트를 추가
+ * 2026.03.16  임도헌   Modified  모바일 목록 영역 pull-to-refresh 지원 추가
+ * 2026.03.18  임도헌   Modified  detail-edit 삭제 후 목록 1회 refresh 릴레이와 userId null 가드를 함께 보강해 back 복귀와 로그인 가드 안정성을 정리
  */
 
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import PullToRefresh from "@/components/global/PullToRefresh";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
-import NotificationBell from "@/components/global/NotificationBell";
 import PostList from "@/features/post/components/PostList";
+import PostListRefreshRelay from "@/features/post/components/PostListRefreshRelay";
+import PostMobileHeader from "@/features/post/components/PostMobileHeader";
+import PostDesktopHeader from "@/features/post/components/PostDesktopHeader";
 import PostEmptyState from "@/features/post/components/PostEmptyState";
+import PostLocalRangeHint from "@/features/post/components/PostLocalRangeHint";
 import AddPostButton from "@/features/post/components/AddPostButton";
 import PostListSkeleton from "@/features/post/components/PostListSkeleton";
-import PostSearchBarWrapper from "@/features/post/components/PostSearchBarWrapper";
-import PostCategoryTabs from "@/features/search/components/PostCategoryTabs";
-import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
-import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
 import { getUserLocation } from "@/features/user/service/profile";
 import { getPostsListAction } from "@/features/post/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
@@ -75,7 +83,10 @@ export const metadata: Metadata = {
  *
  * [기능]
  * - 로그인 세션 검증 및 비인가 사용자 리다이렉트 처리
+ * - 알림 개수와 사용자 지역 정보를 선조회하여 헤더 초기 상태 구성
+ * - 모바일/데스크톱 헤더를 분리 렌더링하여 같은 검색 UX를 기기별 레이아웃에 맞게 제공
  * - URL 검색 조건을 기반으로 `getPostsListAction`을 호출하여 초기 게시글 목록 서버 프리패치(Prefetch)
+ * - `currentRange`를 게시글 목록 쿼리 키에 포함하여 지역 범위 전환 시 캐시 stale 방지
  * - TanStack Query HydrationBoundary 적용으로 클라이언트 사이드 워터폴 현상 방지
  * - 게시글 데이터 유무에 따른 `PostList` 또는 `PostEmptyState` 조건부 렌더링
  *
@@ -83,11 +94,10 @@ export const metadata: Metadata = {
  */
 export default async function PostsPage({ searchParams }: PostsPageProps) {
   const session = await getSession();
-  const userId = session.id;
-
-  if (!userId) {
+  if (!session?.id) {
     redirect("/login?callbackUrl=/posts");
   }
+  const userId = session.id;
 
   const queryClient = getQueryClient();
   const params: PostSearchParams = {
@@ -95,12 +105,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     category: searchParams.category,
   };
 
-  const [, unreadCount, userLocation] = await Promise.all([
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.posts.list(params),
-      queryFn: () => getPostsListAction(null, params),
-      initialPageParam: null as number | null,
-    }),
+  const [unreadCount, userLocation] = await Promise.all([
     getUnreadNotificationCount(),
     getUserLocation(userId),
   ]);
@@ -109,6 +114,10 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
   const userRegion2 = userLocation?.region2;
   const userRegion3 = userLocation?.region3;
   const currentRange = (userLocation?.regionRange as RegionRange) ?? "GU";
+  const postListQueryKey = {
+    ...params,
+    __scope: currentRange,
+  };
 
   const fullLocation = userLocation
     ? [userLocation.region1, userLocation.region2, userLocation.region3]
@@ -116,64 +125,71 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
         .join(" ")
     : null;
 
+  await queryClient.prefetchInfiniteQuery({
+    queryKey: queryKeys.posts.list(postListQueryKey),
+    queryFn: () => getPostsListAction(null, params),
+    initialPageParam: null as number | null,
+  });
+
   // 데이터 여부 확인
   const prefetchData = queryClient.getQueryData<any>(
-    queryKeys.posts.list(params)
+    queryKeys.posts.list(postListQueryKey)
   );
   const isDataEmpty = prefetchData?.pages[0]?.posts.length === 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-background transition-colors pb-24">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors">
-        {/* Top Row: Region & Noti */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 h-[50px]">
-          {userRegion2 ? (
-            <RegionFilterToggle
-              userRegion1={userRegion1}
-              userRegion2={userRegion2}
-              userRegion3={userRegion3}
+      <div className="md:hidden">
+        <PostMobileHeader
+          userId={userId}
+          unreadCount={unreadCount}
+          currentCategory={searchParams.category}
+          userRegion1={userRegion1}
+          userRegion2={userRegion2}
+          userRegion3={userRegion3}
+          currentRange={currentRange}
+          fullLocation={fullLocation}
+        />
+      </div>
+
+      <PostDesktopHeader
+        userId={userId}
+        unreadCount={unreadCount}
+        currentCategory={searchParams.category}
+        userRegion1={userRegion1}
+        userRegion2={userRegion2}
+        userRegion3={userRegion3}
+        currentRange={currentRange}
+        fullLocation={fullLocation}
+      />
+
+      {/* Content */}
+      <PullToRefresh className="flex-1">
+        <PostListRefreshRelay />
+        <div className="flex-1 px-page-x py-4 sm:py-6">
+          <PostLocalRangeHint
+            currentCategory={searchParams.category}
+            currentRange={currentRange}
+          />
+          {isDataEmpty ? (
+            <PostEmptyState
+              keyword={searchParams.keyword}
+              category={searchParams.category}
               currentRange={currentRange}
             />
           ) : (
-            <MyLocationButton variant="header" fullLocation={fullLocation} />
+            <HydrationBoundary state={dehydrate(queryClient)}>
+              <Suspense fallback={<PostListSkeleton viewMode="list" />}>
+                <PostList
+                  key={`${JSON.stringify(searchParams)}-${currentRange}`}
+                  searchParams={params}
+                  queryKeyExtra={currentRange}
+                />
+              </Suspense>
+            </HydrationBoundary>
           )}
-          <div className="shrink-0">
-            <NotificationBell userId={userId} initialCount={unreadCount} />
-          </div>
         </div>
-
-        {/* Bottom Row: Search */}
-        <div className="border-b border-border/50 px-4 py-3">
-          <PostSearchBarWrapper />
-        </div>
-
-        {/* Category Tabs */}
-        <div className="px-4 py-2">
-          <PostCategoryTabs currentCategory={searchParams.category} />
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="flex-1 px-page-x py-6">
-        {isDataEmpty ? (
-          <PostEmptyState
-            keyword={searchParams.keyword}
-            category={searchParams.category}
-          />
-        ) : (
-          <HydrationBoundary state={dehydrate(queryClient)}>
-            <Suspense
-              fallback={<PostListSkeleton viewMode="list" />}
-            >
-              <PostList
-                key={`${JSON.stringify(searchParams)}-${currentRange}`}
-                searchParams={params}
-              />
-            </Suspense>
-          </HydrationBoundary>
-        )}
-      </div>
+      </PullToRefresh>
       {/* 게시글 추가 플로팅 버튼 (FAB) */}
       <AddPostButton />
     </div>

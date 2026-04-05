@@ -15,6 +15,11 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 디자인 통일)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.14  임도헌   Modified  방송 상태 배지의 직접색을 시맨틱 토큰 기준으로 재정렬
+ * 2026.03.19  임도헌   Modified  스트림 상세 메타 바에 맞춰 block 상태 바를 짧은 inline 칩 구조로 재정리
+ * 2026.03.19  임도헌   Modified  플레이어 상단 메타 바에 맞춰 패딩/그림자를 더 낮춘 경량 상태 칩으로 조정
+ * 2026.03.20  임도헌   Modified  플레이어 상태 메타를 항해 로그 칩처럼 읽히도록 타이포와 대비를 추가 정리
+ * 2026.03.20  임도헌   Modified  방송 종료 상태는 danger 계열 칩으로 조정해 라이브 종료 의미를 더 분명하게 전달
  */
 
 "use client";
@@ -34,9 +39,11 @@ import { cn } from "@/lib/utils";
 export default function LiveStatusButton({
   status,
   streamId, // CF Live Input UID (provider_uid)
+  className = "",
 }: {
   status: StreamStatus | string;
   streamId: string;
+  className?: string;
 }) {
   // SSR 초기값 → 이후엔 실시간 이벤트로만 갱신
   const [current, setCurrent] = useState<StreamStatus>(
@@ -80,6 +87,7 @@ export default function LiveStatusButton({
   }, [streamId]);
 
   const isLive = current === "CONNECTED";
+  const isEnded = current === "ENDED";
   const label =
     current === "CONNECTED"
       ? "방송 중"
@@ -90,22 +98,25 @@ export default function LiveStatusButton({
           : "상태 확인중";
 
   const colorClass = isLive
-    ? "bg-indigo-500 text-white"
-    : "bg-red-500 text-white"; // 종료/대기 등은 빨강
+    ? "bg-brand text-white dark:bg-brand-light"
+    : isEnded
+      ? "border border-danger/20 bg-danger/10 text-danger dark:border-danger/30 dark:bg-danger/15 dark:text-danger"
+      : "border border-border-subtle bg-surface text-muted";
 
   return (
     <div
       role="status"
       aria-live="polite"
       className={cn(
-        "m-2 flex h-8 w-24 items-center justify-center rounded-md font-semibold text-sm shadow-sm",
-        colorClass
+        "inline-flex h-8 w-fit items-center justify-center rounded-full px-3 text-[12px] font-semibold tracking-[0.01em]",
+        colorClass,
+        className
       )}
       data-stream-id={streamId}
       title={label}
     >
       {isLive && (
-        <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-white align-middle" />
+        <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white align-middle" />
       )}
       {label}
     </div>

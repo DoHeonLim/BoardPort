@@ -11,13 +11,15 @@
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 레이아웃 정리
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.17  임도헌   Modified  녹화 상세 메타 패널과 영상 영역 간 간격을 조정해 최신 상세 톤에 맞게 정리
+ * 2026.03.19  임도헌   Modified  녹화 상세 영상/메타 패널 외곽선을 border-border-subtle 기준으로 맞춰 채널 카드 톤과 통일
  * ===============================================================================================
  * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
  * - RecordingVideo.tsx      : 녹화 영상 플레이어 (Cloudflare Iframe)
  * - RecordingMeta.tsx       : 조회수, 좋아요, 작성일, 공유 버튼 등 메타 정보
  * - RecordingLikeButton.tsx : 좋아요 버튼 (Optimistic UI)
- * - RecordingDeleteButton.tsx : 삭제 버튼 (소유자 전용)
+ * - RecordingTopbar.tsx       : 상단 액션바(공유/옵션/소유자 삭제 메뉴)
  * - index.tsx               : 위 컴포넌트들을 조합한 최종 컨테이너
  * ===============================================================================================
  */
@@ -70,21 +72,25 @@ export default function RecordingDetail({
   return (
     <div className="flex w-full flex-col gap-5">
       <RecordingTitle title={broadcast.title} />
-      <RecordingVideo uid={uid} />
-      <RecordingMeta
-        title={broadcast.title}
-        created={created}
-        duration={duration}
-        viewCount={viewCount}
-        commentCount={commentCount} // VodAsset 기준 댓글 수
-        LikeButtonComponent={
-          <RecordingLikeButton
-            vodId={vodId} // streamId → vodId 로 전환
-            isLiked={isLiked}
-            likeCount={likeCount}
-          />
-        }
-      />
+      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
+        <RecordingVideo uid={uid} />
+      </div>
+      <div className="rounded-2xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5">
+        <RecordingMeta
+          title={broadcast.title}
+          created={created}
+          duration={duration}
+          viewCount={viewCount}
+          commentCount={commentCount} // VodAsset 기준 댓글 수
+          LikeButtonComponent={
+            <RecordingLikeButton
+              vodId={vodId} // streamId → vodId 로 전환
+              isLiked={isLiked}
+              likeCount={likeCount}
+            />
+          }
+        />
+      </div>
     </div>
   );
 }

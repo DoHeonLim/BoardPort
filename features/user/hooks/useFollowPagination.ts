@@ -51,7 +51,7 @@ export function useFollowPagination({
   fetcher,
   enabled,
 }: UseFollowPaginationParams) {
-  // 모달별, 유저별로 완벽히 분리되는 고유 캐시 키 구성
+  // 모달별/유저별 고유 캐시 키 구성
   const queryKey = queryKeys.follows.list(username, type);
 
   const {
@@ -66,19 +66,19 @@ export function useFollowPagination({
   } = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }) => {
-      // 서버 액션을 호출하여 팔로우 유저 데이터를 패칭함.
+      // 서버 액션 기반 팔로우 목록 패칭
       return await fetcher(username, pageParam as FollowListCursor);
     },
     initialPageParam: null as FollowListCursor,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
-    enabled, // 모달이 닫혀있으면 쿼리를 대기 상태로 유지함.
-    staleTime: 5 * 60 * 1000, // 팔로우 목록은 변경 빈도를 고려하여 5분간 캐시를 유지함.
+    enabled, // 모달이 닫혀있으면 쿼리를 대기 상태로 유지
+    staleTime: 5 * 60 * 1000, // 변경 빈도를 고려한 5분 캐시 유지
   });
 
   const users = data?.pages.flatMap((p) => p.users) ?? [];
 
-  // 에러 발생 시점 분기 처리
-  // 데이터가 하나도 없는 상태에서 발생한 에러는 초기 로딩 실패(first)로 간주함.
+  // 에러 발생 시점 분기
+  // 데이터 부재 상태의 에러를 초기 로딩 실패(first)로 분리
   const isFirstError = isError && users.length === 0;
   const customError = isError
     ? {
@@ -89,12 +89,12 @@ export function useFollowPagination({
 
   return {
     users,
-    // 쿼리가 활성화되었으나 아직 캐시에 데이터가 없는 상태를 초기 로딩으로 정의함.
+    // 쿼리 활성화 후 데이터 부재 상태를 초기 로딩으로 정의
     isLoading: isPending && enabled,
     isFetchingNextPage,
     hasMore: !!hasNextPage,
     error: customError,
     loadMore: fetchNextPage,
-    retry: refetch, // 에러 발생 시 수동 재시도를 지원하기 위해 쿼리 리패치 함수를 노출함.
+    retry: refetch, // 에러 발생 시 수동 재시도 경로 노출
   };
 }

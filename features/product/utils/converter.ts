@@ -9,6 +9,7 @@
  * 2026.01.19  임도헌   Moved     lib/product -> features/product/lib
  * 2026.01.20  임도헌   Moved     lib/convertProductToFormValues -> utils/converter
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.03.12  임도헌   Modified  수정 폼 초기값에서 이미지 애니메이션 메타를 함께 복원하도록 확장
  */
 
 import { productFormValues } from "@/features/product/schemas";
@@ -47,6 +48,7 @@ export function convertProductToFormValues(
     description: product.description,
     price: product.price,
     photos: product.images.map((img) => img.url),
+    photosAnimated: product.images.map((img) => img.isAnimated ?? false),
     game_type: product.game_type as GameType,
     min_players: product.min_players,
     max_players: product.max_players,

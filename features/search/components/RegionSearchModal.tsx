@@ -8,6 +8,9 @@
  * 2026.02.15  임도헌   Created   타 지역 검색 및 행정구역명 추출 로직 구현
  * 2026.02.26  임도헌   Modified  autoFocus 제거
  * 2026.03.07  임도헌   Modified  지도 SDK 로딩/오류 시 모달 내 상태 화면을 제공하고 닫기 접근성을 보강
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 높이와 보더 강도 정리
+ * 2026.03.23  임도헌   Modified  데스크톱에서 검색 결과 리스트가 덜 답답하게 보이도록 폭을 한 단계 확장
+ * 2026.04.02  임도헌   Modified  카카오 장소 검색 결과 타입을 search 도메인 공용 타입 기준으로 정리
  */
 "use client";
 
@@ -20,16 +23,22 @@ import {
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
+import type { RegionSearchResultItem } from "@/features/search/types";
 
 interface Props {
   onSelect: (regionName: string) => void;
   onClose: () => void;
 }
 
+/**
+ * 지역 검색 결과를 선택해 상위 검색 컨텍스트에 전달하는 모달
+ * - 카카오 장소 검색 결과를 목록으로 표시
+ * - 선택한 장소명에서 우선 적용할 행정구역 키워드를 추출
+ */
 export default function RegionSearchModal({ onSelect, onClose }: Props) {
   const { loading, error } = useKakaoLoader();
   const [keyword, setKeyword] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<RegionSearchResultItem[]>([]);
 
   const handleSearch = () => {
     if (!keyword.trim()) return;
@@ -56,7 +65,7 @@ export default function RegionSearchModal({ onSelect, onClose }: Props) {
   };
 
   // 결과 선택 시 로직: 사용자가 선택한 장소의 행정구역명 추출
-  const handleItemClick = (item: any) => {
+  const handleItemClick = (item: RegionSearchResultItem) => {
     // 카카오 검색 결과(item)에서 행정구역명 추출 로직
     // address_name 예시: "부산 금정구 부곡동 737-87"
     const address = item.address_name || "";
@@ -86,9 +95,9 @@ export default function RegionSearchModal({ onSelect, onClose }: Props) {
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-border animate-fade-in flex flex-col max-h-[80vh]">
+      <div className="bg-surface flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border-subtle shadow-2xl sm:max-w-lg">
         {/* Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between bg-surface shrink-0">
+        <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0">
           <h3 className="font-bold text-primary">다른 지역 검색</h3>
           <button
             onClick={onClose}
@@ -118,7 +127,7 @@ export default function RegionSearchModal({ onSelect, onClose }: Props) {
         ) : (
           <>
             {/* Input */}
-            <div className="p-4 bg-surface-dim border-b border-border shrink-0">
+            <div className="p-4 bg-surface-dim border-b border-border-subtle shrink-0">
               <div className="relative">
                 <input
                   type="text"

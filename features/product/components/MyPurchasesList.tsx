@@ -18,6 +18,7 @@
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.03.01  임도헌   Modified  useProductPagination 반환 타입 구조 및 로딩 분리 대응
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.26  임도헌   Modified  Empty State를 최근 프로필 제품 화면 패턴에 맞게 정리
  */
 
 "use client";
@@ -68,22 +69,24 @@ export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
   // 빈 상태 처리
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in">
-        <div className="p-4 rounded-full bg-surface-dim mb-4">
-          <ShoppingBagIcon className="size-10 text-muted/50" />
+      <div className="state-screen">
+        <div className="state-card">
+          <div className="state-icon-wrap">
+            <ShoppingBagIcon className="size-10 text-muted/50" />
+          </div>
+          <h3 className="state-title">구매한 제품이 없습니다</h3>
+          <p className="state-description">
+            마음에 드는 게임을 둘러보고 첫 거래를 시작해보세요.
+          </p>
+          <div className="state-actions">
+            <Link
+              href="/products"
+              className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center px-6 text-sm font-semibold shadow-sm sm:w-auto"
+            >
+              제품 둘러보기
+            </Link>
+          </div>
         </div>
-        <h3 className="text-lg font-bold text-primary mb-1">
-          구매한 제품이 없습니다
-        </h3>
-        <p className="text-sm text-muted mb-6">
-          마음에 드는 게임을 찾아보세요!
-        </p>
-        <Link
-          href="/products"
-          className="btn-primary text-sm h-10 px-6 inline-flex items-center shadow-sm hover:shadow-md transition-all"
-        >
-          제품 둘러보기
-        </Link>
       </div>
     );
   }

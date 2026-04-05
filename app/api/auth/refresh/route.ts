@@ -5,6 +5,7 @@
  *
  * History
  * 2026.02.09  임도헌   Created   실시간 정지/권한 변경 시 클라이언트에서 호출하여 쿠키 동기화
+ * 2026.03.18  임도헌   Modified  세션이 null인 경우에도 401을 안전하게 반환하도록 optional chaining 보강
  */
 
 import { NextResponse } from "next/server";
@@ -14,7 +15,7 @@ import db from "@/lib/db";
 export async function POST() {
   const session = await getSession();
 
-  if (!session.id) {
+  if (!session?.id) {
     return NextResponse.json(
       { ok: false, error: "Not logged in" },
       { status: 401 }

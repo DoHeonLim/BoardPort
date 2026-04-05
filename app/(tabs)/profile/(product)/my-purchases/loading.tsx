@@ -8,6 +8,7 @@
  * 2025.10.07  임도헌   Created   로딩 스켈레톤 추가
  * 2025.11.13  임도헌   Modified  현재 카드형 UI 구조와 톤으로 재정렬
  * 2026.01.16  임도헌   Modified  [UI] ProductCard 스타일 스켈레톤 적용
+ * 2026.03.12  임도헌   Modified  프로필 구매 내역 스켈레톤 구분선을 border-border-subtle 톤으로 통일
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -20,7 +21,7 @@ export default function Loading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="flex flex-col rounded-2xl border border-border bg-surface overflow-hidden shadow-sm"
+            className="flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm"
           >
             <div className="flex p-4 gap-4">
               {/* Thumbnail */}
@@ -36,7 +37,7 @@ export default function Loading() {
                   <Skeleton className="h-4 w-20 rounded" />
                 </div>
 
-                <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                <div className="flex items-center justify-between border-t border-border-subtle pt-2">
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-3 w-10 rounded" />
                     <Skeleton className="size-5 rounded-full" />
@@ -47,9 +48,9 @@ export default function Loading() {
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-2 border-t border-border">
+            <div className="grid grid-cols-2 border-t border-border-subtle">
               <Skeleton className="h-10 rounded-none bg-surface-dim/50" />
-              <Skeleton className="h-10 rounded-none bg-surface-dim/50 border-l border-border" />
+              <Skeleton className="h-10 rounded-none border-l border-border-subtle bg-surface-dim/50" />
             </div>
           </div>
         ))}

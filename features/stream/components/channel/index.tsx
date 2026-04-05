@@ -20,9 +20,16 @@
  * 2026.01.14  임도헌   Modified  [Refactor] UserStreamsClient -> index.tsx, 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.15  임도헌   Modified  차단 상태 빈 화면의 시스템 이모지를 heroicons 기반 아이콘으로 교체
+ * 2026.03.18  임도헌   Modified  로그인 복귀용 현재 채널 경로도 내부 경로 기준으로 정규화해 nested callbackUrl 예외를 완화
+ * 2026.03.21  임도헌   Modified  User.channelDescription을 채널 헤더로 전달해 하드코딩 소개 문구를 제거
+ * 2026.03.21  임도헌   Modified  owner 전용 채널 소개 수정 액션을 헤더로 전달
+ * 2026.03.21  임도헌   Modified  다시보기 빈 상태/팔로워 잠금 CTA도 채널 헤더 팔로우 버튼으로 유도되도록 onFollow 경로를 통일
+ * 2026.03.23  임도헌   Modified  채널 차단 안내 empty state의 점선 카드 보더를 구조 구분용 subtle 기준으로 정리
+ * 2026.03.25  임도헌   Modified  프로필 메인과 탭바 하단 간격을 맞추기 위해 채널 페이지 bottom padding을 통일
  * ===============================================================================================
  * User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
- * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 통계)
+ * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 채널 소개/owner 편집)
  * - LiveNowHero.tsx       : 현재 진행 중인 라이브 방송 (최상단 노출)
  * - RecordingGrid.tsx     : 지난 방송(녹화본) 목록 그리드
  * - RecordingEmptyState.tsx : 녹화본이 없을 때 빈 상태 UI
@@ -33,9 +40,12 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { NoSymbolIcon } from "@heroicons/react/24/outline";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import UserChannelHeader from "@/features/stream/components/channel/UserChannelHeader";
 import LiveNowHero from "@/features/stream/components/channel/LiveNowHero";
 import RecordingGrid from "@/features/stream/components/channel/RecordingGrid";
+import type { ChannelDescriptionActionState } from "@/features/user/types";
 import type {
   BroadcastSummary,
   ViewerRole,
@@ -46,12 +56,16 @@ type ExtendedUserInfo = {
   id: number;
   username: string;
   avatar?: string | null;
+  channelDescription?: string | null;
   isFollowing?: boolean;
   isBlocked?: boolean;
   _count?: { followers?: number; following?: number };
 };
 
 type MeProp = boolean | { id: number } | undefined;
+type ChannelDescriptionAction = (
+  formData: FormData
+) => Promise<ChannelDescriptionActionState>;
 
 /**
  * 유저 방송국 페이지 컨테이너
@@ -71,18 +85,23 @@ export default function UserChannelContainer({
   userInfo,
   me,
   viewerId,
+  channelDescriptionAction,
 }: {
   liveNow?: BroadcastSummary | null;
   recordings?: VodForGrid[];
   userInfo: ExtendedUserInfo;
   me?: MeProp;
   viewerId?: number;
+  channelDescriptionAction?: ChannelDescriptionAction;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const next = useMemo(
-    () => pathname + (searchParams.size ? `?${searchParams.toString()}` : ""),
+    () =>
+      sanitizeCallbackUrl(
+        pathname + (searchParams.size ? `?${searchParams.toString()}` : "")
+      ),
     [pathname, searchParams]
   );
 
@@ -107,18 +126,36 @@ export default function UserChannelContainer({
   }, [liveNow]);
 
   const recordingsMemo = useMemo(() => recordings ?? [], [recordings]);
+
+  /**
+   * 채널 어디서든 팔로우 유도 CTA를 눌렀을 때 헤더 팔로우 버튼으로 자연스럽게 이동시킨다.
+   * - 라이브 히어로, 다시보기 empty state, 팔로워 잠금 카드가 같은 진입점을 공유
+   */
+  const focusFollowButton = () => {
+    const btn = document.getElementById("channel-follow-button");
+    if (btn) {
+      btn.scrollIntoView({ behavior: "smooth", block: "center" });
+      btn.focus();
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-background pb-20 transition-colors">
+    <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
       <UserChannelHeader
         ownerId={userInfo.id}
         username={userInfo.username}
         avatar={userInfo.avatar}
+        channelDescription={userInfo.channelDescription}
         initialFollowerCount={userInfo._count?.followers ?? 0}
         initialFollowingCount={userInfo._count?.following ?? 0}
         initialIsFollowing={!!userInfo.isFollowing}
         isMe={isMe}
         isBlocked={userInfo.isBlocked}
         viewerId={viewerId}
+        channelDescriptionAction={channelDescriptionAction}
         onRequireLogin={() =>
           router.push(`/login?callbackUrl=${encodeURIComponent(next)}`)
         }
@@ -127,8 +164,8 @@ export default function UserChannelContainer({
 
       {userInfo.isBlocked ? (
         <div className="mx-auto max-w-3xl w-full px-4 py-12">
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in bg-surface-dim rounded-2xl border border-dashed border-border">
-            <span className="text-4xl mb-4">🚫</span>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-subtle bg-surface-dim px-4 py-20 text-center">
+            <NoSymbolIcon className="mb-4 size-10 text-danger" />
             <p className="text-lg font-bold text-primary">
               차단한 사용자입니다
             </p>
@@ -143,16 +180,7 @@ export default function UserChannelContainer({
           <LiveNowHero
             stream={liveStream}
             role={role}
-            onFollow={() => {
-              const btn = document.getElementById("channel-follow-button");
-              if (btn) {
-                btn.scrollIntoView({ behavior: "smooth", block: "center" });
-                btn.focus();
-              } else {
-                // fallback
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }
-            }}
+            onFollow={focusFollowButton}
           />
 
           {/* VOD Section */}
@@ -160,6 +188,7 @@ export default function UserChannelContainer({
             recordings={recordingsMemo}
             role={role}
             isFollowing={isFollowing}
+            onFollow={focusFollowButton}
           />
         </div>
       )}

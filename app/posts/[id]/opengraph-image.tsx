@@ -5,6 +5,7 @@
  *
  * History
  * 2026.02.13  임도헌   Created   게시글 정보(제목, 내용, 작성자, 썸네일)를 포함한 OG 이미지 생성
+ * 2026.03.23  임도헌   Modified  잘못된 id 경로는 DB 조회 전 가드해 OG 이미지 라우트 예외 가능성을 줄임
  */
 /* eslint-disable @next/next/no-img-element */
 import { ImageResponse } from "next/og";
@@ -19,6 +20,30 @@ export default async function Image({ params }: { params: { id: string } }) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const logoTextUrl = `${baseUrl}/images/logo-text.png`;
   const logoSymbolUrl = `${baseUrl}/images/logo-symbol.png`;
+
+  if (!Number.isFinite(id) || id <= 0) {
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            background: "#f8fafc",
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={logoTextUrl}
+            alt="BoardPort"
+            style={{ width: 400, objectFit: "contain" }}
+          />
+        </div>
+      ),
+      { ...size }
+    );
+  }
 
   const post = await db.post.findUnique({
     where: { id },

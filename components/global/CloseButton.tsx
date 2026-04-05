@@ -14,12 +14,15 @@
  * 2026.01.10  임도헌   Modified  터치 타겟(44px) 확보 및 시맨틱 스타일 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/global
  * 2026.03.06  임도헌   Modified  hover 배경을 공용 시맨틱 토큰(bg-surface-dim) 기준으로 정리
+ * 2026.03.09  임도헌   Modified  모달 닫기 시 history back 우선 처리 옵션 추가
+ * 2026.03.18  임도헌   Modified  공통 닫기 버튼에서도 returnTo/fallbackHref를 정규화해 raw 쿼리 재사용 예외를 방지
  */
 "use client";
 
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useCallback } from "react";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -30,6 +33,8 @@ interface Props {
   /** aria-label 지정 */
   label?: string;
   className?: string;
+  /** 인터셉트 모달처럼 직전 히스토리 복귀가 더 자연스러운 경우 back()을 우선 사용 */
+  preferHistoryBack?: boolean;
 }
 
 export default function CloseButton({
@@ -37,16 +42,24 @@ export default function CloseButton({
   returnTo,
   label = "닫기",
   className,
+  preferHistoryBack = false,
 }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const resolvedReturnTo = returnTo || sp.get("returnTo") || fallbackHref;
+  // 공통 닫기 동작도 searchParams의 raw returnTo가 아닌 정규화된 내부 경로만 사용
+  const resolvedReturnTo = sanitizeCallbackUrl(
+    returnTo || sp.get("returnTo") || fallbackHref
+  );
 
   const onClose = useCallback(() => {
-    // Parallel/Intercepting Route 환경에서는 back()보다 명시 경로 replace가 안정적
+    if (preferHistoryBack && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
     router.replace(resolvedReturnTo);
-  }, [router, resolvedReturnTo]);
+  }, [preferHistoryBack, router, resolvedReturnTo]);
 
   // ESC로 닫기
   useEffect(() => {
@@ -63,15 +76,10 @@ export default function CloseButton({
       onClick={onClose}
       aria-label={label}
       className={cn(
-        // [기본] 중앙 정렬, 원형
         "flex items-center justify-center rounded-full transition-colors",
-        // [크기] 터치 타겟 확보 (40px ~ 44px)
         "size-10 sm:size-11",
-        // [색상] 배경색: Surface Dim (연한 회색/어두운 회색) -> 호버 시 진하게
         "bg-surface-dim hover:bg-border/80",
-        // [아이콘] 기본 Muted -> 호버 시 Primary
         "text-muted hover:text-primary",
-        // [포커스] 접근성 포커스 링
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
         className
       )}

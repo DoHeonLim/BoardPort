@@ -6,36 +6,39 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.07  임도헌   Created   최근 AuditLog 5건 조회
+ * 2026.03.23  임도헌   Modified  관리자 대시보드 위젯 셸과 헤더 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.03.30  임도헌   Modified  감사 로그 대상 추적 링크를 재사용해 대시보드에서도 관련 관리 화면으로 바로 이어지게 정리
  */
 
 import Link from "next/link";
-import db from "@/lib/db";
 import TimeAgo from "@/components/ui/TimeAgo";
 import {
   ClipboardDocumentListIcon,
   ChevronRightIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { AUDIT_ACTION_LABELS } from "@/features/report/constants";
+import { getAuditLogTargetUrl } from "@/features/report/utils/adminFormatter";
 import { cn } from "@/lib/utils";
+import type { AdminAuditLogItem } from "@/features/report/types";
 
 /**
  * 최근 감사 로그 위젯
  *
  * [기능]
  * 1. 최신 관리자 활동 로그 5건을 요약하여 표시
- * 2. 활동 유형(Action) 및 시간(TimeAgo) 정보 렌더링
- * 3. 전체 로그 페이지로 이동하는 더보기 링크 제공
+ * 2. 활동 유형(Action), 시간(TimeAgo), 대상 타입/ID 정보를 함께 렌더링
+ * 3. 로그 대상이 추적 가능할 때 관련 관리 화면으로 바로 이동하는 링크 제공
+ * 4. 전체 로그 페이지로 이동하는 더보기 링크 제공
  */
-export default async function RecentLogsWidget() {
-  const logs = await db.auditLog.findMany({
-    orderBy: { created_at: "desc" },
-    take: 5,
-    include: { admin: { select: { username: true } } },
-  });
-
+export default function RecentLogsWidget({
+  logs,
+}: {
+  logs: AdminAuditLogItem[];
+}) {
   return (
-    <div className="bg-surface rounded-2xl border border-border shadow-sm flex flex-col h-full overflow-hidden">
-      <div className="p-5 border-b border-border flex justify-between items-center bg-surface-dim/30">
+    <div className="bg-surface rounded-2xl border border-border-subtle shadow-sm flex flex-col h-full overflow-hidden">
+      <div className="p-5 border-b border-border-subtle flex justify-between items-center bg-surface-dim/30">
         <h3 className="font-bold text-primary flex items-center gap-2">
           <ClipboardDocumentListIcon className="size-5 text-brand dark:text-brand-light" />
           최근 관리 활동
@@ -57,6 +60,15 @@ export default async function RecentLogsWidget() {
           <ul className="space-y-1">
             {logs.map((log) => {
               const actionLabel = AUDIT_ACTION_LABELS[log.action] || log.action;
+              const targetUrl = getAuditLogTargetUrl({
+                id: log.id,
+                admin: log.admin,
+                action: log.action,
+                targetType: log.targetType,
+                targetId: log.targetId,
+                reason: log.reason,
+                created_at: log.created_at,
+              });
 
               // 정확한 값 비교로 색상 분류
               const isDanger = [
@@ -103,6 +115,17 @@ export default async function RecentLogsWidget() {
                       {log.targetType} #{log.targetId}
                     </span>
                   </p>
+                  {targetUrl ? (
+                    <div className="mt-2">
+                      <Link
+                        href={targetUrl}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand transition-colors hover:text-brand-dark"
+                      >
+                        관련 화면 보기
+                        <ArrowTopRightOnSquareIcon className="size-3.5" />
+                      </Link>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

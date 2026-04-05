@@ -11,187 +11,169 @@ Date        Author   Status    Description
 2025.05.08  임도헌   Modified  스트리밍 카테고리 시드 추가
 2025.12.07  임도헌   Modified  뱃지 설명 수정
 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+2026.03.09  임도헌   Modified  제품 카테고리를 메커니즘 중심 개편안으로 교체
+2026.03.09  임도헌   Modified  제품 데이터 보존을 위해 참조 데이터 비파괴 시드 방식으로 전환
+2026.03.28  임도헌   Modified  뱃지 설명 문구를 실제 획득 조건과 사용자 친화 용어로 정리
 */
 
 // prisma db seed 사용해서 데이터 추가
 
 import db from "@/lib/db";
+import { PRODUCT_CATEGORY_SEED_DRAFT } from "./productCategorySeedDraft";
 
-async function main() {
-  // 기존 데이터 삭제 (순서 중요)
-  await db.productMessage.deleteMany();
-  await db.productChatRoom.deleteMany();
-  await db.productImage.deleteMany();
-  await db.productLike.deleteMany();
-  await db.review.deleteMany();
-  await db.product.deleteMany();
-  await db.badge.deleteMany();
-  await db.category.deleteMany();
-  await db.streamCategory.deleteMany();
+type CategorySeed = (typeof PRODUCT_CATEGORY_SEED_DRAFT)[number];
 
-  const categories = [
-    {
-      eng_name: "STRATEGY",
-      kor_name: "전략",
-      icon: "🎯",
-      description: "전략적 사고가 필요한 게임",
-      subcategories: [
-        {
-          eng_name: "ECONOMY",
-          kor_name: "경제",
-          icon: "💰",
-          description: "자원 관리와 경제 운영이 중심인 게임",
-        },
-        {
-          eng_name: "CONQUEST",
-          kor_name: "점령",
-          icon: "⚔️",
-          description: "영토 확장과 전투가 있는 게임",
-        },
-        {
-          eng_name: "CIVILIZATION",
-          kor_name: "문명",
-          icon: "🏛️",
-          description: "문명을 발전시키고 성장시키는 게임",
-        },
-        {
-          eng_name: "WARGAME",
-          kor_name: "전쟁",
-          icon: "🎖️",
-          description: "전쟁 시뮬레이션 게임",
-        },
-      ],
-    },
-    {
-      eng_name: "FAMILY",
-      kor_name: "가족",
-      icon: "👨‍👩‍👧‍👦",
-      description: "온가족이 함께 즐길 수 있는 게임",
-      subcategories: [
-        {
-          eng_name: "CHILDREN",
-          kor_name: "어린이",
-          icon: "🧒",
-          description: "아이들도 쉽게 즐길 수 있는 게임",
-        },
-        {
-          eng_name: "PARTY",
-          kor_name: "파티",
-          icon: "🎉",
-          description: "여러 명이 함께 즐기는 파티 게임",
-        },
-        {
-          eng_name: "EDUCATION",
-          kor_name: "교육",
-          icon: "📚",
-          description: "학습 요소가 포함된 교육용 게임",
-        },
-      ],
-    },
-    {
-      eng_name: "THEME",
-      kor_name: "테마",
-      icon: "🎭",
-      description: "특정 테마나 세계관을 가진 게임",
-      subcategories: [
-        {
-          eng_name: "FANTASY",
-          kor_name: "판타지",
-          icon: "🐉",
-          description: "마법과 모험이 있는 판타지 게임",
-        },
-        {
-          eng_name: "HORROR",
-          kor_name: "공포",
-          icon: "👻",
-          description: "공포와 미스터리 테마의 게임",
-        },
-        {
-          eng_name: "SF",
-          kor_name: "공상과학",
-          icon: "🚀",
-          description: "공상과학 테마의 게임",
-        },
-        {
-          eng_name: "HISTORY",
-          kor_name: "역사",
-          icon: "📜",
-          description: "역사적 사건이나 시대 배경의 게임",
-        },
-      ],
-    },
-    {
-      eng_name: "REASONING",
-      kor_name: "추리",
-      icon: "🔍",
-      description: "논리적 추론이 필요한 게임",
-      subcategories: [
-        {
-          eng_name: "CRIME",
-          kor_name: "범죄",
-          icon: "🕵️",
-          description: "범죄 해결과 수사가 테마인 게임",
-        },
-        {
-          eng_name: "MYSTERY",
-          kor_name: "미스터리",
-          icon: "🎭",
-          description: "비밀과 수수께끼를 푸는 게임",
-        },
-        {
-          eng_name: "SOCIAL_MYSTERY",
-          kor_name: "사회적 추리",
-          icon: "🗣️",
-          description: "마피아류의 사회적 추리 게임",
-        },
-      ],
-    },
-    {
-      eng_name: "COOPERATION",
-      kor_name: "협력",
-      icon: "🤝",
-      description: "플레이어들이 협력하는 게임",
-      subcategories: [
-        {
-          eng_name: "SURVIVAL",
-          kor_name: "생존",
-          icon: "🏝️",
-          description: "함께 생존해나가는 게임",
-        },
-        {
-          eng_name: "PUZZLE",
-          kor_name: "퍼즐",
-          icon: "🧩",
-          description: "협력하여 퍼즐을 해결하는 게임",
-        },
-        {
-          eng_name: "TEAM_GAME",
-          kor_name: "팀 게임",
-          icon: "👥",
-          description: "팀을 이루어 대결하는 게임",
-        },
-      ],
-    },
-  ];
+type StreamCategorySeed = {
+  eng_name: string;
+  kor_name: string;
+  icon: string;
+  description: string;
+  subcategories: {
+    eng_name: string;
+    kor_name: string;
+    icon: string;
+    description: string;
+  }[];
+};
 
-  // 카테고리와 서브카테고리 생성
+async function syncProductCategories(categories: CategorySeed[]) {
   for (const category of categories) {
     const { subcategories, ...categoryData } = category;
 
-    const mainCategory = await db.category.create({
-      data: categoryData,
+    const existingMainCategory = await db.category.findFirst({
+      where: {
+        eng_name: category.eng_name,
+        parentId: null,
+      },
     });
 
-    // 서브카테고리 생성 및 부모 카테고리와 연결
+    const mainCategory = existingMainCategory
+      ? await db.category.update({
+          where: { id: existingMainCategory.id },
+          data: categoryData,
+        })
+      : await db.category.create({
+          data: categoryData,
+        });
+
     for (const subcategory of subcategories) {
-      await db.category.create({
-        data: {
-          ...subcategory,
-          parentId: mainCategory.id,
+      const existingSubCategory = await db.category.findFirst({
+        where: {
+          eng_name: subcategory.eng_name,
         },
       });
+
+      if (existingSubCategory) {
+        await db.category.update({
+          where: { id: existingSubCategory.id },
+          data: {
+            ...subcategory,
+            parentId: mainCategory.id,
+          },
+        });
+      } else {
+        await db.category.create({
+          data: {
+            ...subcategory,
+            parentId: mainCategory.id,
+          },
+        });
+      }
     }
   }
+}
+
+async function cleanupUnusedProductCategories(categories: CategorySeed[]) {
+  const mainCategoryEngNames = categories.map((category) => category.eng_name);
+  const subCategoryEngNames = categories.flatMap((category) =>
+    category.subcategories.map((subcategory) => subcategory.eng_name)
+  );
+  const allowedEngNames = new Set([
+    ...mainCategoryEngNames,
+    ...subCategoryEngNames,
+  ]);
+
+  await db.category.deleteMany({
+    where: {
+      eng_name: {
+        notIn: Array.from(allowedEngNames),
+      },
+      products: {
+        none: {},
+      },
+      children: {
+        none: {},
+      },
+    },
+  });
+
+  await db.category.deleteMany({
+    where: {
+      eng_name: {
+        notIn: mainCategoryEngNames,
+      },
+      parentId: null,
+      products: {
+        none: {},
+      },
+      children: {
+        none: {},
+      },
+    },
+  });
+}
+
+async function syncStreamCategories(categories: StreamCategorySeed[]) {
+  for (const category of categories) {
+    const { subcategories, ...categoryData } = category;
+
+    const existingMainCategory = await db.streamCategory.findFirst({
+      where: {
+        eng_name: category.eng_name,
+        parentId: null,
+      },
+    });
+
+    const mainCategory = existingMainCategory
+      ? await db.streamCategory.update({
+          where: { id: existingMainCategory.id },
+          data: categoryData,
+        })
+      : await db.streamCategory.create({
+          data: categoryData,
+        });
+
+    for (const subcategory of subcategories) {
+      const existingSubCategory = await db.streamCategory.findFirst({
+        where: {
+          eng_name: subcategory.eng_name,
+        },
+      });
+
+      if (existingSubCategory) {
+        await db.streamCategory.update({
+          where: { id: existingSubCategory.id },
+          data: {
+            ...subcategory,
+            parentId: mainCategory.id,
+          },
+        });
+      } else {
+        await db.streamCategory.create({
+          data: {
+            ...subcategory,
+            parentId: mainCategory.id,
+          },
+        });
+      }
+    }
+  }
+}
+
+async function main() {
+  const categories = PRODUCT_CATEGORY_SEED_DRAFT;
+  await syncProductCategories(categories);
+  await cleanupUnusedProductCategories(categories);
 
   // 스트리밍 카테고리 데이터
   const streamCategories = [
@@ -301,24 +283,7 @@ async function main() {
     },
   ];
 
-  // 스트리밍 카테고리와 서브카테고리 생성
-  for (const category of streamCategories) {
-    const { subcategories, ...categoryData } = category;
-
-    const mainCategory = await db.streamCategory.create({
-      data: categoryData,
-    });
-
-    // 서브카테고리 생성 및 부모 카테고리와 연결
-    for (const subcategory of subcategories) {
-      await db.streamCategory.create({
-        data: {
-          ...subcategory,
-          parentId: mainCategory.id,
-        },
-      });
-    }
-  }
+  await syncStreamCategories(streamCategories);
 
   const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
@@ -334,7 +299,7 @@ async function main() {
       name: "POWER_SELLER",
       icon: `https://imagedelivery.net/${CF_HASH}/18844d35-d462-4d59-839d-2fcc25134800`,
       description:
-        "10건 이상의 거래와 4.0 이상의 높은 평점을 기록한 파워 선상 상인입니다. 보드포트에서 신뢰할 수 있는 거래를 이어가고 있어요!",
+        "판매 완료 10건 이상과 평균 평점 4.0 이상을 기록한 노련한 상인입니다. 보드포트에서 믿을 수 있는 거래를 이어가고 있어요!",
     },
     {
       name: "QUICK_RESPONSE",
@@ -358,72 +323,77 @@ async function main() {
       name: "ACTIVE_COMMENTER",
       icon: `https://imagedelivery.net/${CF_HASH}/9cc7214f-ae58-43ab-ba4d-75d31a9f6500`,
       description:
-        "최근 30일 동안 30개 이상의 댓글을 남기고, 그 중 규칙/후기 게시글에 남긴 댓글 비율이 30% 이상인 열정적인 통신사입니다.",
+        "최근 30일 동안 30개 이상의 댓글을 남기고, 그중 보물지도·항해일지 카테고리에 남긴 댓글 비율이 30% 이상인 열정적인 통신사입니다.",
     },
     {
       name: "GAME_COLLECTOR",
       icon: `https://imagedelivery.net/${CF_HASH}/ee622a84-9d9c-4201-7dc6-a778069e2e00`,
       description:
-        "20회 이상 다양한 장르와 카테고리의 보드게임을 거래한 보물선 수집가입니다. 여러 항구를 넘나들며 풍부한 게임 경험을 쌓고 있어요!",
+        "총 20회 이상 거래하고, 서로 다른 카테고리 3종류 이상과 게임 타입 2종류 이상을 경험한 보물선 수집가입니다. 여러 항구를 넘나들며 풍부한 게임 경험을 쌓고 있어요!",
     },
     {
       name: "GENRE_MASTER",
-      icon: `https://imagedelivery.net/${CF_HASH}//bb30cb4b-d65a-481b-e65e-f5aead306100`,
+      icon: `https://imagedelivery.net/${CF_HASH}/bb30cb4b-d65a-481b-e65e-f5aead306100`,
       description:
         "한 장르(카테고리)에서 10회 이상의 거래와 4.4 이상의 평점을 기록한 장르의 항해사입니다.",
     },
     {
       name: "RULE_SAGE",
-      icon: `https://imagedelivery.net/${CF_HASH}//90fb9c56-d6be-49da-fe60-0471bfbbc400`,
+      icon: `https://imagedelivery.net/${CF_HASH}/90fb9c56-d6be-49da-fe60-0471bfbbc400`,
       description:
         "10개 이상의 규칙 설명 게시글과 500회 이상의 조회수를 받은 규칙의 현자입니다.",
     },
     {
       name: "VERIFIED_SAILOR",
-      icon: `https://imagedelivery.net/${CF_HASH}//0534d88d-1944-4844-563c-20cc0a843200`,
+      icon: `https://imagedelivery.net/${CF_HASH}/0534d88d-1944-4844-563c-20cc0a843200`,
       description:
-        "전화번호 인증을 완료한 인증된 선원입니다. 신뢰할 수 있는 나침반을 들고 있어요!",
+        "이메일 인증과 전화번호 등록을 모두 완료한 인증된 선원입니다. 신뢰할 수 있는 나침반을 들고 있어요!",
     },
     {
       name: "FAIR_TRADER",
-      icon: `https://imagedelivery.net/${CF_HASH}//04b908dd-e9c7-40bb-4786-fe2b5af89900`,
+      icon: `https://imagedelivery.net/${CF_HASH}/04b908dd-e9c7-40bb-4786-fe2b5af89900`,
       description:
         "5회 이상의 거래에서 4.5 이상의 높은 평점을 기록한 정직한 상인입니다. 공정한 거래로 신뢰를 쌓고 있어요!",
     },
     {
       name: "QUALITY_MASTER",
-      icon: `https://imagedelivery.net/${CF_HASH}//4b6ed65a-732d-439e-4509-faa53dcb9400`,
+      icon: `https://imagedelivery.net/${CF_HASH}/4b6ed65a-732d-439e-4509-faa53dcb9400`,
       description:
         "8회 이상 판매를 완료하고, 그 중 70% 이상을 새제품급/거의 새것 상태와 완벽한 구성으로 유지한 품질의 달인입니다!",
     },
     {
       name: "EARLY_SAILOR",
-      icon: `https://imagedelivery.net/${CF_HASH}//63d81c0f-250a-4a87-ffea-142726992f00`,
+      icon: `https://imagedelivery.net/${CF_HASH}/63d81c0f-250a-4a87-ffea-142726992f00`,
       description:
         "2025년 1월 1일 이전에 가입하고 활동한 첫 항해 선원입니다. 새벽 항구에서 첫 닻을 올린 선구자예요!",
     },
     {
       name: "PORT_FESTIVAL",
-      icon: `https://imagedelivery.net/${CF_HASH}//7abfbeaa-f4e4-4499-f4ce-fb6bf9745d00`,
+      icon: `https://imagedelivery.net/${CF_HASH}/7abfbeaa-f4e4-4499-f4ce-fb6bf9745d00`,
       description:
         "최근 한 달 동안 3개 이상의 게시글, 10개 이상의 댓글, 1회 이상의 성공적인 거래로 항구를 뜨겁게 달군 축제의 주인공입니다. 당신의 활발한 활동이 우리 항구를 빛나게 만들어요!",
     },
     {
       name: "BOARD_EXPLORER",
-      icon: `https://imagedelivery.net/${CF_HASH}//c033d8e8-a96f-4632-6f86-cc76b62a9700`,
+      icon: `https://imagedelivery.net/${CF_HASH}/c033d8e8-a96f-4632-6f86-cc76b62a9700`,
       description:
-        "4가지 이상의 게임 타입을 거래하고, MAP/LOG 게시글 7개 이상을 남기며, 최근 6개월 기준 댓글 10개와 좋아요 30개 이상의 커뮤니티 기여도를 보여준 보드게임 탐험가입니다. 새로운 게임의 바다를 끝없이 탐험하고 있어요!",
+        "게임 타입 4종류 이상을 거래하고, 보물지도·항해일지 게시글을 7개 이상 남기며, 최근 6개월 기준 댓글 10개와 좋아요 30개 이상의 커뮤니티 기여도를 보여준 보드게임 탐험가입니다. 새로운 게임의 바다를 끝없이 탐험하고 있어요!",
     },
   ];
 
-  // 뱃지 생성
+  // 뱃지 생성/갱신
   for (const badge of badges) {
-    await db.badge.create({
-      data: badge,
+    await db.badge.upsert({
+      where: { name: badge.name },
+      update: {
+        icon: badge.icon,
+        description: badge.description,
+      },
+      create: badge,
     });
   }
 
-  console.log("카테고리, 스트리밍 카테고리, 뱃지 시드 완료!");
+  console.log("카테고리, 스트리밍 카테고리, 뱃지 시드 완료! (비파괴 모드)");
 }
 
 main()

@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2025.11.13  임도헌   Created   상단 고정 백 헤더/세이프에어리어/컨테이너 도입
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 및 헤더 통일
+ * 2026.03.12  임도헌   Modified  게시글 수정 헤더를 flat 톤과 border-border-subtle 기준으로 통일
+ * 2026.03.13  임도헌   Modified  상단 뒤로가기 버튼을 게시글 상세 복귀 기준으로 유지
  */
 
 import type { ReactNode } from "react";
@@ -21,21 +23,19 @@ export default function EditPostLayout({
   params: { id: string };
 }) {
   const idNum = Number(params.id);
-  const defaultHref =
-    Number.isFinite(idNum) && idNum > 0 ? `/posts/${idNum}` : "/posts";
 
   return (
     <div className="min-h-screen bg-background transition-colors">
       <header
         className={cn(
           "sticky top-0 z-40 h-14 w-full",
-          "bg-background/80 backdrop-blur-md border-b border-border",
+          "border-b border-border-subtle bg-background shadow-sm",
           "transition-colors"
         )}
       >
         <div className="mx-auto max-w-3xl h-full flex items-center px-3 sm:px-4 gap-3">
           <BackButton
-            fallbackHref={defaultHref}
+            fallbackHref={Number.isFinite(idNum) && idNum > 0 ? `/posts/${idNum}` : "/posts"}
             variant="appbar"
             className="px-0"
           />

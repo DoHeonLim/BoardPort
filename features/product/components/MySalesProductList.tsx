@@ -23,6 +23,7 @@
  * 2026.03.03  임도헌   Modified  initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent)를 분리하여 Suspense 최적화
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  탭/뷰 토글 active 상태와 다크모드 대비 정리
+ * 2026.03.26  임도헌   Modified  초소형 모바일 폭에서 그리드 1열 적응을 추가해 제목 잘림을 완화
  */
 
 "use client";
@@ -76,7 +77,7 @@ export default function MySalesProductList({
   const [counts, setCounts] = useState<TabCounts>(initialCounts);
   /**
    * 낙관적 상태 이동 (Optimistic Move) 핸들러
-   * - 탭 간 아이템 이동 시, Query Cache를 직접 조작함.
+   * - 탭 간 아이템 이동 시, Query Cache를 직접 조작
    */
   const onOptimisticMove = useCallback(
     ({
@@ -250,7 +251,7 @@ function SalesTabContent({
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
 
-  // 컴포넌트가 마운트된 해당 탭의 데이터만 패치함.
+  // 컴포넌트가 마운트된 해당 탭의 데이터만 패치
   const current = useProductPagination<MySalesListItem>({
     mode: "profile",
     scope: { type: type.toUpperCase() as any, userId },
@@ -270,7 +271,7 @@ function SalesTabContent({
 
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+      <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="p-4 rounded-full bg-surface-dim mb-4">
           <TagIcon className="size-10 text-muted/50" />
         </div>
@@ -290,7 +291,9 @@ function SalesTabContent({
       <div
         className={cn(
           "grid gap-4",
-          viewMode === "grid" ? "grid-cols-2" : "grid-cols-1"
+          viewMode === "grid"
+            ? "grid-cols-1 min-[360px]:grid-cols-2"
+            : "grid-cols-1"
         )}
       >
         {products.map((product) => (

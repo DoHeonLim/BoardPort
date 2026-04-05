@@ -9,7 +9,9 @@
  * 2026.03.07  임도헌   Modified  범용 서버 에러 문구를 v1.2 기준으로 구체화
  */
 
-// 유저 관련 에러 메시지
+/**
+ * 유저 도메인 액션과 서비스에서 공통으로 사용하는 표준 오류 문구
+ */
 export const USER_ERRORS = {
   NOT_LOGGED_IN: "로그인이 필요합니다.",
   UNAUTHORIZED: "권한이 없습니다.",
@@ -23,7 +25,9 @@ export const USER_ERRORS = {
   SERVER_ERROR: "요청 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
 } as const;
 
-// 뱃지 한글 이름 매핑
+/**
+ * 뱃지 코드와 화면 표시용 한글 이름 매핑
+ */
 export const BADGE_KOREAN_NAMES: Record<string, string> = {
   FIRST_DEAL: "첫 거래 선원",
   POWER_SELLER: "노련한 상인",

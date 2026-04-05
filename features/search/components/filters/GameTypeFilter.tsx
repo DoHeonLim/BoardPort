@@ -19,6 +19,10 @@ interface GameTypeFilterProps {
   onChange: (value: string) => void;
 }
 
+/**
+ * 게임 타입을 선택하는 필터 셀렉트
+ * - 보드게임/TRPG/카드게임 옵션을 공용 상수 기준으로 렌더링
+ */
 export default function GameTypeFilter({
   value,
   onChange,

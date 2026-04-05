@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.02.20  임도헌   Created   약속 모달과 구분하기 위해서 동네 설정 모달 생성
  * 2026.02.26  임도헌   Modified  autoFocus 제거
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 높이와 보더 강도 정리
+ * 2026.03.23  임도헌   Modified  데스크톱에서 검색 결과 리스트가 덜 답답하게 보이도록 폭을 한 단계 확장
  */
 "use client";
 
@@ -105,8 +107,8 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
   // 모달 기본 뼈대
   const modalWrapper = (content: React.ReactNode) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-border animate-fade-in flex flex-col max-h-[80vh]">
-        <div className="p-4 border-b border-border flex items-center justify-between bg-surface shrink-0">
+      <div className="bg-surface flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border-subtle shadow-2xl sm:max-w-lg">
+        <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0">
           <h3 className="font-bold text-primary">내 동네 검색</h3>
           <button
             onClick={onClose}
@@ -150,7 +152,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
     modalWrapper(
       <>
         {/* Input */}
-        <div className="p-4 bg-surface-dim border-b border-border shrink-0">
+        <div className="p-4 bg-surface-dim border-b border-border-subtle shrink-0">
           <div className="relative flex gap-2">
             <div className="relative flex-1">
               <input

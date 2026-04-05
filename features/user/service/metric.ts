@@ -11,6 +11,8 @@
  * 2026.01.24  임도헌   Merged    getUserAverageRating, calculateChatResponseRate 등 이관
  * 2026.03.03  임도헌   Modified  unstable_cache 래퍼 제거 및 함수명(getUserAverageRating) 단순화
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.28  임도헌   Modified  보드게임 탐험가 관련 카테고리 설명을 사용자 친화 용어로 정리
+ * 2026.03.30  임도헌   Modified  게시글 카테고리 라벨 정리에 맞춰 후기/공략 기준 주석으로 통일
  */
 
 import "server-only";
@@ -197,7 +199,7 @@ export async function calculateCategoryRating(
 
 /**
  * [뱃지용] 커뮤니티 인기도 계산 (보드게임 탐험가)
- * - 보물지도(MAP)와 항해일지(LOG) 카테고리의 게시글 대상
+ * - 공략과 후기 카테고리의 게시글 대상
  * - 최근 6개월 기준 댓글 10개 이상, 좋아요 30개 이상 달성 여부
  * - return(0/1)
  */
@@ -209,7 +211,7 @@ export async function isPopularity(userId: number): Promise<number> {
     where: {
       userId,
       created_at: { gte: since },
-      // 보물지도 (규칙 설명/공략) , 항해 일지 (게임 후기/리뷰)
+      // 공략(MAP), 후기(LOG) 카테고리 게시글
       OR: [{ category: "MAP" }, { category: "LOG" }],
     },
     include: {

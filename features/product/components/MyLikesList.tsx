@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   찜한 상품 목록 UI 및 무한 스크롤 연동 구현
  * 2026.03.06  임도헌   Modified  리스트 레이아웃/하단 로딩 배지 정렬
+ * 2026.03.26  임도헌   Modified  빈 상태를 최근 프로필 상태 화면 패턴으로 통일하고 liked_at 타입을 반영
+ * 2026.03.26  임도헌   Modified  카드 우상단 빠른 찜 해제 버튼을 활성화해 목록 관리 효율 개선
  */
 "use client";
 
@@ -17,7 +19,7 @@ import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import ProductCard from "@/features/product/components/productCard";
 import { HeartIcon } from "@heroicons/react/24/outline";
-import type { ProductType } from "@/features/product/types";
+import type { LikedProductListItem } from "@/features/product/types";
 
 /**
  * 나의 찜한 제품 목록 렌더링 컴포넌트
@@ -31,7 +33,7 @@ import type { ProductType } from "@/features/product/types";
  * @param {number} props.userId - 조회할 대상 유저 ID
  */
 export default function MyLikesList({ userId }: { userId: number }) {
-  const liked = useProductPagination<ProductType>({
+  const liked = useProductPagination<LikedProductListItem>({
     mode: "profile",
     scope: { type: "LIKED", userId },
   });
@@ -51,22 +53,24 @@ export default function MyLikesList({ userId }: { userId: number }) {
 
   if (liked.products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in">
-        <div className="p-4 rounded-full bg-surface-dim mb-4">
-          <HeartIcon className="size-10 text-muted/50" />
+      <div className="state-screen">
+        <div className="state-card">
+          <div className="state-icon-wrap">
+            <HeartIcon className="size-10 text-muted/50" />
+          </div>
+          <h3 className="state-title">찜한 상품이 없습니다</h3>
+          <p className="state-description">
+            관심 있는 게임을 저장해두고 가격 변화와 거래 상태를 편하게 확인해보세요.
+          </p>
+          <div className="state-actions">
+            <Link
+              href="/products"
+              className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center px-6 text-sm font-semibold shadow-sm sm:w-auto"
+            >
+              제품 둘러보기
+            </Link>
+          </div>
         </div>
-        <h3 className="text-lg font-bold text-primary mb-1">
-          찜한 상품이 없습니다
-        </h3>
-        <p className="text-sm text-muted mb-6">
-          관심 있는 게임을 찾아 찜해보세요!
-        </p>
-        <Link
-          href="/products"
-          className="btn-primary text-sm h-10 px-6 inline-flex items-center shadow-sm"
-        >
-          항구로 이동하기
-        </Link>
       </div>
     );
   }
@@ -80,6 +84,7 @@ export default function MyLikesList({ userId }: { userId: number }) {
             product={product}
             viewMode="list"
             isPriority={index < 4}
+            showQuickUnlike
           />
         ))}
       </div>
@@ -89,7 +94,7 @@ export default function MyLikesList({ userId }: { userId: number }) {
           <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
         )}
         {liked.isFetchingNextPage && (
-          <div className="mt-3 mb-[calc(84px+env(safe-area-inset-bottom))] sm:mb-0 mx-auto w-fit flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full shadow-sm animate-fade-in whitespace-nowrap">
+          <div className="mt-3 mb-[calc(84px+env(safe-area-inset-bottom))] sm:mb-0 mx-auto w-fit flex items-center gap-2 text-sm text-muted bg-surface-dim px-4 py-2 rounded-full shadow-sm whitespace-nowrap">
             <span className="size-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
             <span className="whitespace-nowrap">더 불러오는 중...</span>
           </div>

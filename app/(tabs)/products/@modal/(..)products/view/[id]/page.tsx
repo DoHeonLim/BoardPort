@@ -31,6 +31,8 @@
  * 2026.02.03  임도헌   Modified  순서 보장(Sequencing) 패턴 적용: 조회수 증가 후 데이터 로드
  * 2026.02.04  임도헌   Modified  판매자와 조회자간의 차단 관계 확인 로직 추가(차단 관계일 경우 제품 정보 차단)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.18  임도헌   Modified  인터셉트 모달에서도 returnTo 쿼리를 반영한 callbackUrl을 구성해 차단 후 복귀 문맥 보존
+ * 2026.03.23  임도헌   Modified  인터셉트 모달도 일반 상세와 같은 양수 ID 가드로 정리해 잘못된 경로의 조회수/서비스 호출을 방지
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -39,6 +41,7 @@ import { getProductLikeStatus } from "@/features/product/service/like";
 import { incrementViews } from "@/features/common/service/view";
 import { checkBlockRelation } from "@/features/user/service/block";
 import ProductDetailModalContainer from "@/features/product/components/productDetail/modal/ProductDetailModalContainer";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import getSession from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -53,11 +56,13 @@ export const dynamic = "force-dynamic";
  */
 export default async function ProductDetailModal({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { returnTo?: string };
 }) {
   const id = Number(params.id);
-  if (isNaN(id)) return notFound();
+  if (!Number.isFinite(id) || id <= 0) return notFound();
 
   const session = await getSession();
   const userId = session?.id ?? null;
@@ -80,7 +85,11 @@ export default async function ProductDetailModal({
   if (userId && userId !== product.userId) {
     const isBlocked = await checkBlockRelation(userId, product.userId);
     if (isBlocked) {
-      const callbackUrl = `/products/view/${id}`;
+      // 모달에서 차단 403으로 이동하더라도 목록 복귀 문맥 유지
+      const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/products");
+      const callbackUrl = `/products/view/${id}?returnTo=${encodeURIComponent(
+        returnTo
+      )}`;
       redirect(
         `/403?reason=BLOCKED` +
           `&username=${encodeURIComponent(product.user.username)}` +

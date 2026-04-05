@@ -12,11 +12,13 @@
  * 2026.03.03  임도헌   Modified   목록 캐시 무효화
  * 2026.03.05  임도헌   Modified   조회 경로의 revalidateTag 제거(고빈도 캐시 무효화 방지), 상세 캐시 무효화 책임을 mutation action으로 이관
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.28  임도헌   Modified   공략(MAP) 조회수 누적 뱃지가 상세 진입 증가에도 반응하도록 후처리 추가
  */
 
 "use server";
 
 import db from "@/lib/db";
+import { checkRuleSageBadge } from "@/features/user/service/badge";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { ViewTargetType } from "@/generated/prisma/client";
 
@@ -139,10 +141,17 @@ export async function incrementViews({
       data: { views: { increment: 1 } },
     });
   } else if (target === "POST") {
-    await db.post.update({
+    const post = await db.post.update({
       where: { id: targetId },
       data: { views: { increment: 1 } },
+      select: { userId: true, category: true },
     });
+
+    if (post.category === "MAP") {
+      void checkRuleSageBadge(post.userId).catch((error) => {
+        console.error("[incrementViews] RULE_SAGE badge check failed:", error);
+      });
+    }
   } else if (target === "VOD") {
     await db.vodAsset.update({
       where: { id: targetId },

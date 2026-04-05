@@ -30,6 +30,9 @@
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
  * 2026.02.26  임도헌   Modified  다크모드 개선 및 autoFocus 제거
  * 2026.03.06  임도헌   Modified  이미지 제거/메시지 전송 버튼 접근성 라벨 보강
+ * 2026.03.12  임도헌   Modified  채팅 이미지 전송 시 GIF 여부를 imageIsAnimated 메타로 함께 전달
+ * 2026.03.27  임도헌   Modified  채팅 상세 전송 버튼에 다크 밀집 화면용 조용한 primary 톤 적용
+ * 2026.03.27  임도헌   Modified  원형 전송 버튼 비율을 맞추기 위해 아이콘 전용 quiet-dark 버튼 변형 적용
  */
 "use client";
 
@@ -43,7 +46,11 @@ import ChatActionMenu from "@/features/chat/components/ChatActionMenu";
 
 interface ChatInputBarProps {
   isSubmitting: boolean;
-  onSubmit: (text: string, imageUrl?: string | null) => Promise<void> | void;
+  onSubmit: (
+    text: string,
+    imageUrl?: string | null,
+    imageIsAnimated?: boolean
+  ) => Promise<void> | void;
   onScheduleOpen?: () => void;
   autoFocus?: boolean;
   disabled?: boolean;
@@ -70,6 +77,7 @@ export default function ChatInputBar({
   const [isComposing, setIsComposing] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null); // 이미지 프리뷰
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // 이미지 URL
+  const [imageIsAnimated, setImageIsAnimated] = useState(false); // GIF 여부
   const [isUploading, setIsUploading] = useState(false); // 로딩
 
   // Refs
@@ -95,6 +103,7 @@ export default function ChatInputBar({
     setIsUploading(true);
     const localPreview = URL.createObjectURL(file);
     setImagePreview(localPreview);
+    setImageIsAnimated(file.type === "image/gif");
 
     try {
       // 1) CF Upload URL 발급
@@ -117,6 +126,7 @@ export default function ChatInputBar({
       console.error(err);
       toast.error("이미지 업로드에 실패했습니다.");
       setImagePreview(null);
+      setImageIsAnimated(false);
     } finally {
       setIsUploading(false);
     }
@@ -126,6 +136,7 @@ export default function ChatInputBar({
   const removeImage = () => {
     setImagePreview(null);
     setUploadedUrl(null);
+    setImageIsAnimated(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -141,10 +152,11 @@ export default function ChatInputBar({
       removeImage(); // 전송 시도 시 프리뷰 제거
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-      await onSubmit(trimmed, currentUrl);
+      await onSubmit(trimmed, currentUrl, imageIsAnimated);
     } catch {
       setText(trimmed);
       setUploadedUrl(uploadedUrl);
+      setImageIsAnimated(imageIsAnimated);
     }
     textareaRef.current?.focus();
   };
@@ -168,12 +180,13 @@ export default function ChatInputBar({
     <div className="w-full px-3 py-2 sm:px-4 flex flex-col gap-2">
       {/* 이미지 프리뷰 영역 */}
       {imagePreview && (
-        <div className="flex px-1 animate-fade-in">
+        <div className="flex px-1">
           <div className="relative size-20 rounded-xl overflow-hidden border border-border shadow-sm group">
             <Image
               src={imagePreview}
               alt="Preview"
               fill
+              unoptimized={imageIsAnimated}
               className="object-cover"
             />
             {isUploading && (
@@ -239,9 +252,9 @@ export default function ChatInputBar({
           }
           aria-label="메시지 전송"
           className={cn(
-            "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
-            "bg-brand-light dark:bg-brand text-white hover:bg-brand active:scale-95",
-            "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed"
+            "btn-primary-quiet-dark-icon shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
+            "active:scale-95",
+            "disabled:bg-surface-dim disabled:text-muted disabled:cursor-not-allowed"
           )}
         >
           <PaperAirplaneIcon className="size-5 pl-0.5" />

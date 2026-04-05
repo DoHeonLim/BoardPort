@@ -6,46 +6,16 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   찜한 내역 전용 ProductCard 리스트 스켈레톤 적용
+ * 2026.03.12  임도헌   Modified  프로필 찜한 내역 스켈레톤 구분선을 border-border-subtle 톤으로 통일
+ * 2026.03.26  임도헌   Modified  공용 ProductListSkeleton을 재사용해 프로필 찜 목록 로딩 패턴을 통일
  */
 
-import Skeleton from "@/components/ui/Skeleton";
+import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background transition-colors">
-      <div className="px-page-x py-6 flex flex-col gap-4">
-        {/* List Skeleton */}
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex flex-col rounded-2xl border border-border bg-surface overflow-hidden shadow-sm"
-          >
-            <div className="flex p-4 gap-4">
-              {/* Thumbnail */}
-              <Skeleton className="size-24 sm:size-28 rounded-xl shrink-0" />
-
-              {/* Info */}
-              <div className="flex-1 flex flex-col justify-between py-1">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Skeleton className="h-5 w-3/4 rounded" />
-                    <Skeleton className="h-5 w-14 rounded" />
-                  </div>
-                  <Skeleton className="h-4 w-20 rounded" />
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t border-border/50 mt-2">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-3 w-10 rounded" />
-                    <Skeleton className="size-5 rounded-full" />
-                  </div>
-                  <Skeleton className="h-3 w-16 rounded" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="px-page-x py-6">
+      <ProductListSkeleton viewMode="list" count={4} />
     </div>
   );
 }

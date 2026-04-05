@@ -15,6 +15,7 @@
  * 2026.03.01  임도헌   Modified  isFetchingNextPage 적용을 통한 하단 스피너 분리 최적화
  * 2026.03.03  임도헌   Modified  initialReviews Props 제거 및 훅 호출 시그니처 변경
  * 2026.03.05  임도헌   Modified   주석 최신화
+ * 2026.03.23  임도헌   Modified  후기 empty state 점선 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
  */
 "use client";
 
@@ -49,14 +50,14 @@ export default function ReviewsList({
   const isVisible = usePageVisibility();
 
   // 무한 스크롤 센서 등록
-  // 스크롤 중복 호출 방지를 위해 isLoading 플래그에 isFetchingNextPage를 바인딩함.
+  // 스크롤 중복 호출 방지를 위해 isLoading 플래그에 isFetchingNextPage를 바인딩
   useInfiniteScroll({
     triggerRef,
     hasMore,
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible,
-    rootRef: scrollParentRef, // 모달 등 특정 스크롤 컨테이너를 기준으로 동작하도록 설정함.
+    rootRef: scrollParentRef, // 모달 등 특정 스크롤 컨테이너를 기준으로 동작하도록 설정
     threshold: 0.1,
     rootMargin: "200px", // 조기 로딩을 위한 여유 마진 확보
   });
@@ -64,17 +65,17 @@ export default function ReviewsList({
   // 데이터가 없을 경우 표시되는 Empty State
   if (reviews.length === 0) {
     return (
-      <div className="py-20 text-center text-muted text-sm border border-dashed border-border rounded-xl bg-surface-dim/30">
+      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-20 text-center text-sm text-muted">
         아직 받은 후기가 없습니다.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="space-y-0 divide-y divide-border">
+    <div className="mx-auto flex w-full max-w-xl flex-col">
+      <div className="space-y-0 divide-y divide-border-subtle">
         {reviews.map((review) => (
-          <ReviewItem key={review.id} review={review} />
+          <ReviewItem key={review.id} review={review} variant="full" />
         ))}
       </div>
       <div className="py-6 flex justify-center min-h-[40px]">

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.13  임도헌   Created   방송 정보(제목, 스트리머, 썸네일)를 포함한 OG 이미지 생성
+ * 2026.03.23  임도헌   Modified  잘못된 id 경로는 DB 조회 전 가드해 OG 이미지 라우트 예외 가능성을 줄임
  */
 
 /* eslint-disable @next/next/no-img-element */
@@ -19,6 +20,30 @@ export default async function Image({ params }: { params: { id: string } }) {
   const id = Number(params.id);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const logoSymbolUrl = `${baseUrl}/images/logo-symbol.png`;
+
+  if (!Number.isFinite(id) || id <= 0) {
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            background: "#000000",
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={logoSymbolUrl}
+            alt="BoardPort"
+            style={{ width: 100, height: 100 }}
+          />
+        </div>
+      ),
+      { ...size }
+    );
+  }
 
   const stream = await db.broadcast.findUnique({
     where: { id },

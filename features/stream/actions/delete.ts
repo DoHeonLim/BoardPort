@@ -9,6 +9,7 @@
  * 2026.02.22  임도헌   Modified  본인 방송 삭제 시 메인 스트림 목록(/streams) 캐시 무효화 추가
  * 2026.03.05  임도헌   Modified  개인화된 방송 목록 캐시의 `revalidateTag` 호출 제거 및 `revalidatePath` 기반 단순화 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  삭제 액션 파라미터/반환 JSDoc 보강
  */
 
 "use server";
@@ -24,6 +25,9 @@ import { deleteLiveInput } from "@/features/stream/service/liveInput";
  * 방송 삭제 Action
  * - 소유권을 확인하고 방송을 삭제
  * - 성공 시 방송 상세 및 유저 방송국 목록 캐시를 무효화
+ *
+ * @param {number} broadcastId - 삭제할 방송 ID
+ * @returns {Promise<{ success: true } | { success: false; error: string }>} 삭제 결과
  */
 export const deleteBroadcastAction = async (broadcastId: number) => {
   const session = await getSession();
@@ -50,6 +54,9 @@ export const deleteBroadcastAction = async (broadcastId: number) => {
 /**
  * LiveInput 삭제 Action
  * - LiveInput과 연결된 방송들의 캐시를 무효화
+ *
+ * @param {number} liveInputId - 삭제할 LiveInput ID
+ * @returns {Promise<{ success: true } | { success: false; error: string }>} 삭제 결과
  */
 export async function deleteLiveInputAction(liveInputId: number) {
   const session = await getSession();

@@ -9,6 +9,7 @@
  * 2026.01.21  임도헌   Moved     lib/sms/service -> service/sms
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.08  임도헌   Modified  로그인 시 정지(Ban) 체크 및 만료 시 자동 해제 로직 추가
+ * 2026.04.04  임도헌   Modified  SMS 토큰 발급/소모 단계의 인라인 주석 보강
  */
 
 import "server-only";
@@ -30,15 +31,15 @@ export async function createAndSendSmsToken(
   phone: string
 ): Promise<ServiceResult<void>> {
   try {
-    // 1. 6자리 랜덤 토큰 생성
+    // 중복 없는 6자리 인증 토큰 생성
     const token = await generateUniqueSmsToken();
 
-    // 2. 기존 토큰 정리 (중복 요청 방지)
+    // 같은 번호의 기존 미사용 토큰 정리
     await db.sMSToken.deleteMany({
       where: { user: { phone } },
     });
 
-    // 3. 토큰 저장 및 유저 연결 (없으면 임시 계정 생성)
+    // 토큰 저장 및 phone 기준 임시 계정 연결
     await db.sMSToken.create({
       data: {
         token,
@@ -55,7 +56,7 @@ export async function createAndSendSmsToken(
       },
     });
 
-    // 4. SMS 발송
+    // 토큰 저장 후 실제 SMS 발송
     await sendSMS(phone, token);
 
     return { success: true };
@@ -76,7 +77,7 @@ export async function verifySmsToken(
   phone: string,
   token: string
 ): Promise<ServiceResult<{ userId: number }>> {
-  // 1. 토큰 조회
+  // 입력 토큰 기준의 저장 레코드 조회
   const verifiedToken = await db.sMSToken.findUnique({
     where: { token },
     select: {
@@ -89,23 +90,23 @@ export async function verifySmsToken(
     },
   });
 
-  // 2. 토큰 유효성 검사 (존재 여부 및 전화번호 일치)
+  // 존재 여부와 전화번호 일치 여부 검증
   if (!verifiedToken || verifiedToken.phone !== phone) {
     return { success: false, error: AUTH_ERRORS.SMS_VERIFY_FAILED };
   }
 
   const user = verifiedToken.user;
 
-  // 3. 정지 유저 체크 및 Lazy Unban
+  // 정지 상태 확인 및 만료 시 지연 해제
   if (user.bannedAt) {
     if (user.bannedUntil && new Date() > user.bannedUntil) {
-      // 기간 만료 -> 해제
+      // 기간 만료 계정 자동 해제
       await db.user.update({
         where: { id: user.id },
         data: { bannedAt: null, bannedUntil: null },
       });
     } else {
-      // 정지 중
+      // 현재도 정지 중인 계정 차단
       return {
         success: false,
         error: "운영 정책에 의해 이용이 정지된 계정입니다.",
@@ -114,7 +115,7 @@ export async function verifySmsToken(
     }
   }
 
-  // 4. 토큰 소모
+  // 검증 성공 후 토큰 1회 소모
   await db.sMSToken.delete({ where: { id: verifiedToken.id } });
 
   return { success: true, data: { userId: verifiedToken.userId } };

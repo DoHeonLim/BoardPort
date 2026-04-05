@@ -1,11 +1,12 @@
 /**
- * File Name : app/admin/AdminNavLink.tsx
+ * File Name : features/user/components/admin/AdminNavLink.tsx
  * Description : 관리자 사이드바 전용 클라이언트 링크 컴포넌트
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.02.06  임도헌   Created   usePathname을 활용한 활성화 스타일 적용
+ * 2026.03.30  임도헌   Modified  관리자 모바일/데스크톱 공통 네비게이션에서 같은 활성 상태 문법을 재사용하도록 정리
  */
 
 "use client";
@@ -24,8 +25,9 @@ interface AdminNavLinkProps {
  * 관리자 사이드바용 링크 컴포넌트
  *
  * [기능]
- * 1. 아이콘과 라벨을 포함한 네비게이션 링크를 렌더링함
- * 2. 현재 경로(`usePathname`)와 일치할 경우 활성화(Active) 스타일을 적용함
+ * 1. 아이콘과 라벨을 포함한 관리자 네비게이션 링크를 렌더링
+ * 2. 현재 경로(usePathname)와 일치할 경우 활성화 스타일 적용
+ * 3. 데스크톱 사이드바와 모바일 드로어에서 같은 활성 문법을 재사용
  */
 export default function AdminNavLink({ href, icon, label }: AdminNavLinkProps) {
   const pathname = usePathname();

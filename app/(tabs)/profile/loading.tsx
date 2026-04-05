@@ -10,21 +10,24 @@
  * 2025.11.13  임도헌   Modified   MyProfile 섹션 구조에 맞춰 스켈레톤 정비
  * 2026.01.15  임도헌   Modified   MyProfile 구조 재반영
  * 2026.02.26  임도헌   Modified   헤더에 스켈레톤 하나 추가
+ * 2026.03.12  임도헌   Modified   flat 액션 헤더와 현재 프로필 카드 밀도에 맞춰 스켈레톤 구조 정리
+ * 2026.03.17  임도헌   Modified   축소된 방송국 StreamCard 폭에 맞춰 rail 스켈레톤 너비 조정
+ * 2026.03.28  임도헌   Modified   내 동네 설정 섹션을 포함해 현재 내 프로필 IA와 동일한 순서로 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background transition-colors pb-24">
+    <div className="min-h-screen bg-background pb-24 transition-colors">
       {/* Top Actions Placeholder */}
-      <div className="flex justify-end gap-2 px-page-x py-3">
+      <div className="sticky top-0 z-30 flex justify-end gap-2 border-b border-border-subtle bg-background px-page-x py-3 shadow-sm">
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="size-10 rounded-xl" />
       </div>
 
-      <div className="px-page-x pt-2 flex flex-col gap-8 pb-10">
+      <div className="flex flex-col gap-8 px-page-x pt-6 pb-10">
         {/* 1. Header Skeleton */}
         <div className="flex items-start gap-4 sm:gap-5">
           {/* Avatar */}
@@ -59,19 +62,26 @@ export default function Loading() {
             <Skeleton className="h-5 w-24 rounded" />
             <Skeleton className="h-4 w-16 rounded" />
           </div>
-          <div className="h-16 w-full rounded-xl bg-surface border border-border" />
+          <div className="h-16 w-full rounded-xl border border-border-subtle bg-surface" />
         </div>
 
-        {/* 3. Trade Info (Grid) */}
+        {/* 3. My Neighborhood */}
+        <div className="space-y-3">
+          <Skeleton className="h-5 w-24 rounded" />
+          <div className="h-14 w-full rounded-xl border border-border-subtle bg-surface" />
+        </div>
+
+        {/* 4. Trade Info (Grid) */}
         <div className="space-y-3">
           <Skeleton className="h-5 w-24 rounded" />
           <div className="grid grid-cols-2 gap-3">
-            <Skeleton className="h-24 w-full rounded-xl bg-surface border border-border" />
-            <Skeleton className="h-24 w-full rounded-xl bg-surface border border-border" />
+            <Skeleton className="h-24 w-full rounded-xl border border-border-subtle bg-surface" />
+            <Skeleton className="h-24 w-full rounded-xl border border-border-subtle bg-surface" />
+            <Skeleton className="col-span-2 h-24 w-full rounded-xl border border-border-subtle bg-surface" />
           </div>
         </div>
 
-        {/* 4. Channel (Rail) */}
+        {/* 5. Channel (Rail) */}
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <Skeleton className="h-5 w-24 rounded" />
@@ -79,7 +89,7 @@ export default function Loading() {
           </div>
           <div className="flex gap-3 overflow-hidden">
             {[1, 2].map((i) => (
-              <div key={i} className="w-[200px] shrink-0 space-y-2">
+              <div key={i} className="w-[216px] shrink-0 space-y-2 sm:w-[232px]">
                 <Skeleton className="aspect-video w-full rounded-xl" />
                 <Skeleton className="h-4 w-3/4 rounded" />
                 <div className="flex items-center gap-2">
@@ -91,7 +101,7 @@ export default function Loading() {
           </div>
         </div>
 
-        {/* 5. Reviews & Badges */}
+        {/* 6. Reviews & Badges */}
         <div className="grid grid-cols-1 gap-6">
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -114,7 +124,7 @@ export default function Loading() {
         </div>
 
         {/* Logout Button */}
-        <div className="pt-6 border-t border-border">
+        <div className="border-t border-border-subtle pt-6">
           <Skeleton className="h-12 w-full rounded-xl" />
         </div>
       </div>

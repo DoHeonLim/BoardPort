@@ -14,6 +14,10 @@
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.03  임도헌   Modified  Context 참조 제거 및 useCreateRecordingCommentMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.17  임도헌   Modified  녹화 상세용 댓글 입력바를 단일 패널 구조로 정리해 옛날형 block 톤을 완화
+ * 2026.03.19  임도헌   Modified  댓글 입력바 외곽 패널을 solid 톤으로 조정해 배경 위 가시성을 보강
+ * 2026.03.25  임도헌   Modified  라이트 모드 댓글 입력창 대비를 소폭 올려 첫인상 가시성을 보강
+ * 2026.03.27  임도헌   Modified  녹화 댓글 전송 버튼에 다크 밀집 화면용 아이콘 전용 quiet-dark 버튼 변형 적용
  */
 "use client";
 
@@ -75,8 +79,8 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
   };
 
   return (
-    <div className="w-full bg-surface border-t border-border py-3 transition-colors flex items-end gap-2">
-      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">
+    <div className="flex w-full items-end gap-2 rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm transition-colors">
+      <div className="flex flex-1 items-center rounded-[20px] border border-black/[0.08] bg-surface-dim/80 px-4 py-2 dark:border-border-subtle dark:bg-surface-dim focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-background transition-colors">
         <textarea
           ref={textareaRef}
           value={text}
@@ -85,7 +89,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
           placeholder="댓글을 남겨보세요..."
-          className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
+          className="w-full max-h-[120px] resize-none border-none bg-transparent p-0 text-sm leading-6 text-primary placeholder:text-muted/80 dark:placeholder:text-muted sm:text-base focus:ring-0"
           rows={1}
         />
       </div>
@@ -94,9 +98,9 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
         onClick={submit}
         disabled={isLoading || !text.trim()}
         className={cn(
-          "shrink-0 size-10 rounded-full flex items-center justify-center transition-all",
-          "bg-brand text-white hover:bg-brand-light active:scale-95 shadow-sm",
-          "disabled:bg-surface-dim disabled:text-muted/50 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
+          "btn-primary-quiet-dark-icon flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] transition-all shadow-sm dark:border-border-subtle",
+          "active:scale-95",
+          "disabled:bg-surface-dim disabled:text-muted/55 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         )}
         aria-label="댓글 등록"
       >

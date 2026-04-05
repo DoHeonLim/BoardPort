@@ -4,7 +4,8 @@
  * Author : 임도헌
  *
  * History
- * 2026.02.06  임도헌   Created
+ * Date        Author   Status    Description
+ * 2026.02.06  임도헌   Created   유저 제재 여부를 공통 색상 문법으로 보여주는 상태 뱃지 추가
  */
 import { cn } from "@/lib/utils";
 
@@ -12,8 +13,8 @@ import { cn } from "@/lib/utils";
  * 유저 계정 상태 뱃지
  *
  * [기능]
- * 1. `bannedAt` 필드 유무에 따라 '정상' 또는 '이용 정지' 상태를 시각적으로 구분하여 표시함
- * 2. 정지 상태일 경우 붉은색, 정상일 경우 초록색 스타일을 적용함
+ * 1. bannedAt 유무에 따라 '정상' 또는 '이용 정지' 상태를 시각적으로 구분
+ * 2. 제재 여부를 유저 관리/신고/감사 로그와 같은 관리자 색상 문법으로 표시
  */
 export default function UserStatusBadge({
   bannedAt,

@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.07  임도헌   Created   모바일 반응형 사이드바 구현
+ * 2026.03.23  임도헌   Modified  모바일 관리자 드로어 셸과 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.03.30  임도헌   Modified  현재 섹션 이동 후 자동 닫힘과 데스크톱과 동일한 정보 구조를 유지하도록 정리
  */
 "use client";
 
@@ -33,9 +35,9 @@ import { cn } from "@/lib/utils";
  * 모바일 환경 관리자 네비게이션 드로어
  *
  * [기능]
- * 1. 햄버거 버튼 클릭 시 사이드바를 슬라이드(Slide-in) 형태로 노출함
+ * 1. 햄버거 버튼 클릭 시 사이드바를 슬라이드 드로어 형태로 노출
  * 2. 배경 클릭 또는 페이지 이동 시 자동으로 닫힘
- * 3. 데스크톱 사이드바와 동일한 네비게이션 구조를 제공함
+ * 3. 데스크톱 사이드바와 동일한 관리자 정보 구조를 모바일에서도 유지
  */
 export default function MobileSidebar({
   user,
@@ -46,7 +48,8 @@ export default function MobileSidebar({
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
-  // SSR Hydration 이슈 방지 및 클라이언트 사이드 포털 준비
+  // 포털 렌더링 준비
+  // 드로어를 body 포털로 올리기 전에 hydration mismatch를 피하기 위한 mounted 상태
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -55,7 +58,8 @@ export default function MobileSidebar({
     setIsOpen(false);
   }, [pathname]);
 
-  // 드로어 및 백드롭 UI
+  // 드로어 및 백드롭 레이어
+  // 본문보다 높은 레이어에서 열리고 배경 클릭만으로도 닫히는 모바일 네비게이션 구조
   const drawerContent = (
     <>
       {/* Backdrop: 전체 화면을 덮어 배경 클릭 시 닫히도록 함 */}
@@ -71,11 +75,11 @@ export default function MobileSidebar({
       {/* Side Drawer Body */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 w-72 bg-surface border-r border-border z-[101] flex flex-col transition-transform duration-300 ease-out shadow-2xl",
+          "fixed inset-y-0 left-0 w-72 bg-surface border-r border-border-subtle z-[101] flex flex-col transition-transform duration-300 ease-out shadow-2xl",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-border bg-surface-dim/30">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-border-subtle bg-surface-dim/30">
           <UserAvatar
             avatar={user.avatar}
             username={user.username}
@@ -131,7 +135,7 @@ export default function MobileSidebar({
           />
         </nav>
 
-        <div className="p-4 border-t border-border bg-surface-dim/20">
+        <div className="p-4 border-t border-border-subtle bg-surface-dim/20">
           <Link
             href="/"
             className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-all"

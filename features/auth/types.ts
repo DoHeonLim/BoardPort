@@ -11,18 +11,45 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  카카오 프로필 정보(KakaoProfile) 타입 추가
  * 2026.03.07  임도헌   Modified  타입 섹션 구조 정리
+ * 2026.04.02  임도헌   Modified  온보딩 상태 타입(AuthOnboardingState)을 service 내부 선언에서 도메인 공용 타입으로 이동
  */
 
 // =============================================================================
 // 1. Action / Form State Types
 // =============================================================================
 
-/** 서버 액션 공통 응답 (Form State) */
-export type ActionState = {
-  success: boolean;
-  error?: string;
-  fieldErrors?: Record<string, string[]>;
+/** 서버 액션 필드 에러 맵 */
+export type ActionFieldErrors<FieldKey extends string = string> = Partial<
+  Record<FieldKey, string[]>
+>;
+
+/** 서버 액션 성공 응답 */
+export type ActionSuccess = {
+  success: true;
+  redirectTo?: string;
+  error?: never;
+  fieldErrors?: never;
 };
+
+/** 서버 액션 실패 응답 */
+export type ActionFailure<FieldKey extends string = string> =
+  | {
+      success: false;
+      error: string;
+      fieldErrors?: ActionFieldErrors<FieldKey>;
+      redirectTo?: never;
+    }
+  | {
+      success: false;
+      error?: string;
+      fieldErrors: ActionFieldErrors<FieldKey>;
+      redirectTo?: never;
+    };
+
+/** 서버 액션 공통 응답 (Form State) */
+export type ActionState<FieldKey extends string = string> =
+  | ActionSuccess
+  | ActionFailure<FieldKey>;
 
 // =============================================================================
 // 2. OAuth Profile Types
@@ -64,4 +91,25 @@ export interface EmailVerifyState {
   success?: boolean;
   cooldownRemaining?: number; // 남은 쿨다운(초)
   sent?: boolean; // 이번 요청에서 실제 메일 발송 여부
+}
+
+// =============================================================================
+// 4. Onboarding Types
+// =============================================================================
+
+/** 인증 직후 최소 프로필/지역 온보딩 상태 */
+export interface AuthOnboardingState {
+  userId: number;
+  username: string;
+  email: string | null;
+  locationName: string | null;
+  region1: string | null;
+  region2: string | null;
+  region3: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  needsUsernameSetup: boolean;
+  needsEmailSetup: boolean;
+  needsLocationSetup: boolean;
+  needsOnboarding: boolean;
 }

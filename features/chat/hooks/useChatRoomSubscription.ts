@@ -17,6 +17,10 @@
  * 2026.03.03  임도헌   Modified  getChatRoomsAction 서버 액션 호출로 변경 (Service 직접 호출 차단)
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  message_read readerId 기준으로 unreadCount 초기화 조건 보강
+ * 2026.03.13  임도헌   Modified  SYSTEM 메시지 수신 시 채팅방 목록 unreadCount를 증가시키지 않도록 보정
+ * 2026.04.01  임도헌   Modified  message_deleted 이벤트로 마지막 메시지와 unreadCount를 동기화
+ * 2026.04.02  임도헌   Modified  채팅방 목록 구독 훅 JSDoc 반환 설명 보강
+ * 2026.04.04  임도헌   Modified  사용자 채널 rooms_refresh 구독으로 새 채팅방 등장 시 목록 재조회 지원
  */
 
 "use client";
@@ -26,7 +30,9 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { subscribeToRoomUpdates } from "@/features/chat/utils/realtime";
 import { getChatRoomsAction } from "@/features/chat/actions/room";
+import { CHAT_EVENT } from "@/features/chat/constants";
 import type { ChatMessage, ChatRoom } from "@/features/chat/types";
+import { supabase } from "@/lib/supabase";
 
 /**
  * 채팅방 목록 페이지용 실시간 구독 훅
@@ -39,7 +45,7 @@ import type { ChatMessage, ChatRoom } from "@/features/chat/types";
  * 5. 로컬 상태(`useState`)를 완전히 제거하고 단일 진실 공급원(SSOT)을 TanStack Query Cache로 일원화
  *
  * @param {number} userId - 현재 접속 중인 사용자 ID
- * @returns 최신화된 채팅방 목록 배열
+ * @returns {{ rooms: ChatRoom[] }} 최신화된 채팅방 목록 query 결과
  */
 export default function useChatRoomSubscription(userId: number) {
   const queryClient = useQueryClient();
@@ -54,6 +60,21 @@ export default function useChatRoomSubscription(userId: number) {
 
   // 배열이 변경될 때마다 재구독되는 현상을 방지하기 위해 ID 목록을 직렬화하여 의존성으로 사용
   const roomIdsString = rooms.map((r) => r.id).join(",");
+
+  useEffect(() => {
+    // 새 채팅방 생성/재연결처럼 roomId 목록 바깥에서 생기는 변화를 사용자 채널로 재동기화
+    const channel = supabase.channel(`user-${userId}-chat-rooms`);
+
+    channel
+      .on("broadcast", { event: CHAT_EVENT.ROOMS_REFRESH }, () => {
+        void queryClient.invalidateQueries({ queryKey });
+      })
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [queryClient, queryKey, userId]);
 
   useEffect(() => {
     if (!roomIdsString) return;
@@ -75,7 +96,10 @@ export default function useChatRoomSubscription(userId: number) {
                 return {
                   ...room,
                   lastMessage: message,
-                  unreadCount: (room.unreadCount ?? 0) + 1,
+                  unreadCount:
+                    message.type === "SYSTEM"
+                      ? room.unreadCount ?? 0
+                      : (room.unreadCount ?? 0) + 1,
                 };
               }
               return room;
@@ -103,6 +127,34 @@ export default function useChatRoomSubscription(userId: number) {
                 return { ...room, unreadCount: 0 };
               }
               return room;
+            });
+          }
+        );
+      },
+      onMessageDeleted: ({ roomId, message, wasUnread }) => {
+        queryClient.setQueryData(
+          queryKey,
+          (oldRooms: ChatRoom[] | undefined) => {
+            if (!oldRooms) return oldRooms;
+
+            return oldRooms.map((room) => {
+              if (room.id !== roomId) return room;
+
+              const nextRoom = { ...room };
+
+              if (room.lastMessage?.id === message.id) {
+                nextRoom.lastMessage = message;
+              }
+
+              if (
+                wasUnread &&
+                message.user.id !== userId &&
+                (room.unreadCount ?? 0) > 0
+              ) {
+                nextRoom.unreadCount = (room.unreadCount ?? 0) - 1;
+              }
+
+              return nextRoom;
             });
           }
         );

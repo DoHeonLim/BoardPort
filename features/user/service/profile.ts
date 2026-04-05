@@ -22,6 +22,7 @@
  * 2026.03.03  임도헌   Modified  unstable_cache 래퍼 전면 제거 및 단일 순수 함수로 통합 (TanStack Query 이관)
  * 2026.03.07  임도헌   Modified  위치 저장 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  위치 변경 mutation에 정지 유저 가드 추가
+ * 2026.03.21  임도헌   Modified  방송국 헤더용 채널 소개글(channelDescription) 조회 추가
  */
 
 import "server-only";
@@ -36,7 +37,7 @@ import type { LocationData } from "@/features/map/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 
 // -----------------------------------------------------------------------------
-// 1. Internal Cached Helpers
+// Internal Helpers
 // -----------------------------------------------------------------------------
 
 /**
@@ -57,7 +58,7 @@ export async function resolveUserIdByUsername(
 }
 
 // -----------------------------------------------------------------------------
-// 2. Public API
+// Public API
 // -----------------------------------------------------------------------------
 
 /**
@@ -77,7 +78,7 @@ export async function getUserProfile(
 ): Promise<UserProfile | null> {
   if (!targetId) return null;
 
-  // Core 정보와 카운트 정보를 병렬 조회
+  // 코어 정보와 카운트 병렬 조회
   const [core, followerCount, followingCount] = await Promise.all([
     db.user.findUnique({
       where: { id: targetId },
@@ -102,6 +103,7 @@ export async function getUserProfile(
 
   const isMe = !!viewerId && viewerId === core.id;
 
+  // 본인 조회 시 이메일 보강
   let email: string | null = null;
   if (isMe) {
     const me = await db.user.findUnique({
@@ -111,6 +113,7 @@ export async function getUserProfile(
     email = me?.email ?? null;
   }
 
+  // 조회자 기준 관계 상태 계산
   let isFollowing = false;
   let isBlocked = false;
 
@@ -175,14 +178,7 @@ export async function getUserInfoById(
 }
 
 /**
- * 유저 위치 정보 업데이트 로직
- *
- * [데이터 가공 및 캐시 제어 전략]
- * - Partial 타입 입력을 통한 위치 데이터(region/latitude/longitude 등) 선택적 업데이트
- * - 위치 정보 변경 시 전체 목록 페이지(`products`, `posts`, `profile`) 리밸리데이션(Revalidate) 유도
- *
- * @param {number} userId - 대상 유저 ID
- * @param {Partial<LocationData>} location - 업데이트할 위치 데이터 조각
+ * 유저 위치 정보 조회
  */
 export async function getUserLocation(userId: number) {
   const core = await db.user.findUnique({
@@ -214,12 +210,14 @@ export async function getUserLocation(userId: number) {
 export async function getUserChannel(username: string) {
   const uname = normalizeUsername(username);
 
+  // 방송국 헤더용 최소 정보 조회
   return await db.user.findUnique({
     where: { username: uname },
     select: {
       id: true,
       username: true,
       avatar: true,
+      channelDescription: true,
       created_at: true,
       _count: { select: { followers: true, following: true } },
     },
@@ -229,11 +227,10 @@ export async function getUserChannel(username: string) {
 /**
  * 유저의 활동 지역(내 동네) 정보 또는 노출 범위(Range)를 업데이트
  *
- * [Logic]
- * - Partial<LocationData>를 사용하여 전달된 필드만 선택적으로 업데이트합
- * - 지도를 통해 전체를 바꿀 때는 모든 필드가 들어오고,
- *   상단 토글로 범위만 바꿀 때는 regionRange만 들어옴
- * - Prisma의 특성상 undefined 필드는 업데이트에서 제외
+ * [데이터 처리 전략]
+ * - Partial<LocationData> 입력 기반 선택적 필드 업데이트
+ * - 지도 변경과 범위 토글을 같은 update 경로로 수용
+ * - undefined 필드 자동 제외를 이용한 부분 갱신
  *
  * @param {number} userId - 대상 유저 ID
  * @param {Partial<LocationData>} location - 업데이트할 위치 데이터 조각
@@ -243,12 +240,14 @@ export async function updateUserLocation(
   userId: number,
   location: Partial<LocationData>
 ): Promise<ServiceResult> {
+  // 정지 상태 확인
   const userStatus = await validateUserStatus(userId);
   if (!userStatus.success) {
     return { success: false, error: userStatus.error! };
   }
 
   try {
+    // 전달된 위치 조각만 선택적으로 저장
     await db.user.update({
       where: { id: userId },
       data: {

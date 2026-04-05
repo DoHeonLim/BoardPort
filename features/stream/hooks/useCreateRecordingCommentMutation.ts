@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.03  임도헌   Created   useRecordingComment에서 Create 로직 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.03  임도헌   Modified  댓글 작성 성공 토스트를 게시글 댓글과 같은 문법으로 통일
  */
 "use client";
 
@@ -18,10 +19,10 @@ import { queryKeys } from "@/lib/queryKeys";
 /**
  * 녹화본 댓글 생성 전용 Mutation 훅
  *
- * [상태 추출 및 사이드 이펙트 제어 로직]
- * - `createRecordingComment` 서버 액션을 호출하여 댓글 생성 처리
- * - 성공 시 해당 녹화본 댓글 쿼리 캐시를 무효화(invalidateQueries)하여 목록 최신화 적용
- * - 에러 발생 시 상태 코드(NOT_LOGGED_IN 등)별 사용자 토스트 알림 처리
+ * [기능]
+ * - `createRecordingComment` 서버 액션을 호출해 댓글 생성을 처리
+ * - 성공 시 녹화본 댓글 목록 쿼리를 무효화해 최신 목록을 다시 읽음
+ * - 실패 시 상태 코드별 토스트 알림으로 사용자 피드백을 제공
  *
  * @param {number} vodId - 대상 녹화본(VOD) ID
  */
@@ -36,7 +37,8 @@ export function useCreateRecordingCommentMutation(vodId: number) {
       return res;
     },
     onSuccess: () => {
-      toast.success("💬 댓글 작성 완료");
+      toast.success("댓글을 작성했습니다.");
+      // 등록 직후 최신 댓글 목록 재조회
       queryClient.invalidateQueries({ queryKey });
     },
     onError: (err: any) => {

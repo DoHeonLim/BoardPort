@@ -14,6 +14,11 @@
  * 2026.01.17  임도헌   Moved     components/auth -> features/auth/components
  * 2026.01.20  임도헌   Modified  ActionState 타입 대응 (result.success 체크)
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.03.08  임도헌   Modified  FormErrorSummary, noValidate, focusFirstFieldError 기반의 커스텀 검증 UX 적용
+ * 2026.03.12  임도헌   Modified  callbackUrl 복귀 경로를 지원하도록 보강
+ * 2026.03.14  임도헌   Modified  인증 성공 후 복귀를 replace로 정리해 SMS 화면이 히스토리에 남지 않도록 보강
+ * 2026.03.14  임도헌   Modified  토큰 단계에서 인증번호 재전송 버튼을 제공해 전화번호 재입력 없이 재시도할 수 있도록 보강
+ * 2026.03.14  임도헌   Modified  인증 성공 시 온보딩 필요 여부를 서버 redirectTo 규칙으로 통일
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
@@ -32,8 +37,10 @@ import {
 } from "@heroicons/react/24/solid";
 import { phoneSchema, tokenSchema } from "@/features/auth/schemas/sms";
 import Button from "@/components/ui/Button";
+import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import Input from "@/components/ui/Input";
 import { sendPhoneToken, verifyPhoneToken } from "@/features/auth/actions/sms";
+import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 
 type Phase = "phone" | "token";
 type FormValues = { phone?: string; token?: string };
@@ -42,8 +49,13 @@ type FormValues = { phone?: string; token?: string };
  * SMS 로그인/인증 폼
  * - Phase 1: 전화번호 입력 및 인증번호 발송 요청
  * - Phase 2: 인증번호 입력 및 검증 (로그인)
+ * - FormErrorSummary와 첫 에러 포커스 이동 적용
  */
-export default function SmsForm() {
+export default function SmsForm({
+  callbackUrl = "/profile",
+}: {
+  callbackUrl?: string;
+}) {
   const [phase, setPhase] = useState<Phase>("phone");
   const [phone, setPhone] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -59,6 +71,7 @@ export default function SmsForm() {
     register,
     handleSubmit,
     reset,
+    setFocus,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -90,16 +103,41 @@ export default function SmsForm() {
         const formData = new FormData();
         formData.append("token", data.token);
         formData.append("phone", phone);
+        formData.append("callbackUrl", callbackUrl);
         const res = await verifyPhoneToken(formData);
 
         if (!res.success) {
           setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
         } else {
           toast.success("인증 성공! 항해를 시작합니다. ⚓");
-          router.push("/profile");
+          router.replace(res.redirectTo ?? callbackUrl);
         }
       }
     });
+  };
+
+  const handleResendToken = () => {
+    if (!phone) return;
+
+    setFormError(null);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append("phone", phone);
+      const res = await sendPhoneToken(formData);
+
+      if (!res.success) {
+        setFormError(res.error || "인증번호 재전송에 실패했습니다.");
+        return;
+      }
+
+      toast.success("인증번호를 다시 발송했습니다. 📨");
+      reset({ token: "" });
+      setFocus("token");
+    });
+  };
+
+  const onInvalid = (formErrors: typeof errors) => {
+    focusFirstFieldError<FormValues>(formErrors, setFocus);
   };
 
   const getErrorMsg = (fieldError: string | undefined, phaseError: boolean) => {
@@ -113,9 +151,12 @@ export default function SmsForm() {
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="flex flex-col gap-form-gap"
+      noValidate
     >
+      <FormErrorSummary errors={errors} />
+
       {phase === "phone" ? (
         <div className="flex flex-col gap-form-gap">
           <Input
@@ -128,7 +169,7 @@ export default function SmsForm() {
           />
         </div>
       ) : (
-        <div className="flex flex-col gap-form-gap animate-fade-in">
+        <div className="flex flex-col gap-form-gap">
           <div className="text-sm text-center text-muted mb-2">
             <span className="font-semibold text-brand dark:text-brand-light">
               {phone}
@@ -163,7 +204,15 @@ export default function SmsForm() {
         />
 
         {phase === "token" && (
-          <div className="text-center">
+          <div className="flex items-center justify-center gap-4 text-center">
+            <button
+              type="button"
+              onClick={handleResendToken}
+              disabled={isPending}
+              className="text-xs text-brand dark:text-brand-light hover:underline underline-offset-4 disabled:opacity-60"
+            >
+              인증번호 재전송
+            </button>
             <button
               type="button"
               onClick={() => {

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "post:backfill-blocks": "tsx prisma/backfillPostBlocks.ts"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.2",
@@ -24,6 +25,8 @@
     "bcrypt": "^5.1.1",
     "clsx": "^2.1.1",
     "coolsms-node-sdk": "^2.1.0",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.6",
     "framer-motion": "^11.13.5",
     "iron-session": "^8.0.3",
     "next": "^14.2.26",
@@ -34,6 +37,7 @@
     "react-hook-form": "^7.53.2",
     "react-kakao-maps-sdk": "^1.2.0",
     "resend": "^4.2.0",
+    "server-only": "^0.0.1",
     "sharp": "^0.33.5",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.3.0",

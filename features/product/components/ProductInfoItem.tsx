@@ -19,7 +19,7 @@ export default function ProductInfoItem({
   label,
   value,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: React.ReactNode;
 }) {
   return (

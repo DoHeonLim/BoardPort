@@ -8,10 +8,12 @@
  * 2026.02.04  임도헌   Created
  * 2026.02.26  임도헌   Modified  차단 해제 텍스트 버튼 다크모드 가시성 수정
  * 2026.03.06  임도헌   Modified  닫기 버튼 접근성과 터치 타겟을 공통 규칙에 맞게 보강
+ * 2026.03.19  임도헌   Modified  모달 재오픈 또는 서버 목록 변경 시 차단 유저 로컬 상태를 즉시 재동기화
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  */
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toggleBlockAction } from "@/features/user/actions/block";
 import UserAvatar from "@/components/global/UserAvatar";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -42,6 +44,11 @@ export default function BlockedUsersModal({
   const [users, setUsers] = useState(initialBlockedUsers);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    // 모달 재오픈이나 서버 목록 변경 뒤에는 낙관 상태보다 최신 서버 목록을 우선 반영
+    setUsers(initialBlockedUsers);
+  }, [initialBlockedUsers, isOpen]);
+
   if (!isOpen) return null;
 
   const handleUnblock = (targetId: number, username: string) => {
@@ -56,8 +63,8 @@ export default function BlockedUsersModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border animate-fade-in">
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-surface-dim/30">
+      <div className="bg-surface w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border-subtle">
+        <div className="px-6 py-4 border-b border-border-subtle flex justify-between items-center bg-surface">
           <h2 className="font-bold text-primary">차단한 선원 관리</h2>
           <button
             onClick={onClose}
@@ -100,7 +107,7 @@ export default function BlockedUsersModal({
             ))
           )}
         </div>
-        <div className="p-4 border-t border-border bg-surface-dim/30 flex justify-end">
+        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end">
           <button onClick={onClose} className="btn-secondary h-10 text-sm px-6">
             닫기
           </button>

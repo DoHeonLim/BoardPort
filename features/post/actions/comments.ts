@@ -15,6 +15,8 @@
  * 2026.02.05  임도헌   Modified  댓글 조회 시 viewerId 전달 (차단 필터링)
  * 2026.03.04  임도헌   Modified  getPostCommentsListAction으로 명칭 변경 및 통합 로직 호출
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.31  임도헌   Modified  Action 역할과 댓글 조회/후속 처리 맥락이 보이도록 설명 보강
+ * 2026.04.02  임도헌   Modified  댓글 액션 반환/파라미터 JSDoc 태그 형식 정리
  */
 "use server";
 
@@ -33,13 +35,14 @@ import type { ServiceResult } from "@/lib/types";
 /**
  * 게시글 댓글 페이징 조회 Server Action
  *
- * [데이터 페칭 전략]
- * - 커서 기반의 무한 스크롤 조회를 위한 데이터 패치 로직
- * - 로그인 세션(viewerId) 확인을 통해 차단 유저의 댓글 필터링 적용
+ * [기능]
+ * - 커서 기반 무한 스크롤 조회를 service 계층에 위임
+ * - 로그인 세션(viewerId) 기준으로 차단 유저 댓글 필터링을 함께 적용
  *
  * @param {number} postId - 조회할 게시글 ID
  * @param {number} [cursor] - 마지막 댓글 ID
  * @param {number} limit - 가져올 개수
+ * @returns {Promise<PostComment[]>} 게시글 댓글 목록
  */
 export const getPostCommentsListAction = async (
   postId: number,
@@ -54,12 +57,13 @@ export const getPostCommentsListAction = async (
 /**
  * 게시글 댓글 생성 Server Action
  *
- * [데이터 가공 및 캐시 제어 로직]
- * - 로그인 세션 확인 및 Zod 스키마를 통한 입력값 유효성 검증
- * - Service 레이어를 호출하여 신규 댓글 데이터 영속화
- * - 클라이언트 TanStack Query 연동을 위한 결과 객체(ServiceResult) 반환
+ * [기능]
+ * - 로그인 세션을 확인하고 Zod 스키마로 입력값을 검증
+ * - 댓글 생성을 service 계층에 위임
+ * - 성공 시 상세 화면 캐시를 무효화해 댓글 수와 목록을 최신화
  *
  * @param {FormData} formData - 댓글 내용 및 게시글 ID
+ * @returns {Promise<ServiceResult<{ id: number }>>} 생성된 댓글 ID 또는 실패 정보
  */
 export const createCommentAction = async (
   formData: FormData
@@ -89,12 +93,13 @@ export const createCommentAction = async (
 /**
  * 게시글 댓글 삭제 Server Action
  *
- * [데이터 가공 및 권한 제어 로직]
- * - 로그인 세션 검증 및 Service 레이어 호출을 통한 작성자 권한 확인 후 삭제 처리
- * - 클라이언트 캐시 무효화를 유도하기 위한 결과 반환
+ * [기능]
+ * - 로그인 세션을 확인하고 삭제를 service 계층에 위임
+ * - 성공 시 상세 화면 캐시를 무효화해 댓글 수와 목록을 최신화
  *
  * @param {number} commentId - 삭제할 댓글 ID
  * @param {number} postId - 게시글 ID
+ * @returns {Promise<ServiceResult>} 댓글 삭제 처리 결과
  */
 export const deleteCommentAction = async (
   commentId: number,

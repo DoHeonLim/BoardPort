@@ -14,6 +14,8 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface)
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  리뷰 작성 별점 색상을 채움형 노란 별 기준으로 복원
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -94,12 +96,12 @@ export default function CreateReviewModal({
 
       <div
         className={cn(
-          "relative w-full max-w-md rounded-2xl shadow-xl animate-fade-in mx-4 overflow-hidden",
-          "bg-surface border border-border"
+          "relative w-full max-w-md rounded-2xl shadow-xl mx-4 overflow-hidden",
+          "bg-surface border border-border-subtle"
         )}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border bg-surface-dim/30">
+        <div className="px-6 py-4 border-b border-border-subtle bg-surface">
           <h2 className="text-lg font-bold text-primary">거래 후기 작성</h2>
         </div>
 
@@ -125,7 +127,7 @@ export default function CreateReviewModal({
                   "cursor-pointer w-10 h-10 transition-all duration-200",
                   star <= (hoverRating || rating)
                     ? "text-yellow-400 scale-110"
-                    : "text-neutral-200 dark:text-neutral-700",
+                    : "text-neutral-300 dark:text-neutral-700",
                   !isSubmitting && "hover:scale-125"
                 )}
                 onMouseEnter={() => !isSubmitting && setHoverRating(star)}
@@ -151,7 +153,7 @@ export default function CreateReviewModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
           <button
             onClick={handleBackdrop}
             disabled={isSubmitting}

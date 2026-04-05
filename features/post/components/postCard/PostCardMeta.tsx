@@ -14,6 +14,7 @@
  * 2026.02.28  임도헌   Modified  viewMode 기반 레이아웃 최적화
  * 2026.03.06  임도헌   Modified  모바일 그리드에서는 위치 정보 1줄을 노출하고 메타 배치를 압축형으로 조정
  * 2026.03.06  임도헌   Modified  모바일 그리드 메타를 하단 정렬로 재배치하고 통계/시간을 한 줄로 정리
+ * 2026.03.26  임도헌   Modified  리스트 카드 모바일에서는 위치 정보를 분리 노출해 시간 표시와의 충돌을 완화
  */
 "use client";
 
@@ -106,33 +107,45 @@ export default function PostCardMeta({
   }
 
   return (
-    <div className="mt-auto flex w-full min-w-0 items-center justify-between gap-2">
-      {stats}
+    <div className="mt-auto flex w-full min-w-0 flex-col gap-1 sm:gap-1.5">
+      {locationText && (
+        <div
+          className="flex items-center gap-1 min-w-0 text-[10px] text-muted sm:hidden"
+          title={locationText}
+        >
+          <MapPinIcon className="size-3 shrink-0" />
+          <span className="truncate">{locationText}</span>
+        </div>
+      )}
 
-      <div className="flex items-center justify-end gap-1.5 min-w-0 text-[10px] sm:text-xs text-muted">
-        {locationText && (
-          <>
-            <div
-              className="flex items-center gap-0.5 min-w-0"
-              title={locationText}
-            >
-              <MapPinIcon className="size-3 shrink-0" />
-              <span className="truncate max-w-[60px] sm:max-w-[100px]">
-                {locationText}
+      <div className="flex items-center justify-between gap-2">
+        {stats}
+
+        <div className="flex min-w-0 items-center justify-end gap-1.5 text-[10px] sm:text-xs text-muted">
+          {locationText && (
+            <>
+              <div
+                className="hidden min-w-0 items-center gap-0.5 sm:flex"
+                title={locationText}
+              >
+                <MapPinIcon className="size-3 shrink-0" />
+                <span className="truncate max-w-[120px] md:max-w-[180px]">
+                  {locationText}
+                </span>
+              </div>
+              <span
+                className="hidden text-border text-[8px] shrink-0 sm:inline"
+                aria-hidden="true"
+              >
+                |
               </span>
-            </div>
-            <span
-              className="text-border text-[8px] shrink-0"
-              aria-hidden="true"
-            >
-              |
-            </span>
-          </>
-        )}
-        <TimeAgo
-          date={createdAt}
-          className="text-muted whitespace-nowrap shrink-0"
-        />
+            </>
+          )}
+          <TimeAgo
+            date={createdAt}
+            className="text-muted whitespace-nowrap shrink-0"
+          />
+        </div>
       </div>
     </div>
   );

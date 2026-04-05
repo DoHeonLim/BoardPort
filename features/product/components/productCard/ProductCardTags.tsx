@@ -11,6 +11,8 @@
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.06  임도헌   Modified  리스트 카드 밀도에 맞춰 최대 노출 태그 수를 prop으로 제어 가능하게 확장
+ * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
+ * 2026.03.16  임도헌   Modified  좁은 화면에서는 태그 노출 수를 한 단계 더 줄일 수 있도록 모바일 제한 prop 추가
  */
 
 import { cn } from "@/lib/utils";
@@ -19,6 +21,7 @@ import type { ProductTag } from "@/features/product/types";
 interface ProductCardTagsProps {
   tags: ProductTag[];
   maxTags?: number;
+  mobileMaxTags?: number;
 }
 
 /**
@@ -28,11 +31,17 @@ interface ProductCardTagsProps {
 export function ProductCardTags({
   tags,
   maxTags = 3,
+  mobileMaxTags,
 }: ProductCardTagsProps) {
   if (!tags || tags.length === 0) return null;
 
   const displayTags = tags.slice(0, maxTags);
-  const moreCount = Math.max(0, tags.length - maxTags);
+  const normalizedMobileMaxTags =
+    mobileMaxTags && mobileMaxTags > 0
+      ? Math.min(mobileMaxTags, maxTags)
+      : maxTags;
+  const desktopMoreCount = Math.max(0, tags.length - maxTags);
+  const mobileMoreCount = Math.max(0, tags.length - normalizedMobileMaxTags);
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -41,14 +50,22 @@ export function ProductCardTags({
           key={index}
           className={cn(
             "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium",
-            "bg-badge text-badge-text border border-transparent dark:border-white/10"
+            "bg-badge text-badge-text border border-transparent dark:border-white/10",
+            index >= normalizedMobileMaxTags && "hidden sm:inline-flex"
           )}
         >
-          🏷️{tag.name}
+          #{tag.name}
         </span>
       ))}
-      {moreCount > 0 && (
-        <span className="text-[10px] text-muted self-center">+{moreCount}</span>
+      {mobileMoreCount > 0 && (
+        <span className="text-[10px] text-muted self-center sm:hidden">
+          +{mobileMoreCount}
+        </span>
+      )}
+      {desktopMoreCount > 0 && (
+        <span className="hidden text-[10px] text-muted self-center sm:inline">
+          +{desktopMoreCount}
+        </span>
       )}
     </div>
   );

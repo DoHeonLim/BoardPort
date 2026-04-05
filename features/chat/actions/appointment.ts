@@ -8,6 +8,7 @@
  * 2026.02.16  임도헌   Created   약속 제안/수락/취소 액션
  * 2026.03.04  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  Action 내 `revalidateTag` 부수 효과(Side Effect) 완전 제거 및 클라이언트 Mutation 훅으로 상태 갱신 위임
+ * 2026.04.02  임도헌   Modified  약속 액션 JSDoc 태그 형식 정리
  */
 "use server";
 
@@ -52,7 +53,7 @@ export async function proposeAppointmentAction(
  * - 상품 예약 상태 연동 및 타 채팅방 대기 약속 일괄 취소 처리 위임
  *
  * @param {number} appointmentId - 수락할 약속 ID
- * @returns {Promise<ServiceResult>} 상품 식별자와 구매/판매자 정보 반환
+ * @returns {Promise<ServiceResult<{ productId: number; sellerId: number; buyerId: number }>>} 상품 식별자와 구매/판매자 정보 반환
  */
 export async function acceptAppointmentAction(
   appointmentId: number
@@ -75,7 +76,7 @@ export async function acceptAppointmentAction(
  * - 히스토리 보존을 위한 시스템 메시지 생성 유도
  *
  * @param {number} appointmentId - 취소/거절할 약속 ID
- * @returns {Promise<ServiceResult>} 처리 결과
+ * @returns {Promise<ServiceResult>} 취소 또는 거절 처리 결과
  */
 export async function cancelAppointmentAction(
   appointmentId: number

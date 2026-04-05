@@ -15,9 +15,12 @@
  * 2026.01.10  임도헌   Modified  Harbor Minimalism Theme 적용
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  로고 추가
+ * 2026.03.12  임도헌   Modified  callbackUrl 정규화 및 로그인 복귀 경로 전달 추가
+ * 2026.03.23  임도헌   Modified  인증 헤더 로고 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
  */
 
 import Link from "next/link";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import Logo from "@/components/ui/Logo";
 import SmsForm from "@/features/auth/components/form/SmsForm";
 
@@ -25,13 +28,20 @@ import SmsForm from "@/features/auth/components/form/SmsForm";
  * SMS 로그인 페이지 컴포넌트
  *
  * - 휴대폰 번호를 이용한 간편 로그인/회원가입을 지원
+ * - callbackUrl을 안전한 내부 경로로 정규화해 인증 완료 후 복귀 경로로 전달
  * - SMS 인증 폼(`SmsForm`)을 렌더링
  */
-export default function SMSLoginPage() {
+export default function SMSLoginPage({
+  searchParams,
+}: {
+  searchParams?: { callbackUrl?: string };
+}) {
+  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl ?? "/profile");
+
   return (
     <div className="flex flex-col min-h-screen px-page-x py-page-y bg-background transition-colors">
       <div className="flex flex-col items-center gap-4 mt-10 mb-8">
-        <div className="p-3 bg-surface rounded-2xl shadow-sm border border-border">
+        <div className="p-3 bg-surface rounded-2xl shadow-sm border border-border-subtle">
           <Logo variant="symbol" size={60} />
         </div>
         <div className="text-center space-y-1">
@@ -43,12 +53,12 @@ export default function SMSLoginPage() {
       </div>
 
       <div className="w-full max-w-sm mx-auto">
-        <SmsForm />
+        <SmsForm callbackUrl={callbackUrl} />
 
         <div className="mt-6 text-center text-sm text-muted">
           다른 방법으로 항해하시겠어요?{" "}
           <Link
-            href="/login"
+            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
             className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
           >
             이메일 로그인

@@ -41,6 +41,7 @@ export async function getProductDetail(
   id: number
 ): Promise<ProductDetailType | null> {
   try {
+    // 상세 본문에 필요한 연관 데이터 일괄 조회
     const product = await db.product.findUnique({
       where: { id },
       include: {
@@ -74,6 +75,7 @@ export async function getProductDetail(
  */
 export const getCachedProduct = (id: number) => {
   return nextCache(
+    // 상세 원본 조회 위임
     () => getProductDetail(id),
     ["product-detail-data", String(id)],
     { tags: [T.PRODUCT_DETAIL(id)], revalidate: 3600 } // 1시간 유지 (업데이트 시 즉시 파기)
@@ -90,6 +92,7 @@ export const getCachedProduct = (id: number) => {
  */
 export async function getProductTitleById(id: number) {
   try {
+    // 메타데이터 최소 필드 조회
     return await db.product.findUnique({
       where: { id },
       select: { title: true, description: true },
@@ -110,6 +113,7 @@ export async function getProductTitleById(id: number) {
  * @param {number} id - 제품 ID
  */
 export async function getProductTopbar(id: number) {
+  // 상단바 전용 경량 메타 조회
   const product = await db.product.findUnique({
     where: { id },
     select: {
@@ -122,6 +126,7 @@ export async function getProductTopbar(id: number) {
   });
 
   if (!product)
+    // 상단바 폴백 메타 반환
     return {
       categoryId: null,
       categoryLabel: null,

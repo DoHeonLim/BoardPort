@@ -7,6 +7,9 @@
  * Date        Author   Status    Description
  * 2026.02.04  임도헌   Created   차단/신고 드롭다운 메뉴
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.03.12  임도헌   Modified  타인 프로필 flat 헤더 톤에 맞춰 패널 보더를 subtle 기준으로 정리
+ * 2026.03.18  임도헌   Modified  차단/해제 시 search까지 포함한 현재 프로필 경로를 정규화해 revalidate·복귀 문맥과 nested returnTo 예외를 함께 보강
+ * 2026.04.03  임도헌   Modified  전역 유저 차단 확인 문구를 다른 도메인과 같은 정책 설명 톤으로 통일
  */
 "use client";
 
@@ -15,9 +18,10 @@ import dynamic from "next/dynamic";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { toggleBlockAction } from "@/features/user/actions/block";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -50,6 +54,11 @@ export default function ProfileOptionMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentSearch = searchParams?.toString();
+  const currentPath = sanitizeCallbackUrl(
+    `${pathname}${currentSearch ? `?${currentSearch}` : ""}`
+  );
 
   // 외부 클릭 닫기
   useEffect(() => {
@@ -66,7 +75,8 @@ export default function ProfileOptionMenu({
   const handleToggleBlock = () => {
     startTransition(async () => {
       const intent = isBlocked ? "unblock" : "block";
-      const result = await toggleBlockAction(targetId, intent, pathname);
+      // 현재 프로필 쿼리까지 포함해 차단 후 동일 문맥을 다시 불러오도록 경로 전달
+      const result = await toggleBlockAction(targetId, intent, currentPath);
 
       if (result.success) {
         toast.success(
@@ -94,7 +104,7 @@ export default function ProfileOptionMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in">
+        <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-xl z-50">
           {/* 차단하기 / 해제하기 */}
           <button
             onClick={() => setConfirmOpen(true)}
@@ -114,7 +124,7 @@ export default function ProfileOptionMenu({
               setIsOpen(false);
               setReportOpen(true);
             }}
-            className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim transition-colors border-t border-border"
+            className="w-full border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             신고하기
           </button>
@@ -128,7 +138,7 @@ export default function ProfileOptionMenu({
         description={
           isBlocked
             ? `${username}님의 차단을 해제하시겠습니까?`
-            : `${username}님을 차단하시겠습니까? 차단하면 서로의 글과 채팅을 볼 수 없으며, 팔로우가 취소됩니다.`
+            : `${username}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`
         }
         confirmLabel={isBlocked ? "해제" : "차단"}
         cancelLabel="취소"

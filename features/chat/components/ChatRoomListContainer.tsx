@@ -19,15 +19,24 @@
  * 2026.02.23  임도헌   Modified  빈 상태 화면에 "항구로 이동하여 물품 둘러보기" 버튼을 추가
  * 2026.03.03  임도헌   Modified  initialRooms Prop Drilling 제거 및 캐시 기반 렌더링 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.08  임도헌   Modified  빈 상태의 기본 진입 애니메이션을 제거해 화면 전환 체감을 정적으로 정리
+ * 2026.03.12  임도헌   Modified  채팅 목록 헤더를 flat 톤으로 통일해 다른 탭 헤더와 시각적 일관성 확보
+ * 2026.03.12  임도헌   Modified  상대방/상품명/마지막 메시지 기준의 채팅방 검색 입력을 추가
+ * 2026.03.12  임도헌   Modified  검색어 기준 클라이언트 필터링과 빈 검색 결과 상태 추가
  */
 
 "use client";
 
+import { useDeferredValue, useState } from "react";
 import Link from "next/link";
 import useChatRoomSubscription from "@/features/chat/hooks/useChatRoomSubscription";
 import ChatRoomCard from "@/features/chat/components/ChatRoomCard";
 import NotificationBell from "@/components/global/NotificationBell";
-import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/outline";
+import {
+  ChatBubbleOvalLeftEllipsisIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 interface ChatRoomListContainerProps {
   userId: number;
@@ -40,6 +49,7 @@ interface ChatRoomListContainerProps {
  * [상태 주입 및 상호작용 로직]
  * - `useChatRoomSubscription` 훅을 통한 하이드레이션된 채팅방 캐시 데이터 선언적 렌더링
  * - 실시간 웹소켓 이벤트를 통한 최신 메시지 및 읽음 상태(unreadCount) 즉각 동기화 적용
+ * - 상대방/상품명/마지막 메시지 기준 클라이언트 검색 필터링 적용
  * - 진행 중인 대화 유무에 따른 리스트 항목 또는 빈 상태(Empty State) 조건부 렌더링
  */
 export default function ChatRoomListContainer({
@@ -48,15 +58,30 @@ export default function ChatRoomListContainer({
 }: ChatRoomListContainerProps) {
   // Suspense에 의해 데이터가 보장
   const { rooms } = useChatRoomSubscription(userId);
+  const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query.trim().toLowerCase());
+
+  const filteredRooms = deferredQuery
+    ? rooms.filter((room) => {
+        const username = room.users[0]?.username?.toLowerCase() ?? "";
+        const productTitle = room.product.title.toLowerCase();
+        const lastMessage = room.lastMessage?.payload?.toLowerCase() ?? "";
+
+        return (
+          username.includes(deferredQuery) ||
+          productTitle.includes(deferredQuery) ||
+          lastMessage.includes(deferredQuery)
+        );
+      })
+    : rooms;
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transition-colors h-16">
+      <header className="sticky top-0 z-30 h-16 border-b border-border-subtle bg-background shadow-sm transition-colors">
         <div className="flex items-center justify-between px-page-x h-full max-w-mobile mx-auto">
           <div className="flex items-center gap-1.5">
             <h1 className="text-lg font-bold text-primary">신호</h1>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light">
+            <span className="rounded-full border border-border-subtle bg-surface-dim px-2 py-0.5 text-xs font-bold text-primary">
               {rooms.length}
             </span>
           </div>
@@ -70,9 +95,35 @@ export default function ChatRoomListContainer({
 
       {/* List Area */}
       <div className="px-page-x py-6 w-full max-w-mobile mx-auto flex-1">
+        {rooms.length > 0 && (
+          <div className="mb-4">
+            <label className="relative block">
+              <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="상대방, 상품, 마지막 대화 검색"
+                className="h-11 w-full rounded-2xl border border-border-subtle bg-surface-dim pl-11 pr-11 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-brand/40 focus:bg-background"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-3 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-background hover:text-primary"
+                  aria-label="검색어 지우기"
+                >
+                  <XMarkIcon className="size-4" />
+                </button>
+              )}
+            </label>
+          </div>
+        )}
+
         {rooms.length > 0 ? (
+          filteredRooms.length > 0 ? (
           <div className="flex flex-col gap-3">
-            {rooms.map((room) => (
+            {filteredRooms.map((room) => (
               <ChatRoomCard
                 key={room.id}
                 room={room}
@@ -81,8 +132,28 @@ export default function ChatRoomListContainer({
               />
             ))}
           </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-border-subtle bg-surface px-6 py-16 text-center shadow-sm">
+              <div className="mb-4 rounded-full bg-surface-dim p-4">
+                <MagnifyingGlassIcon className="size-8 text-muted/60" />
+              </div>
+              <p className="text-lg font-medium text-primary">
+                검색 결과가 없습니다
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                상대방 이름, 상품명 또는 마지막 대화 내용을 다시 확인해보세요.
+              </p>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="mt-6 inline-flex h-10 items-center rounded-xl border border-border-subtle bg-background px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-dim"
+              >
+                검색 초기화
+              </button>
+            </div>
+          )
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="p-4 rounded-full bg-surface-dim mb-4">
               <ChatBubbleOvalLeftEllipsisIcon className="size-8 text-muted/50" />
             </div>

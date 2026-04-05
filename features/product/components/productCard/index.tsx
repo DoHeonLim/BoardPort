@@ -32,6 +32,12 @@
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드를 압축형 정보 밀도로 재정렬하고 위치 정보 1줄을 복구
  * 2026.03.06  임도헌   Modified  모바일 그리드 썸네일/헤더/가격 밀도를 추가 조정해 카드 비율을 최적화
  * 2026.03.06  임도헌   Modified  리스트 뷰에서는 모바일도 태그를 확인할 수 있도록 노출 규칙을 조정
+ * 2026.03.16  임도헌   Modified  iPhone SE 폭에서 리스트 카드 메타가 잘리지 않도록 모바일 높이와 하단 간격 보정
+ * 2026.03.16  임도헌   Modified  모바일 리스트 카드에서는 태그 노출 수를 더 줄여 메타 가시성을 확보
+ * 2026.03.19  임도헌   Modified  제품 카드의 현재 목록 경로도 내부 경로 기준으로 정규화해 raw returnTo 재전파를 방지
+ * 2026.03.25  임도헌   Modified  제품 리스트 최종 polish 과정에서 정보 영역 정렬과 가독성을 정리하고 주석 최신화
+ * 2026.03.26  임도헌   Modified  찜 목록에서는 liked_at 기준 메타 시점을 노출할 수 있도록 activityAt 전달
+ * 2026.03.26  임도헌   Modified  찜한 내역 카드 우상단 빠른 액션을 '찜 해제' pill 버튼으로 정리
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -53,7 +59,9 @@ import { ProductCardTitle } from "@/features/product/components/productCard/Prod
 import ProductCardPrice from "@/features/product/components/productCard/ProductCardPrice";
 import ProductCardMeta from "@/features/product/components/productCard/ProductCardMeta";
 import { ProductCardTags } from "@/features/product/components/productCard/ProductCardTags";
+import ProductLikeButton from "@/features/product/components/ProductLikeButton";
 import type { ProductCardProps } from "@/features/product/types";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,7 +77,9 @@ export default function ProductCard({
   product,
   viewMode,
   isPriority,
+  showQuickUnlike = false,
 }: ProductCardProps) {
+  const likedAt = "liked_at" in product ? product.liked_at : undefined;
   const {
     title,
     price,
@@ -90,20 +100,37 @@ export default function ProductCard({
 
   const pathname = usePathname();
   const sp = useSearchParams();
-  const next = pathname + (sp.size ? `?${sp.toString()}` : "");
+  // 카드 상세 진입에 다시 실리는 현재 목록 경로도 내부 경로 기준으로 정규화
+  const next = sanitizeCallbackUrl(
+    pathname + (sp.size ? `?${sp.toString()}` : "")
+  );
   const href = `/products/view/${id}?returnTo=${encodeURIComponent(next)}`;
 
   const isGrid = viewMode === "grid";
 
   return (
-    <Link
-      href={href}
+    <div
       className={cn(
         "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-light/50 dark:hover:border-brand-light/50",
-        isGrid ? "flex-col h-full" : "flex-row h-28 sm:h-36 w-full"
+        isGrid ? "flex-col h-full" : "flex-row h-32 sm:h-36 w-full"
       )}
     >
+      {showQuickUnlike && (
+        <div className="absolute right-2 top-2 z-10 sm:right-3 sm:top-3">
+          <ProductLikeButton
+            productId={id}
+            isLiked={true}
+            likeCount={_count.product_likes}
+            variant="quick-remove"
+          />
+        </div>
+      )}
+
+      <Link
+        href={href}
+        className={cn("flex min-w-0 flex-1", isGrid ? "flex-col" : "flex-row")}
+      >
       {/* 썸네일 영역 */}
       <div
         className={cn(
@@ -115,6 +142,7 @@ export default function ProductCard({
       >
         <ProductCardThumbnail
           imageUrl={images[0]?.url}
+          isAnimated={images[0]?.isAnimated}
           viewMode={viewMode}
           isPriority={isPriority}
           reservation_userId={reservation_userId}
@@ -126,8 +154,11 @@ export default function ProductCard({
       {/* 정보 영역 */}
       <div
         className={cn(
-          "flex flex-1 min-w-0 p-2 sm:p-3",
-          isGrid ? "flex-col justify-start gap-1.5 sm:gap-2" : "flex-col justify-between gap-1"
+          "flex min-w-0 flex-1 p-2 sm:p-3",
+          showQuickUnlike && "pr-14 sm:pr-24",
+          isGrid
+            ? "flex-col justify-start gap-1.5 sm:gap-2"
+            : "flex-col justify-between gap-1"
         )}
       >
         <div className="flex flex-col gap-1">
@@ -148,11 +179,15 @@ export default function ProductCard({
           </div>
         </div>
 
-        <div className={cn("flex flex-col", isGrid ? "gap-1.5" : "gap-2 mt-auto")}>
-          {/* List View에서만 태그 표시 (모바일 포함, 밀도 유지를 위해 최대 2개 노출) */}
+        <div className={cn("flex flex-col", isGrid ? "gap-1.5" : "mt-auto gap-1.5")}>
+          {/* List View에서만 태그 표시 (모바일 1개, sm 이상 2개 노출) */}
           {!isGrid && (
             <div className="block">
-              <ProductCardTags tags={search_tags} maxTags={2} />
+              <ProductCardTags
+                tags={search_tags}
+                maxTags={2}
+                mobileMaxTags={1}
+              />
             </div>
           )}
 
@@ -160,6 +195,8 @@ export default function ProductCard({
             views={views}
             likes={_count.product_likes}
             createdAt={created_at}
+            activityAt={likedAt}
+            activityLabel={likedAt ? "찜" : undefined}
             bumpCount={bump_count}
             region2={region2}
             region3={region3}
@@ -167,6 +204,7 @@ export default function ProductCard({
           />
         </div>
       </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

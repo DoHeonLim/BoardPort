@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   모바일 액션 메뉴 및 필터용 공용 바텀시트 추가
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 검색 모달 등과 중첩되어도 스크롤 잠금/복구 안정화
  */
 "use client";
 
@@ -19,6 +20,7 @@ import {
 import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 
 interface BottomSheetProps {
   open: boolean;
@@ -69,12 +71,11 @@ export default function BottomSheet({
 
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const timer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     return () => {
       window.clearTimeout(timer);
-      document.body.style.overflow = previousOverflow;
+      unlockBodyScroll();
       previousFocusRef.current?.focus?.();
       setTranslateY(0);
       setIsDragging(false);
@@ -158,7 +159,7 @@ export default function BottomSheet({
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         className={cn(
-          "relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-border bg-surface shadow-2xl",
+          "relative flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface shadow-2xl",
           !isDragging && "transition-transform duration-200 ease-out",
           panelClassName
         )}
@@ -174,7 +175,7 @@ export default function BottomSheet({
             className="mb-3 h-1.5 w-12 rounded-full bg-border"
             aria-hidden="true"
           />
-          <div className="flex w-full items-center justify-between gap-3 border-b border-border pb-3">
+          <div className="flex w-full items-center justify-between gap-3 border-b border-border-subtle pb-3">
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-lg font-bold text-primary">
                 {title}
@@ -205,7 +206,7 @@ export default function BottomSheet({
         </div>
 
         {footer && (
-          <div className="border-t border-border bg-surface px-4 py-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+          <div className="border-t border-border-subtle bg-surface px-4 py-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
             {footer}
           </div>
         )}

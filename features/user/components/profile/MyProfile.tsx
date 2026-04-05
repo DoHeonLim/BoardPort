@@ -37,23 +37,44 @@
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.06  임도헌   Modified   거래 정보 섹션에 '찜한 내역' 바로가기 링크 추가
  * 2026.03.06  임도헌   Modified   공용 LogoutButton 적용으로 로그아웃 피드백 정합성 보강
+ * 2026.03.09  임도헌   Modified   최근 방송 카드에 실제 VOD가 있는 종료 방송만 다시보기 배지/경로를 표시
+ * 2026.03.12  임도헌   Modified   프로필 거래/빈 상태 카드 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.12  임도헌   Modified   프로필 거래 카드 아이콘 색을 다크모드 가시성과 판매/구매 구분 기준으로 재조정
+ * 2026.03.13  임도헌   Modified   알림 설정/방송국 전체 보기 진입에 현재 프로필 경로 returnTo를 함께 전달해 복귀 맥락 유지
+ * 2026.03.14  임도헌   Modified   회원 탈퇴를 로그아웃과 분리된 하단 위험 액션으로 이동해 설정 메뉴 혼재를 완화
+ * 2026.03.15  임도헌   Modified   이메일 미인증 계정에 비밀번호 찾기/계정 복구 안내와 즉시 인증 진입 배너 추가
+ * 2026.03.16  임도헌   Modified   내 프로필 IA 조정안을 되돌리고 기존 계정 관리 중심 리듬에 맞춰 섹션 순서를 복원
+ * 2026.03.17  임도헌   Modified   내 방송국 rail 카드 래퍼 고정폭을 제거해 축소된 StreamCard 폭을 그대로 사용
+ * 2026.03.18  임도헌   Modified   알림 설정 링크용 현재 프로필 경로를 내부 경로 기준으로 정규화해 바깥 복귀 문맥과 nested returnTo 예외를 함께 보강
+ * 2026.03.21  임도헌   Modified   내 방송국 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
+ * 2026.03.27  임도헌   Modified   알림 설정 섹션을 상태별 stacked 안내 구조로 정리해 iOS/재연결/권한 필요 케이스를 자연스럽게 표시
  */
 "use client";
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
 import LogoutButton from "@/components/global/LogoutButton";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
 import StreamCard from "@/features/stream/components/StreamCard";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
+import ProfileReviewPreviewList from "@/features/user/components/profile/ProfileReviewPreviewList";
 import {
+  ArrowPathIcon,
+  BellAlertIcon,
   ChevronRightIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  ShareIcon,
   ShoppingBagIcon,
+  ShieldExclamationIcon,
   TagIcon,
+  UserMinusIcon,
 } from "@heroicons/react/24/outline";
 import { getMyBlockedUsersAction } from "@/features/user/actions/block";
 import { useModalStore } from "@/components/global/providers/ModalStoreProvider";
@@ -64,6 +85,7 @@ import type {
   ProfileAverageRating,
   UserProfile,
 } from "@/features/user/types";
+import type { PushNotificationStatus } from "@/features/notification/types";
 import { HeartIcon } from "@heroicons/react/24/solid";
 
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
@@ -91,6 +113,7 @@ type MyProfileProps = {
   averageRating: ProfileAverageRating | null;
   badges: Badge[];
   userBadges: Badge[];
+  previewReviews: import("@/features/user/types").ProfileReview[];
   myStreams?: BroadcastSummary[];
   viewerId?: number;
 };
@@ -108,10 +131,19 @@ export default function MyProfile({
   averageRating,
   badges,
   userBadges,
+  previewReviews,
   myStreams,
   viewerId,
 }: MyProfileProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const returnTo = sanitizeCallbackUrl(
+    currentQuery ? `${pathname}?${currentQuery}` : pathname
+  );
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
+  const [pushStatus, setPushStatus] =
+    useState<PushNotificationStatus>("disabled");
   const fullLocation = [user.region1, user.region2, user.region3]
     .filter(Boolean)
     .join(" ");
@@ -155,25 +187,120 @@ export default function MyProfile({
         showFollowButton={false}
       />
 
+      {user.email && !user.emailVerified && (
+        <section className="rounded-2xl border border-brand/20 bg-brand/5 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light">
+              <EnvelopeIcon className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-bold text-primary">
+                이메일 인증이 필요합니다
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                이메일 인증을 완료해야 비밀번호 찾기와 계정 복구를 사용할 수
+                있습니다.
+              </p>
+              <button
+                type="button"
+                onClick={() => openModal("email")}
+                className="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-dark dark:bg-brand-light dark:hover:bg-brand"
+              >
+                지금 인증하기
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 2. Notification */}
       <section>
         <div className="flex items-end justify-between mb-3 px-1">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
-            href="/profile/notifications/setting"
+            href={`/profile/notifications/setting?returnTo=${encodeURIComponent(returnTo)}`}
             className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
           >
             상세 설정
           </Link>
         </div>
-        <div className="panel p-4 flex items-center justify-between gap-4">
-          <span className="text-sm text-primary font-medium shrink-0">
-            푸시 알림 받기
-          </span>
-          <div className="flex-1 flex justify-end min-w-0">
-            {/* 우측 정렬 영역 확보 */}
-            <PushNotificationToggle />
+        <div className="panel p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-sm font-medium text-primary">푸시 알림 받기</p>
+              <p className="text-xs leading-relaxed text-muted">
+                새 메시지와 거래 상태 변경을 기기 알림으로 받아보세요.
+              </p>
+            </div>
+            <div className="shrink-0">
+              <PushNotificationToggle onStatusChange={setPushStatus} />
+            </div>
           </div>
+
+          {pushStatus === "ios_install_required" ? (
+            <div className="mt-4 rounded-2xl border border-brand/15 bg-brand/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <ShareIcon className="size-4 text-brand dark:text-brand-light" />
+                <span>홈 화면에 추가한 뒤 알림을 켤 수 있어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                아이폰(iOS) 사파리에서는 공유 버튼을 누른 뒤
+                <span className="px-1 font-semibold text-primary">
+                  홈 화면에 추가
+                </span>
+                를 먼저 진행해야 합니다.
+              </p>
+            </div>
+          ) : pushStatus === "needs_reconnect" ? (
+            <div className="mt-4 rounded-2xl border border-brand/15 bg-brand/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <ArrowPathIcon className="size-4 text-brand dark:text-brand-light" />
+                <span>이 기기의 알림 연결이 끊어졌어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                브라우저 또는 기기 설정 변경으로 연결이 해제되었을 수 있어요.
+                오른쪽 스위치를 눌러 다시 연결하면 새 알림을 계속 받을 수
+                있습니다.
+              </p>
+            </div>
+          ) : pushStatus === "permission_denied" ? (
+            <div className="mt-4 rounded-2xl border border-danger/15 bg-danger/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <BellAlertIcon className="size-4 text-danger" />
+                <span>브라우저 알림 권한이 꺼져 있어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                사이트 권한에서 알림을 허용해야 기기 푸시를 다시 받을 수
+                있습니다.
+              </p>
+            </div>
+          ) : pushStatus === "private_mode" ? (
+            <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-dim/40 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <ShieldExclamationIcon className="size-4 text-muted" />
+                <span>프라이빗 모드에서는 푸시를 사용할 수 없어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                일반 브라우저 창에서 접속하면 기기 알림을 다시 설정할 수
+                있습니다.
+              </p>
+            </div>
+          ) : pushStatus === "unsupported" ? (
+            <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-dim/40 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                <ExclamationTriangleIcon className="size-4 text-muted" />
+                <span>이 브라우저는 푸시 알림을 지원하지 않아요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                최신 브라우저나 설치된 앱에서 접속하면 푸시 알림을 받을 수
+                있습니다.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-4 text-xs leading-relaxed text-muted">
+              전체 푸시를 끄면 기기 알림은 오지 않습니다.
+            </p>
+          )}
         </div>
       </section>
 
@@ -193,7 +320,7 @@ export default function MyProfile({
           {/*  판매 내역 */}
           <Link
             href="/profile/my-sales"
-            className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
+            className="group rounded-xl border border-border-subtle bg-surface p-4 shadow-sm transition-all hover:border-brand/30 hover:shadow-md"
           >
             <div className="flex items-center gap-2 mb-2 text-brand dark:text-brand-light">
               <TagIcon className="size-5" />
@@ -206,9 +333,9 @@ export default function MyProfile({
           {/*  구매 내역 */}
           <Link
             href="/profile/my-purchases"
-            className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
+            className="group rounded-xl border border-border-subtle bg-surface p-4 shadow-sm transition-all hover:border-brand/30 hover:shadow-md"
           >
-            <div className="flex items-center gap-2 mb-2 text-green-600 dark:text-green-500">
+            <div className="mb-2 flex items-center gap-2 text-accent-dark dark:text-accent">
               <ShoppingBagIcon className="size-5" />
               <span className="text-sm font-semibold">구매 내역</span>
             </div>
@@ -219,10 +346,10 @@ export default function MyProfile({
           {/*  찜한 내역 */}
           <Link
             href="/profile/my-likes"
-            className="col-span-2 flex items-center justify-between group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
+            className="col-span-2 group flex items-center justify-between rounded-xl border border-border-subtle bg-surface p-4 shadow-sm transition-all hover:border-brand/30 hover:shadow-md"
           >
             <div>
-              <div className="flex items-center gap-2 mb-1 text-rose-500">
+              <div className="mb-1 flex items-center gap-2 text-danger">
                 <HeartIcon className="size-5" />
                 <span className="text-sm font-semibold">찜한 내역</span>
               </div>
@@ -240,7 +367,7 @@ export default function MyProfile({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-primary">내 방송국</h2>
           <Link
-            href={`/profile/${user.username}/channel`}
+            href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(returnTo)}`}
             className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
           >
             전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
@@ -248,24 +375,29 @@ export default function MyProfile({
         </div>
 
         {!myStreams || myStreams.length === 0 ? (
-          <div className="text-center py-6 border border-dashed border-border rounded-xl bg-surface-dim/30">
+          <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-6 text-center">
             <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
           </div>
         ) : (
           <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
             {myStreams.map((s) => (
-              <div key={s.id} className="w-[200px] shrink-0">
+              <div key={s.id} className="shrink-0">
                 <StreamCard
                   id={s.id}
+                  vodIdForRecording={s.latestVodId ?? undefined}
                   title={s.title}
                   thumbnail={s.thumbnail}
                   isLive={s.status === "CONNECTED"}
+                  showReplayBadge={
+                    s.status === "ENDED" && !!s.latestVodId
+                  }
                   streamer={{
                     username: s.user.username,
                     avatar: s.user.avatar ?? null,
                   }}
                   layout="rail"
                   shortDescription
+                  showStreamer={false}
                 />
               </div>
             ))}
@@ -285,6 +417,7 @@ export default function MyProfile({
               전체 보기
             </button>
           </div>
+          <ProfileReviewPreviewList reviews={previewReviews} />
         </section>
 
         <section>
@@ -301,10 +434,23 @@ export default function MyProfile({
         </section>
       </div>
 
-      <div className="pt-6 border-t border-border mt-2">
+      <div className="mt-2 border-t border-border-subtle pt-6">
         <LogoutButton
-          className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
+          className="h-12 w-full rounded-xl border border-border-subtle bg-surface text-sm font-semibold text-danger transition-colors hover:bg-danger/5 disabled:cursor-not-allowed disabled:opacity-60"
         />
+        <div className="mt-4 text-center">
+          <p className="text-xs text-muted">
+            계정을 완전히 삭제하려면 회원 탈퇴를 진행하세요.
+          </p>
+          <button
+            type="button"
+            onClick={() => openModal("withdraw")}
+            className="mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-medium text-danger transition-colors hover:text-danger/80"
+          >
+            <UserMinusIcon className="size-4" />
+            회원 탈퇴
+          </button>
+        </div>
       </div>
 
       {/* Zustand 상태 기반 모달 렌더링 */}

@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/actions/list.ts
- * Description : 제품 목록 조회 Controller (무한 스크롤)
+ * Description : 제품 목록 조회 서버 액션 (무한 스크롤)
  * Author : 임도헌
  *
  * History
@@ -19,6 +19,9 @@
  * 2026.02.05  임도헌   Modified  제품 목록 조회 시 viewerId 전달 (차단 필터링)
  * 2026.03.04  임도헌   Modified  getProductsList로 조회 로직 통합 및 캐시 래퍼 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.11  임도헌   Modified  클라이언트가 전체 검색 결과 수를 표시할 수 있도록 totalCount 응답 전달
+ * 2026.03.31  임도헌   Modified  무한 스크롤 조회와 viewer 필터 주석 톤 통일
+ * 2026.04.02  임도헌   Modified  목록 액션 JSDoc 반환 설명 보강
  */
 
 "use server";
@@ -34,13 +37,14 @@ import type {
 /**
  * 제품 목록 조회 Server Action (무한 스크롤 및 필터링)
  *
- * [데이터 페칭 및 권한 로직]
- * - 클라이언트의 `useSuspenseInfiniteQuery` 연동을 위한 데이터 페칭 진입점
- * - 로그인 세션 확인 및 조회자(viewerId) 추출을 통한 차단 유저/정지 유저 필터링 적용
- * - 초기 렌더링 시 적용된 검색 조건(params)을 페이징 과정 전체에서 유지하며 Service로 전달
+ * [기능]
+ * - 클라이언트 무한 스크롤의 데이터 페칭 진입점 역할
+ * - 로그인 세션 기준 viewerId를 주입해 차단/정지 유저 필터링을 함께 적용
+ * - 현재 검색 조건(params)을 그대로 유지한 채 service 계층에 위임
  *
- * @param cursor - 마지막 아이템 ID (커서)
- * @param params - 검색 파라미터 (keyword, region, category 등)
+ * @param {number | null} cursor - 마지막 아이템 ID 커서
+ * @param {ProductSearchParams} params - 검색 파라미터 (keyword, region, category 등)
+ * @returns {Promise<Paginated<ProductType>>} 페이징된 제품 목록과 다음 커서/전체 개수
  */
 export const getProductsAction = async (
   cursor: number | null,

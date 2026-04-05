@@ -15,15 +15,18 @@
  * 2025.12.12  임도헌   Modified  토큰 검증 시 Prisma where 조건 수정 및 에러 메시지 로직 개선
  * 2026.01.20  임도헌   Modified  Service 분리 및 로직 단순화
  * 2026.01.30  임도헌   Moved     app/(auth)/sms/actions.ts -> features/auth/actions/sms.ts
+ * 2026.04.04  임도헌   Modified  전화번호/SMS 토큰 검증과 세션 저장 단계의 인라인 주석 보강
  */
 "use server";
 
 import { phoneSchema, tokenSchema } from "@/features/auth/schemas/sms";
 import { saveUserSession } from "@/features/auth/service/authSession";
+import { resolvePostAuthRedirectPath } from "@/features/auth/service/onboarding";
 import {
   createAndSendSmsToken,
   verifySmsToken,
 } from "@/features/auth/service/sms";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { badgeChecks } from "@/features/user/service/badge";
 import { AUTH_ERRORS } from "@/features/auth/constants";
 import type { ActionState } from "@/features/auth/types";
@@ -32,16 +35,21 @@ import type { ActionState } from "@/features/auth/types";
  * SMS 인증 번호 발송을 요청
  *
  * @param {FormData} formData - 전화번호 포함
- * @returns {Promise<ActionState>} 발송 성공 여부
+ * @returns {Promise<ActionState<"phone">>} 발송 성공 여부
  */
-export async function sendPhoneToken(formData: FormData): Promise<ActionState> {
+export async function sendPhoneToken(
+  formData: FormData
+): Promise<ActionState<"phone">> {
+  // 전화번호 원본 값 추출
   const phone = formData.get("phone");
 
+  // 발송 전 전화번호 형식 검증
   const result = phoneSchema.safeParse(phone);
   if (!result.success) {
     return { success: false, error: result.error.errors[0].message };
   }
 
+  // 인증번호 생성 및 문자 발송 위임
   const serviceRes = await createAndSendSmsToken(result.data);
   if (!serviceRes.success) {
     return { success: false, error: serviceRes.error };
@@ -54,14 +62,19 @@ export async function sendPhoneToken(formData: FormData): Promise<ActionState> {
  * SMS 인증 번호를 검증하고 로그인 처리
  *
  * @param {FormData} formData - 전화번호 및 인증 토큰 포함
- * @returns {Promise<ActionState>} 검증 성공 여부
+ * @returns {Promise<ActionState<"phone" | "token">>} 검증 성공 여부
  */
 export async function verifyPhoneToken(
   formData: FormData
-): Promise<ActionState> {
+): Promise<ActionState<"phone" | "token">> {
+  // 폼 원본 값 및 인증 후 복귀 문맥 추출
   const tokenRaw = formData.get("token");
   const phoneRaw = formData.get("phone");
+  const callbackUrl = sanitizeCallbackUrl(
+    formData.get("callbackUrl") ?? "/profile"
+  );
 
+  // 전화번호/인증번호 형식 검증
   const tokenResult = await tokenSchema.safeParseAsync(tokenRaw);
   const phoneResult = phoneSchema.safeParse(phoneRaw);
 
@@ -79,9 +92,15 @@ export async function verifyPhoneToken(
     return { success: false, error: serviceRes.error };
   }
 
-  // 세션 저장 및 뱃지 처리
+  // 인증 성공 후 세션 저장
   await saveUserSession(serviceRes.data.userId);
+
+  // 인증 완료 뱃지 갱신 트리거
   void badgeChecks.onVerificationUpdate(serviceRes.data.userId);
 
-  return { success: true };
+  return {
+    success: true,
+    // 온보딩 필요 여부를 반영한 인증 후 목적지 결정
+    redirectTo: await resolvePostAuthRedirectPath(serviceRes.data.userId, callbackUrl),
+  };
 }

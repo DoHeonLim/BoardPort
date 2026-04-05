@@ -12,6 +12,7 @@
  * 2026.01.16  임도헌   Moved     components/image -> components/global
  * 2026.02.22  임도헌   Modified  Native Drag & Drop 시각적 피드백 구현
  * 2026.02.26  임도헌   Modified  드래그 시 다크모드 가시성 개선
+ * 2026.03.08  임도헌   Modified  장식성 bounce 애니메이션 제거
  */
 
 import { useState } from "react";
@@ -152,8 +153,7 @@ export default function ImageUploader({
                     aria-label="photo_input"
                     className={cn(
                       "w-8 h-8",
-                      isDragOver &&
-                        "text-brand dark:text-brand-light animate-bounce"
+                      isDragOver && "text-brand dark:text-brand-light"
                     )}
                   />
                   <div className="text-sm font-medium">

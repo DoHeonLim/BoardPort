@@ -15,6 +15,11 @@
  * 2026.02.28  임도헌   Modified  태그 유무와 상관없이 메타 정보를 바닥에 고정하도록 구조 개선
  * 2026.03.06  임도헌   Modified  모바일 그리드 게시글 카드를 압축형 정보 밀도로 재정렬하고 위치 정보 1줄을 복구
  * 2026.03.06  임도헌   Modified  모바일 그리드에서 메타 정보를 카드 하단에 고정해 위치 유무와 관계없이 균형을 맞춤
+ * 2026.03.12  임도헌   Modified  게시글 카드 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.13  임도헌   Modified  게시글 목록에서 상세 진입 시 현재 목록 경로를 returnTo로 함께 전달
+ * 2026.03.14  임도헌   Modified  그리드 카드에서도 태그를 압축형으로 노출해 카테고리만으로 부족한 정보 밀도를 보완
+ * 2026.03.19  임도헌   Modified  게시글 카드의 현재 목록 경로도 내부 경로 기준으로 정규화해 raw returnTo 재전파를 방지
+ * 2026.03.26  임도헌   Modified  리스트 카드의 썸네일 폭과 내부 간격을 조정해 모바일 제목/메타 여유를 확보
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -30,6 +35,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { PostDetail } from "@/features/post/types";
 import PostCardHeader from "@/features/post/components/postCard/PostCardHeader";
 import PostCardMeta from "@/features/post/components/postCard/PostCardMeta";
@@ -51,15 +58,24 @@ interface PostCardProps {
  * - 클릭 시 게시글 상세 페이지(`/posts/[id]`)로 이동
  */
 export default function PostCard({ post, viewMode }: PostCardProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isGrid = viewMode === "grid";
+  // 카드 상세 진입에 다시 실리는 현재 목록 경로도 내부 경로 기준으로 정규화
+  const currentHref = sanitizeCallbackUrl(
+    searchParams?.size ? `${pathname}?${searchParams.toString()}` : pathname
+  );
+  const detailHref = `/posts/${post.id}?returnTo=${encodeURIComponent(
+    currentHref
+  )}`;
 
   return (
     <Link
-      href={`/posts/${post.id}`}
+      href={detailHref}
       className={cn(
-        "group relative flex overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-300",
+        "group relative flex overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-all duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
-        isGrid ? "flex-col h-full" : "flex-row h-28 sm:h-36 w-full"
+        isGrid ? "flex-col h-full" : "flex-row min-h-28 w-full sm:min-h-36"
       )}
     >
       {/* 썸네일 */}
@@ -73,7 +89,7 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
           "flex flex-1 min-w-0",
           isGrid
             ? "flex-col justify-start gap-1.5 p-2 sm:gap-2 sm:p-3"
-            : "flex-col p-2"
+            : "flex-col gap-1.5 p-2.5 sm:p-3"
         )}
       >
         {/* 상단: 카테고리 + 제목 */}
@@ -86,10 +102,16 @@ export default function PostCard({ post, viewMode }: PostCardProps) {
         <div
           className={cn(
             "min-h-0",
-            isGrid ? "hidden" : "flex flex-1 items-center"
+            isGrid ? "pt-0.5" : "flex flex-1 items-start pt-0.5"
           )}
         >
-          {!isGrid && post.tags.length > 0 && <PostCardTags tags={post.tags} />}
+          {post.tags.length > 0 && (
+            <PostCardTags
+              tags={post.tags}
+              compact={isGrid}
+              maxVisible={isGrid ? 1 : 2}
+            />
+          )}
         </div>
 
         {/* 하단: 메타 정보 (mt-auto로 바닥 고정) */}

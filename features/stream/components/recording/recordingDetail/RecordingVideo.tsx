@@ -10,6 +10,7 @@
  * 2025.09.10  임도헌   Modified  환경변수 가드/폴백, uid 변경시 리마운트, allow 속성 정리
  * 2026.01.14  임도헌   Modified  [UI] 라운딩 및 배경색 조정
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
+ * 2026.03.21  임도헌   Modified  플레이어 폴백 카드 보더를 subtle 톤으로 맞춰 녹화 상세 패널 기준과 통일
  */
 
 "use client";
@@ -32,7 +33,7 @@ export default function RecordingVideo({ uid }: RecordingVideoProps) {
   if (!domain) {
     return (
       <div className="flex justify-center w-full">
-        <div className="w-full aspect-video rounded-xl bg-surface-dim grid place-items-center border border-border">
+        <div className="grid w-full aspect-video place-items-center rounded-xl border border-border-subtle bg-surface-dim">
           <p className="text-sm text-muted">동영상을 불러올 수 없습니다.</p>
         </div>
       </div>

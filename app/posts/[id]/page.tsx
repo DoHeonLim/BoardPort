@@ -31,6 +31,8 @@
  * 2026.02.13  임도헌   Modified  generateMetadata 추가
  * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 댓글 데이터 Prefetch 로직 추가
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.13  임도헌   Modified  상세 진입 returnTo를 로그인/차단 가드 및 상단 복귀 경로에 반영
+ * 2026.03.18  임도헌   Modified  returnTo 미지정 시 게시글 목록(/posts)으로 복귀하도록 기본 경로 고정
  */
 
 export const dynamic = "force-dynamic";
@@ -42,6 +44,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import getSession from "@/lib/session";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import PostDetail from "@/features/post/components/postsDetail";
 import { incrementViews } from "@/features/common/service/view";
 import { getUserInfoById } from "@/features/user/service/profile";
@@ -56,6 +59,9 @@ export async function generateMetadata({
   params: { id: string };
 }): Promise<Metadata> {
   const id = Number(params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return { title: "게시글을 찾을 수 없음" };
+  }
   const post = await getCachedPost(id);
 
   if (!post) {
@@ -85,23 +91,31 @@ export async function generateMetadata({
  * - 게시글 상세 정보, 유저 정보, 좋아요 상태의 서버 사이드 병렬 로드 적용
  * - TanStack Query를 활용한 게시글 댓글 목록 서버 프리패치(Prefetch) 적용
  * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달
+ * - `returnTo`가 없을 경우 게시글 목록(`/posts`)을 기본 복귀 경로로 사용
  *
  * @param {Object} params - URL 파라미터 (id: 게시글 ID)
+ * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
  */
 export default async function PostDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { returnTo?: string };
 }) {
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
+  const rawReturnTo = searchParams?.returnTo;
+  // 상세 직접 진입 시에도 게시글 목록으로 자연스럽게 복귀하도록 기본 경로 고정
+  const returnTo = sanitizeCallbackUrl(rawReturnTo ?? "/posts");
+  const detailHref = `/posts/${id}?returnTo=${encodeURIComponent(returnTo)}`;
 
   const session = await getSession();
   const userId = session?.id ?? null;
 
   // 비로그인 접근 제한 (미들웨어 보조)
   if (!userId) {
-    redirect(`/login?callbackUrl=${encodeURIComponent(`/posts/${id}`)}`);
+    redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
 
   // 1. [Write] 조회수 증가 및 무효화 선행
@@ -134,7 +148,7 @@ export default async function PostDetailPage({
       redirect(
         `/403?reason=BLOCKED&username=${encodeURIComponent(
           post.user.username
-        )}&callbackUrl=/posts/${id}`
+        )}&callbackUrl=${encodeURIComponent(detailHref)}`
       );
     }
   }
@@ -147,6 +161,8 @@ export default async function PostDetailPage({
         user={viewerInfo}
         likeCount={likeStatus.likeCount}
         isLiked={likeStatus.isLiked}
+        returnTo={returnTo}
+        hasExplicitReturnTo={!!rawReturnTo}
       />
     </HydrationBoundary>
   );

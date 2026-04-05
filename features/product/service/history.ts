@@ -14,6 +14,7 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.22  임도헌   Modified  검색어 대소문자 정규화(toLowerCase) 적용으로 파편화 방지
  * 2026.03.07  임도헌   Modified  검색 기록 삭제 시에도 동일한 키워드 정규화 규칙을 적용
+ * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
  */
 
 import "server-only";
@@ -21,6 +22,10 @@ import db from "@/lib/db";
 import type {
   SearchHistoryItem,
   PopularSearchItem,
+} from "@/features/search/types";
+import { SEARCH_HISTORY_MAX_ITEMS } from "@/features/search/constants";
+import { normalizeSearchKeyword } from "@/features/search/utils/keyword";
+import type {
   ProductSearchParams,
 } from "@/features/product/types";
 
@@ -36,7 +41,9 @@ export async function saveSearchHistory(
   userId: number | null,
   params: ProductSearchParams
 ) {
-  const keyword = params.keyword?.trim().toLowerCase();
+  const keyword = params.keyword
+    ? normalizeSearchKeyword(params.keyword)
+    : undefined;
   if (!keyword) return;
 
   // 1. 개인 검색 기록 저장 (로그인 유저만)
@@ -93,7 +100,7 @@ export async function getUserSearchHistory(
     where: { userId },
     select: { keyword: true, created_at: true },
     orderBy: { updated_at: "desc" },
-    take: 5,
+    take: SEARCH_HISTORY_MAX_ITEMS,
   });
 }
 
@@ -106,7 +113,7 @@ export async function getPopularSearches(): Promise<PopularSearchItem[]> {
   return db.popularSearch.findMany({
     select: { keyword: true, count: true },
     orderBy: { count: "desc" },
-    take: 5,
+    take: SEARCH_HISTORY_MAX_ITEMS,
   });
 }
 
@@ -118,7 +125,7 @@ export async function getPopularSearches(): Promise<PopularSearchItem[]> {
  */
 export async function deleteSearchHistory(userId: number, keyword: string) {
   await db.searchHistory.deleteMany({
-    where: { userId, keyword: keyword.trim().toLowerCase() },
+    where: { userId, keyword: normalizeSearchKeyword(keyword) },
   });
 }
 

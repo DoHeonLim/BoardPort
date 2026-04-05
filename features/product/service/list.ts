@@ -14,13 +14,15 @@
  * 2026.02.22  임도헌   Modified  정지된 유저(Banned)의 상품 완벽 은닉
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 및 파편화된 페이징 로직 제거, 단일 함수(getProductsList)로 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.11  임도헌   Modified  무한스크롤 중에도 전체 검색 결과 수를 고정 표시할 수 있도록 totalCount 반환 추가
+ * 2026.04.04  임도헌   Modified  검색 조건 조립/페이징 계산 단계의 인라인 주석 보강
  */
 import "server-only";
 import db from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
 import { getBlockedUserIds } from "@/features/user/service/block";
-import { PRODUCT_SELECT } from "@/features/product/constants";
+import { PRODUCT_SELECT } from "@/features/product/selects";
 import { buildRegionWhere } from "@/features/user/utils/region";
 import type {
   ProductSearchParams,
@@ -47,6 +49,7 @@ async function buildSearchWhere(
   params: ProductSearchParams,
   viewerId: number
 ): Promise<Prisma.ProductWhereInput> {
+  // 카테고리 조건의 동적 시작점
   let categoryCondition: Prisma.ProductWhereInput = {};
 
   // 카테고리 필터 (대분류/소분류 처리)
@@ -60,7 +63,7 @@ async function buildSearchWhere(
 
       if (selectedCategory) {
         if (selectedCategory.parentId === null) {
-          // 대분류: 자신 + 자식 카테고리 모두 포함
+          // 대분류 선택 시 하위 카테고리까지 포함
           categoryCondition = {
             OR: [
               { categoryId: selectedCategory.id },
@@ -72,7 +75,7 @@ async function buildSearchWhere(
             ],
           };
         } else {
-          // 소분류: 해당 카테고리만
+          // 소분류 선택 시 단일 카테고리만 사용
           categoryCondition = { categoryId: selectedCategory.id };
         }
       }
@@ -88,7 +91,7 @@ async function buildSearchWhere(
   // 2. DB 범위(Range) 설정에 따른 필터 분기 (Fallback 포함)
   const regionCondition = user ? buildRegionWhere(user) : {};
 
-  // 가격 필터 정규화
+  // 가격 필터 숫자 정규화
   const minPrice =
     params.minPrice !== undefined && !isNaN(Number(params.minPrice))
       ? Number(params.minPrice)
@@ -143,6 +146,7 @@ export async function getProductsList(
   viewerId: number,
   cursor: number | null = null
 ): Promise<Paginated<ProductType>> {
+  // 검색 파라미터 기반 where 조건 조립
   const where = await buildSearchWhere(params, viewerId);
 
   // 차단 유저 필터링 (필수 보안)
@@ -151,21 +155,27 @@ export async function getProductsList(
     where.userId = { notIn: blockedIds };
   }
 
+  // 커서 기반 페이지네이션용 cursor 객체 구성
   const cursorObj = cursor ? { id: cursor } : undefined;
 
-  const rows = await db.product.findMany({
-    where,
-    select: PRODUCT_SELECT,
-    // 끌어올리기 반영 정렬
-    orderBy: [{ refreshed_at: "desc" }, { id: "desc" }],
-    take: (params.take ?? TAKE) + 1,
-    skip: cursor ? 1 : (params.skip ?? 0),
-    cursor: cursorObj,
-  });
+  // 목록 데이터와 전체 개수 동시 조회
+  const [rows, totalCount] = await db.$transaction([
+    db.product.findMany({
+      where,
+      select: PRODUCT_SELECT,
+      // 끌어올리기 반영 정렬
+      orderBy: [{ refreshed_at: "desc" }, { id: "desc" }],
+      take: (params.take ?? TAKE) + 1,
+      skip: cursor ? 1 : (params.skip ?? 0),
+      cursor: cursorObj,
+    }),
+    db.product.count({ where }),
+  ]);
 
+  // LIMIT + 1 기준의 다음 페이지 존재 판별
   const hasNext = rows.length > (params.take ?? TAKE);
   const products = hasNext ? rows.slice(0, params.take ?? TAKE) : rows;
   const nextCursor = hasNext ? products[products.length - 1].id : null;
 
-  return { products, nextCursor };
+  return { products, nextCursor, totalCount };
 }

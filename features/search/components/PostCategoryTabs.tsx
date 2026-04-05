@@ -18,6 +18,12 @@
  * 2026.02.20  임도헌   Modified  지역 범위 관리가 DB로 이관됨에 따라 불필요한 URL 쿼리 제어 삭제
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.06  임도헌   Modified  게시글 카테고리 탭의 높이/타이포를 스트림 탭과 동일한 밀도로 통일
+ * 2026.03.11  임도헌   Modified  flat 헤더 톤에 맞춰 neutral tone 및 compact 밀도 분기 추가
+ * 2026.03.12  임도헌   Modified  게시글 카테고리 탭과 툴팁 외곽선을 border-border-subtle 기준으로 정리
+ * 2026.03.18  임도헌   Modified  카테고리 변경 후 불필요한 router.refresh를 제거해 중복 재요청 완화
+ * 2026.03.30  임도헌   Modified  사용자 이해를 높이기 위해 카테고리 라벨을 자유/모집/후기/공략/질문 기준으로 정리
+ * 2026.03.31  임도헌   Modified  추천 카테고리 추가에 맞춰 탭/툴팁 ref 구성을 확장
+ * 2026.04.02  임도헌   Modified  게시글 탭 롱프레스 시간을 search 도메인 공용 상수 기준으로 정리
  */
 "use client";
 
@@ -27,6 +33,7 @@ import {
   POST_CATEGORY,
   POST_CATEGORY_DESCRIPTIONS,
 } from "@/features/post/constants";
+import { SEARCH_TAB_TOOLTIP_LONG_PRESS_MS } from "@/features/search/constants";
 import Link from "next/link";
 import { useFloating, offset, shift, flip } from "@floating-ui/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
@@ -34,9 +41,9 @@ import { cn } from "@/lib/utils";
 
 interface IPostCategoryTabsProps {
   currentCategory?: string;
+  compact?: boolean;
+  tone?: "default" | "neutral";
 }
-
-const LONG_PRESS_DURATION = 600;
 
 /**
  * 게시글 카테고리 필터 탭
@@ -44,9 +51,12 @@ const LONG_PRESS_DURATION = 600;
  * - 가로 스크롤 가능한 탭 목록을 렌더링
  * - PC에서는 좌우 화살표, 모바일에서는 터치 스크롤을 지원
  * - PC 호버 또는 모바일 롱프레스 시 카테고리 설명을 툴팁으로 표시
+ * - `compact`, `tone` props로 헤더 밀도와 flat 톤을 분기
  */
 export default function PostCategoryTabs({
   currentCategory,
+  compact = false,
+  tone = "default",
 }: IPostCategoryTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -66,7 +76,6 @@ export default function PostCategoryTabs({
     }
 
     router.push(`/posts?${params.toString()}`);
-    router.refresh(); // 데이터 재로딩
   };
 
   const isTouchDevice =
@@ -76,7 +85,7 @@ export default function PostCategoryTabs({
     if (isTouchDevice) {
       timeoutRef.current = setTimeout(() => {
         setActiveTooltip(key);
-      }, LONG_PRESS_DURATION);
+      }, SEARCH_TAB_TOOLTIP_LONG_PRESS_MS);
     }
   };
 
@@ -121,6 +130,10 @@ export default function PostCategoryTabs({
       placement: "bottom",
       middleware: [offset(8), shift({ padding: 8 }), flip({ padding: 8 })],
     }),
+    RECOMMEND: useFloating({
+      placement: "bottom",
+      middleware: [offset(8), shift({ padding: 8 }), flip({ padding: 8 })],
+    }),
     COMPASS: useFloating({
       placement: "bottom",
       middleware: [offset(8), shift({ padding: 8 }), flip({ padding: 8 })],
@@ -145,7 +158,12 @@ export default function PostCategoryTabs({
       {/* 왼쪽 스크롤 버튼 */}
       <button
         onClick={() => scroll("left")}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100"
+        className={cn(
+          "absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 rounded-full border shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100",
+          tone === "neutral"
+            ? "bg-background border-border-subtle"
+            : "bg-surface/80 backdrop-blur-sm border-border-subtle"
+        )}
         aria-label="scroll left"
       >
         <ChevronLeftIcon className="size-4" />
@@ -155,7 +173,8 @@ export default function PostCategoryTabs({
         <div
           ref={scrollContainerRef}
           className={cn(
-            "flex gap-2 overflow-x-auto scrollbar-hide items-center h-12 px-4 sm:px-0",
+            "flex gap-2 overflow-x-auto scrollbar-hide items-center px-4 sm:px-0",
+            compact ? "h-10 sm:h-12" : "h-12",
             // 스크롤 맨 끝에 도달했을 때 우측 여백이 잘리지 않도록 투명 여백 강제 추가
             "after:content-[''] after:pr-4 sm:after:pr-0"
           )}
@@ -178,10 +197,15 @@ export default function PostCategoryTabs({
                 handleCategoryClick();
               }}
               className={cn(
-                "inline-flex min-h-[36px] items-center rounded-full px-4 text-sm font-medium transition-all whitespace-nowrap",
+                "inline-flex items-center rounded-full font-medium transition-all whitespace-nowrap",
+                compact
+                  ? "min-h-[32px] px-3 text-[13px] sm:min-h-[36px] sm:px-4 sm:text-sm"
+                  : "min-h-[36px] px-4 text-sm",
                 !currentCategory
                   ? "bg-brand text-white shadow-md dark:border dark:border-white/20"
-                  : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
+                  : tone === "neutral"
+                  ? "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-border-subtle"
+                  : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border-subtle"
               )}
             >
               ⚓ 전체
@@ -207,9 +231,9 @@ export default function PostCategoryTabs({
                 position: "fixed",
                 zIndex: 9999,
               }}
-              className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none shadow-lg"
+              className="pointer-events-none rounded-lg border border-border-subtle bg-background/96 px-3 py-1.5 text-sm text-primary shadow-lg backdrop-blur-sm"
             >
-              모든 항해 일지를 볼 수 있습니다
+              모든 게시글을 볼 수 있습니다
             </div>
           )}
 
@@ -237,10 +261,15 @@ export default function PostCategoryTabs({
                   handleCategoryClick(key);
                 }}
                 className={cn(
-                  "inline-flex min-h-[36px] items-center rounded-full px-4 text-sm font-medium transition-all whitespace-nowrap",
+                  "inline-flex items-center rounded-full font-medium transition-all whitespace-nowrap",
+                  compact
+                    ? "min-h-[32px] px-3 text-[13px] sm:min-h-[36px] sm:px-4 sm:text-sm"
+                    : "min-h-[36px] px-4 text-sm",
                   currentCategory === key
                     ? "bg-brand text-white shadow-md dark:border dark:border-white/20"
-                    : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
+                    : tone === "neutral"
+                    ? "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-border-subtle"
+                    : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border-subtle"
                 )}
               >
                 {value}
@@ -262,7 +291,7 @@ export default function PostCategoryTabs({
                     position: "fixed",
                     zIndex: 9999,
                   }}
-                  className="px-3 py-1.5 bg-neutral-800 dark:bg-neutral-700 text-white text-sm rounded-lg pointer-events-none shadow-lg"
+                  className="pointer-events-none rounded-lg border border-border-subtle bg-background/96 px-3 py-1.5 text-sm text-primary shadow-lg backdrop-blur-sm"
                 >
                   {
                     POST_CATEGORY_DESCRIPTIONS[
@@ -279,7 +308,12 @@ export default function PostCategoryTabs({
       {/* 오른쪽 스크롤 버튼 */}
       <button
         onClick={() => scroll("right")}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 bg-surface/80 backdrop-blur-sm border border-border rounded-full shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100"
+        className={cn(
+          "absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 rounded-full border shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100",
+          tone === "neutral"
+            ? "bg-background border-border-subtle"
+            : "bg-surface/80 backdrop-blur-sm border-border-subtle"
+        )}
         aria-label="scroll right"
       >
         <ChevronRightIcon className="size-4" />

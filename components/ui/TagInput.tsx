@@ -12,6 +12,7 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 뱃지 색상 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.26  임도헌   Modified  다크모드 개선
+ * 2026.04.04  임도헌   Modified  export 주석을 보강해 react-hook-form 기반 태그 입력 역할을 더 명확히 정리
  */
 "use client";
 
@@ -25,13 +26,25 @@ interface TagInputProps {
   control: Control<any>;
   maxTags?: number;
   resetSignal?: number;
+  disabled?: boolean;
 }
 
+/**
+ * react-hook-form 필드와 연결된 공용 태그 입력 컴포넌트
+ *
+ * - Enter/쉼표 기반 태그 추가
+ * - 최대 개수 제한 처리
+ * - reset 신호와 disabled 상태 반영
+ *
+ * @param {TagInputProps} props - 필드 이름, control, 최대 개수, reset 신호 설정
+ * @returns {JSX.Element} 태그 입력 필드와 태그 목록
+ */
 export default function TagInput({
   name,
   control,
   maxTags = 5,
   resetSignal,
+  disabled = false,
 }: TagInputProps) {
   const {
     field: { value: tags = [], onChange },
@@ -45,6 +58,7 @@ export default function TagInput({
   }, [resetSignal]);
 
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       const newTag = tagInput.trim();
@@ -56,6 +70,7 @@ export default function TagInput({
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
+    if (disabled) return;
     const newTags = tags.filter((tag: string) => tag !== tagToRemove);
     onChange(newTags);
   };
@@ -79,6 +94,7 @@ export default function TagInput({
                 onClick={() => handleRemoveTag(tag)}
                 className="hover:text-danger dark:hover:text-rose-400 transition-colors"
                 aria-label={`${tag} 태그 삭제`}
+                disabled={disabled}
               >
                 <XMarkIcon className="w-3.5 h-3.5" />
               </button>
@@ -95,7 +111,7 @@ export default function TagInput({
         placeholder={
           tags.length >= maxTags ? "태그가 꽉 찼습니다" : "태그 입력 (Enter)"
         }
-        disabled={tags.length >= maxTags}
+        disabled={disabled || tags.length >= maxTags}
         className={cn(
           "input-primary h-input-md px-4", // 시맨틱 높이 및 클래스
           "disabled:opacity-50 disabled:cursor-not-allowed"

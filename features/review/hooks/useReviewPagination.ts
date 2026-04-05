@@ -1,5 +1,5 @@
 /**
- * File Name : features/review/hooks/usePushNotification.ts
+ * File Name : features/review/hooks/useReviewPagination.ts
  * Description : 유저 리뷰 무한 스크롤을 위한 커스텀 훅
  * Author : 임도헌
  *
@@ -11,6 +11,7 @@
  * 2026.03.01  임도헌   Modified  useInfiniteQuery 도입 및 수동 상태 동기화 로직 제거
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialReviews Props 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.03  임도헌   Modified  파일 헤더 오타 수정
  */
 "use client";
 
@@ -43,6 +44,7 @@ export function useReviewPagination(userId: number): UseReviewPaginationResult {
     useSuspenseInfiniteQuery({
       queryKey: queryKeys.reviews.user(userId),
       queryFn: async ({ pageParam }) => {
+        // 서버 액션 기반 리뷰 목록 패칭
         return await getUserReviewsAction(userId, pageParam as ReviewCursor);
       },
       initialPageParam: null as ReviewCursor | null,
@@ -50,6 +52,7 @@ export function useReviewPagination(userId: number): UseReviewPaginationResult {
       staleTime: 60 * 1000,
     });
 
+  // 페이지 응답 평탄화
   const reviews = data.pages.flatMap((p) => p.reviews);
 
   return {

@@ -19,6 +19,9 @@
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  autoFocus 제거
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더 보더 강도 정리
+ * 2026.03.22  임도헌   Modified  프로필 유틸 모달 모션 규칙 통일을 위해 진입 transform 애니메이션 제거
  */
 "use client";
 
@@ -28,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { verifyEmail } from "@/features/auth/service/email";
 import { INITIAL_EMAIL_VERIFY_STATE } from "@/features/auth/constants";
 import { toast } from "sonner";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import Input from "@/components/ui/Input";
 import { XMarkIcon, EnvelopeIcon, KeyIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
@@ -227,11 +231,10 @@ function EmailVerificationModalInner({
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKey);
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     return () => {
       window.removeEventListener("keydown", handleKey);
-      document.body.style.overflow = original;
+      unlockBodyScroll();
     };
   }, [onClose]);
 
@@ -249,12 +252,12 @@ function EmailVerificationModalInner({
         tabIndex={-1}
         className={cn(
           "relative w-full sm:max-w-md bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
-          "h-auto rounded-t-2xl sm:rounded-2xl animate-slide-up sm:animate-fade-in",
-          "border-t sm:border border-border"
+          "h-auto rounded-t-2xl sm:rounded-2xl",
+          "border-t sm:border border-border-subtle"
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
           <div>
             <h2 className="text-lg font-bold text-primary">이메일 인증</h2>
             <div className="flex items-center gap-1.5 mt-1 text-sm text-muted">

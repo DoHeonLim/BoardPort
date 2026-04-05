@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status     Description
  * 2026.01.14  임도헌   Created    [Rule 3.2] 다른 Add 페이지와 레이아웃 통일
+ * 2026.03.12  임도헌   Modified   스트리밍 생성 헤더를 flat 톤과 border-border-subtle 기준으로 통일
  */
 
 import BackButton from "@/components/global/BackButton";
@@ -22,7 +23,7 @@ export default function AddStreamLayout({
       <header
         className={cn(
           "sticky top-0 z-40 h-14 w-full",
-          "bg-background/80 backdrop-blur-md border-b border-border",
+          "border-b border-border-subtle bg-background shadow-sm",
           "transition-colors"
         )}
       >

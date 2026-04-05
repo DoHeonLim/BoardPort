@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.14  임도헌   Created
+ * 2026.04.02  임도헌   Modified  위치 타입 필드 설명 정리
  */
 
 export interface LocationData {

@@ -8,6 +8,8 @@
  * 2025.10.07  임도헌   Created   로딩 스켈레톤 추가
  * 2025.11.13  임도헌   Modified  현재 UI(탭+카드+액션) 구조와 톤으로 재정렬
  * 2026.01.16  임도헌   Modified  [UI] 탭 UI 및 ProductCard 스타일 스켈레톤 적용
+ * 2026.03.12  임도헌   Modified  프로필 판매 내역 스켈레톤 구분선을 border-border-subtle 톤으로 통일
+ * 2026.03.17  임도헌   Modified  현재 판매 카드 하단 액션 밀도에 맞춰 액션 영역 두께와 대비 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -17,7 +19,7 @@ export default function Loading() {
     <div className="min-h-screen bg-background transition-colors">
       <div className="px-page-x py-6 flex flex-col">
         {/* Tabs Skeleton */}
-        <div className="flex p-1 mb-6 bg-surface-dim rounded-xl border border-border">
+        <div className="mb-6 flex rounded-xl border border-border-subtle bg-surface-dim p-1">
           <Skeleton className="h-9 flex-1 rounded-lg" />
           <Skeleton className="h-9 flex-1 rounded-lg bg-transparent" />
           <Skeleton className="h-9 flex-1 rounded-lg bg-transparent" />
@@ -34,7 +36,7 @@ export default function Loading() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="flex flex-col rounded-2xl border border-border bg-surface overflow-hidden shadow-sm"
+              className="flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm"
             >
               <div className="flex p-4 gap-4">
                 {/* Thumbnail */}
@@ -50,7 +52,7 @@ export default function Loading() {
                     <Skeleton className="h-4 w-20 rounded" />
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-border/50">
+                  <div className="space-y-2 border-t border-border-subtle pt-2">
                     <div className="flex gap-2">
                       <Skeleton className="h-4 w-12 rounded" />
                       <Skeleton className="h-4 w-12 rounded" />
@@ -66,9 +68,9 @@ export default function Loading() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="h-10 border-t border-border bg-surface-dim/30 flex items-center justify-center">
-                <Skeleton className="h-4 w-24 rounded bg-border" />
+              {/* 하단 액션 영역 */}
+              <div className="flex h-9 items-center justify-center border-t border-border-subtle bg-surface-dim/20">
+                <Skeleton className="h-4 w-24 rounded bg-border-subtle" />
               </div>
             </div>
           ))}

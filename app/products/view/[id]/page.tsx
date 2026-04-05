@@ -40,9 +40,14 @@
  * 2026.02.04  임도헌   Modified  판매자와 조회자간의 차단 관계 확인 로직 추가(차단 관계일 경우 제품 정보 차단)
  * 2026.02.13  임도헌   Modified  generateMetadata 확장 (description 추가)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.13  임도헌   Modified  상세 진입 returnTo를 로그인/차단 가드 callbackUrl에 반영
+ * 2026.03.14  임도헌   Modified  제품 상세 헤더를 페이지 내부로 이동해 수정/모달 흐름과 분리
+ * 2026.03.18  임도헌   Modified  returnTo 미지정 시 제품 목록(/products)으로 복귀하도록 기본 경로 고정
  */
 
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
   getProductTitleById,
   getCachedProduct,
@@ -51,7 +56,12 @@ import { getProductLikeStatus } from "@/features/product/service/like";
 import { incrementViews } from "@/features/common/service/view";
 import { checkBlockRelation } from "@/features/user/service/block";
 import ProductDetailContainer from "@/features/product/components/productDetail";
+import ProductEditTopbarLink from "@/features/product/components/productDetail/ProductEditTopbarLink";
+import ProductOptionMenu from "@/features/product/components/productDetail/ProductOptionMenu";
+import ProductShareButton from "@/features/product/components/ProductShareButton";
+import BackButton from "@/components/global/BackButton";
 import getSession from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +71,9 @@ export const dynamic = "force-dynamic";
  */
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const id = Number(params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return { title: "제품을 찾을 수 없음" };
+  }
   // 캐시된 상세 데이터 재사용 (Service 내부에서 dedup됨)
   const product = await getProductTitleById(id);
 
@@ -88,23 +101,32 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
  * - 데이터 조회 전 서버 사이드 조회수 증가 로직(`incrementViews`) 선행 처리
  * - 제품 상세 정보 및 유저의 좋아요 상태 서버 사이드 병렬 로드 적용
  * - 판매자와 조회자 간의 양방향 차단 관계 검증 (차단 시 403 리다이렉트 처리)
+ * - `returnTo`가 없을 경우 제품 목록(`/products`)을 기본 복귀 경로로 사용
+ *
+ * @param {Object} params - URL 파라미터 (id: 제품 ID)
+ * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
  */
 export default async function ProductDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { returnTo?: string };
 }) {
   const id = Number(params.id);
-  if (isNaN(id)) return notFound();
+  if (!Number.isFinite(id) || id <= 0) return notFound();
+  // 상세 직접 진입 시에도 제품 목록으로 자연스럽게 복귀하도록 기본 경로 고정
+  const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/products");
+  const detailHref = `/products/view/${id}?returnTo=${encodeURIComponent(
+    returnTo
+  )}`;
 
   const session = await getSession();
   const userId = session?.id ?? null;
 
   // 비로그인 접근 제한
   if (!userId) {
-    redirect(
-      `/login?callbackUrl=${encodeURIComponent(`/products/view/${id}`)}`
-    );
+    redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
 
   // 1. 조회수 증가 및 무효화 선행 (3분 쿨다운 적용)
@@ -127,11 +149,10 @@ export default async function ProductDetailPage({
   if (userId && userId !== product.userId) {
     const isBlocked = await checkBlockRelation(userId, product.userId);
     if (isBlocked) {
-      const callbackUrl = `/products/view/${id}`;
       redirect(
         `/403?reason=BLOCKED` +
           `&username=${encodeURIComponent(product.user.username)}` +
-          `&callbackUrl=${encodeURIComponent(callbackUrl)}`
+          `&callbackUrl=${encodeURIComponent(detailHref)}`
       );
     }
   }
@@ -139,12 +160,55 @@ export default async function ProductDetailPage({
   const isOwner = !!userId && userId === product.userId;
 
   return (
-    <ProductDetailContainer
-      product={product}
-      views={product.views}
-      isOwner={isOwner}
-      likeCount={likeStatus.likeCount}
-      isLiked={likeStatus.isLiked}
-    />
+    <div className="min-h-screen bg-background text-primary transition-colors">
+      <header
+        className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
+        role="banner"
+      >
+        <div className="mx-auto max-w-mobile h-full flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <BackButton fallbackHref={returnTo || "/products"} variant="appbar" />
+          </div>
+
+          <div className="flex items-center gap-1">
+            {product.categoryId && product.category?.kor_name && (
+              <Link
+                href={`/products?category=${encodeURIComponent(
+                  String(product.categoryId)
+                )}`}
+                className={cn(
+                  "appbar-chip hidden xs:inline-flex",
+                  "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border"
+                )}
+                aria-label={`카테고리 ${product.category.kor_name}로 보기`}
+              >
+                {product.category.icon && <span>{product.category.icon}</span>}
+                {product.category.kor_name}
+              </Link>
+            )}
+
+            <ProductShareButton title={product.title || "보드포트 상품"} />
+
+            {isOwner ? (
+              <ProductEditTopbarLink productId={id} />
+            ) : (
+              <ProductOptionMenu
+                productId={id}
+                sellerId={product.userId}
+                sellerName={product.user.username}
+              />
+            )}
+          </div>
+        </div>
+      </header>
+
+      <ProductDetailContainer
+        product={product}
+        views={product.views}
+        isOwner={isOwner}
+        likeCount={likeStatus.likeCount}
+        isLiked={likeStatus.isLiked}
+      />
+    </div>
   );
 }

@@ -19,6 +19,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  모바일 카드 간격과 데스크톱 간격을 분리해 리스트 밀도를 정리
  * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
+ * 2026.03.25  임도헌   Modified  스트림 카드 간격을 뷰포트별로 재조정해 목록 리듬 완화
  */
 
 "use client";
@@ -82,7 +83,7 @@ export default function StreamList({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:gap-6">
         {streams.map((s) => {
           const tags = s.tags ?? [];
           return (

@@ -6,23 +6,34 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.24  임도헌   Created   카카오 로그인 시작 및 CSRF state 쿠키 설정
+ * 2026.03.08  임도헌   Modified  OAuth 시작 시 callbackUrl 쿠키 보존 추가
+ * 2026.03.12  임도헌   Modified  callbackUrl 정규화와 state 생성 흐름을 GitHub OAuth 시작 라우트와 같은 기준으로 통일
+ * 2026.03.14  임도헌   Modified  account_email scope를 명시해 동의한 카카오 계정 이메일을 프로필로 저장할 수 있도록 보강
  */
 
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 /**
- * GET /kakao/start
+ * 카카오 OAuth 시작 라우트
  *
- * 카카오 로그인을 시작하는 엔드포인트
- * 1. CSRF 방지용 state 난수 생성
- * 2. 카카오 인가 코드 요청 URL 생성
- * 3. state를 쿠키에 저장 후 카카오 인증 페이지로 리다이렉트
+ * 처리 흐름
+ * - callbackUrl 쿼리를 내부 경로로 정규화
+ * - CSRF 방지용 state 생성
+ * - 카카오 인가 코드 요청 URL 구성
+ * - state와 callbackUrl을 후속 콜백 검증용 쿠키로 저장
+ *
+ * @param {Request} request - 현재 요청 객체
  */
-export function GET() {
+export function GET(request: Request) {
   const baseURL = "https://kauth.kakao.com/oauth/authorize";
+  const requestUrl = new URL(request.url);
+  const callbackUrl = sanitizeCallbackUrl(
+    requestUrl.searchParams.get("callbackUrl")
+  );
 
-  // CSRF 방지를 위한 랜덤 state 생성
+  // CSRF 방지용 state 생성
   const state = crypto.randomBytes(32).toString("hex");
 
   const params = new URLSearchParams({
@@ -30,18 +41,26 @@ export function GET() {
     redirect_uri: process.env.KAKAO_REDIRECT_URI!,
     response_type: "code",
     state,
+    scope: "account_email",
   });
 
   const url = `${baseURL}?${params.toString()}`;
   const response = NextResponse.redirect(url);
 
-  // state를 쿠키에 저장 (httpOnly, secure)
+  // 콜백 단계에서 재사용할 state/callbackUrl 쿠키 저장
   response.cookies.set("kakao_oauth_state", state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 10, // 10분 유효
+  });
+  response.cookies.set("kakao_oauth_callback_url", callbackUrl, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 10,
   });
 
   return response;

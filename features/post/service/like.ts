@@ -34,8 +34,10 @@ import type { ServiceResult } from "@/lib/types";
  *
  * @param {number} postId - 게시글 ID
  * @param {number | null} userId - 조회 유저 ID
+ * @returns {Promise<{ likeCount: number; isLiked: boolean }>} 좋아요 개수와 현재 사용자 반응 상태
  */
 export async function getPostLikeStatus(postId: number, userId: number | null) {
+  // 총 좋아요 수와 현재 사용자 반응 상태를 함께 조회
   const [likeCount, likedRow] = await Promise.all([
     db.postLike.count({ where: { postId } }),
     userId
@@ -60,16 +62,19 @@ export async function getPostLikeStatus(postId: number, userId: number | null) {
  * @param {number} userId - 유저 ID
  * @param {number} postId - 게시글 ID
  * @param {boolean} isLike - true(좋아요 추가), false(좋아요 취소)
+ * @returns {Promise<ServiceResult>} 좋아요 처리 결과
  */
 export async function togglePostLike(
   userId: number,
   postId: number,
   isLike: boolean
 ): Promise<ServiceResult> {
+  // 좋아요 가능 상태 확인
   const status = await validateUserStatus(userId);
   if (!status.success) return status;
 
-  // post 소유자 확인 (뱃지 체크용)
+  // 게시글 소유자 확인
+  // 차단 검증과 좋아요 관련 뱃지 체크 기준으로 재사용
   const post = await db.post.findUnique({
     where: { id: postId },
     select: { userId: true },
@@ -77,7 +82,7 @@ export async function togglePostLike(
   if (!post)
     return { success: false, error: "게시글을 찾을 수 없습니다." };
 
-  // 차단 확인
+  // 차단 관계 확인
   const isBlocked = await checkBlockRelation(userId, post.userId);
   if (isBlocked) {
     return { success: false, error: "권한이 없습니다." };
@@ -88,7 +93,7 @@ export async function togglePostLike(
       await db.postLike.create({
         data: { postId, userId },
       });
-      // 좋아요 받은 사람(글쓴이) 뱃지 체크(병렬 처리)
+      // 좋아요 받은 작성자 뱃지 체크
       await Promise.allSettled([
         checkPopularWriterBadge(post.userId),
         checkBoardExplorerBadge(post.userId),
@@ -100,7 +105,7 @@ export async function togglePostLike(
     }
     return { success: true };
   } catch (e) {
-    // 이미 좋아요/삭제됨 (멱등)
+    // 이미 좋아요/삭제된 상태는 멱등하게 성공 처리
     if (isUniqueConstraintError(e) || (e as any).code === "P2025") {
       return { success: true };
     }

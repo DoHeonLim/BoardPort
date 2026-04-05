@@ -7,9 +7,11 @@
  * Date        Author   Status    Description
  * 2026.01.23  임도헌   Created   API Route 로직 이관 (구독/해제/검증)
  * 2026.03.07  임도헌   Modified  Welcome 알림 링크를 실제 설정 경로로 정정
+ * 2026.04.02  임도헌   Modified  푸시 구독 상태 타입을 notification/types 공용 정의로 분리
  */
 import "server-only";
 import db from "@/lib/db";
+import type { SubscriptionStatusCheckResult } from "@/features/notification/types";
 
 type SubscriptionDTO = {
   endpoint: string;
@@ -19,8 +21,9 @@ type SubscriptionDTO = {
 
 /**
  * 푸시 구독 추가/갱신
- * - 기존 전역 설정을 확인하여 Welcome 알림 여부를 결정
- * - 구독 정보를 저장(Upsert)하고 전역 푸시 설정을 활성화
+ * - 기존 전역 설정 확인
+ * - 구독 정보 upsert
+ * - 전역 푸시 설정 활성화
  *
  * @param userId - 유저 ID
  * @param dto - 구독 정보 DTO
@@ -28,14 +31,14 @@ type SubscriptionDTO = {
  */
 export async function upsertSubscription(userId: number, dto: SubscriptionDTO) {
   return await db.$transaction(async (tx) => {
-    // 1. 기존 전역 설정 확인 (Welcome 알림 로직용)
+    // 기존 전역 설정 확인
     const prevPref = await tx.notificationPreferences.findUnique({
       where: { userId },
       select: { pushEnabled: true },
     });
     const shouldSendWelcome = !prevPref || prevPref.pushEnabled === false;
 
-    // 2. 구독 정보 저장 (Upsert)
+    // 구독 정보 저장
     await tx.pushSubscription.upsert({
       where: {
         endpoint_userId: {
@@ -60,14 +63,14 @@ export async function upsertSubscription(userId: number, dto: SubscriptionDTO) {
       },
     });
 
-    // 3. 전역 푸시 설정 ON
+    // 전역 푸시 설정 활성화
     await tx.notificationPreferences.upsert({
       where: { userId },
       update: { pushEnabled: true },
       create: { userId, pushEnabled: true },
     });
 
-    // 4. Welcome 알림 생성 (조건부)
+    // Welcome 알림 생성
     let welcomeNotiId: number | null = null;
     if (shouldSendWelcome) {
       const noti = await tx.notification.create({
@@ -96,14 +99,14 @@ export async function upsertSubscription(userId: number, dto: SubscriptionDTO) {
  */
 export async function unsubscribeAll(userId: number) {
   await db.$transaction(async (tx) => {
-    // 1. 전역 설정 OFF
+    // 전역 푸시 설정 비활성화
     await tx.notificationPreferences.upsert({
       where: { userId },
       update: { pushEnabled: false },
       create: { userId, pushEnabled: false },
     });
 
-    // 2. 모든 기기 비활성화
+    // 모든 구독 비활성화
     await tx.pushSubscription.updateMany({
       where: { userId, isActive: true },
       data: { isActive: false },
@@ -122,7 +125,7 @@ export async function unsubscribeAll(userId: number) {
 export async function checkSubscriptionStatus(
   userId: number,
   endpoint: string
-) {
+): Promise<SubscriptionStatusCheckResult> {
   const [pref, sub] = await Promise.all([
     db.notificationPreferences.findUnique({
       where: { userId },
@@ -135,5 +138,13 @@ export async function checkSubscriptionStatus(
   ]);
 
   const globalEnabled = pref?.pushEnabled !== false;
-  return !!sub && globalEnabled;
+  if (!globalEnabled) {
+    return { isValid: false, reason: "disabled_by_user" };
+  }
+
+  if (sub) {
+    return { isValid: true, reason: "active" };
+  }
+
+  return { isValid: false, reason: "needs_reconnect" };
 }

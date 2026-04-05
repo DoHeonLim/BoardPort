@@ -20,6 +20,12 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.25  임도헌   Modified  UI 깨짐 수정: StreamCard 내부 렌더링 위임 (duration, viewCount 전달)
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  다시보기 카드에 thumbnailAnimated 메타를 전달해 GIF만 조건부 최적화 예외 처리
+ * 2026.03.17  임도헌   Modified  다시보기 섹션 헤더와 그리드 래퍼를 패널형 구조로 정리해 채널 페이지 톤 일관성 보강
+ * 2026.03.17  임도헌   Modified  다시보기 섹션 패널과 카드 외곽선을 border-border-subtle 톤으로 조정
+ * 2026.03.19  임도헌   Modified  StreamCard 바깥의 이중 프레임 래퍼를 제거해 다시보기 카드 밀도와 톤을 가볍게 정리
+ * 2026.03.21  임도헌   Modified  유저 채널 다시보기 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
+ * 2026.03.25  임도헌   Modified  다시보기 1개일 때 2열 그리드 공백이 과해 보이지 않도록 단일 카드 레이아웃을 보정
  */
 
 "use client";
@@ -59,67 +65,81 @@ export default function RecordingGrid({
       />
     );
 
+  const isSingleRecording = recordings.length === 1;
+
   return (
     <div className="mx-auto max-w-3xl px-4 w-full">
-      <h2 className="text-lg font-bold mb-3 text-primary">다시보기</h2>
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-primary">다시보기</h2>
+        <p className="mt-1 text-sm text-muted">
+          지난 방송 기록을 다시 확인하고 공유할 수 있습니다.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {recordings.map((rec) => {
-          // 표시 시간 = readyAt (없으면 생략)
-          const when = rec.readyAt ?? null;
+      <div className="rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm sm:p-4">
+        <div
+          className={
+            isSingleRecording
+              ? "grid grid-cols-1 gap-4 sm:max-w-[420px]"
+              : "grid grid-cols-1 gap-4 sm:grid-cols-2"
+          }
+        >
+          {recordings.map((rec) => {
+            // 표시 시간 = readyAt (없으면 생략)
+            const when = rec.readyAt ?? null;
 
-          // 길이
-          const hasDuration =
-            typeof rec.duration === "number" && rec.duration > 0;
+            // 길이
+            const hasDuration =
+              typeof rec.duration === "number" && rec.duration > 0;
 
-          // 조회수
-          const hasViews =
-            typeof rec.viewCount === "number" && rec.viewCount >= 0;
+            // 조회수
+            const hasViews =
+              typeof rec.viewCount === "number" && rec.viewCount >= 0;
 
-          // 팔로워 방송인지
-          const isFollowersOnly = rec.visibility === "FOLLOWERS";
+            // 팔로워 방송인지
+            const isFollowersOnly = rec.visibility === "FOLLOWERS";
 
-          /**
-           * FOLLOWERS 잠금은 "팔로우 직후 즉시 반영"이 필요하다.
-           * - 서버 플래그(rec.followersOnlyLocked)는 초기 렌더의 기본값으로만 사용하고,
-           * - 클라이언트 상태(role/isFollowing)를 SSOT로 한 번 더 적용해 잠금 여부를 계산한다.
-           *
-           * 규칙:
-           * - OWNER는 항상 잠금 없음
-           * - FOLLOWERS 타입이고 OWNER가 아니면: isFollowing이 false일 때만 잠금
-           * - 그 외 타입은 서버 플래그를 그대로 따른다.
-           */
-          const followersOnlyLocked = isFollowersOnly
-            ? role !== "OWNER" && !isFollowing
-            : !!rec.followersOnlyLocked;
+            /**
+             * FOLLOWERS 잠금은 "팔로우 직후 즉시 반영"이 필요하다.
+             * - 서버 플래그(rec.followersOnlyLocked)는 초기 렌더의 기본값으로만 사용하고,
+             * - 클라이언트 상태(role/isFollowing)를 SSOT로 한 번 더 적용해 잠금 여부를 계산
+             *
+             * 규칙:
+             * - OWNER는 항상 잠금 없음
+             * - FOLLOWERS 타입이고 OWNER가 아니면: isFollowing이 false일 때만 잠금
+             * - 그 외 타입은 서버 플래그를 그대로 따른다.
+             */
+            const followersOnlyLocked = isFollowersOnly
+              ? role !== "OWNER" && !isFollowing
+              : !!rec.followersOnlyLocked;
 
-          // PRIVATE는 팔로우로 풀리는 게 아니라 "언락 여부"라 서버 플래그 유지가 맞음
-          const requiresPassword = !!rec.requiresPassword;
+            // PRIVATE는 팔로우로 풀리는 게 아니라 "언락 여부"라 서버 플래그 유지가 맞음
+            const requiresPassword = !!rec.requiresPassword;
 
-          // unlock 타깃 = 부모 Broadcast id
-          const unlockTargetId = rec.broadcastId;
+            // unlock 타깃 = 부모 Broadcast id
+            const unlockTargetId = rec.broadcastId;
 
-          // 상세 경로: 없으면 vodId로 폴백
-          const href = rec.href ?? `/streams/${rec.vodId}/recording`;
+            // 상세 경로: 없으면 vodId로 폴백
+            const href = rec.href ?? `/streams/${rec.vodId}/recording`;
 
-          // key = vodId
-          const key = `vod-${rec.vodId}`;
+            // key = vodId
+            const key = `vod-${rec.vodId}`;
 
-          return (
-            <div
-              key={key}
-              className="rounded-2xl overflow-hidden shadow-sm bg-surface border border-border"
-            >
+            return (
               <StreamCard
+                key={key}
                 id={unlockTargetId}
                 title={rec.title}
                 thumbnail={rec.thumbnail}
+                thumbnailAnimated={rec.thumbnailAnimated}
                 isLive={false}
+                showReplayBadge
                 streamer={{
                   username: rec.user.username,
                   avatar: rec.user.avatar ?? null,
                 }}
                 startedAt={when}
+                category={rec.category}
                 duration={hasDuration ? rec.duration : undefined}
                 viewCount={hasViews ? rec.viewCount : undefined}
                 href={href}
@@ -129,10 +149,11 @@ export default function RecordingGrid({
                 onRequestFollow={followersOnlyLocked ? onFollow : undefined}
                 isPrivateType={rec.visibility === "PRIVATE"}
                 layout="grid"
+                showStreamer={false}
               />
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

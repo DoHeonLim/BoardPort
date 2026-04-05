@@ -15,6 +15,9 @@
  * 2026.01.17  임도헌   Moved     components/follow -> features/user/components/follow
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.26  임도헌   Modified  다크모드에서 Outline 버튼 가시성(brand-light) 개선
+ * 2026.03.28  임도헌   Modified  팔로우 리스트 행을 카드형으로 정리하고 버튼 무게를 조정해 프로필 모달 밀도 개선
+ * 2026.03.29  임도헌   Modified  행 레이아웃을 리스트 문법으로 되돌려 아바타/닉네임을 좌정렬하고 과한 보더를 제거
+ * 2026.03.29  임도헌   Modified  팔로우 CTA를 outline 대신 채움형으로 조정해 모달 내 가시성 보강
  */
 
 "use client";
@@ -60,13 +63,16 @@ export default function FollowListItem({
   };
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <UserAvatar
-        username={user.username}
-        avatar={user.avatar}
-        size="sm"
-        className="shrink-0"
-      />
+    <div className="flex items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface-dim/35">
+      <div className="flex min-w-0 flex-1 items-center">
+        <UserAvatar
+          username={user.username}
+          avatar={user.avatar}
+          size="sm"
+          compact
+          className="w-full justify-start shrink-0"
+        />
+      </div>
 
       {showButton && !isMe ? (
         <button
@@ -74,19 +80,19 @@ export default function FollowListItem({
           onClick={handleClick}
           disabled={pending}
           className={cn(
-            "h-8 px-3 text-xs font-medium rounded-lg transition-all border shrink-0",
+            "inline-flex h-8 min-w-[86px] items-center justify-center px-3 text-xs font-medium rounded-lg transition-colors border shrink-0",
             "disabled:opacity-50 disabled:cursor-not-allowed",
             following
-              ? "bg-surface-dim text-muted border-border hover:bg-border/50" // Unfollow
+              ? "bg-surface text-muted border-border-subtle hover:bg-surface-dim hover:border-border dark:bg-surface-dim dark:text-primary dark:border-border dark:hover:bg-border/40" // Unfollow
               : buttonVariant === "primary"
-              ? "bg-brand text-white border-transparent hover:bg-brand-dark" // Primary Follow
-              : "bg-surface text-brand border-brand hover:bg-brand/5 dark:text-brand-light dark:border-brand-light/50 dark:hover:bg-brand-light/10"
+                ? "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand-dark dark:hover:bg-brand-dark/85" // Primary Follow
+                : "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand"
           )}
         >
-          {pending ? "..." : following ? "팔로잉" : "팔로우"}
+          {pending ? "..." : following ? "팔로우 취소" : "팔로우"}
         </button>
       ) : isMe ? (
-        <span className="text-xs font-medium text-muted bg-surface-dim px-2 py-1 rounded-md">
+        <span className="inline-flex h-8 min-w-[44px] items-center justify-center rounded-lg border border-border-subtle bg-surface-dim px-2.5 text-xs font-medium text-muted">
           나
         </span>
       ) : null}

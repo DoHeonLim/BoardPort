@@ -10,19 +10,33 @@
  * 2024.12.23  임도헌   Modified  제품 상세 로딩 페이지 아이콘 변경
  * 2025.06.08  임도헌   Modified  제품 상세 로딩 수정
  * 2026.01.11  임도헌   Modified  ProductDetailContainer와 동일한 UI 배치
+ * 2026.03.12  임도헌   Modified  flat 하단 액션바 톤과 현재 제품 상세 정보 카드 밀도에 맞춰 스켈레톤 정리
+ * 2026.03.29  임도헌   Modified  실제 상세 헤더와 거래 장소 섹션 순서에 맞춰 제품 상세 스켈레톤 정합성 보강
  */
 
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
-    <div className="relative min-h-full flex flex-col bg-background transition-colors">
+    <div className="relative flex min-h-full flex-col bg-background transition-colors">
+      <header className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
+        <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-4">
+          <Skeleton className="size-9 rounded-full" />
+
+          <div className="flex items-center gap-2">
+            <Skeleton className="hidden h-8 w-20 rounded-full xs:block" />
+            <Skeleton className="size-9 rounded-full" />
+            <Skeleton className="size-9 rounded-full" />
+          </div>
+        </div>
+      </header>
+
       <div className="flex-1 pb-4">
         {/* Image Carousel */}
-        <div className="w-full aspect-square sm:aspect-[4/3] bg-surface-dim animate-pulse border-b border-border" />
+        <Skeleton className="aspect-square w-full border-b border-border-subtle sm:aspect-[4/3]" />
 
         {/* Seller Meta */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
+        <div className="flex items-center justify-between border-b border-border-subtle bg-background px-6 py-3">
           <div className="flex items-center gap-2.5">
             <Skeleton className="h-3 w-8 rounded" />
             <Skeleton className="size-8 rounded-full" />
@@ -46,7 +60,7 @@ export default function Loading() {
           </div>
 
           {/* Info Grid */}
-          <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-surface-dim border border-border">
+          <div className="grid grid-cols-2 gap-4 rounded-2xl border border-border-subtle bg-surface-dim p-5">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex flex-col gap-2">
                 <Skeleton className="h-3 w-12 rounded" />
@@ -54,6 +68,14 @@ export default function Loading() {
               </div>
             ))}
           </div>
+
+          {/* Location */}
+          <section className="mt-2 border-t border-border-subtle py-2 pt-6">
+            <Skeleton className="mb-3 h-4 w-24 rounded" />
+            <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
+              <Skeleton className="aspect-[16/10] w-full rounded-none" />
+            </div>
+          </section>
 
           {/* Tags */}
           <div className="flex gap-2">
@@ -64,14 +86,12 @@ export default function Loading() {
       </div>
 
       {/* Bottom Action Bar Skeleton (Sticky) */}
-      <div className="sticky bottom-0 z-40 w-full mt-auto bg-surface/90 backdrop-blur-lg border-t border-border px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
-        <div className="flex items-center justify-between gap-4 max-w-mobile mx-auto">
+      <div className="sticky bottom-0 z-40 mt-auto w-full border-t border-border-subtle bg-background px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
+        <div className="mx-auto flex max-w-mobile items-center justify-between gap-4">
           <Skeleton className="size-10 rounded-xl shrink-0" /> {/* Like */}
           <div className="flex-1 flex gap-3 h-12">
-            <Skeleton className="flex-1 h-full rounded-xl" />{" "}
-            {/* UP / Edit Button */}
-            <Skeleton className="flex-1 h-full rounded-xl" />{" "}
-            {/* Chat Button */}
+            <Skeleton className="h-full flex-1 rounded-xl" />
+            <Skeleton className="h-full flex-1 rounded-xl" />
           </div>
         </div>
       </div>

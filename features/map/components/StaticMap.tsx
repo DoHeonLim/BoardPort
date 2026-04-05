@@ -9,6 +9,8 @@
  * 2026.02.15  임도헌   Modified  useKakaoLoader 적용하여 스크립트 미로드 시 크래시 방지
  * 2026.02.26  임도헌   Modified  지도 마커 및 헤더 텍스트 찌그러짐 픽스
  * 2026.03.07  임도헌   Modified  외부 지도 링크의 장소명을 URL 인코딩하여 특수문자/공백 깨짐 방지
+ * 2026.03.23  임도헌   Modified  정적 지도 로딩/오류/뷰어 셸 보더를 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.03.29  임도헌   Modified  위치 메타와 외부 지도 액션을 하나의 카드 셸로 통합해 상세 문법과 정합성 보강
  */
 
 "use client";
@@ -51,32 +53,59 @@ export default function StaticMap({
 
   if (loading) {
     return (
-      <div className="w-full h-48 sm:h-56 rounded-xl bg-surface-dim border border-border flex items-center justify-center animate-pulse">
-        <span className="text-xs text-muted">지도 로딩 중...</span>
+      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
+        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
+              <MapPinIcon className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-primary">위치 정보</p>
+              <p className="text-xs text-muted">지도를 준비하고 있습니다.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex h-48 items-center justify-center bg-surface-dim animate-pulse sm:h-56">
+          <span className="text-xs text-muted">지도 로딩 중...</span>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="w-full h-48 sm:h-56 rounded-xl bg-surface-dim border border-border flex items-center justify-center">
-        <span className="text-xs text-danger">지도를 불러올 수 없습니다.</span>
+      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
+        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
+              <MapPinIcon className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-primary">위치 정보</p>
+              <p className="text-xs text-muted">지도를 불러올 수 없습니다.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex h-48 items-center justify-center bg-surface-dim sm:h-56">
+          <span className="text-xs text-danger">네트워크 상태를 확인해주세요.</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* 텍스트 정보 */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2 min-w-0">
-          <MapPinIcon className="size-5 text-brand dark:text-brand-light mt-0.5 shrink-0" />
+    <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
+      <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
+            <MapPinIcon className="size-5" />
+          </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-primary break-words leading-snug">
+            <p className="font-bold text-primary break-words leading-snug">
               {locationName}
-            </h3>
+            </p>
             {regionString && (
-              <p className="text-xs text-muted mt-0.5 truncate">
+              <p className="mt-0.5 text-xs text-muted break-words">
                 {regionString}
               </p>
             )}
@@ -85,20 +114,19 @@ export default function StaticMap({
         <a
           href={mapLink}
           target="_blank"
-          rel="noreferrer"
-          className="shrink-0 text-xs font-medium text-muted hover:text-brand dark:hover:text-brand-light flex items-center gap-1 bg-surface-dim px-2 py-1.5 rounded-md transition-colors"
+          rel="noopener noreferrer"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border-subtle bg-surface-dim/70 px-2.5 text-xs font-medium text-primary transition-colors hover:bg-surface-dim hover:text-brand dark:hover:text-brand-light"
           aria-label={`${locationName} 지도 보기`}
         >
-          지도 보기 <ArrowTopRightOnSquareIcon className="size-3" />
+          카카오맵 <ArrowTopRightOnSquareIcon className="size-3" />
         </a>
       </div>
 
-      {/* 지도 영역 */}
       <a
         href={mapLink}
         target="_blank"
-        rel="noreferrer"
-        className="block w-full h-48 sm:h-56 rounded-xl overflow-hidden border border-border relative group"
+        rel="noopener noreferrer"
+        className="block relative h-48 w-full overflow-hidden group sm:h-56"
         aria-label={`${locationName} 외부 지도에서 열기`}
       >
         <Map
@@ -112,8 +140,7 @@ export default function StaticMap({
           <MapMarker position={{ lat: latitude, lng: longitude }} />
         </Map>
 
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/5" />
       </a>
     </div>
   );

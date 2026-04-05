@@ -1,5 +1,5 @@
 /**
- * File Name : features/post/components/postDetail/PostDetailTopbar.tsx
+ * File Name : features/post/components/postsDetail/PostDetailTopbar.tsx
  * Description : 게시글 상세 상단바(뒤로가기 + 카테고리 + 작성자 + 수정 버튼)
  * Author : 임도헌
  *
@@ -14,6 +14,14 @@
  * 2026.02.26  임도헌   Modified  카테고리 UI 수정
  * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet로 전환하고 액션 버튼 접근성을 보강
  * 2026.03.06  임도헌   Modified  상세 상단 액션바 버튼/칩 스타일을 공통 규칙으로 통일
+ * 2026.03.13  임도헌   Modified  작성자 차단 성공 후 returnTo 또는 목록 fallback 경로로 복귀하도록 보강
+ * 2026.03.14  임도헌   Modified  게시글 상세 상단바를 flat 헤더 톤으로 정리하고 subtle 보더 기준으로 통일
+ * 2026.03.17  임도헌   Modified  작은 모바일 화면에서는 카테고리 칩을 헤더에서 숨겨 작성자 정보 과밀을 완화
+ * 2026.03.18  임도헌   Modified  비채팅 returnTo 문맥의 detail-edit 복귀 경로와 차단 이동 흐름을 정리하고 중복 router.refresh를 제거
+ * 2026.04.01  임도헌   Modified  게시글 detail-edit는 push 진입으로 되돌리고 저장/취소 복귀는 상세 back 문맥을 우선 사용하도록 정리
+ * 2026.03.19  임도헌   Modified  공유 버튼을 보조 액션으로 읽히도록 시각적 강조를 한 단계 낮춤
+ * 2026.03.27  임도헌   Modified  작성자용 수정 버튼의 경계 대비와 크기를 조정해 라이트/다크 헤더 균형을 보강
+ * 2026.04.03  임도헌   Modified  작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  */
 "use client";
 
@@ -53,13 +61,12 @@ interface PostDetailTopbarProps {
   backHref?: string;
   canEdit?: boolean;
   editHref?: string;
+  replaceEditHref?: boolean;
 }
 
 /**
  * 게시글 상세 상단바
- * - 좌측: 뒤로가기 버튼 + 작성자 프로필 (Avatar + Name)
- * - 우측: 카테고리 칩 + (작성자인 경우) 수정 버튼
- * - 스크롤 시 상단에 고정(Sticky
+ * 뒤로가기, 작성자 정보, 카테고리, 공유/옵션 액션, 작성자용 수정 진입 링크를 한 곳에서 관리하는 sticky 헤더.
  */
 export default function PostDetailTopbar({
   postId,
@@ -71,6 +78,7 @@ export default function PostDetailTopbar({
   backHref,
   canEdit,
   editHref,
+  replaceEditHref = false,
 }: PostDetailTopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -94,14 +102,15 @@ export default function PostDetailTopbar({
 
   const handleBlock = () => {
     startTransition(async () => {
+      const nextHref = backHref ?? "/posts";
+
       // 1. 차단 실행
-      const result = await toggleBlockAction(authorId, "block");
+      const result = await toggleBlockAction(authorId, "block", nextHref);
 
       if (result.success) {
         toast.success(`${authorUsername}님을 차단했습니다.`);
-        // 2. 차단했으므로 더 이상 이 글을 볼 수 없음 -> 목록으로 이동
-        router.replace("/posts");
-        router.refresh();
+        // 2. 차단 후에는 원래 보던 목록 경로로 복귀
+        router.replace(nextHref);
       } else {
         toast.error(result.error);
       }
@@ -113,7 +122,7 @@ export default function PostDetailTopbar({
   const categoryLabel = category && POST_CATEGORY[category as PostCategoryType];
 
   return (
-    <header className="sticky top-0 z-40 w-full h-14 bg-surface/80 backdrop-blur-md border-b border-border transition-colors">
+    <header className="sticky top-0 z-40 w-full h-14 border-b border-border-subtle bg-background shadow-sm transition-colors">
       <div className="mx-auto w-full max-w-mobile h-full flex items-center justify-between px-3 sm:px-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <BackButton
@@ -133,7 +142,7 @@ export default function PostDetailTopbar({
           {categoryLabel && (
             <span
               className={cn(
-                "appbar-chip mr-2",
+                "appbar-chip mr-2 hidden sm:inline-flex",
                 "bg-brand/10 text-brand dark:bg-brand-light/50 dark:text-gray-100"
               )}
             >
@@ -142,7 +151,7 @@ export default function PostDetailTopbar({
           )}
           <button
             onClick={() => handleShare(title)}
-            className="appbar-icon-btn"
+            className="appbar-icon-btn text-muted/80 hover:bg-surface-dim/70"
             aria-label="게시글 공유하기"
           >
             <ShareIcon className="size-5" />
@@ -151,7 +160,11 @@ export default function PostDetailTopbar({
           {canEdit ? (
             <Link
               href={editHref!}
-              className="appbar-link-btn gap-1.5 border border-transparent bg-surface-dim hover:bg-border"
+              replace={replaceEditHref}
+              className={cn(
+                "inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-sm font-medium text-primary shadow-sm transition-colors",
+                "hover:bg-surface-dim sm:min-h-[42px] sm:px-3"
+              )}
             >
               <PencilSquareIcon className="size-4" />
               <span>수정</span>
@@ -171,7 +184,7 @@ export default function PostDetailTopbar({
               {!isMobile && menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border z-50 overflow-hidden animate-fade-in"
+                  className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-border-subtle bg-background shadow-xl z-50"
                 >
                   <button
                     onClick={() => {
@@ -190,7 +203,7 @@ export default function PostDetailTopbar({
                       setReportOpen(true);
                     }}
                     role="menuitem"
-                    className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border"
+                    className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border-subtle"
                   >
                     <ExclamationTriangleIcon className="size-4" />
                     게시글 신고하기
@@ -237,7 +250,7 @@ export default function PostDetailTopbar({
       <ConfirmDialog
         open={blockConfirmOpen}
         title="유저 차단"
-        description={`${authorUsername}님을 차단하시겠습니까? 차단 시 서로의 게시글을 볼 수 없습니다.`}
+        description={`${authorUsername}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`}
         confirmLabel="차단"
         onConfirm={handleBlock}
         onCancel={() => setBlockConfirmOpen(false)}

@@ -9,12 +9,15 @@
  * 2026.02.07  임도헌   Modified  Audit Log 연동 및 DTO(AdminProductListResponse) 타입 적용
  * 2026.02.08  임도헌   Modified  삭제 시 유저 알림(sendAdminActionNotification) 연동
  * 2026.03.07  임도헌   Modified  관리자 액션 실패 문구를 구체화(v1.2)
+ * 2026.03.31  임도헌   Modified  관리자 삭제도 일반 삭제와 같은 태그/이미지 cleanup 규칙을 재사용
+ * 2026.04.02  임도헌   Modified  관리자 서비스 JSDoc 태그 형식 정리
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { createAuditLog } from "@/features/report/service/audit";
 import { sendAdminActionNotification } from "@/features/notification/service/notification";
+import { hardDeleteProductWithCleanup } from "@/features/product/service/delete";
 import type { ServiceResult } from "@/lib/types";
 import type {
   AdminProductListResponse,
@@ -42,12 +45,18 @@ export async function getProductsAdmin(
     // 검색 조건 구성
     const where: any = {};
     if (query) {
+      // 숫자 검색어의 상품 ID 직접 매칭 지원
+      const parsedProductId = /^\d+$/.test(query.trim())
+        ? Number(query.trim())
+        : null;
       where.OR = [
         { title: { contains: query, mode: "insensitive" } },
         { user: { username: { contains: query, mode: "insensitive" } } },
+        ...(parsedProductId !== null ? [{ id: parsedProductId }] : []),
       ];
     }
 
+    // 총개수/목록 병렬 조회
     const [total, items] = await Promise.all([
       db.product.count({ where }),
       db.product.findMany({
@@ -91,9 +100,10 @@ export async function getProductsAdmin(
  * - 상품을 DB에서 삭제하고 Audit Log를 기록
  * - 물리적 삭제(Hard Delete)를 수행
  *
- * @param adminId - 수행하는 관리자 ID
- * @param productId - 삭제할 상품 ID
- * @param reason - 삭제 사유
+ * @param {number} adminId - 수행하는 관리자 ID
+ * @param {number} productId - 삭제할 상품 ID
+ * @param {string} reason - 삭제 사유
+ * @returns {Promise<ServiceResult<ProductDeleteMeta & { chatUserIds: number[] }>>} 삭제 결과와 캐시 무효화 메타데이터
  */
 export async function deleteProductByAdmin(
   adminId: number,
@@ -101,28 +111,36 @@ export async function deleteProductByAdmin(
   reason: string
 ): Promise<ServiceResult<ProductDeleteMeta & { chatUserIds: number[] }>> {
   try {
-    // 1. 존재 확인 (Audit Log에 기록할 정보 확보용)
+    // 삭제 전 참조 메타 확보
     const product = await db.product.findUnique({
       where: { id: productId },
       select: {
         title: true,
         userId: true,
+        user: { select: { username: true } },
         purchase_userId: true,
         reservation_userId: true,
+        search_tags: { select: { name: true } },
+        images: { select: { url: true } },
         chat_rooms: { select: { users: { select: { id: true } } } },
       },
     });
 
     if (!product) return { success: false, error: "이미 삭제된 상품입니다." };
 
+    // 연관 채팅방 참여 유저 중복 제거
     const chatUserIds = Array.from(
       new Set(product.chat_rooms.flatMap((room) => room.users.map((u) => u.id)))
     );
 
-    // 2. 삭제 실행
-    await db.product.delete({ where: { id: productId } });
+    // 일반 삭제와 동일한 cleanup 재사용
+    await hardDeleteProductWithCleanup({
+      id: productId,
+      search_tags: product.search_tags,
+      images: product.images,
+    });
 
-    // 3. 감사 로그 기록
+    // 감사 로그 기록
     await createAuditLog({
       adminId,
       action: "DELETE_PRODUCT",
@@ -131,12 +149,13 @@ export async function deleteProductByAdmin(
       reason: `Title: ${product.title} / OwnerID: ${product.userId} / Reason: ${reason}`,
     });
 
-    // 4. 유저 알림 발송 (Fire & Forget)
+    // 판매자 알림 발송
     void sendAdminActionNotification({
       targetUserId: product.userId,
       type: "DELETE_PRODUCT",
       title: product.title,
       reason,
+      link: "/profile/my-sales",
     });
 
     return {
@@ -153,8 +172,7 @@ export async function deleteProductByAdmin(
     console.error(e);
     return {
       success: false,
-      error:
-        "상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
