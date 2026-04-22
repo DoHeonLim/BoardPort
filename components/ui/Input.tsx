@@ -21,10 +21,21 @@
  * 2026.03.26  임도헌   Modified  textarea 하단 우측 resize affordance를 강화해 모바일에서도 크기 조절 가능성을 더 잘 드러냄
  * 2026.03.27  임도헌   Modified  textarea 기본 리사이저와 커스텀 affordance가 중복되지 않도록 브라우저 기본 핸들 표시 정리
  * 2026.04.04  임도헌   Modified  forwardRef export 주석을 보강해 input/textarea 공용 정책을 더 명확히 정리
+ * 2026.04.06  임도헌   Modified  textarea 높이를 입력 내용에 맞춰 자동 조절해 페이지형 설명 입력 UX 보강
+ * 2026.04.13  임도헌   Modified  비밀번호 토글 아이콘은 유지하면서 터치 영역만 44px로 확장해 모바일 접근성을 보강
+ * 2026.04.18  임도헌   Modified  textarea는 자동 높이 조절을 기본 동작으로 삼고 커스텀 resize affordance를 제거해 표현과 동작을 일치시킴
  */
 "use client";
 
-import React, { ForwardedRef, forwardRef, useId, useState } from "react";
+import React, {
+  ForwardedRef,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
@@ -65,9 +76,37 @@ const Input = (
   const filteredErrors = errors.filter(Boolean);
   const autoId = useId();
   const inputId = id ?? (name ? `${name}-${autoId}` : `input-${autoId}`);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const canToggle = passwordToggle && type === "password";
   const [revealed, setRevealed] = useState(false);
+
+  const resizeTextarea = useCallback((element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, []);
+
+  const setTextareaRefs = useCallback(
+    (element: HTMLTextAreaElement | null) => {
+      textareaRef.current = element;
+
+      if (typeof ref === "function") {
+        ref(element);
+      } else if (ref) {
+        ref.current = element;
+      }
+
+      resizeTextarea(element);
+    },
+    [ref, resizeTextarea]
+  );
+
+  useEffect(() => {
+    if (type !== "textarea") return;
+    resizeTextarea(textareaRef.current);
+  }, [resizeTextarea, rest.defaultValue, rest.value, type]);
 
   // 스피너 제거 스타일
   const noSpinnerStyle = {
@@ -83,32 +122,22 @@ const Input = (
           </label>
         )}
         <div className="relative">
-          <style jsx>{`
-            textarea::-webkit-resizer {
-              display: none;
-            }
-          `}</style>
           <textarea
             id={inputId}
-            ref={ref as ForwardedRef<HTMLTextAreaElement>}
+            ref={setTextareaRefs}
             name={name}
             className={cn(
-              "input-primary min-h-[120px] resize-y p-3 pb-8 pr-8",
+              "input-primary min-h-[120px] resize-none p-3",
               filteredErrors.length > 0 && "ring-2 ring-danger/50",
               className
             )}
             aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
+            onInput={(event) => {
+              resizeTextarea(event.currentTarget);
+              rest.onInput?.(event);
+            }}
             {...rest}
           />
-          {!rest.disabled && !rest.readOnly && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-3 right-3 flex flex-col items-end gap-0.5 opacity-80"
-            >
-              <span className="block h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-muted/80" />
-              <span className="block h-1.5 w-1.5 rounded-br-sm border-b-2 border-r-2 border-muted/60" />
-            </div>
-          )}
         </div>
         {filteredErrors.map((error, index) => (
           <span key={index} className="text-xs text-danger font-medium pl-1">
@@ -151,7 +180,7 @@ const Input = (
           className={cn(
             "input-primary h-input-md w-full",
             icon ? "pl-11" : "pl-4",
-            canToggle ? "pr-11" : "pr-4",
+            canToggle ? "pr-12" : "pr-4",
             filteredErrors.length > 0 && "ring-2 ring-danger/50",
             "text-base md:text-sm",
             className
@@ -166,7 +195,7 @@ const Input = (
           <button
             type="button"
             onClick={() => setRevealed((v) => !v)}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors"
+            className="focus-ring-soft absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted transition-colors hover:text-primary"
             aria-pressed={revealed}
             aria-label={
               revealed

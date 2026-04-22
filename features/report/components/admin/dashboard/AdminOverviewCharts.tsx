@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * File Name : features/report/components/admin/dashboard/AdminOverviewCharts.tsx
  * Description : 관리자 대시보드 상단 차트 묶음 섹션
@@ -7,6 +9,8 @@
  * Date        Author   Status    Description
  * 2026.03.29  임도헌   Created   관리자 대시보드의 서비스 활동 추이와 운영 처리 현황 차트 섹션 추가
  * 2026.03.30  임도헌   Modified  차트 패널에서 유저/상품/게시글/방송/신고 화면으로 바로 이어지는 후속 액션 링크를 보강
+ * 2026.04.10  임도헌   Modified  대시보드 차트 액션 링크와 범례 weight를 관리자 타이포 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  대시보드 초기 로드 경계 분리를 위해 차트 섹션을 클라이언트 지연 로드 대상으로 정리
  */
 
 import AdminChartCard from "@/features/report/components/admin/charts/AdminChartCard";
@@ -53,7 +57,7 @@ export default function AdminOverviewCharts({
         className="size-2.5 rounded-full"
         style={{ backgroundColor: item.color }}
       />
-      <span className="text-xs font-semibold text-muted">{item.name}</span>
+      <span className="text-xs font-medium text-muted">{item.name}</span>
     </div>
   ));
 
@@ -98,25 +102,25 @@ export default function AdminOverviewCharts({
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
               href="/admin/users"
-              className="text-xs font-semibold text-muted transition-colors hover:text-brand"
+              className="focus-ring-soft rounded px-1 py-0.5 text-xs font-medium text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
             >
               유저 보기
             </Link>
             <Link
               href="/admin/products"
-              className="text-xs font-semibold text-muted transition-colors hover:text-brand"
+              className="focus-ring-soft rounded px-1 py-0.5 text-xs font-medium text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
             >
               상품 보기
             </Link>
             <Link
               href="/admin/posts"
-              className="text-xs font-semibold text-muted transition-colors hover:text-brand"
+              className="focus-ring-soft rounded px-1 py-0.5 text-xs font-medium text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
             >
               게시글 보기
             </Link>
             <Link
               href="/admin/streams"
-              className="text-xs font-semibold text-muted transition-colors hover:text-brand"
+              className="focus-ring-soft rounded px-1 py-0.5 text-xs font-medium text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
             >
               방송 보기
             </Link>
@@ -138,7 +142,7 @@ export default function AdminOverviewCharts({
         actionSlot={
           <Link
             href="/admin/reports"
-            className="text-xs font-semibold text-brand transition-colors hover:text-brand-dark"
+            className="focus-ring-soft rounded px-1 py-0.5 text-xs font-medium text-brand transition-colors hover:text-brand-dark dark:text-brand-light dark:hover:text-brand-light"
           >
             신고 관리 보기
           </Link>

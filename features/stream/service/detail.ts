@@ -15,6 +15,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  상세 DTO와 조회 함수 반환 설명 보강
  * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지(pinnedChatNotice) 필드 조회 추가
+ * 2026.04.16  임도헌   Modified  상세 비연결 상태 fallback용 thumbnail 필드를 DTO에 포함
  */
 
 import "server-only";
@@ -27,6 +28,7 @@ import type { StreamVisibility } from "@/features/stream/types";
 export type StreamDetailDTO = {
   title: string;
   stream_id: string; // CF UID
+  thumbnail: string | null;
   userId: number;
   user: {
     id: number;
@@ -49,7 +51,7 @@ export type StreamDetailDTO = {
  * 방송(Broadcast) 상세 정보 조회 로직
  *
  * [데이터 가공 전략]
- * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간 등)만 선택적 조회
+ * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간, fallback 썸네일 등)만 선택적 조회
  * - 방송 소유자의 정보 및 CF Live Input UID 연동 데이터 조인 반환
  *
  * @param {number} id - 방송 ID
@@ -63,6 +65,7 @@ export async function getBroadcastDetail(
       where: { id },
       select: {
         title: true,
+        thumbnail: true,
         description: true,
         pinnedChatNotice: true,
         started_at: true,
@@ -85,6 +88,7 @@ export async function getBroadcastDetail(
     return {
       title: b.title,
       stream_id: b.liveInput.provider_uid,
+      thumbnail: b.thumbnail ?? null,
       userId: b.liveInput.userId,
       user: {
         id: b.liveInput.user.id,

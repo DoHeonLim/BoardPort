@@ -22,14 +22,13 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.12  임도헌   Modified  BAN 실시간 이벤트는 무한 토스트 대신 세션 갱신 후 403 페이지 리다이렉트로 단일화
  * 2026.03.18  임도헌   Modified  실시간 토스트 링크와 현재 경로를 내부 경로 기준으로 정규화하고, 보기 액션의 returnTo 유지 및 중복 토스트 비교 로직을 함께 보강
+ * 2026.04.13  임도헌   Modified  next/navigation 및 정적 toast/image 의존을 줄여 알림 후속 번들 평가 비용을 완화
+ * 2026.04.22  임도헌   Modified  개인 sys_event를 전역 브리지 이벤트로 발행해 스트림 상세 운영 액션(강제 퇴장/채팅 금지/유저 차단)의 실시간 반영 경로를 단일화
  */
 "use client";
 
-import { useEffect, useRef } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
-import Image from "next/image";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
@@ -44,11 +43,24 @@ type NotiPayload = {
 };
 
 type SysEventPayload = {
-  type: "BAN" | "BLOCK";
+  type:
+    | "BAN"
+    | "BLOCK"
+    | "STREAM_KICK"
+    | "STREAM_CHAT_MUTED"
+    | "STREAM_CHAT_UNMUTED";
   reason?: string;
   until?: string; // BAN only
   actorId?: number; // BLOCK only
+  streamId?: number;
 };
+
+function getCurrentPath() {
+  if (typeof window === "undefined") return "";
+  return sanitizeCallbackUrl(
+    `${window.location.pathname}${window.location.search || ""}`
+  );
+}
 
 /**
  * 전역 실시간 웹소켓 알림 및 시스템 이벤트 리스너 컴포넌트
@@ -57,29 +69,14 @@ type SysEventPayload = {
  * - Supabase `user-{id}-notifications` 개인 채널 구독을 통한 데이터 실시간 수신
  * - 새 알림 수신 시 Zustand 스토어의 `increment` 액션을 명시적으로 호출하여 뱃지 상태 동기화
  * - 사용자가 현재 보고 있는 화면(채팅방 등)과 동일한 컨텍스트의 알림 수신 시 토스트 알림 생략 처리(Flicker 방지)
+ * - `sys_event` 수신 시 스트림 상세가 재사용하는 전역 브리지 이벤트를 먼저 발행
  * - `sys_event`(BAN) 수신 시 세션 쿠키 강제 갱신 및 비인가 페이지(`/403`) 리다이렉트 수행
  *
  * @param {number} userId - 로그인한 사용자 ID
  */
 export default function NotificationListener({ userId }: { userId: number }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const pathnameRef = useRef(pathname);
-  const searchRef = useRef("");
-
   // Zustand 스토어에서 알림 카운트 증가 액션 가져오기
   const increment = useNotificationStore((state) => state.increment);
-
-  // 현재 경로 추적 (알림 클릭 시 중복 이동 방지 및 현재 문맥 returnTo 보존용)
-  useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
-
-  useEffect(() => {
-    const query = searchParams.toString();
-    searchRef.current = query ? `?${query}` : "";
-  }, [searchParams]);
 
   /**
    * 실시간 토스트의 상세 이동 경로 계산
@@ -92,10 +89,8 @@ export default function NotificationListener({ userId }: { userId: number }) {
     if (safeHref.includes("returnTo=") || safeHref.includes("callbackUrl=")) {
       return safeHref;
     }
-    const currentPath = sanitizeCallbackUrl(
-      `${pathnameRef.current}${searchRef.current}`
-    );
-    if (safeHref === pathnameRef.current || safeHref === currentPath) {
+    const currentPath = getCurrentPath();
+    if (safeHref === window.location.pathname || safeHref === currentPath) {
       return currentPath;
     }
     const separator = safeHref.includes("?") ? "&" : "?";
@@ -122,7 +117,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
     const channel = supabase.channel(channelName);
 
     channel
-      .on("broadcast", { event: "notification" }, ({ payload }) => {
+      .on("broadcast", { event: "notification" }, async ({ payload }) => {
         const p = payload as Partial<NotiPayload>;
 
         if (typeof p.userId === "number" && p.userId !== userId) return;
@@ -133,7 +128,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
           typeof document !== "undefined" &&
           !document.hidden &&
           p.link &&
-          normalizeComparableHref(`${pathnameRef.current}${searchRef.current}`) ===
+          normalizeComparableHref(getCurrentPath()) ===
             normalizeComparableHref(p.link)
         ) {
           return;
@@ -141,6 +136,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
 
         // 기존 window.dispatchEvent 방식 대신 Zustand 액션을 명시적으로 호출
         increment();
+        const { toast } = await import("sonner");
 
         // 토스트 알림 표시
         const toastId = p.id
@@ -151,27 +147,35 @@ export default function NotificationListener({ userId }: { userId: number }) {
           id: toastId,
           description: p.body ?? "",
           icon: p.image ? (
-            <div className="relative h-6 w-6">
-              <Image
-                src={p.image}
-                alt=""
-                fill
-                sizes="24px"
-                className="rounded-full object-cover"
-                priority
-              />
-            </div>
+            <span
+              aria-hidden="true"
+              className="block h-6 w-6 rounded-full bg-cover bg-center"
+              style={{ backgroundImage: `url(${p.image})` }}
+            />
           ) : undefined,
           action: p.link
             ? {
                 label: "보기",
-                onClick: () => router.push(buildToastHref(p.link!)),
+                onClick: () => {
+                  const href = buildToastHref(p.link!);
+                  if (href) {
+                    window.location.assign(href);
+                  }
+                },
               }
             : undefined,
         });
       })
       .on("broadcast", { event: "sys_event" }, async ({ payload }) => {
         const p = payload as SysEventPayload;
+
+        // 개인 운영 이벤트는 전역 브리지로 먼저 흘려 보내고,
+        // 각 화면은 필요한 타입만 골라 강제 퇴장/채팅 금지/차단 반응을 즉시 동기화
+        window.dispatchEvent(
+          new CustomEvent("app:sys-event", {
+            detail: p,
+          })
+        );
 
         // 실시간 정지(BAN) 처리
         if (p.type === "BAN") {
@@ -196,7 +200,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       // 컴포넌트 언마운트 시(로그아웃 등)에만 연결 해제
       supabase.removeChannel(channel);
     };
-  }, [userId, router, increment]);
+  }, [userId, increment]);
 
   return null;
 }

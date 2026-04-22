@@ -12,11 +12,14 @@
  * 2026.03.23  임도헌   Modified  관리자 방송 테이블 셸과 리스트 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.29  임도헌   Modified  모바일 카드형 분기와 관리자 전용 네이밍 정리로 방송 목록 운영 UX를 정비
  * 2026.03.30  임도헌   Modified  카테고리 검색과 스트리머 ID 뱃지까지 포함해 방송 추적 문법을 확장
+ * 2026.04.10  임도헌   Modified  방송 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  강제 종료 모달을 지연 로드해 관리자 목록 초기 번들 비용을 완화
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
+import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -27,10 +30,14 @@ import {
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
-import AdminActionModal from "@/features/report/components/admin/AdminActionModal";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { deleteStreamAdminAction } from "@/features/stream/actions/admin";
 import type { AdminStreamListResponse } from "@/features/stream/types";
+
+const AdminActionModal = nextDynamic(
+  () => import("@/features/report/components/admin/AdminActionModal"),
+  { ssr: false }
+);
 
 interface AdminStreamListContainerProps {
   data: AdminStreamListResponse;
@@ -105,10 +112,10 @@ export default function AdminStreamListContainer({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-mono text-muted">
+                    <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-muted">
                       #{stream.id}
                     </span>
-                    <span className="rounded-full bg-danger/10 px-2 py-1 text-[10px] font-bold text-danger">
+                    <span className="rounded-full bg-danger/10 px-2 py-1 text-xs font-bold text-danger">
                       LIVE
                     </span>
                   </div>
@@ -120,7 +127,7 @@ export default function AdminStreamListContainer({
                       href={`/streams/${stream.id}?returnTo=${encodeURIComponent(returnTo)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-0.5 shrink-0 text-muted hover:text-brand"
+                      className="focus-ring-soft mt-0.5 shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                     >
                       <ArrowTopRightOnSquareIcon className="size-4" />
                     </Link>
@@ -133,42 +140,46 @@ export default function AdminStreamListContainer({
                       title: stream.title,
                     })
                   }
-                  className="shrink-0 rounded-xl p-2 text-muted hover:bg-danger/10 hover:text-danger"
+                  className="focus-ring-soft shrink-0 rounded-xl p-2 text-muted hover:bg-danger/10 hover:text-danger"
                   aria-label={`${stream.title} 방송 강제 종료`}
                 >
                   <TrashIcon className="size-5" />
                 </button>
               </div>
 
-                <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
-                  <div className="min-w-0">
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+              <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
+                <div className="min-w-0">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     스트리머
                   </dt>
-                    <dd className="mt-1 flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-primary">
-                        {stream.user.username}
-                      </span>
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-mono text-muted">
-                        #{stream.user.id}
-                      </span>
-                      <Link
-                        href={`/profile/${stream.user.username}/channel`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-muted transition-colors hover:text-brand"
-                        aria-label={`${stream.user.username} 방송국 보기`}
-                      >
-                        <ArrowTopRightOnSquareIcon className="size-4" />
-                      </Link>
-                    </dd>
-                  </div>
+                  <dd className="mt-1 flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium text-primary">
+                      {stream.user.username}
+                    </span>
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-mono text-muted">
+                      #{stream.user.id}
+                    </span>
+                    <Link
+                      href={`/profile/${stream.user.username}/channel`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                      aria-label={`${stream.user.username} 방송국 보기`}
+                    >
+                      <ArrowTopRightOnSquareIcon className="size-4" />
+                    </Link>
+                  </dd>
+                </div>
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     시작 시간
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
-                    {stream.started_at ? <TimeAgo date={stream.started_at} /> : "-"}
+                  <dd className="mt-1 text-sm font-medium text-primary">
+                    {stream.started_at ? (
+                      <TimeAgo date={stream.started_at} />
+                    ) : (
+                      "-"
+                    )}
                   </dd>
                 </div>
               </dl>
@@ -210,14 +221,14 @@ export default function AdminStreamListContainer({
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 max-w-sm">
-                        <span className="truncate font-semibold text-primary">
+                        <span className="truncate font-medium text-primary">
                           {stream.title}
                         </span>
                         <Link
                           href={`/streams/${stream.id}?returnTo=${encodeURIComponent(returnTo)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-muted hover:text-brand"
+                          className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                         >
                           <ArrowTopRightOnSquareIcon className="size-4" />
                         </Link>
@@ -228,14 +239,14 @@ export default function AdminStreamListContainer({
                         <span className="font-medium text-primary">
                           {stream.user.username}
                         </span>
-                        <span className="rounded-full bg-surface-dim px-2 py-0.5 text-[10px] font-mono text-muted">
+                        <span className="rounded-full bg-surface-dim px-2 py-0.5 text-xs font-mono text-muted">
                           #{stream.user.id}
                         </span>
                         <Link
                           href={`/profile/${stream.user.username}/channel`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 text-muted transition-colors hover:text-brand"
+                          className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                           aria-label={`${stream.user.username} 방송국 보기`}
                         >
                           <ArrowTopRightOnSquareIcon className="size-4" />
@@ -243,7 +254,7 @@ export default function AdminStreamListContainer({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded text-[10px] font-bold bg-danger/10 text-danger animate-pulse">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-danger/10 text-danger animate-pulse">
                         LIVE
                       </span>
                     </td>
@@ -262,7 +273,7 @@ export default function AdminStreamListContainer({
                             title: stream.title,
                           })
                         }
-                        className="p-2 text-muted hover:text-danger hover:bg-danger/10 rounded-lg"
+                        className="focus-ring-soft rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger"
                       >
                         <TrashIcon className="size-5" />
                       </button>

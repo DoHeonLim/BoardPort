@@ -21,6 +21,7 @@
  * 2026.03.06  임도헌   Modified  좋아요 추가 시 LIKED 목록 첫 페이지 prepend 낙관적 반영 추가
  * 2026.03.26  임도헌   Modified  찜한 내역 카드 상단 빠른 해제를 위한 quick-remove variant 지원
  * 2026.03.26  임도헌   Modified  quick-remove 버튼의 모바일 라벨/톤을 줄여 제목 공간과 액션 위계를 보정
+ * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 quick-remove 초소형 라벨을 text-xs/font-medium 기준으로 통일
  */
 "use client";
 
@@ -211,11 +212,11 @@ export default function ProductLikeButton({
       type="button"
       onClick={() => mutate()}
       className={cn(
-        variant === "quick-remove"
+            variant === "quick-remove"
           ? [
-              "inline-flex h-7 items-center justify-center gap-1 rounded-full border border-border-subtle bg-surface/92 px-2 text-muted shadow-sm transition-all sm:h-8 sm:gap-1.5 sm:px-3",
+              "inline-flex h-7 items-center justify-center gap-1 rounded-full border border-border-subtle bg-surface/92 px-2 text-muted shadow-sm transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform sm:h-8 sm:gap-1.5 sm:px-3",
               "hover:-translate-y-0.5 hover:bg-surface-dim hover:text-primary active:scale-95",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+              "focus-ring-soft",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             ]
           : [
@@ -236,8 +237,8 @@ export default function ProductLikeButton({
             ? "찜 해제"
             : "찜하기"
           : data.isLiked
-            ? "좋아요 취소"
-            : "좋아요"
+            ? `좋아요 취소 ${data.likeCount}`
+            : `좋아요 ${data.likeCount}`
       }
     >
       {variant === "quick-remove" ? (
@@ -247,7 +248,7 @@ export default function ProductLikeButton({
           ) : (
             <OutlineHeartIcon className="size-3 shrink-0 sm:size-3.5" />
           )}
-          <span className="text-[10px] font-medium leading-none sm:text-[11px] sm:font-semibold">
+          <span className="text-xs font-medium leading-none">
             {data.isLiked ? (
               <>
                 <span className="sm:hidden">해제</span>

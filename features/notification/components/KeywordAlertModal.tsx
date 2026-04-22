@@ -1,6 +1,16 @@
-"use client";
+/**
+ * File Name : features/notification/components/KeywordAlertModal.tsx
+ * Description : 알림 센터에서 키워드 알림을 등록·수정·삭제하는 전용 관리 모달
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2026.03.16  임도헌   Created   NotificationListContainer 상단 키워드 버튼에서 여는 전용 관리 모달 추가
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
 import KeywordAlertManager from "@/features/notification/components/KeywordAlertManager";
@@ -35,6 +45,12 @@ export default function KeywordAlertModal({
 }: KeywordAlertModalProps) {
   const isMobile = useIsMobile();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
 
   useEffect(() => {
     if (!isOpen || isMobile) return;
@@ -74,7 +90,7 @@ export default function KeywordAlertModal({
     );
   }
 
-  return (
+  const desktopModal = (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -104,7 +120,7 @@ export default function KeywordAlertModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             aria-label="키워드 관리 모달 닫기"
           >
             <XMarkIcon className="size-6" />
@@ -122,4 +138,6 @@ export default function KeywordAlertModal({
       </div>
     </div>
   );
+
+  return isMounted ? createPortal(desktopModal, document.body) : null;
 }

@@ -10,8 +10,9 @@
  * 2025.10.14  임도헌   Modified   sendEmail 단일 책임 함수로 분리
  * 2026.01.19  임도헌   Moved      lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved      lib/email/mailer -> utils/mailer
- * 2026.01.25  임도헌   Modified  주석 보강
- * 2026.03.14  임도헌   Modified  비밀번호 재설정 메일 발송 함수를 추가해 인증 메일과 목적을 분리
+ * 2026.01.25  임도헌   Modified   주석 보강
+ * 2026.03.14  임도헌   Modified   비밀번호 재설정 메일 발송 함수를 추가해 인증 메일과 목적을 분리
+ * 2026.04.19  임도헌   Modified   도메인을 boardport.xyz -> boardport.life로 변경
  */
 
 import "server-only";
@@ -33,7 +34,7 @@ export const sendEmail = async (
 ): Promise<void> => {
   try {
     await resend.emails.send({
-      from: "Board Port <noreply@boardport.xyz>",
+      from: "Board Port <noreply@boardport.life>",
       to: email,
       subject: "이메일 인증",
       html: `
@@ -69,7 +70,7 @@ export const sendPasswordResetEmail = async (
 ): Promise<void> => {
   try {
     await resend.emails.send({
-      from: "Board Port <noreply@boardport.xyz>",
+      from: "Board Port <noreply@boardport.life>",
       to: email,
       subject: "비밀번호 재설정",
       html: `

@@ -20,9 +20,9 @@
  * 2026.04.03  임도헌   Modified  라이트/다크 모두에서 액션 의미가 더 분명하게 읽히도록 버튼 톤과 위계를 정리
  * 2026.04.03  임도헌   Modified  전역 유저 차단 확인 문구를 다른 도메인과 같은 정책 설명 톤으로 정리
  * 2026.04.04  임도헌   Modified  호스트 운영 안내 문구를 confirm 문구와 같은 차단 정책 톤으로 미세 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 운영 안내와 액션 버튼 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import { useEffect, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
@@ -73,7 +73,7 @@ interface StreamChatUserModalProps {
   streamId: number;
   /** 대상 유저가 현재 방송에서 채팅 금지 상태인지 여부 */
   isTargetMuted?: boolean;
-  /** 차단/강제 퇴장 성공 시 호출할 콜백 */
+  /** 차단/강제 퇴장/채팅 금지 성공 시 부모 로컬 상태 즉시 반영용 콜백 */
   onModerationSuccess?: (payload: {
     targetId: number;
     kind: "block" | "kick" | "mute";
@@ -89,8 +89,9 @@ type ModerationIntent = "kick" | "block" | "mute";
  * [기능]
  * 1. 유저의 기본 정보(아바타, 닉네임)를 확인
  * 2. 해당 유저의 전체 프로필 페이지로 이동
- * 3. 일반 시청자는 개인 차단 가능
- * 4. 방장(isHost: true)은 현재 방송 기준 강제 퇴장 가능
+ * 3. 일반 시청자는 유저 차단/신고 액션 실행
+ * 4. 방장(isHost: true)은 현재 방송 기준 강제 퇴장과 채팅 금지/해제 실행
+ * 5. 방장도 라이브 운영 액션과 별개로 전역 유저 차단을 선택할 수 있음
  */
 export default function StreamChatUserModal({
   isOpen,
@@ -220,7 +221,7 @@ export default function StreamChatUserModal({
         ? isTargetMuted
           ? `${targetUser.username}님의 채팅 금지를 해제할까요?`
           : `${targetUser.username}님의 채팅을 금지할까요?`
-      : `${targetUser.username}님을 유저 차단할까요?`;
+        : `${targetUser.username}님을 유저 차단할까요?`;
   const moderationDescription =
     resolvedIntent === "kick"
       ? "강제 퇴장하면 이 유저는 현재 방송에서 즉시 나가게 됩니다. 전역 차단은 적용되지 않습니다."
@@ -228,7 +229,7 @@ export default function StreamChatUserModal({
         ? isTargetMuted
           ? "채팅 금지를 해제하면 이 유저는 현재 방송에서 다시 메시지를 보낼 수 있습니다."
           : "채팅 금지는 현재 방송에서만 메시지 전송을 막습니다. 시청과 전역 관계에는 영향을 주지 않습니다."
-      : "차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.";
+        : "차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.";
   const moderationLabel =
     resolvedIntent === "kick"
       ? "강제 퇴장"
@@ -236,7 +237,7 @@ export default function StreamChatUserModal({
         ? isTargetMuted
           ? "채팅 금지 해제"
           : "채팅 금지"
-      : "유저 차단";
+        : "유저 차단";
 
   const openConfirm = (intent: ModerationIntent) => {
     setModerationIntent(intent);
@@ -244,7 +245,7 @@ export default function StreamChatUserModal({
   };
 
   const actionButtonBaseClass =
-    "inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border px-4 text-sm font-semibold transition-colors";
+    "inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border px-4 text-sm font-medium transition-colors";
   const profileActionClass =
     "border-brand/15 bg-brand/[0.04] text-brand hover:bg-brand/[0.08] dark:border-brand-light/15 dark:bg-brand-light/[0.08] dark:text-brand-light dark:hover:bg-brand-light/[0.12]";
   const kickActionClass =
@@ -277,14 +278,14 @@ export default function StreamChatUserModal({
           <div className="flex justify-end p-2">
             <button
               onClick={onClose}
-              className="p-1 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+              className="focus-ring-soft rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             >
               <XMarkIcon className="size-6" />
             </button>
           </div>
 
           {/* 프로필 정보 */}
-          <div className="flex max-h-[calc(100dvh-2rem)] flex-col items-center overflow-y-auto px-6 pb-6 sm:max-h-[calc(100dvh-3rem)]">
+          <div className="flex max-h-[calc(100dvh-2rem)] flex-col items-center overflow-y-auto px-6 pb-7 sm:max-h-[calc(100dvh-3rem)] sm:pb-6">
             <UserAvatar
               avatar={targetUser.avatar}
               username={targetUser.username}
@@ -299,28 +300,28 @@ export default function StreamChatUserModal({
 
             {isHost && !isMe && (
               <div className="mb-5 w-full rounded-2xl border border-border-subtle bg-surface-dim/70 px-4 py-3 text-left dark:bg-surface-dim/55">
-                <p className="text-xs font-semibold tracking-[0.08em] text-primary">
+                <p className="text-xs font-medium tracking-[0.08em] text-primary">
                   호스트 운영 액션 안내
                 </p>
                 <div className="mt-2 space-y-1.5 text-xs leading-5 text-muted">
                   <p>
-                    <span className="font-semibold text-primary">강제 퇴장</span>
-                    : 현재 방송에서만 즉시 내보냅니다.
+                    <span className="font-medium text-primary">강제 퇴장</span>:
+                    현재 방송에서만 즉시 내보냅니다.
                   </p>
                   <p>
-                    <span className="font-semibold text-primary">채팅 금지</span>
-                    : 현재 방송에서만 메시지 전송을 막습니다.
+                    <span className="font-medium text-primary">채팅 금지</span>:
+                    현재 방송에서만 메시지 전송을 막습니다.
                   </p>
                   <p>
-                    <span className="font-semibold text-primary">유저 차단</span>
-                    : 라이브 밖 관계까지 끊는 전역 차단입니다.
+                    <span className="font-medium text-primary">유저 차단</span>:
+                    라이브 밖 관계까지 끊는 전역 차단입니다.
                   </p>
                 </div>
               </div>
             )}
 
             {/* 액션 버튼 그룹 */}
-            <div className="flex w-full flex-col gap-2 px-6 pb-6">
+            <div className="flex w-full flex-col gap-2 px-6 pb-[calc(env(safe-area-inset-bottom)+1.75rem)] sm:pb-6">
               <Link
                 href={`/profile/${targetUser.username}?returnTo=${encodeURIComponent(returnTo)}`}
                 className={cn(actionButtonBaseClass, profileActionClass)}

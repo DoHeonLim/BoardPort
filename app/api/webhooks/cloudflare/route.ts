@@ -18,6 +18,7 @@
  * 2026.03.05  임도헌   Modified  공통 데이터(상세)는 `revalidateTag` 유지, 개인화 데이터(목록/상태)는 Query Cache 기반 혼합 캐싱 정책 적용
  * 2026.03.07  임도헌   Modified  CONNECTED 재수신 시 ENDED -> CONNECTED 복구 허용, 재접속에는 시작 알림 재전송 방지
  * 2026.03.08  임도헌   Modified  video.ready가 실제 종료된 방송에만 안전하게 VOD를 연결하도록 fallback 제거
+ * 2026.04.05  임도헌   Modified  게시글 동영상 draftKey를 READY 웹훅에서 조기 해제하지 않고 실제 게시글 연결 시점까지 유지
  */
 
 import "server-only";
@@ -553,7 +554,7 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
     select: { id: true },
   });
 
-  // 실제로 종료된 방송과 안전하게 매칭되지 않으면 연결하지 않는다.
+  // 실제 종료 방송과 안전한 매칭이 되지 않는 경우 연결 제외
   if (!matchedBroadcast) {
     console.warn(
       `[onVideoReady] skipped linking asset ${assetUid}: no ended broadcast matched for liveInput ${liveInputUid}`
@@ -618,6 +619,7 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
  * 역할:
  * - Cloudflare Stream direct upload로 생성한 PostVideo 초안 레코드를 READY 상태로 갱신
  * - thumbnail, duration 메타를 저장
+ * - draftKey는 게시글 저장 시 attachDraftVideoToPost에서 해제
  * - 게시글과 연결된 자산이면 게시글 상세 캐시를 무효화
  *
  * @param assetBody - Cloudflare video.ready 페이로드
@@ -661,7 +663,6 @@ async function onPostVideoReady(assetBody: any) {
       thumbnailUrl,
       durationSec,
       status: "READY",
-      ...(draftKey ? { draftKey: null } : {}),
     },
   });
 
@@ -802,3 +803,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

@@ -22,8 +22,9 @@
  * 2026.03.23  임도헌   Modified  데스크톱 드롭다운을 최근 필터/모달 톤에 맞춰 subtle 보더와 surface 헤더/푸터 기준으로 정리
  * 2026.03.28  임도헌   Modified  제품 검색의 다크 유틸리티 맥락에 맞춰 적용 버튼을 quiet-dark primary로 정규화
  * 2026.04.02  임도헌   Modified  검색 필터 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 드롭다운 헤더 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { Category } from "@/generated/prisma/client";
@@ -229,10 +230,10 @@ export default function SearchFilters({
           className="overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-xl"
         >
           <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-4 py-3">
-            <h3 className="font-semibold text-primary">상세 필터</h3>
+            <h3 className="font-medium text-primary">상세 필터</h3>
             <button
               onClick={onClose}
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
               aria-label="필터 닫기"
             >
               <XMarkIcon className="size-5" />

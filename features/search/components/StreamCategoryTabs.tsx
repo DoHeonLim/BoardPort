@@ -18,6 +18,12 @@
  * 2026.03.22  임도헌   Modified  데스크톱 좌우 스크롤 버튼 추가로 잘린 카테고리 접근성 보강
  * 2026.03.25  임도헌   Modified  데스크톱 카테고리 레일/스크롤 버튼 밀도를 조정해 헤더 무게 완화
  * 2026.03.28  임도헌   Modified  neutral tone 활성 카테고리 탭을 스코프 탭과 동일한 flat active 문법으로 정리해 스트림 검색 헤더 정합성 보강
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 compact 탭 크기를 text-xs/text-sm 스케일로 정리
+ * 2026.04.10  임도헌   Modified  데스크톱 스크롤 버튼과 첫/마지막 탭이 겹쳐 보이지 않도록 레일 여백과 버튼 표면을 보강
+ * 2026.04.16  임도헌   Modified  스트림 리스트 초기 네트워크 경합을 줄이기 위해 카테고리 링크 프리패치를 완화
+ * 2026.04.20  임도헌   Modified  키보드 포커스가 브라우저 기본 outline으로 보이지 않도록 스트림 카테고리 탭과 화살표 버튼에 공용 포커스 유틸을 적용
+ * 2026.04.20  임도헌   Modified  좌측 화살표가 첫 탭 보더를 침범하지 않도록 버튼 위치와 레일 시작 여백을 함께 조정
+ * 2026.04.20  임도헌   Modified  스트림 페이지 헤더가 sm 구간부터 데스크톱 제어를 사용하도록 바뀐 흐름에 맞춰 화살표 표시 breakpoint를 sm으로 조정
  */
 "use client";
 
@@ -80,7 +86,7 @@ export default function StreamCategoryTabs({
         type="button"
         onClick={() => scroll("left")}
         className={cn(
-          "absolute left-0 top-1/2 z-20 hidden size-7 -translate-y-1/2 items-center justify-center rounded-full border opacity-50 transition-all group-hover/scroll:opacity-100 md:flex",
+          "focus-ring-soft absolute left-1 top-1/2 z-20 hidden size-7 -translate-y-1/2 items-center justify-center rounded-full border opacity-50 shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] supports-[backdrop-filter]:backdrop-blur-sm group-hover/scroll:opacity-100 sm:flex",
           tone === "neutral"
             ? "bg-background/95 text-muted border-border-subtle hover:text-primary"
             : "bg-surface/95 text-muted border-border-subtle hover:text-primary"
@@ -90,18 +96,19 @@ export default function StreamCategoryTabs({
         <ChevronLeftIcon className="size-4" />
       </button>
 
-      <div className="relative px-0 md:px-8 lg:px-9">
+      <div className="relative px-0 sm:pl-11 sm:pr-8 lg:pl-12 lg:pr-9">
         <nav
           ref={scrollContainerRef}
-          className="flex gap-1.5 overflow-x-auto scrollbar-hide py-0.5 sm:gap-2"
+          className="flex gap-1.5 overflow-x-auto scrollbar-hide px-0.5 py-0.5 sm:gap-2"
           aria-label="스트리밍 카테고리"
         >
           <Link
             href={buildHref(undefined)}
+            prefetch={false}
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border font-medium whitespace-nowrap transition-all",
+              "focus-ring-soft inline-flex shrink-0 items-center rounded-full border font-medium whitespace-nowrap transition-[background-color,color,border-color,box-shadow]",
               compact
-                ? "min-h-[30px] px-3 text-[12px] sm:min-h-[34px] sm:px-4 sm:text-[13px]"
+                ? "min-h-[30px] px-3 text-xs sm:min-h-[34px] sm:px-4 sm:text-sm"
                 : "min-h-[36px] px-4 text-sm",
               !currentCategory
                 ? tone === "neutral"
@@ -119,10 +126,11 @@ export default function StreamCategoryTabs({
             <Link
               key={key}
               href={buildHref(key)}
+              prefetch={false}
               className={cn(
-                "inline-flex shrink-0 items-center rounded-full border font-medium whitespace-nowrap transition-all",
+                "focus-ring-soft inline-flex shrink-0 items-center rounded-full border font-medium whitespace-nowrap transition-[background-color,color,border-color,box-shadow]",
                 compact
-                  ? "min-h-[30px] px-3 text-[12px] sm:min-h-[34px] sm:px-4 sm:text-[13px]"
+                  ? "min-h-[30px] px-3 text-xs sm:min-h-[34px] sm:px-4 sm:text-sm"
                   : "min-h-[36px] px-4 text-sm",
                 currentCategory === key
                   ? tone === "neutral"
@@ -143,7 +151,7 @@ export default function StreamCategoryTabs({
         type="button"
         onClick={() => scroll("right")}
         className={cn(
-          "absolute right-0 top-1/2 z-20 hidden size-7 -translate-y-1/2 items-center justify-center rounded-full border opacity-50 transition-all group-hover/scroll:opacity-100 md:flex",
+          "focus-ring-soft absolute right-1 top-1/2 z-20 hidden size-7 -translate-y-1/2 items-center justify-center rounded-full border opacity-50 shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] supports-[backdrop-filter]:backdrop-blur-sm group-hover/scroll:opacity-100 sm:flex",
           tone === "neutral"
             ? "bg-background/95 text-muted border-border-subtle hover:text-primary"
             : "bg-surface/95 text-muted border-border-subtle hover:text-primary"

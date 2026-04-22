@@ -16,15 +16,16 @@
  * 2026.03.28  임도헌   Modified  카테고리 버튼과 바텀시트 선택 상태를 스코프 탭과 동일한 flat/neutral active 문법으로 통일해 라이트·다크 정합성 보강
  * 2026.03.28  임도헌   Modified  라이브/다시보기 최상단 모드 탭을 추가해 스트림 탐색 구조를 분리
  * 2026.03.29  임도헌   Modified  다시보기 전용 2차 제어를 최신/인기로 전환하고 팔로잉은 보조 필터 칩으로 분리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 모바일 제어 칩 타이포를 text-xs/500 기준으로 정리
+ * 2026.04.16  임도헌   Modified  spacer 기본 높이를 예약해 초기 CLS를 줄이고 상단 링크 프리패치를 완화
+ * 2026.04.20  임도헌   Modified  모바일 카테고리 시트 포커스를 공용 링 톤으로 통일하고 다시보기 팔로잉 필터 active 대비를 보강
+ * 2026.04.20  임도헌   Modified  좁은 모바일 폭에서도 다시보기 제어줄이 깨지지 않도록 필터 버튼 최소 너비와 패딩을 압축
  */
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-} from "@heroicons/react/24/outline";
+import { CheckIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
 import NotificationBell from "@/components/global/NotificationBell";
 import StreamModeTabs from "@/features/stream/components/StreamModeTabs";
@@ -33,6 +34,8 @@ import { STREAM_CATEGORY } from "@/features/stream/constants";
 import { useHideableHeader } from "@/hooks/useHideableHeader";
 import { cn } from "@/lib/utils";
 import type { RecordingSort, StreamMode } from "@/features/stream/types";
+
+const DEFAULT_MOBILE_HEADER_HEIGHT = 132;
 
 interface StreamMobileHeaderProps {
   viewerId: number;
@@ -157,31 +160,33 @@ export default function StreamMobileHeader({
           "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-1.5 pb-1.5 shadow-sm transition-transform duration-300 ease-out"
         )}
         style={{
-          transform: isVisible ? "translateY(0)" : "translateY(calc(-100% - 8px))",
+          transform: isVisible
+            ? "translateY(0)"
+            : "translateY(calc(-100% - 8px))",
         }}
       >
         <div className="flex items-center gap-2 py-0.5">
-          <StreamModeTabs
-            mode={mode}
-            liveHref={buildModeHref("live")}
-            recordingsHref={buildModeHref("recordings")}
-            compact
-          />
+            <StreamModeTabs
+              mode={mode}
+              liveHref={buildModeHref("live")}
+              recordingsHref={buildModeHref("recordings")}
+              compact
+            />
         </div>
 
         <div className="mt-1 flex items-center gap-2 py-0.5">
-          <StreamSearchBarWrapper
-            className="flex-1"
-            compact
-            placeholder={mode === "recordings" ? "다시보기 검색" : "방송 검색"}
-          />
+            <StreamSearchBarWrapper
+              className="flex-1"
+              compact
+              placeholder={mode === "recordings" ? "다시보기 검색" : "방송 검색"}
+            />
 
           <div className="shrink-0">
             <NotificationBell userId={viewerId} initialCount={unreadCount} />
           </div>
         </div>
 
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex items-center gap-1.5 sm:gap-2">
           {mode === "live" ? (
             <nav
               aria-label="보기 범위"
@@ -190,8 +195,9 @@ export default function StreamMobileHeader({
               <div className="flex items-center">
                 <Link
                   href={buildHref("all")}
+                  prefetch={false}
                   className={cn(
-                    "flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                    "flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium transition-[background-color,color,border-color,box-shadow]",
                     scope === "all"
                       ? "bg-surface text-brand dark:text-brand-light shadow-sm ring-1 ring-border/60"
                       : "text-muted hover:bg-background/70 hover:text-primary"
@@ -201,8 +207,9 @@ export default function StreamMobileHeader({
                 </Link>
                 <Link
                   href={buildHref("following")}
+                  prefetch={false}
                   className={cn(
-                    "flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                    "flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium transition-[background-color,color,border-color,box-shadow]",
                     scope === "following"
                       ? "bg-surface text-brand dark:text-brand-light shadow-sm ring-1 ring-border/60"
                       : "text-muted hover:bg-background/70 hover:text-primary"
@@ -221,8 +228,9 @@ export default function StreamMobileHeader({
                 <div className="flex items-center">
                   <Link
                     href={buildRecordingSortHref("latest")}
+                    prefetch={false}
                     className={cn(
-                      "flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                      "flex flex-1 items-center justify-center rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-[background-color,color,border-color,box-shadow] sm:px-3 sm:text-xs",
                       recordingSort === "latest"
                         ? "bg-surface text-brand dark:text-brand-light shadow-sm ring-1 ring-border/60"
                         : "text-muted hover:bg-background/70 hover:text-primary"
@@ -232,8 +240,9 @@ export default function StreamMobileHeader({
                   </Link>
                   <Link
                     href={buildRecordingSortHref("popular")}
+                    prefetch={false}
                     className={cn(
-                      "flex flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all",
+                      "flex flex-1 items-center justify-center rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-[background-color,color,border-color,box-shadow] sm:px-3 sm:text-xs",
                       recordingSort === "popular"
                         ? "bg-surface text-brand dark:text-brand-light shadow-sm ring-1 ring-border/60"
                         : "text-muted hover:bg-background/70 hover:text-primary"
@@ -245,10 +254,11 @@ export default function StreamMobileHeader({
               </nav>
               <Link
                 href={buildRecordingFollowingHref(scope !== "following")}
+                prefetch={false}
                 className={cn(
-                  "inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-xl border px-3 text-[11px] font-semibold transition-colors",
+                  "focus-ring-soft inline-flex min-h-[38px] shrink-0 items-center justify-center rounded-xl border px-2.5 text-[11px] font-medium transition-[background-color,color,border-color,box-shadow] sm:px-3 sm:text-xs",
                   scope === "following"
-                    ? "border-border-subtle bg-surface text-brand shadow-sm ring-1 ring-border/60 dark:text-brand-light"
+                    ? "border-brand/20 bg-brand/10 text-brand shadow-sm ring-1 ring-brand/20 dark:border-brand-light/25 dark:bg-brand-light/12 dark:text-brand-light dark:ring-brand-light/25"
                     : "border-border-subtle bg-surface/50 text-muted hover:bg-surface hover:text-primary"
                 )}
               >
@@ -261,7 +271,7 @@ export default function StreamMobileHeader({
             type="button"
             onClick={() => setCategorySheetOpen(true)}
             className={cn(
-              "inline-flex min-h-[38px] min-w-[96px] items-center justify-between gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors",
+              "inline-flex min-h-[38px] min-w-[84px] items-center justify-between gap-1.5 rounded-xl border px-2.5 text-[11px] font-medium transition-colors sm:min-w-[96px] sm:gap-2 sm:px-3 sm:text-sm",
               category
                 ? "border-border-subtle bg-surface text-brand shadow-sm ring-1 ring-border/60 dark:text-brand-light"
                 : "border-border-subtle bg-surface/50 text-muted hover:bg-surface hover:text-primary"
@@ -280,9 +290,15 @@ export default function StreamMobileHeader({
 
       <div
         aria-hidden="true"
-        className="transition-[height] duration-300 ease-out"
-        style={{ height: isVisible ? headerHeight : 0 }}
-      />
+        className="grid overflow-hidden"
+        style={{
+          gridTemplateRows: isVisible
+            ? `${Math.max(headerHeight, DEFAULT_MOBILE_HEADER_HEIGHT)}px`
+            : "0px",
+        }}
+      >
+        <div />
+      </div>
 
       <BottomSheet
         open={categorySheetOpen}
@@ -294,16 +310,19 @@ export default function StreamMobileHeader({
         <div className="space-y-2 py-1">
           <Link
             href={buildCategoryHref(undefined)}
+            prefetch={false}
             onClick={() => setCategorySheetOpen(false)}
             className={cn(
-              "flex min-h-[52px] items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
+              "focus-ring-soft flex min-h-[52px] items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-[background-color,color,border-color,box-shadow]",
               !category
                 ? "border-border-subtle bg-surface text-brand shadow-sm ring-1 ring-border/60 dark:text-brand-light"
                 : "border-border-subtle bg-surface text-primary hover:bg-surface-dim"
             )}
           >
             <span>전체</span>
-            {!category && <CheckIcon className="size-4 shrink-0 text-brand dark:text-brand-light" />}
+            {!category && (
+              <CheckIcon className="size-4 shrink-0 text-brand dark:text-brand-light" />
+            )}
           </Link>
 
           {Object.entries(STREAM_CATEGORY).map(([key, label]) => {
@@ -312,9 +331,10 @@ export default function StreamMobileHeader({
               <Link
                 key={key}
                 href={buildCategoryHref(key)}
+                prefetch={false}
                 onClick={() => setCategorySheetOpen(false)}
                 className={cn(
-                  "flex min-h-[52px] items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
+                  "focus-ring-soft flex min-h-[52px] items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-[background-color,color,border-color,box-shadow]",
                   isActive
                     ? "border-border-subtle bg-surface text-brand shadow-sm ring-1 ring-border/60 dark:text-brand-light"
                     : "border-border-subtle bg-surface text-primary hover:bg-surface-dim"

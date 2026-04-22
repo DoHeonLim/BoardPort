@@ -30,7 +30,7 @@
  * 2026.01.17  임도헌   Moved      components/profile -> features/user/components/profile
  * 2026.02.04  임도헌   Modified   차단(isBlocked) 상태에 따른 조건부 렌더링 추가
  * 2026.02.05  임도헌   Modified   차단된 유저 화면에 '차단 해제' 버튼 추가 (UX 개선)
- * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
+ * 2026.02.26  임도헌   Modified   주요 링크/버튼 hover에 다크모드 보조 색상을 적용
  * 2026.03.03  임도헌   Modified   initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent) 분리를 통한 Suspense 최적화
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.06  임도헌   Modified   프로필 판매 탭 상태를 URL Query로 동기화하고 토글/탭 active 대비를 다크모드 기준으로 보강
@@ -43,6 +43,9 @@
  * 2026.03.17  임도헌   Modified   방송국 rail 카드 래퍼 고정폭을 제거해 축소된 StreamCard 폭을 그대로 사용
  * 2026.03.18  임도헌   Modified   타인 프로필 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
  * 2026.03.21  임도헌   Modified   타인 프로필 방송국 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
+ * 2026.04.08  임도헌   Modified   방송국 rail 좌우 정렬선을 다른 프로필 섹션과 같은 시작선으로 맞춤
+ * 2026.04.17  임도헌   Modified   방송국 링크/후기·뱃지/판매 목록 섹션 주석을 현재 구조 기준으로 최신화
+ * 2026.04.19  임도헌   Modified   타인 프로필 판매 목록 탭 active 톤을 판매내역과 같은 기준으로 정리
  */
 
 "use client";
@@ -110,7 +113,7 @@ interface Props {
  *
  * [주요 섹션]
  * 1. ProfileHeader: 기본 정보 및 팔로우 액션
- * 2. 방송국 (Rail): 해당 유저의 최근 방송 목록 (팔로우 상태에 따라 잠금 UI 연동)
+ * 2. 방송국 (Rail): 해당 유저의 최근 방송 목록 (팔로우 상태 잠금 UI + channel returnTo 유지)
  * 3. 받은 거래 후기 및 뱃지
  * 4. 판매 목록: 판매 중 / 판매 완료 탭과 무한 스크롤 리스트
  *
@@ -255,15 +258,18 @@ export default function UserProfile({
         </div>
       ) : (
         <>
-          {/* 3. 방송국 (최근 방송 Rail) */}
+          {/* 3. 방송국 레일: 현재 프로필 경로를 유지한 채 channel로 이동하고 자동 prefetch는 생략 */}
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-primary">방송국</h2>
               <Link
                 href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(next)}`}
-                className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
+                prefetch={false}
+                aria-label="방송국 전체 보기"
+                className="focus-ring-soft flex items-center rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
               >
-                전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
+                방송국 전체 보기
+                <ChevronRightIcon className="size-3 ml-0.5" />
               </Link>
             </div>
 
@@ -272,7 +278,7 @@ export default function UserProfile({
                 <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
               </div>
             ) : (
-              <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
+              <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory">
                 {myStreams.map((s) => {
                   const followersOnlyLocked =
                     s.visibility === "FOLLOWERS" && !isFollowing;
@@ -316,7 +322,7 @@ export default function UserProfile({
             )}
           </section>
 
-          {/* 4. 후기 및 뱃지 섹션 */}
+          {/* 4. 사회적 신뢰 정보: 후기와 뱃지를 같은 밀도로 묶어 노출 */}
           <div className="grid grid-cols-1 gap-6">
             <section>
               <div className="flex items-center justify-between mb-2">
@@ -325,7 +331,8 @@ export default function UserProfile({
                 </h2>
                 <button
                   onClick={() => setIsReviewModalOpen(true)}
-                  className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
+                  aria-label="받은 거래 후기 전체 보기"
+                  className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                 >
                   전체 보기
                 </button>
@@ -338,7 +345,8 @@ export default function UserProfile({
                 <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
                 <button
                   onClick={() => setIsBadgeModalOpen(true)}
-                  className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
+                  aria-label="획득한 뱃지 전체 보기"
+                  className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                 >
                   전체 보기
                 </button>
@@ -347,20 +355,20 @@ export default function UserProfile({
             </section>
           </div>
 
-          {/* 5. 판매 목록 (Tabs + Suspense List) */}
+          {/* 5. 판매 목록: 탭과 뷰 토글은 즉시 반응하고 실제 목록은 Suspense 경계 아래에서 교체 */}
           <section>
             <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
             <div className="panel p-4 bg-surface">
               {/* 탭 전환 버튼 */}
-              <div className="mb-4 flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
+              <div className="mb-4 flex rounded-xl border border-border bg-surface p-1 shadow-sm">
                 {(["selling", "sold"] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => handleTabChange(tab)}
                     className={cn(
-                      "flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                      "focus-ring-soft flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       activeTab === tab
-                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                        ? "bg-surface-dim text-primary shadow-sm dark:bg-background"
                         : "text-muted hover:bg-background/70 hover:text-primary"
                     )}
                   >
@@ -376,7 +384,7 @@ export default function UserProfile({
                     onClick={() => setViewMode("list")}
                     aria-label="리스트 보기"
                     className={cn(
-                      "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+                      "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
                       viewMode === "list"
                         ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                         : "text-muted hover:bg-background/70 hover:text-primary"
@@ -388,11 +396,11 @@ export default function UserProfile({
                     onClick={() => setViewMode("grid")}
                     aria-label="그리드 보기"
                     className={cn(
-                      "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+                      "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
                       viewMode === "grid"
                         ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                         : "text-muted hover:bg-background/70 hover:text-primary"
-                    )}
+            )}
                   >
                     <Squares2X2Icon className="size-4" />
                   </button>
@@ -441,7 +449,7 @@ export default function UserProfile({
 }
 
 // ----------------------------------------------------------------------
-// 내부 컴포넌트: 선택된 탭 전용 데이터 패칭 및 렌더링 (선언적 로딩)
+// 내부 컴포넌트: 선택된 판매 탭 전용 데이터만 불러와 리스트 교체
 // ----------------------------------------------------------------------
 function SalesTabContent({
   type,

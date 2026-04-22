@@ -7,12 +7,12 @@
  * Date        Author   Status    Description
  * 2026.03.29  임도헌   Created   신고 추이, 사유 분포, 운영 병목 요약 카드를 묶은 상단 인사이트 헤더 추가
  * 2026.03.30  임도헌   Modified  KPI/차트 패널에서 바로 관련 신고·유저 화면으로 이어지도록 액션 링크 보강
+ * 2026.04.10  임도헌   Modified  신고 인사이트 헤더의 액션 링크와 KPI weight를 관리자 타이포 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  요약 링크 프리패치를 줄이고 차트 패널을 지연 로딩 래퍼로 분리
  */
 
-import AdminChartCard from "@/features/report/components/admin/charts/AdminChartCard";
-import AdminStackedBarChart from "@/features/report/components/admin/charts/AdminStackedBarChart";
-import AdminBarChart from "@/features/report/components/admin/charts/AdminBarChart";
 import Link from "next/link";
+import ReportInsightChartsPanel from "@/features/report/components/admin/ReportInsightChartsPanel";
 
 interface ReportInsightHeaderProps {
   labels: string[];
@@ -52,31 +52,20 @@ export default function ReportInsightHeader({
   summary,
 }: ReportInsightHeaderProps) {
   const summaryCardClass =
-    "block rounded-2xl border bg-surface px-5 py-4 shadow-sm transition-colors hover:border-border-strong hover:bg-surface-dim/20";
-  const actionLinkClass =
-    "text-xs font-semibold text-muted transition-colors hover:text-brand";
-  const legendSlot = statusSeries.map((item) => (
-    <div key={item.name} className="inline-flex items-center gap-2">
-      <span
-        className="size-2.5 rounded-full"
-        style={{ backgroundColor: item.color }}
-      />
-      <span className="text-xs font-semibold text-muted">{item.name}</span>
-    </div>
-  ));
-  const topReason = reasonItems.find((item) => item.value > 0);
+    "focus-ring-strong block rounded-2xl border bg-surface px-5 py-4 shadow-sm transition-colors hover:border-border-strong hover:bg-surface-dim/20";
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Link
           href="/admin/reports?status=PENDING"
+          prefetch={false}
           className={`${summaryCardClass} border-danger/20`}
         >
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
             신규 Pending
           </p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-danger">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-danger">
             {summary.pendingCount.toLocaleString()}
           </p>
           <p className="mt-1 text-sm text-muted">
@@ -85,12 +74,13 @@ export default function ReportInsightHeader({
         </Link>
         <Link
           href="/admin/users?role=BANNED"
+          prefetch={false}
           className={`${summaryCardClass} border-border-subtle`}
         >
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
             최근 7일 Strike 대상
           </p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-primary">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-primary">
             {summary.strikeTargetCount.toLocaleString()}
           </p>
           <p className="mt-1 text-sm text-muted">
@@ -99,12 +89,13 @@ export default function ReportInsightHeader({
         </Link>
         <Link
           href="/admin/reports?status=RESOLVED"
+          prefetch={false}
           className={`${summaryCardClass} border-border-subtle`}
         >
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
             평균 처리 시간
           </p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-primary">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-primary">
             {summary.averageProcessingHours.toFixed(1)}h
           </p>
           <p className="mt-1 text-sm text-muted">
@@ -113,56 +104,15 @@ export default function ReportInsightHeader({
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_1fr]">
-        <AdminChartCard
-          title="최근 14일 신고 접수 추이"
-          description="날짜별로 신고가 얼마나 쌓였고, 처리/기각이 어느 정도 따라가고 있는지 읽는 운영용 패널입니다."
-          actionSlot={
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Link href="/admin/reports?status=PENDING" className={actionLinkClass}>
-                대기 큐 보기
-              </Link>
-              <Link href="/admin/reports?status=RESOLVED" className={actionLinkClass}>
-                처리 완료 보기
-              </Link>
-              <Link href="/admin/reports?status=DISMISSED" className={actionLinkClass}>
-                기각 보기
-              </Link>
-            </div>
-          }
-          legendSlot={legendSlot}
-          insight={`최근 14일 누적 신고 ${summary.recentTotal.toLocaleString()}건, 현재 처리 대기 ${summary.pendingCount.toLocaleString()}건입니다.`}
-        >
-          <AdminStackedBarChart labels={labels} series={statusSeries} />
-        </AdminChartCard>
-
-        <AdminChartCard
-          title="최근 14일 신고 사유 분포"
-          description="최근 14일 동안 접수된 신고를 기준으로, 정책 이슈가 어디에 몰리는지 빠르게 파악하기 위한 사유별 분포입니다."
-          actionSlot={
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {topReason ? (
-                <Link
-                  href={`/admin/reports?q=${encodeURIComponent(topReason.label)}`}
-                  className={actionLinkClass}
-                >
-                  최다 사유 보기
-                </Link>
-              ) : null}
-              <Link href="/admin/reports" className={actionLinkClass}>
-                전체 신고 보기
-              </Link>
-            </div>
-          }
-          insight={
-            topReason
-              ? `최근 14일 기준 가장 많이 접수된 사유는 '${topReason.label}'입니다.`
-              : "최근 14일 기준 접수된 신고가 없어 사유 분포가 비어 있습니다."
-          }
-        >
-          <AdminBarChart items={reasonItems} />
-        </AdminChartCard>
-      </div>
+      <ReportInsightChartsPanel
+        labels={labels}
+        statusSeries={statusSeries}
+        reasonItems={reasonItems}
+        summary={{
+          pendingCount: summary.pendingCount,
+          recentTotal: summary.recentTotal,
+        }}
+      />
     </div>
   );
 }

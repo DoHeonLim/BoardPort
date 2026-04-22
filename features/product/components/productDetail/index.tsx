@@ -13,30 +13,34 @@
  * 2026.03.23  임도헌   Modified  상세 본문의 거래 장소 섹션 구분선을 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.03.25  임도헌   Modified  하단 sticky 액션바 래퍼에도 배경을 부여해 하단 safe-area 틈 노출을 완화
  * 2026.03.26  임도헌   Modified  하단 sticky 액션바 래퍼의 하단 경계를 보강해 서브픽셀 틈 노출을 방지
+ * 2026.04.06  임도헌   Modified  detail-edit 저장 후 back 복귀한 상세는 세션 refresh 플래그를 1회 소비해 최신 데이터로 동기화
+ * 2026.04.09  임도헌   Modified  숨김 상품은 최근 본 상품에 저장하지 않고 owner 상세에는 숨김 배지를 노출
+ * 2026.04.14  임도헌   Modified  본문 컨테이너를 서버 기준으로 재구성하고 클라이언트 부작용/지도 섹션을 분리해 초기 상세 비용을 절감
+ * 2026.04.14  임도헌   Modified  서버 컨테이너 책임과 섹션 조합 흐름이 드러나도록 함수 상단 JSDoc 설명을 보강
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
- * - ProductDetailHeader.tsx   : 제품 제목, 가격, 게임 타입 표시
- * - ProductDetailImages.tsx   : 제품 이미지 캐러셀 및 조회수 뱃지
- * - ProductDetailMeta.tsx     : 판매자 프로필(아바타/이름) 및 작성일 표시
- * - ProductDetailInfoGrid.tsx : 카테고리, 인원, 시간, 상태 등 상세 스펙 그리드
- * - ProductDetailTags.tsx     : 제품 태그 목록
- * - ProductDetailActions.tsx  : 하단 고정 액션바 (좋아요, 채팅/수정 버튼)
- * - index.tsx                 : 위 컴포넌트들을 조합한 최종 ProductDetail 컨테이너
+ * - ProductDetailHeader.tsx          : 제품 제목, 가격, 게임 타입 표시
+ * - ProductDetailImages.tsx          : 제품 이미지 캐러셀
+ * - ProductDetailMeta.tsx            : 판매자 프로필(아바타/이름) 및 작성일 표시
+ * - ProductDetailInfoGrid.tsx        : 카테고리, 인원, 시간, 상태 등 상세 스펙 그리드
+ * - ProductDetailLocationSection.tsx : 거래 장소 요약 및 지연 로딩 지도 섹션
+ * - ProductDetailTags.tsx            : 제품 태그 목록
+ * - ProductDetailActions.tsx         : 하단 고정 액션바 (좋아요, 채팅/UP 버튼)
+ * - ProductDetailClientEffects.tsx   : 최근 본 상품 저장, refresh 플래그 처리 등 클라이언트 부작용
+ * - index.tsx                        : 위 컴포넌트들을 조합한 최종 ProductDetail 컨테이너
  * ===============================================================================================
  */
-"use client";
 
-import { useEffect } from "react";
 import { ProductDetailType } from "@/features/product/types";
 import ProductDetailImages from "@/features/product/components/productDetail/ProductDetailImages";
 import ProductDetailMeta from "@/features/product/components/productDetail/ProductDetailMeta";
 import ProductDetailHeader from "@/features/product/components/productDetail/ProductDetailHeader";
 import ProductDetailInfoGrid from "@/features/product/components/productDetail/ProductDetailInfoGrid";
-import StaticMap from "@/features/map/components/StaticMap";
 import ProductDetailTags from "@/features/product/components/productDetail/ProductDetailTags";
 import ProductDetailActions from "@/features/product/components/productDetail/ProductDetailActions";
-import { saveRecentViewedProduct } from "@/features/product/utils/recentViewed";
+import ProductDetailClientEffects from "@/features/product/components/productDetail/ProductDetailClientEffects";
+import ProductDetailLocationSection from "@/features/product/components/productDetail/ProductDetailLocationSection";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -48,16 +52,10 @@ interface ProductDetailProps {
 }
 
 /**
- * 제품 상세 페이지 컨테이너
- *
- * [구조]
- * 1. 이미지 캐러셀 (상단)
- * 2. 판매자 정보 및 작성일 (메타)
- * 3. 제품 정보 본문 (제목, 가격, 설명, 상세 스펙, 태그)
- * 4. 하단 고정 액션바 (좋아요, 채팅/수정)
- * 5. 상세 진입 시 최근 본 상품 스냅샷을 로컬 저장소에 기록
- *
- * @param {ProductDetailProps} props - 제품 상세 데이터 및 사용자 권한 정보
+ * 제품 상세 본문을 조합하는 최상위 서버 컨테이너.
+ * 이미지, 메타, 정보 그리드, 위치, 태그, 하단 액션바를 한 흐름으로 엮되
+ * 브라우저 저장소 접근이나 refresh 플래그 소비 같은 클라이언트 부작용은
+ * 별도 island로 분리해 서버 렌더링 범위와 초기 번들 효율을 함께 유지
  */
 export default function ProductDetailContainer({
   product,
@@ -67,40 +65,17 @@ export default function ProductDetailContainer({
   isLiked,
   isModalContext = false,
 }: ProductDetailProps) {
-  useEffect(() => {
-    saveRecentViewedProduct({
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      created_at: product.created_at.toString(),
-      refreshed_at: product.created_at.toString(),
-      reservation_userId: product.reservation_userId,
-      purchase_userId: product.purchase_userId,
-      views: product.views,
-      bump_count: product.bump_count,
-      game_type: product.game_type,
-      region1: product.region1 ?? null,
-      region2: product.region2 ?? null,
-      region3: product.region3 ?? null,
-      images: product.images,
-      category: product.category,
-      _count: product._count,
-      search_tags: product.search_tags,
-    });
-  }, [product]);
-
-  // 주소 문자열 조합
-  const regionString = [product.region1, product.region2, product.region3]
-    .filter(Boolean)
-    .join(" ");
   return (
     <div className="relative min-h-full flex flex-col bg-background text-primary transition-colors">
-      {/* 본문 영역 (flex-1로 하단 바를 밀어냄) */}
+      {/* 최근 본 상품 저장, 편집 후 1회 refresh 같은 브라우저 부작용은 별도 island로 격리 */}
+      <ProductDetailClientEffects
+        product={product}
+        isModalContext={isModalContext}
+      />
+
       <div className="flex-1 pb-4">
-        {/* 1. 이미지 영역 */}
         <ProductDetailImages images={product.images} />
 
-        {/* 2. 판매자 정보 */}
         <ProductDetailMeta
           username={product.user.username}
           avatar={product.user.avatar}
@@ -108,13 +83,13 @@ export default function ProductDetailContainer({
           views={views}
         />
 
-        {/* 3. 본문 영역 */}
         <div className="flex flex-col gap-6 p-page-x py-6">
           <ProductDetailHeader
             title={product.title}
             price={product.price}
             game_type={product.game_type}
             bumpCount={product.bump_count}
+            showHiddenBadge={isOwner && !!product.hidden_at}
           />
 
           <p className="text-base text-primary whitespace-pre-wrap leading-relaxed">
@@ -131,33 +106,26 @@ export default function ProductDetailContainer({
             has_manual={product.has_manual}
           />
 
-          {/* 거래 장소 */}
-          {product.latitude && product.longitude && product.locationName && (
-            <section className="mt-2 border-t border-border-subtle py-2 pt-6">
-              <h3 className="text-sm font-bold text-primary mb-3">
-                직거래 희망 장소
-              </h3>
-              <StaticMap
-                latitude={product.latitude}
-                longitude={product.longitude}
-                locationName={product.locationName}
-                regionString={regionString}
-              />
-            </section>
-          )}
+          {/* 위치 섹션의 뷰포트 근접 시점 한정 지도 준비 시작 및 초기 비용 억제 */}
+          <ProductDetailLocationSection
+            latitude={product.latitude ?? null}
+            longitude={product.longitude ?? null}
+            locationName={product.locationName ?? null}
+            region1={product.region1 ?? null}
+            region2={product.region2 ?? null}
+            region3={product.region3 ?? null}
+          />
 
           <ProductDetailTags tags={product.search_tags} />
         </div>
       </div>
 
-      {/* 4. 하단 액션바 (sticky 적용으로 스크롤바와 충돌 없이 완벽 정렬) */}
       <div className="sticky -bottom-px z-40 mt-auto w-full overflow-hidden bg-surface">
         <ProductDetailActions
           productId={product.id}
           isLiked={isLiked}
           likeCount={likeCount}
           isOwner={isOwner}
-          isModalContext={isModalContext}
           bumpCount={product.bump_count}
         />
       </div>

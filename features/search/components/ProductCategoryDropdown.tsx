@@ -25,6 +25,7 @@
  * 2026.03.18  임도헌   Modified  빠른 분류는 새 탐색 시작 역할로 정리하고 기존 검색/세부 필터 초기화
  * 2026.03.28  임도헌   Modified  모바일 제품 헤더 터치 문법에 맞춰 카테고리 선택을 Bottom Sheet로 통일
  * 2026.04.02  임도헌   Modified  카테고리 옵션/빠른 분류 키 타입을 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 분류 라벨 및 섹션 헤더 weight를 500 기준으로 정리
  */
 "use client";
 
@@ -106,14 +107,14 @@ export default function ProductCategoryDropdown({
   const categoryListContent = (
     <>
       <div className="mb-4">
-        <div className="mb-1 rounded-md bg-brand/5 px-2 py-1.5 text-xs font-semibold text-brand dark:bg-brand-light/10 dark:text-brand-light">
+        <div className="mb-1 rounded-md bg-brand/5 px-2 py-1.5 text-xs font-medium text-brand dark:bg-brand-light/10 dark:text-brand-light">
           게임 타입
         </div>
         {GAME_TYPES.map((type) => (
           <button
             key={type}
             onClick={() => handleGameTypeClick(type)}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-surface-dim"
+            className="focus-ring-soft w-full rounded-lg px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-surface-dim"
           >
             <span className="flex items-center gap-3">
               <span className="text-lg opacity-80 grayscale">
@@ -130,14 +131,14 @@ export default function ProductCategoryDropdown({
       </div>
 
       <div>
-        <div className="mb-1 rounded-md bg-brand/5 px-2 py-1.5 text-xs font-semibold text-brand dark:bg-brand-light/10 dark:text-brand-light">
+        <div className="mb-1 rounded-md bg-brand/5 px-2 py-1.5 text-xs font-medium text-brand dark:bg-brand-light/10 dark:text-brand-light">
           장르
         </div>
         {topLevelCategories.map((category) => (
           <button
             key={category.id}
             onClick={() => handleCategoryClick(category.id)}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-surface-dim"
+            className="focus-ring-soft w-full rounded-lg px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-surface-dim"
           >
             <span className="flex items-center gap-3">
               <span className="text-lg opacity-80 grayscale">
@@ -156,7 +157,8 @@ export default function ProductCategoryDropdown({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center justify-center gap-1 rounded-xl transition-all border",
+          "focus-ring-soft",
+          "flex items-center justify-center gap-1 rounded-xl transition-[background-color,color,border-color,box-shadow] border",
           tone === "neutral"
             ? "bg-surface-dim text-primary border-border-strong hover:bg-surface"
             : "bg-brand text-white border-brand hover:bg-brand-dark",
@@ -177,7 +179,7 @@ export default function ProductCategoryDropdown({
         </span>
         <span
           className={cn(
-            "font-bold ml-0.5 text-sm",
+            "ml-0.5 text-sm font-medium",
             compact ? "hidden sm:inline" : "hidden sm:inline"
           )}
         >
@@ -217,12 +219,12 @@ export default function ProductCategoryDropdown({
               )}
             >
               <div className="flex items-center justify-between border-b border-border-subtle bg-surface-dim p-3">
-                <span className="text-xs font-bold text-muted uppercase tracking-wider">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted">
                   카테고리 선택
                 </span>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-muted hover:text-primary transition-colors"
+                  className="focus-ring-soft rounded p-0.5 text-muted transition-colors hover:text-primary"
                   aria-label="카테고리 선택 닫기"
                 >
                   <XMarkIcon className="size-4" />

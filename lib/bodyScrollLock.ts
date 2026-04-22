@@ -8,6 +8,7 @@
  * 2026.03.10  임도헌   Created   모달/시트 중첩 상황에서도 안전하게 스크롤 잠금/복구를 관리하는 공용 유틸 추가
  * 2026.03.12  임도헌   Modified  중첩 모달 기준 lockCount와 이전 overflow 복원 규칙 명확화
  * 2026.03.12  임도헌   Modified  body/html 스크롤 잠금 SSOT 유틸 역할을 현재 사용처 기준으로 통일
+ * 2026.04.08  임도헌   Modified  iOS Safari 배경 스크롤 누수를 줄이기 위해 body fixed + scrollY 복원 방식 추가
  */
 
 let lockCount = 0;
@@ -15,6 +16,12 @@ let previousBodyOverflow = "";
 let previousHtmlOverflow = "";
 let previousBodyOverscrollBehavior = "";
 let previousHtmlOverscrollBehavior = "";
+let previousBodyPosition = "";
+let previousBodyTop = "";
+let previousBodyWidth = "";
+let previousBodyLeft = "";
+let previousBodyRight = "";
+let lockedScrollY = 0;
 
 /**
  * body/html 스크롤 잠금 적용
@@ -26,16 +33,27 @@ export function lockBodyScroll() {
   if (typeof document === "undefined") return;
 
   if (lockCount === 0) {
+    lockedScrollY = window.scrollY;
     previousBodyOverflow = document.body.style.overflow;
     previousHtmlOverflow = document.documentElement.style.overflow;
     previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
     previousHtmlOverscrollBehavior =
       document.documentElement.style.overscrollBehavior;
+    previousBodyPosition = document.body.style.position;
+    previousBodyTop = document.body.style.top;
+    previousBodyWidth = document.body.style.width;
+    previousBodyLeft = document.body.style.left;
+    previousBodyRight = document.body.style.right;
 
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
     document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.left = "0";
+    document.body.style.right = "0";
   }
 
   lockCount += 1;
@@ -59,4 +77,10 @@ export function unlockBodyScroll() {
   document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
   document.documentElement.style.overscrollBehavior =
     previousHtmlOverscrollBehavior;
+  document.body.style.position = previousBodyPosition;
+  document.body.style.top = previousBodyTop;
+  document.body.style.width = previousBodyWidth;
+  document.body.style.left = previousBodyLeft;
+  document.body.style.right = previousBodyRight;
+  window.scrollTo(0, lockedScrollY);
 }

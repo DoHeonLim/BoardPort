@@ -8,8 +8,8 @@
  * 2025.06.18  임도헌   Created   가격 범위 필터 분리
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 화살표 버튼 숨기기, 키보드 위/아래 입력 차단
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  */
-"use client";
 
 interface PriceFilterProps {
   minPrice: string;

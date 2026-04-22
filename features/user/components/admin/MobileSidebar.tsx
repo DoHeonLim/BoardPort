@@ -8,6 +8,8 @@
  * 2026.02.07  임도헌   Created   모바일 반응형 사이드바 구현
  * 2026.03.23  임도헌   Modified  모바일 관리자 드로어 셸과 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.30  임도헌   Modified  현재 섹션 이동 후 자동 닫힘과 데스크톱과 동일한 정보 구조를 유지하도록 정리
+ * 2026.04.10  임도헌   Modified  모바일 관리자 드로어의 섹션 라벨 크기를 공통 타이포 스케일로 정리
+ * 2026.04.18  임도헌   Modified  닫기 아이콘 버튼에 접근 가능한 이름과 button 타입을 추가
  */
 "use client";
 
@@ -87,8 +89,10 @@ export default function MobileSidebar({
             compact={true}
           />
           <button
+            type="button"
             onClick={() => setIsOpen(false)}
-            className="p-2 -mr-2 text-muted hover:text-primary transition-colors"
+            className="focus-ring-soft p-2 -mr-2 rounded-lg text-muted hover:text-primary transition-colors"
+            aria-label="관리자 메뉴 닫기"
           >
             <XMarkIcon className="size-6" />
           </button>
@@ -100,7 +104,7 @@ export default function MobileSidebar({
             icon={<ChartBarIcon />}
             label="대시보드"
           />
-          <div className="text-[10px] font-bold text-muted uppercase tracking-widest mt-8 mb-2 px-4">
+          <div className="text-xs font-bold text-muted uppercase tracking-widest mt-8 mb-2 px-4">
             Management
           </div>
           <AdminNavLink
@@ -138,7 +142,8 @@ export default function MobileSidebar({
         <div className="p-4 border-t border-border-subtle bg-surface-dim/20">
           <Link
             href="/"
-            className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-all"
+            prefetch={false}
+            className="focus-ring-soft flex items-center gap-3 px-4 py-3 text-sm font-bold text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-colors"
           >
             <HomeIcon className="size-5" />
             서비스 홈으로
@@ -152,8 +157,9 @@ export default function MobileSidebar({
     <>
       {/* Trigger Button: 이 버튼은 원래 위치(Header)에 유지됨 */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="md:hidden p-2 -ml-2 text-muted hover:bg-surface-dim rounded-lg transition-colors"
+        className="focus-ring-soft md:hidden p-2 -ml-2 text-muted hover:bg-surface-dim rounded-lg transition-colors"
         aria-label="관리자 메뉴 열기"
       >
         <Bars3Icon className="size-6" />

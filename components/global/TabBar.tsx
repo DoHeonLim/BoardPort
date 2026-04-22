@@ -175,12 +175,13 @@ export default function TabBar() {
               <Link
                 key={tab.href}
                 href={tab.href}
+                prefetch={false}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   // [상호작용] 터치 영역 44px 이상 보장 (그리드 높이로 자동 처리)
                   "flex flex-col items-center justify-center gap-1 h-full w-full",
                   "active:scale-95 transition-transform", // 클릭 시 살짝 눌리는 효과
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-light" // 키보드 접근성
+                  "focus-ring-soft" // 키보드 접근성
                 )}
               >
                 <Icon

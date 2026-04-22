@@ -12,6 +12,7 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.03.01  임도헌   Modified  React useOptimistic 제거 및 TanStack Query useMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.17  임도헌   Modified  녹화본 상세 좋아요 버튼의 낙관 업데이트와 접근성 이름 책임 설명 보강
  */
 
 "use client";
@@ -36,11 +37,12 @@ interface RecordingLikeButtonProps {
 /**
  * 녹화본(VOD) 좋아요 버튼 컴포넌트
  *
- * [상태 주입 및 캐시 제어 로직]
+ * [기능]
  * - 부모로부터 주입된 초기값(`initialIsLiked`, `initialLikeCount`)을 `useQuery`의 `initialData`로 설정하여 서버 상태 동기화(Hydration) 구성
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 상태 반전 및 피드백 제공
  * - API 요청 에러 발생 시 `onError`에서 캡처된 이전 상태 스냅샷(`previous`)으로 안전한 롤백(Rollback) 처리
  * - `onSettled` 시점 관련 쿼리 무효화(invalidateQueries)를 통한 서버 데이터와의 최종 정합성 보장
+ * - 버튼 본문은 숫자만 노출하고, 스크린리더 이름은 `aria-label`로 분리해 상세 페이지 액션 의미를 명확히 전달
  */
 export default function RecordingLikeButton({
   isLiked: initialIsLiked,
@@ -91,14 +93,21 @@ export default function RecordingLikeButton({
 
   return (
     <button
+      type="button"
       onClick={() => mutate()}
       disabled={isPending}
       className={cn(
-        "flex items-center gap-1.5 p-1.5 -ml-1.5 rounded-lg transition-colors hover:bg-surface-dim",
+        "focus-ring-soft -ml-1.5 flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-surface-dim",
         data.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500",
         isPending && "opacity-70 cursor-not-allowed"
       )}
-      aria-label={data.isLiked ? "좋아요 취소" : "좋아요"}
+      aria-pressed={data.isLiked}
+      // 시각 카운트의 접근성 이름 포함을 통한 보조기기/시각 정보 불일치 방지
+      aria-label={
+        data.isLiked
+          ? `좋아요 취소, 현재 ${data.likeCount}개`
+          : `좋아요, 현재 ${data.likeCount}개`
+      }
     >
       {data.isLiked ? (
         <HeartIcon className="size-6" />

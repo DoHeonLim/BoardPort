@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.29  임도헌   Created   sticky 관리자 헤더에 현재 섹션명과 보조 라벨을 표시하도록 추가
  * 2026.03.30  임도헌   Modified  posts/products/logs 등 세부 관리 화면도 같은 섹션 헤더 문법으로 읽히도록 유지
+ * 2026.04.10  임도헌   Modified  관리자 섹션 헤더의 상단 라벨 크기를 공통 타이포 스케일로 정리
  */
 
 "use client";
@@ -31,7 +32,7 @@ export default function AdminSectionHeading() {
 
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
         Admin Console
       </p>
       <h2 className="truncate text-sm font-bold text-primary sm:text-base">

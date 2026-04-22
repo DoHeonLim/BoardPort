@@ -12,26 +12,28 @@
  * 2026.01.12  임도헌   Modified  [UI] 320px 대응 레이아웃 최적화 & 텍스트 배지 스타일 개선
  * 2026.01.12  임도헌   Modified  [Interaction] 외부 클릭 시 메뉴 닫기 로직 추가
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
- * 2026.01.24  임도헌   Modified  deleteAllProductReviewsAction Import 및 호출
+ * 2026.01.24  임도헌   Modified  판매 상태 되돌리기와 후속 정리 흐름을 채팅 헤더 액션에 통합
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.05  임도헌   Modified  상대방 차단 및 신고 통합 메뉴 구현
  * 2026.02.26  임도헌   Modified  좁은 화면에서 UI깨짐 방지
  * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet로 전환하고 44px 터치 타겟 기준을 적용
- * 2026.03.12  임도헌   Modified  채팅방 내부 검색 모드를 추가하고 헤더를 flat 톤으로 통일
- * 2026.03.12  임도헌   Modified  라이트모드 헤더/검색바 대비를 높여 배경 일러스트 위 가시성 강화
- * 2026.03.12  임도헌   Modified  검색 모드 결과 인디케이터와 이전/다음 이동 액션을 헤더에 통합
- * 2026.03.12  임도헌   Modified  거래 상품 썸네일에 GIF 조건부 최적화 예외 처리를 imageAnimated 메타로 연동
- * 2026.03.12  임도헌   Modified  채팅 헤더 상태 배지와 메뉴 액션 색을 시맨틱 토큰 기준으로 통일
- * 2026.03.12  임도헌   Modified  채팅 헤더 보더를 border-border-subtle 기준으로 정리
+ * 2026.03.12  임도헌   Modified  채팅방 내부 검색 모드와 결과 이동 액션을 헤더에 통합하고 flat 톤으로 정리
+ * 2026.03.12  임도헌   Modified  거래 상품 썸네일 GIF 예외 처리(imageAnimated)와 상태/액션 색 정합을 함께 보강
  * 2026.03.13  임도헌   Modified  채팅방 복귀와 상대 프로필/상품 상세 진입에 현재 채팅 경로 returnTo를 함께 전달하도록 정리
  * 2026.03.14  임도헌   Modified  헤더 상품 요약 카드 톤을 과하지 않게 재정리
  * 2026.03.18  임도헌   Modified  채팅 내부 returnTo 인코딩을 정리하고 차단 후 복귀 경로 revalidate + 중복 router.refresh 제거로 링크 안전성과 재요청을 함께 정리
  * 2026.03.27  임도헌   Modified  모바일 채팅 옵션 시트 설명을 간결화해 액션 목록 집중도를 높임
  * 2026.03.28  임도헌   Modified  모바일 검색 헤더는 카운터 중심으로 단순화하고 이동 액션은 하단 플로팅 컨트롤·순환형 내비게이션과 연동하도록 정리
- * 2026.04.02  임도헌   Modified  채팅 배경 위에서도 검색/메뉴 액션과 상품 요약 카드가 또렷하게 보이도록 대비를 한 단계 보강
+ * 2026.04.02  임도헌   Modified  검색/메뉴 액션과 상품 요약 카드 대비를 한 단계 보강
  * 2026.04.03  임도헌   Modified  전역 유저 차단 확인 문구를 다른 도메인과 같은 정책 설명 톤으로 통일
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 검색 카운터와 상품 요약 카드 메타 weight/크기를 400/500/700 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 링크 선행 prefetch를 조정해 초기 요청을 줄임
+ * 2026.04.15  임도헌   Modified  채팅 헤더 상품 요약을 반응형 정보열로 재구성하고 초소형 화면 정보 우선순위를 정리
+ * 2026.04.16  임도헌   Modified  채팅 헤더 높이와 안쪽 여백을 공통 상세 appbar 패턴과 같은 56px 기준으로 통일
+ * 2026.04.17  임도헌   Modified  채팅방 상단 검색창 스타일을 정리
+ * 2026.04.21  임도헌   Modified  데스크톱/모바일 액션 메뉴 항목을 공통 컴포넌트로 분리하고 주석 정합을 보강
  */
-"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -42,9 +44,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   EllipsisHorizontalIcon,
-  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
-  UserMinusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -52,6 +52,7 @@ import UserAvatar from "@/components/global/UserAvatar";
 import BackButton from "@/components/global/BackButton";
 import BottomSheet from "@/components/global/BottomSheet";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
+import ChatHeaderMenuItems from "@/features/chat/components/ChatHeaderMenuItems";
 import { cn, formatToWon } from "@/lib/utils";
 import type { ChatHeaderProduct, ChatUser } from "@/features/chat/types";
 import { leaveChatRoomAction } from "@/features/chat/actions/room";
@@ -94,6 +95,7 @@ interface ChatHeaderProps {
  * 4. 판매자 전용 옵션 메뉴 (예약자 지정, 판매완료 처리, 상태 되돌리기)
  * 5. 채팅방 나가기, 차단, 신고 기능 (상대가 나갔으면 일부 제한)
  * 6. 상품 상세/상대 프로필 진입 시 현재 채팅 경로를 안전한 returnTo로 전달
+ * 7. 채팅 최초 진입에서는 불필요한 링크 선행 요청을 줄이고, 실제 이동 의도가 생길 때만 라우팅
  */
 export default function ChatHeader({
   chatRoomId,
@@ -145,7 +147,7 @@ export default function ChatHeader({
   const isCurrentReservationHolder =
     isReserved && productState.reservation_userId === counterparty.id;
 
-  // 현재 채팅 경로를 다시 returnTo로 넘길 때 내부 쿼리 문자열 보존
+  // 현재 채팅 경로의 returnTo 재전달 시 내부 쿼리 문자열까지 유지
   const currentChatHref = `/chats/${chatRoomId}?returnTo=${encodeURIComponent(
     returnTo
   )}`;
@@ -323,6 +325,10 @@ export default function ChatHeader({
     router.push(profileHref);
   };
 
+  /**
+   * 거래 상품 상세 진입
+   * - 현재 채팅 경로를 returnTo로 넘겨 상세에서 다시 채팅으로 복귀할 수 있게 유지
+   */
   const handleGoToProduct = () => {
     setMenuOpen(false);
     router.push(productHref);
@@ -337,24 +343,19 @@ export default function ChatHeader({
     onSearchOpen();
   };
 
-  const desktopActionClass =
-    "block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim";
-  const mobileActionClass =
-    "flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim";
   const headerIconButtonClass = cn(
-    "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-colors",
-    "border-border/75 dark:border-border-subtle",
-    "bg-background/82 text-primary/85 dark:bg-surface-dim/82",
-    "hover:bg-surface hover:text-primary dark:hover:bg-surface-dim"
+    "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl border bg-background/88 text-muted transition-colors",
+    "border-border dark:border-border-strong/80",
+    "hover:bg-surface hover:text-primary"
   );
   return (
-    <header className="sticky top-0 z-40 border-b border-border-subtle bg-background shadow-sm">
+    <header className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
       {searchOpen ? (
-        <div className="mx-auto flex h-14 w-full items-center gap-2 px-3">
+        <div className="mx-auto flex h-full w-full items-center gap-2 px-3 sm:px-4">
           <button
             type="button"
             onClick={onSearchClose}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border-subtle bg-surface text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border-subtle bg-surface text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             aria-label="검색 닫기"
           >
             <XMarkIcon className="size-6" />
@@ -368,12 +369,12 @@ export default function ChatHeader({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="현재 대화 검색"
-              className="h-11 w-full rounded-2xl border border-border-subtle bg-surface pl-10 pr-3 text-sm text-primary shadow-sm outline-none transition-colors placeholder:text-muted focus:border-brand/60 focus:bg-background"
+              className="searchbar-compact-input h-11 rounded-2xl bg-surface pl-10 pr-3"
             />
           </div>
 
           <div className="flex shrink-0 items-center gap-1 rounded-2xl border border-border-subtle bg-surface px-1.5 py-1 shadow-sm">
-            <span className="min-w-[40px] text-center text-xs font-semibold text-primary">
+            <span className="min-w-[40px] text-center text-xs font-medium text-primary">
               {searchResultCount > 0
                 ? `${searchCurrentIndex}/${searchResultCount}`
                 : "0"}
@@ -384,7 +385,7 @@ export default function ChatHeader({
                   type="button"
                   onClick={onSearchPrev}
                   disabled={!searchCanGoPrev}
-                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="이전 검색 결과"
                 >
                   <ChevronUpIcon className="size-5" />
@@ -393,7 +394,7 @@ export default function ChatHeader({
                   type="button"
                   onClick={onSearchNext}
                   disabled={!searchCanGoNext}
-                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-xl text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="다음 검색 결과"
                 >
                   <ChevronDownIcon className="size-5" />
@@ -403,37 +404,42 @@ export default function ChatHeader({
           </div>
         </div>
       ) : (
-        <div className="mx-auto w-full px-2 h-14 flex items-center justify-between gap-2">
-          {/* Left Section: Back + User */}
-          <div className="flex justify-center items-center ml-2 gap-1 min-w-0 shrink-0 max-w-[50%]">
+        <div className="mx-auto flex h-full w-full items-center justify-between gap-2 px-3 sm:px-4">
+          {/* 좌측 영역: 뒤로가기 + 사용자 */}
+          <div className="flex min-w-0 shrink-0 items-center gap-1 max-w-[40%] min-[400px]:max-w-[46%] md:max-w-none">
             <BackButton
               fallbackHref={returnTo}
               variant="appbar"
               className="size-10 px-0 shrink-0"
             />
-            {/* Ghost User(나간 유저)일 경우 프로필 링크 비활성화 */}
+            {/* Ghost User(나간 유저)인 경우 프로필 링크 비활성화 */}
             <UserAvatar
               avatar={counterparty.avatar}
               username={counterparty.username}
               showUsername={true}
               size="sm"
-              className="shrink-0"
+              className="min-w-0 shrink max-w-[112px] min-[400px]:max-w-[132px]"
+              usernameClassName="max-[399px]:hidden"
+              avatarClassName="max-[399px]:size-7"
               compact
               disabled={isGhost}
+              prefetch={false}
             />
           </div>
 
-          {/* Center Section: Product Info Link */}
+          {/* 중앙 영역: 상품 정보 링크 */}
           <Link
             href={productHref}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border-subtle bg-surface-dim/80 px-2.5 py-1.5 shadow-sm transition-colors hover:bg-surface"
+            prefetch={false}
+            className="focus-ring-soft flex min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-border bg-surface-dim/60 px-2.5 py-1.5 transition-colors hover:bg-surface-dim/85 dark:border-border-strong/80"
           >
-            <div className="relative hidden size-8 shrink-0 overflow-hidden rounded border border-border-subtle bg-surface xs:block">
+            <div className="relative hidden size-7 shrink-0 overflow-hidden rounded-xl border border-border bg-surface min-[400px]:block">
               {img ? (
                 <Image
                   src={`${img}/avatar`}
                   alt=""
                   fill
+                  sizes="32px"
                   unoptimized={imgAnimated}
                   className="object-cover"
                 />
@@ -442,29 +448,48 @@ export default function ChatHeader({
               )}
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="block w-full truncate text-xs font-semibold text-primary">
+            <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
+              {isReserved && (
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded border border-brand/20 bg-brand/15 px-1.5 py-0.5 text-[10px] font-bold text-brand-dark dark:border-brand-light/25 dark:bg-brand-light/20 dark:text-gray-100">
+                  예약중
+                </span>
+              )}
+              {isSold && (
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded bg-surface-dim px-1.5 py-0.5 text-[10px] font-bold text-muted">
+                  판매완료
+                </span>
+              )}
+              <span className="min-w-0 truncate text-xs font-medium text-muted">
                 {productState.title}
               </span>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                {isReserved && (
-                  <span className="shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[9px] font-bold bg-brand/10 text-brand dark:bg-brand-light/15 dark:text-brand-light">
-                    예약중
-                  </span>
-                )}
-                {isSold && (
-                  <span className="shrink-0 whitespace-nowrap rounded bg-surface-dim px-1.5 py-0.5 text-[9px] font-bold text-muted">
-                    판매완료
-                  </span>
-                )}
-                <span className="truncate text-xs font-bold text-brand dark:text-brand-light">
+              <span className="shrink-0 text-sm font-semibold text-primary">
+                {formatToWon(productState.price)}원
+              </span>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 md:hidden">
+              <span className="min-w-0 truncate text-[11px] font-medium leading-none text-primary">
+                {productState.title}
+              </span>
+              {isReserved && (
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-brand/20 bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-brand-dark dark:border-brand-light/25 dark:bg-brand-light/20 dark:text-gray-100">
+                  예약중
+                </span>
+              )}
+              {isSold && (
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md bg-surface-dim px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted">
+                  판매완료
+                </span>
+              )}
+              {isSelling && (
+                <span className="shrink-0 text-xs font-semibold leading-none text-primary">
                   {formatToWon(productState.price)}원
                 </span>
-              </div>
+              )}
             </div>
           </Link>
 
-          {/* Right Section: Menu */}
+          {/* 우측 영역: 메뉴 */}
           <div className="relative shrink-0">
             <div className="flex items-center gap-1">
               <button
@@ -493,118 +518,36 @@ export default function ChatHeader({
                 role="menu"
                 className="absolute right-0 z-50 mt-1 w-48 origin-top-right rounded-xl border border-border-subtle bg-surface py-1 text-sm shadow-xl"
               >
-                {/* Ghost가 아닐 때만 프로필 이동 가능 */}
-                {!isGhost && (
-                  <button
-                    role="menuitem"
-                    onClick={handleGoToProfile}
-                    className={desktopActionClass}
-                  >
-                    상대 프로필
-                  </button>
-                )}
-
-                <button
-                  role="menuitem"
-                  onClick={handleGoToProduct}
-                  className={desktopActionClass}
-                >
-                  상품 상세
-                </button>
-
-                {/* [판매자 전용 메뉴] */}
-                {isSeller && (
-                  <>
-                    <div className="my-1 border-t border-border-subtle" />
-
-                    {/* 판매중 -> 예약자 지정 (Ghost면 불가) */}
-                    {isSelling && !isGhost && (
-                      <button
-                        role="menuitem"
-                        className={desktopActionClass}
-                        onClick={handleReserveCounterparty}
-                      >
-                        예약자로 지정
-                      </button>
-                    )}
-
-                    {/* 예약중 -> 취소 or 판매완료 (현재 예약자인 경우만) */}
-                    {isReserved && isCurrentReservationHolder && (
-                      <>
-                        <button
-                          role="menuitem"
-                          className={desktopActionClass}
-                          onClick={handleReservedToSelling}
-                        >
-                          예약 취소 (판매중)
-                        </button>
-                        <button
-                          role="menuitem"
-                          className={`${desktopActionClass} font-medium`}
-                          onClick={handleReservedToSold}
-                        >
-                          판매완료 처리
-                        </button>
-                      </>
-                    )}
-
-                    {/* 판매완료 -> 되돌리기 */}
-                    {isSold && (
-                      <button
-                        role="menuitem"
-                        className={desktopActionClass}
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setRevertDialogOpen(true);
-                        }}
-                      >
-                        판매중으로 되돌리기
-                      </button>
-                    )}
-                  </>
-                )}
-
-                <div className="my-1 border-t border-border-subtle" />
-
-                {/* 차단/신고 (Ghost면 불가) */}
-                {!isGhost && (
-                  <>
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setBlockConfirmOpen(true);
-                      }}
-                      className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-surface-dim"
-                    >
-                      <UserMinusIcon className="size-4" /> 상대방 차단하기
-                    </button>
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        setReportOpen(true);
-                      }}
-                      className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-surface-dim"
-                    >
-                      <ExclamationTriangleIcon className="size-4" /> 사용자
-                      신고하기
-                    </button>
-                    <div className="my-1 border-t border-border-subtle" />
-                  </>
-                )}
-
-                {/* 채팅방 나가기 (항상 가능) */}
-                <button
-                  role="menuitem"
-                  onClick={() => {
+                <ChatHeaderMenuItems
+                  variant="desktop"
+                  isGhost={isGhost}
+                  isSeller={isSeller}
+                  isSelling={isSelling}
+                  isReserved={isReserved}
+                  isSold={isSold}
+                  isCurrentReservationHolder={isCurrentReservationHolder}
+                  onGoToProfile={handleGoToProfile}
+                  onGoToProduct={handleGoToProduct}
+                  onReserveCounterparty={handleReserveCounterparty}
+                  onReservedToSelling={handleReservedToSelling}
+                  onReservedToSold={handleReservedToSold}
+                  onOpenRevertDialog={() => {
+                    setMenuOpen(false);
+                    setRevertDialogOpen(true);
+                  }}
+                  onOpenBlockConfirm={() => {
+                    setMenuOpen(false);
+                    setBlockConfirmOpen(true);
+                  }}
+                  onOpenReport={() => {
+                    setMenuOpen(false);
+                    setReportOpen(true);
+                  }}
+                  onOpenLeaveDialog={() => {
                     setMenuOpen(false);
                     setLeaveDialogOpen(true);
                   }}
-                  className="block w-full px-4 py-2.5 text-left text-danger hover:bg-danger/10"
-                >
-                  채팅방 나가기
-                </button>
+                />
               </div>
             )}
           </div>
@@ -618,115 +561,40 @@ export default function ChatHeader({
         onClose={() => setMenuOpen(false)}
       >
         <div className="space-y-2 pt-2">
-          {!isGhost && (
-            <button
-              type="button"
-              onClick={handleGoToProfile}
-              className={mobileActionClass}
-            >
-              상대 프로필
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleGoToProduct}
-            className={mobileActionClass}
-          >
-            상품 상세
-          </button>
-
-          {isSeller && (
-            <>
-              <div className="my-2 border-t border-border-subtle" />
-
-              {isSelling && !isGhost && (
-                <button
-                  type="button"
-                  onClick={handleReserveCounterparty}
-                  className={mobileActionClass}
-                >
-                  예약자로 지정
-                </button>
-              )}
-
-              {isReserved && isCurrentReservationHolder && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleReservedToSelling}
-                    className={mobileActionClass}
-                  >
-                    예약 취소 (판매중)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleReservedToSold}
-                    className={mobileActionClass}
-                  >
-                    판매완료 처리
-                  </button>
-                </>
-              )}
-
-              {isSold && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setRevertDialogOpen(true);
-                  }}
-                  className={mobileActionClass}
-                >
-                  판매중으로 되돌리기
-                </button>
-              )}
-            </>
-          )}
-
-          {!isGhost && (
-            <>
-              <div className="my-2 border-t border-border-subtle" />
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setBlockConfirmOpen(true);
-                }}
-                className={mobileActionClass}
-              >
-                <UserMinusIcon className="size-5 shrink-0" />
-                상대방 차단하기
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setReportOpen(true);
-                }}
-                className={mobileActionClass}
-              >
-                <ExclamationTriangleIcon className="size-5 shrink-0" />
-                사용자 신고하기
-              </button>
-            </>
-          )}
-
-          <div className="my-2 border-t border-border-subtle" />
-          <button
-            type="button"
-            onClick={() => {
+          <ChatHeaderMenuItems
+            variant="mobile"
+            isGhost={isGhost}
+            isSeller={isSeller}
+            isSelling={isSelling}
+            isReserved={isReserved}
+            isSold={isSold}
+            isCurrentReservationHolder={isCurrentReservationHolder}
+            onGoToProfile={handleGoToProfile}
+            onGoToProduct={handleGoToProduct}
+            onReserveCounterparty={handleReserveCounterparty}
+            onReservedToSelling={handleReservedToSelling}
+            onReservedToSold={handleReservedToSold}
+            onOpenRevertDialog={() => {
+              setMenuOpen(false);
+              setRevertDialogOpen(true);
+            }}
+            onOpenBlockConfirm={() => {
+              setMenuOpen(false);
+              setBlockConfirmOpen(true);
+            }}
+            onOpenReport={() => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            }}
+            onOpenLeaveDialog={() => {
               setMenuOpen(false);
               setLeaveDialogOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-          >
-            채팅방 나가기
-          </button>
+          />
         </div>
       </BottomSheet>
 
-      {/* --- Dialogs --- */}
+      {/* 다이얼로그 영역 */}
       <ConfirmDialog
         open={blockConfirmOpen}
         title="상대방 차단"

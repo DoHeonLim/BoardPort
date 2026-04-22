@@ -92,7 +92,7 @@ export default function TagInput({
               <button
                 type="button"
                 onClick={() => handleRemoveTag(tag)}
-                className="hover:text-danger dark:hover:text-rose-400 transition-colors"
+                className="focus-ring-soft rounded-full hover:text-danger dark:hover:text-rose-400 transition-colors"
                 aria-label={`${tag} 태그 삭제`}
                 disabled={disabled}
               >

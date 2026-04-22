@@ -12,8 +12,9 @@
  * 2026.02.24  임도헌   Modified  심볼(Mobile/Icon)과 텍스트(Desktop/Hero) 로고 분기 처리
  * 2026.03.08  임도헌   Modified  framer-motion 기반 장식 애니메이션 제거
  * 2026.04.04  임도헌   Modified  export 주석을 보강해 심볼/텍스트 로고 분기 사용 의도를 더 명확히 정리
+ * 2026.04.12  임도헌   Modified  랜딩 LCP 최적화를 위해 priority/sizes/unoptimized를 호출부에서 제어 가능하도록 확장
+ * 2026.04.12  임도헌   Modified  히어로 단일 responsive 로고를 위해 fluid/imageClassName 옵션 추가
  */
-"use client";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,12 @@ interface LogoProps {
   variant?: "full" | "symbol";
   size?: number; // width 기준
   className?: string;
+  priority?: boolean;
+  sizes?: string;
+  unoptimized?: boolean;
+  quality?: number;
+  fluid?: boolean;
+  imageClassName?: string;
 }
 
 /**
@@ -40,6 +47,12 @@ export default function Logo({
   variant = "full",
   size,
   className = "",
+  priority = false,
+  sizes,
+  unoptimized = false,
+  quality,
+  fluid = false,
+  imageClassName = "",
 }: LogoProps) {
   const isSymbol = variant === "symbol";
   const src = isSymbol ? LOGO_SYMBOL : LOGO_TEXT;
@@ -55,16 +68,26 @@ export default function Logo({
         className
       )}
     >
-      <div className="relative flex items-center justify-center">
+      <div
+        className={cn(
+          "relative flex items-center justify-center",
+          fluid && "w-full"
+        )}
+      >
         <Image
           src={src}
           alt="BoardPort Logo"
           width={w}
           height={h}
-          // PWA 오프라인 fallback에서도 로컬 로고가 직접 제공되도록 Next 이미지 최적화 우회
-          unoptimized
-          priority
-          className="object-contain"
+          priority={priority}
+          sizes={sizes}
+          unoptimized={unoptimized}
+          quality={quality}
+          className={cn(
+            "object-contain",
+            fluid && "h-auto w-full",
+            imageClassName
+          )}
         />
       </div>
     </div>

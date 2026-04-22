@@ -2,9 +2,9 @@
 // 2026.01.10  임도헌 BoardPort Design Standard v1.1 적용
 // 2026.01.19  임도헌 features 경로 추가
 // 2026.03.11  임도헌 border subtle/default/strong 디자인 토큰 추가
+// 2026.04.10  임도헌 Pretendard subset 3-weight(400/500/700) 전역 폰트 재적용
 
 import type { Config } from "tailwindcss";
-import formsPlugin from "@tailwindcss/forms";
 import scrollbarPlugin from "tailwind-scrollbar";
 
 const config: Config = {
@@ -18,6 +18,21 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          "var(--font-pretendard-subset)",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "system-ui",
+          '"Apple SD Gothic Neo"',
+          '"Malgun Gothic"',
+          "sans-serif",
+        ],
+      },
+      fontWeight: {
+        semibold: "500",
+        black: "700",
+      },
       colors: {
         // [Rule 5.2] 색상 역할 정의 (Color Roles)
         background: {
@@ -110,6 +125,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [formsPlugin, scrollbarPlugin({ nocompatible: true })],
+  plugins: [scrollbarPlugin({ nocompatible: true })],
 };
 export default config;

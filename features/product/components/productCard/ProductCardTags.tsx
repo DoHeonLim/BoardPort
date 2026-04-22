@@ -13,6 +13,7 @@
  * 2026.03.06  임도헌   Modified  리스트 카드 밀도에 맞춰 최대 노출 태그 수를 prop으로 제어 가능하게 확장
  * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
  * 2026.03.16  임도헌   Modified  좁은 화면에서는 태그 노출 수를 한 단계 더 줄일 수 있도록 모바일 제한 prop 추가
+ * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 태그/더보기 라벨을 text-xs 기준으로 정리
  */
 
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ interface ProductCardTagsProps {
 
 /**
  * 제품 태그를 뱃지 형태로 표시
- * 최대 3개까지만 보여주고 나머지는 "+N"으로 축약
+ * 기본적으로 최대 3개를 노출하고, 초과분은 "+N"으로 축약
  */
 export function ProductCardTags({
   tags,
@@ -49,7 +50,7 @@ export function ProductCardTags({
         <span
           key={index}
           className={cn(
-            "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium",
+            "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
             "bg-badge text-badge-text border border-transparent dark:border-white/10",
             index >= normalizedMobileMaxTags && "hidden sm:inline-flex"
           )}
@@ -58,12 +59,12 @@ export function ProductCardTags({
         </span>
       ))}
       {mobileMoreCount > 0 && (
-        <span className="text-[10px] text-muted self-center sm:hidden">
+        <span className="self-center text-xs text-muted sm:hidden">
           +{mobileMoreCount}
         </span>
       )}
       {desktopMoreCount > 0 && (
-        <span className="hidden text-[10px] text-muted self-center sm:inline">
+        <span className="hidden self-center text-xs text-muted sm:inline">
           +{desktopMoreCount}
         </span>
       )}

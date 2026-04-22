@@ -7,8 +7,11 @@
  * Date        Author   Status    Description
  * 2026.03.31  임도헌   Created   PostForm에서 블록 목록/드래그/미디어 블록 렌더링 분리
  * 2026.03.31  임도헌   Modified  액션 바, VIDEO/IMAGE 블록 fallback 렌더링 문맥에 맞춰 주석 보강
+ * 2026.04.06  임도헌   Modified  텍스트 블록 textarea 높이를 본문 길이에 맞춰 자동 조절해 모바일 작성 흐름 보강
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 블록 배지/보조 라벨을 text-xs·500 체계로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.14  임도헌   Modified  블록 유형 배지의 명도 대비를 높여 작성 페이지 접근성을 보강
  */
-"use client";
 
 import Image from "next/image";
 import {
@@ -28,6 +31,7 @@ import {
   LinkIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useEffect, useRef } from "react";
 import type { ChangeEvent, DragEvent, MutableRefObject } from "react";
 import type { PostEditorBlock, PostVideo } from "@/features/post/types";
 import type { ImageBlockAsset } from "@/features/post/utils/editor";
@@ -54,7 +58,9 @@ interface PostEditorBlocksFieldProps {
   onUpdateTextBlock: (id: string, value: string) => void;
   onUpdateEmbedBlock: (id: string, value: string) => void;
   onDragEnd: (result: DropResult) => void;
-  onVideoDrop: (event: DragEvent<HTMLDivElement | HTMLButtonElement>) => Promise<void>;
+  onVideoDrop: (
+    event: DragEvent<HTMLDivElement | HTMLButtonElement>
+  ) => Promise<void>;
   onVideoChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   onClearVideo: () => void;
   onImageBlockDrop: (
@@ -101,6 +107,22 @@ export default function PostEditorBlocksField({
   onImageBlockChange,
   onRemoveImageBlockAsset,
 }: PostEditorBlocksFieldProps) {
+  const textAreaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  const resizeTextBlockTextarea = (element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+
+    element.style.height = "auto";
+    element.style.height = `${Math.max(element.scrollHeight, 140)}px`;
+  };
+
+  useEffect(() => {
+    editorBlocks.forEach((block) => {
+      if (block.type !== "TEXT") return;
+      resizeTextBlockTextarea(textAreaRefs.current[block.id] ?? null);
+    });
+  }, [editorBlocks]);
+
   return (
     <div className="flex flex-col gap-3">
       {/* 블록 추가 액션 */}
@@ -110,7 +132,7 @@ export default function PostEditorBlocksField({
           <button
             type="button"
             onClick={onAddTextBlock}
-            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
+            className="focus-ring-soft inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
             disabled={isEditorLocked}
           >
             <PlusIcon className="size-3.5" />
@@ -120,7 +142,7 @@ export default function PostEditorBlocksField({
           <button
             type="button"
             onClick={onAddImageBlock}
-            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
+            className="focus-ring-soft inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
             disabled={isEditorLocked}
           >
             <PlusIcon className="size-3.5" />
@@ -130,7 +152,7 @@ export default function PostEditorBlocksField({
           <button
             type="button"
             onClick={onAddVideoBlock}
-            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
+            className="focus-ring-soft inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
             disabled={hasVideoBlock || isEditorLocked}
           >
             <PlusIcon className="size-3.5" />
@@ -140,7 +162,7 @@ export default function PostEditorBlocksField({
           <button
             type="button"
             onClick={onAddEmbedBlock}
-            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
+            className="focus-ring-soft inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border bg-surface px-2 py-2 text-xs font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1.5"
             disabled={isEditorLocked}
           >
             <PlusIcon className="size-3.5" />
@@ -168,7 +190,9 @@ export default function PostEditorBlocksField({
                       }}
                       {...dragProvided.draggableProps}
                       className={`rounded-2xl border border-border bg-surface p-3.5 shadow-sm transition-shadow sm:p-4 ${
-                        snapshot.isDragging ? "shadow-lg ring-2 ring-brand/20" : ""
+                        snapshot.isDragging
+                          ? "shadow-lg ring-2 ring-brand/20"
+                          : ""
                       }`}
                     >
                       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -176,13 +200,13 @@ export default function PostEditorBlocksField({
                           <button
                             type="button"
                             {...dragProvided.dragHandleProps}
-                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                            className="focus-ring-soft rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label={`${index + 1}번째 블록 드래그`}
                             disabled={isEditorLocked}
                           >
                             <Bars3Icon className="size-4" />
                           </button>
-                          <span className="rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-semibold text-brand dark:bg-brand-light/10 dark:text-brand-light">
+                          <span className="rounded-full border border-brand/20 bg-brand/10 px-2.5 py-1 text-xs font-medium text-primary dark:border-brand-light/25 dark:bg-brand-light/20 dark:text-gray-100">
                             {block.type === "TEXT"
                               ? "텍스트"
                               : block.type === "VIDEO"
@@ -191,7 +215,7 @@ export default function PostEditorBlocksField({
                                   ? "유튜브"
                                   : "이미지"}
                           </span>
-                          <span className="truncate text-[11px] text-muted sm:text-xs">
+                          <span className="truncate text-xs text-muted">
                             {index + 1}번째 블록
                           </span>
                         </div>
@@ -199,7 +223,7 @@ export default function PostEditorBlocksField({
                           <button
                             type="button"
                             onClick={() => onMoveBlock(index, -1)}
-                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-40"
+                            className="focus-ring-soft rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-40"
                             disabled={index === 0 || isEditorLocked}
                             aria-label="위로 이동"
                           >
@@ -208,8 +232,11 @@ export default function PostEditorBlocksField({
                           <button
                             type="button"
                             onClick={() => onMoveBlock(index, 1)}
-                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-40"
-                            disabled={index === editorBlocks.length - 1 || isEditorLocked}
+                            className="focus-ring-soft rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-40"
+                            disabled={
+                              index === editorBlocks.length - 1 ||
+                              isEditorLocked
+                            }
                             aria-label="아래로 이동"
                           >
                             <ArrowDownIcon className="size-4" />
@@ -217,7 +244,7 @@ export default function PostEditorBlocksField({
                           <button
                             type="button"
                             onClick={() => onRemoveBlock(index)}
-                            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-danger"
+                            className="focus-ring-soft rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-dim hover:text-danger"
                             aria-label="블록 제거"
                             disabled={isEditorLocked}
                           >
@@ -228,10 +255,15 @@ export default function PostEditorBlocksField({
 
                       {block.type === "TEXT" ? (
                         <textarea
+                          ref={(element) => {
+                            textAreaRefs.current[block.id] = element;
+                            resizeTextBlockTextarea(element);
+                          }}
                           value={block.textContent ?? ""}
-                          onChange={(event) =>
-                            onUpdateTextBlock(block.id, event.target.value)
-                          }
+                          onChange={(event) => {
+                            resizeTextBlockTextarea(event.currentTarget);
+                            onUpdateTextBlock(block.id, event.target.value);
+                          }}
                           placeholder="내용을 입력해주세요"
                           disabled={isEditorLocked}
                           className="min-h-[140px] w-full resize-y rounded-xl border border-border bg-background px-4 py-3 text-base leading-relaxed text-primary outline-none transition-colors placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand/15 dark:focus:border-brand-light dark:focus:ring-brand-light/15 sm:min-h-[180px]"
@@ -251,7 +283,7 @@ export default function PostEditorBlocksField({
                                   )}
                                 </div>
                                 <div className="space-y-1">
-                                  <p className="text-sm font-semibold text-primary">
+                                  <p className="text-sm font-medium text-primary">
                                     {videoFileName ?? "첨부 동영상"}
                                   </p>
                                   <p className="text-xs text-muted">
@@ -261,16 +293,21 @@ export default function PostEditorBlocksField({
                                         ? "처리에 실패했습니다. 다시 업로드해주세요."
                                         : "Cloudflare에서 동영상을 처리하고 있습니다."}
                                   </p>
-                                  <p className="text-[11px] text-muted">
-                                    큰 영상 플랫폼이 아닌 게시글 보조 첨부 기준으로 짧은 클립만 허용합니다.
+                                  <p className="text-xs text-muted">
+                                    큰 영상 플랫폼이 아닌 게시글 보조 첨부
+                                    기준으로 짧은 클립만 허용합니다.
                                   </p>
                                 </div>
                               </div>
                               <button
                                 type="button"
                                 onClick={onClearVideo}
-                                className="rounded-lg p-1 text-muted transition-colors hover:text-danger"
-                                disabled={isVideoUploading || isUploading || isEditorLocked}
+                                className="focus-ring-soft rounded-lg p-1 text-muted transition-colors hover:text-danger"
+                                disabled={
+                                  isVideoUploading ||
+                                  isUploading ||
+                                  isEditorLocked
+                                }
                                 aria-label="첨부 동영상 제거"
                               >
                                 <XMarkIcon className="size-4" />
@@ -301,15 +338,19 @@ export default function PostEditorBlocksField({
                                   mp4, mov, webm / 최대 80MB / 최대 60초
                                 </p>
                               </div>
-                                <input
-                                  type="file"
-                                  accept="video/mp4,video/quicktime,video/webm"
-                                  className="hidden"
-                                  onChange={onVideoChange}
-                                  disabled={isVideoUploading || isUploading || isEditorLocked}
-                                />
-                              </label>
-                            </div>
+                              <input
+                                type="file"
+                                accept="video/mp4,video/quicktime,video/webm"
+                                className="hidden"
+                                onChange={onVideoChange}
+                                disabled={
+                                  isVideoUploading ||
+                                  isUploading ||
+                                  isEditorLocked
+                                }
+                              />
+                            </label>
+                          </div>
                         )
                       ) : block.type === "EMBED" ? (
                         <div className="space-y-3">
@@ -329,7 +370,8 @@ export default function PostEditorBlocksField({
                               className="h-12 w-full rounded-xl border border-border bg-surface px-4 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-brand focus:ring-2 focus:ring-brand/15 dark:focus:border-brand-light dark:focus:ring-brand-light/15"
                             />
                             <p className="mt-2 text-xs text-muted">
-                              watch, youtu.be, shorts 링크를 붙여넣으면 저장 시 임베드로 변환됩니다.
+                              watch, youtu.be, shorts 링크를 붙여넣으면 저장 시
+                              임베드로 변환됩니다.
                             </p>
                           </div>
                         </div>
@@ -370,24 +412,24 @@ export default function PostEditorBlocksField({
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
-                                  onClick={() =>
-                                    imageInputRefs.current[block.id]?.click()
-                                  }
-                                  className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-surface-dim"
-                                  disabled={isEditorLocked}
-                                >
-                                  이미지 교체
-                                </button>
+                                    onClick={() =>
+                                      imageInputRefs.current[block.id]?.click()
+                                    }
+                                    className="focus-ring-soft rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-surface-dim"
+                                    disabled={isEditorLocked}
+                                  >
+                                    이미지 교체
+                                  </button>
                                   <button
                                     type="button"
-                                  onClick={() =>
-                                    onRemoveImageBlockAsset(block.id)
-                                  }
-                                  className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:text-danger hover:bg-surface-dim"
-                                  disabled={isEditorLocked}
-                                >
-                                  이미지 비우기
-                                </button>
+                                    onClick={() =>
+                                      onRemoveImageBlockAsset(block.id)
+                                    }
+                                    className="focus-ring-soft rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-danger"
+                                    disabled={isEditorLocked}
+                                  >
+                                    이미지 비우기
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -415,7 +457,8 @@ export default function PostEditorBlocksField({
                                   이 위치에 이미지 첨부
                                 </p>
                                 <p className="text-xs text-muted">
-                                  jpg, png, webp, gif / 최대 10MB / 게시글당 {maxImages}장
+                                  jpg, png, webp, gif / 최대 10MB / 게시글당{" "}
+                                  {maxImages}장
                                 </p>
                               </div>
                             </button>
@@ -429,7 +472,9 @@ export default function PostEditorBlocksField({
                             accept="image/jpeg,image/png,image/webp,image/gif"
                             multiple
                             className="hidden"
-                            onChange={(event) => onImageBlockChange(block.id, event)}
+                            onChange={(event) =>
+                              onImageBlockChange(block.id, event)
+                            }
                             disabled={isEditorLocked}
                           />
                         </div>

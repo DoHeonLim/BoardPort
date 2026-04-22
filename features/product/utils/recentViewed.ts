@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.15  임도헌   Created   최근 본 상품 스냅샷 저장/조회 유틸 추가
  * 2026.03.16  임도헌   Modified  저장 직후 FAB가 즉시 갱신되도록 커스텀 이벤트 발행 추가
+ * 2026.04.08  임도헌   Modified  상품 삭제 직후 최근 본 상품 목록에서도 즉시 제거할 수 있도록 삭제 유틸 추가
  */
 
 "use client";
@@ -67,5 +68,25 @@ export function saveRecentViewedProduct(product: RecentViewedProduct) {
     window.dispatchEvent(new Event(RECENT_VIEWED_PRODUCTS_UPDATED_EVENT));
   } catch {
     // 최근 본 상품은 보조 UX이므로 저장 실패 시 조용히 무시
+  }
+}
+
+/**
+ * 최근 본 상품 목록에서 특정 상품 제거
+ *
+ * - 제품 삭제 후 로컬 최근 본 상품 목록에서도 즉시 제거
+ * - 같은 탭 FAB/모달이 바로 반영되도록 갱신 이벤트를 함께 발행
+ *
+ * @param {number} productId - 제거할 상품 ID
+ */
+export function removeRecentViewedProduct(productId: number) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const next = getRecentViewedProducts().filter((item) => item.id !== productId);
+    window.localStorage.setItem(RECENT_VIEWED_PRODUCTS_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event(RECENT_VIEWED_PRODUCTS_UPDATED_EVENT));
+  } catch {
+    // 최근 본 상품은 보조 UX이므로 제거 실패 시 조용히 무시
   }
 }

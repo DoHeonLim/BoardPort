@@ -11,6 +11,7 @@
  * 2026.01.16  임도헌   Moved     components/image -> components/global
  * 2026.02.26  임도헌   Modified  이미지 업로드 X 버튼 크기 수정
  * 2026.04.04  임도헌   Modified  export/props 주석을 보강해 이미지 순서 편집 컴포넌트의 사용 의도를 명확히 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 인덱스 배지 크기를 text-xs 기준으로 정리
  */
 import dynamic from "next/dynamic";
 import type { DropResult } from "@hello-pangea/dnd";
@@ -101,7 +102,7 @@ export default function DraggableImageList({
                       </div>
 
                       {/* Index Badge */}
-                      <div className="absolute top-2 left-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-black/60 backdrop-blur-sm rounded-full text-white text-[10px] font-bold z-10 pointer-events-none">
+                      <div className="absolute top-2 left-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-bold z-10 pointer-events-none">
                         {index + 1}
                       </div>
 
@@ -112,7 +113,7 @@ export default function DraggableImageList({
                           e.preventDefault();
                           onDeleteImage(index);
                         }}
-                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 hover:bg-red-500 text-white transition-colors backdrop-blur-sm z-10"
+                        className="focus-ring-soft absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 hover:bg-red-500 text-white transition-colors backdrop-blur-sm z-10"
                         aria-label="이미지 삭제"
                       >
                         <XMarkIcon className="w-3.5 h-3.5" />

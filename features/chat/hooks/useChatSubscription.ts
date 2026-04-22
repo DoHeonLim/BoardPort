@@ -1,6 +1,6 @@
 /**
  * File Name : features/chat/hooks/useChatSubscription.ts
- * Description : Supabase 실시간 채팅 구독 훅 (message / message_read / message_deleted)
+ * Description : Supabase 실시간 채팅 구독 훅 (message / message_read / message_deleted / reaction / appointment)
  * Author : 임도헌
  *
  * Key Points
@@ -26,8 +26,8 @@
  * 2026.03.07  임도헌   Modified  readMessageUpdateAction 결과 타입(MessageReadUpdateResult) 반영
  * 2026.04.01  임도헌   Modified  message_deleted 이벤트 수신 및 로컬 메시지 교체 콜백 추가
  * 2026.04.02  임도헌   Modified  구독 훅 JSDoc 반환 설명 보강
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  */
-"use client";
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
@@ -64,8 +64,9 @@ interface UseChatSubscriptionOptions {
  * [기능]
  * 1. `message` 이벤트: 새 메시지 수신 시 콜백을 호출. 내가 보낸 메시지가 아닐 경우 읽음 처리 API를 호출
  * 2. `message_read` 이벤트: 읽음 처리한 사용자(readerId)와 readIds를 함께 전달하여 UI를 갱신
- * 3. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
- * 4. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
+ * 3. `message_deleted` / `message_reaction` / `appointment_update` 이벤트를 함께 수신해 상세 화면 상태를 동기화
+ * 4. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
+ * 5. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
  *
  * @param {UseChatSubscriptionOptions} options
  * @returns {void} 실시간 구독과 해제를 담당하는 effect만 등록
@@ -221,16 +222,22 @@ export default function useChatSubscription({
       /**
        * 4) 메시지 반응 상태 업데이트 수신
        */
-      .on("broadcast", { event: CHAT_EVENT.MESSAGE_REACTION }, ({ payload }) => {
-        if (!payload?.id) return;
+      .on(
+        "broadcast",
+        { event: CHAT_EVENT.MESSAGE_REACTION },
+        ({ payload }) => {
+          if (!payload?.id) return;
 
-        onMessageReactionRef.current?.({
-          ...payload,
-          created_at: new Date(payload.created_at),
-          deleted_at: payload.deleted_at ? new Date(payload.deleted_at) : null,
-          reactions: payload.reactions ?? [],
-        });
-      })
+          onMessageReactionRef.current?.({
+            ...payload,
+            created_at: new Date(payload.created_at),
+            deleted_at: payload.deleted_at
+              ? new Date(payload.deleted_at)
+              : null,
+            reactions: payload.reactions ?? [],
+          });
+        }
+      )
 
       /**
        * 5) 약속 상태 업데이트 수신
@@ -248,4 +255,3 @@ export default function useChatSubscription({
     };
   }, [chatRoomId, currentUserId, throttleReadUpdate, decrement]);
 }
-

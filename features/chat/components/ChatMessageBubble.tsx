@@ -29,16 +29,19 @@
  * 2026.04.02  임도헌   Modified  메시지 반응 집계 표시와 반응 토글 액션 추가
  * 2026.04.02  임도헌   Modified  데스크톱 hover 액션 바(빠른 반응 + 더보기)와 포털 메뉴 위치 계산을 적용
  * 2026.04.02  임도헌   Modified  모바일 메시지 옵션을 공용 BottomSheet로 통일하고 라이트/다크 가시성을 보강
+ * 2026.04.05  임도헌   Modified  모바일 롱프레스 메뉴가 미세한 손가락 흔들림에는 유지되도록 시간/이동 허용치 조정
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 메타 타임 크기를 text-xs 기준으로 정리
+ * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 이미지 확대 모달과 상대 아바타 초기 비용을 줄임
  */
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import UserAvatar from "@/components/global/UserAvatar";
 import TimeAgo from "@/components/ui/TimeAgo";
 import BottomSheet from "@/components/global/BottomSheet";
-import { ImageZoomModal } from "@/components/ui/ZoomableImage";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/features/chat/types";
 import {
@@ -57,6 +60,13 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { toast } from "sonner";
 
 const DESKTOP_QUICK_REACTION_KEYS: ChatMessageReactionKey[] = ["LIKE", "LOVE"];
+const LONG_PRESS_OPEN_DELAY_MS = 380;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 12;
+const ImageZoomModal = dynamic(
+  () =>
+    import("@/components/ui/ZoomableImage").then((mod) => mod.ImageZoomModal),
+  { ssr: false }
+);
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -80,7 +90,7 @@ interface ChatMessageBubbleProps {
  *
  * [이미지 처리]
  * - 이미지가 포함된 경우 꽉 찬 썸네일(`object-cover`)을 제공
- * - 확대 모달은 게시글/제품 이미지와 같은 공용 원본 보기 UX를 재사용
+ * - 확대 모달은 게시글/제품 이미지와 같은 공용 원본 보기 UX를 지연 로드로 재사용
  */
 export default function ChatMessageBubble({
   message,
@@ -116,6 +126,7 @@ export default function ChatMessageBubble({
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null);
   const didLongPressRef = useRef(false);
   const [desktopMenuPosition, setDesktopMenuPosition] = useState<{
     top: number;
@@ -173,20 +184,38 @@ export default function ChatMessageBubble({
     }
   };
 
-  const handleLongPressStart = () => {
+  const handleLongPressStart = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!isMobile || !hasMessageActions) return;
 
     clearLongPressTimer();
     didLongPressRef.current = false;
+    longPressStartPointRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
 
     longPressTimerRef.current = setTimeout(() => {
       didLongPressRef.current = true;
       setShowMenu(true);
-    }, 420);
+    }, LONG_PRESS_OPEN_DELAY_MS);
   };
 
   const handleLongPressEnd = () => {
     clearLongPressTimer();
+    longPressStartPointRef.current = null;
+  };
+
+  const handleLongPressMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const startPoint = longPressStartPointRef.current;
+    if (!startPoint) return;
+
+    const movedX = event.clientX - startPoint.x;
+    const movedY = event.clientY - startPoint.y;
+    const movedDistance = Math.hypot(movedX, movedY);
+
+    if (movedDistance > LONG_PRESS_MOVE_TOLERANCE_PX) {
+      handleLongPressEnd();
+    }
   };
 
   useEffect(() => clearLongPressTimer, []);
@@ -229,15 +258,15 @@ export default function ChatMessageBubble({
             );
 
             return (
-              <button
-                key={reactionKey}
-                type="button"
-                onClick={() => handleToggleReaction(reactionKey)}
-                className={cn(
-                  "inline-flex min-w-11 items-center justify-center rounded-full border px-2.5 py-2 text-base transition-colors",
-                  reactedByMe
-                    ? "border-brand/45 bg-brand/10 shadow-sm dark:border-brand-light/45 dark:bg-brand-light/10"
-                    : "border-border-subtle bg-background hover:bg-surface-dim"
+                <button
+                  key={reactionKey}
+                  type="button"
+                  onClick={() => handleToggleReaction(reactionKey)}
+                  className={cn(
+                    "focus-ring-soft inline-flex min-w-11 items-center justify-center rounded-full border px-2.5 py-2 text-base transition-colors",
+                    reactedByMe
+                      ? "border-brand/45 bg-brand/10 shadow-sm dark:border-brand-light/45 dark:bg-brand-light/10"
+                      : "border-border-subtle bg-background hover:bg-surface-dim"
                 )}
                 aria-label={meta.label}
                 title={meta.label}
@@ -277,7 +306,7 @@ export default function ChatMessageBubble({
         <button
           type="button"
           onClick={handleCopyMessage}
-          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+          className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
         >
           <ClipboardDocumentIcon className="size-4" />
           복사하기
@@ -287,7 +316,7 @@ export default function ChatMessageBubble({
         <button
           type="button"
           onClick={handleDeleteMessage}
-          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
+          className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
         >
           <TrashIcon className="size-4" />
           삭제하기
@@ -300,7 +329,7 @@ export default function ChatMessageBubble({
             setShowMenu(false);
             onReport?.(message.id);
           }}
-          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
+          className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
         >
           <ExclamationTriangleIcon className="size-4" />
           신고하기
@@ -356,6 +385,7 @@ export default function ChatMessageBubble({
                   username={message.user.username}
                   size="sm"
                   showUsername={false}
+                  prefetch={false}
                   className="p-0"
                   compact
                 />
@@ -406,7 +436,7 @@ export default function ChatMessageBubble({
                             type="button"
                             onClick={() => handleToggleReaction(reactionKey)}
                             className={cn(
-                              "pointer-events-auto inline-flex size-8 items-center justify-center rounded-full text-sm transition-colors",
+                              "focus-ring-soft pointer-events-auto inline-flex size-8 items-center justify-center rounded-full text-sm transition-colors",
                               reactedByMe
                                 ? "bg-brand/10 shadow-sm dark:bg-brand-light/10"
                                 : "bg-surface text-primary hover:bg-surface-dim dark:bg-background"
@@ -425,7 +455,7 @@ export default function ChatMessageBubble({
                         type="button"
                         onClick={() => setShowMenu(!showMenu)}
                         className={cn(
-                          "pointer-events-auto inline-flex size-8 items-center justify-center rounded-full bg-surface text-primary/90 shadow-sm transition-colors dark:bg-background dark:text-primary/85",
+                          "focus-ring-soft pointer-events-auto inline-flex size-8 items-center justify-center rounded-full bg-surface text-primary/90 shadow-sm transition-colors dark:bg-background dark:text-primary/85",
                           "hover:bg-surface-dim hover:text-primary dark:hover:bg-surface-dim",
                           showMenu && "bg-surface-dim text-primary"
                         )}
@@ -450,7 +480,7 @@ export default function ChatMessageBubble({
                   onPointerUp={handleLongPressEnd}
                   onPointerLeave={handleLongPressEnd}
                   onPointerCancel={handleLongPressEnd}
-                  onPointerMove={handleLongPressEnd}
+                  onPointerMove={handleLongPressMove}
                 >
                   {/* 이미지 렌더링 */}
                   {hasImage && (
@@ -509,7 +539,7 @@ export default function ChatMessageBubble({
               </div>
 
               {/* Time & Status */}
-              <div className="mb-0.5 flex shrink-0 flex-col text-[11px] font-medium text-muted">
+              <div className="mb-0.5 flex shrink-0 flex-col text-xs font-medium text-muted">
                 {isOwnMessage && (
                   <span className="text-brand dark:text-brand-light text-right">
                     {message.isRead ? "" : "1"}
@@ -593,4 +623,3 @@ export default function ChatMessageBubble({
     </>
   );
 }
-

@@ -28,7 +28,7 @@ export async function sendSMS(phone: string, token: string) {
   const apiSecret = process.env.COOLSMS_API_SECRET!;
   const sender = process.env.COOLSMS_SENDER_NUMBER!;
 
-  // CoolSMS객체 만든다.
+  // CoolSMS 객체 생성
   const messageService = new coolsms(apiKey, apiSecret);
 
   try {

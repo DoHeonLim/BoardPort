@@ -12,6 +12,7 @@
  * 2026.02.26  임도헌   Renamed   PostCardTags -> PostCardTags로 변경 및 다크모드 개선
  * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
  * 2026.03.14  임도헌   Modified  그리드 카드에서도 태그를 압축형 밀도로 노출할 수 있도록 compact/maxVisible 옵션 추가
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 태그/더보기 라벨을 text-xs 기준으로 정리
  */
 
 "use client";
@@ -47,7 +48,8 @@ export default function PostCardTags({
           key={index}
           className={cn(
             "rounded-md font-medium",
-            compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]",
+            "text-xs",
+            compact ? "px-1.5 py-0.5" : "px-2 py-0.5",
             "bg-badge text-badge-text border border-transparent dark:border-white/10"
           )}
         >
@@ -57,8 +59,8 @@ export default function PostCardTags({
       {hiddenCount > 0 && (
         <span
           className={cn(
-            "self-center text-muted",
-            compact ? "px-1 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[10px]"
+            "self-center text-xs text-muted",
+            compact ? "px-1 py-0.5" : "px-1.5 py-0.5"
           )}
         >
           +{hiddenCount}

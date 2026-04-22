@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.02  임도헌   Created   constants.ts에 섞여 있던 제품 조회 select 상수를 전용 파일로 분리
+ * 2026.04.09  임도헌   Modified  내 판매/구매/찜 프로필 목록에서 판매완료 숨김 상태를 함께 다룰 수 있도록 hidden_at 필드 추가
  */
 
 /** 기본 제품 목록 조회용 Select (ProductList, Search 등) */
@@ -68,6 +69,7 @@ export const PROFILE_SALES_UNIFIED_SELECT = {
   price: true,
   created_at: true,
   updated_at: true,
+  hidden_at: true,
   region1: true,
   region2: true,
   region3: true,

@@ -16,8 +16,8 @@
  * 2026.03.12  임도헌   Modified  리뷰 상세 별점 색상을 채움형 노란 별 기준으로 복원
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  * 2026.03.23  임도헌   Modified  데스크톱에서 텍스트형 모달이 세로로만 길어지지 않도록 폭을 한 단계 확장
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -159,7 +159,7 @@ export default function ReviewDetailModal({
             {review && !isOwnReview && (
               <button
                 onClick={() => setReportOpen(true)}
-                className="text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
+                className="focus-ring-soft rounded-md text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
               >
                 <ExclamationTriangleIcon className="size-4" />
                 <span className="text-xs">신고</span>
@@ -172,14 +172,14 @@ export default function ReviewDetailModal({
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/20 rounded-xl transition-colors disabled:opacity-50"
+                className="focus-ring-soft px-4 py-2 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/20 rounded-xl transition-colors disabled:opacity-50"
               >
                 {isDeleting ? "삭제 중..." : "삭제"}
               </button>
             )}
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border-subtle rounded-xl transition-colors"
+              className="focus-ring-soft px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border-subtle rounded-xl transition-colors"
             >
               닫기
             </button>

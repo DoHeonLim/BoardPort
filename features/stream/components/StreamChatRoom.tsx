@@ -38,6 +38,7 @@
  * 2026.03.21  임도헌   Modified  부모 sticky 레일 높이를 그대로 따르도록 정리하고 모바일 헤더/입력 영역 밀도를 낮춤
  * 2026.03.21  임도헌   Modified  userId 정규화 비교를 적용해 내 메시지에 신고 버튼이 잘못 노출되는 예외를 방지
  * 2026.03.24  임도헌   Modified  모바일은 메시지를 탭했을 때만 신고 액션을 노출해 채팅 몰입도를 높임
+ * 2026.04.10  임도헌   Modified  삭제된 메시지 placeholder 대비를 보정해 라이트 모드 채팅 가시성 개선
  * 2026.03.24  임도헌   Modified  모바일 채팅 확대/축소 버튼을 제거하고 단일 채팅 흐름으로 단순화
  * 2026.03.24  임도헌   Modified  스트림 상세 전용 props로 채팅 열림/닫힘 상태를 제어하도록 단순화
  * 2026.03.24  임도헌   Modified  채팅 헤더 높이와 액션 버튼 밀도를 낮춰 모바일 세로 공간 활용을 보정
@@ -56,26 +57,26 @@
  * 2026.04.03  임도헌   Modified  데스크톱 메시지 옵션 메뉴를 포털 기반으로 재배치하고 화면 경계/바깥 클릭 닫힘을 보강
  * 2026.04.03  임도헌   Modified  스트림 채팅 액션 라벨과 전송 실패 토스트를 1:1 채팅과 같은 톤으로 정리
  * 2026.04.03  임도헌   Modified  스트림 채팅 조회/전송 토스트를 재시도 안내 중심 문법으로 정리
+ * 2026.04.08  임도헌   Modified  모바일 호스트용 채팅 금지 관리 목록은 BottomSheet, 데스크톱은 인라인 패널로 분리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 채팅 헤더·공지·메시지 메타 타이포를 정리
+ * 2026.04.20  임도헌   Modified  공지/닉네임 버튼과 입력창 포커스를 게시글/녹화 댓글과 같은 공용 포커스 문법으로 정리
+ * 2026.04.21  임도헌   Modified  액션 메뉴, 입력 영역, 채팅 금지 패널을 하위 컴포넌트로 분리해 책임을 정리
+ * 2026.04.21  임도헌   Modified  개별 메시지 렌더를 StreamChatMessageItem으로 분리해 메시지 블록 책임을 축소
+ * 2026.04.21  임도헌   Modified  고정 공지 편집 패널과 읽기 배너를 분리해 공지 흐름을 단순화
+ * 2026.04.21  임도헌   Modified  채팅 금지 실시간 수신 및 전송 거부 시 입력 draft 즉시 정리
+ * 2026.04.22  임도헌   Modified  개인 알림 채널 중복 구독 대신 전역 sys_event 브리지로 채팅 금지 상태를 실시간 동기화
  */
 "use client";
 
 import { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { supabase } from "@/lib/supabase";
-import TimeAgo from "@/components/ui/TimeAgo";
 import BottomSheet from "@/components/global/BottomSheet";
-import UserAvatar from "@/components/global/UserAvatar";
 import { toast } from "sonner";
 import useStreamChatSubscription from "@/features/stream/hooks/useStreamChatSubscription";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
-  TrashIcon,
-  PaperAirplaneIcon,
-  ExclamationTriangleIcon,
-  ClipboardDocumentIcon,
-  EllipsisVerticalIcon,
   XMarkIcon,
   MegaphoneIcon,
 } from "@heroicons/react/24/outline";
@@ -90,7 +91,16 @@ import {
 import { STREAM_PINNED_NOTICE_MAX_LENGTH } from "@/features/stream/constants";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import type { MutedStreamViewer } from "@/features/stream/types";
+import type {
+  MutedStreamViewer,
+  StreamMetaUpdatePayload,
+} from "@/features/stream/types";
+import StreamChatActionMenuItems from "./StreamChatActionMenuItems";
+import StreamChatComposer from "./StreamChatComposer";
+import StreamChatMessageItem from "./StreamChatMessageItem";
+import StreamChatMutedViewerPanel from "./StreamChatMutedViewerPanel";
+import StreamChatPinnedNoticeBanner from "./StreamChatPinnedNoticeBanner";
+import StreamChatPinnedNoticeEditor from "./StreamChatPinnedNoticeEditor";
 
 const StreamChatUserModal = dynamic(() => import("./StreamChatUserModal"), {
   ssr: false,
@@ -116,6 +126,7 @@ interface Props {
   containerClassName?: string; // 외부 주입 스타일
   isOpen?: boolean; // 채팅 노출 여부
   onCloseChat?: () => void; // 채팅 닫기 핸들러
+  onStreamMetaUpdated?: (payload: StreamMetaUpdatePayload) => void; // 방송 제목/설명 실시간 동기화
 }
 
 const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 유지 한도
@@ -124,10 +135,10 @@ const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 �
  * 스트리밍 실시간 채팅방 컴포넌트
  *
  * [상태 주입 및 상호작용 제어 로직]
- * - 스트림 상세 Client Shell에서 내려주는 props를 통해 모바일/데스크톱 채팅창 표시 여부와 닫기 액션을 제어
- * - Supabase 기반 `useStreamChatSubscription`을 통해 실시간 채팅 메시지를 수신하고, 전송 성공 직후 내 화면에 낙관 반영
+ * - 스트림 상세 Client Shell에서 내려주는 props를 통한 모바일/데스크톱 채팅창 표시 여부와 닫기 액션 제어
+ * - Supabase 기반 `useStreamChatSubscription`을 통한 실시간 채팅 메시지 수신 및 전송 성공 직후 내 화면 낙관 반영
  * - 쿨다운 타이머(Rate Limit) 적용 및 스크롤 바닥 감지 기반 자동 스크롤 로직 제공
- * - 메시지 신고, 유저 프로필 미니 모달, 차단/강제 퇴장 후 로컬 메시지 숨김까지 채팅 안에서 처리
+ * - 메시지 신고, 유저 프로필 미니 모달, 차단/강제 퇴장 후 로컬 메시지 숨김까지의 채팅 내부 처리
  */
 export default function StreamChatRoom({
   initialStreamMessage,
@@ -144,8 +155,14 @@ export default function StreamChatRoom({
   containerClassName = "",
   isOpen = true,
   onCloseChat,
+  onStreamMetaUpdated,
 }: Props) {
   const isMobile = useIsMobile();
+
+  /**
+   * 숫자/문자열 혼용으로 내려오는 userId를 안전하게 비교
+   * 스트림 액션 권한 분기에서 1과 "1"을 같은 사용자로 취급하기 위한 정규화 유틸
+   */
   const isSameUser = (
     left: number | string | null | undefined,
     right: number | string | null | undefined
@@ -186,7 +203,7 @@ export default function StreamChatRoom({
   const [pinnedNoticeDraft, setPinnedNoticeDraft] = useState(
     initialPinnedChatNotice ?? ""
   ); // 호스트 공지 편집 draft
-  const [showMutedViewerPanel, setShowMutedViewerPanel] = useState(false); // 호스트용 채팅 금지 관리 패널 노출 여부
+  const [showMutedViewerPanel, setShowMutedViewerPanel] = useState(false); // 호스트용 채팅 금지 관리 목록 노출 여부 (모바일 BottomSheet / 데스크톱 인라인 패널)
   const [mutedViewers, setMutedViewers] = useState<MutedStreamViewer[]>([]); // 현재 방송 채팅 금지 대상 목록
   const [reportMessageId, setReportMessageId] = useState<number | null>(null); // 신고 대상 메세지 ID
   const [menuMessageId, setMenuMessageId] = useState<number | null>(null); // 데스크톱 액션 메뉴 대상 메시지 ID
@@ -215,6 +232,27 @@ export default function StreamChatRoom({
   // 내가 호스트(방장)인지 판단 (차단 안내 문구 분기용)
   const isViewerHost = userId === streamChatRoomhost;
 
+  // 모바일 전송 탭 시 버튼으로 포커스가 이동하며 키보드가 닫히는 현상 방지
+  const preventFocusSteal = (
+    event:
+      | React.MouseEvent<HTMLButtonElement>
+      | React.PointerEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+  };
+
+  // 채팅 제한 전환 시 입력 draft와 textarea 높이를 즉시 초기 상태로 복귀
+  const clearComposerDraft = () => {
+    setMessage("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  };
+
+  /**
+   * 삭제 브로드캐스트를 현재 메시지 배열과 액션 메뉴 상태에 동기화
+   * placeholder 렌더 유지 및 이미 열린 데스크톱/모바일 메뉴 동시 닫기
+   */
   const markMessageDeleted = (messageId: number, deleted_at: Date) => {
     setMessages((prev) =>
       prev.map((item) =>
@@ -273,7 +311,7 @@ export default function StreamChatRoom({
     const el = chatRef.current;
     if (!el) return;
     const onScroll = () => {
-      // 바닥에서 50px 이내면 자동 스크롤 허용 상태로 간주
+      // 바닥에서 50px 이내인 경우 자동 스크롤 허용 상태로 간주
       atBottomRef.current =
         el.scrollHeight - el.scrollTop - el.clientHeight <= 50;
     };
@@ -316,32 +354,44 @@ export default function StreamChatRoom({
       setPinnedNoticeDraft(notice ?? "");
       setShowPinnedNoticeEditor(false);
     },
+    onStreamMetaUpdate: onStreamMetaUpdated,
   });
 
   useEffect(() => {
     if (!userId || isViewerHost) return;
 
-    const channel = supabase.channel(`user-${userId}-notifications`);
+    // NotificationListener가 발행한 전역 운영 이벤트 중
+    // 현재 방송의 채팅 금지/해제만 골라 입력 상태와 토스트를 즉시 동기화
+    const handleMuteState = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          type?: "STREAM_CHAT_MUTED" | "STREAM_CHAT_UNMUTED";
+          streamId?: number;
+        }>
+      ).detail;
 
-    channel
-      .on("broadcast", { event: "sys_event" }, ({ payload }) => {
-        if (Number(payload?.streamId) !== streamId) return;
+      if (Number(detail?.streamId) !== streamId) return;
 
-        if (payload?.type === "STREAM_CHAT_MUTED") {
-          setIsMuted(true);
-          toast.error("호스트에 의해 현재 방송 채팅이 제한되었습니다.");
-          return;
-        }
+      if (detail?.type === "STREAM_CHAT_MUTED") {
+        setIsMuted(true);
+        clearComposerDraft();
+        toast.error("호스트에 의해 현재 방송 채팅이 제한되었습니다.");
+        return;
+      }
 
-        if (payload?.type === "STREAM_CHAT_UNMUTED") {
-          setIsMuted(false);
-          toast.success("현재 방송 채팅 제한이 해제되었습니다.");
-        }
-      })
-      .subscribe();
+      if (detail?.type === "STREAM_CHAT_UNMUTED") {
+        setIsMuted(false);
+        toast.success("현재 방송 채팅 제한이 해제되었습니다.");
+      }
+    };
+
+    window.addEventListener("app:sys-event", handleMuteState as EventListener);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener(
+        "app:sys-event",
+        handleMuteState as EventListener
+      );
     };
   }, [isViewerHost, streamId, userId]);
 
@@ -398,6 +448,10 @@ export default function StreamChatRoom({
     ? pinnedNotice.replace(/\s+/g, " ").trim().slice(0, 96).trimEnd()
     : "";
 
+  /**
+   * 호스트의 채팅 금지 관리 패널 열기 시 현재 대상 목록 조회
+   * 모바일/데스크톱의 동일 데이터 공유를 위한 상위 조회 함수 관리
+   */
   const loadMutedViewers = () => {
     if (!isViewerHost) return;
 
@@ -432,6 +486,7 @@ export default function StreamChatRoom({
   const onSubmit = async () => {
     if (Date.now() < cooldownUntil) return;
     if (isMuted) {
+      clearComposerDraft();
       toast.error("현재 방송에서 채팅이 제한되어 있습니다.");
       return;
     }
@@ -439,8 +494,7 @@ export default function StreamChatRoom({
     if (!text) return;
 
     try {
-      setMessage(""); // Optimistic Clear
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      clearComposerDraft(); // Optimistic Clear
 
       const res = await sendStreamMessageAction(text, streamChatRoomId);
 
@@ -451,9 +505,12 @@ export default function StreamChatRoom({
           toast.error("조금 천천히 보내주세요. 🐢");
         } else if (res.error === "MUTED") {
           setIsMuted(true);
+          clearComposerDraft();
           toast.error("현재 방송에서 채팅이 제한되어 있습니다.");
         } else {
-          toast.error("메시지를 전송하지 못했습니다. 잠시 후 다시 시도해주세요.");
+          toast.error(
+            "메시지를 전송하지 못했습니다. 잠시 후 다시 시도해주세요."
+          );
         }
         return;
       }
@@ -466,11 +523,12 @@ export default function StreamChatRoom({
         const next = [...prev, sent];
         return next.length > MAX_ITEMS ? next.slice(-MAX_ITEMS) : next;
       });
-
+      textareaRef.current?.focus();
     } catch (err) {
       setMessage(text);
       console.error(err);
       toast.error("서버와 통신하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      textareaRef.current?.focus();
     }
   };
 
@@ -481,10 +539,12 @@ export default function StreamChatRoom({
     }
   };
 
+  // 스트림 상세 셸의 닫기 액션 직접 호출을 통한 모바일/데스크톱 상태 동시 정렬
   const closeChat = () => {
     onCloseChat?.();
   };
 
+  // 복사 성공/실패 토스트와 함께 현재 열려 있는 액션 UI 정리
   const handleCopyMessage = async (payload: string) => {
     try {
       await navigator.clipboard.writeText(payload);
@@ -496,12 +556,17 @@ export default function StreamChatRoom({
     }
   };
 
+  // 신고 모달의 단일 대상 처리에 맞춘 메뉴 상태 선정리 및 messageId만 보존
   const handleOpenReport = (messageId: number) => {
     setMenuMessageId(null);
     setSheetMessage(null);
     setReportMessageId(messageId);
   };
 
+  /**
+   * 호스트 메시지 삭제 액션
+   * 서버 삭제 성공 후 placeholder 유지형 로컬 반영의 즉시 적용 및 채팅 문맥 단절 방지
+   */
   const handleDeleteMessage = async (messageId: number) => {
     const res = await deleteStreamMessageAction(messageId);
     if (!res.success) {
@@ -518,9 +583,12 @@ export default function StreamChatRoom({
     setMenuMessageId(null);
     setSheetMessage(null);
     toast.success("메시지를 삭제했습니다.");
-
   };
 
+  /**
+   * 상단 고정 공지 저장 또는 신규 등록
+   * 저장 성공 시 draft, 펼침 상태, 편집 패널의 일괄 정리 및 읽기 모드 복귀
+   */
   const handleSavePinnedNotice = () => {
     if (!isViewerHost) return;
 
@@ -561,6 +629,7 @@ export default function StreamChatRoom({
     })();
   };
 
+  // 고정 공지 제거의 별도 액션 분리 및 저장 버튼과 다른 성공/실패 문구 유지
   const handleClearPinnedNotice = () => {
     if (!isViewerHost) return;
 
@@ -585,6 +654,10 @@ export default function StreamChatRoom({
     })();
   };
 
+  /**
+   * 채팅 금지 해제 성공 시 패널 목록과 muted 집합의 동시 갱신
+   * 추가 조회 없이 현재 열린 관리 패널에서 바로 결과 확인 가능 상태 유지
+   */
   const handleUnmuteViewer = (target: MutedStreamViewer) => {
     void (async () => {
       try {
@@ -615,6 +688,10 @@ export default function StreamChatRoom({
     })();
   };
 
+  /**
+   * 모바일 롱프레스 시작점
+   * 미세한 탭과의 구분을 위한 짧은 지연 뒤 BottomSheet 열기 예약
+   */
   const handleLongPressStart = (msg: StreamChatMessage) => {
     if (!isMobile || msg.deleted_at) return;
 
@@ -627,10 +704,15 @@ export default function StreamChatRoom({
     }, 420);
   };
 
+  // 롱프레스 종료/이동/취소 시 타이머 정리 및 일반 탭과의 충돌 방지
   const handleLongPressEnd = () => {
     clearLongPressTimer();
   };
 
+  /**
+   * 데스크톱 포털 메뉴 위치 계산
+   * 화면 경계와 헤더 높이를 고려한 위/아래 방향 결정 및 좌우 안전 여백 내부 clamp
+   */
   const openDesktopActionMenu = (
     messageId: number,
     trigger: HTMLButtonElement,
@@ -662,51 +744,6 @@ export default function StreamChatRoom({
     });
   };
 
-  const renderActionMenuItems = (
-    msg: StreamChatMessage,
-    isMine: boolean,
-    className: string
-  ) => (
-    <>
-      {isViewerHost && (
-        <button
-          type="button"
-          onClick={() => handleDeleteMessage(Number(msg.id))}
-          className={cn(
-            className,
-            "text-danger hover:bg-danger/5",
-            !isMine && "border-b border-border-subtle"
-          )}
-        >
-          <TrashIcon className="size-4" />
-          삭제하기
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => handleCopyMessage(msg.payload)}
-        className={className}
-      >
-        <ClipboardDocumentIcon className="size-4" />
-        복사하기
-      </button>
-      {!isMine && (
-        <button
-          type="button"
-          onClick={() => handleOpenReport(Number(msg.id))}
-          className={cn(
-            className,
-            "text-danger hover:bg-danger/5",
-            "border-t border-border-subtle"
-          )}
-        >
-          <ExclamationTriangleIcon className="size-4" />
-          신고하기
-        </button>
-      )}
-    </>
-  );
-
   if (!isOpen) return null;
 
   const desktopMenu =
@@ -731,10 +768,16 @@ export default function StreamChatRoom({
 
               if (!activeMessage || activeMessage.deleted_at) return null;
 
-              return renderActionMenuItems(
-                activeMessage,
-                isSameUser(activeMessage.userId, userId),
-                "flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+              return (
+                <StreamChatActionMenuItems
+                  message={activeMessage}
+                  isViewerHost={isViewerHost}
+                  isMine={isSameUser(activeMessage.userId, userId)}
+                  className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+                  onDelete={handleDeleteMessage}
+                  onCopy={handleCopyMessage}
+                  onReport={handleOpenReport}
+                />
               );
             })()}
           </div>,
@@ -752,12 +795,10 @@ export default function StreamChatRoom({
         containerClassName
       )}
     >
-      {/* Header */}
+      {/* 헤더 */}
       <div className="shrink-0 flex items-center justify-between border-b border-border-subtle bg-surface px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="min-w-0">
-          <span className="text-[13px] font-semibold text-primary sm:text-sm">
-            실시간 채팅
-          </span>
+          <span className="text-sm font-medium text-primary">채팅</span>
         </div>
         <div className="flex items-center gap-2">
           {isViewerHost && (
@@ -769,7 +810,7 @@ export default function StreamChatRoom({
                   setShowPinnedNoticeEditor((prev) => !prev);
                 }}
                 className={cn(
-                  "inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors sm:text-sm",
+                  "focus-ring-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors sm:text-sm",
                   showPinnedNoticeEditor
                     ? "border-brand/40 bg-brand/10 text-brand dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
                     : "border-border-subtle bg-surface text-muted hover:bg-surface-dim hover:text-primary"
@@ -789,7 +830,7 @@ export default function StreamChatRoom({
                   if (next) loadMutedViewers();
                 }}
                 className={cn(
-                  "inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors sm:text-sm",
+                  "focus-ring-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors sm:text-sm",
                   showMutedViewerPanel
                     ? "border-brand/40 bg-brand/10 text-brand dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
                     : "border-border-subtle bg-surface text-muted hover:bg-surface-dim hover:text-primary"
@@ -808,182 +849,56 @@ export default function StreamChatRoom({
           <button
             onClick={closeChat}
             aria-label="채팅 닫기"
-            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-5" />
           </button>
         </div>
       </div>
 
-      {isViewerHost && showMutedViewerPanel && (
+      {isViewerHost && showMutedViewerPanel && !isMobile && (
         <div className="shrink-0 border-b border-border-subtle bg-surface px-3 py-3 sm:px-4">
-          <div className="rounded-2xl border border-border-subtle bg-surface-dim/50 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-primary">
-                  채팅 금지 관리
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted">
-                  현재 방송에서 채팅이 제한된 시청자를 보고, 필요할 때 바로 해제
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full border border-border-subtle bg-background px-2.5 py-1 text-[11px] font-semibold text-muted">
-                {mutedViewers.length}명
-              </span>
-            </div>
-            <div className="mt-3 space-y-2">
-              {isRefreshingMutedViewers ? (
-                <div className="rounded-2xl border border-border-subtle bg-background px-4 py-3 text-sm text-muted">
-                  채팅 금지 대상을 불러오는 중입니다.
-                </div>
-              ) : mutedViewers.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border-subtle bg-background px-4 py-3 text-sm text-muted">
-                  현재 채팅 금지된 시청자가 없습니다.
-                </div>
-              ) : (
-                mutedViewers.map((viewer) => (
-                  <div
-                    key={viewer.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-background px-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <UserAvatar
-                        avatar={viewer.avatar}
-                        username={viewer.username}
-                        size="sm"
-                        compact
-                      />
-                      <p className="mt-1 pl-10 text-[11px] leading-5 text-muted">
-                        현재 방송에서는 메시지를 보낼 수 없는 상태
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleUnmuteViewer(viewer)}
-                      className="shrink-0 rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-dim"
-                    >
-                      해제
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <StreamChatMutedViewerPanel
+            mutedViewers={mutedViewers}
+            isRefreshing={isRefreshingMutedViewers}
+            onUnmute={handleUnmuteViewer}
+          />
         </div>
       )}
 
       {isViewerHost && showPinnedNoticeEditor && (
-        <div className="shrink-0 border-b border-border-subtle bg-surface px-3 py-3 sm:px-4">
-          <div className="rounded-2xl border border-border-subtle bg-surface-dim/50 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-primary">
-                  채팅 상단 고정 공지
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted">
-                  방송 규칙, 참여 안내, 거래 주의사항처럼 모든 시청자에게 먼저 보여줄 메시지를 고정
-                </p>
-              </div>
-              <span className="shrink-0 text-[11px] font-medium text-muted">
-                {pinnedNoticeDraft.trim().length}/
-                {STREAM_PINNED_NOTICE_MAX_LENGTH}
-              </span>
-            </div>
-            <textarea
-              value={pinnedNoticeDraft}
-              onChange={(event) => setPinnedNoticeDraft(event.target.value)}
-              maxLength={STREAM_PINNED_NOTICE_MAX_LENGTH}
-              placeholder="예: 도배·욕설은 채팅 제한될 수 있습니다."
-              className="mt-3 min-h-[96px] w-full resize-none rounded-2xl border border-border-subtle bg-background px-4 py-3 text-sm leading-6 text-primary placeholder:text-muted/90 focus:border-brand/40 focus:outline-none"
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPinnedNoticeDraft(pinnedNotice ?? "");
-                  setShowPinnedNoticeEditor(false);
-                }}
-                className="rounded-full border border-border-subtle bg-background px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleClearPinnedNotice}
-                disabled={isSavingPinnedNotice}
-                className="rounded-full border border-border-subtle bg-background px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-              >
-                공지 해제
-              </button>
-              <button
-                type="button"
-                onClick={handleSavePinnedNotice}
-                disabled={isSavingPinnedNotice}
-                className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-brand-light dark:text-slate-950"
-              >
-                {isSavingPinnedNotice ? "저장 중..." : "저장"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <StreamChatPinnedNoticeEditor
+          draft={pinnedNoticeDraft}
+          initialNotice={pinnedNotice}
+          isSaving={isSavingPinnedNotice}
+          onChange={setPinnedNoticeDraft}
+          onCancel={() => {
+            setPinnedNoticeDraft(pinnedNotice ?? "");
+            setShowPinnedNoticeEditor(false);
+          }}
+          onClear={handleClearPinnedNotice}
+          onSave={handleSavePinnedNotice}
+        />
       )}
 
       {!!pinnedNotice && (
-        <div className="shrink-0 border-b border-border-subtle bg-amber-50/70 px-3 py-2.5 dark:bg-amber-950/15 sm:px-4">
-          <div className="flex items-start gap-2">
-            <div className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-              <MegaphoneIcon className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[11px] font-semibold tracking-[0.12em] text-amber-700 dark:text-amber-300">
-                  HOST NOTICE
-                </p>
-                {shouldCollapsePinnedNotice && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsPinnedNoticeExpanded((prev) => !prev)
-                    }
-                    className="text-[11px] font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
-                  >
-                    {isPinnedNoticeExpanded ? "접기" : "더보기"}
-                  </button>
-                )}
-                {isViewerHost && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPinnedNoticeDraft(pinnedNotice ?? "");
-                        setShowPinnedNoticeEditor(true);
-                      }}
-                      className="text-[11px] font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearPinnedNotice}
-                      disabled={isSavingPinnedNotice}
-                      className="text-[11px] font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
-                    >
-                      해제
-                    </button>
-                  </>
-                )}
-              </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-primary">
-                {shouldCollapsePinnedNotice && !isPinnedNoticeExpanded
-                  ? `${collapsedPinnedNotice}${pinnedNotice.length > collapsedPinnedNotice.length ? "..." : ""}`
-                  : pinnedNotice}
-              </p>
-            </div>
-          </div>
-        </div>
+        <StreamChatPinnedNoticeBanner
+          notice={pinnedNotice}
+          isViewerHost={isViewerHost}
+          isSaving={isSavingPinnedNotice}
+          isExpanded={isPinnedNoticeExpanded}
+          shouldCollapse={shouldCollapsePinnedNotice}
+          collapsedNotice={collapsedPinnedNotice}
+          onToggleExpanded={() => setIsPinnedNoticeExpanded((prev) => !prev)}
+          onEdit={() => {
+            setPinnedNoticeDraft(pinnedNotice ?? "");
+            setShowPinnedNoticeEditor(true);
+          }}
+          onClear={handleClearPinnedNotice}
+        />
       )}
 
-      {/* Message Log */}
+      {/* 메시지 로그 */}
       <div
         ref={chatRef}
         className="flex-1 min-h-0 overflow-y-auto bg-surface p-3 pb-4 space-y-3 scrollbar-hide sm:p-4 sm:pb-5"
@@ -998,7 +913,7 @@ export default function StreamChatRoom({
       >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-start px-4 pt-10 text-center sm:justify-center sm:pt-0">
-            <div className="rounded-full border border-border-subtle bg-surface-dim/70 px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-muted">
+            <div className="rounded-full border border-border-subtle bg-surface-dim/70 px-3 py-1 text-xs font-medium tracking-[0.14em] text-muted">
               교신 대기
             </div>
             <p className="mt-4 text-sm font-medium text-muted">
@@ -1011,193 +926,57 @@ export default function StreamChatRoom({
         ) : (
           messages
             .filter((msg) => !blockedUserIds.has(msg.userId)) // 차단된 유저 메시지 숨김
-            .map((msg) => {
-              const normalizedMessageUserId = Number(msg.userId);
-              const safeMessageUserId = Number.isFinite(normalizedMessageUserId)
-                ? normalizedMessageUserId
-                : 0;
-              const isMine = isSameUser(msg.userId, userId);
-              const isHost = isSameUser(msg.userId, streamChatRoomhost);
-              const isDeleted = !!msg.deleted_at;
-              const uname = msg.user?.username ?? (isMine ? username : "선원");
+            .map((msg) => (
+              <StreamChatMessageItem
+                key={msg.id}
+                message={msg}
+                currentUserId={userId}
+                currentUsername={username}
+                hostUserId={streamChatRoomhost}
+                activeMenuMessageId={menuMessageId}
+                onSelectUser={setSelectedUser}
+                onLongPressStart={handleLongPressStart}
+                onLongPressEnd={handleLongPressEnd}
+                onOptionButtonClick={(event, activeMessage, isMine) => {
+                  event.stopPropagation();
 
-              return (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "group flex w-full",
-                    isMine ? "justify-end" : "justify-start"
-                  )}
-                  onPointerDown={() => handleLongPressStart(msg)}
-                  onContextMenu={(event) => {
-                    if (isDeleted) {
-                      event.preventDefault();
-                    }
-                  }}
-                  onPointerUp={handleLongPressEnd}
-                  onPointerLeave={handleLongPressEnd}
-                  onPointerCancel={handleLongPressEnd}
-                  onPointerMove={handleLongPressEnd}
-                >
-                  <div
-                    className={cn(
-                      "relative flex max-w-[88%] items-end gap-2",
-                      isMine ? "flex-row-reverse" : "flex-row"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "flex min-w-0 flex-col",
-                        isMine ? "items-end" : "items-start"
-                      )}
-                    >
-                      {/* 유저 클릭 시 관리 모달 오픈 */}
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedUser({
-                            id: safeMessageUserId,
-                            username: uname,
-                            avatar: msg.user?.avatar ?? null,
-                          });
-                        }}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        aria-label={`${uname} 사용자 메뉴 열기`}
-                        className={cn(
-                          "mb-1 inline-flex items-center gap-1.5 rounded px-1 transition-colors hover:bg-surface-dim",
-                          isMine ? "-mr-1" : "-ml-1"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "text-xs font-semibold",
-                            isMine
-                              ? "text-brand dark:text-brand-light"
-                              : "text-muted",
-                            isHost && "text-accent-dark"
-                          )}
-                        >
-                          {uname}
-                        </span>
-                        {isHost && (
-                          <span className="rounded bg-accent/20 px-1 py-0.5 text-[9px] font-bold leading-none text-accent-dark">
-                            HOST
-                          </span>
-                        )}
-                      </button>
+                  // 모바일 롱프레스 직후 버튼 탭 연속 입력 시 데스크톱 메뉴 중복 열림 방지
+                  if (didLongPressRef.current) {
+                    didLongPressRef.current = false;
+                    return;
+                  }
 
-                      <div
-                        className={cn(
-                          "max-w-full rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap",
-                          isMine
-                            ? "rounded-br-none bg-brand text-white ring-1 ring-black/5 dark:ring-white/10"
-                            : "rounded-bl-none border border-border-subtle bg-surface-dim text-primary"
-                        )}
-                      >
-                        {isDeleted ? (
-                          <span className="italic text-muted">
-                            호스트에 의해 삭제된 메시지입니다.
-                          </span>
-                        ) : (
-                          msg.payload
-                        )}
-                      </div>
-                    </div>
+                  if (menuMessageId === Number(activeMessage.id)) {
+                    setMenuMessageId(null);
+                    setDesktopMenuPosition(null);
+                    activeMenuButtonRef.current = null;
+                    return;
+                  }
 
-                    <div className="mb-1 shrink-0 text-[11px] font-medium text-muted">
-                      <TimeAgo
-                        date={msg.created_at.toString()}
-                        className="whitespace-nowrap"
-                      />
-                    </div>
-
-                    {!isDeleted && (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-
-                          if (didLongPressRef.current) {
-                            didLongPressRef.current = false;
-                            return;
-                          }
-
-                          if (menuMessageId === Number(msg.id)) {
-                            setMenuMessageId(null);
-                            setDesktopMenuPosition(null);
-                            activeMenuButtonRef.current = null;
-                            return;
-                          }
-
-                          openDesktopActionMenu(
-                            Number(msg.id),
-                            event.currentTarget,
-                            isMine,
-                            !isMine
-                          );
-                        }}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        aria-label="메시지 옵션"
-                        aria-expanded={menuMessageId === Number(msg.id)}
-                        aria-haspopup="menu"
-                        className={cn(
-                          "absolute top-7 hidden min-h-[32px] min-w-[32px] items-center justify-center rounded-lg text-muted/60 transition-all hover:bg-surface-dim hover:text-primary md:inline-flex",
-                          isMine ? "-left-10" : "-right-10",
-                          "md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100",
-                          menuMessageId === Number(msg.id) &&
-                            "pointer-events-auto opacity-100 bg-surface-dim text-primary"
-                        )}
-                        title="메시지 옵션"
-                      >
-                        <EllipsisVerticalIcon className="size-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+                  openDesktopActionMenu(
+                    Number(activeMessage.id),
+                    event.currentTarget,
+                    isMine,
+                    !isMine
+                  );
+                }}
+              />
+            ))
         )}
       </div>
 
-      {/* Input Section */}
-      <div className="shrink-0 border-t border-black/[0.05] bg-surface px-3 pt-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] dark:border-border-subtle">
-        {isMuted && (
-          <div className="mb-2 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-2 text-xs leading-5 text-danger">
-            호스트가 현재 방송에서 회원님의 채팅을 제한했습니다. 시청은 계속할 수 있지만 메시지는 보낼 수 없습니다.
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <div className="flex min-h-[48px] flex-1 items-center rounded-[22px] border border-black/[0.08] bg-neutral-100 px-4 transition-colors focus-within:border-brand/50 focus-within:bg-surface dark:border-white/10 dark:bg-surface-dim">
-            <textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder={
-                isMuted
-                  ? "현재 방송에서 채팅이 제한되었습니다"
-                  : "메시지를 입력하세요"
-              }
-              disabled={isMuted}
-              className="w-full bg-transparent border-none p-0 py-0.5 text-sm leading-5 text-primary placeholder:text-muted/90 resize-none max-h-[100px] focus:ring-0"
-              rows={1}
-            />
-          </div>
-          <button
-            onClick={onSubmit}
-            disabled={isMuted || Date.now() < cooldownUntil || !message.trim()}
-            aria-label="메시지 전송"
-            className={cn(
-              "btn-primary-quiet-dark-icon shrink-0 size-11 rounded-full flex items-center justify-center transition-all shadow-sm",
-              "active:scale-95",
-              "disabled:border disabled:border-black/8 disabled:bg-neutral-100 dark:disabled:border-white/10 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed"
-            )}
-          >
-            <PaperAirplaneIcon className="size-5 pl-0.5" />
-          </button>
-        </div>
-      </div>
+      <StreamChatComposer
+        isMuted={isMuted}
+        message={message}
+        textareaRef={textareaRef}
+        onChange={setMessage}
+        onKeyDown={onKeyDown}
+        onSubmit={onSubmit}
+        preventFocusSteal={preventFocusSteal}
+        isSubmitDisabled={
+          isMuted || Date.now() < cooldownUntil || !message.trim()
+        }
+      />
 
       {/* 유저 관리 모달 */}
       {selectedUser && (
@@ -1271,11 +1050,15 @@ export default function StreamChatRoom({
           contentClassName="pt-2"
         >
           <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface">
-            {renderActionMenuItems(
-              sheetMessage,
-              isSameUser(sheetMessage.userId, userId),
-              "flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
-            )}
+            <StreamChatActionMenuItems
+              message={sheetMessage}
+              isViewerHost={isViewerHost}
+              isMine={isSameUser(sheetMessage.userId, userId)}
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+              onDelete={handleDeleteMessage}
+              onCopy={handleCopyMessage}
+              onReport={handleOpenReport}
+            />
           </div>
           <button
             type="button"
@@ -1286,8 +1069,23 @@ export default function StreamChatRoom({
           </button>
         </BottomSheet>
       )}
+
+      {isMobile && isViewerHost && showMutedViewerPanel && (
+        <BottomSheet
+          open={showMutedViewerPanel}
+          title="채팅 금지 관리"
+          description="현재 방송에서 채팅이 제한된 시청자를 보고 바로 해제할 수 있습니다."
+          onClose={() => setShowMutedViewerPanel(false)}
+          contentClassName="pt-2"
+        >
+          <StreamChatMutedViewerPanel
+            mutedViewers={mutedViewers}
+            isRefreshing={isRefreshingMutedViewers}
+            onUnmute={handleUnmuteViewer}
+          />
+        </BottomSheet>
+      )}
       {desktopMenu}
     </div>
   );
 }
-

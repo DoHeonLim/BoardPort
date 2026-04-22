@@ -119,7 +119,7 @@ export async function verifyProfilePhoneTokenService(
       });
     });
   } catch (e) {
-    // Unique Constraint Error (이미 등록된 번호 등)
+    // 고유 제약 조건 에러 (이미 등록된 번호 등)
     if (isUniqueConstraintError(e, ["phone"])) {
       return {
         success: false,

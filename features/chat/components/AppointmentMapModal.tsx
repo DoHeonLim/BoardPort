@@ -9,8 +9,8 @@
  * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
  * 2026.03.22  임도헌   Modified  최근 모달 셸 기준에 맞춰 높이 단위와 외곽선/헤더/푸터 보더 강도 정리
  * 2026.04.02  임도헌   Modified  약속 지도 모달 컴포넌트 JSDoc 보강
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -72,7 +72,7 @@ export default function AppointmentMapModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      {/* Background Click to Close */}
+      {/* 배경 클릭 시 닫기 */}
       <div className="absolute inset-0" onClick={onClose} />
 
       <div
@@ -85,7 +85,7 @@ export default function AppointmentMapModal({
           "h-[80dvh] sm:h-[70dvh] rounded-3xl border border-border-subtle"
         )}
       >
-        {/* Header */}
+        {/* 헤더 */}
         <div className="z-10 flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-5 py-4">
           <h3 className="font-bold text-primary flex items-center gap-2">
             <MapPinIcon className="size-5 text-brand" />
@@ -93,13 +93,13 @@ export default function AppointmentMapModal({
           </h3>
           <button
             onClick={onClose}
-            className="p-1 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Map Area */}
+        {/* 지도 영역 */}
         <div className="flex-1 relative w-full h-full min-h-0 bg-surface-dim">
           {loading ? (
             <div className="flex h-full w-full items-center justify-center">
@@ -119,7 +119,7 @@ export default function AppointmentMapModal({
           )}
         </div>
 
-        {/* Footer Info & Action */}
+        {/* 하단 정보 및 액션 */}
         <div className="z-10 shrink-0 border-t border-border-subtle bg-surface p-5">
           <p className="text-base font-bold text-primary mb-4 leading-snug">
             {locationName}

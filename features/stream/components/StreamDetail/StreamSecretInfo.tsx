@@ -14,6 +14,7 @@
  * 2026.03.19  임도헌   Modified  스트림 상세 정보 카드 톤에 맞춰 owner 전용 송출 정보 패널 보더 대비를 완화
  * 2026.03.20  임도헌   Modified  송출 정보 라벨과 버튼 문구를 제작자 문맥에 맞게 더 직관적으로 정리
  * 2026.03.24  임도헌   Modified  owner 관리 패널 무게를 줄이기 위해 송출 정보 버튼과 내부 패널 간격/톤을 조금 더 절제
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 송출 정보 버튼·코드·경고 문구 타이포를 정리
  */
 "use client";
 
@@ -39,7 +40,7 @@ interface StreamSecretInfoProps {
  * 방송 소유자에게만 보이는 OBS 송출 정보 패널
  * - RTMP URL과 Stream Key를 표시하고 복사할 수 있음
  * - 보안을 위해 기본적으로는 숨겨져 있으며, '보기' 버튼 클릭 시 로드
- * - Key 재발급 기능도 포함
+ * - 서버에서 키가 아직 주입되지 않았으면 패널을 열 때 서버 액션으로 조회
  */
 function IconGhostButton({
   title,
@@ -60,7 +61,7 @@ function IconGhostButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors",
+        "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors",
         "border border-border bg-surface hover:bg-surface-dim disabled:opacity-50"
       )}
     >
@@ -152,7 +153,7 @@ export default function StreamSecretInfo({
         type="button"
         onClick={onTogglePanel}
         className={cn(
-          "mb-2.5 inline-flex items-center gap-2 rounded-full border border-border-subtle px-3.5 py-2 text-sm font-semibold transition-colors",
+          "focus-ring-soft mb-2.5 inline-flex items-center gap-2 rounded-full border border-border-subtle px-3.5 py-2 text-sm font-medium transition-colors",
           "bg-surface-dim/70 text-primary hover:bg-surface-dim"
         )}
         aria-expanded={open}
@@ -176,11 +177,11 @@ export default function StreamSecretInfo({
           id={panelId}
           className="space-y-3 rounded-xl border border-border-subtle bg-surface-dim/20 p-3.5 text-sm sm:p-4"
         >
-          {/* RTMP URL */}
+          {/* RTMP 주소 */}
           <div className="flex flex-col gap-1.5">
             <span className="font-medium text-muted text-xs">송출 주소</span>
             <div className="flex items-center gap-2">
-              <code className="flex-1 break-all rounded border border-border-subtle bg-surface p-2 font-mono text-[13px] text-primary">
+              <code className="flex-1 break-all rounded border border-border-subtle bg-surface p-2 font-mono text-sm text-primary">
                 {effectiveRtmp}
               </code>
               <IconGhostButton
@@ -192,11 +193,11 @@ export default function StreamSecretInfo({
             </div>
           </div>
 
-          {/* Secret Key */}
+          {/* 비밀 키 */}
           <div className="flex flex-col gap-1.5">
             <span className="font-medium text-muted text-xs">송출 키</span>
             <div className="flex items-center gap-2">
-              <code className="flex-1 break-all rounded border border-border-subtle bg-surface p-2 font-mono text-[13px] text-primary">
+              <code className="flex-1 break-all rounded border border-border-subtle bg-surface p-2 font-mono text-sm text-primary">
                 {reveal ? (streamKey ?? "") : maskedKey}
               </code>
               <button
@@ -206,7 +207,7 @@ export default function StreamSecretInfo({
                   setReveal((v) => !v);
                 }}
                 aria-label={reveal ? "스트림 키 숨기기" : "스트림 키 보기"}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-border bg-surface hover:bg-surface-dim"
+                className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-border bg-surface hover:bg-surface-dim"
               >
                 {reveal ? (
                   <EyeSlashIcon className="h-4 w-4 text-muted" />
@@ -223,7 +224,7 @@ export default function StreamSecretInfo({
             </div>
           </div>
 
-          <p className="text-[11px] text-rose-500 mt-2">
+          <p className="mt-2 text-xs text-rose-500">
             * 송출 키는 외부에 절대 노출하지 마세요.
           </p>
         </div>

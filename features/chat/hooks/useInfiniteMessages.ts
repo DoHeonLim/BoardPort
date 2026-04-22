@@ -76,7 +76,7 @@ export default function useInfiniteMessages(
       },
       initialPageParam: null as number | null,
       getNextPageParam: (lastPage) => {
-        // LIMIT보다 적게 가져왔다면 더 이상 과거 데이터가 없다고 판단
+        // LIMIT보다 적게 가져온 경우 더 이상 과거 데이터가 없음으로 판단
         if (!lastPage || lastPage.length < MESSAGE_LOAD_LIMIT) return undefined;
         return lastPage[0].id;
       },

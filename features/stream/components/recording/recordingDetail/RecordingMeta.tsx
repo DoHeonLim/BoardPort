@@ -57,7 +57,7 @@ export default function RecordingMeta({
         <button
           type="button"
           onClick={() => handleShare(`보드포트 다시보기: ${title}`)}
-          className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-primary transition-colors p-1.5 -mr-1.5 rounded-lg hover:bg-surface-dim"
+          className="focus-ring-soft -mr-1.5 flex items-center gap-1.5 rounded-lg p-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           aria-label="링크 공유"
         >
           <ShareIcon className="size-4" />

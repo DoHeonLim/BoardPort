@@ -34,7 +34,7 @@ export default function ProductDetailTags({ tags }: ProductDetailTagsProps) {
           key={index}
           href={`/products?keyword=${encodeURIComponent(tag.name)}`}
           className={cn(
-            "inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+            "focus-ring-soft inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform",
             "bg-badge text-badge-text",
             "hover:opacity-80 active:scale-95",
             "border border-transparent dark:border-white/10"

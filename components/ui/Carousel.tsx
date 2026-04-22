@@ -14,14 +14,25 @@
  * 2026.03.12  임도헌   Modified  캐러셀 네비게이션과 인디케이터를 시맨틱 토큰 기반 오버레이 톤으로 통일
  * 2026.03.17  임도헌   Modified  제품/게시글 상세에서 이미지 클릭 시 전체 화면 확대가 가능하도록 공용 lightbox 추가
  * 2026.03.31  임도헌   Modified  캐러셀 확대 보기에도 공용 확대/축소 모달을 재사용하도록 정리
+ * 2026.04.11  임도헌   Modified  상세 이미지 좌우 네비게이션을 투명 오버레이 톤으로 완화하고 border/blur 제거
+ * 2026.04.14  임도헌   Modified  확대 모달은 필요 시에만 지연 로드하고 상세별 이미지 sizes/quality를 주입할 수 있게 조정
  */
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
-import { ImageZoomModal } from "@/components/ui/ZoomableImage";
 import { cn } from "@/lib/utils";
+
+// 확대 모달의 실제 클릭 시점 한정 필요성에 따른 초기 캐러셀 번들 분리
+const ImageZoomModal = dynamic(
+  () =>
+    import("@/components/ui/ZoomableImage").then((mod) => mod.ImageZoomModal),
+  {
+    ssr: false,
+  }
+);
 
 interface ImageType {
   url: string;
@@ -32,19 +43,20 @@ interface ImageType {
 interface CarouselProps {
   images: ImageType[];
   className?: string;
+  imageSizes?: string;
+  imageQuality?: number;
 }
 
 /**
- * 여러 장 이미지를 넘기고 원본 확대 보기까지 연결하는 공용 캐러셀 컴포넌트
- *
- * - 터치 스와이프/마우스 드래그 네비게이션
- * - 좌우 버튼과 인디케이터 제공
- * - 공용 이미지 확대/축소 모달 연동
- *
- * @param {CarouselProps} props - 이미지 목록과 컨테이너 스타일 설정
- * @returns {JSX.Element | null} 이미지 캐러셀 또는 빈 상태
+ * 여러 장 이미지를 넘기고 원본 확대 보기까지 연결하는 공용 캐러셀.
+ * 상세 화면처럼 컨텍스트마다 sizes/quality를 조정할 수 있도록 옵션을 열어둔다.
  */
-export default function Carousel({ images, className = "" }: CarouselProps) {
+export default function Carousel({
+  images,
+  className = "",
+  imageSizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw",
+  imageQuality = 85,
+}: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
@@ -151,12 +163,12 @@ export default function Carousel({ images, className = "" }: CarouselProps) {
                 src={`${image.url}/public`}
                 alt={`이미지 ${index + 1}`}
                 fill
-                // 여러 장 묶음에서도 원본 비율을 우선 유지하는 공용 표시 정책
+                // 캐러셀의 화면 가득 채우기보다 원본 비율 유지 우선
                 className="object-contain select-none"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                sizes={imageSizes}
                 priority={index === 0}
                 draggable={false}
-                quality={85}
+                quality={imageQuality}
                 unoptimized={!!image.isAnimated}
               />
             </div>
@@ -172,10 +184,10 @@ export default function Carousel({ images, className = "" }: CarouselProps) {
               e.stopPropagation(); // 드래그 이벤트 전파 방지
               handlePrevious();
             }}
-            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border-subtle bg-background/80 p-2 text-primary transition-all backdrop-blur-sm hover:bg-surface"
+            className="focus-ring-soft absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-transparent p-2 text-white/90 transition-colors hover:bg-black/10"
             aria-label="이전 이미지"
           >
-            <ChevronLeftIcon className="w-6 h-6" />
+            <ChevronLeftIcon className="h-6 w-6 drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" />
           </button>
 
           <button
@@ -183,10 +195,10 @@ export default function Carousel({ images, className = "" }: CarouselProps) {
               e.stopPropagation();
               handleNext();
             }}
-            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border-subtle bg-background/80 p-2 text-primary transition-all backdrop-blur-sm hover:bg-surface"
+            className="focus-ring-soft absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-transparent p-2 text-white/90 transition-colors hover:bg-black/10"
             aria-label="다음 이미지"
           >
-            <ChevronRightIcon className="w-6 h-6" />
+            <ChevronRightIcon className="h-6 w-6 drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" />
           </button>
 
           {/* 인디케이터 (Dots) */}
@@ -199,13 +211,23 @@ export default function Carousel({ images, className = "" }: CarouselProps) {
                   setCurrentIndex(index);
                 }}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-all shadow-sm",
+                  "focus-ring-soft flex size-6 items-center justify-center rounded-full transition-colors",
                   index === currentIndex
-                    ? "bg-brand scale-110"
-                    : "bg-surface/85 hover:bg-surface"
+                    ? "scale-110"
+                    : "hover:bg-black/10"
                 )}
                 aria-label={`${index + 1}번 이미지로 이동`}
-              />
+                aria-current={index === currentIndex}
+              >
+                <span
+                  className={cn(
+                    "block h-2 w-2 rounded-full shadow-sm",
+                    index === currentIndex
+                      ? "bg-brand"
+                      : "bg-surface/85 hover:bg-surface"
+                  )}
+                />
+              </button>
             ))}
           </div>
         </>

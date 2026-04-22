@@ -97,7 +97,7 @@ export default function ProfileOptionMenu({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+        className="focus-ring-soft p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
         aria-label="옵션 더보기"
       >
         <EllipsisHorizontalIcon className="size-6" />
@@ -109,7 +109,7 @@ export default function ProfileOptionMenu({
           <button
             onClick={() => setConfirmOpen(true)}
             className={cn(
-              "w-full text-left px-4 py-3 text-sm font-medium transition-colors",
+              "focus-ring-soft w-full text-left px-4 py-3 text-sm font-medium transition-colors",
               isBlocked
                 ? "text-primary hover:bg-surface-dim"
                 : "text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
@@ -124,7 +124,7 @@ export default function ProfileOptionMenu({
               setIsOpen(false);
               setReportOpen(true);
             }}
-            className="w-full border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            className="focus-ring-soft w-full border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             신고하기
           </button>

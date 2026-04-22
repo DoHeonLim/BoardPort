@@ -14,6 +14,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  검색 기록 낙관적 업데이트와 삭제에도 키워드 소문자 정규화 규칙을 적용
  * 2026.04.02  임도헌   Modified  검색 기록 타입/정규화 유틸/최대 개수 상수를 search 도메인 공용 파일로 분리
+ * 2026.04.17  임도헌   Modified  검색 기록 훅의 정규화/낙관 업데이트/반환 책임 설명 보강
  */
 
 "use client";
@@ -33,11 +34,14 @@ import {
 /**
  * 검색 기록 관리 훅
  *
- * [상태 주입 및 사이드 이펙트 제어 로직]
- * - `useQuery`를 활용한 검색 기록 서버 데이터 캐싱 및 전역 상태 관리 적용
- * - 신규 검색어 추가(`addHistory`) 시 `onMutate` 단계를 활용하여 로컬 캐시에 즉시 반영 및 중복 제거(Optimistic Update)
- * - 추가 실패 시 `onError`를 통한 이전 캐시 스냅샷 복구(Rollback) 적용
- * - 삭제(`removeHistory`) 및 전체 삭제(`clearHistory`) 완료 후 `queryClient.setQueryData` 및 무효화 처리를 통한 서버 상태 동기화
+ * [기능]
+ * - `useQuery`로 검색 기록을 캐시하고, 서버에서 내려준 초기 기록을 `initialHistory`로 바로 하이드레이션
+ * - 신규 검색어 추가(`addHistory`)는 소문자 정규화와 중복 제거를 같은 기준으로 적용하며 낙관적으로 먼저 반영
+ * - 추가 실패 시 이전 캐시 스냅샷으로 롤백하고, 삭제/전체 삭제는 성공 후 서버 상태와 다시 동기화
+ * - 훅은 UI가 바로 쓰기 쉬운 `history`, `addHistory`, `removeHistory`, `clearHistory`만 노출
+ *
+ * @param {SearchHistoryItem[]} [initialHistory=[]] - 서버에서 미리 주입한 초기 검색 기록
+ * @returns {object} 검색 기록 배열과 추가/삭제/전체 삭제 제어 함수
  */
 export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
   const queryClient = useQueryClient();

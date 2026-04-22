@@ -30,8 +30,8 @@
  * 2026.03.22  임도헌   Modified  모바일 모달 높이를 소폭 낮춰 세로가 낮은 화면에서 밀도를 완화
  * 2026.03.28  임도헌   Modified  적은 수의 항목에서도 과하게 비지 않도록 높이를 max-height 기반으로 조정하고 섹션/빈 상태 가독성 개선
  * 2026.03.28  임도헌   Modified  팔로워 모달의 비맞팔 섹션 라벨을 추천 대신 설명형 문구로 바꿔 기준을 명확화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useMemo, useRef } from "react";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
@@ -75,7 +75,7 @@ interface FollowListModalProps {
  * - `useInfiniteScroll` 훅과 연동하여 모달 내 스크롤 이벤트를 감지하고 페이징 로딩 트리거 적용
  * - `isMutualWithOwner` 플래그를 활용하여 '맞팔로잉' 그룹과 일반 그룹으로 렌더링 섹션 동적 분리
  * - 에러 발생 시 상태(`isMoreError`, `isFirstError`)에 따른 재시도(Retry) UI 조건부 렌더링 제공
- * - ESC 키보드 이벤트, 포커스 트랩, 바디 스크롤 잠금 등의 웹 접근성(A11y) 표준 준수 적용
+ * - ESC 키보드 이벤트, 이전 포커스 복원, 바디 스크롤 잠금 등 모달 접근성 흐름을 적용
  */
 export default function FollowListModal({
   isOpen,
@@ -150,8 +150,7 @@ export default function FollowListModal({
   if (!isOpen) return null;
 
   const titleId = `followlist-title-${kind}`;
-  const restLabel =
-    kind === "followers" ? "나를 팔로우하는 사용자" : "팔로잉";
+  const restLabel = kind === "followers" ? "나를 팔로우하는 사용자" : "팔로잉";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -179,7 +178,7 @@ export default function FollowListModal({
           </h2>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft rounded-full p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim transition-colors"
           >
             <XMarkIcon className="size-6" />
           </button>
@@ -192,7 +191,7 @@ export default function FollowListModal({
             {!!onRetry && (
               <button
                 onClick={onRetry}
-                className="ml-2 underline hover:text-red-700"
+                className="focus-ring-soft ml-2 rounded-md underline hover:text-red-700"
               >
                 다시 시도
               </button>
@@ -215,7 +214,10 @@ export default function FollowListModal({
                 <div className="flex flex-col gap-2">
                   <p>{error?.message}</p>
                   {onRetry && (
-                    <button onClick={onRetry} className="underline text-brand">
+                    <button
+                      onClick={onRetry}
+                      className="focus-ring-soft rounded-md underline text-brand"
+                    >
                       다시 시도
                     </button>
                   )}

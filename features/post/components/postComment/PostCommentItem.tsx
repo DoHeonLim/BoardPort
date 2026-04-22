@@ -18,6 +18,7 @@
  * 2026.03.23  임도헌   Modified  구조 구분선 성격에 맞게 댓글 항목/옵션 메뉴 보더를 subtle 기준으로 정리
  * 2026.03.27  임도헌   Modified  모바일 댓글 옵션을 Bottom Sheet로 통일해 상세 상단 액션과 터치 경험을 맞춤
  * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 댓글 작성자 라벨 weight를 500 기준으로 정리
  */
 "use client";
 
@@ -128,7 +129,7 @@ export default function PostCommentItem({
         {/* 헤더: 이름 + 시간 + 삭제버튼 (한 줄) */}
         <div className="flex justify-between items-start leading-none">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-primary">
+            <span className="text-sm font-medium text-primary">
               {comment.user.username}
             </span>
             <span className="text-xs text-muted">
@@ -144,7 +145,7 @@ export default function PostCommentItem({
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setMenuOpen(!menuOpen)}
-                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary md:opacity-0 md:group-hover:opacity-100"
+                  className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary md:opacity-0 md:group-hover:opacity-100"
                   aria-label="댓글 옵션"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
@@ -160,7 +161,7 @@ export default function PostCommentItem({
                     <button
                       onClick={() => setBlockConfirmOpen(true)}
                       role="menuitem"
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 transition-colors"
+                      className="focus-ring-soft flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
                     >
                       <UserMinusIcon className="size-4" />
                       작성자 차단
@@ -171,7 +172,7 @@ export default function PostCommentItem({
                         setReportOpen(true);
                       }}
                       role="menuitem"
-                      className="flex w-full items-center gap-2 border-t border-border-subtle px-4 py-2.5 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
+                      className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-2.5 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
                     >
                       <ExclamationTriangleIcon className="size-4" />
                       댓글 신고
@@ -212,7 +213,7 @@ export default function PostCommentItem({
               setMenuOpen(false);
               setBlockConfirmOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             <UserMinusIcon className="size-5 shrink-0" />
             작성자 차단
@@ -223,7 +224,7 @@ export default function PostCommentItem({
               setMenuOpen(false);
               setReportOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
           >
             <ExclamationTriangleIcon className="size-5 shrink-0" />
             댓글 신고

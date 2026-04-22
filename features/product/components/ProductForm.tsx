@@ -32,6 +32,14 @@
  * 2026.03.19  임도헌   Modified  상품 폼의 섹션 리듬과 CTA 위계를 정리하고 직거래 장소 카드 액션을 inline 흐름으로 다듬음
  * 2026.03.28  임도헌   Modified  추가/수정 폼 카테고리 Select는 이모지 없이 텍스트 라벨만 노출하도록 정리
  * 2026.04.02  임도헌   Modified  제품 이미지 URL public variant 처리 유틸 공용화
+ * 2026.04.05  임도헌   Modified  modal-edit 저장/취소는 back 복귀를 우선 사용해 목록/모달 히스토리 중복을 줄이고, 직접 진입만 릴레이 fallback으로 처리
+ * 2026.04.06  임도헌   Modified  detail-edit 저장도 back 우선 + 1회 refresh로 정리해 상세/편집 히스토리 중복을 완화
+ * 2026.04.10  임도헌   Modified  가격 입력 칸의 폭과 도움말 리듬을 조정해 기본 정보 섹션 위계 가독성 개선
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상품 폼의 섹션 헤더와 도움말 타이포를 정리
+ * 2026.04.14  임도헌   Modified  거래 장소 선택 모달을 지연 로드해 등록 페이지 초기 번들 부담을 완화
+ * 2026.04.14  임도헌   Modified  지연 로드/복귀 흐름/업로드 단계 주석을 현재 구조 기준으로 간결하게 정리
+ * 2026.04.14  임도헌   Modified  use client 직렬화 경고를 피하기 위해 서버 액션 prop을 제거하고 mode 기반 내부 선택으로 전환
+ * 2026.04.21  임도헌   Modified  이미지/카테고리/거래 장소/하단 액션 섹션을 분리하고 함수 설명을 보강
  */
 
 /**
@@ -44,7 +52,7 @@
  * 2024.12.12  임도헌   Modified  useImageUpload 커스텀 훅으로 분리
  * 2024.12.12  임도헌   Modified  제품 편집 폼 액션 코드 추가(여러 이미지 업로드)
  * 2024.12.12  임도헌   Modified  폼 제출 후 모달에서 수정했는지 상세 페이지에서 수정했는지 확인 후 페이지 이동 로직 수정
- * 2024.12.29  임도헌   Modified  보트포트 형식에 맞게 제품 수정 폼 변경
+ * 2024.12.29  임도헌   Modified  보드포트 형식에 맞게 제품 수정 폼 변경
  * 2025.04.13  임도헌   Modified  completeness 필드를 영어로 변경
  * 2025.04.13  임도헌   Modified  condition 필드를 영어로 변경
  * 2025.04.13  임도헌   Modified  game_type 필드를 영어로 변경
@@ -53,40 +61,35 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { createProductAction } from "@/features/product/actions/create";
+import { updateProductAction } from "@/features/product/actions/update";
 import {
   COMPLETENESS_TYPES,
   CONDITION_TYPES,
-  GAME_TYPES,
   COMPLETENESS_DISPLAY,
   CONDITION_DISPLAY,
-  GAME_TYPE_DISPLAY,
   PRODUCT_OTHER_CATEGORY_ENG_NAME,
 } from "@/features/product/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
 import { toast } from "sonner";
-import ImageUploader from "@/components/global/ImageUploader";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import Button from "@/components/ui/Button";
 import TagInput from "@/components/ui/TagInput";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
-import LocationPicker from "@/features/map/components/LocationPicker";
-import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import {
   productFormSchema,
   productFormValues,
 } from "@/features/product/schemas";
 import { queryKeys } from "@/lib/queryKeys";
 import type { Category } from "@/generated/prisma/client";
-import type { ProductFormAction } from "@/features/product/types";
 import type { LocationData } from "@/features/map/types";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
@@ -98,10 +101,30 @@ import {
   stripProductImagePublicVariant,
   toProductImagePublicUrl,
 } from "@/features/product/utils/image";
+import ProductImageSection from "@/features/product/components/ProductImageSection";
+import ProductCategorySection from "@/features/product/components/ProductCategorySection";
+import ProductLocationSection from "@/features/product/components/ProductLocationSection";
+import ProductFormActions from "@/features/product/components/ProductFormActions";
+
+const LazyLocationPicker = dynamic(
+  () => import("@/features/map/components/LocationPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+        <div className="bg-surface w-full h-[100dvh] sm:h-auto sm:max-w-md sm:rounded-3xl flex flex-col items-center justify-center gap-4 border-0 sm:border sm:border-border-subtle p-8">
+          <div className="size-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+          <p className="text-sm font-medium text-primary">
+            지도를 불러오는 중입니다...
+          </p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 interface ProductFormProps {
   mode: "create" | "edit";
-  action: ProductFormAction; // Server Action
   defaultValues?: Partial<productFormValues>;
   categories: Category[];
   submitText?: string;
@@ -113,18 +136,14 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 /**
  * 제품 등록 및 수정 공통 폼 컴포넌트
  *
- * [상태 제어 및 상호작용 로직]
- * - `useForm` 기반 폼 상태 관리 및 Zod 스키마(`productFormSchema`) 연동 유효성 검증 적용
- * - `useImageUpload` 훅을 통한 파일 선택, 드래그 앤 드롭, 순서 변경, 미리보기 생성 관리
- * - 카테고리(대분류/소분류) 연동 및 Kakao Map 기반 위치(`location`) 입력 데이터 매핑
- * - OTHER 대분류 선택 시 소분류 없이 대분류 자체를 `categoryId`로 사용
- * - Cloudflare Images URL 확보 및 이미지 파일 업로드 병렬 처리
- * - 등록/수정 Server Action 완료 시 `queryClient.invalidateQueries` 호출로 목록 캐시 무효화 유도
- * - 검증 실패 시 `FormErrorSummary`, `applyFieldErrors`, `focusFirstFieldError` 기반 커스텀 에러 UX 적용
+ * - RHF + Zod 기반 검증과 필드 상태를 관리
+ * - 이미지 업로드/정렬/애니메이션 메타를 통합 관리
+ * - 대분류/소분류, 거래 장소, 태그 등 부가 입력 흐름을 함께 조정
+ * - 저장 성공 후 create/edit 진입 맥락에 맞춰 복귀 경로를 분기
+ * - 지도 선택 모달은 첫 화면 번들을 줄이기 위해 필요 시점에만 지연 로드
  */
 export default function ProductForm({
   mode,
-  action,
   defaultValues = {},
   categories,
   cancelHref = "/products",
@@ -132,15 +151,45 @@ export default function ProductForm({
   const router = useRouter();
   const queryClient = useQueryClient();
   const sp = useSearchParams();
-  // 폼 저장 후 상세 복귀에 사용하는 returnTo 정제
+  // 저장 후 상세/목록 복귀에 재사용할 returnTo를 안전한 내부 경로로 정제
   const rawReturnTo = sp.get("returnTo");
-  const returnTo = rawReturnTo
-    ? sanitizeCallbackUrl(rawReturnTo)
-    : null;
+  const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : null;
   const isModalEditFlow = sp.get("flow") === "modal-edit";
   const [resetSignal, setResetSignal] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const maxImages = 5;
+  // create/edit 공개 props에는 직렬화 가능한 값만 두고, 서버 액션은 mode로 내부 선택
+  const action = mode === "create" ? createProductAction : updateProductAction;
+
+  // modal-edit는 기존 히스토리를 우선 재사용하고, back 대상이 없을 때만 목록 릴레이로 복귀
+  const returnToModalEditOrigin = (productId: number) => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    if (returnTo) {
+      router.replace(
+        `/products?openProductId=${productId}&returnTo=${encodeURIComponent(returnTo)}`
+      );
+      return;
+    }
+
+    router.replace(`/products/view/${productId}`);
+  };
+
+  // detail-edit는 기존 상세 히스토리를 우선 재사용하고, 직접 진입일 때만 상세 replace로 복귀
+  const returnToDetailEditOrigin = (productId: number, detailHref: string) => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      setNavigationRefreshFlag(
+        createNavigationRefreshFlagKey("product-detail-refresh", productId)
+      );
+      router.back();
+      return;
+    }
+
+    window.location.replace(detailHref);
+  };
 
   const initialFormValues = useMemo(
     () => ({
@@ -165,7 +214,7 @@ export default function ProductForm({
     [defaultValues]
   );
 
-  // 대분류 초기값 설정 (수정 모드 시 소분류 ID로부터 역추적)
+  // 수정 모드에서는 현재 categoryId로부터 대분류를 역추적해 초기 선택값을 복원
   const initialMainCategory = useMemo<number | null>(() => {
     if (!defaultValues?.categoryId) return null;
     const currentCategory =
@@ -241,7 +290,7 @@ export default function ProductForm({
     syncAnimatedFlags: true,
   });
 
-  // 초기 이미지 설정
+  // 수정 모드의 기존 이미지를 미리보기/애니메이션 메타 상태로 동기화
   useEffect(() => {
     if (
       Array.isArray(defaultValues.photos) &&
@@ -266,7 +315,7 @@ export default function ProductForm({
     setPreviews,
   ]);
 
-  // minPlayers 변경 시 maxPlayers 자동 조정 (UX)
+  // 최소 인원이 최대 인원을 넘지 않도록 자동 보정
   const minPlayers = watch("min_players");
   const maxPlayers = watch("max_players");
 
@@ -276,7 +325,7 @@ export default function ProductForm({
     }
   }, [minPlayers, maxPlayers, setValue]);
 
-  // 카테고리 초기값 동기화
+  // 수정 모드 첫 진입 시 categoryId 기반 선택 상태를 복원
   useEffect(() => {
     if (defaultValues.categoryId && categories.length > 0) {
       const currentCategory = categories.find(
@@ -314,7 +363,7 @@ export default function ProductForm({
     subCategories,
   ]);
 
-  // 위치 관련 상태
+  // 거래 장소 모달 열림 상태와 이미지 섹션 포커스 참조
   const [isMapOpen, setIsMapOpen] = useState(false);
   const location = watch("location");
   const imageSectionRef = useRef<HTMLDivElement | null>(null);
@@ -329,7 +378,7 @@ export default function ProductForm({
     });
   };
 
-  // 위치 선택 핸들러
+  // 지도 모달에서 선택한 위치를 폼 값으로 반영
   const handleLocationSelect = (data: LocationData) => {
     setValue("location", data, { shouldDirty: true });
     setIsMapOpen(false);
@@ -339,6 +388,10 @@ export default function ProductForm({
     setValue("location", null, { shouldDirty: true });
   };
 
+  /**
+   * 폼 유효성 검사를 통과한 뒤 실제 업로드/저장을 수행
+   * - blob 미리보기와 기존 Cloudflare URL을 최종 순서대로 재조합한 뒤 서버 액션으로 전달
+   */
   const onValid = async (data: productFormValues) => {
     if (mode === "create" && files.length === 0) {
       setError("photos", {
@@ -358,7 +411,7 @@ export default function ProductForm({
       }
       const uploadedPhotoUrls: string[] = [];
 
-      // 1. 신규 이미지 업로드
+      // 1) 새로 추가한 파일만 Cloudflare에 업로드
       if (newFiles.length > 0) {
         const uploadPromises = newFiles.map(async (file) => {
           const res = await getUploadUrl();
@@ -382,7 +435,7 @@ export default function ProductForm({
         uploadedPhotoUrls.push(...urls);
       }
 
-      // 2. 최종 이미지 URL 조합
+      // 2) 기존 이미지와 신규 업로드 이미지를 최종 순서대로 재조합
       const allPhotos: string[] = previews
         .map((preview) => {
           if (preview.includes("imagedelivery.net")) {
@@ -399,25 +452,25 @@ export default function ProductForm({
         (_, index) => animatedFlags[index] ?? false
       );
 
-      // 3. 폼 데이터 생성 (표준화)
+      // 3) 서버 액션으로 넘길 FormData를 표준 규칙으로 구성
       const formData = new FormData();
 
-      // [특수 필드 1] ID (수정 모드)
+      // 수정 모드일 때만 id를 포함
       if (mode === "edit" && defaultValues.id) {
         formData.append("id", defaultValues.id.toString());
       }
 
-      // [특수 필드 2] JSON 직렬화
+      // 배열/객체 필드는 JSON으로 직렬화
       if (data.location) {
         formData.append("location", JSON.stringify(data.location));
       }
       formData.append("tags", JSON.stringify(data.tags || []));
 
-      // [특수 필드 3] 이미지 배열
+      // 이미지 목록과 애니메이션 메타는 별도 필드로 전송
       allPhotos.forEach((url) => formData.append("photos[]", url));
       formData.append("photosAnimated", JSON.stringify(allPhotosAnimated));
 
-      // [일반 필드] 자동 매핑
+      // 나머지 일반 필드는 문자열로 자동 매핑
       const skipFields = ["id", "location", "tags", "photos", "photosAnimated"];
       Object.entries(data).forEach(([key, value]) => {
         if (
@@ -448,18 +501,15 @@ export default function ProductForm({
           toast.success(
             "제품 정보가 수정되었습니다. 변경 내용이 상세 페이지에 반영됩니다."
           );
-          if (isModalEditFlow && returnTo) {
-            // 모달 편집은 히스토리에 의존하지 않고 목록 릴레이를 거쳐
-            // 상세 모달을 다시 열어 저장/삭제 후 복귀를 더 안정화
+          if (isModalEditFlow) {
+            // 모달 상세는 1회 refresh 플래그를 남기고 이전 히스토리로 복귀
             setNavigationRefreshFlag(
               createNavigationRefreshFlagKey("product-modal-refresh", productId)
             );
-            router.replace(
-              `/products?openProductId=${productId}&returnTo=${encodeURIComponent(returnTo)}`
-            );
+            returnToModalEditOrigin(productId);
           } else {
-            // 일반 상세에서 편집한 경우: edit 히스토리 제거
-            window.location.replace(detailHref);
+            // 일반 상세도 동일하게 1회 refresh 플래그를 남기고 복귀
+            returnToDetailEditOrigin(productId, detailHref);
           }
         }
       } else {
@@ -504,13 +554,18 @@ export default function ProductForm({
     }
   }, [previews.length, clearErrors]);
 
+  /**
+   * 폼을 초기 상태로 되돌린다.
+   * - RHF 값뿐 아니라 업로드 미리보기/애니메이션 메타/대분류 선택 상태까지 함께 복원
+   */
   const resetForm = () => {
     resetImage();
     reset(initialFormValues);
     setResetSignal((s) => s + 1);
 
     const restoredAnimatedFlags =
-      initialFormValues.photosAnimated ?? initialFormValues.photos.map(() => false);
+      initialFormValues.photosAnimated ??
+      initialFormValues.photos.map(() => false);
     const restoredPreviews = initialFormValues.photos
       .map((url) => toProductImagePublicUrl(url))
       .filter((url): url is string => !!url);
@@ -522,6 +577,10 @@ export default function ProductForm({
     setValue("photosAnimated", restoredAnimatedFlags);
   };
 
+  /**
+   * 대분류 선택 변경
+   * - 기타(OTHER)는 대분류 자체를 최종 categoryId로 사용하고, 일반 카테고리는 소분류를 다시 선택하게 만든다.
+   */
   const handleMainCategoryChange = (value: string) => {
     const id = value ? Number(value) : null;
     setSelectedMainCategory(id);
@@ -551,42 +610,32 @@ export default function ProductForm({
     >
       <FormErrorSummary errors={errors} />
 
-      {/* 이미지 업로더 */}
+      {/* 이미지 업로드 */}
       <div ref={imageSectionRef} tabIndex={-1} className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-primary">상품 이미지</label>
-        <ImageUploader
+        <ProductImageSection
           previews={previews}
-          onImageChange={handleImageChange}
-          onImageDrop={handleImageDrop}
-          onDeleteImage={handleDeleteImage}
-          onDragEnd={handleDragEnd}
-          isOpen={isImageFormOpen}
-          onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
+          handleImageChange={handleImageChange}
+          handleImageDrop={handleImageDrop}
+          handleDeleteImage={handleDeleteImage}
+          handleDragEnd={handleDragEnd}
+          isImageFormOpen={isImageFormOpen}
+          setIsImageFormOpen={setIsImageFormOpen}
           isUploading={isUploading}
-          optional={false}
+          maxImages={maxImages}
+          mode={mode}
+          photoErrorMessage={errors.photos?.message}
         />
-        <p className="pl-1 text-[11px] text-muted/80">
-          최대 {maxImages}장까지 업로드할 수 있으며, 첫 번째 이미지가 대표
-          이미지로 표시됩니다.
-        </p>
-        {errors.photos?.message ? (
-          <p className="text-xs text-danger pl-1">{errors.photos.message}</p>
-        ) : previews.length === 0 && mode === "create" ? (
-          <p className="text-xs text-danger pl-1">
-            * 최소 1개 이상의 이미지를 업로드해주세요.
-          </p>
-        ) : null}
       </div>
 
       <div className="flex flex-col gap-1 pt-1">
-        <h2 className="text-sm font-semibold text-primary">기본 정보</h2>
-        <p className="text-xs text-muted">
+        <h2 className="text-sm font-medium text-primary">기본 정보</h2>
+        <p className="text-xs leading-relaxed text-muted">
           상품을 빠르게 이해할 수 있도록 핵심 정보를 먼저 입력해주세요.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-form-gap">
-        <div className="md:col-span-2 md:order-1">
+      <div className="grid grid-cols-1 gap-form-gap md:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] md:items-start">
+        <div className="md:order-1">
           <Input
             label="제품명"
             type="text"
@@ -605,69 +654,29 @@ export default function ProductForm({
             {...register("price")}
             errors={[errors.price?.message ?? ""]}
           />
-          <p className="pl-1 pt-1 text-[11px] text-muted">
-            숫자만 입력하면 원 단위로 저장됩니다.
+          <p className="max-w-64 pl-1 pt-1.5 text-xs leading-relaxed text-muted">
+            숫자만 입력하면 원 단위 가격으로 자동 저장됩니다.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-form-gap">
-        <Select
-          label="대분류"
-          value={selectedMainCategory?.toString() || ""}
-          onChange={(e) => handleMainCategoryChange(e.target.value)}
-          errors={mainCategoryErrors}
-        >
-          <option value="">대분류 선택</option>
-          {mainCategories.map((c) => (
-            <option key={c.id} value={String(c.id)}>
-              {c.kor_name}
-            </option>
-          ))}
-        </Select>
-
-        <div
-          className={
-            subDisabled ? "opacity-60 pointer-events-none select-none" : ""
-          }
-          aria-disabled={subDisabled}
-        >
-          <Select
-            label="소분류"
-            {...register("categoryId", {
-              setValueAs: (v) => (v === "" ? undefined : Number(v)),
-            })}
-            disabled={subDisabled}
-            errors={subCategoryErrors}
-          >
-            <option value="">
-              {isOtherMainCategory
-                ? "기타는 소분류 선택이 필요하지 않습니다"
-                : "소분류 선택"}
-            </option>
-            {subCategories.map((c) => (
-              <option key={c.id} value={String(c.id)}>
-                {c.kor_name}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <Select
-          label="게임 종류"
-          {...register("game_type", {
-            setValueAs: (value) => (value === "" ? undefined : value),
-          })}
-          errors={[errors.game_type?.message ?? ""]}
-        >
-          <option value="">게임 종류 선택</option>
-          {GAME_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {GAME_TYPE_DISPLAY[type]}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <ProductCategorySection
+        selectedMainCategory={selectedMainCategory}
+        onMainCategoryChange={handleMainCategoryChange}
+        mainCategories={mainCategories}
+        mainCategoryErrors={mainCategoryErrors}
+        subDisabled={subDisabled}
+        isOtherMainCategory={isOtherMainCategory}
+        subCategories={subCategories}
+        subCategoryRegister={register("categoryId", {
+          setValueAs: (value) => (value === "" ? undefined : Number(value)),
+        })}
+        subCategoryErrors={subCategoryErrors}
+        gameTypeRegister={register("game_type", {
+          setValueAs: (value) => (value === "" ? undefined : value),
+        })}
+        gameTypeErrorMessage={errors.game_type?.message}
+      />
 
       <Input
         label="상세 설명"
@@ -679,8 +688,8 @@ export default function ProductForm({
       />
 
       <div className="flex flex-col gap-1 pt-1">
-        <h2 className="text-sm font-semibold text-primary">게임 정보</h2>
-        <p className="text-xs text-muted">
+        <h2 className="text-sm font-medium text-primary">게임 정보</h2>
+        <p className="text-xs leading-relaxed text-muted">
           플레이 조건과 제품 상태를 함께 정리해 구매 판단을 돕습니다.
         </p>
       </div>
@@ -743,19 +752,19 @@ export default function ProductForm({
           id="has_manual"
           type="checkbox"
           {...register("has_manual")}
-          className="h-5 w-5 shrink-0 rounded border-border text-brand focus:ring-brand"
+          className="h-5 w-5 shrink-0 rounded border-border accent-brand focus:ring-brand dark:accent-brand-light dark:focus:ring-brand-light"
         />
         <label
           htmlFor="has_manual"
-          className="text-sm font-medium text-primary cursor-pointer"
+          className="cursor-pointer text-sm font-medium text-primary"
         >
           설명서 포함 여부
         </label>
       </div>
 
       <div className="flex flex-col gap-1 pt-1">
-        <h2 className="text-sm font-semibold text-primary">거래 정보</h2>
-        <p className="text-xs text-muted">
+        <h2 className="text-sm font-medium text-primary">거래 정보</h2>
+        <p className="text-xs leading-relaxed text-muted">
           검색과 직거래에 필요한 마무리 정보를 입력해주세요.
         </p>
       </div>
@@ -767,93 +776,34 @@ export default function ProductForm({
         resetSignal={resetSignal}
       />
 
-      {/* 직거래 장소 선택 섹션 */}
-      <div className="flex flex-col gap-2 pt-2">
-        <label className="text-sm font-medium text-primary flex items-center gap-1">
-          <MapPinIcon className="size-4" />
-          직거래 희망 장소{" "}
-          <span className="text-muted font-normal">(선택)</span>
-        </label>
+      <ProductLocationSection
+        location={location ?? null}
+        onOpenMap={() => setIsMapOpen(true)}
+        onRemoveLocation={handleRemoveLocation}
+      />
 
-        {location ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-surface p-3 shadow-sm">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
-                <MapPinIcon className="size-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-primary">
-                  {location.locationName}
-                </p>
-                <p className="truncate text-xs text-muted">
-                  {location.region1} {location.region2} {location.region3}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsMapOpen(true)}
-                className="px-2 py-1 text-xs font-medium text-muted hover:text-primary"
-              >
-                변경
-              </button>
-              <button
-                type="button"
-                onClick={handleRemoveLocation}
-                className="text-muted hover:text-danger p-1"
-                title="위치 삭제"
-              >
-                <XMarkIcon className="size-4" />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsMapOpen(true)}
-            className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 transition-all"
-          >
-            <MapPinIcon className="size-5" />
-            <span className="text-sm">거래 장소 추가하기</span>
-          </button>
-        )}
-      </div>
-
-      <div className="pt-4 flex flex-col gap-3">
-        <Button
-          text={
-            isUploading
-              ? mode === "edit"
-                ? "수정 중..."
-                : "업로드 중..."
-              : mode === "edit"
-                ? "수정하기"
-                : "등록하기"
+      <ProductFormActions
+        mode={mode}
+        isUploading={isUploading}
+        onReset={resetForm}
+        onCancel={() => {
+          if (mode === "edit" && isModalEditFlow && defaultValues.id) {
+            returnToModalEditOrigin(defaultValues.id);
+            return;
           }
-          disabled={isUploading}
-        />
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={resetForm}
-            className="h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
-          >
-            {mode === "edit" ? "원래 값으로 되돌리기" : "전체 초기화"}
-          </button>
-          <Link
-            href={cancelHref}
-            className="flex items-center justify-center h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
-          >
-            취소
-          </Link>
-        </div>
-      </div>
+          if (mode === "edit") {
+            router.replace(cancelHref);
+            return;
+          }
 
-      {/* 지도 모달 */}
+          router.push(cancelHref);
+        }}
+      />
+
+      {/* 거래 장소 선택 모달은 필요할 때만 지연 로드 */}
       {isMapOpen && (
-        <LocationPicker
+        <LazyLocationPicker
           onClose={() => setIsMapOpen(false)}
           onSelect={handleLocationSelect}
           initialData={location ?? undefined}

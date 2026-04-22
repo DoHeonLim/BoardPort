@@ -20,9 +20,11 @@
  * 2026.03.24  임도헌   Modified  스트림 상세 전용 로컬 state로 채팅 열림 상태를 props 기반으로 단순화
  * 2026.04.03  임도헌   Modified  스트리머 차단/방송 신고 액션 색 위계를 다른 도메인 옵션 메뉴와 같은 문법으로 정리
  * 2026.04.03  임도헌   Modified  스트리머 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
+ * 2026.04.07  임도헌   Modified  호스트가 라이브 중 제목/설명만 빠르게 수정할 수 있는 상단 관리 메뉴를 추가
+ * 2026.04.08  임도헌   Modified  방송 정보 수정 결과를 로컬 상태와 실시간 브로드캐스트 흐름에 맞춰 즉시 반영하도록 보강
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.20  임도헌   Modified  스트림 상세 상단바 배경을 surface 톤으로 맞춰 플레이어 위에서도 더 단단한 표면으로 읽히게 정리
  */
-
-"use client";
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
@@ -34,6 +36,7 @@ import {
   UserMinusIcon,
   ExclamationTriangleIcon,
   ShareIcon,
+  PencilSquareIcon,
   LockClosedIcon,
   UserGroupIcon,
   GlobeAltIcon,
@@ -49,6 +52,7 @@ import {
 } from "@/features/stream/constants";
 import { cn, handleShare } from "@/lib/utils";
 import type { StreamVisibility } from "@/features/stream/types";
+import EditStreamMetaModal from "@/features/stream/components/EditStreamMetaModal";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -62,6 +66,8 @@ type Props = {
   title: string;
   /** 접근 정책 (PUBLIC | PRIVATE | FOLLOWERS) */
   visibility: StreamVisibility;
+  /** 현재 방송 설명 */
+  description?: string | null;
   /** 본인 방송 여부 */
   isOwner?: boolean; // 본인 방송 여부
   /** 뒤로가기 폴백 경로 (기본 /streams) */
@@ -72,6 +78,11 @@ type Props = {
   isChatOpen: boolean;
   /** 상단바 채팅 열기 */
   onOpenChat: () => void;
+  /** 방송 메타 수정 직후 로컬 상태 반영 */
+  onStreamMetaUpdated?: (next: {
+    title: string;
+    description: string | null;
+  }) => void;
 };
 
 /**
@@ -81,6 +92,7 @@ type Props = {
  * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 기반으로 상단바 채팅 열기 버튼 노출 여부를 제어
  * - 방송 권한(Public/Private/Followers) 속성에 따른 동적 뱃지 렌더링 적용
  * - 스트리머 차단(`toggleBlockAction`) 및 방송 신고 모달(`ReportModal`) 연동
+ * - 호스트는 상단 메뉴에서 방송 제목/설명을 수정할 수 있고 저장 직후 로컬 상세 상태를 즉시 갱신
  * - 뒤로가기 버튼(`BackButton`) 및 고유 URL 복사를 위한 공유하기(`handleShare`) 기능 포함
  */
 export default function StreamTopbar({
@@ -89,16 +101,19 @@ export default function StreamTopbar({
   ownerUsername,
   title,
   visibility,
+  description,
   isOwner = false,
   backFallbackHref = "/streams",
   className = "",
   isChatOpen,
   onOpenChat,
+  onStreamMetaUpdated,
 }: Props) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -162,10 +177,15 @@ export default function StreamTopbar({
     });
   };
 
+  const handleOpenEdit = () => {
+    setMenuOpen(false);
+    setEditOpen(true);
+  };
+
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background/95 transition-colors",
+        "sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-surface transition-colors",
         className
       )}
       role="banner"
@@ -181,11 +201,11 @@ export default function StreamTopbar({
             <button
               type="button"
               onClick={openChatFromTopbar}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3.5 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+              className="focus-ring-soft inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3.5 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
               aria-label="채팅 열기"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" />
-              <span>실시간 채팅</span>
+              <span>채팅</span>
             </button>
           )}
         </div>
@@ -204,20 +224,49 @@ export default function StreamTopbar({
           <button
             type="button"
             onClick={() => handleShare(`${ownerUsername}님의 방송: ${title}`)}
-            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted/80 transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted/80 transition-colors hover:bg-surface-dim hover:text-primary"
             aria-label="공유하기"
           >
             <ShareIcon className="h-5 w-5" />
           </button>
-          {/* 스트리머 외 다른 유저 메뉴*/}
-          {!isOwner && (
+          {/* 호스트/시청자별 상단 옵션 메뉴 */}
+          {isOwner ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-label="방송 관리 메뉴 열기"
+                aria-expanded={menuOpen}
+                aria-haspopup={isMobile ? "dialog" : "menu"}
+                className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+              >
+                <EllipsisVerticalIcon className="size-5" />
+              </button>
+              {!isMobile && menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-border-subtle bg-background shadow-xl"
+                >
+                  <button
+                    type="button"
+                    onClick={handleOpenEdit}
+                    role="menuitem"
+                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
+                  >
+                    <PencilSquareIcon className="size-4" />
+                    방송 정보 수정
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 aria-label="방송 옵션 열기"
                 aria-expanded={menuOpen}
                 aria-haspopup={isMobile ? "dialog" : "menu"}
-                className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+                className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
               >
                 <EllipsisVerticalIcon className="size-5" />
               </button>
@@ -232,7 +281,7 @@ export default function StreamTopbar({
                       setBlockConfirmOpen(true);
                     }}
                     role="menuitem"
-                    className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2"
+                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
                   >
                     <UserMinusIcon className="size-4" /> 스트리머 차단하기
                   </button>
@@ -242,7 +291,7 @@ export default function StreamTopbar({
                       setReportOpen(true);
                     }}
                     role="menuitem"
-                    className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border-subtle"
+                    className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
                   >
                     <ExclamationTriangleIcon className="size-4" /> 방송 신고하기
                   </button>
@@ -253,37 +302,57 @@ export default function StreamTopbar({
         </div>
       </div>
 
-      <BottomSheet
-        open={isMobile && menuOpen}
-        title="방송 옵션"
-        description="스트리머 차단 또는 방송 신고를 진행할 수 있습니다."
-        onClose={() => setMenuOpen(false)}
-      >
-        <div className="space-y-2 pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              setBlockConfirmOpen(true);
-            }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-          >
-            <UserMinusIcon className="size-5 shrink-0" />
-            스트리머 차단하기
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMenuOpen(false);
-              setReportOpen(true);
-            }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
-          >
-            <ExclamationTriangleIcon className="size-5 shrink-0" />
-            방송 신고하기
-          </button>
-        </div>
-      </BottomSheet>
+      {isOwner ? (
+        <BottomSheet
+          open={isMobile && menuOpen}
+          title="방송 관리"
+          description="라이브 중에도 방송 제목과 설명을 수정할 수 있습니다."
+          onClose={() => setMenuOpen(false)}
+        >
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={handleOpenEdit}
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            >
+              <PencilSquareIcon className="size-5 shrink-0" />
+              방송 정보 수정
+            </button>
+          </div>
+        </BottomSheet>
+      ) : (
+        <BottomSheet
+          open={isMobile && menuOpen}
+          title="방송 옵션"
+          description="스트리머 차단 또는 방송 신고를 진행할 수 있습니다."
+          onClose={() => setMenuOpen(false)}
+        >
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setBlockConfirmOpen(true);
+              }}
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+            >
+              <UserMinusIcon className="size-5 shrink-0" />
+              스트리머 차단하기
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setReportOpen(true);
+              }}
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            >
+              <ExclamationTriangleIcon className="size-5 shrink-0" />
+              방송 신고하기
+            </button>
+          </div>
+        </BottomSheet>
+      )}
 
       <ConfirmDialog
         open={blockConfirmOpen}
@@ -298,6 +367,14 @@ export default function StreamTopbar({
         onClose={() => setReportOpen(false)}
         targetId={streamId}
         targetType="STREAM"
+      />
+      <EditStreamMetaModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        streamId={streamId}
+        initialTitle={title}
+        initialDescription={description}
+        onSaved={(next) => onStreamMetaUpdated?.(next)}
       />
     </header>
   );

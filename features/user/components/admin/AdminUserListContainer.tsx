@@ -11,10 +11,13 @@
  * 2026.03.23  임도헌   Modified  관리자 유저 테이블/메뉴 셸과 리스트 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.29  임도헌   Modified  모바일 카드형 분기와 관리자 전용 네이밍 정리로 운영 스캔 흐름을 정비
  * 2026.03.30  임도헌   Modified  role 칩 필터, 프로필 바로가기, ID 뱃지 문법 정리와 권한 변경 모달 흐름을 함께 보강
+ * 2026.04.10  임도헌   Modified  유저 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  프로필 링크/관리 모달 프리로드를 줄이고 모바일 카드 렌더·배지 대비를 보강해 관리자 유저 페이지 초기 부하를 완화
  */
 "use client";
 
 import Link from "next/link";
+import nextDynamic from "next/dynamic";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -27,7 +30,6 @@ import UserStatusBadge from "./UserStatusBadge";
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
 import UserAvatar from "@/components/global/UserAvatar";
-import AdminActionModal from "@/features/report/components/admin/AdminActionModal";
 import {
   ArrowTopRightOnSquareIcon,
   EllipsisVerticalIcon,
@@ -37,6 +39,13 @@ import type {
   AdminUserItem,
 } from "@/features/user/types";
 import { cn } from "@/lib/utils";
+
+const AdminActionModal = nextDynamic(
+  () => import("@/features/report/components/admin/AdminActionModal"),
+  {
+    ssr: false,
+  }
+);
 
 interface Props {
   data: AdminUserListResponse;
@@ -160,7 +169,7 @@ export default function AdminUserListContainer({ data }: Props) {
             type="button"
             onClick={() => handleRoleFilterChange(option.value)}
             className={cn(
-              "rounded-full border px-3 py-2 text-xs font-bold transition-colors",
+              "focus-ring-soft rounded-full border px-3 py-2 text-xs font-bold transition-colors",
               activeRole === option.value
                 ? "border-border-strong bg-brand/10 text-brand dark:text-brand-light"
                 : "border-border bg-surface text-muted hover:text-primary"
@@ -183,6 +192,10 @@ export default function AdminUserListContainer({ data }: Props) {
             <article
               key={user.id}
               className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm"
+              style={{
+                contentVisibility: "auto",
+                containIntrinsicSize: "420px",
+              }}
             >
               <div className="flex items-start gap-3">
                 <UserAvatar
@@ -201,15 +214,16 @@ export default function AdminUserListContainer({ data }: Props) {
                         </h3>
                         <Link
                           href={`/profile/${user.username}`}
+                          prefetch={false}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 text-muted transition-colors hover:text-brand"
+                          className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                           aria-label={`${user.username} 프로필 보기`}
                         >
                           <ArrowTopRightOnSquareIcon className="size-4" />
                         </Link>
                       </div>
-                      <p className="mt-1 truncate text-[11px] text-muted">
+                      <p className="mt-1 truncate text-xs text-muted">
                         {user.email || "소셜 계정"}
                       </p>
                     </div>
@@ -217,21 +231,21 @@ export default function AdminUserListContainer({ data }: Props) {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-mono text-muted">
+                    <span className="rounded-full border border-border bg-surface px-2 py-1 text-xs font-mono font-medium text-primary">
                       #{user.id}
                     </span>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-1 text-[10px] font-bold",
+                        "rounded-full border px-2 py-1 text-xs font-bold",
                         user.role === "ADMIN"
-                          ? "bg-accent/20 text-accent-dark"
-                          : "bg-surface-dim text-muted"
+                          ? "border-brand/20 bg-brand/10 text-brand dark:border-brand-light/25 dark:bg-brand-light/10 dark:text-brand-light"
+                          : "border-border bg-surface-dim text-primary"
                       )}
                     >
                       {user.role}
                     </span>
                     {user._count.reports_received > 0 ? (
-                      <span className="rounded-full bg-danger/10 px-2 py-1 text-[10px] font-bold text-danger">
+                      <span className="rounded-full border border-red-200 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 dark:border-red-900/30 dark:bg-red-950/30 dark:text-red-300">
                         신고 {user._count.reports_received}건
                       </span>
                     ) : null}
@@ -241,26 +255,26 @@ export default function AdminUserListContainer({ data }: Props) {
 
               <dl className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     가입일
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
+                  <dd className="mt-1 text-sm font-medium text-primary">
                     <TimeAgo date={user.created_at} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     게시글/상품
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
+                  <dd className="mt-1 text-sm font-medium text-primary">
                     {user._count.posts} / {user._count.products}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     신고
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
+                  <dd className="mt-1 text-sm font-medium text-primary">
                     {user._count.reports_received}
                   </dd>
                 </div>
@@ -268,6 +282,7 @@ export default function AdminUserListContainer({ data }: Props) {
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() =>
                     setRoleTarget({
                       id: user.id,
@@ -275,11 +290,12 @@ export default function AdminUserListContainer({ data }: Props) {
                       currentRole: user.role,
                     })
                   }
-                  className="rounded-xl border border-border-subtle bg-surface-dim/30 px-3 py-2.5 text-xs font-bold text-primary"
+                  className="focus-ring-soft rounded-xl border border-border-subtle bg-surface-dim/30 px-3 py-2.5 text-xs font-bold text-primary"
                 >
                   {user.role === "USER" ? "관리자 승격" : "일반 유저 강등"}
                 </button>
                 <button
+                  type="button"
                   onClick={() =>
                     setBanTarget({
                       id: user.id,
@@ -288,10 +304,10 @@ export default function AdminUserListContainer({ data }: Props) {
                     })
                   }
                   className={cn(
-                    "rounded-xl px-3 py-2.5 text-xs font-bold",
+                    "focus-ring-soft rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors",
                     user.bannedAt
                       ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-900/10 dark:text-emerald-400"
-                      : "bg-danger text-white"
+                      : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/30 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/40"
                   )}
                 >
                   {user.bannedAt ? "이용 정지 해제" : "서비스 이용 정지"}
@@ -343,24 +359,25 @@ export default function AdminUserListContainer({ data }: Props) {
                           disabled
                         />
                         <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-primary">
-                            {user.username}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-primary">
+                              {user.username}
                             </span>
-                            <span className="rounded-full bg-surface-dim px-2 py-0.5 font-mono text-[10px] text-muted">
+                            <span className="rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-xs font-medium text-primary">
                               #{user.id}
                             </span>
                             <Link
                               href={`/profile/${user.username}`}
+                              prefetch={false}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="shrink-0 text-muted transition-colors hover:text-brand"
+                              className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                               aria-label={`${user.username} 프로필 보기`}
                             >
                               <ArrowTopRightOnSquareIcon className="size-4" />
                             </Link>
                           </div>
-                          <span className="text-[10px] text-muted">
+                          <span className="text-xs text-muted">
                             {user.email || "소셜 계정"}
                           </span>
                         </div>
@@ -370,10 +387,10 @@ export default function AdminUserListContainer({ data }: Props) {
                     <td className="px-6 py-4">
                       <span
                         className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-bold",
+                          "rounded-full border px-2 py-0.5 text-xs font-bold",
                           user.role === "ADMIN"
-                            ? "bg-accent/20 text-accent-dark"
-                            : "bg-surface-dim text-muted"
+                            ? "border-brand/20 bg-brand/10 text-brand dark:border-brand-light/25 dark:bg-brand-light/10 dark:text-brand-light"
+                            : "border-border bg-surface-dim text-primary"
                         )}
                       >
                         {user.role}
@@ -390,7 +407,7 @@ export default function AdminUserListContainer({ data }: Props) {
                     {/* 신고 횟수 (위험 지표 강조) */}
                     <td className="px-6 py-4 text-center">
                       {user._count.reports_received > 0 ? (
-                        <span className="text-danger font-black bg-danger/10 px-2 py-0.5 rounded-full text-xs">
+                        <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700 dark:border-red-900/30 dark:bg-red-950/30 dark:text-red-300">
                           {user._count.reports_received}
                         </span>
                       ) : (
@@ -405,12 +422,13 @@ export default function AdminUserListContainer({ data }: Props) {
                     <td className="px-6 py-4 text-right">
                       <div className="relative inline-block">
                         <button
+                          type="button"
                           onClick={() =>
                             setOpenMenuId(
                               openMenuId === user.id ? null : user.id
                             )
                           }
-                          className="p-2 text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-colors"
+                          className="focus-ring-soft p-2 text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-colors"
                         >
                           <EllipsisVerticalIcon className="size-5" />
                         </button>
@@ -425,6 +443,7 @@ export default function AdminUserListContainer({ data }: Props) {
                               <div className="flex flex-col">
                                 {/* 권한 변경 버튼 */}
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
                                     setRoleTarget({
@@ -433,7 +452,7 @@ export default function AdminUserListContainer({ data }: Props) {
                                       currentRole: user.role,
                                     });
                                   }}
-                                  className="w-full text-left px-4 py-2.5 text-xs font-bold text-primary hover:bg-surface-dim"
+                                  className="focus-ring-soft w-full text-left px-4 py-2.5 text-xs font-bold text-primary hover:bg-surface-dim"
                                 >
                                   {user.role === "USER"
                                     ? "관리자 승격"
@@ -447,6 +466,7 @@ export default function AdminUserListContainer({ data }: Props) {
 
                                 {/* 정지 버튼 */}
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
                                     setBanTarget({
@@ -456,10 +476,10 @@ export default function AdminUserListContainer({ data }: Props) {
                                     });
                                   }}
                                   className={cn(
-                                    "w-full text-left px-4 py-2.5 text-xs font-bold",
+                                    "focus-ring-soft w-full text-left px-4 py-2.5 text-xs font-bold",
                                     user.bannedAt
                                       ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
-                                      : "text-danger hover:bg-danger/5"
+                                      : "text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/20"
                                   )}
                                 >
                                   {user.bannedAt
@@ -488,7 +508,9 @@ export default function AdminUserListContainer({ data }: Props) {
       <AdminActionModal
         open={!!roleTarget}
         onClose={() => setRoleTarget(null)}
-        title={roleTarget?.currentRole === "USER" ? "관리자 승격" : "일반 유저 강등"}
+        title={
+          roleTarget?.currentRole === "USER" ? "관리자 승격" : "일반 유저 강등"
+        }
         description={
           roleTarget
             ? roleTarget.currentRole === "USER"
@@ -496,7 +518,9 @@ export default function AdminUserListContainer({ data }: Props) {
               : `'${roleTarget.username}'님의 관리자 권한을 해제하시겠습니까?`
             : ""
         }
-        confirmLabel={roleTarget?.currentRole === "USER" ? "승격 확정" : "강등 확정"}
+        confirmLabel={
+          roleTarget?.currentRole === "USER" ? "승격 확정" : "강등 확정"
+        }
         confirmVariant="primary"
         onConfirm={handleRoleChange}
         placeholder="권한 변경 사유를 입력해주세요 (감사 로그와 알림에 기록됩니다)"

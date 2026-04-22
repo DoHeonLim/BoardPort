@@ -8,12 +8,12 @@
  * 2026.02.05  임도헌   Created   실시간 차단(BLOCK) 이벤트 수신 시 리다이렉트 처리
  * 2026.03.18  임도헌   Modified  403 이동 시 pathname뿐 아니라 search까지 포함해 현재 복귀 문맥 보존
  * 2026.04.03  임도헌   Modified  방송 전용 강제 퇴장(STREAM_KICK) 이벤트를 분리 처리
+ * 2026.04.22  임도헌   Modified  개인 알림 채널 중복 구독을 제거하고 전역 sys_event 브리지로 유저 차단/강제 퇴장을 실시간 수신하도록 정리
  */
 "use client";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 interface StreamBlockGuardProps {
@@ -25,8 +25,8 @@ interface StreamBlockGuardProps {
 
 /**
  * 실시간 차단 방어막
- * - 현재 시청 중인 방송의 주인이 나를 차단하는 'sys_event'를 수신하면
- * - 즉시 안내 메시지를 띄우고 접근 거부 페이지로 이동
+ * - 현재 시청 중인 방송의 운영 액션(sys_event) 중 유저 차단/강제 퇴장을 수신하면
+ * - 즉시 안내 메시지를 띄우고 접근 거부 또는 방송 목록으로 이동
  * - 현재 URL의 search까지 callbackUrl로 넘겨 복귀 문맥 보존
  */
 export default function StreamBlockGuard({
@@ -41,48 +41,53 @@ export default function StreamBlockGuard({
     // 비로그인이거나 본인이면 감시할 필요 없음
     if (!viewerId || viewerId === ownerId) return;
 
-    const channelName = `user-${viewerId}-notifications`;
-    const channel = supabase.channel(channelName);
+    // NotificationListener가 발행한 전역 운영 이벤트를 받아
+    // 현재 방송 문맥에 해당하는 유저 차단/강제 퇴장만 즉시 반영
+    const handleSysEvent = (event: Event) => {
+      const payload = (
+        event as CustomEvent<{
+          type?: "BLOCK" | "STREAM_KICK";
+          actorId?: number;
+          streamId?: number;
+        }>
+      ).detail;
 
-    channel
-      .on("broadcast", { event: "sys_event" }, ({ payload }) => {
-        // payload:
-        // - { type: "BLOCK", actorId: number, ... }
-        // - { type: "STREAM_KICK", actorId: number, streamId: number, ... }
+      if (payload?.type === "BLOCK" && payload.actorId === ownerId) {
+        // 1. 토스트 알림 (즉각 피드백)
+        toast.error(`${ownerUsername}님에게 차단되어 퇴장됩니다.`, {
+          duration: 5000,
+        });
 
-        if (payload?.type === "BLOCK" && payload.actorId === ownerId) {
-          // 1. 토스트 알림 (즉각 피드백)
-          toast.error(`${ownerUsername}님에게 차단되어 퇴장됩니다.`, {
-            duration: 5000,
-          });
+        // 2. 강제 이동 (403 페이지)
+        // 현재 쿼리까지 함께 넘겨 차단 해제/복귀 시 문맥 보존
+        const currentUrl = window.location.pathname + window.location.search;
+        router.replace(
+          `/403?reason=BLOCKED&username=${encodeURIComponent(
+            ownerUsername
+          )}&callbackUrl=${encodeURIComponent(currentUrl)}`
+        );
+        return;
+      }
 
-          // 2. 강제 이동 (403 페이지)
-          // 현재 쿼리까지 함께 넘겨 차단 해제/복귀 시 문맥 보존
-          const currentUrl =
-            window.location.pathname + window.location.search;
-          router.replace(
-            `/403?reason=BLOCKED&username=${encodeURIComponent(
-              ownerUsername
-            )}&callbackUrl=${encodeURIComponent(currentUrl)}`
-          );
-          return;
-        }
+      if (
+        payload?.type === "STREAM_KICK" &&
+        payload.actorId === ownerId &&
+        Number(payload.streamId) === streamId
+      ) {
+        toast.error(`${ownerUsername}님의 방송에서 강제 퇴장되었습니다.`, {
+          duration: 5000,
+        });
+        router.replace("/streams");
+      }
+    };
 
-        if (
-          payload?.type === "STREAM_KICK" &&
-          payload.actorId === ownerId &&
-          Number(payload.streamId) === streamId
-        ) {
-          toast.error(`${ownerUsername}님의 방송에서 강제 퇴장되었습니다.`, {
-            duration: 5000,
-          });
-          router.replace("/streams");
-        }
-      })
-      .subscribe();
+    window.addEventListener("app:sys-event", handleSysEvent as EventListener);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener(
+        "app:sys-event",
+        handleSysEvent as EventListener
+      );
     };
   }, [viewerId, ownerId, ownerUsername, router, streamId]);
 

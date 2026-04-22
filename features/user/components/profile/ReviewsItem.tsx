@@ -20,6 +20,7 @@
  * 2026.03.14  임도헌   Modified  모바일에서 리뷰 아이템 높이가 과하게 커 보이지 않도록 아바타/간격/본문 여백을 압축
  * 2026.03.14  임도헌   Modified  리뷰에 표시되는 상품명을 상세 링크로 연결해 거래 맥락 진입성을 보강
  * 2026.03.18  임도헌   Modified  리뷰 상품 링크용 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
+ * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 작성자 라벨 weight와 메타 text-xs 스케일을 정리
  */
 "use client";
 
@@ -96,7 +97,7 @@ export default function ReviewItem({
           {/* Meta Header */}
           <div className="flex justify-between items-start">
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-primary">
+              <span className="text-sm font-medium text-primary">
                 {review.user?.username || "알 수 없음"}
               </span>
               <div
@@ -116,17 +117,17 @@ export default function ReviewItem({
                 ))}
               </div>
             </div>
-            <div className="text-[11px] text-muted sm:text-xs">
+            <div className="text-xs text-muted">
               <TimeAgo date={review.created_at} />
             </div>
           </div>
 
           {/* Product Link Context */}
-          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted sm:mt-2 sm:text-xs">
+          <div className="mt-1.5 flex items-center gap-1 text-xs text-muted sm:mt-2">
             <span className="shrink-0">구매한 상품:</span>
             <Link
               href={`/products/view/${review.product.id}?returnTo=${encodeURIComponent(returnTo)}`}
-              className="max-w-[200px] truncate font-medium text-primary underline-offset-2 transition-colors hover:text-brand hover:underline dark:hover:text-brand-light"
+              className="focus-ring-soft max-w-[200px] rounded-md truncate font-medium text-primary underline-offset-2 transition-colors hover:text-brand hover:underline dark:hover:text-brand-light"
             >
               {review.product.title}
             </Link>
@@ -153,7 +154,7 @@ export default function ReviewItem({
             {allowExpand && overflowing && !expanded && (
               <button
                 onClick={() => setExpanded(true)}
-                className="text-xs font-medium text-muted hover:text-brand mt-1 underline underline-offset-2"
+                className="focus-ring-soft mt-1 rounded-md text-xs font-medium text-muted underline underline-offset-2 transition-colors hover:text-brand dark:hover:text-brand-light"
               >
                 더 보기
               </button>

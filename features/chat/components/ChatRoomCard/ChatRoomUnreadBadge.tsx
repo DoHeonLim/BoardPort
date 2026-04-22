@@ -11,6 +11,7 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-danger, text-muted)
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 시간/읽지 않음 배지 크기를 text-xs 기준으로 정리
  */
 "use client";
 
@@ -33,7 +34,7 @@ export default function ChatRoomUnreadBadge({
 
   return (
     <div className="flex flex-col items-end gap-1 min-w-[60px]">
-      <span className="text-[11px] text-muted whitespace-nowrap">
+      <span className="whitespace-nowrap text-xs text-muted">
         <TimeAgo date={date} />
       </span>
 
@@ -41,7 +42,7 @@ export default function ChatRoomUnreadBadge({
         <span
           className={cn(
             "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5",
-            "text-[10px] font-bold text-white rounded-full shadow-sm",
+            "rounded-full text-xs font-bold text-white shadow-sm",
             "bg-danger"
           )}
         >

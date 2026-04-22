@@ -19,6 +19,7 @@
  * 2026.03.14  임도헌   Modified  인증 성공 후 복귀를 replace로 정리해 SMS 화면이 히스토리에 남지 않도록 보강
  * 2026.03.14  임도헌   Modified  토큰 단계에서 인증번호 재전송 버튼을 제공해 전화번호 재입력 없이 재시도할 수 있도록 보강
  * 2026.03.14  임도헌   Modified  인증 성공 시 온보딩 필요 여부를 서버 redirectTo 규칙으로 통일
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 SMS 인증 안내와 액션 링크 타이포를 정리
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
@@ -170,8 +171,8 @@ export default function SmsForm({
         </div>
       ) : (
         <div className="flex flex-col gap-form-gap">
-          <div className="text-sm text-center text-muted mb-2">
-            <span className="font-semibold text-brand dark:text-brand-light">
+          <div className="mb-2 text-center text-sm leading-relaxed text-muted">
+            <span className="font-medium text-brand dark:text-brand-light">
               {phone}
             </span>
             로 전송된
@@ -209,7 +210,7 @@ export default function SmsForm({
               type="button"
               onClick={handleResendToken}
               disabled={isPending}
-              className="text-xs text-brand dark:text-brand-light hover:underline underline-offset-4 disabled:opacity-60"
+              className="focus-ring-soft rounded-md px-1.5 py-1 text-sm font-medium text-brand underline-offset-4 transition-colors hover:underline disabled:opacity-60 dark:text-brand-light"
             >
               인증번호 재전송
             </button>
@@ -219,7 +220,7 @@ export default function SmsForm({
                 setPhase("phone");
                 setFormError(null);
               }}
-              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light underline underline-offset-4"
+              className="focus-ring-soft rounded-md px-1.5 py-1 text-sm font-medium text-muted underline underline-offset-4 transition-colors hover:text-brand dark:hover:text-brand-light"
             >
               전화번호 다시 입력하기
             </button>

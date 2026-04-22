@@ -20,6 +20,9 @@
  * 2026.03.14  임도헌   Modified  그리드 카드에서도 태그를 압축형으로 노출해 카테고리만으로 부족한 정보 밀도를 보완
  * 2026.03.19  임도헌   Modified  게시글 카드의 현재 목록 경로도 내부 경로 기준으로 정규화해 raw returnTo 재전파를 방지
  * 2026.03.26  임도헌   Modified  리스트 카드의 썸네일 폭과 내부 간격을 조정해 모바일 제목/메타 여유를 확보
+ * 2026.04.14  임도헌   Modified  목록 카드 링크 prefetch를 비활성화해 상세/작성 경로 선로딩을 줄임
+ * 2026.04.14  임도헌   Modified  현재 목록 경로(returnTo)와 대표 카드 우선 로드 여부를 상위에서 주입받도록 정리
+ * 2026.04.20  임도헌   Modified  게시글 카드 포커스가 브라우저 기본 outline 대신 keyboard-only inset 링으로 보이도록 조정
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -35,8 +38,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { PostDetail } from "@/features/post/types";
 import PostCardHeader from "@/features/post/components/postCard/PostCardHeader";
 import PostCardMeta from "@/features/post/components/postCard/PostCardMeta";
@@ -48,6 +49,8 @@ import { cn } from "@/lib/utils";
 interface PostCardProps {
   post: PostDetail;
   viewMode: "list" | "grid";
+  isPriority?: boolean;
+  returnTo?: string;
 }
 
 /**
@@ -57,30 +60,33 @@ interface PostCardProps {
  * - 썸네일, 헤더(카테고리), 제목, 태그, 메타 정보를 조합하여 렌더링
  * - 클릭 시 게시글 상세 페이지(`/posts/[id]`)로 이동
  */
-export default function PostCard({ post, viewMode }: PostCardProps) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+export default function PostCard({
+  post,
+  viewMode,
+  isPriority = false,
+  returnTo = "/posts",
+}: PostCardProps) {
   const isGrid = viewMode === "grid";
-  // 카드 상세 진입에 다시 실리는 현재 목록 경로도 내부 경로 기준으로 정규화
-  const currentHref = sanitizeCallbackUrl(
-    searchParams?.size ? `${pathname}?${searchParams.toString()}` : pathname
-  );
-  const detailHref = `/posts/${post.id}?returnTo=${encodeURIComponent(
-    currentHref
-  )}`;
+  const detailHref = `/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
     <Link
       href={detailHref}
+      prefetch={false}
       className={cn(
-        "group relative flex overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-all duration-300",
+        "focus-ring-strong-inset group relative flex overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
         isGrid ? "flex-col h-full" : "flex-row min-h-28 w-full sm:min-h-36"
       )}
     >
       {/* 썸네일 */}
       <div className={cn("relative shrink-0", isGrid ? "w-full" : "h-full")}>
-        <PostCardThumbnail images={post.images} viewMode={viewMode} />
+        <PostCardThumbnail
+          images={post.images}
+          blocks={post.blocks}
+          viewMode={viewMode}
+          isPriority={isPriority}
+        />
       </div>
 
       {/* 2. 정보 영역 (flex-col flex-1) */}

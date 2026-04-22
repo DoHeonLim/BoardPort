@@ -8,7 +8,7 @@
  * 2025.12.06  임도헌   Modified  chunk처리 추가
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
  * 2026.01.08  임도헌   Modified  대량 유저 처리 시 타임아웃 방지를 위해 Rolling Batch(take:50) 전략 적용
- * 2026.01.09  임도헌   Modified  Vercel Hobby 플랜 제한(1일 1회) 대응: BATCH_SIZE 50 -> 100 상향
+ * 2026.01.09  임도헌   Modified  Vercel Hobby 플랜 제한(1일 1회) 대응으로 배지 점검 배치 크기 정책을 재조정
  */
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
@@ -98,3 +98,4 @@ export async function GET(req: NextRequest) {
     nextBatchAvailable: processedIds.length === BATCH_SIZE, // 꽉 채워 처리했으면 대기열이 더 있을 수 있음
   });
 }
+

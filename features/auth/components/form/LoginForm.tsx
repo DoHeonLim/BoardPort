@@ -24,6 +24,7 @@
  * 2026.03.18  임도헌   Modified  비밀번호 찾기 링크에도 callbackUrl을 전달해 재로그인 시 원래 목적지 복귀 문맥 유지
  * 2026.03.23  임도헌   Modified  로그인 폼 내 소셜 로그인 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.25  임도헌   Modified  인증 도움 링크와 소셜 섹션 위계를 다듬어 기본 로그인 흐름이 먼저 읽히도록 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 보조 링크 타이포 무게를 정리
  */
 "use client";
 
@@ -156,7 +157,7 @@ export default function LoginForm({
       <div className="-mt-0.5 text-right">
         <Link
           href={`/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-          className="text-sm font-medium text-muted underline-offset-4 transition-colors hover:text-primary hover:underline"
+          className="focus-ring-soft rounded-md px-1 py-0.5 text-sm font-medium text-muted underline-offset-4 transition-colors hover:text-primary hover:underline"
         >
           비밀번호를 잊으셨나요?
         </Link>
@@ -185,7 +186,7 @@ export default function LoginForm({
             href={`/create-account?callbackUrl=${encodeURIComponent(
               callbackUrl
             )}`}
-            className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
+            className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
           >
             회원가입 하기
           </Link>

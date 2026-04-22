@@ -17,6 +17,7 @@
  * 2026.03.19  임도헌   Modified  카테고리 칩과 공유 버튼의 시각적 가중치를 한 단계 낮춰 모바일 우측 액션 밀도를 완화
  * 2026.03.25  임도헌   Modified  owner 전용 녹화 삭제 액션을 상단 메뉴로 이동해 상세 본문 시청 흐름을 단순화
  * 2026.04.03  임도헌   Modified  다시보기 상단 옵션의 차단/신고 위계와 삭제 문구를 다른 도메인과 같은 액션 문법으로 정리
+ * 2026.04.08  임도헌   Modified  녹화 삭제 후 목록/채널 진입 문맥이면 back + 1회 refresh로 복귀하도록 정리
  */
 
 "use client";
@@ -39,6 +40,10 @@ import BottomSheet from "@/components/global/BottomSheet";
 import UserAvatar from "@/components/global/UserAvatar";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn, handleShare } from "@/lib/utils";
+import {
+  createNavigationRefreshFlagKey,
+  setNavigationRefreshFlag,
+} from "@/lib/navigationRefreshFlag";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -59,9 +64,10 @@ interface RecordingTopbarProps {
 
 /**
  * 녹화본 상세 페이지 상단바
- * - 좌측: 뒤로가기 버튼 + 작성자 프로필(아바타)
- * - 우측: 카테고리 칩 (선택적)
- * - 스크롤 시 상단에 고정(Sticky)
+ * - 좌측에 뒤로가기 버튼과 작성자 프로필을 배치
+ * - 우측에 카테고리 칩, 공유 버튼, 소유자/시청자별 옵션 메뉴를 노출
+ * - 소유자는 녹화 삭제, 시청자는 스트리머 차단/다시보기 신고 액션을 실행
+ * - 스크롤 중에도 상단에 고정되어 상세 액션 접근을 유지
  */
 export default function RecordingTopbar({
   broadcastId,
@@ -142,6 +148,15 @@ export default function RecordingTopbar({
       toast.success("녹화를 삭제했습니다.");
       setDeleteConfirmOpen(false);
       setMenuOpen(false);
+
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        setNavigationRefreshFlag(
+          createNavigationRefreshFlagKey("recording-list-refresh", backHref)
+        );
+        router.back();
+        return;
+      }
+
       router.replace(backHref || `/profile/${username}/channel`);
     } catch (error) {
       console.error(error);
@@ -212,7 +227,7 @@ export default function RecordingTopbar({
                       setDeleteConfirmOpen(true);
                     }}
                     role="menuitem"
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
+                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
                   >
                     <TrashIcon className="size-4" /> 녹화 삭제
                   </button>
@@ -224,7 +239,7 @@ export default function RecordingTopbar({
                         setBlockConfirmOpen(true);
                       }}
                       role="menuitem"
-                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
+                      className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
                     >
                       <UserMinusIcon className="size-4" /> 스트리머 차단
                     </button>
@@ -234,7 +249,7 @@ export default function RecordingTopbar({
                         setReportOpen(true);
                       }}
                       role="menuitem"
-                      className="flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
+                      className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
                     >
                       <ExclamationTriangleIcon className="size-4" /> 다시보기 신고
                     </button>
@@ -264,7 +279,7 @@ export default function RecordingTopbar({
                 setMenuOpen(false);
                 setDeleteConfirmOpen(true);
               }}
-              className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
             >
               <TrashIcon className="size-5 shrink-0" />
               녹화 삭제
@@ -277,7 +292,7 @@ export default function RecordingTopbar({
                   setMenuOpen(false);
                   setBlockConfirmOpen(true);
                 }}
-                className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+                className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
               >
                 <UserMinusIcon className="size-5 shrink-0" />
                 스트리머 차단
@@ -288,7 +303,7 @@ export default function RecordingTopbar({
                   setMenuOpen(false);
                   setReportOpen(true);
                 }}
-                className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+                className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
               >
                 <ExclamationTriangleIcon className="size-5 shrink-0" />
                 다시보기 신고

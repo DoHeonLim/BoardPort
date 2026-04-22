@@ -20,6 +20,7 @@
  * 2026.03.19  임도헌   Modified  플레이어 상단 메타 바에 맞춰 패딩/그림자를 더 낮춘 경량 상태 칩으로 조정
  * 2026.03.20  임도헌   Modified  플레이어 상태 메타를 항해 로그 칩처럼 읽히도록 타이포와 대비를 추가 정리
  * 2026.03.20  임도헌   Modified  방송 종료 상태는 danger 계열 칩으로 조정해 라이브 종료 의미를 더 분명하게 전달
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상태 칩 타이포를 text-xs·500 기준으로 정리
  */
 
 "use client";
@@ -38,7 +39,7 @@ import { cn } from "@/lib/utils";
  */
 export default function LiveStatusButton({
   status,
-  streamId, // CF Live Input UID (provider_uid)
+  streamId, // CF Live Input UID (provider_uid, 송출 식별자)
   className = "",
 }: {
   status: StreamStatus | string;
@@ -108,7 +109,7 @@ export default function LiveStatusButton({
       role="status"
       aria-live="polite"
       className={cn(
-        "inline-flex h-8 w-fit items-center justify-center rounded-full px-3 text-[12px] font-semibold tracking-[0.01em]",
+        "inline-flex h-8 w-fit items-center justify-center rounded-full px-3 text-xs font-medium tracking-[0.01em]",
         colorClass,
         className
       )}

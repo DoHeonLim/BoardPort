@@ -34,11 +34,19 @@
  * 2026.03.26  임도헌   Modified  내 판매 카드 패턴에 맞춰 게임/카테고리 태그를 구매 카드에도 노출
  * 2026.03.26  임도헌   Modified  구매 카드 액션바 톤을 판매 완료 카드와 같은 위계로 정리
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 내 구매 카드의 제목/칩/메타 타이포를 정리
+ * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 썸네일 우선 로드, 상세 링크 프리패치 비활성화, 카드 제목 heading 정리
+ * 2026.04.19  임도헌   Modified  내 구매 카드 hover 피드백을 그림자 중심으로 정리하고 제목 색 과반응을 제거
+ * 2026.04.20  임도헌   Modified  썸네일/제목 링크가 기본 outline 대신 공용 포커스 톤을 따르도록 정리
  */
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -68,12 +76,13 @@ const ReviewDetailModal = dynamic(
 
 type Props = {
   product: MyPurchasedListItem;
+  prioritizeImage?: boolean;
   onReviewChanged?: (patch: Partial<MyPurchasedListItem>) => void;
 };
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-[11px] font-semibold leading-none text-primary shadow-sm">
+    <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-xs font-medium leading-none text-primary shadow-sm">
       {children}
     </span>
   );
@@ -81,7 +90,7 @@ function Chip({ children }: { children: React.ReactNode }) {
 
 function PurchasePill() {
   return (
-    <span className="rounded px-2 py-0.5 text-[10px] font-bold text-white shadow-sm bg-neutral-500">
+    <span className="rounded bg-neutral-500 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
       구매완료
     </span>
   );
@@ -114,6 +123,7 @@ function Metric({
  */
 export default function MyPurchasesProductItem({
   product,
+  prioritizeImage = false,
   onReviewChanged,
 }: Props) {
   const pathname = usePathname();
@@ -229,13 +239,14 @@ export default function MyPurchasesProductItem({
   const href = `/products/view/${product.id}?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition hover:shadow-md">
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-shadow hover:shadow-md">
       {/* 제품 정보 영역 (클릭 시 상세 이동) */}
       <div className="flex gap-3 p-4 sm:gap-4">
-        {/* Thumbnail */}
+        {/* 썸네일 */}
         <Link
           href={href}
-          className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-surface-dim sm:size-28"
+          prefetch={false}
+          className="focus-ring-soft relative size-24 shrink-0 overflow-hidden rounded-xl bg-surface-dim sm:size-28"
         >
           {thumbUrl ? (
             <Image
@@ -243,6 +254,7 @@ export default function MyPurchasesProductItem({
               src={thumbUrl}
               alt={product.title}
               className="object-cover transition-transform group-hover:scale-105"
+              priority={prioritizeImage}
               unoptimized={!!product.images[0]?.isAnimated}
             />
           ) : (
@@ -252,14 +264,18 @@ export default function MyPurchasesProductItem({
           )}
         </Link>
 
-        {/* Info */}
+        {/* 정보 영역 */}
         <div className="flex min-w-0 flex-1 flex-col justify-between">
           <div>
             <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:justify-between sm:gap-2">
-              <Link href={href} className="block min-w-0 flex-1">
-                <h3 className="line-clamp-2 text-[15px] font-semibold leading-5 text-primary transition-colors group-hover:text-brand sm:line-clamp-1 sm:text-base sm:leading-6">
+              <Link
+                href={href}
+                prefetch={false}
+                className="focus-ring-soft block min-w-0 flex-1 rounded-lg"
+              >
+                <p className="line-clamp-2 text-sm font-medium leading-5 text-primary sm:line-clamp-1 sm:text-base sm:leading-6">
                   {product.title}
-                </h3>
+                </p>
               </Link>
               <div className="flex shrink-0 flex-wrap items-center gap-1.5 self-start">
                 <PurchasePill />
@@ -283,7 +299,7 @@ export default function MyPurchasesProductItem({
             )}
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-1 text-[10px] text-muted sm:text-xs">
+          <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-1 text-xs text-muted">
             <div className="flex gap-3">
               <Metric icon={<HeartIcon className="size-3.5 text-rose-500" />}>
                 {product._count.product_likes ?? 0}
@@ -299,12 +315,12 @@ export default function MyPurchasesProductItem({
         </div>
       </div>
 
-      {/* Actions (리뷰 관리) */}
+      {/* 액션 영역 (리뷰 관리) */}
       <div className="grid grid-cols-2 divide-x divide-border-subtle border-t border-border-subtle bg-surface-dim/30">
         {buyerReview ? (
           <button
             onClick={() => toggleModal("viewMine", true)}
-            className="py-3 text-xs font-medium text-primary transition-colors hover:bg-surface-dim sm:text-sm"
+            className="focus-ring-strong-inset py-3 text-xs font-medium text-primary transition-colors hover:bg-surface-dim sm:text-sm"
           >
             내 리뷰 보기
           </button>
@@ -312,7 +328,7 @@ export default function MyPurchasesProductItem({
           <button
             onClick={() => toggleModal("create", true)}
             disabled={isSubmitting}
-            className="py-3 text-xs font-medium text-brand transition-colors hover:bg-brand/5 disabled:opacity-50 dark:text-brand-light dark:hover:bg-brand-light/10 sm:text-sm"
+            className="focus-ring-strong-inset py-3 text-xs font-medium text-brand transition-colors hover:bg-brand/5 dark:text-brand-light dark:hover:bg-brand-light/10 disabled:opacity-50 sm:text-sm"
           >
             {isSubmitting ? "작성 중..." : "리뷰 작성하기"}
           </button>
@@ -320,13 +336,13 @@ export default function MyPurchasesProductItem({
 
         <button
           onClick={() => toggleModal("viewSeller", true)}
-          className="py-3 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:text-sm"
+          className="focus-ring-strong-inset py-3 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:text-sm"
         >
           판매자 리뷰
         </button>
       </div>
 
-      {/* Modals */}
+      {/* 모달 영역 */}
 
       {/* 1. 리뷰 작성 */}
       <CreateReviewModal

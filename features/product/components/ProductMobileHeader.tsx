@@ -15,29 +15,38 @@
  * 2026.03.19  임도헌   Modified  2행 필터 요약 박스의 배경/텍스트 대비를 한 단계 낮춰 작은 화면에서 존재감을 완화
  * 2026.03.25  임도헌   Modified  모바일 헤더 2행의 요약 박스와 초기화 액션 톤을 한 단계 낮춰 출시 직전 polish 반영
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 모바일 제품 헤더 요약 타이포를 정리
+ * 2026.04.13  임도헌   Modified  검색 모달을 동적 로딩으로 전환해 초기 products 헤더 번들을 경량화
+ * 2026.04.13  임도헌   Modified  헤더 spacer의 grid-template-rows 전환 애니메이션을 제거해 모바일 레이아웃 비용을 완화
+ * 2026.04.13  임도헌   Modified  모바일/데스크톱 헤더와 중복되던 검색/필터 상태 로직을 공통 훅으로 정리
+ * 2026.04.17  임도헌   Modified  모바일 제품 헤더의 상품 검색 버튼 스타일을 정리
  */
 "use client";
 
-import { useState } from "react";
+import dynamic from "next/dynamic";
 import { XMarkIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import ProductCategoryDropdown from "@/features/search/components/ProductCategoryDropdown";
 import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
 import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
 import NotificationBell from "@/components/global/NotificationBell";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
-import SearchModal from "@/features/search/components/SearchModal";
-import { useSearchHistory } from "@/features/search/hooks/useSearchHistory";
-import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
+import { useProductHeaderState } from "@/features/product/hooks/useProductHeaderState";
 import type {
   PopularSearchItem,
   SearchHistoryItem,
 } from "@/features/search/types";
-import { getProductHeaderSummary } from "@/features/product/utils/getProductHeaderSummary";
 import { useHideableHeader } from "@/hooks/useHideableHeader";
 import type { Category } from "@/generated/prisma/client";
 import type { FilterState } from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
+
+const DEFAULT_MOBILE_HEADER_HEIGHT = 104;
+
+const SearchModal = dynamic(
+  () => import("@/features/search/components/SearchModal"),
+  { loading: () => null }
+);
 
 interface ProductMobileHeaderProps {
   categories: Category[];
@@ -77,35 +86,24 @@ export default function ProductMobileHeader({
   currentRange,
   fullLocation,
 }: ProductMobileHeaderProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { headerRef, headerHeight, isVisible } =
     useHideableHeader<HTMLElement>();
-  const { resetFilterParams, updateKeyword } = useSearchParamsUtils();
   const {
-    history: localSearchHistory,
-    addHistory,
+    isSearchOpen,
+    setIsSearchOpen,
+    handleSearch,
+    filterSummary,
+    hasActiveFilters,
+    resetFilterParams,
+    localSearchHistory,
     removeHistory,
     clearHistory,
-  } = useSearchHistory(searchHistory);
-
-  const handleSearch = (nextKeyword: string) => {
-    addHistory(nextKeyword);
-    updateKeyword(nextKeyword);
-    setIsSearchOpen(false);
-  };
-
-  const { summary: filterSummary } = getProductHeaderSummary({
+  } = useProductHeaderState({
     categories,
     filters,
     keyword,
+    searchHistory,
   });
-  const hasActiveFilters = Boolean(
-    filters.category ||
-    filters.minPrice ||
-    filters.maxPrice ||
-    filters.game_type ||
-    filters.condition
-  );
 
   return (
     <>
@@ -115,7 +113,9 @@ export default function ProductMobileHeader({
           "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-2 pb-2 transition-transform duration-300 ease-out"
         )}
         style={{
-          transform: isVisible ? "translateY(0)" : "translateY(calc(-100% - 8px))",
+          transform: isVisible
+            ? "translateY(0)"
+            : "translateY(calc(-100% - 8px))",
         }}
       >
         <div className="flex items-center gap-2 py-1">
@@ -135,8 +135,7 @@ export default function ProductMobileHeader({
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}
-            aria-label="검색창 열기"
-            className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface-dim px-3 text-sm text-muted transition-colors hover:bg-surface"
+            className="searchbar-compact-trigger focus-ring-soft min-w-0 flex-1 gap-2 px-3"
           >
             <MagnifyingGlassIcon className="size-[18px] shrink-0 text-muted" />
             <span className="truncate text-left">{keyword || "상품 검색"}</span>
@@ -156,10 +155,9 @@ export default function ProductMobileHeader({
             />
           </div>
 
-          {/* 필터 요약 박스 — 활성 필터 있을 때 X 버튼 내장 */}
           <div className="relative min-w-0 flex-1">
             <div className="flex items-center rounded-xl border border-border-subtle bg-background px-3 py-2">
-              <p className="min-w-0 flex-1 truncate text-[11px] font-normal text-muted/90">
+              <p className="min-w-0 flex-1 truncate text-xs font-medium text-muted/90">
                 {filterSummary}
               </p>
               {hasActiveFilters && (
@@ -167,7 +165,7 @@ export default function ProductMobileHeader({
                   type="button"
                   onClick={resetFilterParams}
                   aria-label="필터 초기화 (검색어 유지)"
-                  className="ml-1.5 shrink-0 rounded-full p-0.5 text-muted transition-colors hover:bg-surface hover:text-primary"
+                  className="focus-ring-soft ml-1.5 shrink-0 rounded-full p-0.5 text-muted transition-colors hover:bg-surface hover:text-primary"
                 >
                   <XMarkIcon className="size-3.5" />
                 </button>
@@ -188,9 +186,15 @@ export default function ProductMobileHeader({
 
       <div
         aria-hidden="true"
-        className="transition-[height] duration-300 ease-out"
-        style={{ height: isVisible ? headerHeight : 0 }}
-      />
+        className="grid overflow-hidden"
+        style={{
+          gridTemplateRows: isVisible
+            ? `${Math.max(headerHeight, DEFAULT_MOBILE_HEADER_HEIGHT)}px`
+            : "0px",
+        }}
+      >
+        <div />
+      </div>
 
       <SearchModal
         isOpen={isSearchOpen}

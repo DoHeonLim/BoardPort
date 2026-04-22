@@ -8,6 +8,7 @@
  * 2026.03.12  임도헌   Created   알림 센터에 맞는 이전/다음 기반 페이지네이션 추가
  * 2026.03.12  임도헌   Modified  URL 검색 파라미터를 유지한 채 page만 갱신하는 이전/다음 탐색 동작 추가
  * 2026.03.16  임도헌   Modified  페이지 전환도 replace로 처리해 BackButton이 진입점 복귀를 우선하도록 정리
+ * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 페이지네이션 버튼/카운트 weight를 500 기준으로 정리
  */
 "use client";
 
@@ -52,13 +53,13 @@ export default function NotificationPagination({
         type="button"
         onClick={() => movePage(currentPage - 1)}
         disabled={currentPage === 1}
-        className="inline-flex min-h-[40px] min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-background px-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-40"
+        className="focus-ring-soft inline-flex min-h-[40px] min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-background px-3 text-sm font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronLeftIcon className="size-4" />
         이전
       </button>
 
-      <p className="shrink-0 text-sm font-semibold text-primary">
+      <p className="shrink-0 text-sm font-medium text-primary">
         {currentPage}
         <span className="mx-1 text-muted">/</span>
         {totalPages}
@@ -68,7 +69,7 @@ export default function NotificationPagination({
         type="button"
         onClick={() => movePage(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="inline-flex min-h-[40px] min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-background px-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-40"
+        className="focus-ring-soft inline-flex min-h-[40px] min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-border-subtle bg-background px-3 text-sm font-medium text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-40"
       >
         다음
         <ChevronRightIcon className="size-4" />

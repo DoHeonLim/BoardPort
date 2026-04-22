@@ -107,7 +107,7 @@ export default function StreamDescription({
             aria-controls={contentId}
             onClick={() => setExpanded((v) => !v)}
             className={cn(
-              "inline-flex min-h-[32px] items-center rounded-full border border-border-subtle bg-surface px-3 text-xs font-medium transition-colors",
+              "focus-ring-soft inline-flex min-h-[32px] items-center rounded-full border border-border-subtle bg-surface px-3 text-xs font-medium transition-colors",
               "text-muted hover:bg-surface-dim hover:text-primary"
             )}
           >

@@ -212,7 +212,7 @@ export async function resetPasswordWithTokenService(
 
     // 토큰 소비와 비밀번호 갱신의 같은 트랜잭션 처리
     const result = await db.$transaction(async (tx) => {
-      // 유효성 확인과 소비를 분리하면 같은 토큰이 거의 동시에 두 번 사용될 수 있다.
+      // 유효성 확인과 소비 분리 시 같은 토큰의 거의 동시 이중 사용 가능성
       // 따라서 조건부 deleteMany로 "아직 만료되지 않은 이 토큰"을 먼저 소비하고,
       // count=1 인 요청만 비밀번호 갱신까지 진행
       const consumed = await tx.passwordResetToken.deleteMany({

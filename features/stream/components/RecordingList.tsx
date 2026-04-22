@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.28  임도헌   Created   스트림 메인 탭용 다시보기 그리드 리스트 추가
+ * 2026.04.16  임도헌   Modified  첫 다시보기 카드 썸네일을 우선 로드해 LCP 후보를 더 빠르게 노출
+ * 2026.04.17  임도헌   Modified  다시보기 무한 스크롤과 첫 카드 우선 로드 책임이 주석에서 바로 드러나도록 설명 보강
  */
 "use client";
 
@@ -28,6 +30,13 @@ interface RecordingListProps {
   viewerId?: number | null;
 }
 
+/**
+ * 스트림 메인 탭용 다시보기 리스트
+ *
+ * - `useRecordingPagination`으로 정렬/팔로잉/검색 조건에 맞는 VOD 목록을 가져온다
+ * - `useInfiniteScroll`과 `usePageVisibility`를 결합해 보이는 탭에서만 다음 페이지를 불러온다
+ * - 첫 카드만 `thumbnailPriority`를 주어 다시보기 목록의 대표 LCP 후보를 먼저 노출
+ */
 export default function RecordingList({
   sort,
   followingOnly = false,
@@ -101,6 +110,7 @@ export default function RecordingList({
             }
             isPrivateType={rec.visibility === "PRIVATE"}
             layout="grid"
+            thumbnailPriority={rec.vodId === recordings[0]?.vodId}
           />
         ))}
       </div>

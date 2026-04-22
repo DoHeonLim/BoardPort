@@ -13,10 +13,14 @@
  * 2026.03.29  임도헌   Modified  모바일 카드형 분기와 관리자 전용 네이밍 정리로 상품 목록 운영 UX를 정비
  * 2026.03.30  임도헌   Modified  판매자 ID 뱃지를 함께 노출해 감사 로그·신고·유저 관리와 식별자 문법을 통일
  * 2026.04.04  임도헌   Modified  관리자 삭제 성공 토스트를 사용자 영역과 같은 완료 문법으로 정리
+ * 2026.04.10  임도헌   Modified  상품 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  강제 삭제 모달을 지연 로드해 관리자 목록 초기 번들 비용을 완화
+ * 2026.04.18  임도헌   Modified  모바일 카드 링크 프리패치와 대비·접근성 이름을 정리해 상품 관리 Lighthouse 병목을 완화
  */
 "use client";
 
 import { useEffect, useState } from "react";
+import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -27,11 +31,15 @@ import {
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
-import AdminActionModal from "@/features/report/components/admin/AdminActionModal";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { deleteProductAdminAction } from "@/features/product/actions/admin";
 import { cn, formatToWon } from "@/lib/utils";
 import type { AdminProductListResponse } from "@/features/product/types";
+
+const AdminActionModal = nextDynamic(
+  () => import("@/features/report/components/admin/AdminActionModal"),
+  { ssr: false }
+);
 
 interface AdminProductListContainerProps {
   data: AdminProductListResponse;
@@ -103,16 +111,20 @@ export default function AdminProductListContainer({
               <article
                 key={product.id}
                 className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm"
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "320px",
+                }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-mono text-muted">
+                      <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-primary ring-1 ring-border-subtle">
                         #{product.id}
                       </span>
                       <span
                         className={cn(
-                          "rounded-full px-2 py-1 text-[10px] font-bold",
+                          "rounded-full px-2 py-1 text-xs font-bold",
                           isSold
                             ? "bg-surface-dim text-muted"
                             : isReserved
@@ -129,22 +141,25 @@ export default function AdminProductListContainer({
                       </h3>
                       <Link
                         href={`/products/view/${product.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                        prefetch={false}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-0.5 shrink-0 text-muted hover:text-brand"
+                        className="focus-ring-soft mt-0.5 shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                        aria-label={`${product.title} 원본 상품 보기`}
                       >
                         <ArrowTopRightOnSquareIcon className="size-4" />
                       </Link>
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={() =>
                       setDeleteTarget({
                         id: product.id,
                         title: product.title,
                       })
                     }
-                    className="shrink-0 rounded-xl p-2 text-muted hover:bg-danger/10 hover:text-danger"
+                    className="focus-ring-soft shrink-0 rounded-xl p-2 text-muted hover:bg-danger/10 hover:text-danger"
                     aria-label={`${product.title} 상품 삭제`}
                   >
                     <TrashIcon className="size-5" />
@@ -153,21 +168,22 @@ export default function AdminProductListContainer({
 
                 <dl className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
                   <div className="min-w-0">
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                    <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                       판매자
                     </dt>
                     <dd className="mt-1 flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-primary">
+                      <span className="truncate text-sm font-medium text-primary">
                         {product.user.username}
                       </span>
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-mono text-muted">
+                      <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
                         #{product.user.id}
                       </span>
                       <Link
                         href={`/profile/${product.user.username}`}
+                        prefetch={false}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 text-muted transition-colors hover:text-brand"
+                        className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                         aria-label={`${product.user.username} 프로필 보기`}
                       >
                         <ArrowTopRightOnSquareIcon className="size-4" />
@@ -175,18 +191,18 @@ export default function AdminProductListContainer({
                     </dd>
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                    <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                       가격
                     </dt>
-                    <dd className="mt-1 truncate text-sm font-semibold text-brand dark:text-brand-light">
+                    <dd className="mt-1 truncate text-sm font-medium text-brand dark:text-brand-light">
                       {formatToWon(product.price)}원
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                    <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                       등록일
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold text-primary">
+                    <dd className="mt-1 text-sm font-medium text-primary">
                       <TimeAgo date={product.created_at} />
                     </dd>
                   </div>
@@ -235,14 +251,16 @@ export default function AdminProductListContainer({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 max-w-sm">
-                          <span className="truncate font-semibold text-primary">
+                          <span className="truncate font-medium text-primary">
                             {product.title}
                           </span>
                           <Link
                             href={`/products/view/${product.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                            prefetch={false}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-muted hover:text-brand"
+                            className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                            aria-label={`${product.title} 원본 상품 보기`}
                           >
                             <ArrowTopRightOnSquareIcon className="size-4" />
                           </Link>
@@ -253,14 +271,15 @@ export default function AdminProductListContainer({
                           <span className="text-primary">
                             {product.user.username}
                           </span>
-                          <span className="rounded-full bg-surface-dim px-2 py-0.5 text-[10px] font-mono text-muted">
+                          <span className="rounded-full bg-surface-dim px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
                             #{product.user.id}
                           </span>
                           <Link
                             href={`/profile/${product.user.username}`}
+                            prefetch={false}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="shrink-0 text-muted transition-colors hover:text-brand"
+                            className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                             aria-label={`${product.user.username} 프로필 보기`}
                           >
                             <ArrowTopRightOnSquareIcon className="size-4" />
@@ -273,7 +292,7 @@ export default function AdminProductListContainer({
                       <td className="px-6 py-4">
                         <span
                           className={cn(
-                            "px-2 py-1 rounded text-[10px] font-bold",
+                            "px-2 py-1 rounded text-xs font-bold",
                             isSold
                               ? "bg-surface-dim text-muted"
                               : isReserved
@@ -293,13 +312,15 @@ export default function AdminProductListContainer({
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
+                          type="button"
                           onClick={() =>
                             setDeleteTarget({
                               id: product.id,
                               title: product.title,
                             })
                           }
-                          className="p-2 text-muted hover:text-danger hover:bg-danger/10 rounded-lg"
+                          className="focus-ring-soft rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger"
+                          aria-label={`${product.title} 상품 삭제`}
                         >
                           <TrashIcon className="size-5" />
                         </button>

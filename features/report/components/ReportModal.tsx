@@ -13,8 +13,10 @@
  * 2026.03.18  임도헌   Modified  비로그인 신고 진입용 현재 경로를 내부 경로 기준으로 정규화한 callbackUrl로 전달해 로그인 복귀와 nested callbackUrl 예외를 함께 완화
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  * 2026.04.03  임도헌   Modified  신고 대상 타입 import를 report/types 공용 정의로 정리
+ * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 textarea와 CTA가 안전하게 보이도록 시트형 배치와 내부 스크롤 구조 적용
+ * 2026.04.10  임도헌   Modified  신고 사유 선택 라벨 weight를 Pretendard subset 3-weight 정책에 맞춰 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useState, useTransition, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -25,7 +27,10 @@ import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { submitReportAction } from "@/features/report/actions/create";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
-import { REPORT_REASON_LABELS, REPORT_ERRORS } from "@/features/report/constants";
+import {
+  REPORT_REASON_LABELS,
+  REPORT_ERRORS,
+} from "@/features/report/constants";
 import type { ReportTargetType } from "@/features/report/types";
 import { ReportReason } from "@/generated/prisma/client";
 
@@ -163,9 +168,7 @@ export default function ReportModal({
       } else if (res.error === REPORT_ERRORS.NOT_LOGGED_IN) {
         // 신고 맥락을 잃지 않도록 현재 경로를 로그인 callbackUrl로 전달
         onClose();
-        router.push(
-          `/login?callbackUrl=${encodeURIComponent(currentPath)}`
-        );
+        router.push(`/login?callbackUrl=${encodeURIComponent(currentPath)}`);
       } else {
         toast.error(res.error);
       }
@@ -173,15 +176,15 @@ export default function ReportModal({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      {/* Background Click to Close */}
+    <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-4">
+      {/* 배경 클릭 시 닫기 */}
       <div
         className="absolute inset-0"
         onClick={() => !isPending && onClose()}
       />
 
       <div
-        className="relative bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-border-subtle"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-sm flex-col overflow-hidden rounded-t-3xl border border-border-subtle bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
         ref={dialogRef}
         role="dialog"
@@ -193,7 +196,7 @@ export default function ReportModal({
           신고 사유를 선택하고 필요한 경우 상세 설명을 입력한 뒤 제출합니다.
         </p>
 
-        {/* header */}
+        {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-subtle flex justify-between items-center bg-surface">
           <h2 id={titleId} className="font-bold text-primary text-lg">
             신고하기
@@ -203,14 +206,14 @@ export default function ReportModal({
             disabled={isPending}
             ref={closeButtonRef}
             aria-label="신고 모달 닫기"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* body */}
-        <div className="p-6 flex flex-col gap-6">
+        {/* 본문 */}
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
           <div>
             <label className="text-sm font-bold text-primary mb-3 block">
               신고 사유
@@ -221,7 +224,7 @@ export default function ReportModal({
                   <label
                     key={r}
                     className={cn(
-                      "flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all",
+                      "flex items-center gap-3 p-3.5 rounded-2xl border cursor-pointer transition-[background-color,color,border-color,box-shadow]",
                       reason === r
                         ? "bg-brand/5 border-brand/50 text-brand dark:bg-brand-light/10 dark:border-brand-light/50 dark:text-brand-light"
                         : "bg-surface border-border text-muted hover:bg-surface-dim"
@@ -235,10 +238,10 @@ export default function ReportModal({
                       onChange={(e) =>
                         setReason(e.target.value as ReportReason)
                       }
-                      className="size-4 text-brand focus:ring-brand border-border"
+                      className="size-4 shrink-0 accent-brand dark:accent-brand-light"
                       disabled={isPending}
                     />
-                    <span className="text-sm font-semibold">
+                    <span className="text-sm font-medium">
                       {REPORT_REASON_LABELS[r]}
                     </span>
                   </label>
@@ -263,11 +266,11 @@ export default function ReportModal({
           </div>
         </div>
 
-        {/* footer */}
-        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
+        {/* 하단 액션 */}
+        <div className="shrink-0 p-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="btn-secondary h-11 px-6 border-transparent"
+            className="btn-secondary-modal h-11 px-6 text-sm font-medium"
             disabled={isPending}
           >
             취소

@@ -26,6 +26,7 @@
  * 2026.03.19  임도헌   Modified  StreamCard 바깥의 이중 프레임 래퍼를 제거해 다시보기 카드 밀도와 톤을 가볍게 정리
  * 2026.03.21  임도헌   Modified  유저 채널 다시보기 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
  * 2026.03.25  임도헌   Modified  다시보기 1개일 때 2열 그리드 공백이 과해 보이지 않도록 단일 카드 레이아웃을 보정
+ * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 다시보기 카드 썸네일만 우선 로드해 유저 채널 LCP 후보를 앞당김
  */
 
 "use client";
@@ -84,7 +85,7 @@ export default function RecordingGrid({
               : "grid grid-cols-1 gap-4 sm:grid-cols-2"
           }
         >
-          {recordings.map((rec) => {
+          {recordings.map((rec, index) => {
             // 표시 시간 = readyAt (없으면 생략)
             const when = rec.readyAt ?? null;
 
@@ -150,6 +151,7 @@ export default function RecordingGrid({
                 isPrivateType={rec.visibility === "PRIVATE"}
                 layout="grid"
                 showStreamer={false}
+                thumbnailPriority={index === 0}
               />
             );
           })}

@@ -10,8 +10,10 @@
  * 2026.03.06  임도헌   Modified  닫기 버튼 접근성과 터치 타겟을 공통 규칙에 맞게 보강
  * 2026.03.19  임도헌   Modified  모달 재오픈 또는 서버 목록 변경 시 차단 유저 로컬 상태를 즉시 재동기화
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 차단 해제 액션 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.22  임도헌   Modified  차단 해제 액션을 텍스트 링크 대신 명확한 보조 버튼으로 정리
  */
-"use client";
 
 import { useEffect, useState, useTransition } from "react";
 import { toggleBlockAction } from "@/features/user/actions/block";
@@ -36,10 +38,14 @@ export default function BlockedUsersModal({
   isOpen,
   onClose,
   initialBlockedUsers,
+  loading = false,
+  onUsersChange,
 }: {
   isOpen: boolean;
   onClose: () => void;
   initialBlockedUsers: BlockedUser[];
+  loading?: boolean;
+  onUsersChange?: (users: BlockedUser[]) => void;
 }) {
   const [users, setUsers] = useState(initialBlockedUsers);
   const [isPending, startTransition] = useTransition();
@@ -55,7 +61,11 @@ export default function BlockedUsersModal({
     startTransition(async () => {
       const res = await toggleBlockAction(targetId, "unblock");
       if (res.success) {
-        setUsers((prev) => prev.filter((u) => u.blocked.id !== targetId));
+        setUsers((prev) => {
+          const nextUsers = prev.filter((u) => u.blocked.id !== targetId);
+          onUsersChange?.(nextUsers);
+          return nextUsers;
+        });
         toast.success(`${username}님 차단을 해제했습니다.`);
       }
     });
@@ -71,7 +81,7 @@ export default function BlockedUsersModal({
             type="button"
             aria-label="차단한 선원 관리 모달 닫기"
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors",
+              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors",
               "text-muted hover:bg-surface-dim hover:text-primary"
             )}
           >
@@ -79,7 +89,14 @@ export default function BlockedUsersModal({
           </button>
         </div>
         <div className="p-4 max-h-[60vh] overflow-y-auto space-y-4">
-          {users.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="size-6 animate-spin rounded-full border-2 border-brand/25 border-t-brand dark:border-brand-light/25 dark:border-t-brand-light" />
+              <p className="mt-3 text-sm text-muted">
+                차단한 선원 목록을 불러오는 중...
+              </p>
+            </div>
+          ) : users.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-muted text-sm">차단한 선원이 없습니다.</p>
             </div>
@@ -99,7 +116,11 @@ export default function BlockedUsersModal({
                     handleUnblock(u.blocked.id, u.blocked.username)
                   }
                   disabled={isPending}
-                  className="text-xs font-semibold text-brand dark:text-brand-light hover:text-brand-dark dark:hover:text-white underline underline-offset-2 disabled:opacity-50 transition-colors"
+                  className={cn(
+                    "focus-ring-soft inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 text-xs font-medium transition-colors",
+                    "border-border-subtle bg-surface text-brand hover:bg-surface-dim hover:text-brand-dark",
+                    "dark:text-brand-light dark:hover:text-white disabled:opacity-50"
+                  )}
                 >
                   차단 해제
                 </button>
@@ -108,7 +129,10 @@ export default function BlockedUsersModal({
           )}
         </div>
         <div className="p-4 border-t border-border-subtle bg-surface flex justify-end">
-          <button onClick={onClose} className="btn-secondary h-10 text-sm px-6">
+          <button
+            onClick={onClose}
+            className="btn-secondary-modal h-10 px-6 text-sm font-medium"
+          >
             닫기
           </button>
         </div>

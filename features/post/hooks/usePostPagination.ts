@@ -19,6 +19,7 @@
  * 2026.03.12  임도헌   Modified  currentRange를 포함한 게시글 무한스크롤 캐시 분리 규칙 명확화
  * 2026.03.12  임도헌   Modified  currentRange 전환 시 stale 방지를 위한 queryKeyExtra 분기 설명 추가
  * 2026.03.14  임도헌   Modified  첫 페이지 totalCount를 노출해 무한스크롤 중에도 총 게시글 수를 고정 표시
+ * 2026.04.17  임도헌   Modified  Suspense 무한스크롤 훅의 캐시 분리/반환 책임이 주석에서 바로 드러나도록 설명 보강
  */
 "use client";
 
@@ -51,9 +52,15 @@ export interface UsePostPaginationResult {
 
 /**
  * 게시글 목록 Suspense 무한 스크롤 훅
- * - searchParams 기준 캐시 분리
- * - queryKeyExtra(currentRange) 기준 추가 캐시 분리
- * - 서버 액션 기반 다음 페이지 조회
+ *
+ * [기능]
+ * - `searchParams`를 queryKey에 반영해 게시판/카테고리/검색어 조합별 캐시를 분리
+ * - `queryKeyExtra`로 같은 검색 조건 안에서도 currentRange 같은 보조 범위를 추가 분리
+ * - `useSuspenseInfiniteQuery`와 서버 액션(`getPostsListAction`)을 연결해 다음 페이지를 커서 기반으로 조회
+ * - 평탄화된 posts 배열과 첫 페이지 totalCount를 함께 반환해 목록/헤더가 같은 데이터를 공유하도록 구성
+ *
+ * @param {UsePostPaginationParams} params - 검색 조건과 추가 캐시 분리 스코프
+ * @returns {UsePostPaginationResult} 평탄화된 게시글 목록과 총 개수, 무한 스크롤 제어값
  */
 export function usePostPagination({
   searchParams,
@@ -79,6 +86,7 @@ export function usePostPagination({
     });
 
   const posts = data.pages.flatMap((page) => page.posts);
+  // 첫 페이지 totalCount 유지로 다음 페이지 추가 로드 후에도 상단 개수 표시 흔들림 방지
   const totalCount = data.pages[0]?.totalCount;
 
   return {

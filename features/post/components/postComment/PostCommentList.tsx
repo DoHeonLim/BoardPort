@@ -82,7 +82,7 @@ export default function PostCommentList({
         />
       ))}
 
-      {/* Loading */}
+      {/* 로딩 상태 */}
       <div className="py-3 flex justify-center">
         {isFetchingNextPage ? (
           <span className="size-4 border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light rounded-full animate-spin" />
@@ -91,7 +91,7 @@ export default function PostCommentList({
         <div ref={triggerRef} aria-hidden="true" className="h-1" />
       </div>
 
-      {/* Empty State */}
+      {/* 빈 상태 */}
       {comments.length === 0 && (
         <div className="py-10 text-center text-muted">
           <p className="text-sm">아직 작성된 댓글이 없습니다.</p>

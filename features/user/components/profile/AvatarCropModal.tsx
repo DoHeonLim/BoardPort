@@ -9,13 +9,15 @@
  * 2026.03.12  임도헌   Modified  크롭 미리보기 이미지를 next/image 기준으로 통일
  * 2026.03.22  임도헌   Modified  최근 프로필 모달 톤에 맞춰 외곽선/미리보기 보더 강도 정리
  * 2026.03.28  임도헌   Modified  모바일에서 모달이 우측으로 밀리지 않도록 중앙 정렬과 폭 계산을 flex 기반으로 재정리
+ * 2026.04.08  임도헌   Modified  공용 bodyScrollLock과 ESC 닫기, 포커스 진입을 추가해 오버레이 동작 안정화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
 import Button from "@/components/ui/Button";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import {
   AVATAR_CROP_VIEWPORT_SIZE,
   type AvatarCropValues,
@@ -46,15 +48,38 @@ export default function AvatarCropModal({
   const [mounted, setMounted] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 1, height: 1 });
   const [crop, setCrop] = useState<AvatarCropValues>(DEFAULT_CROP);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // 모달 오픈 시 배경 스크롤 잠금, ESC 닫기, 첫 포커스 진입을 함께 처리
   useEffect(() => {
     if (!open) return;
     setCrop(DEFAULT_CROP);
   }, [open, imageUrl]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    lockBodyScroll();
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !loading) {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+      unlockBodyScroll();
+    };
+  }, [loading, onClose, open]);
 
   useEffect(() => {
     if (!open || !imageUrl) return;
@@ -90,7 +115,14 @@ export default function AvatarCropModal({
           if (!loading) onClose();
         }}
       />
-      <div className="relative w-full max-w-xl rounded-3xl border border-border-subtle bg-surface p-5 shadow-2xl sm:p-6">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="프로필 이미지 조정"
+        tabIndex={-1}
+        className="relative w-full max-w-xl rounded-3xl border border-border-subtle bg-surface p-5 shadow-2xl outline-none sm:p-6"
+      >
         <div className="space-y-1">
           <h2 className="text-lg font-bold text-primary">프로필 이미지 조정</h2>
           <p className="text-sm text-muted">
@@ -185,7 +217,7 @@ export default function AvatarCropModal({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="btn-secondary h-12 text-sm border-transparent bg-surface-dim text-muted hover:bg-surface"
+            className="btn-secondary-modal h-12 text-sm font-medium"
           >
             취소
           </button>

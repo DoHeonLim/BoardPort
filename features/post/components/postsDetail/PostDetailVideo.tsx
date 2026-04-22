@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.30  임도헌   Created   게시글 첨부 동영상 1차 도입용 Cloudflare Stream iframe 플레이어 추가
  * 2026.03.31  임도헌   Modified  UPLOADING/PROCESSING/FAILED 상태 안내 문구 세분화
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 상태 카드 타이틀 weight를 500 기준으로 정리
  */
 "use client";
 
@@ -56,7 +57,7 @@ export default function PostDetailVideo({ video }: PostDetailVideoProps) {
         )}
       </div>
       <div className="space-y-1">
-        <p className="text-sm font-semibold text-primary">
+        <p className="text-sm font-medium text-primary">
           {isFailed
             ? "동영상 처리에 실패했습니다."
             : isUploading

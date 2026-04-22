@@ -16,14 +16,15 @@
  * 2026.04.03  임도헌   Modified  message_deleted 이벤트 구독과 삭제 콜백 지원 추가
  * 2026.04.03  임도헌   Modified  삭제 이벤트 payload에 deleted_at을 포함해 placeholder 동기화를 지원
  * 2026.04.03  임도헌   Modified  고정 공지 변경 이벤트 구독과 콜백 지원 추가
+ * 2026.04.07  임도헌   Modified  방송 제목/설명 변경 이벤트 구독과 콜백 지원 추가
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { StreamChatMessage } from "@/features/chat/types";
+import type { StreamMetaUpdatePayload } from "@/features/stream/types";
 
 interface Props {
   streamChatRoomId: number;
@@ -31,6 +32,7 @@ interface Props {
   onReceive: (message: StreamChatMessage) => void;
   onDelete?: (payload: { messageId: number; deleted_at: Date }) => void;
   onPinnedNoticeUpdate?: (payload: { notice: string | null }) => void;
+  onStreamMetaUpdate?: (payload: StreamMetaUpdatePayload) => void;
   eventName?: string; // 기본 "message"
   channelName?: string; // 기본 `room-${id}`
   ignoreSelf?: boolean; // 기본 true → 낙관X 플로우에서는 false로 설정
@@ -50,14 +52,19 @@ interface PinnedNoticeEnvelope {
   notice: string | null;
 }
 
+interface StreamMetaEnvelope {
+  title: string;
+  description: string | null;
+}
+
 /**
  * 스트리밍 채팅방 실시간 구독 훅
  *
  * [기능]
  * 1. Supabase Realtime 채널을 구독하고 메시지를 수신
- * 2. 페이지 가시성(`visibilityState`)을 감지하여 백그라운드에서는 처리를 일시 중단
- * 3. 메시지 ID를 기반으로 중복 수신을 방지
- * 4. `ignoreSelf` 옵션으로 내가 보낸 메시지를 무시할지 결정
+ * 2. 메시지 ID를 기반으로 중복 수신을 방지
+ * 3. `ignoreSelf` 옵션으로 내가 보낸 메시지를 무시할지 결정
+ * 4. 메시지 삭제, 상단 고정 공지, 방송 메타(title/description) 변경 이벤트도 함께 구독
  *
  * @returns {RealtimeChannel | null} 생성된 채널 인스턴스 (전송용으로 재사용 가능)
  */
@@ -67,6 +74,7 @@ export default function useStreamChatSubscription({
   onReceive,
   onDelete,
   onPinnedNoticeUpdate,
+  onStreamMetaUpdate,
   eventName = "message",
   channelName,
   ignoreSelf = true,
@@ -89,6 +97,11 @@ export default function useStreamChatSubscription({
   useEffect(() => {
     onPinnedNoticeUpdateRef.current = onPinnedNoticeUpdate;
   }, [onPinnedNoticeUpdate]);
+
+  const onStreamMetaUpdateRef = useRef(onStreamMetaUpdate);
+  useEffect(() => {
+    onStreamMetaUpdateRef.current = onStreamMetaUpdate;
+  }, [onStreamMetaUpdate]);
 
   const seenIdsRef = useRef<Set<string | number>>(new Set());
 
@@ -117,7 +130,8 @@ export default function useStreamChatSubscription({
     const deletedHandler = (env: BroadcastEnvelope<DeleteEnvelope>) => {
       const messageId = env?.payload?.messageId;
       const deleted_at = env?.payload?.deleted_at;
-      if (typeof messageId !== "number" || typeof deleted_at !== "string") return;
+      if (typeof messageId !== "number" || typeof deleted_at !== "string")
+        return;
 
       onDeleteRef.current?.({
         messageId,
@@ -136,12 +150,29 @@ export default function useStreamChatSubscription({
       });
     };
 
+    const streamMetaHandler = (env: BroadcastEnvelope<StreamMetaEnvelope>) => {
+      const title = env?.payload?.title;
+      const description = env?.payload?.description;
+      if (typeof title !== "string") return;
+      if (description !== null && typeof description !== "string") return;
+
+      onStreamMetaUpdateRef.current?.({
+        title,
+        description: description ?? null,
+      });
+    };
+
     channel.on("broadcast", { event: eventName }, handler);
     channel.on("broadcast", { event: "message_deleted" }, deletedHandler);
     channel.on(
       "broadcast",
       { event: "pinned_notice_updated" },
       pinnedNoticeHandler
+    );
+    channel.on(
+      "broadcast",
+      { event: "stream_meta_updated" },
+      streamMetaHandler
     );
     channel.subscribe();
 
@@ -157,4 +188,3 @@ export default function useStreamChatSubscription({
 
   return channelState;
 }
-

@@ -13,11 +13,15 @@
  * 2026.03.29  임도헌   Modified  모바일 카드형 분기와 관리자 전용 네이밍 정리로 게시글 목록 운영 UX를 정비
  * 2026.03.30  임도헌   Modified  작성자 ID 뱃지를 함께 노출해 감사 로그·신고·유저 관리와 식별자 문법을 통일
  * 2026.04.04  임도헌   Modified  관리자 삭제 성공 토스트를 사용자 영역과 같은 완료 문법으로 정리
+ * 2026.04.10  임도헌   Modified  게시글 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  강제 삭제 모달을 지연 로드해 관리자 목록 초기 번들 비용을 완화
+ * 2026.04.18  임도헌   Modified  모바일 카드 프리패치와 아이콘 링크 접근성, ID 배지 대비를 정리해 관리자 게시글 목록 성능·가독성을 보완
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
+import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -28,11 +32,15 @@ import {
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
-import AdminActionModal from "@/features/report/components/admin/AdminActionModal";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { deletePostAdminAction } from "@/features/post/actions/admin";
 import { POST_CATEGORY, PostCategoryType } from "@/features/post/constants";
 import type { AdminPostListResponse } from "@/features/post/types";
+
+const AdminActionModal = nextDynamic(
+  () => import("@/features/report/components/admin/AdminActionModal"),
+  { ssr: false }
+);
 
 interface AdminPostListContainerProps {
   data: AdminPostListResponse;
@@ -100,14 +108,18 @@ export default function AdminPostListContainer({
             <article
               key={post.id}
               className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm"
+              style={{
+                contentVisibility: "auto",
+                containIntrinsicSize: "320px",
+              }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-mono text-muted">
+                    <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-primary ring-1 ring-border-subtle">
                       #{post.id}
                     </span>
-                    <span className="rounded-full bg-brand/10 px-2 py-1 text-[10px] font-bold text-brand dark:text-brand-light">
+                    <span className="rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand dark:text-brand-light">
                       {POST_CATEGORY[post.category as PostCategoryType] ||
                         post.category}
                     </span>
@@ -118,61 +130,65 @@ export default function AdminPostListContainer({
                     </h3>
                     <Link
                       href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                      prefetch={false}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-0.5 shrink-0 text-muted transition-colors hover:text-brand"
+                      className="focus-ring-soft mt-0.5 shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                      aria-label={`${post.title} 원본 게시글 보기`}
                     >
                       <ArrowTopRightOnSquareIcon className="size-4" />
                     </Link>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() =>
                     setDeleteTarget({ id: post.id, title: post.title })
                   }
-                  className="shrink-0 rounded-xl p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                  className="focus-ring-soft shrink-0 rounded-xl p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
                   aria-label={`${post.title} 게시글 삭제`}
                 >
                   <TrashIcon className="size-5" />
                 </button>
               </div>
 
-                <dl className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
-                  <div className="min-w-0">
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+              <dl className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
+                <div className="min-w-0">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     작성자
                   </dt>
-                    <dd className="mt-1 flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-primary">
-                        {post.user.username}
-                      </span>
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-mono text-muted">
-                        #{post.user.id}
-                      </span>
-                      <Link
-                        href={`/profile/${post.user.username}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-muted transition-colors hover:text-brand"
-                        aria-label={`${post.user.username} 프로필 보기`}
-                      >
-                        <ArrowTopRightOnSquareIcon className="size-4" />
-                      </Link>
-                    </dd>
-                  </div>
+                  <dd className="mt-1 flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium text-primary">
+                      {post.user.username}
+                    </span>
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
+                      #{post.user.id}
+                    </span>
+                    <Link
+                      href={`/profile/${post.user.username}`}
+                      prefetch={false}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                      aria-label={`${post.user.username} 프로필 보기`}
+                    >
+                      <ArrowTopRightOnSquareIcon className="size-4" />
+                    </Link>
+                  </dd>
+                </div>
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     조회수
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
+                  <dd className="mt-1 text-sm font-medium text-primary">
                     {post.views.toLocaleString()}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     작성일
                   </dt>
-                  <dd className="mt-1 text-sm font-semibold text-primary">
+                  <dd className="mt-1 text-sm font-medium text-primary">
                     <TimeAgo date={post.created_at} />
                   </dd>
                 </div>
@@ -211,25 +227,29 @@ export default function AdminPostListContainer({
                     key={post.id}
                     className="hover:bg-surface-dim/30 transition-colors"
                   >
-                    <td className="px-6 py-4 text-muted font-mono text-xs">
-                      #{post.id}
+                    <td className="px-6 py-4">
+                      <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-primary ring-1 ring-border-subtle">
+                        #{post.id}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded text-[10px] font-bold bg-brand/10 text-brand dark:text-brand-light">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-brand/10 text-brand dark:text-brand-light">
                         {POST_CATEGORY[post.category as PostCategoryType] ||
                           post.category}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 max-w-sm">
-                        <span className="truncate font-semibold text-primary">
+                        <span className="truncate font-medium text-primary">
                           {post.title}
                         </span>
                         <Link
                           href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                          prefetch={false}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-muted hover:text-brand transition-colors"
+                          className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                          aria-label={`${post.title} 원본 게시글 보기`}
                         >
                           <ArrowTopRightOnSquareIcon className="size-4" />
                         </Link>
@@ -240,14 +260,15 @@ export default function AdminPostListContainer({
                         <span className="text-primary">
                           {post.user.username}
                         </span>
-                        <span className="rounded-full bg-surface-dim px-2 py-0.5 text-[10px] font-mono text-muted">
+                        <span className="rounded-full bg-surface-dim px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
                           #{post.user.id}
                         </span>
                         <Link
                           href={`/profile/${post.user.username}`}
+                          prefetch={false}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 text-muted transition-colors hover:text-brand"
+                          className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                           aria-label={`${post.user.username} 프로필 보기`}
                         >
                           <ArrowTopRightOnSquareIcon className="size-4" />
@@ -262,10 +283,12 @@ export default function AdminPostListContainer({
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
+                        type="button"
                         onClick={() =>
                           setDeleteTarget({ id: post.id, title: post.title })
                         }
-                        className="p-2 text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                        className="focus-ring-soft rounded-lg p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                        aria-label={`${post.title} 게시글 삭제`}
                       >
                         <TrashIcon className="size-5" />
                       </button>

@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/StreamForm.tsx
- * Description : 스트리밍 생성/수정 폼 컴포넌트
+ * Description : 스트리밍 생성 폼 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -25,6 +25,7 @@
  * 2026.03.24  임도헌   Modified   생성 성공 토스트를 송출 준비 단계에 맞는 문구로 조정
  * 2026.03.28  임도헌   Modified   추가/수정 폼 카테고리 Select는 이모지 없이 텍스트 라벨만 노출하도록 정리
  * 2026.04.02  임도헌   Modified   Cloudflare 썸네일 base URL 생성을 stream image utils 기준으로 통일
+ * 2026.04.18  임도헌   Modified   use client 직렬화 경고를 피하기 위해 action prop 제거 및 현재 지원 범위(create) 기준으로 정리
  */
 "use client";
 
@@ -39,6 +40,7 @@ import {
   STREAM_VISIBILITY,
   STREAM_VISIBILITY_DISPLAY,
 } from "@/features/stream/constants";
+import { createBroadcastAction } from "@/features/stream/actions/create";
 import { toast } from "sonner";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -48,7 +50,6 @@ import TagInput from "@/components/ui/TagInput";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
 import type { StreamCategory } from "@/features/stream/types";
-import type { CreateBroadcastResult } from "@/features/stream/types";
 import { buildStreamImageDeliveryUrl } from "@/features/stream/utils/image";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
@@ -60,8 +61,6 @@ const RTMPInfoModal = dynamic(
 );
 
 interface StreamFormProps {
-  mode: "create" | "edit";
-  action: (formData: FormData) => Promise<CreateBroadcastResult>;
   categories: StreamCategory[];
   defaultValues?: Partial<StreamFormValues>;
   cancelHref?: string;
@@ -70,7 +69,7 @@ interface StreamFormProps {
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
 /**
- * 방송 생성/수정 폼
+ * 방송 생성 폼
  *
  * [기능]
  * 1. 방송 제목, 설명, 공개 설정(Public/Private/Followers) 입력
@@ -81,13 +80,11 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  * @param {StreamFormProps} props
  */
 export default function StreamForm({
-  mode,
-  action,
   categories,
   defaultValues,
   cancelHref = "/streams",
 }: StreamFormProps) {
-  // 대분류 초기값 추론
+  // defaultValues에 소분류만 주어진 경우 해당 부모 대분류 복원 및 2단 Select 일관 렌더링
   const initialMainCategory = useMemo<number | null>(() => {
     if (!defaultValues?.streamCategoryId) return null;
     // Prisma 타입과 내부 정의 타입 호환성 (any casting 회피를 위해 as any 사용 가능)
@@ -157,7 +154,7 @@ export default function StreamForm({
     handleDragEnd,
   } = useImageUpload({ maxImages: 1, setValue, getValues });
 
-  // 카테고리 필터링 (대분류/소분류)
+  // 카테고리 Select의 부모-자식 구조 기준 분리 렌더링
   // StreamCategory 타입이 Prisma 모델과 약간 다를 수 있으므로 as any 활용
   const mainCategories = useMemo(
     () => categories.filter((c: any) => !c.parentId),
@@ -230,7 +227,7 @@ export default function StreamForm({
       formData.append("thumbnailAnimated", String(thumbnailAnimated));
 
       // 3. 서버 액션 호출
-      const result = await action(formData);
+      const result = await createBroadcastAction(formData);
 
       if (!result.success) {
         if (result.fieldErrors) {
@@ -240,9 +237,7 @@ export default function StreamForm({
         }
         toast.error(
           result.error ??
-            (mode === "create"
-              ? "방송 생성에 실패했습니다. 제목, 카테고리, 공개 설정을 확인한 뒤 다시 시도해주세요."
-              : "방송 수정에 실패했습니다. 변경한 항목을 확인한 뒤 다시 시도해주세요.")
+            "방송 생성에 실패했습니다. 제목, 카테고리, 공개 설정을 확인한 뒤 다시 시도해주세요."
         );
         return;
       }
@@ -257,17 +252,13 @@ export default function StreamForm({
       setShowStreamInfo(true);
 
       toast.success(
-        mode === "create"
-          ? "송출 정보가 준비되었습니다. RTMP 정보를 확인한 뒤 방송을 시작하세요."
-          : "방송 정보가 수정되었습니다.",
+        "송출 정보가 준비되었습니다. RTMP 정보를 확인한 뒤 방송을 시작하세요.",
         { duration: 3000 }
       );
     } catch (error) {
       console.error("[StreamForm] submit failed:", error);
       toast.error(
-        mode === "create"
-          ? "방송 생성 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
-          : "방송 수정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+        "방송 생성 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
       );
     }
   };
@@ -316,7 +307,8 @@ export default function StreamForm({
             optional
           />
           <p className="text-xs text-muted pl-1">
-            방송 썸네일은 최대 1장까지 업로드할 수 있습니다.
+            방송 썸네일은 최대 1장까지 업로드할 수 있으며, 10MB까지 첨부할 수
+            있습니다.
           </p>
         </div>
 
@@ -400,14 +392,11 @@ export default function StreamForm({
         </div>
 
         <div className="pt-2 flex flex-col gap-3">
-          <Button
-            disabled={isSubmitting}
-            text={mode === "create" ? "방송 시작하기" : "방송 수정하기"}
-          />
+          <Button disabled={isSubmitting} text="방송 시작하기" />
 
           <Link
             href={cancelHref}
-            className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             취소
           </Link>

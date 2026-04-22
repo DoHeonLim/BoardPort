@@ -15,6 +15,7 @@
  * 2026.03.03  임도헌   Modified  usePostComment에서 Read 로직 분리 및 useSuspenseInfiniteQuery 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.31  임도헌   Modified  커서 조회와 평탄화 반환 역할이 보이도록 설명 톤 통일
+ * 2026.04.17  임도헌   Modified  댓글 무한스크롤 훅의 다음 커서 규칙과 반환 책임 설명 보강
  */
 "use client";
 
@@ -28,10 +29,12 @@ import { queryKeys } from "@/lib/queryKeys";
  * [기능]
  * - `useSuspenseInfiniteQuery`로 댓글 목록을 커서 기반으로 조회
  * - 서버 액션(`getPostCommentsListAction`)을 호출해 다음 페이지를 이어서 읽음
+ * - 마지막 페이지가 `pageSize`만큼 찼을 때만 끝 댓글 ID를 다음 커서로 이어 붙임
  * - 평탄화된 comments 배열과 페이지네이션 상태를 함께 반환
  *
  * @param {number} postId - 댓글을 조회할 게시글 ID
  * @param {number} [pageSize=10] - 페이지당 로드할 댓글 수
+ * @returns {object} 평탄화된 댓글 배열과 다음 페이지 로딩 상태, loadMore 제어값
  */
 export function usePostCommentsQuery(postId: number, pageSize = 10) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
@@ -46,6 +49,7 @@ export function usePostCommentsQuery(postId: number, pageSize = 10) {
       },
       initialPageParam: undefined as number | undefined,
       getNextPageParam: (lastPage) => {
+        // 마지막 페이지가 pageSize를 채운 경우에만 다음 페이지 존재로 판단
         return lastPage.length === pageSize
           ? lastPage[lastPage.length - 1].id
           : undefined;

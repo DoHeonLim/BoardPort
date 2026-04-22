@@ -31,7 +31,7 @@ export default function PostCardSkeleton({ viewMode }: PostCardSkeletonProps) {
         isGrid ? "flex-col h-full" : "flex-row min-h-28 gap-4 sm:min-h-36"
       )}
     >
-      {/* Thumbnail */}
+      {/* 썸네일 */}
       <div
         className={cn(
           "shrink-0",
@@ -43,7 +43,7 @@ export default function PostCardSkeleton({ viewMode }: PostCardSkeletonProps) {
         <Skeleton className="w-full h-full" />
       </div>
 
-      {/* Content */}
+      {/* 본문 */}
       <div
         className={cn(
           "flex flex-1 min-w-0",

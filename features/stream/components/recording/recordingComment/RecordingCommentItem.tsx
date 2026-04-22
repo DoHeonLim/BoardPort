@@ -21,6 +21,7 @@
  * 2026.03.21  임도헌   Modified  댓글 항목 구분선을 subtle 톤으로 낮춰 녹화 상세 패널과 밀도 차이를 완화
  * 2026.04.03  임도헌   Modified  녹화 댓글 옵션을 게시글 댓글과 같은 모바일 BottomSheet / 데스크톱 드롭다운 문법으로 통일
  * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 댓글 작성자 타이포를 500 기준으로 정리
  */
 "use client";
 
@@ -126,7 +127,7 @@ const RecordingCommentItem = forwardRef<
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start leading-none">
           <div className="flex items-center gap-2">
-            <span className="min-w-0 truncate text-sm font-semibold text-primary">
+            <span className="min-w-0 truncate text-sm font-medium text-primary">
               {comment.user.username}
             </span>
             <span className="text-xs text-muted">
@@ -147,7 +148,7 @@ const RecordingCommentItem = forwardRef<
                   aria-label="녹화 댓글 옵션"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
-                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary md:opacity-0 md:group-hover:opacity-100"
+                  className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary md:opacity-0 md:group-hover:opacity-100"
                 >
                   <EllipsisHorizontalIcon className="size-5" />
                 </button>
@@ -160,7 +161,7 @@ const RecordingCommentItem = forwardRef<
                     <button
                       onClick={() => setBlockConfirmOpen(true)}
                       role="menuitem"
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 transition-colors"
+                      className="focus-ring-soft flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
                     >
                       <UserMinusIcon className="size-4" />
                       작성자 차단
@@ -171,7 +172,7 @@ const RecordingCommentItem = forwardRef<
                         setReportOpen(true);
                       }}
                       role="menuitem"
-                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-danger hover:bg-danger/5 flex items-center gap-2 border-t border-border-subtle transition-colors"
+                      className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-2.5 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/5"
                     >
                       <ExclamationTriangleIcon className="size-4" />
                       댓글 신고
@@ -212,7 +213,7 @@ const RecordingCommentItem = forwardRef<
               setMenuOpen(false);
               setBlockConfirmOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             <UserMinusIcon className="size-5 shrink-0" />
             작성자 차단
@@ -223,7 +224,7 @@ const RecordingCommentItem = forwardRef<
               setMenuOpen(false);
               setReportOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
           >
             <ExclamationTriangleIcon className="size-5 shrink-0" />
             댓글 신고

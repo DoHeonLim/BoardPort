@@ -20,10 +20,16 @@
  * 2026.03.21  임도헌   Modified  채널 소개 문구의 줄 수/여백을 조정해 모바일/데스크톱 헤더 밀도를 안정화
  * 2026.03.21  임도헌   Modified  owner 전용 채널 소개 인라인 수정 UI 추가
  * 2026.03.25  임도헌   Modified  유저 채널 arrange 패스: 모바일 헤더 패딩과 그룹 간격을 소폭 압축
+ * 2026.04.06  임도헌   Modified  좁은 모바일 폭에서 아바타와 팔로우 메타가 과하게 줄바꿈되지 않도록 헤더 밀도 재조정
+ * 2026.04.06  임도헌   Modified  채널 소개를 헤더 아래 독립 블록으로 분리하고 더보기/접기 흐름 추가
+ * 2026.04.06  임도헌   Modified  채널 소개 편집도 소개 블록 내부에서 이어지도록 위치를 정리
+ * 2026.04.08  임도헌   Modified  채널 소개 편집 textarea 높이를 입력 내용에 맞춰 자동 조절
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 채널 소개 섹션 타이포를 500 기준으로 정리
+ * 2026.04.17  임도헌   Modified  Lighthouse 대응: 소개 더보기 버튼 대비를 높여 모바일 접근성 경고를 완화
  */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -89,6 +95,11 @@ export default function UserChannelHeader({
   const [draft, setDraft] = useState(channelDescription ?? "");
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [shouldShowDescriptionToggle, setShouldShowDescriptionToggle] =
+    useState(false);
+  const descriptionRef = useRef<HTMLParagraphElement | null>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const next = channelDescription ?? "";
@@ -96,10 +107,56 @@ export default function UserChannelHeader({
     if (!isEditing) setDraft(next);
   }, [channelDescription, isEditing]);
 
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const element = descriptionTextareaRef.current;
+    if (!element) return;
+
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [draft, isEditing]);
+
   const hasDescription = !!description.trim();
+
+  useEffect(() => {
+    if (!hasDescription) {
+      setShouldShowDescriptionToggle(false);
+      setIsDescriptionExpanded(false);
+      return;
+    }
+
+    const element = descriptionRef.current;
+    if (!element) return;
+
+    const measureOverflow = () => {
+      const hasOverflow = element.scrollHeight - element.clientHeight > 2;
+      setShouldShowDescriptionToggle(hasOverflow);
+      if (!hasOverflow) {
+        setIsDescriptionExpanded(false);
+      }
+    };
+
+    measureOverflow();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureOverflow);
+      return () => window.removeEventListener("resize", measureOverflow);
+    }
+
+    const observer = new ResizeObserver(() => measureOverflow());
+    observer.observe(element);
+    window.addEventListener("resize", measureOverflow);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measureOverflow);
+    };
+  }, [description, hasDescription, isDescriptionExpanded]);
 
   const startEditing = () => {
     setDraft(description);
+    setIsDescriptionExpanded(false);
     setIsEditing(true);
   };
 
@@ -134,59 +191,22 @@ export default function UserChannelHeader({
   return (
     <div className="mx-auto max-w-3xl w-full px-4 pt-4 pb-5 sm:pt-6 sm:pb-6">
       <div className="rounded-2xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5 sm:py-5">
-        <div className="flex items-center gap-3.5 sm:gap-4">
+        <div className="flex items-start gap-3 sm:gap-4">
           <UserAvatar
             username={username}
             avatar={avatar}
             showUsername={false}
-            size="lg"
+            size="profile"
+            compact
             className="ring-2 ring-background shadow-sm"
           />
 
           <div className="min-w-0 flex-1">
-            <div
-              className={cn("flex flex-col", hasDescription ? "gap-1.5" : "gap-2")}
-            >
+            <div className="flex flex-col gap-2">
               <h1 className="text-xl font-bold text-primary truncate">
                 {username}
               </h1>
-              {isEditing ? (
-                <div className="rounded-xl border border-border-subtle bg-surface-dim/60 p-3">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    maxLength={160}
-                    placeholder="내 방송국을 한두 문장으로 소개해보세요."
-                    className="min-h-[88px] w-full resize-none rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm leading-relaxed text-primary outline-none placeholder:text-muted"
-                  />
-                  <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted">
-                    <span>{draft.length}/160</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={cancelEditing}
-                        disabled={saving}
-                        className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-surface disabled:opacity-50"
-                      >
-                        취소
-                      </button>
-                      <button
-                        type="button"
-                        onClick={saveDescription}
-                        disabled={saving}
-                        className="rounded-lg bg-brand px-3 py-1.5 font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-50"
-                      >
-                        {saving ? "저장 중..." : "저장"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : hasDescription ? (
-                <p className="max-w-[46ch] break-words text-sm leading-relaxed text-muted line-clamp-2 sm:line-clamp-3">
-                  {description}
-                </p>
-              ) : null}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3">
                 <FollowSection
                   ownerId={ownerId}
                   ownerUsername={username}
@@ -204,25 +224,109 @@ export default function UserChannelHeader({
                   followButtonId="channel-follow-button"
                   isBlocked={isBlocked}
                 />
-                {isMe && !isEditing && channelDescriptionAction ? (
-                  <button
-                    type="button"
-                    onClick={startEditing}
-                    className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-                  >
-                    {hasDescription ? "소개 수정" : "채널 소개 추가"}
-                  </button>
-                ) : null}
               </div>
             </div>
           </div>
         </div>
 
+        {!isEditing &&
+          (hasDescription || (isMe && channelDescriptionAction)) && (
+            <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-dim/55 px-4 py-3 sm:mt-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium tracking-[0.02em] text-muted">
+                  채널 소개
+                </p>
+                {isMe && channelDescriptionAction ? (
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="focus-ring-soft shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface hover:text-primary"
+                  >
+                    {hasDescription ? "소개 수정" : "소개 추가"}
+                  </button>
+                ) : null}
+              </div>
+
+              {hasDescription ? (
+                <p
+                  ref={descriptionRef}
+                  className={cn(
+                    "mt-2.5 break-words whitespace-pre-line text-sm leading-7 text-primary",
+                    !isDescriptionExpanded && "line-clamp-3"
+                  )}
+                >
+                  {description}
+                </p>
+              ) : (
+                <p className="mt-2.5 text-sm leading-6 text-muted">
+                  아직 채널 소개가 없습니다.
+                </p>
+              )}
+
+              {hasDescription && shouldShowDescriptionToggle && (
+                <div className="mt-2.5 flex justify-start">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsDescriptionExpanded((current) => !current)
+                    }
+                    className="focus-ring-soft rounded-lg border border-border-subtle bg-surface px-2 py-1 text-xs font-medium text-primary shadow-sm transition-colors hover:bg-background hover:text-primary"
+                  >
+                    {isDescriptionExpanded ? "접기" : "더보기"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+        {isEditing && (
+          <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-dim/55 px-4 py-3 sm:mt-5">
+            <p className="text-xs font-medium tracking-[0.02em] text-muted">
+              채널 소개 편집
+            </p>
+            <div className="mt-2 rounded-xl border border-border-subtle bg-surface-dim/60 p-3">
+              <textarea
+                ref={descriptionTextareaRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onInput={(event) => {
+                  event.currentTarget.style.height = "auto";
+                  event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
+                }}
+                maxLength={160}
+                placeholder="내 방송국을 한두 문장으로 소개해보세요."
+                className="min-h-[88px] w-full resize-none rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm leading-relaxed text-primary outline-none placeholder:text-muted focus:border-brand/40 focus:ring-2 focus:ring-brand/15 dark:focus:border-brand-light/40 dark:focus:ring-brand-light/15"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted">
+                <span>{draft.length}/160</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelEditing}
+                    disabled={saving}
+                    className="focus-ring-soft rounded-lg px-2.5 py-1.5 transition-colors hover:bg-surface disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveDescription}
+                    disabled={saving}
+                    className="focus-ring-strong rounded-lg bg-brand px-3 py-1.5 font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-50"
+                  >
+                    {saving ? "저장 중..." : "저장"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 flex justify-center sm:mt-5">
           <Link
             href={`/profile/${username}?returnTo=${encodeURIComponent(returnTo)}`}
             className={cn(
-              "w-full max-w-sm flex items-center justify-center py-2.5 rounded-xl transition-colors",
+              "focus-ring-soft w-full max-w-sm flex items-center justify-center rounded-xl py-2.5 transition-colors",
               "bg-surface-dim text-sm font-medium text-primary border border-border hover:bg-border shadow-sm"
             )}
           >

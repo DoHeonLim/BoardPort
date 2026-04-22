@@ -1,5 +1,5 @@
 /**
- * File Name : features/product/service/UserList.ts
+ * File Name : features/product/service/userList.ts
  * Description : 프로필/마이페이지 공용 제품 목록(초기/무한스크롤)
  *
  * History
@@ -22,6 +22,7 @@
  * 2026.03.06  임도헌   Modified  getUserProductsList 제네릭 기본 타입에 ProductType 추가(LIKED 스코프 타입 정합성 강화)
  * 2026.03.26  임도헌   Modified  LIKED 목록에 productLike.created_at 기반 liked_at을 함께 매핑
  * 2026.04.02  임도헌   Modified  scope where helper JSDoc 보강
+ * 2026.04.09  임도헌   Modified  숨김 상품은 찜 목록에서 제외하고 내 판매/구매 내역에서는 계속 관리할 수 있도록 조회 범위 분리
  */
 
 import "server-only";
@@ -85,6 +86,7 @@ function whereFor(scope: UserProductsScope) {
       };
     case "LIKED":
       return {
+        hidden_at: null,
         product_likes: { some: { userId: scope.userId } },
       };
   }
@@ -137,6 +139,7 @@ export async function getUserProductsList<
     const likedRows = await db.productLike.findMany({
       where: {
         userId: scope.userId,
+        product: { hidden_at: null },
         ...(cursorLike
           ? {
               OR: [

@@ -14,6 +14,7 @@
  * 2026.03.08  임도헌   Modified  알림 배지 진입 애니메이션 제거
  * 2026.03.12  임도헌   Modified  현재 페이지를 returnTo로 전달해 알림 센터 복귀 경로 보존
  * 2026.03.18  임도헌   Modified  알림 센터 진입/재진입 경로를 현재 filter/page 문맥 기준으로 유지하고 내부 경로 정규화로 nested returnTo 예외를 완화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 숫자 배지 크기를 text-xs 기준으로 정리
  */
 "use client";
 
@@ -73,8 +74,9 @@ export default function NotificationBell({
   return (
     <Link
       href={href}
+      prefetch={false}
       className={cn(
-        "relative flex items-center justify-center size-10 rounded-xl transition-colors",
+        "focus-ring-soft relative flex items-center justify-center size-10 rounded-xl transition-colors",
         "bg-surface border border-border text-muted hover:text-primary hover:bg-surface-dim active:scale-95",
         className
       )}
@@ -92,7 +94,7 @@ export default function NotificationBell({
           className={cn(
             "absolute -top-0.5 -right-0.5 flex items-center justify-center",
             "min-w-[18px] h-[18px] px-1",
-            "text-[10px] font-bold text-white leading-none",
+            "text-xs font-bold text-white leading-none",
             "bg-danger rounded-full border-2 border-surface shadow-sm"
           )}
         >

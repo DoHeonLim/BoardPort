@@ -14,6 +14,9 @@
  * 2026.03.24  임도헌   Modified  모바일은 오버레이 패딩을 제거하고 카드가 플레이어 폭을 거의 꽉 채우도록 조정
  * 2026.03.24  임도헌   Modified  라이트/다크 모드에서 서로 다른 오버레이 표면 톤을 적용해 각 모드 위계를 자연스럽게 분리
  * 2026.03.24  임도헌   Modified  다크 모드는 브랜드 네이비 대신 중성 다크 그레이 표면으로 조정해 버튼과의 이질감을 완화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 오버레이 CTA weight를 500 기준으로 정리
+ * 2026.04.16  임도헌   Modified  종료 오버레이 CTA는 자동 prefetch를 끄고 상태 변화가 있을 때만 이동 의도를 받도록 조정
+ * 2026.04.20  임도헌   Modified  상세 상단바와 z-index 충돌이 없도록 오버레이 레벨을 한 단계 낮춤
  */
 
 "use client";
@@ -36,6 +39,7 @@ interface StreamStatusOverlayProps {
  * - ENDED: 채널 다시보기 CTA 제공
  * - DISCONNECTED/READY 계열: 시청자 또는 소유자에게 송출 준비 상태 안내
  * - `live-status` 브로드캐스트 채널을 구독해 상세 화면에서도 상태 변화를 실시간 반영
+ * - 종료 CTA는 자동 프리패치를 생략해 상세 초기 네트워크 경쟁을 만들지 않는다
  */
 export default function StreamStatusOverlay({
   username,
@@ -102,7 +106,7 @@ export default function StreamStatusOverlay({
 
   return (
     <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-0 backdrop-blur-sm sm:px-3"
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 px-0 backdrop-blur-sm sm:px-3"
       role="status"
       aria-live="polite"
     >
@@ -123,9 +127,10 @@ export default function StreamStatusOverlay({
           <Link
             ref={linkRef}
             href={safeHref}
+            prefetch={false}
             className={cn(
-              "mt-4 inline-flex min-h-[40px] w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors sm:mt-5 sm:min-h-[44px] sm:w-auto sm:rounded-2xl sm:px-5 sm:text-base",
-              "bg-brand text-white hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand/40"
+              "focus-ring-strong mt-4 inline-flex min-h-[40px] w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-colors sm:mt-5 sm:min-h-[44px] sm:w-auto sm:rounded-2xl sm:px-5 sm:text-base",
+              "bg-brand text-white hover:bg-brand-dark"
             )}
           >
             채널 다시보기로 이동

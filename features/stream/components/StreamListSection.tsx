@@ -15,12 +15,14 @@
  * 2026.03.03  임도헌   Modified  useFollowToggle 반환 타입 불일치(toggle 네이밍) 빌드 에러 수정
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.18  임도헌   Modified  로그인 복귀용 현재 목록 경로도 내부 경로 기준으로 정규화해 nested callbackUrl 예외를 완화
+ * 2026.04.08  임도헌   Modified  팔로워 전용 방송 CTA 팔로우 성공 시 잠금 해제 안내 토스트 추가
  */
 
 "use client";
 
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import StreamList from "@/features/stream/components/StreamList";
@@ -54,15 +56,23 @@ export default function StreamListSection(props: Props) {
   );
 
   const handleRequestFollow = useCallback(
-    async ({ id: userId }: { id: number; username?: string }) => {
+    async ({ id: userId, username }: { id: number; username?: string }) => {
       if (isPending(userId)) return; // 중복 클릭 방지
 
-      await toggle(userId, false, {
+      const res = await toggle(userId, false, {
         viewerId: props.viewerId ?? null,
         // 미들웨어로 대부분 로그인 상태지만, 재사용을 위해 훅 옵션 유지
         onRequireLogin: () =>
           router.push(`/login?callbackUrl=${encodeURIComponent(nextPath)}`),
       });
+
+      if (res?.success && res.isFollowing) {
+        toast.success(
+          username
+            ? `${username}님을 팔로우했습니다. 이제 팔로워 전용 방송을 볼 수 있어요.`
+            : "팔로우했습니다. 이제 팔로워 전용 방송을 볼 수 있어요."
+        );
+      }
     },
     [toggle, isPending, nextPath, router, props.viewerId]
   );

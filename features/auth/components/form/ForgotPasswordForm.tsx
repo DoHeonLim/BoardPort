@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.03.14  임도헌   Created   이메일 기반 비밀번호 재설정 메일 요청 폼 추가
  * 2026.03.18  임도헌   Modified  로그인 가드에서 진입한 callbackUrl을 비밀번호 재설정 메일과 로그인 복귀 링크까지 유지
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 안내 문구와 복귀 링크 타이포 계층을 정리
+ * 2026.04.20  임도헌   Modified  계정 노출 방지 정책을 유지하면서도 비밀번호 재설정 요청 성공 문구를 더 자연스럽게 정리
  */
 "use client";
 
@@ -76,7 +78,9 @@ export default function ForgotPasswordForm({
       }
 
       setSubmitted(true);
-      toast.success("재설정 가능한 계정이면 안내 메일을 발송했습니다.");
+      toast.success(
+        "입력하신 이메일을 확인해 주세요. 재설정 안내가 가능한 계정이면 메일을 보냈습니다."
+      );
     });
   };
 
@@ -88,8 +92,9 @@ export default function ForgotPasswordForm({
     <div className="flex flex-col gap-form-gap">
       {submitted && (
         <div className="rounded-2xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-brand dark:text-brand-light">
-          재설정 가능한 계정이면 메일을 보냈습니다. 이메일 인증을 완료한 계정만
-          비밀번호 찾기를 사용할 수 있습니다.
+          입력하신 이메일을 확인해 주세요. 재설정 안내가 가능한 계정이면
+          메일을 보냈습니다. 이메일 인증을 완료한 계정만 비밀번호 찾기를
+          사용할 수 있습니다.
         </div>
       )}
 
@@ -110,7 +115,7 @@ export default function ForgotPasswordForm({
           errors={errors.email?.message ? [errors.email.message] : []}
         />
 
-        <p className="text-xs leading-relaxed text-muted">
+        <p className="text-sm leading-relaxed text-muted">
           이메일 인증을 완료한 계정만 비밀번호 찾기와 계정 복구를 사용할 수
           있습니다.
         </p>
@@ -125,7 +130,7 @@ export default function ForgotPasswordForm({
         다시 로그인하시겠어요?{" "}
         <Link
           href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-          className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
+          className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
         >
           로그인으로 돌아가기
         </Link>

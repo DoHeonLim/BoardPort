@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.29  임도헌   Created   최근 N일 운영 추이를 위한 공통 트렌드 차트를 추가하고 ECharts 기반으로 정리
  * 2026.03.30  임도헌   Modified  모바일 밀도에 맞춰 차트 하단 요약 리듬을 눌러 운영 패널 스캔성을 보강
+ * 2026.04.10  임도헌   Modified  추이 차트 요약 weight와 보조 라벨 크기를 관리자 타이포 정책에 맞춰 정리
  */
 
 "use client";
@@ -140,14 +141,16 @@ export default function AdminTrendChart({
                   className="size-2.5 rounded-full"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-xs font-semibold text-muted">
+                <span className="text-xs font-medium text-muted">
                   {item.name}
                 </span>
               </div>
-              <p className="mt-2 text-lg font-black tracking-tight text-primary">
+              <p className="mt-2 text-lg font-bold tracking-tight text-primary">
                 {total.toLocaleString()}
               </p>
-              <p className="text-[11px] text-muted">오늘 {latest.toLocaleString()}건</p>
+              <p className="text-xs text-muted">
+                오늘 {latest.toLocaleString()}건
+              </p>
             </div>
           );
         })}

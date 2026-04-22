@@ -19,6 +19,9 @@
  * 2026.02.13  임도헌   Modified  미사용 함수 getCachedProductTitleById 삭제(generateMetadata에서 getCachedProduct를 사용하므로 삭제함)
  * 2026.03.04  임도헌   Modified  getProductTitleById 다시 추가(metadata용 간소화 함수)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.09  임도헌   Modified  판매완료 숨김 상품 접근 제어를 위해 hidden_at 필드를 상세/메타 조회에 포함
+ * 2026.04.11  임도헌   Modified  제품 상세 이미지에도 isAnimated 메타를 포함해 GIF가 Next 최적화 경고 없이 렌더되도록 보강
+ * 2026.04.14  임도헌   Modified  상세/모달 공통 서버 로더를 추가해 좋아요/차단 상태 조회 중복을 통합
  */
 import "server-only";
 
@@ -26,6 +29,8 @@ import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import type { ProductDetailType } from "@/features/product/types";
+import { getProductLikeStatus } from "@/features/product/service/like";
+import { checkBlockRelation } from "@/features/user/service/block";
 
 /**
  * 제품 상세 정보 데이터 조회 로직
@@ -48,7 +53,7 @@ export async function getProductDetail(
         user: { select: { id: true, username: true, avatar: true } },
         images: {
           orderBy: { order: "asc" },
-          select: { url: true, order: true },
+          select: { url: true, order: true, isAnimated: true },
         },
         category: {
           select: { eng_name: true, kor_name: true, icon: true, parent: true },
@@ -83,6 +88,43 @@ export const getCachedProduct = (id: number) => {
 };
 
 /**
+ * 상세 페이지/모달에서 공통으로 쓰는 상세 조회 모델.
+ * 공통 본문은 캐시된 상세 데이터를 재사용하고, 개인화된 좋아요/차단 상태만 별도 조회
+ */
+export async function getProductDetailViewData(
+  id: number,
+  userId: number | null
+) {
+  // 공통 본문 캐시 재사용, 사용자별 상태만 개별 조회
+  const [product, likeStatus] = await Promise.all([
+    getCachedProduct(id),
+    getProductLikeStatus(id, userId),
+  ]);
+
+  if (!product) {
+    return {
+      product: null,
+      likeStatus,
+      isOwner: false,
+      isBlocked: false,
+    };
+  }
+
+  const isOwner = userId === product.userId;
+  // 상품 소유자 확인 이후에만 차단 관계 계산, 불필요한 조회 감소
+  const isBlocked = userId
+    ? await checkBlockRelation(userId, product.userId)
+    : false;
+
+  return {
+    product,
+    likeStatus,
+    isOwner,
+    isBlocked,
+  };
+}
+
+/**
  * 메타데이터 생성을 위한 경량 제품 조회 로직
  *
  * [데이터 가공 전략]
@@ -95,7 +137,7 @@ export async function getProductTitleById(id: number) {
     // 메타데이터 최소 필드 조회
     return await db.product.findUnique({
       where: { id },
-      select: { title: true, description: true },
+      select: { title: true, description: true, hidden_at: true },
     });
   } catch (e) {
     console.error("[getProductTitleById] Error:", e);

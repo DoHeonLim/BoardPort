@@ -18,13 +18,13 @@
 
 import { useState } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
-import { MAX_PHOTO_SIZE } from "@/lib/constants";
+import { MAX_PHOTO_SIZE, MAX_PHOTO_SIZE_MB } from "@/lib/constants";
 import { UseFormGetValues, UseFormSetValue } from "react-hook-form";
 import { toast } from "sonner";
 
 interface UseImageUploadProps {
   maxImages?: number; // 최대 업로드 가능한 이미지 수 (기본: 5)
-  maxSize?: number; // 개별 이미지 최대 크기 (기본: 3MB)
+  maxSize?: number; // 개별 이미지 최대 크기 (기본: 10MB)
   setValue: UseFormSetValue<any>;
   getValues: UseFormGetValues<any>;
   syncAnimatedFlags?: boolean;
@@ -91,7 +91,9 @@ export function useImageUpload({
 
         // 개별 파일 용량 검증
         if (file.size > maxSize) {
-          toast.error("이미지는 3MB 이하로 올려주세요.");
+          toast.error(
+            `이미지는 최대 ${MAX_PHOTO_SIZE_MB}MB까지 업로드할 수 있습니다.`
+          );
           return;
         }
 

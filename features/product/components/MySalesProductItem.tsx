@@ -41,6 +41,13 @@
  * 2026.03.26  임도헌   Modified  작은 모바일 폭에서 제목/상태 영역을 재배치해 조기 말줄임을 완화
  * 2026.03.26  임도헌   Modified  메타 태그 가시성을 높이기 위해 대비와 폰트 강도를 보정
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
+ * 2026.04.09  임도헌   Modified  판매완료 숨김 상품은 내 판매 카드에서 숨김 배지를 함께 노출
+ * 2026.04.09  임도헌   Modified  판매완료 탭 카드에서도 숨기기/숨김 해제를 직접 수행할 수 있도록 액션 추가
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 내 판매 카드의 제목/칩/메타 타이포를 정리
+ * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 썸네일 우선 로드, 상세 링크 프리패치 비활성화, 카드 제목 heading 정리
+ * 2026.04.17  임도헌   Modified  태그와 좋아요/조회수 메타 사이 불필요한 구분선을 제거해 카드 리듬을 단순화
+ * 2026.04.19  임도헌   Modified  내 판매 카드 hover 피드백을 그림자 중심으로 정리하고 제목/테두리 과반응을 제거
+ * 2026.04.20  임도헌   Modified  썸네일/제목 링크가 기본 outline 대신 공용 포커스 톤을 따르도록 정리
  */
 
 "use client";
@@ -72,11 +79,13 @@ import ReservationUserInfo from "@/features/user/components/profile/ReservationU
 import { EyeIcon, HeartIcon } from "@heroicons/react/24/solid";
 import { ArrowUpIcon } from "@heroicons/react/24/outline";
 import { updateProductStatusAction } from "@/features/product/actions/status";
+import { toggleProductHiddenAction } from "@/features/product/actions/visibility";
 import { deleteReviewAction } from "@/features/review/actions/delete";
 import { getUserInfoAction } from "@/features/user/actions/profile";
 import { bumpProductAction } from "@/features/product/actions/bump";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
+import { removeRecentViewedProduct } from "@/features/product/utils/recentViewed";
 import type {
   MySalesListItem,
   ProductStatus,
@@ -104,6 +113,7 @@ interface ProductItemProps {
   type?: ProductStatus; // 현재 탭 상태
   userId: number; // 판매자(나) ID
   viewMode?: ViewMode;
+  prioritizeImage?: boolean;
   onOptimisticMove?: (p: {
     from: ProductStatus;
     to: ProductStatus;
@@ -133,7 +143,7 @@ function StatusPill({ tab }: { tab?: ProductStatus }) {
   return (
     <span
       className={cn(
-        "px-2 py-0.5 rounded text-[10px] font-bold shadow-sm",
+        "rounded px-2 py-0.5 text-xs font-bold shadow-sm",
         styles[tab]
       )}
     >
@@ -144,7 +154,7 @@ function StatusPill({ tab }: { tab?: ProductStatus }) {
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-[11px] font-semibold leading-none text-primary shadow-sm">
+    <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-xs font-medium leading-none text-primary shadow-sm">
       {children}
     </span>
   );
@@ -177,6 +187,7 @@ export default function MySalesProductItem({
   type,
   userId,
   viewMode = "list",
+  prioritizeImage = false,
   onOptimisticMove,
   onMoveFailed,
   onReviewChanged,
@@ -383,6 +394,44 @@ export default function MySalesProductItem({
     else updateToSelling();
   };
 
+  const handleToggleHidden = async () => {
+    const nextHidden = !product.hidden_at;
+
+    try {
+      setOpLoading(true);
+      const result = await toggleProductHiddenAction(product.id, nextHidden);
+
+      if (!result.success) {
+        toast.error(
+          result.error ??
+            "상품 숨김 상태를 변경하지 못했습니다. 잠시 후 다시 시도해주세요."
+        );
+        return;
+      }
+
+      if (nextHidden) {
+        removeRecentViewedProduct(product.id);
+      }
+
+      onReviewChanged?.({
+        hidden_at: nextHidden ? new Date().toISOString() : null,
+      });
+
+      toast.success(
+        nextHidden
+          ? "판매완료 상품을 공개 목록에서 숨겼습니다."
+          : "숨김을 해제해 다시 공개 목록에 노출합니다."
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        "상품 숨김 상태를 변경하지 못했습니다. 잠시 후 다시 시도해주세요."
+      );
+    } finally {
+      setOpLoading(false);
+    }
+  };
+
   // 예약자 선택 완료
   const handleReserveConfirm = async (rid: number) => {
     const nextProd = {
@@ -419,7 +468,7 @@ export default function MySalesProductItem({
   return (
     <div
       className={cn(
-        "group flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition hover:shadow-md",
+        "group flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-shadow hover:shadow-md",
         isGrid ? "h-full" : ""
       )}
     >
@@ -430,11 +479,12 @@ export default function MySalesProductItem({
           isGrid ? "flex-col" : "flex-row gap-3 p-4 sm:gap-4"
         )}
       >
-        {/* Thumbnail */}
+        {/* 썸네일 */}
         <Link
           href={href}
+          prefetch={false}
           className={cn(
-            "relative shrink-0 overflow-hidden bg-surface-dim",
+            "focus-ring-soft relative shrink-0 overflow-hidden bg-surface-dim",
             isGrid
               ? "aspect-[4/3] w-full border-b border-border-subtle"
               : "size-24 sm:size-28 rounded-xl"
@@ -445,6 +495,7 @@ export default function MySalesProductItem({
               fill
               src={thumbUrl}
               alt={product.title}
+              priority={prioritizeImage}
               sizes={isGrid ? "(max-width: 640px) 50vw, 33vw" : "112px"}
               className="object-cover transition-transform group-hover:scale-105"
               unoptimized={!!product.images[0]?.isAnimated}
@@ -456,7 +507,7 @@ export default function MySalesProductItem({
           )}
         </Link>
 
-        {/* Info */}
+        {/* 정보 영역 */}
         <div
           className={cn(
             "flex flex-col justify-between min-w-0 flex-1",
@@ -465,17 +516,21 @@ export default function MySalesProductItem({
         >
           <div>
             <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:justify-between sm:gap-2">
-              <Link href={href} className="block min-w-0 flex-1">
-                <h3
+              <Link
+                href={href}
+                prefetch={false}
+                className="focus-ring-soft block min-w-0 flex-1 rounded-lg"
+              >
+                <p
                   className={cn(
-                    "font-semibold text-primary group-hover:text-brand transition-colors",
+                    "font-medium text-primary",
                     isGrid
                       ? "line-clamp-2 text-sm leading-5 sm:text-base sm:leading-6"
-                      : "line-clamp-2 text-[15px] leading-5 sm:line-clamp-1 sm:text-base sm:leading-6"
+                      : "line-clamp-2 text-sm leading-5 sm:line-clamp-1 sm:text-base sm:leading-6"
                   )}
                 >
                   {product.title}
-                </h3>
+                </p>
               </Link>
               {/* 상태/유저 배지 (그리드에서는 배지만 표시) */}
               <div className="flex shrink-0 flex-wrap items-center gap-1.5 self-start">
@@ -493,6 +548,11 @@ export default function MySalesProductItem({
                     size="sm"
                     compact
                   />
+                )}
+                {type === "sold" && product.hidden_at && (
+                  <span className="rounded border border-border bg-surface-dim px-2 py-0.5 text-xs font-medium text-muted shadow-sm">
+                    숨김
+                  </span>
                 )}
               </div>
             </div>
@@ -512,7 +572,7 @@ export default function MySalesProductItem({
                 )}
               </div>
             )}
-            <div className="flex items-center justify-between border-t border-border-subtle pt-1 text-[10px] text-muted sm:text-xs">
+            <div className="flex items-center justify-between pt-0.5 text-xs text-muted">
               <div className="flex gap-3">
                 <Metric icon={<HeartIcon className="size-3.5 text-rose-500" />}>
                   {product._count.product_likes ?? 0}
@@ -527,7 +587,7 @@ export default function MySalesProductItem({
         </div>
       </div>
 
-      {/* 2. Actions */}
+      {/* 2. 액션 영역 */}
       <div
         className={cn(
           "border-t border-border-subtle bg-surface-dim/30 shrink-0",
@@ -544,7 +604,7 @@ export default function MySalesProductItem({
               onClick={handleBump}
               disabled={isBumping || isBumpMaxed || opLoading}
               className={cn(
-                "font-medium hover:bg-surface-dim transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed text-primary",
+                "focus-ring-strong-inset font-medium hover:bg-surface-dim transition-colors flex items-center justify-center gap-1.5 text-primary disabled:opacity-50 disabled:cursor-not-allowed",
                 isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
               )}
             >
@@ -569,7 +629,7 @@ export default function MySalesProductItem({
               >
                 {isBumpMaxed ? "UP 마감" : "UP"}
               </span>
-              <span className="text-[10px] font-normal text-muted">
+              <span className="text-xs font-normal text-muted">
                 ({product.bump_count ?? 0}/{MAX_BUMP_COUNT})
               </span>
             </button>
@@ -577,7 +637,7 @@ export default function MySalesProductItem({
               onClick={() => toggleModal("reservation", true)}
               disabled={opLoading}
               className={cn(
-                "font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
+                "focus-ring-strong-inset font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
                 isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
               )}
             >
@@ -591,7 +651,7 @@ export default function MySalesProductItem({
               onClick={handleUpdateToSelling}
               disabled={opLoading}
               className={cn(
-                "font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
+                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
                 isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
               )}
             >
@@ -601,7 +661,7 @@ export default function MySalesProductItem({
               onClick={handleUpdateToSold}
               disabled={opLoading}
               className={cn(
-                "font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors",
+                "focus-ring-strong-inset font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors",
                 isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
               )}
             >
@@ -615,12 +675,8 @@ export default function MySalesProductItem({
               <button
                 onClick={() => toggleModal("reviewSeller", true)}
                 className={cn(
-                  "font-medium text-primary hover:bg-surface-dim transition-colors",
-                  isSoldGrid
-                    ? "col-span-2 border-b border-border-subtle py-2.5 text-xs"
-                    : isGrid
-                      ? "py-2.5 text-xs"
-                      : "py-3 text-xs sm:text-sm"
+                  "focus-ring-strong-inset font-medium text-primary hover:bg-surface-dim transition-colors",
+                  isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
                 )}
               >
                 내 리뷰 보기
@@ -630,12 +686,8 @@ export default function MySalesProductItem({
                 onClick={() => toggleModal("reviewCreate", true)}
                 disabled={reviewLoading}
                 className={cn(
-                  "font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
-                  isSoldGrid
-                    ? "col-span-2 border-b border-border-subtle py-2.5 text-xs"
-                    : isGrid
-                      ? "py-2.5 text-xs"
-                      : "py-3 text-xs sm:text-sm"
+                  "focus-ring-strong-inset font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
+                  isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
                 )}
               >
                 {reviewLoading ? "처리 중..." : "리뷰 작성"}
@@ -645,7 +697,7 @@ export default function MySalesProductItem({
               onClick={handleUpdateToSelling}
               disabled={opLoading}
               className={cn(
-                "font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
+                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
                 isSoldGrid
                   ? "border-r border-border-subtle py-2.5 text-xs"
                   : isGrid
@@ -658,17 +710,27 @@ export default function MySalesProductItem({
             <button
               onClick={() => toggleModal("reviewBuyer", true)}
               className={cn(
-                "font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
+                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
                 isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
               )}
             >
               구매자 리뷰
             </button>
+            <button
+              onClick={handleToggleHidden}
+              disabled={opLoading}
+              className={cn(
+                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              )}
+            >
+              {product.hidden_at ? "숨김 해제" : "숨기기"}
+            </button>
           </>
         )}
       </div>
 
-      {/* Modals */}
+      {/* 모달 영역 */}
 
       {/* 1. 리뷰 작성 */}
       {modalState.reviewCreate && (

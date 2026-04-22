@@ -14,6 +14,7 @@
  * 2026.03.14  임도헌   Modified  검색어는 유지한 채 필터만 적용/초기화할 수 있도록 필터 전용 파라미터 유틸 추가
  * 2026.03.18  임도헌   Modified  검색 파라미터 이동을 공통 헬퍼로 정리하고 빈 쿼리 처리 보강
  * 2026.04.02  임도헌   Modified  검색 필터 키와 필터 값 타입을 search 도메인 공용 파일로 분리
+ * 2026.04.17  임도헌   Modified  keyword 유지/필터 교체/빈 쿼리 정리 책임이 훅 설명에서 바로 드러나도록 주석 보강
  */
 
 "use client";
@@ -24,7 +25,11 @@ import { SEARCH_FILTER_KEYS } from "@/features/search/constants";
 import type { SearchFilterValues } from "@/features/search/types";
 
 /**
- * URL Query Parameter 조작 훅
+ * 검색/필터 URL 파라미터 조작 공통 훅
+ *
+ * - 현재 pathname 기준으로 검색 관련 쿼리 이동을 한 곳에서 처리
+ * - 빈 쿼리일 때는 불필요한 `?` 없이 경로만 유지
+ * - keyword만 갱신하거나, keyword를 유지한 채 필터 계열 파라미터만 교체/초기화하는 흐름을 분리
  */
 export function useSearchParamsUtils() {
   const router = useRouter();

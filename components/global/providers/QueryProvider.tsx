@@ -7,12 +7,21 @@
  * Date        Author   Status    Description
  * 2026.02.28  임도헌   Created   QueryClient 초기화 및 Provider 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.13  임도헌   Modified  React Query Devtools를 동적 로딩으로 분리해 프로덕션 공통 번들 부담을 완화
  */
 "use client";
 
+import dynamic from "next/dynamic";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
+
+const ReactQueryDevtools = dynamic(
+  () =>
+    import("@tanstack/react-query-devtools").then(
+      (mod) => mod.ReactQueryDevtools
+    ),
+  { ssr: false, loading: () => null }
+);
 
 /**
  * TanStack Query v5 전역 Provider 세팅 컴포넌트

@@ -32,15 +32,24 @@
  * 2026.03.12  임도헌   Modified  총 상품 수, 키워드 알림 버튼, 뷰 토글을 같은 헤더 row로 통합
  * 2026.03.15  임도헌   Modified  빈 상태 시스템 이모지를 heroicons 기반 아이콘으로 교체
  * 2026.03.25  임도헌   Modified  뷰 토글 박스의 외곽선/활성 상태를 차분하게 조정해 출시 직전 polish 반영
+ * 2026.04.13  임도헌   Modified  카드별 현재 경로 계산을 상위로 승격해 목록 hydration 비용을 완화
+ * 2026.04.13  임도헌   Modified  첫 화면 대표 카드 1장만 priority를 사용하도록 이미지 우선순위를 조정
  */
 
 "use client";
 
-import { ReactNode, useRef, useState } from "react";
+import {
+  ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import ProductCard from "@/features/product/components/productCard";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
   ArchiveBoxIcon,
   Squares2X2Icon,
@@ -76,6 +85,8 @@ export default function ProductList({
 }: ProductListProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
 
   // 현재 탭이 사용자의 뷰포트에 표시 중인지 여부 (백그라운드 시 데이터 페칭 일시 중지용)
   const isVisible = usePageVisibility();
@@ -102,6 +113,10 @@ export default function ProductList({
   });
 
   const displayCount = totalCount ?? products.length;
+  const returnTo = useMemo(() => {
+    const next = currentSearchParams.toString();
+    return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
+  }, [pathname, currentSearchParams]);
 
   return (
     <div className="flex flex-col">
@@ -118,7 +133,7 @@ export default function ProductList({
             onClick={() => setViewMode("list")}
             aria-label="리스트 보기"
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "list"
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"
@@ -130,7 +145,7 @@ export default function ProductList({
             onClick={() => setViewMode("grid")}
             aria-label="그리드 보기"
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "grid"
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"
@@ -161,7 +176,8 @@ export default function ProductList({
               key={product.id}
               product={product}
               viewMode={viewMode}
-              isPriority={index < 4}
+              isPriority={index === 0}
+              returnTo={returnTo}
             />
           ))}
         </div>

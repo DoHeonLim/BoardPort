@@ -12,6 +12,7 @@
  * 2026.03.25  임도헌   Modified  소셜 자동 생성 닉네임 강제 보완 여부를 hidden flag로 action에 함께 전달
  * 2026.03.25  임도헌   Modified  선택 이메일은 상단 에러 요약에서 제외하고 활동 지역 액션 라벨을 더 조용하게 정리
  * 2026.04.02  임도헌   Modified  온보딩 폼 JSDoc 보강
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 온보딩 도움 문구와 지역 액션 타이포를 정리
  */
 "use client";
 
@@ -220,7 +221,7 @@ export default function OnboardingForm({
               errors={emailError ? [emailError] : []}
             />
             {!emailError && (
-              <p className="pl-1 text-xs leading-relaxed text-muted">
+              <p className="pl-1 text-sm leading-relaxed text-muted">
                 선택 항목입니다. 나중에 비밀번호 찾기와 계정 복구에 사용할 수
                 있습니다.
               </p>
@@ -234,7 +235,7 @@ export default function OnboardingForm({
             <button
               type="button"
               onClick={() => setIsLocationModalOpen(true)}
-              className="flex min-h-[56px] items-center justify-between rounded-xl border border-border bg-surface px-4 text-left transition-colors hover:bg-surface-dim"
+              className="focus-ring-soft flex min-h-[56px] items-center justify-between rounded-xl border border-border bg-surface px-4 text-left transition-colors hover:bg-surface-dim"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <span className="rounded-full bg-surface-dim p-2 text-brand">
@@ -249,7 +250,7 @@ export default function OnboardingForm({
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-medium text-muted">
+              <span className="text-sm font-medium text-muted">
                 {locationName ? "변경" : "선택"}
               </span>
             </button>

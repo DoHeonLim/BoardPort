@@ -22,8 +22,9 @@
  * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더 보더 강도 정리
  * 2026.03.22  임도헌   Modified  프로필 유틸 모달 모션 규칙 통일을 위해 진입 transform 애니메이션 제거
+ * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 이메일 인증 흐름을 하단 시트로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useFormState } from "react-dom";
@@ -31,10 +32,12 @@ import { useRouter } from "next/navigation";
 import { verifyEmail } from "@/features/auth/service/email";
 import { INITIAL_EMAIL_VERIFY_STATE } from "@/features/auth/constants";
 import { toast } from "sonner";
+import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import Input from "@/components/ui/Input";
 import { XMarkIcon, EnvelopeIcon, KeyIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface EmailVerificationModalProps {
   isOpen: boolean;
@@ -56,6 +59,7 @@ function EmailVerificationModalInner({
   onClose,
   email,
 }: Omit<EmailVerificationModalProps, "isOpen">) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const [state, action] = useFormState(verifyEmail, INITIAL_EMAIL_VERIFY_STATE);
   const [countdown, setCountdown] = useState(0);
@@ -206,6 +210,7 @@ function EmailVerificationModalInner({
 
   const handleVerify = useCallback(
     (token: string) => {
+      // 인증 코드 검증 요청
       const fd = new FormData();
       fd.append("email", email);
       fd.append("token", token);
@@ -217,6 +222,7 @@ function EmailVerificationModalInner({
   );
 
   const handleResend = useCallback(() => {
+    // 인증 코드 재전송 요청
     const fd = new FormData();
     fd.append("email", email);
     fd.append("intent", "resend");
@@ -226,6 +232,7 @@ function EmailVerificationModalInner({
 
   // 접근성 (포커스 & 스크롤락)
   useEffect(() => {
+    if (isMobile) return;
     dialogRef.current?.focus();
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -236,7 +243,72 @@ function EmailVerificationModalInner({
       window.removeEventListener("keydown", handleKey);
       unlockBodyScroll();
     };
-  }, [onClose]);
+  }, [isMobile, onClose]);
+
+  // 상태별 본문 분기
+  const content = state.token ? (
+    <div className="space-y-6">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-primary">
+          인증 코드 입력
+        </label>
+        <Input
+          name="token"
+          placeholder="6자리 숫자"
+          maxLength={6}
+          inputMode="numeric"
+          pattern="[0-9]{6}"
+          icon={<KeyIcon className="size-5" />}
+          className="text-center text-lg tracking-widest font-mono"
+          onChange={(e) => {
+            const v = e.target.value?.replace(/\D/g, "").slice(0, 6) ?? "";
+            e.target.value = v;
+            if (v.length === 6) handleVerify(v);
+          }}
+        />
+        <p className="mt-2 text-xs text-muted">
+          * 이메일로 전송된 6자리 코드를 입력해주세요.
+        </p>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={countdown > 0}
+          className={cn(
+            "focus-ring-soft rounded-md text-sm font-medium transition-colors underline underline-offset-4",
+            countdown > 0
+              ? "text-muted cursor-not-allowed no-underline"
+              : "text-brand hover:text-brand-dark dark:text-brand-light dark:hover:text-brand-light"
+          )}
+        >
+          {countdown > 0
+            ? `재전송 가능까지 ${formatTime(countdown)}`
+            : "인증 코드 재전송"}
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center py-10 gap-3">
+      <div className="size-8 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+      <p className="text-sm text-muted">인증 정보를 확인하고 있습니다...</p>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open
+        title="이메일 인증"
+        description={maskedEmail}
+        onClose={onClose}
+        contentClassName="pt-4"
+      >
+        {content}
+      </BottomSheet>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -256,7 +328,7 @@ function EmailVerificationModalInner({
           "border-t sm:border border-border-subtle"
         )}
       >
-        {/* Header */}
+        {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
           <div>
             <h2 className="text-lg font-bold text-primary">이메일 인증</h2>
@@ -267,67 +339,14 @@ function EmailVerificationModalInner({
           </div>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6">
-          {state.token ? (
-            <div className="space-y-6">
-              <div>
-                <label className="text-sm font-medium text-primary mb-2 block">
-                  인증 코드 입력
-                </label>
-                <Input
-                  name="token"
-                  placeholder="6자리 숫자"
-                  maxLength={6}
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  icon={<KeyIcon className="size-5" />}
-                  className="text-center text-lg tracking-widest font-mono"
-                  onChange={(e) => {
-                    const v =
-                      e.target.value?.replace(/\D/g, "").slice(0, 6) ?? "";
-                    e.target.value = v;
-                    if (v.length === 6) handleVerify(v);
-                  }}
-                />
-                <p className="mt-2 text-xs text-muted">
-                  * 이메일로 전송된 6자리 코드를 입력해주세요.
-                </p>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={countdown > 0}
-                  className={cn(
-                    "text-sm font-medium transition-colors underline underline-offset-4",
-                    countdown > 0
-                      ? "text-muted cursor-not-allowed no-underline"
-                      : "text-brand hover:text-brand-dark"
-                  )}
-                >
-                  {countdown > 0
-                    ? `재전송 가능까지 ${formatTime(countdown)}`
-                    : "인증 코드 재전송"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 gap-3">
-              <div className="size-8 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
-              <p className="text-sm text-muted">
-                인증 정보를 확인하고 있습니다...
-              </p>
-            </div>
-          )}
-        </div>
+        {/* 본문 */}
+        <div className="p-6">{content}</div>
       </div>
     </div>
   );

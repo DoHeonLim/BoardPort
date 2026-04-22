@@ -12,8 +12,10 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.28  임도헌   Modified  장문 인기 검색어가 모바일에서도 자연스럽게 읽히도록 다중 줄 래핑 처리
  * 2026.04.02  임도헌   Modified  인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 섹션 헤더 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.04.17  임도헌   Modified  인기 검색어 링크 렌더링과 빈 상태 처리 책임이 주석에서 바로 드러나도록 설명 보강
  */
-"use client";
 
 import Link from "next/link";
 import { FireIcon } from "@heroicons/react/24/solid";
@@ -26,7 +28,11 @@ interface PopularSearchesBoxProps {
 }
 
 /**
- * 서비스 전체 인기 검색어 Top 5를 표시
+ * 서비스 전체 인기 검색어 목록
+ *
+ * - 인기 키워드를 순위와 함께 링크 형태로 노출
+ * - 클릭 시 상위 검색 모달과 동일한 `onSearch` 흐름을 타도록 연결
+ * - 데이터가 없으면 빈 상태 문구로 자연스럽게 대체
  */
 export default function PopularSearchesBox({
   popularSearches,
@@ -37,7 +43,7 @@ export default function PopularSearchesBox({
 
   return (
     <div className="flex-1">
-      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted mb-3">
+      <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-muted">
         <FireIcon className="size-4 text-orange-500" />
         인기 검색어
       </h3>
@@ -53,7 +59,7 @@ export default function PopularSearchesBox({
               key={index}
               href={`${basePath}?keyword=${encodeURIComponent(item.keyword)}`}
               onClick={() => onSearch(item.keyword)}
-              className="group -mx-2 flex items-start gap-2 rounded-lg p-2 transition-colors hover:bg-surface-dim"
+              className="focus-ring-soft group -mx-2 flex items-start gap-2 rounded-lg p-2 transition-colors hover:bg-surface-dim"
             >
               <span className="mt-0.5 w-5 shrink-0 text-center text-sm font-bold text-brand dark:text-brand-light">
                 {index + 1}

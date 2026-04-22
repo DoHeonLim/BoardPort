@@ -33,6 +33,8 @@
  * 2026.03.24  임도헌   Modified  다크 모드 열림 상태 정보 칩을 밝은 흰색 대신 어두운 표면 톤으로 맞춰 오버레이와의 이질감을 완화
  * 2026.03.24  임도헌   Modified  모바일 owner도 정보 패널을 열면 송출 정보를 확인할 수 있도록 데스크톱 전용 가드를 제거
  * 2026.03.24  임도헌   Modified  데스크톱 라이트 모드 위계를 조금 더 분리하고 owner 송출 정보 영역 폭을 줄여 관리 정보의 무게를 완화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상세 정보 패널 타이포를 text-xs·sm·500 기준으로 정리
+ * 2026.04.16  임도헌   Modified  CONNECTED 상태에서만 iframe을 렌더링하고 종료/준비 상태는 썸네일 fallback으로 전환해 초기 로드 비용을 완화
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -76,6 +78,7 @@ interface StreamDetailProps {
  * [상태 주입 및 레이아웃 제어 로직]
  * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
  * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`를 배치하고, 모바일 정보 토글은 플레이어 우상단 칩으로 제어
+ * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용을 줄인다
  * - 모바일은 cross-origin iframe 제약 때문에 플레이어 자체 클릭 대신 플레이어 안 우상단 정보 토글 버튼으로 상세 정보를 열고 닫는다
  * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
  * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키를 확인할 수 있다
@@ -115,18 +118,30 @@ export default function StreamDetail({
     viewerId: ownerProfile.viewerId ?? undefined,
   });
   const showInfoSection = isDesktop || opened;
-  const normalizedStatus = (stream.status?.toUpperCase?.() ?? "DISCONNECTED") as
-    | "CONNECTED"
-    | "ENDED"
-    | "DISCONNECTED"
-    | "READY";
+  const normalizedStatus = (stream.status?.toUpperCase?.() ??
+    "DISCONNECTED") as "CONNECTED" | "ENDED" | "DISCONNECTED" | "READY";
   const hasStatusOverlay = normalizedStatus !== "CONNECTED";
+  const shouldRenderLivePlayer = normalizedStatus === "CONNECTED";
 
   return (
     <div className="relative space-y-2">
       <div className="relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10 sm:mb-0">
-        {/* Cloudflare Player Iframe */}
+        {/* CONNECTED일 때만 실제 플레이어를 붙이고, 나머지는 fallback 썸네일/배경으로 유지 */}
         {(() => {
+          if (!shouldRenderLivePlayer) {
+            if (stream.thumbnail) {
+              return (
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${stream.thumbnail})` }}
+                  aria-hidden="true"
+                />
+              );
+            }
+
+            return <div className="absolute inset-0 bg-black" aria-hidden="true" />;
+          }
+
           const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
           if (!DOMAIN) {
             return (
@@ -161,7 +176,7 @@ export default function StreamDetail({
         <button
           type="button"
           className={cn(
-            "absolute right-3 top-3 z-50 inline-flex min-h-[30px] items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors lg:hidden",
+            "focus-ring-soft absolute right-3 top-3 z-50 inline-flex min-h-[30px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-medium shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors lg:hidden",
             opened
               ? "border-black/8 bg-surface-dim text-primary dark:border-white/10 dark:bg-surface-dim dark:text-white"
               : hasStatusOverlay
@@ -184,13 +199,13 @@ export default function StreamDetail({
         )}
       >
         <div className="hidden items-center justify-between gap-3 px-3 py-2 sm:px-4 sm:py-2.5 lg:flex">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+          <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
             방송 정보
           </div>
 
           <button
             type="button"
-            className="inline-flex min-h-[28px] shrink-0 items-center justify-end text-muted/90 transition-colors hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[28px] shrink-0 items-center justify-end rounded px-1 text-muted/90 transition-colors hover:text-primary"
             aria-expanded={opened}
             aria-label={opened ? "방송 정보 숨기기" : "방송 정보 보기"}
             onClick={() => setOpened((v) => !v)}
@@ -218,13 +233,13 @@ export default function StreamDetail({
                 className="mb-0 sm:text-base"
               />
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted sm:mt-2.5 sm:gap-2 sm:text-xs">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted sm:mt-2.5 sm:gap-2">
                 <StreamCategoryTags
                   category={stream.category ?? undefined}
                   tags={stream.tags ?? undefined}
                 />
                 {isDesktop && stream.started_at && (
-                  <span className="text-[11px] text-muted sm:text-xs">
+                  <span className="text-xs text-muted">
                     <TimeAgo date={stream.started_at} className="text-muted" />{" "}
                     시작
                   </span>
@@ -237,10 +252,11 @@ export default function StreamDetail({
                   username={stream.user.username}
                   size="sm"
                   showUsername={false}
+                  prefetch={false}
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 lg:flex-none">
                   <div className="min-w-0 max-w-[180px] sm:max-w-[220px] lg:max-w-[200px] xl:max-w-[230px]">
-                    <div className="truncate text-sm font-semibold text-primary sm:text-base">
+                    <div className="truncate text-sm font-medium text-primary sm:text-base">
                       {stream.user.username}
                     </div>
                   </div>
@@ -259,8 +275,9 @@ export default function StreamDetail({
                             : "팔로우"
                       }
                       className={cn(
-                        "shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors lg:px-3.5",
+                        "shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors lg:px-3.5",
                         "disabled:cursor-not-allowed disabled:opacity-60",
+                        isFollowing ? "focus-ring-soft" : "focus-ring-strong",
                         isFollowing
                           ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger"
                           : "border-transparent bg-brand text-white hover:bg-brand-dark"
@@ -278,7 +295,7 @@ export default function StreamDetail({
             </div>
 
             {stream.description && (
-              <div className="mt-2.5 border-t border-border-subtle pt-2.5 text-[13px] leading-5 text-primary sm:mt-3.5 sm:pt-3.5 sm:text-sm sm:leading-6">
+              <div className="mt-2.5 border-t border-border-subtle pt-2.5 text-sm leading-6 text-primary sm:mt-3.5 sm:pt-3.5">
                 <StreamDescription description={stream.description} />
               </div>
             )}

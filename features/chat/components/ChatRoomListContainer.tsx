@@ -23,6 +23,8 @@
  * 2026.03.12  임도헌   Modified  채팅 목록 헤더를 flat 톤으로 통일해 다른 탭 헤더와 시각적 일관성 확보
  * 2026.03.12  임도헌   Modified  상대방/상품명/마지막 메시지 기준의 채팅방 검색 입력을 추가
  * 2026.03.12  임도헌   Modified  검색어 기준 클라이언트 필터링과 빈 검색 결과 상태 추가
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 검색 초기화 버튼 weight를 500 기준으로 정리
+ * 2026.04.17  임도헌   Modified  채팅 목록 상단 검색창 스타일을 정리
  */
 
 "use client";
@@ -59,6 +61,7 @@ export default function ChatRoomListContainer({
   // Suspense에 의해 데이터가 보장
   const { rooms } = useChatRoomSubscription(userId);
   const [query, setQuery] = useState("");
+  // 긴 목록 검색에서도 입력 반응 즉시 유지, 필터링 비용만 한 박자 늦춘 처리
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   const filteredRooms = deferredQuery
@@ -93,7 +96,7 @@ export default function ChatRoomListContainer({
         </div>
       </header>
 
-      {/* List Area */}
+      {/* 목록 영역 */}
       <div className="px-page-x py-6 w-full max-w-mobile mx-auto flex-1">
         {rooms.length > 0 && (
           <div className="mb-4">
@@ -104,13 +107,13 @@ export default function ChatRoomListContainer({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="상대방, 상품, 마지막 대화 검색"
-                className="h-11 w-full rounded-2xl border border-border-subtle bg-surface-dim pl-11 pr-11 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-brand/40 focus:bg-background"
+                className="searchbar-compact-input h-11 rounded-2xl pl-11 pr-11"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-background hover:text-primary"
+                  className="focus-ring-soft absolute right-3 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-background hover:text-primary"
                   aria-label="검색어 지우기"
                 >
                   <XMarkIcon className="size-4" />
@@ -122,16 +125,16 @@ export default function ChatRoomListContainer({
 
         {rooms.length > 0 ? (
           filteredRooms.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {filteredRooms.map((room) => (
-              <ChatRoomCard
-                key={room.id}
-                room={room}
-                // 기존 별도 객체로 관리되던 unreadCount가 캐시된 room 객체에 내장
-                unreadCount={room.unreadCount ?? 0}
-              />
-            ))}
-          </div>
+            <div className="flex flex-col gap-3">
+              {filteredRooms.map((room) => (
+                <ChatRoomCard
+                  key={room.id}
+                  room={room}
+                  // 기존 별도 객체로 관리되던 unreadCount가 캐시된 room 객체에 내장
+                  unreadCount={room.unreadCount ?? 0}
+                />
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-border-subtle bg-surface px-6 py-16 text-center shadow-sm">
               <div className="mb-4 rounded-full bg-surface-dim p-4">
@@ -146,7 +149,7 @@ export default function ChatRoomListContainer({
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                className="mt-6 inline-flex h-10 items-center rounded-xl border border-border-subtle bg-background px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-dim"
+                className="focus-ring-soft mt-6 inline-flex h-10 items-center rounded-xl border border-border-subtle bg-background px-4 text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
               >
                 검색 초기화
               </button>

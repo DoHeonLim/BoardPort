@@ -9,43 +9,26 @@
  * 2026.03.11  임도헌   Modified  모바일 토스트를 상단 중앙 카드형으로 조정
  * 2026.03.12  임도헌   Modified  모바일 토스트를 하단 중앙/짧은 지속시간 규칙으로 정리해 헤더 가림을 최소화
  * 2026.03.23  임도헌   Modified  토스트 카드와 닫기 버튼 보더를 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.04.13  임도헌   Modified  모바일 인증 초기 하이드레이션 경량화를 위해 matchMedia 분기를 제거
  */
 "use client";
 
-import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
 /**
- * 전역 토스트 위치/스타일 분기 래퍼
- * - 모바일: bottom-center
- * - 데스크톱: top-right
+ * 전역 토스트 스타일 래퍼
+ * - 위치는 기본 top-right를 사용
+ * - 모바일 위치는 globals.css의 responsive override가 담당
  */
 export default function GlobalToaster() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 640px)");
-    const apply = () => setIsMobile(mediaQuery.matches);
-
-    apply();
-    mediaQuery.addEventListener("change", apply);
-
-    return () => mediaQuery.removeEventListener("change", apply);
-  }, []);
-
   return (
     <Toaster
-      position={isMobile ? "bottom-center" : "top-right"}
+      position="top-right"
       richColors
       expand={false}
       visibleToasts={1}
-      mobileOffset={{
-        bottom: "calc(env(safe-area-inset-bottom) + 84px)",
-        right: 12,
-        left: 12,
-      }}
       toastOptions={{
-        duration: isMobile ? 1800 : 3000,
+        duration: 3000,
         style: {
           borderRadius: "12px",
           border: "1px solid var(--border-subtle)",

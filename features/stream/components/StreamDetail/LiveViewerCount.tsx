@@ -20,6 +20,7 @@
  * 2026.03.19  임도헌   Modified  현재 시청자가 존재하는 상세 화면에서는 표시값이 0으로 내려가지 않도록 최소값 보정
  * 2026.03.20  임도헌   Modified  상태 칩과 맞는 메타 리듬으로 조정해 시청자 수가 플레이어 상단 보조 정보처럼 읽히도록 정리
  * 2026.03.20  임도헌   Modified  상태 칩과 높이/대비를 다시 맞춰 시청자 수 메타가 한 줄 정보처럼 더 차분하게 읽히도록 조정
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 시청자 수 메타 타이포를 text-sm·500 기준으로 정리
  */
 
 "use client";
@@ -64,7 +65,9 @@ export default function LiveViewerCount({
       const state = channel.presenceState() as Record<string, unknown>;
       const nextCount = Object.keys(state || {}).length;
       // sync 이벤트가 자기 presence 반영보다 빨라도 현재 시청자는 최소 1명으로 유지
-      setViewerCount(trackedSelfRef.current ? Math.max(nextCount, 1) : nextCount);
+      setViewerCount(
+        trackedSelfRef.current ? Math.max(nextCount, 1) : nextCount
+      );
     };
 
     channel
@@ -109,7 +112,7 @@ export default function LiveViewerCount({
   return (
     <div
       className={cn(
-        "inline-flex h-8 items-center gap-2 rounded-full border border-border-subtle bg-surface px-3 text-[13px] shadow-sm",
+        "inline-flex h-8 items-center gap-2 rounded-full border border-border-subtle bg-surface px-3 text-sm shadow-sm",
         className
       )}
       aria-live="polite"
@@ -118,7 +121,7 @@ export default function LiveViewerCount({
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
       </div>
-      <span className="font-semibold tracking-[0.01em] text-primary/85">
+      <span className="font-medium tracking-[0.01em] text-primary/85">
         {displayCount}명 시청 중
       </span>
     </div>

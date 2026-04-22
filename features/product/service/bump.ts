@@ -114,7 +114,7 @@ export async function bumpProduct(
       },
     });
 
-    // 업데이트된 행이 없다면, 다른 스레드에서 찰나의 순간에 먼저 올린 것
+    // 업데이트된 행이 없는 경우, 다른 스레드의 찰나 선처리 가능성
     if (updated.count === 0) {
       return {
         success: false,

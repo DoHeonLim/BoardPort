@@ -4,8 +4,7 @@
    2025.04.29  임도헌 - 다크모드 전환 애니메이션 개선 및 구름 요소 반응형 추가
    2025.07.24  임도헌 - 커스텀 스크롤바 수정
    2026.01.10  임도헌 - BoardPort Design Standard v1.1 (Semantic Variables) 적용
-   2026.03.06  임도헌 - 공용 버튼 hover 및 소셜 로그인 유틸 클래스를 시맨틱 토큰 기준으로 정리
-   2026.03.06  임도헌 - Pretendard Variable 로컬 폰트를 전역 기본 폰트로 적용
+   2026.03.06  임도헌 - 공용 버튼 hover 유틸 클래스를 시맨틱 토큰 기준으로 정리
    2026.03.06  임도헌 - 상세 상단 액션바용 공통 버튼/칩 유틸 클래스를 추가
    2026.03.06  임도헌 - 목록 하단 무한스크롤 로딩 배지 유틸 클래스를 추가
    2026.03.06  임도헌 - Empty/Error/Forbidden 상태 화면 공통 레이아웃 유틸 클래스를 추가
@@ -13,13 +12,23 @@
    2026.03.11  임도헌 - 모바일 토스트를 하단 중앙 기준으로 재배치하고 폭을 재조정
    2026.03.25  임도헌 - 로그인 전 메인페이지 소형 화면 헤드라인과 갈매기 애니메이션 타이밍을 미세 조정
    2026.03.27  임도헌 - 다크 밀집 화면용 조용한 primary 버튼 변형(btn-primary-quiet-dark, btn-primary-quiet-dark-icon) 추가
-*/
+   2026.04.10  임도헌 - Pretendard subset 정적 3종(400/500/700)으로 전역 폰트를 재적용
+   2026.04.12  임도헌 - 랜딩 페이지 성능 점검 대응으로 갈매기 이동을 transform 기반으로 경량화하고 motion-reduce 대응 추가
+   2026.04.12  임도헌 - 모바일 랜딩 초기 페인트를 위해 장식 애니메이션과 전환 범위를 축소
+   2026.04.13  임도헌 - 랜딩 관련 레거시 작업 메모 주석을 현재 구조 기준 설명형 주석으로 정리
+   2026.04.13  임도헌 - 데스크톱 랜딩 갈매기 이동 속도를 낮춰 시선 분산을 줄임
+   2026.04.13  임도헌 - 인증 공용 primary 및 SMS CTA 색 대비를 높여 접근성을 보강
+   2026.04.17  임도헌 - 탭 헤더용 검색 입력/버튼 공통 클래스 추가
+   2026.04.18  임도헌 - 모바일 브라우저 기본 tap highlight를 줄여 버튼 터치 잔상을 완화
+   2026.04.20  임도헌 - 라이트모드 보조 액션 포커스 가시성을 위해 focus-ring-soft 강도를 한 단계 보강
+   2026.04.20  임도헌 - 라이트모드 primary CTA 포커스가 배경과 겹치지 않도록 btn-primary 계열을 inset white ring 중심으로 보강
+ */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* [기존 유지] 커스텀 스크롤바 스타일 */
+/* 커스텀 스크롤바 */
 .scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #4338ca #ffffff;
@@ -51,6 +60,9 @@
     --surface-dim: #f1f5f9; /* slate-100 */
 
     /* 타이포그래피 */
+    --font-sans:
+      var(--font-pretendard-subset), -apple-system, BlinkMacSystemFont,
+      system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     --text-primary: #1e293b; /* slate-800 */
     --text-muted: #64748b; /* slate-500 */
 
@@ -59,7 +71,7 @@
     --border: #e2e8f0; /* slate-200 */
     --border-strong: #cbd5e1; /* slate-300 */
 
-    /* [기존 유지] 그라데이션 및 그림자 변수 */
+    /* 그라데이션 및 그림자 변수 */
     --gradient-ocean: linear-gradient(to bottom, #60a5fa, #1e40af);
     --gradient-sunset: linear-gradient(to right, #fcd34d, #f97316);
 
@@ -99,7 +111,7 @@
     --border: #334155; /* slate-700 */
     --border-strong: #475569; /* slate-600 */
 
-    /* [기존 유지] */
+    /* 다크 패널 보조 변수 */
     --panel: #0b0f14;
     --panel-border: #1f2937;
     --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
@@ -117,29 +129,24 @@
     @apply h-full w-full overflow-x-hidden;
   }
 
-  body {
-    /* bg-background와 text-primary는 tailwind.config에서 정의한 시맨틱 클래스 */
-    @apply bg-background text-primary antialiased transition-colors duration-300;
-    font-family:
-      var(--font-sans), "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
-      system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* [기존 유지] 다크모드 전환 애니메이션 */
-  * {
-    transition-property:
-      color, background-color, border-color, text-decoration-color, fill, stroke;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    transition-duration: 300ms;
+  body {
+    /* bg-background와 text-primary는 tailwind.config에서 정의한 시맨틱 클래스 */
+    @apply bg-background text-primary antialiased;
+    font-family: var(--font-sans);
   }
 }
 
 @layer components {
   /* Semantic Token 적용 */
   .btn-primary {
-    @apply bg-brand hover:bg-brand-dark dark:bg-brand-light dark:hover:bg-brand
-    text-white dark:text-gray-100
+    @apply bg-brand hover:bg-brand-dark dark:bg-brand dark:hover:bg-brand-dark
+    text-white dark:text-white
     px-4 py-2 rounded-xl transition-colors
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/90 dark:focus-visible:ring-brand-light
     disabled:bg-neutral-400 dark:disabled:bg-neutral-600 
     disabled:text-neutral-300 dark:disabled:text-neutral-400 
     disabled:cursor-not-allowed;
@@ -149,6 +156,7 @@
     @apply bg-brand hover:bg-brand-dark dark:bg-brand-dark dark:hover:bg-brand-dark
     text-white dark:text-white
     px-4 py-2 rounded-xl transition-colors
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/90 dark:focus-visible:ring-brand-light
     disabled:bg-neutral-400 dark:disabled:bg-neutral-700
     disabled:text-neutral-300 dark:disabled:text-neutral-500
     disabled:cursor-not-allowed;
@@ -158,6 +166,7 @@
     @apply bg-brand hover:bg-brand-dark dark:bg-brand-dark dark:hover:bg-brand-dark
     text-white dark:text-white
     transition-colors
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/90 dark:focus-visible:ring-brand-light
     disabled:bg-neutral-400 dark:disabled:bg-neutral-700
     disabled:text-neutral-300 dark:disabled:text-neutral-500
     disabled:cursor-not-allowed;
@@ -167,28 +176,38 @@
     @apply bg-surface text-brand border border-brand
     hover:bg-surface-dim dark:bg-surface dark:text-brand-light dark:border-brand-light
     px-4 py-2 rounded-xl transition-colors
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 dark:focus-visible:ring-brand-light/40
     disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  .btn-social-kakao {
-    @apply rounded-xl text-black transition-colors;
-    background-color: #fee500;
+  .btn-secondary-page {
+    @apply rounded-xl border border-border-strong bg-surface px-4 py-2 text-primary shadow-sm transition-colors
+    hover:border-border-strong hover:bg-surface-dim hover:text-primary
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 dark:focus-visible:ring-brand-light/40
+    disabled:opacity-50 disabled:cursor-not-allowed
+    dark:border-border-subtle dark:bg-surface dark:text-muted dark:shadow-none
+    dark:hover:border-border dark:hover:bg-surface-dim dark:hover:text-primary;
   }
 
-  .btn-social-kakao:hover {
-    background-color: #fada0a;
-  }
-
-  .btn-social-github {
-    @apply bg-surface text-primary hover:bg-surface-dim border-border;
+  .btn-secondary-modal {
+    @apply rounded-xl border border-border bg-surface-dim px-4 py-2 text-muted transition-colors
+    hover:border-border-strong hover:bg-surface hover:text-primary
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 dark:focus-visible:ring-brand-light/40
+    disabled:opacity-50 disabled:cursor-not-allowed
+    dark:border-border-subtle dark:bg-surface-dim dark:text-muted
+    dark:hover:border-border dark:hover:bg-surface dark:hover:text-primary;
   }
 
   .appbar-icon-btn {
-    @apply inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary;
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 dark:focus-visible:ring-brand-light/40
+    hover:bg-surface-dim hover:text-primary;
   }
 
   .appbar-link-btn {
-    @apply inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary;
+    @apply inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-medium text-muted transition-colors
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 dark:focus-visible:ring-brand-light/40
+    hover:bg-surface-dim hover:text-primary;
   }
 
   .appbar-chip {
@@ -243,37 +262,21 @@
     text-primary;
   }
 
+  .searchbar-compact-input {
+    @apply h-10 w-full rounded-xl border border-border bg-surface-dim text-sm text-primary shadow-sm outline-none transition-colors placeholder:text-muted
+    focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20
+    focus-visible:ring-2 focus-visible:ring-brand/60 dark:focus-visible:ring-brand-light/40
+    sm:h-11 sm:rounded-2xl;
+  }
+
+  .searchbar-compact-trigger {
+    @apply flex h-10 w-full items-center rounded-xl border border-border bg-surface-dim text-sm text-muted shadow-sm transition-colors hover:bg-surface
+    sm:h-11 sm:rounded-2xl;
+  }
+
   /* 라이트/다크 공용 패널 */
   .panel {
     @apply bg-surface border border-border-subtle shadow-sm rounded-xl;
-  }
-
-  .btn-ghost {
-    @apply text-brand dark:text-brand-light px-2 py-1 rounded hover:bg-surface-dim;
-  }
-
-  .section-h {
-    @apply flex items-center justify-between mb-2;
-  }
-
-  /* 링크형 타일(살짝 강조) */
-  .tile {
-    @apply panel transition-colors
-           hover:bg-neutral-50 dark:hover:bg-white/5;
-  }
-  .tile-strong {
-    @apply panel border-neutral-700 transition-colors hover:border-neutral-500 hover:bg-surface-dim;
-  }
-
-  /* 섹션 공통 여백(선택) */
-  .section {
-    @apply mt-6;
-  }
-  .section-tight {
-    @apply mt-4;
-  }
-  .section-divider {
-    @apply border-t border-border-subtle -mx-4 sm:-mx-6 px-4 sm:px-6 pt-6;
   }
 }
 
@@ -284,6 +287,21 @@
     min-height: 100dvh;
   }
 
+  /* 키보드 포커스 규칙: 탭/토글/보조 버튼용 */
+  .focus-ring-soft {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60 dark:focus-visible:ring-brand-light/40;
+  }
+
+  /* 키보드 포커스 규칙: 주요 CTA/카드 링크용 */
+  .focus-ring-strong {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:focus-visible:ring-brand-light;
+  }
+
+  /* 키보드 포커스 규칙: 카드 액션처럼 inset이 필요한 강한 강조용 */
+  .focus-ring-strong-inset {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand dark:focus-visible:ring-brand-light;
+  }
+
   /* 커스텀 스크롤바 숨김 (미니멀리즘) */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -291,383 +309,6 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
-  }
-}
-
-/* ==========================================================================
-   [기존 애니메이션 코드 유지 - 삭제 금지] 
-   로그인/회원가입 페이지의 배경 효과(구름, 갈매기, 파도, 별)를 위해 필수적임
-   ========================================================================== */
-
-/* 구름 애니메이션 */
-.clouds {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  z-index: 0;
-  top: 0;
-  left: 0;
-}
-
-.cloud {
-  position: absolute;
-  width: 200px;
-  height: 100px;
-  border-radius: 50%;
-  filter: blur(10px);
-  opacity: 0.5;
-  animation: floatCloud linear infinite;
-}
-
-.cloud1 {
-  top: 10%;
-  left: -20%;
-  animation-duration: 70s;
-}
-
-.cloud2 {
-  top: 30%;
-  left: 0%;
-  animation-duration: 40s;
-}
-
-.cloud3 {
-  top: 50%;
-  left: -10%;
-  animation-duration: 55s;
-}
-
-@keyframes floatCloud {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(150vw);
-  }
-}
-
-/* 구름 그림자 효과 */
-.cloud::before,
-.cloud::after {
-  content: "";
-  position: absolute;
-  background: inherit;
-  border-radius: 50%;
-}
-
-.cloud::before {
-  width: 100px;
-  height: 50px;
-  top: -20px;
-  left: 15px;
-}
-
-.cloud::after {
-  width: 80px;
-  height: 40px;
-  top: 70px;
-  right: 15px;
-}
-
-/* 갈매기 애니메이션 */
-.seagulls {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.seagull {
-  position: absolute;
-  width: 60px;
-  height: 40px;
-  animation: fly linear infinite;
-}
-
-.seagull1 {
-  background: url("/images/seagull.svg") no-repeat center/contain;
-  top: 30%;
-  animation-duration: 15s;
-}
-
-.seagull2 {
-  background: url("/images/seagull2.svg") no-repeat center/contain;
-  top: 40%;
-  animation-duration: 12s;
-}
-
-@keyframes fly {
-  from {
-    left: -5%;
-    transform: translateY(0px);
-  }
-  25% {
-    transform: translateY(-20px);
-  }
-  50% {
-    transform: translateY(0px);
-  }
-  75% {
-    transform: translateY(-10px);
-  }
-  to {
-    left: 105%;
-    transform: translateY(0px);
-  }
-}
-
-/* 등대 깜빡임 효과 */
-.lighthouse {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.lighthouse-light {
-  position: absolute;
-  top: 40%;
-  right: -10px;
-  width: 30px;
-  height: 30px;
-  background: rgba(255, 247, 213, 0.8);
-  border-radius: 50%;
-  filter: blur(5px);
-  animation: lighthouse 4s ease-in-out infinite;
-}
-
-@keyframes lighthouse {
-  0%,
-  100% {
-    opacity: 0.2;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-/* 별 효과 수정 */
-.stars {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.star {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  background: white;
-  border-radius: 50%;
-  animation: twinkle 2s infinite ease-in-out alternate;
-}
-
-/* 각 별들의 위치를 명시적으로 지정 */
-.star1 {
-  top: 10%;
-  left: 10%;
-  animation: twinkle 3s infinite;
-}
-.star2 {
-  top: 20%;
-  left: 25%;
-  animation: twinkle 4s infinite;
-}
-.star3 {
-  top: 15%;
-  left: 50%;
-  animation: twinkle 3.5s infinite;
-}
-.star4 {
-  top: 30%;
-  left: 75%;
-  animation: twinkle 4.5s infinite;
-}
-.star5 {
-  top: 25%;
-  left: 90%;
-  animation: twinkle 3s infinite;
-}
-.star6 {
-  top: 5%;
-  left: 60%;
-  animation: twinkle 4s infinite;
-}
-.star7 {
-  top: 40%;
-  left: 30%;
-  animation: twinkle 3.5s infinite;
-}
-.star8 {
-  top: 55%;
-  left: 80%;
-  animation: twinkle 5s infinite;
-}
-.star9 {
-  top: 65%;
-  left: 15%;
-  animation: twinkle 3.2s infinite;
-}
-.star10 {
-  top: 75%;
-  left: 45%;
-  animation: twinkle 4.2s infinite;
-}
-.star11 {
-  top: 85%;
-  left: 70%;
-  animation: twinkle 4.8s infinite;
-}
-.star12 {
-  top: 90%;
-  left: 10%;
-  animation: twinkle 3.6s infinite;
-}
-.star13 {
-  top: 35%;
-  left: 85%;
-  animation: twinkle 5.2s infinite;
-}
-.star14 {
-  top: 45%;
-  left: 5%;
-  animation: twinkle 4.3s infinite;
-}
-.star15 {
-  top: 15%;
-  left: 35%;
-  animation: twinkle 3.7s infinite;
-}
-.star16 {
-  top: 20%;
-  left: 65%;
-  animation: twinkle 4.9s infinite;
-}
-.star17 {
-  top: 60%;
-  left: 90%;
-  animation: twinkle 3.4s infinite;
-}
-.star18 {
-  top: 70%;
-  left: 25%;
-  animation: twinkle 4.1s infinite;
-}
-.star19 {
-  top: 80%;
-  left: 50%;
-  animation: twinkle 3.8s infinite;
-}
-.star20 {
-  top: 95%;
-  left: 75%;
-  animation: twinkle 4.6s infinite;
-}
-
-@keyframes twinkle {
-  0% {
-    opacity: 0.2;
-    transform: scale(0.8);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-/* 파도 애니메이션 수정 */
-.wave {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 200%;
-  height: 100px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 88.7'%3E%3Cpath d='M800 56.9c-155.5 0-204.9-50-405.5-49.9-200 0-250 49.9-394.5 49.9v31.8h800v-.2-31.6z' fill='%23FFFFFF'/%3E%3C/svg%3E");
-  background-size: 50% 100px;
-}
-
-.wave1 {
-  opacity: 1;
-  z-index: 3;
-  animation: wave 7s linear infinite;
-}
-
-.wave2 {
-  opacity: 0.5;
-  z-index: 2;
-  animation: wave 7s linear infinite;
-  animation-delay: -3.5s;
-}
-
-.wave3 {
-  opacity: 0.3;
-  z-index: 1;
-  animation: wave 7s linear infinite;
-  animation-delay: -2.5s;
-}
-
-@keyframes wave {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-/* 글래스모피즘(반투명 유리) 효과 */
-.backdrop-blur-sm {
-  backdrop-filter: blur(8px);
-}
-
-/* 반응형 조정 */
-@media (max-width: 640px) {
-  .text-5xl {
-    font-size: 2.5rem;
-  }
-  .text-2xl {
-    font-size: 1.25rem;
-  }
-  .cloud {
-    opacity: 0.22;
-    filter: blur(14px);
-  }
-  .lighthouse-light {
-    width: 20px;
-    height: 20px;
-  }
-  .cloud1 {
-    width: 80px;
-    height: 30px;
-  }
-  .cloud2 {
-    width: 60px;
-    height: 25px;
-  }
-  .cloud3 {
-    width: 70px;
-    height: 30px;
-  }
-  .seagull {
-    width: 36px;
-    height: 28px;
-    opacity: 0.58;
-  }
-  .seagull1 {
-    top: 42%;
-    animation-delay: -1.5s;
-  }
-  .seagull2 {
-    top: 56%;
-    opacity: 0.42;
-    animation-delay: -7s;
-  }
-  .wave {
-    height: 60px;
   }
 }
 

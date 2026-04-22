@@ -8,6 +8,8 @@
  * 2026.02.07  임도헌   Created   최근 AuditLog 5건 조회
  * 2026.03.23  임도헌   Modified  관리자 대시보드 위젯 셸과 헤더 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.30  임도헌   Modified  감사 로그 대상 추적 링크를 재사용해 대시보드에서도 관련 관리 화면으로 바로 이어지게 정리
+ * 2026.04.10  임도헌   Modified  최근 감사 로그 위젯의 메타 라벨과 링크 weight를 관리자 타이포 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  위험 액션 배지 대비를 높이고 상단 링크 라벨을 구체화
  */
 
 import Link from "next/link";
@@ -45,9 +47,10 @@ export default function RecentLogsWidget({
         </h3>
         <Link
           href="/admin/logs"
-          className="text-xs font-bold text-muted hover:text-brand flex items-center gap-1"
+          className="focus-ring-soft flex items-center gap-1 rounded px-1 py-0.5 text-xs font-bold text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+          aria-label="로그 전체보기"
         >
-          전체보기 <ChevronRightIcon className="size-3" />
+          로그 전체보기 <ChevronRightIcon className="size-3" />
         </Link>
       </div>
 
@@ -92,8 +95,9 @@ export default function RecentLogsWidget({
                   <div className="flex justify-between items-start mb-1.5">
                     <span
                       className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                        isDanger && "bg-danger/10 text-danger",
+                        "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider",
+                        isDanger &&
+                          "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300",
                         isSuccess &&
                           "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
                         isInfo && "bg-brand/10 text-brand dark:text-brand-light"
@@ -101,17 +105,17 @@ export default function RecentLogsWidget({
                     >
                       {actionLabel}
                     </span>
-                    <TimeAgo date={log.created_at} className="text-[10px]" />
+                    <TimeAgo date={log.created_at} className="text-xs" />
                   </div>
-                  <p className="text-sm text-primary font-semibold line-clamp-1 mb-1">
+                  <p className="text-sm text-primary font-medium line-clamp-1 mb-1">
                     {log.reason || "사유 미입력"}
                   </p>
-                  <p className="text-[11px] text-muted flex items-center gap-1.5">
+                  <p className="text-xs text-muted flex items-center gap-1.5">
                     <span className="font-bold text-primary/70">
                       by {log.admin.username}
                     </span>
                     <span className="opacity-30">|</span>
-                    <span className="text-[10px] uppercase">
+                    <span className="text-xs uppercase">
                       {log.targetType} #{log.targetId}
                     </span>
                   </p>
@@ -119,7 +123,7 @@ export default function RecentLogsWidget({
                     <div className="mt-2">
                       <Link
                         href={targetUrl}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand transition-colors hover:text-brand-dark"
+                        className="focus-ring-soft inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium text-brand transition-colors hover:text-brand-dark dark:text-brand-light dark:hover:text-brand-light"
                       >
                         관련 화면 보기
                         <ArrowTopRightOnSquareIcon className="size-3.5" />

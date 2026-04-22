@@ -21,9 +21,9 @@
  * 2026.03.19  임도헌   Modified  AccessDenied 톤과 맞춰 비공개 방송 비밀번호 모달 카드 구조와 CTA 위계를 재정리
  * 2026.03.23  임도헌   Modified  모바일/데스크톱 모두 카드 폭을 한 단계 더 넓혀 비밀번호 입력 모달의 답답한 밀도를 완화
  * 2026.03.28  임도헌   Modified  프로필/카드 hover transform 내부에서도 모달이 뷰포트 기준으로 고정되도록 body portal 렌더링 적용
+ * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 비밀번호 입력과 키보드 겹침을 완화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -31,8 +31,10 @@ import { createPortal } from "react-dom";
 import { unlockPrivateBroadcastAction } from "@/features/stream/actions/access";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { unlockErrorMessage } from "@/features/stream/types";
+import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { LockClosedIcon } from "@heroicons/react/24/outline";
 
 interface PrivateAccessModalProps {
@@ -58,6 +60,7 @@ export default function PrivateAccessModal({
   redirectHref,
   onSuccess,
 }: PrivateAccessModalProps) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -81,6 +84,8 @@ export default function PrivateAccessModal({
       setError("");
       return;
     }
+
+    if (isMobile) return;
 
     // 열릴 때 현재 포커스 저장
     lastActiveElRef.current = document.activeElement as HTMLElement | null;
@@ -126,7 +131,7 @@ export default function PrivateAccessModal({
       lastActiveElRef.current?.focus?.();
       lastActiveElRef.current = null;
     };
-  }, [open, isPending, close]);
+  }, [open, isMobile, isPending, close]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,6 +188,78 @@ export default function PrivateAccessModal({
 
   if (!open) return null;
 
+  const formId = "private-access-form";
+
+  const content = (
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-primary">
+          비밀번호
+        </label>
+        <input
+          ref={inputRef}
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError("");
+          }}
+          placeholder="비밀번호 입력"
+          className={cn(
+            "input-primary h-12 rounded-2xl bg-surface-dim px-4",
+            error && "ring-2 ring-danger/50"
+          )}
+          disabled={isPending}
+        />
+        {error && <p className="mt-2 text-xs font-medium text-danger">{error}</p>}
+      </div>
+    </form>
+  );
+
+  const footer = (
+    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        onClick={close}
+        disabled={isPending}
+        className="btn-secondary-modal min-h-[44px] px-4 text-sm font-medium"
+      >
+        취소
+      </button>
+      <button
+        type="submit"
+        form={formId}
+        disabled={isPending}
+        className="btn-primary min-h-[44px] text-sm"
+      >
+        {isPending ? "확인 중..." : "입장하기"}
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={open}
+        title="비공개 방송"
+        description="방송 입장을 위해 비밀번호를 입력해주세요."
+        onClose={() => !isPending && close()}
+        contentClassName="pt-4"
+        footer={footer}
+      >
+        <div className="mb-4 flex flex-col items-center text-center">
+          <div className="state-icon-wrap mb-4 size-[68px]">
+            <LockClosedIcon className="size-8 text-amber-500" />
+          </div>
+          <p className="text-sm leading-6 text-muted">
+            비공개 방송은 비밀번호가 확인되면 바로 입장할 수 있습니다.
+          </p>
+        </div>
+        {content}
+      </BottomSheet>
+    );
+  }
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -192,66 +269,26 @@ export default function PrivateAccessModal({
       aria-modal="true"
       onClick={() => !isPending && close()}
     >
-      <div
-        ref={modalRef}
-        className={cn(
+        <div
+          ref={modalRef}
+          className={cn(
           "mx-2.5 w-full max-w-xl rounded-3xl border border-border-subtle bg-surface px-6 py-7 shadow-2xl sm:mx-4 sm:px-8 sm:py-9"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex flex-col items-center text-center">
-          <div className="state-icon-wrap mb-4 size-[68px]">
-            <LockClosedIcon className="size-8 text-amber-500" />
+          <div className="mb-5 flex flex-col items-center text-center">
+            <div className="state-icon-wrap mb-4 size-[68px]">
+              <LockClosedIcon className="size-8 text-amber-500" />
           </div>
           <h3 className="text-2xl font-bold text-primary">비공개 방송</h3>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            방송 입장을 위해 비밀번호를 입력해주세요.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-primary">
-              비밀번호
-            </label>
-            <input
-              ref={inputRef}
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              placeholder="비밀번호 입력"
-              className={cn(
-                "input-primary h-12 rounded-2xl bg-surface-dim px-4",
-                error && "ring-2 ring-danger/50"
-              )}
-              disabled={isPending}
-            />
-            {error && (
-              <p className="mt-2 text-xs font-medium text-danger">{error}</p>
-            )}
+            <p className="mt-2 text-sm leading-6 text-muted">
+              방송 입장을 위해 비밀번호를 입력해주세요.
+            </p>
           </div>
 
-          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={close}
-              disabled={isPending}
-              className="btn-secondary min-h-[44px] text-sm border-border-subtle bg-surface hover:bg-surface-dim"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="btn-primary min-h-[44px] text-sm"
-            >
-              {isPending ? "확인 중..." : "입장하기"}
-            </button>
-          </div>
-        </form>
+          {content}
+
+          <div className="pt-2">{footer}</div>
       </div>
     </div>,
     document.body
