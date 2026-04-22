@@ -28,6 +28,7 @@
  * 2026.04.02  임도헌   Modified  메시지 반응 추가/교체/해제와 실시간 동기화 로직 추가
  * 2026.04.03  임도헌   Modified  채팅방 조회 실패 문구를 찾을 수 없음과 권한 없음 문법으로 분리
  * 2026.04.04  임도헌   Modified  첫 메시지 전송 시 사용자 채널 rooms_refresh로 채팅방 목록 실시간 반영 지원
+ * 2026.04.14  임도헌   Modified  채팅 목록 성능 점검 대응으로 메시지/읽음/삭제 변화마다 사용자 목록 refresh 브로드캐스트를 보강
  */
 
 import "server-only";
@@ -73,6 +74,27 @@ async function broadcastChatRoomListRefresh(userIds: number[]) {
       })
     )
   );
+}
+
+/**
+ * 특정 채팅방 참여자 전체에게 목록 refresh 이벤트를 전송
+ *
+ * @param {string} chatRoomId - 갱신 대상 채팅방 ID
+ * @returns {Promise<void>} 참여자 조회 후 목록 refresh 브로드캐스트 완료
+ */
+async function broadcastChatRoomListRefreshByRoomId(chatRoomId: string) {
+  const room = await db.productChatRoom.findUnique({
+    where: { id: chatRoomId },
+    select: {
+      users: {
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!room) return;
+
+  await broadcastChatRoomListRefresh(room.users.map((user) => user.id));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -192,11 +214,6 @@ export async function createMessage(
   imageIsAnimated?: boolean
 ): Promise<ServiceResult<{ message: ChatMessage; receiverId: number }>> {
   try {
-    const hadExistingMessages =
-      (await db.productMessage.count({
-        where: { productChatRoomId: chatRoomId },
-      })) > 0;
-
     // 1. 발신자 정지 유저 체크
     const status = await validateUserStatus(senderId);
     if (!status.success) return status;
@@ -273,9 +290,7 @@ export async function createMessage(
       payload: chatMessage,
     });
 
-    if (!hadExistingMessages) {
-      await broadcastChatRoomListRefresh([senderId, receiverId]);
-    }
+    await broadcastChatRoomListRefresh([senderId, receiverId]);
 
     // 6. 알림 처리 (수신자 설정 조회)
     // receiverId가 존재하면 알림 로직 수행 (이미 위에서 찾았으므로 재사용)
@@ -432,6 +447,8 @@ export async function markMessagesAsRead(
     data: { isRead: true },
   });
 
+  await broadcastChatRoomListRefreshByRoomId(chatRoomId);
+
   return { success: true, readIds: unreadIds };
 }
 
@@ -476,6 +493,11 @@ export async function deleteMessage(
       return { success: true, data: mapToChatMessage(existing) };
     }
 
+    const roomId = existing.productChatRoomId;
+    if (!roomId) {
+      return { success: false, error: "채팅방을 찾을 수 없습니다." };
+    }
+
     const deletedMessage = await db.productMessage.update({
       where: { id: messageId },
       data: {
@@ -493,7 +515,7 @@ export async function deleteMessage(
     const chatMessage = mapToChatMessage(deletedMessage);
     const wasUnread = !existing.isRead;
 
-    await supabase.channel(`room-${existing.productChatRoomId}`).send({
+    await supabase.channel(`room-${roomId}`).send({
       type: "broadcast",
       event: CHAT_EVENT.MESSAGE_DELETED,
       payload: {
@@ -501,6 +523,8 @@ export async function deleteMessage(
         wasUnread,
       },
     });
+
+    await broadcastChatRoomListRefreshByRoomId(roomId);
 
     return { success: true, data: chatMessage };
   } catch (error) {
@@ -614,6 +638,8 @@ export async function toggleMessageReaction(
       event: CHAT_EVENT.MESSAGE_REACTION,
       payload: chatMessage,
     });
+
+    await broadcastChatRoomListRefreshByRoomId(existing.productChatRoomId);
 
     return { success: true, data: chatMessage };
   } catch (error) {

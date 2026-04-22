@@ -15,9 +15,12 @@
  * 2026.03.12  임도헌   Modified  화면에 없는 keyword 값을 강제로 false로 덮어쓰지 않도록 저장 payload 정리
  * 2026.03.16  임도헌   Modified  키워드 알림 토글 복구에 맞춰 keyword 저장 payload를 다시 포함
  * 2026.03.18  임도헌   Modified  세션 만료 직후에도 안전하게 UNAUTHORIZED를 반환하도록 optional chaining 보강
+ * 2026.04.18  임도헌   Modified  설정 폼을 서버 액션 + redirect 흐름으로도 사용할 수 있게 저장 후 복귀 액션 추가
  */
 "use server";
 
+import { redirect } from "next/navigation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import getSession from "@/lib/session";
 import { updatePreferences } from "@/features/notification/service/preference";
 
@@ -76,4 +79,33 @@ export async function updateNotificationPreferences(
         "알림 설정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
+}
+
+/**
+ * 알림 설정 저장 후 복귀 경로로 이동하는 서버 액션
+ *
+ * - 성공 시 `returnTo`로 redirect
+ * - 저장 실패 시 현재 설정 페이지로 복귀
+ * - 세션 만료 시 로그인 후 같은 설정 페이지로 돌아오도록 유도
+ */
+export async function saveNotificationPreferencesAndRedirect(
+  formData: FormData
+): Promise<void> {
+  const returnTo = sanitizeCallbackUrl(
+    (formData.get("returnTo") as string) || "/profile"
+  );
+  const settingsHref = `/profile/notifications/setting?returnTo=${encodeURIComponent(
+    returnTo
+  )}`;
+  const result = await updateNotificationPreferences({ ok: false }, formData);
+
+  if (result.ok) {
+    redirect(returnTo);
+  }
+
+  if (result.error === "UNAUTHORIZED") {
+    redirect(`/login?callbackUrl=${encodeURIComponent(settingsHref)}`);
+  }
+
+  redirect(`${settingsHref}&saveError=1`);
 }

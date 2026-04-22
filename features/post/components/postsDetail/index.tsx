@@ -26,10 +26,14 @@
  * 2026.03.27  임도헌   Modified  상세 본문을 읽기 컬럼 폭으로 정리하고 태그/댓글 섹션 흐름을 재배치
  * 2026.03.30  임도헌   Modified  PostBlock 기반 본문/미디어 렌더링 구조 도입
  * 2026.03.31  임도헌   Modified  새 게시글 구조 기준으로 blocks 전용 렌더링으로 단순화
+ * 2026.04.05  임도헌   Modified  게시글 detail-edit 저장 복귀는 back 기반으로 유지하고, 상세 재진입 시 1회 refresh와 상단 스크롤을 함께 적용
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 모바일 카테고리 칩 weight를 500 기준으로 정리
+ * 2026.04.14  임도헌   Modified  상세 지도/복귀 부작용을 전용 컴포넌트로 분리해 초기 본문 비용과 scroll 복귀 안정성을 함께 개선
+ * 2026.04.14  임도헌   Modified  main 랜드마크와 섹션 헤딩 레벨을 정리해 접근성과 문서 구조를 보강
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
- * - PostDetailTopbar.tsx : 상단바 (뒤로가기, 카테고리 칩, 수정 버튼)
+ * - PostDetailTopbar.tsx : 상단바 (뒤로가기, 카테고리 칩, 관리/옵션 메뉴)
  * - PostDetailTitle.tsx  : 게시글 제목
  * - PostDetailBlocks.tsx : TEXT / IMAGE / VIDEO 블록 렌더링
  * - PostDetailMeta.tsx   : 작성일, 조회수, 좋아요 버튼 등 메타 정보
@@ -38,25 +42,17 @@
  */
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { PostDetail as PostDetailType } from "@/features/post/types";
 import PostDetailTitle from "@/features/post/components/postsDetail/PostDetailTitle";
 import PostDetailBlocks from "@/features/post/components/postsDetail/PostDetailBlocks";
 import PostDetailTags from "@/features/post/components/postsDetail/PostDetailTags";
-import StaticMap from "@/features/map/components/StaticMap";
 import PostDetailMeta from "@/features/post/components/postsDetail/PostDetailMeta";
 import PostDetailTopbar from "@/features/post/components/postsDetail/PostDetailTopbar";
+import PostDetailClientEffects from "@/features/post/components/postsDetail/PostDetailClientEffects";
+import PostDetailLocationSection from "@/features/post/components/postsDetail/PostDetailLocationSection";
 import PostComment from "@/features/post/components/postComment";
-import {
-  ChatBubbleLeftEllipsisIcon,
-  MapPinIcon,
-} from "@heroicons/react/24/outline";
+import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
 import { POST_CATEGORY, type PostCategoryType } from "@/features/post/constants";
-import {
-  consumeNavigationRefreshFlag,
-  createNavigationRefreshFlagKey,
-} from "@/lib/navigationRefreshFlag";
 
 interface UserLite {
   id: number;
@@ -67,6 +63,7 @@ interface UserLite {
 interface PostDetailProps {
   post: PostDetailType;
   user: UserLite;
+  views: number;
   likeCount: number;
   isLiked: boolean;
   returnTo?: string;
@@ -87,35 +84,24 @@ interface PostDetailProps {
 export default function PostDetail({
   post,
   user,
+  views,
   likeCount,
   isLiked,
   returnTo,
   hasExplicitReturnTo = false,
 }: PostDetailProps) {
-  const router = useRouter();
   const canEdit = post.user.id === user.id;
   const categoryLabel =
     post.category && POST_CATEGORY[post.category as PostCategoryType];
-  const editHref = hasExplicitReturnTo && returnTo
-    ? `/posts/${post.id}/edit?returnTo=${encodeURIComponent(returnTo)}&flow=detail-edit`
-    : `/posts/${post.id}/edit?flow=detail-edit`;
-  useEffect(() => {
-    const refreshKey = createNavigationRefreshFlagKey(
-      "post-detail-refresh",
-      post.id
-    );
-    // 수정 완료 후 back 복귀한 상세 화면은 세션 플래그를 1회만 소비해
-    // App Router 캐시에 남아 있던 이전 상세 데이터를 즉시 최신화
-    if (!consumeNavigationRefreshFlag(refreshKey)) return;
-    router.refresh();
-  }, [post.id, router]);
+  const editHref =
+    hasExplicitReturnTo && returnTo
+      ? `/posts/${post.id}/edit?returnTo=${encodeURIComponent(returnTo)}&flow=detail-edit`
+      : `/posts/${post.id}/edit?flow=detail-edit`;
 
-  // 주소 문자열 조합
-  const regionString = [post.region1, post.region2, post.region3]
-    .filter(Boolean)
-    .join(" ");
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">
+      <PostDetailClientEffects postId={post.id} />
+
       {/* 1. 상단바 */}
       <PostDetailTopbar
         postId={post.id}
@@ -127,14 +113,13 @@ export default function PostDetail({
         backHref={returnTo}
         canEdit={canEdit}
         editHref={editHref}
-        replaceEditHref={false}
       />
 
-      <div className="mx-auto flex w-full max-w-mobile flex-col gap-8 px-page-x py-6">
+      <main className="mx-auto flex w-full max-w-mobile flex-col gap-8 px-page-x py-6">
         {/* 작은 모바일 화면에서는 카테고리 칩을 본문으로 내려 작성자 영역 과밀 완화 */}
         {categoryLabel && (
           <div className="sm:hidden -mb-4">
-            <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand dark:bg-brand-light/20 dark:text-gray-100">
+            <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-medium text-brand dark:bg-brand-light/20 dark:text-gray-100">
               {categoryLabel}
             </span>
           </div>
@@ -150,20 +135,14 @@ export default function PostDetail({
         <PostDetailTags tags={post.tags} />
 
         {/* 5. 지도 (장소) */}
-        {post.latitude && post.longitude && post.locationName && (
-          <div className="border-t border-border-subtle pt-4">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-primary">
-              <MapPinIcon className="size-4 text-brand" />
-              모임 및 거래 희망 장소
-            </h3>
-            <StaticMap
-              latitude={post.latitude}
-              longitude={post.longitude}
-              locationName={post.locationName}
-              regionString={regionString}
-            />
-          </div>
-        )}
+        <PostDetailLocationSection
+          latitude={post.latitude ?? null}
+          longitude={post.longitude ?? null}
+          locationName={post.locationName ?? null}
+          region1={post.region1 ?? null}
+          region2={post.region2 ?? null}
+          region3={post.region3 ?? null}
+        />
 
         {/* 6. 메타 정보 (하단 반응 섹션) */}
         <div className="border-t border-border-subtle pt-4">
@@ -171,20 +150,20 @@ export default function PostDetail({
             postId={post.id}
             isLiked={isLiked}
             likeCount={likeCount}
-            views={post.views}
+            views={views}
             createdAt={post.created_at?.toString() ?? ""}
           />
         </div>
 
         {/* 7. 댓글 섹션 */}
         <section className="border-t border-border-subtle pt-6">
-          <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
             <ChatBubbleLeftEllipsisIcon className="size-5 text-brand" />
             항해 로그
-          </h3>
+          </h2>
           <PostComment postId={post.id} user={user} />
         </section>
-      </div>
+      </main>
     </div>
   );
 }

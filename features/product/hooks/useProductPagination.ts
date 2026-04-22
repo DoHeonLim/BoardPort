@@ -19,6 +19,7 @@
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialData Prop Drilling 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.11  임도헌   Modified  첫 페이지 totalCount를 노출해 무한스크롤 중에도 전체 검색 결과 수를 고정 표시
+ * 2026.04.17  임도헌   Modified  Suspense 무한 쿼리 기준 현재 동작과 맞지 않던 initialData 설명을 제거하고 훅 책임 주석을 최신화
  */
 
 "use client";
@@ -87,10 +88,10 @@ export interface UseProductPaginationResult<T extends { id: number }> {
  * 제품 목록 페이지네이션 및 캐시 상태를 관리하는 커스텀 훅
  *
  * [기능 및 동작 원리]
- * 1. TanStack Query의 `useInfiniteQuery`를 사용하여 커서 기반 무한 스크롤 상태를 자동화
- * 2. `mode` 값에 따라 동적으로 Query Key와 데이터 페칭 함수(Server Action)를 할당
- * 3. 서버(RSC)에서 미리 가져온 `initialProducts`를 `initialData`로 주입하여 클라이언트 마운트 시 불필요한 네트워크 요청을 방지
- * 4. `updateOne` 함수를 제공하여, 좋아요/리뷰 작성 등 단일 아이템 상태 변경 시 쿼리 무효화 없이 로컬 캐시를 즉각 갱신(Optimistic UI)
+ * 1. TanStack Query의 `useSuspenseInfiniteQuery`로 커서 기반 무한 스크롤 상태를 조립
+ * 2. `mode` 값에 따라 Query Key와 서버 액션(fetcher)을 동적으로 분기해 메인 목록/프로필 목록/커스텀 목록을 공통 처리
+ * 3. Suspense 경계 아래에서 평탄화된 제품 배열과 첫 페이지 totalCount를 반환해 상위 리스트가 즉시 렌더링할 수 있게 함
+ * 4. `updateOne`으로 단일 아이템만 로컬 캐시에 반영해 좋아요/후기 같은 부분 갱신을 쿼리 무효화 없이 처리
  */
 export function useProductPagination<T extends { id: number }>(
   params: UseProductPaginationParams<T>

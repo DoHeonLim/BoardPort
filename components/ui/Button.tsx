@@ -47,7 +47,7 @@ export default function Button({
     <button
       disabled={isDisabled}
       className={cn(
-        "h-input-md w-full rounded-xl font-medium text-base transition-all active:scale-[0.98]",
+        "h-input-md w-full rounded-xl font-medium text-base transition-colors motion-safe:transition-transform motion-safe:duration-150 active:scale-[0.98]",
         "btn-primary", // Background & Text color
         "disabled:opacity-70 disabled:cursor-not-allowed",
         className

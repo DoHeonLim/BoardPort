@@ -19,6 +19,10 @@
  * 2026.03.01  임도헌   Modified  useProductPagination 반환 타입 구조 및 로딩 분리 대응
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.26  임도헌   Modified  Empty State를 최근 프로필 제품 화면 패턴에 맞게 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 구매 목록 빈 상태 CTA 타이포를 정리
+ * 2026.04.17  임도헌   Modified  구매 목록의 무한 스크롤/리뷰 변경 반영 책임 설명 보강
+ * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 카드 LCP 이미지 우선 로드
+ * 2026.04.17  임도헌   Modified  빈 상태 CTA 데스크톱 중앙 정렬 및 heading-order 대응
  */
 
 "use client";
@@ -39,11 +43,11 @@ interface MyPurchasesListProps {
 /**
  * 나의 구매 제품 목록 컴포넌트
  *
- * [상태 주입 및 스크롤 페이징 로직]
- * - `useProductPagination` 훅을 활용하여 'PURCHASED' 범위(scope)의 구매 내역 데이터를 추출 및 관리
- * - 서버(RSC)에서 프리패치(Prefetch)된 초기 데이터를 활용한 클라이언트 하이드레이션 적용 (깜빡임 방지)
- * - 사용자 가시성(`usePageVisibility`) 기반의 `useInfiniteScroll` 스크롤 감지 및 페이징 요청 제어
- * - 리뷰 작성/수정 발생 시 `updateOne` 헬퍼를 통한 쿼리 캐시 낙관적 업데이트(Optimistic UI) 처리
+ * [기능]
+ * - `useProductPagination`으로 프로필의 `PURCHASED` 범위를 구독해 구매 목록과 다음 페이지 상태를 관리
+ * - 사용자 가시성(`usePageVisibility`) 기반의 `useInfiniteScroll`로 현재 보이는 탭에서만 추가 페이지를 불러옴
+ * - 각 아이템의 리뷰 작성/수정 결과를 `updateOne`으로 같은 목록 캐시에 즉시 반영
+ * - 빈 상태/로딩 상태를 프로필 제품 탭 패턴에 맞춰 일관되게 렌더링
  */
 export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
   const purchased = useProductPagination<MyPurchasedListItem>({
@@ -74,14 +78,14 @@ export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
           <div className="state-icon-wrap">
             <ShoppingBagIcon className="size-10 text-muted/50" />
           </div>
-          <h3 className="state-title">구매한 제품이 없습니다</h3>
+          <p className="state-title">구매한 제품이 없습니다</p>
           <p className="state-description">
             마음에 드는 게임을 둘러보고 첫 거래를 시작해보세요.
           </p>
-          <div className="state-actions">
+          <div className="state-actions justify-center">
             <Link
               href="/products"
-              className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center px-6 text-sm font-semibold shadow-sm sm:w-auto"
+              className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center px-6 text-sm font-medium shadow-sm sm:w-auto"
             >
               제품 둘러보기
             </Link>
@@ -94,10 +98,12 @@ export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
   // 리스트 렌더링
   return (
     <div className="flex flex-col px-page-x py-6 gap-4">
-      {products.map((product) => (
+      {products.map((product, index) => (
         <MyPurchasesProductItem
           key={product.id}
           product={product}
+          prioritizeImage={index === 0}
+          // 리뷰 작성/수정 후 해당 카드만 즉시 갱신해 목록 전체 재조회 비용 절감
           onReviewChanged={(patch) => purchased.updateOne(product.id, patch)}
         />
       ))}

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.14  임도헌   Created   데스크톱 게시글 헤더를 지역/검색/알림 + 카테고리 2단 구조 컴포넌트로 분리
+ * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 데스크톱 헤더 노출 기준을 맞춰 640~767px 구간 레이아웃 mismatch 정리
  */
 "use client";
 
@@ -46,7 +47,7 @@ export default function PostDesktopHeader({
   fullLocation,
 }: PostDesktopHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 hidden border-b border-border-subtle bg-background shadow-sm transition-colors md:block">
+    <header className="sticky top-0 z-30 hidden border-b border-border-subtle bg-background shadow-sm transition-colors sm:block">
       <div className="mx-auto max-w-5xl px-3 py-2 md:px-5 md:py-3 lg:px-6">
         <div className="flex items-center gap-2 md:gap-3">
           {userRegion1 ? (

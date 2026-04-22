@@ -20,6 +20,8 @@
  * 2026.03.26  임도헌   Modified  ProductCard에 찜 목록 전용 빠른 해제 UI prop 추가
  * 2026.04.02  임도헌   Modified  ProductFormResponse union 정리와 상태 타입 일관성 보강
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입을 search 도메인 공용 타입으로 이동
+ * 2026.04.09  임도헌   Modified  판매완료 숨김 상태(hidden_at) 지원을 위해 상세/목록 타입 필드 확장
+ * 2026.04.13  임도헌   Modified  ProductCard returnTo를 상위 리스트에서 주입할 수 있도록 prop 확장
  */
 
 import {
@@ -207,6 +209,7 @@ export interface ProductFullDetails extends BaseProduct {
   region1?: string | null;
   region2?: string | null;
   region3?: string | null;
+  hidden_at?: ISODate;
 }
 
 /**
@@ -245,6 +248,7 @@ export interface ProductDetailType extends ProductFullDetails {
 export interface ProductType extends BaseProduct {
   created_at: ISODate;
   refreshed_at?: ISODate;
+  hidden_at?: ISODate;
   reservation_userId: number | null;
   purchase_userId: number | null;
   views: number;
@@ -332,6 +336,7 @@ export interface ProductCardProps {
   product: ProductType | LikedProductListItem;
   viewMode: ViewMode;
   isPriority: boolean;
+  returnTo?: string;
   showQuickUnlike?: boolean;
 }
 

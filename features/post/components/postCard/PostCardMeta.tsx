@@ -15,6 +15,7 @@
  * 2026.03.06  임도헌   Modified  모바일 그리드에서는 위치 정보 1줄을 노출하고 메타 배치를 압축형으로 조정
  * 2026.03.06  임도헌   Modified  모바일 그리드 메타를 하단 정렬로 재배치하고 통계/시간을 한 줄로 정리
  * 2026.03.26  임도헌   Modified  리스트 카드 모바일에서는 위치 정보를 분리 노출해 시간 표시와의 충돌을 완화
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 카드 메타 숫자/위치/시간 라벨을 text-xs 기준으로 통일
  */
 "use client";
 
@@ -69,15 +70,15 @@ export default function PostCardMeta({
             likes > 0 ? "text-rose-500" : "text-muted/70"
           )}
         />
-        <span className="text-[10px] sm:text-xs">{likes}</span>
+        <span className="text-xs">{likes}</span>
       </div>
       <div className="flex items-center gap-1">
         <ChatBubbleLeftIcon className="size-3 text-muted/70" />
-        <span className="text-[10px] sm:text-xs">{comments}</span>
+        <span className="text-xs">{comments}</span>
       </div>
       <div className="flex items-center gap-1">
         <EyeIcon className="size-3 text-muted/70" />
-        <span className="text-[10px] sm:text-xs">{views}</span>
+        <span className="text-xs">{views}</span>
       </div>
     </div>
   );
@@ -87,7 +88,7 @@ export default function PostCardMeta({
       <div className="mt-auto flex w-full min-w-0 flex-col gap-1 text-muted">
         {showLocationInGrid && (
           <div
-            className="flex items-center gap-1 min-w-0 text-[10px]"
+            className="flex min-w-0 items-center gap-1 text-xs"
             title={locationText}
           >
             <MapPinIcon className="size-3 shrink-0" />
@@ -95,7 +96,7 @@ export default function PostCardMeta({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+        <div className="flex items-center justify-between gap-2 text-xs">
           {stats}
           <TimeAgo
             date={createdAt}
@@ -110,7 +111,7 @@ export default function PostCardMeta({
     <div className="mt-auto flex w-full min-w-0 flex-col gap-1 sm:gap-1.5">
       {locationText && (
         <div
-          className="flex items-center gap-1 min-w-0 text-[10px] text-muted sm:hidden"
+          className="flex min-w-0 items-center gap-1 text-xs text-muted sm:hidden"
           title={locationText}
         >
           <MapPinIcon className="size-3 shrink-0" />
@@ -121,7 +122,7 @@ export default function PostCardMeta({
       <div className="flex items-center justify-between gap-2">
         {stats}
 
-        <div className="flex min-w-0 items-center justify-end gap-1.5 text-[10px] sm:text-xs text-muted">
+        <div className="flex min-w-0 items-center justify-end gap-1.5 text-xs text-muted">
           {locationText && (
             <>
               <div
@@ -134,7 +135,7 @@ export default function PostCardMeta({
                 </span>
               </div>
               <span
-                className="hidden text-border text-[8px] shrink-0 sm:inline"
+                className="hidden shrink-0 text-border text-xs sm:inline"
                 aria-hidden="true"
               >
                 |

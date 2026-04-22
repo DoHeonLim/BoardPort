@@ -41,6 +41,11 @@
  * 2026.03.22  임도헌   Modified  팔로워 전용 잠금 CTA를 시맨틱 토큰 기준으로 정리해 다크모드 톤 일관성 보강
  * 2026.03.25  임도헌   Modified  그리드 카드 썸네일 비중과 정보 영역 타이포를 재조정해 목록 가독성 보강
  * 2026.04.02  임도헌   Modified  스트림 썸네일 URL 정규화를 stream image utils 기준으로 통일
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 배지/제목/메타 타이포를 text-xs·500 기준으로 정리
+ * 2026.04.16  임도헌   Modified  카드 내부 프로필 링크를 비활성화해 중첩 링크/불필요 프리패치를 정리하고, 잠금 설명은 aria-describedby로 분리
+ * 2026.04.16  임도헌   Modified  다시보기 첫 카드 썸네일을 우선 로드할 수 있도록 thumbnailPriority 옵션 추가
+ * 2026.04.20  임도헌   Modified  스트림 카드 포커스가 묻히지 않도록 카드 컨테이너에도 keyboard-only inset 링을 보강
+ * 2026.04.20  임도헌   Modified  카드 링크를 세로 축 레이아웃으로 고정해 썸네일이 정보 영역 폭을 밀어내지 않도록 정리
  */
 
 "use client";
@@ -92,8 +97,10 @@ interface StreamCardProps {
   onRequestFollow?: () => void; // 팔로우 CTA// 옵션 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
-  /** 프로필/채널처럼 소유자가 자명한 컨텍스트에서는 스트리머 정보를 숨길 수 있다 */
+  /** 프로필/채널처럼 소유자가 자명한 컨텍스트에서의 스트리머 정보 숨김 가능 */
   showStreamer?: boolean;
+  /** LCP 후보가 되는 썸네일을 우선 로드할 때 사용 */
+  thumbnailPriority?: boolean;
 }
 
 /**
@@ -139,6 +146,7 @@ export default function StreamCard(props: StreamCardProps) {
     onRequestFollow,
     layout = "grid",
     showStreamer = true,
+    thumbnailPriority = false,
   } = props;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -271,8 +279,18 @@ export default function StreamCard(props: StreamCardProps) {
     typeof isPrivateType === "boolean" ? isPrivateType : requiresPassword;
 
   const ariaLabel = lockMask
-    ? `${title} — 접근 제한(팔로워 전용 또는 비밀)`
-    : title;
+    ? `${title} 접근 제한 상태`
+    : undefined;
+
+  const statusDescriptionId = lockMask
+    ? `stream-card-status-${vodIdForRecording ?? id}`
+    : undefined;
+
+  const statusDescription = followersOnlyLocked
+    ? "팔로워 전용 방송입니다. 팔로우 후 시청할 수 있습니다."
+    : requiresPassword
+      ? "비밀 방송입니다. 비밀번호 입력 후 시청할 수 있습니다."
+      : null;
 
   // 태그 포맷팅 (#태그1 #태그2)
   const formattedTags = useMemo(() => {
@@ -281,12 +299,16 @@ export default function StreamCard(props: StreamCardProps) {
     return tags.map((t) => `#${t.name}`).join(" ");
   }, [tags]);
   const isGridLayout = layout === "grid";
+  const thumbnailSizes = isGridLayout
+    ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+    : "(max-width: 640px) 216px, 232px";
 
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-all duration-300",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
+        "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-offset-0 dark:has-[:focus-visible]:ring-brand-light",
         layout === "rail"
           ? "h-full w-[216px] flex-none snap-start sm:w-[232px]"
           : "w-full"
@@ -294,13 +316,20 @@ export default function StreamCard(props: StreamCardProps) {
     >
       <Link
         href={navigableHref}
-        className="group flex flex-col flex-1 h-full"
+        className="focus-ring-strong-inset group flex h-full flex-1 flex-col rounded-2xl"
         onClick={handleStreamClick}
         onKeyDown={handleKeyDown}
         aria-label={ariaLabel}
+        aria-describedby={statusDescriptionId}
         aria-disabled={lockMask || undefined}
         prefetch={false}
       >
+        {statusDescriptionId && statusDescription ? (
+          <span id={statusDescriptionId} className="sr-only">
+            {statusDescription}
+          </span>
+        ) : null}
+
         {/* 썸네일 영역 */}
         <div
           className={cn(
@@ -336,13 +365,15 @@ export default function StreamCard(props: StreamCardProps) {
               src={thumb}
               alt={title || (isLive ? "라이브 썸네일" : "녹화 썸네일")}
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes={thumbnailSizes}
+              priority={thumbnailPriority}
+              fetchPriority={thumbnailPriority ? "high" : undefined}
               className={cn(
                 "object-cover transition-transform duration-300 group-hover:scale-105",
                 lockMask && "blur-[2px] brightness-75 scale-105"
               )}
               unoptimized={thumbnailAnimated}
-              loading="lazy"
+              loading={thumbnailPriority ? "eager" : "lazy"}
               onError={() => {
                 setThumbError(true);
                 if (shouldPreview) setIsHoveredOrFocused(true);
@@ -357,22 +388,22 @@ export default function StreamCard(props: StreamCardProps) {
           {/* [Left] 상태 배지 영역 */}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1.5 z-10">
             {showLive && (
-              <span className="rounded bg-danger/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-[2px]">
+              <span className="rounded bg-danger/90 px-2 py-0.5 text-xs font-bold text-white shadow-sm backdrop-blur-[2px]">
                 LIVE
               </span>
             )}
             {showReplay && (
-              <span className="rounded bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+              <span className="rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
                 다시보기
               </span>
             )}
             {showFollowers && (
-              <span className="rounded bg-brand/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+              <span className="rounded bg-brand/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
                 팔로워
               </span>
             )}
             {showPrivate && (
-              <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+              <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
                 <LockClosedIcon className="size-3" aria-hidden="true" />
                 비밀
               </span>
@@ -382,7 +413,7 @@ export default function StreamCard(props: StreamCardProps) {
           {/* [Right] 카테고리 배지 (New Position) */}
           {category && (
             <div className="absolute right-2 top-2 z-10">
-              <span className="flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm backdrop-blur-[2px]">
+              <span className="flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
                 {category.icon && <span>{category.icon}</span>}
                 {category.kor_name}
               </span>
@@ -426,9 +457,9 @@ export default function StreamCard(props: StreamCardProps) {
           <div className={cn(isGridLayout ? "space-y-1.5" : "space-y-2")}>
             <h3
               className={cn(
-                "line-clamp-2 font-semibold text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors",
+                "line-clamp-2 font-medium text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors",
                 isGridLayout
-                  ? "min-h-[1.75rem] text-[15px] sm:min-h-[2rem] sm:text-base"
+                  ? "min-h-[1.75rem] text-base sm:min-h-[2rem]"
                   : "text-base"
               )}
             >
@@ -442,6 +473,7 @@ export default function StreamCard(props: StreamCardProps) {
                   username={streamer.username}
                   size="sm"
                   compact
+                  disabled
                   className="pointer-events-none"
                 />
               </div>
@@ -456,7 +488,7 @@ export default function StreamCard(props: StreamCardProps) {
               viewCount != null) && (
               <div
                 className={cn(
-                  "mt-auto min-w-0 border-t border-border-subtle text-[10px] text-muted sm:text-[11px]",
+                  "mt-auto min-w-0 border-t border-border-subtle text-xs text-muted",
                   isGridLayout ? "pt-1.5" : "pt-2"
                 )}
               >

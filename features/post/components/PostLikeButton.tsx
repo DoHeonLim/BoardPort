@@ -19,6 +19,9 @@
  * 2026.03.01  임도헌   Modified  React useOptimistic 제거 및 TanStack Query useMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  실패 토스트를 구체화해 v1.2 피드백 기준 반영
+ * 2026.04.14  임도헌   Modified  좋아요 버튼의 접근성 이름을 시각 레이블과 일치하도록 보강
+ * 2026.04.14  임도헌   Modified  게시글 상세 기준으로 좋아요 시각 텍스트를 명시해 Lighthouse 레이블 불일치 가능성을 낮춤
+ * 2026.04.14  임도헌   Modified  별도 aria-labelledby 없이 버튼 본문 텍스트를 그대로 이름으로 사용하도록 단순화
  */
 "use client";
 
@@ -96,21 +99,27 @@ export default function PostLikeButton({
 
   return (
     <button
+      type="button"
       onClick={() => mutate()}
       disabled={isPending}
       className={cn(
-        "flex items-center gap-1.5 transition-all p-1.5 -ml-1.5 rounded-lg hover:bg-surface-dim",
+        "focus-ring-soft -ml-1.5 flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-surface-dim",
         "disabled:opacity-60 disabled:cursor-not-allowed",
         data.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500"
       )}
-      aria-label={data.isLiked ? "좋아요 취소" : "좋아요"}
+      aria-pressed={data.isLiked}
     >
       {data.isLiked ? (
         <HeartIcon className="size-6" />
       ) : (
         <OutlineHeartIcon className="size-6" />
       )}
-      <span className="text-sm font-medium">{data.likeCount}</span>
+      <span className="text-sm font-medium">
+        좋아요
+      </span>
+      <span className="text-sm font-medium tabular-nums">
+        {data.likeCount.toLocaleString()}
+      </span>
     </button>
   );
 }

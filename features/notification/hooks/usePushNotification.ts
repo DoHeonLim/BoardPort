@@ -20,6 +20,7 @@
  * 2026.01.18  임도헌   Moved     hooks/notification -> features/notification/hooks
  * 2026.03.27  임도헌   Modified  iOS 설치 필요 상태를 포함할 수 있도록 푸시 상태 타입 확장
  * 2026.04.02  임도헌   Modified  푸시 상태 타입을 notification/types 공용 정의로 분리
+ * 2026.04.17  임도헌   Modified  푸시 구독 훅의 초기 점검/재연결/해제 책임이 주석에서 바로 드러나도록 설명 보강
  */
 
 "use client";
@@ -124,6 +125,17 @@ async function waitForServiceWorkerReady(
 // Hook Implementation
 // -----------------------------------------------------------------------------
 
+/**
+ * 브라우저 푸시 알림 구독 상태를 관리하는 훅
+ *
+ * [기능]
+ * - 브라우저 지원 여부, private mode, 권한 상태를 초기 점검해 현재 푸시 상태를 분기
+ * - Service Worker 준비와 서버 `check-subscription` 검증을 통해 `active`/`needs_reconnect`/`disabled` 상태를 동기화
+ * - `subscribe`는 브라우저 구독 생성과 서버 저장을 함께 처리하고, `unsubscribe`는 서버 전역 OFF 후 로컬 구독 정리를 수행
+ * - 훅 내부에서 토스트와 로컬 상태 정리를 함께 담당해 토글 UI가 단순한 상태 표현에 집중하도록 돕는다
+ *
+ * @returns {object} 푸시 지원/구독 상태, 현재 subscription payload, subscribe/unsubscribe 제어 함수
+ */
 export function usePushNotification() {
   const [subscription, setSubscription] = useState<PushSubscriptionData | null>(
     null
@@ -217,7 +229,7 @@ export function usePushNotification() {
           }
 
           if (reason === "disabled_by_user") {
-            // 전역 OFF 상태면 로컬 구독도 정리해 상태를 맞춘다.
+            // 전역 OFF 상태 시 로컬 구독도 정리해 상태 일치 유지
             try {
               await current.unsubscribe();
             } catch (unsubErr) {

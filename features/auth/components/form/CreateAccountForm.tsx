@@ -20,6 +20,8 @@
  * 2026.03.14  임도헌   Modified  회원가입 성공 후 callbackUrl/온보딩 판단을 포함한 서버 redirectTo 규칙으로 replace 복귀하도록 정리
  * 2026.03.23  임도헌   Modified  회원가입 폼 내 소셜 로그인 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.25  임도헌   Modified  반복적인 입력 필드를 두 묶음으로 나눠 가입 흐름의 리듬을 정리하고 소셜 구분선을 통일
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 가입 화면 보조 링크 타이포 무게를 정리
+ * 2026.04.13  임도헌   Modified  회원가입 입력 필드에 명시적 라벨을 추가해 접근성 문맥을 보강
  */
 "use client";
 
@@ -132,6 +134,7 @@ export default function CreateAccountForm({
         <div className="flex flex-col gap-form-gap">
           <Input
             {...register("username")}
+            label="선원 닉네임"
             placeholder="선원 닉네임"
             autoComplete="username"
             icon={<UserIcon className="size-5" />}
@@ -139,6 +142,7 @@ export default function CreateAccountForm({
           />
           <Input
             {...register("email")}
+            label="이메일 주소"
             type="email"
             placeholder="이메일 주소"
             autoComplete="email"
@@ -150,6 +154,7 @@ export default function CreateAccountForm({
         <div className="flex flex-col gap-form-gap pt-1.5">
           <Input
             {...register("password")}
+            label="비밀번호"
             type="password"
             passwordToggle
             placeholder="비밀번호"
@@ -160,6 +165,7 @@ export default function CreateAccountForm({
           />
           <Input
             {...register("confirmPassword")}
+            label="비밀번호 확인"
             type="password"
             passwordToggle
             placeholder="비밀번호 확인"
@@ -189,7 +195,7 @@ export default function CreateAccountForm({
         이미 선원이신가요?{" "}
         <Link
           href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
-          className="font-semibold text-brand dark:text-brand-light hover:underline transition-colors"
+          className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
         >
           항해 시작하기
         </Link>

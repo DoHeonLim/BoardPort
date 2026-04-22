@@ -21,6 +21,8 @@
  * 2026.03.19  임도헌   Modified  compact 팔로우 섹션의 터치 타겟을 36px 이상으로 보강해 모바일 누름 UX 개선
  * 2026.03.28  임도헌   Modified  프로필/채널 헤더 팔로우 CTA의 높이와 세로 정렬을 고정 규격으로 정리해 카운트 텍스트와 리듬 통일
  * 2026.03.28  임도헌   Modified  compact 팔로우 CTA의 높이/패딩/그림자를 한 단계 낮춰 헤더에서 과하게 커 보이던 무게를 보정
+ * 2026.04.06  임도헌   Modified  좁은 모바일 폭 헤더에서 compact 카운트/버튼이 한 줄에 더 안정적으로 머물도록 간격과 크기 재조정
+ * 2026.04.10  임도헌   Modified  follow 타이포 정책에 맞춰 compact 카운트/CTA 크기와 weight를 400·500·700 기준으로 정리
  */
 "use client";
 
@@ -134,8 +136,8 @@ export default function FollowSection({
     () =>
       size === "compact"
         ? {
-            numCls: "h-9 px-1 text-sm",
-            btnCls: "h-8 px-2.5 text-[13px]",
+            numCls: "min-h-8 px-0 text-sm sm:h-9 sm:px-1 sm:text-sm",
+            btnCls: "h-8 px-2 text-xs sm:px-2.5 sm:text-sm",
           }
         : {
             numCls: "min-h-[40px] px-1.5 text-base",
@@ -158,9 +160,11 @@ export default function FollowSection({
     <div
       className={[
         "flex",
-        "gap-3",
+        "gap-x-2.5",
+        "gap-y-1.5",
         "flex-wrap",
         "items-center",
+        "sm:gap-3",
         alignCls,
         className,
       ]
@@ -173,7 +177,7 @@ export default function FollowSection({
         // 컨트롤러의 상태를 변경하여 모달을 열고 쿼리를 활성화함
         onClick={openFollowers}
         aria-label={`팔로워 ${followerCount.toLocaleString()}명 보기`}
-        className={`inline-flex items-center hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
+        className={`focus-ring-soft inline-flex items-center rounded-md hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
       >
         팔로워 {followerCount.toLocaleString()}
       </button>
@@ -182,7 +186,7 @@ export default function FollowSection({
         type="button"
         onClick={openFollowing}
         aria-label={`팔로잉 ${followingCount.toLocaleString()}명 보기`}
-        className={`inline-flex items-center hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
+        className={`focus-ring-soft inline-flex items-center rounded-md hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
       >
         팔로잉 {followingCount.toLocaleString()}
       </button>
@@ -205,10 +209,11 @@ export default function FollowSection({
                 : "팔로우"
           }
           className={[
-            "inline-flex items-center justify-center rounded-lg border transition-colors whitespace-nowrap font-semibold",
+            "inline-flex items-center justify-center rounded-lg border transition-colors whitespace-nowrap font-medium",
             "disabled:opacity-60 disabled:cursor-not-allowed",
             size === "compact" ? "shadow-none" : "shadow-sm",
             sizes.btnCls,
+            isFollowing ? "focus-ring-soft" : "focus-ring-strong",
             isFollowing
               ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger dark:border-border dark:bg-surface-dim dark:text-primary dark:hover:border-danger/30 dark:hover:bg-danger/10 dark:hover:text-danger"
               : "border-transparent bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",

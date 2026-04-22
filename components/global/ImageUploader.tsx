@@ -100,7 +100,7 @@ export default function ImageUploader({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center justify-between p-4 w-full hover:bg-surface-dim transition-colors"
+        className="focus-ring-soft flex items-center justify-between p-4 w-full hover:bg-surface-dim transition-colors"
       >
         <div className="flex items-center gap-2">
           <PhotoIcon className="w-6 h-6 text-muted" />

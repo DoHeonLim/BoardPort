@@ -28,33 +28,29 @@
  * 2026.03.30  임도헌   Modified  텍스트/영상/이미지 배치 순서를 조절하는 가벼운 블록 편집기 UI 추가
  * 2026.03.31  임도헌   Modified  동영상/이미지 블록 첨부 상태를 전용 훅으로 분리해 폼은 제출과 블록 조립에 집중하도록 정리
  * 2026.04.01  임도헌   Modified  게시글 detail-edit 저장/취소는 history back을 우선 사용해 상세 히스토리 문맥을 복원하도록 조정
+ * 2026.04.05  임도헌   Modified  게시글 detail-edit 저장/취소는 back 복귀 + 1회 refresh/상단 스크롤로 정리해 중복 히스토리와 스크롤 전파 문제를 함께 보정
+ * 2026.04.14  임도헌   Modified  지도 선택 모달을 지연 로드하고 mode 기반 내부 서버 액션 선택으로 작성 페이지 초기 번들 부담을 완화
+ * 2026.04.21  임도헌   Modified  메타/위치/하단 액션 섹션을 분리하고 주요 함수 설명 주석을 보강
  */
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DropResult } from "@hello-pangea/dnd";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import Select from "@/components/ui/Select";
 import TagInput from "@/components/ui/TagInput";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
-import LocationPicker from "@/features/map/components/LocationPicker";
-import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
-import {
-  POST_CATEGORY,
-  POST_CATEGORY_FORM_LABEL,
-} from "@/features/post/constants";
 import { queryKeys } from "@/lib/queryKeys";
 import { getUploadUrl } from "@/lib/cloudflareImages";
 import { postFormSchema, PostFormValues } from "@/features/post/schemas";
 import PostEditorBlocksField from "@/features/post/components/PostEditorBlocksField";
+import { createPostAction } from "@/features/post/actions/create";
+import { updatePostAction } from "@/features/post/actions/update";
 import type {
-  PostActionResponse,
   PostBlock,
   PostEditorBlock,
   PostVideo,
@@ -77,19 +73,37 @@ import {
   createNavigationRefreshFlagKey,
   setNavigationRefreshFlag,
 } from "@/lib/navigationRefreshFlag";
+import PostMetaSection from "@/features/post/components/PostMetaSection";
+import PostLocationSection from "@/features/post/components/PostLocationSection";
+import PostFormActions from "@/features/post/components/PostFormActions";
 
 interface PostFormProps {
+  mode: "create" | "edit";
   initialValues?: PostFormValues & { id?: number };
   initialVideo?: PostVideo | null;
   initialBlocks?: PostBlock[];
-  action: (formData: FormData) => Promise<PostActionResponse>;
   backUrl: string;
   submitLabel?: string;
-  isEdit?: boolean;
   editFlow?: string;
 }
 
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
+const LazyLocationPicker = dynamic(
+  () => import("@/features/map/components/LocationPicker"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+        <div className="bg-surface flex h-[100dvh] w-full flex-col items-center justify-center gap-4 border-0 p-8 sm:h-auto sm:max-w-md sm:rounded-3xl sm:border sm:border-border-subtle">
+          <div className="size-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+          <p className="text-sm font-medium text-primary">
+            지도를 불러오는 중입니다...
+          </p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 /**
  * 게시글 작성/수정 폼
@@ -100,18 +114,17 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  * - 블록 렌더링 UI는 `PostEditorBlocksField`, 순수 초기화 헬퍼는 `utils/editor`로 분리
  * - 카테고리, 태그, 지도 기반 위치(Location) 데이터 매핑 기능 제공
  * - FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반의 검증 UX 적용
- * - 폼 제출 시 주입된 Action 호출 및 결과에 따른 화면 리다이렉트 처리
+ * - 폼 제출 시 mode에 맞는 내부 서버 액션을 선택하고 결과에 따른 복귀/리다이렉트 처리
  *
- * @param {PostFormProps} props - 초기값, 액션 핸들러, 모드 설정 등
+ * @param {PostFormProps} props - 초기값, 모드, 복귀 경로, 상세 수정 플로우 설정
  */
 export default function PostForm({
+  mode,
   initialValues,
   initialVideo,
   initialBlocks,
-  action,
   backUrl,
   submitLabel = "작성 완료",
-  isEdit = false,
   editFlow,
 }: PostFormProps) {
   const router = useRouter();
@@ -163,10 +176,12 @@ export default function PostForm({
     useState<PostEditorBlock[]>(initialEditorBlocks);
   const [resetSignal, setResetSignal] = useState(0);
   const maxImages = 5;
+  const isEdit = mode === "edit";
+  // create/edit 공개 props에는 직렬화 가능한 값만 두고, 서버 액션은 mode로 내부 선택
+  const action = mode === "create" ? createPostAction : updatePostAction;
 
   // 상세 진입 편집 복귀
-  // detail-edit는 edit 페이지를 push로 열고 저장/취소 시 history back을 우선 사용
-  // 직접 진입처럼 back 대상이 불확실한 경우만 안전 경로로 replace
+  // detail-edit는 기존 상세 히스토리를 재사용하고, 직접 진입처럼 back 대상이 없을 때만 안전 경로로 replace
   const returnToDetailEditOrigin = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
@@ -463,6 +478,10 @@ export default function PostForm({
     await handleVideoFiles(Array.from(event.dataTransfer.files ?? []));
   };
 
+  /**
+   * 폼 유효성 검사를 통과한 뒤 실제 저장을 수행
+   * - 블록 편집기 결과를 최종 본문/미디어 배열로 정규화한 뒤 서버 액션으로 전송
+   */
   const onValid = async (data: PostFormValues) => {
     setIsUploading(true);
 
@@ -642,8 +661,7 @@ export default function PostForm({
 
         if (isEdit && editFlow === "detail-edit") {
           // 상세 진입 편집 복귀
-          // 저장 후에는 history back으로 원래 상세로 돌아가고
-          // 상세 화면은 세션 플래그를 소비해 1회만 최신 데이터로 새로고침하는 구조
+          // back 복귀 직후 상세가 1회 최신화/상단 스크롤을 수행하도록 세션 플래그 기록
           setNavigationRefreshFlag(
             createNavigationRefreshFlagKey("post-detail-refresh", result.postId)
           );
@@ -689,30 +707,12 @@ export default function PostForm({
         <FormErrorSummary errors={errors} />
         <input type="hidden" {...register("description")} />
 
-        {/* Category Select */}
-        <Select
-          label="카테고리"
-          disabled={isUploading}
-          {...register("category")}
-          errors={errors.category?.message ? [errors.category.message] : []}
-        >
-          <option value="">카테고리 선택</option>
-          {Object.entries(POST_CATEGORY).map(([key, value]) => (
-            <option key={key} value={key}>
-              {POST_CATEGORY_FORM_LABEL[
-                key as keyof typeof POST_CATEGORY_FORM_LABEL
-              ] ?? value}
-            </option>
-          ))}
-        </Select>
-
-        <Input
-          label="제목"
-          type="text"
-          placeholder="제목을 입력해주세요"
-          disabled={isUploading}
-          {...register("title")}
-          errors={[errors.title?.message ?? ""]}
+        <PostMetaSection
+          isUploading={isUploading}
+          categoryRegister={register("category")}
+          categoryErrorMessage={errors.category?.message}
+          titleRegister={register("title")}
+          titleErrorMessage={errors.title?.message}
         />
 
         <PostEditorBlocksField
@@ -752,113 +752,34 @@ export default function PostForm({
           resetSignal={resetSignal}
           disabled={isUploading}
         />
-        {/* 위치 추가 섹션 */}
-        <div className="flex flex-col gap-2 pt-2">
-          <label className="text-sm font-medium text-primary flex items-center gap-1">
-            <MapPinIcon className="size-4" />
-            장소 태그{" "}
-            <span className="text-muted font-normal">
-              (모임 장소, 후기 위치 등)
-            </span>
-          </label>
+        <PostLocationSection
+          location={location ?? null}
+          isUploading={isUploading}
+          onOpenMap={() => setIsMapOpen(true)}
+          onClearLocation={() =>
+            setValue("location", null, { shouldDirty: true })
+          }
+        />
 
-          {location ? (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full">
-                  <MapPinIcon className="size-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-primary">
-                    {location.locationName}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {location.region1} {location.region2} {location.region3}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsMapOpen(true)}
-                  className="text-xs font-medium text-muted hover:text-primary px-2 py-1"
-                  disabled={isUploading}
-                >
-                  변경
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setValue("location", null, { shouldDirty: true })
-                  }
-                  className="text-muted hover:text-danger p-1"
-                  disabled={isUploading}
-                >
-                  <XMarkIcon className="size-4" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsMapOpen(true)}
-              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 transition-all"
-              disabled={isUploading}
-            >
-              <MapPinIcon className="size-5" />
-              <span className="text-sm">지도에서 위치 찾기</span>
-            </button>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-2.5 pt-3 sm:gap-3 sm:pt-4">
-          <Button
-            text={
-              isUploading
-                ? isEdit
-                  ? "수정 중..."
-                  : "업로드 중..."
-                : submitLabel
+        <PostFormActions
+          isUploading={isUploading}
+          isEdit={isEdit}
+          isEditorLocked={isEditorLocked}
+          isVideoUploading={isVideoUploading}
+          submitLabel={submitLabel}
+          onReset={resetForm}
+          onCancel={() => {
+            if (isEdit && editFlow === "detail-edit") {
+              returnToDetailEditOrigin();
+              return;
             }
-            disabled={isEditorLocked}
-          />
-
-          {isVideoUploading && (
-            <p className="px-1 text-xs text-muted">
-              동영상은 업로드/처리 중이어도 먼저 저장할 수 있으며, 상세에서 처리
-              상태가 안내됩니다.
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-            <button
-              type="button"
-              onClick={resetForm}
-              className="h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors"
-              disabled={isEditorLocked}
-            >
-              {isEdit ? "원래 값으로 되돌리기" : "전체 초기화"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (isEdit && editFlow === "detail-edit") {
-                  returnToDetailEditOrigin();
-                  return;
-                }
-                router.push(backUrl);
-              }}
-              className="flex items-center justify-center h-12 rounded-xl font-medium text-sm border border-border bg-surface text-muted hover:bg-surface-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isUploading}
-            >
-              취소
-            </button>
-          </div>
-        </div>
+            router.push(backUrl);
+          }}
+        />
       </form>
       {/*  지도 모달 */}
       {isMapOpen && (
-        <LocationPicker
+        <LazyLocationPicker
           onClose={() => setIsMapOpen(false)}
           onSelect={handleLocationSelect}
           initialData={location ?? undefined}

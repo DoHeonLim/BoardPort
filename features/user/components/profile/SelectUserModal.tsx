@@ -21,14 +21,18 @@
  * 2026.03.26  임도헌   Modified  유저 행 설명 문구를 제거해 예약자 선택 리스트를 더 간결하게 정리
  * 2026.03.26  임도헌   Modified  보조 버튼/카운트 칩의 외곽선 대비를 보강해 라이트모드 가시성 개선
  * 2026.03.26  임도헌   Modified  다크모드에서 선택 버튼이 과하게 검게 떠 보이지 않도록 표면 톤 정리
+ * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 예약자 선택 흐름을 하단 시트로 정리
+ * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 예약자 선택 모달의 상태 라벨과 CTA weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
+import BottomSheet from "@/components/global/BottomSheet";
 import { cn } from "@/lib/utils";
 import { getProductChatUsersAction } from "@/features/product/actions/chat";
 import { ChatUser } from "@/features/chat/types";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface SelectUserModalProps {
   productId: number;
@@ -52,6 +56,7 @@ export default function SelectUserModal({
   onOpenChange,
   onConfirm,
 }: SelectUserModalProps) {
+  const isMobile = useIsMobile();
   const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessingId, setIsProcessingId] = useState<number | null>(null); // 현재 처리 중인 유저 ID
@@ -129,6 +134,143 @@ export default function SelectUserModal({
 
   if (!isOpen) return null;
 
+  const bodyContent = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="animate-pulse rounded-2xl border border-border-subtle bg-surface-dim/70 px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-background/80" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-3 w-24 rounded-full bg-background/80" />
+                  <div className="h-2.5 w-36 rounded-full bg-background/60" />
+                </div>
+                <div className="h-9 w-16 rounded-xl bg-background/80" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-danger/20 bg-danger/5 px-4 py-5 text-center">
+          <p className="text-sm font-medium text-danger">{error}</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            네트워크 상태를 확인한 뒤 다시 불러와 주세요.
+          </p>
+          <button
+            type="button"
+            className={cn(quietButtonClass, "mt-4 h-10")}
+            onClick={() => void loadChatUsers()}
+          >
+            다시 불러오기
+          </button>
+        </div>
+      ) : chatUsers.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-dim/70 px-4 py-8 text-center text-muted">
+          <p className="text-sm font-medium text-primary">
+            아직 채팅한 유저가 없습니다.
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            예약 가능한 대화 상대가 생기면 이곳에 표시됩니다.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-4 rounded-2xl border border-border-subtle bg-surface-dim/70 px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-primary">
+                  대화 이력이 있는 사용자만 표시됩니다.
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  선택 즉시 예약 상태로 변경되며, 이후 판매 완료 처리 대상으로
+                  이어집니다.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted shadow-sm">
+                {chatUsers.length}명
+              </span>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto scrollbar-hide">
+            {chatUsers.map((user) => {
+              const busy = isProcessingId === user.id;
+              return (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => void handleUserSelect(user.id)}
+                  disabled={isProcessingId !== null}
+                  aria-busy={busy}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors",
+                    busy
+                      ? "border-border-strong bg-surface"
+                      : "border-border-subtle bg-surface-dim/60 hover:border-border hover:bg-surface"
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <UserAvatar
+                      avatar={user.avatar}
+                      username={user.username}
+                      size="md"
+                      disabled
+                      className="pointer-events-none min-w-0"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1" />
+                  <span
+                    className={cn(
+                      "inline-flex min-h-[36px] min-w-[64px] items-center justify-center rounded-xl border px-3 text-xs font-medium shadow-sm",
+                      busy
+                        ? "border-brand/20 bg-brand/10 text-brand dark:border-brand-light/20 dark:bg-brand-light/15 dark:text-brand-light"
+                        : "border-border bg-background text-brand dark:border-border-strong dark:bg-surface-dim dark:text-brand-light dark:hover:bg-surface"
+                    )}
+                  >
+                    {busy ? (
+                      <span className="size-4 animate-spin rounded-full border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light" />
+                    ) : (
+                      "선택"
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const footer = (
+    <button
+      type="button"
+      className={cn(quietButtonClass, "h-11 w-full sm:w-auto sm:min-w-[96px]")}
+      onClick={() => onOpenChange(false)}
+    >
+      닫기
+    </button>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={isOpen}
+        title="예약자 선택"
+        description="이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다."
+        onClose={() => onOpenChange(false)}
+        contentClassName="pt-4"
+        footer={footer}
+      >
+        {bodyContent}
+      </BottomSheet>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -166,126 +308,12 @@ export default function SelectUserModal({
 
         {/* Body (User List) */}
         <div className="flex min-h-0 flex-1 flex-col px-5 py-5 sm:px-6 sm:py-6">
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="animate-pulse rounded-2xl border border-border-subtle bg-surface-dim/70 px-4 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-full bg-background/80" />
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="h-3 w-24 rounded-full bg-background/80" />
-                      <div className="h-2.5 w-36 rounded-full bg-background/60" />
-                    </div>
-                    <div className="h-9 w-16 rounded-xl bg-background/80" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl border border-danger/20 bg-danger/5 px-4 py-5 text-center">
-              <p className="text-sm font-semibold text-danger">{error}</p>
-              <p className="mt-1 text-xs leading-5 text-muted">
-                네트워크 상태를 확인한 뒤 다시 불러와 주세요.
-              </p>
-              <button
-                type="button"
-                className={cn(quietButtonClass, "mt-4 h-10")}
-                onClick={() => void loadChatUsers()}
-              >
-                다시 불러오기
-              </button>
-            </div>
-          ) : chatUsers.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-dim/70 px-4 py-8 text-center text-muted">
-              <p className="text-sm font-medium text-primary">
-                아직 채팅한 유저가 없습니다.
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted">
-                예약 가능한 대화 상대가 생기면 이곳에 표시됩니다.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="mb-4 rounded-2xl border border-border-subtle bg-surface-dim/70 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-primary">
-                      대화 이력이 있는 사용자만 표시됩니다.
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-muted">
-                      선택 즉시 예약 상태로 변경되며, 이후 판매 완료 처리 대상으로 이어집니다.
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted shadow-sm">
-                    {chatUsers.length}명
-                  </span>
-                </div>
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto scrollbar-hide">
-              {chatUsers.map((user) => {
-                const busy = isProcessingId === user.id;
-                return (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => void handleUserSelect(user.id)}
-                    disabled={isProcessingId !== null}
-                    aria-busy={busy}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors",
-                      busy
-                        ? "border-border-strong bg-surface"
-                        : "border-border-subtle bg-surface-dim/60 hover:border-border hover:bg-surface"
-                    )}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <UserAvatar
-                        avatar={user.avatar}
-                        username={user.username}
-                        size="md"
-                        disabled
-                        className="pointer-events-none min-w-0"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1" />
-                    <span
-                      className={cn(
-                        "inline-flex min-h-[36px] min-w-[64px] items-center justify-center rounded-xl border px-3 text-xs font-semibold shadow-sm",
-                        busy
-                          ? "border-brand/20 bg-brand/10 text-brand dark:border-brand-light/20 dark:bg-brand-light/15 dark:text-brand-light"
-                          : "border-border bg-background text-brand dark:border-border-strong dark:bg-surface-dim dark:text-brand-light dark:hover:bg-surface"
-                      )}
-                    >
-                      {busy ? (
-                        <span className="size-4 rounded-full border-2 border-brand/30 border-t-brand dark:border-brand-light/30 dark:border-t-brand-light animate-spin" />
-                      ) : (
-                        "선택"
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-              </div>
-            </>
-          )}
+          {bodyContent}
         </div>
 
         {/* Footer */}
         <div className="flex justify-end border-t border-border-subtle bg-surface px-5 py-4 sm:px-6">
-          <button
-            type="button"
-            className={cn(
-              quietButtonClass,
-              "h-11 w-full sm:w-auto sm:min-w-[96px]"
-            )}
-            onClick={() => onOpenChange(false)}
-          >
-            닫기
-          </button>
+          {footer}
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.06  임도헌   Created   관리자 목록 공통 페이지네이션 추가
  * 2026.03.30  임도헌   Modified  이전/다음만 있던 구조를 숫자형 페이지네이션으로 확장해 깊은 목록 탐색 속도를 보강
+ * 2026.04.10  임도헌   Modified  페이지 버튼과 ellipsis weight를 관리자 타이포 정책에 맞춰 정리
  */
 "use client";
 
@@ -76,9 +77,9 @@ export default function AdminPagination({ currentPage, totalPages }: Props) {
   if (totalPages <= 1) return null;
 
   const btnClass =
-    "p-2 rounded-lg transition-colors hover:bg-surface-dim disabled:opacity-30 disabled:hover:bg-transparent text-muted";
+    "focus-ring-soft p-2 rounded-lg transition-colors hover:bg-surface-dim disabled:opacity-30 disabled:hover:bg-transparent text-muted";
   const pageBtnClass =
-    "min-w-10 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors";
+    "focus-ring-soft min-w-10 rounded-xl border px-3 py-2 text-sm font-medium transition-colors";
 
   return (
     <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
@@ -96,7 +97,7 @@ export default function AdminPagination({ currentPage, totalPages }: Props) {
           page === "ellipsis" ? (
             <span
               key={`ellipsis-${index}`}
-              className="px-1 text-sm font-semibold text-muted"
+              className="px-1 text-sm font-medium text-muted"
             >
               ...
             </span>

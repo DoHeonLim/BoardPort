@@ -21,14 +21,17 @@
  * 2026.03.14  임도헌   Modified   모바일에서 후기 모달 헤더/본문 여백을 한 단계 줄여 리스트 밀도를 보강
  * 2026.03.19  임도헌   Modified   외곽선과 그림자를 한 단계 낮춰 최근 프로필/알림 모달 톤과 시각 밀도를 통일
  * 2026.03.22  임도헌   Modified   뱃지 컬렉션 모달과 모션 규칙을 맞추기 위해 진입 transform 애니메이션 제거
+ * 2026.04.08  임도헌   Modified   모바일에서는 공용 BottomSheet를 사용해 후기 전체 보기 흐름을 다른 프로필 오버레이와 통일
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useRef, Suspense } from "react";
 import ReviewsList from "@/features/user/components/profile/ReviewsList";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -49,12 +52,15 @@ export default function ProfileReviewsModal({
   onClose,
   userId,
 }: ReviewModalProps) {
+  const isMobile = useIsMobile();
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // 접근성 & 이벤트 리스너
   useEffect(() => {
     if (!isOpen) return;
+
+    if (isMobile) return;
 
     // 초기 포커스 이동 (스크린 리더 접근성)
     setTimeout(() => dialogRef.current?.focus(), 0);
@@ -72,20 +78,49 @@ export default function ProfileReviewsModal({
       unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isMobile, isOpen, onClose]);
 
   if (!isOpen) return null;
 
+  const reviewsContent = (
+    <Suspense
+      fallback={
+        <div className="size-6 mx-auto mt-10 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+      }
+    >
+      <ReviewsList userId={userId} scrollParentRef={scrollAreaRef} />
+    </Suspense>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={isOpen}
+        onClose={onClose}
+        title="받은 거래 후기"
+        contentClassName="px-0 pb-0"
+        panelClassName="max-h-[84dvh]"
+      >
+        <div
+          ref={scrollAreaRef}
+          className="min-h-0 max-h-[68dvh] overflow-y-auto px-4 pb-4"
+        >
+          {reviewsContent}
+        </div>
+      </BottomSheet>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      {/* Backdrop */}
+      {/* 배경 오버레이 */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal Container */}
+      {/* 모달 컨테이너 */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -99,33 +134,26 @@ export default function ProfileReviewsModal({
           "border-t sm:border border-border-subtle"
         )}
       >
-        {/* Header */}
+        {/* 헤더 */}
         <div className="flex shrink-0 items-center justify-between border-b border-border-subtle px-5 py-4 bg-surface sm:px-6">
           <h2 id="reviews-title" className="text-lg font-bold text-primary">
             받은 거래 후기
           </h2>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
             aria-label="닫기"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Content Area (Scrollable) */}
+        {/* 내용 영역 (스크롤 가능) */}
         <div
           ref={scrollAreaRef}
           className="min-h-0 flex-1 overflow-y-auto p-5 scrollbar-hide sm:p-6"
         >
-          <Suspense
-            fallback={
-              <div className="size-6 mx-auto mt-10 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-            }
-          >
-            {/* ReviewsList에 scrollParentRef 전달 -> 내부 무한 스크롤 트리거 기준 */}
-            <ReviewsList userId={userId} scrollParentRef={scrollAreaRef} />
-          </Suspense>
+          {reviewsContent}
         </div>
       </div>
     </div>

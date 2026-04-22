@@ -23,8 +23,15 @@
  * 2026.03.17  임도헌   Modified  다크/라이트 모드 모두에서 툴팁 가시성이 유지되도록 solid 패널 톤과 대비를 보강
  * 2026.03.22  임도헌   Modified  최근 프로필 모달 톤에 맞춰 높이 단위와 외곽선/헤더 보더 강도 정리
  * 2026.03.27  임도헌   Modified  모바일에서는 hover 툴팁 대신 선택된 뱃지 설명 패널을 사용하고 데스크톱 hover 툴팁 대비를 보강
+ * 2026.04.08  임도헌   Modified  모바일에서는 공용 BottomSheet를 사용해 뱃지 전체 보기 흐름을 다른 프로필 오버레이와 통일
+ * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 뱃지 타일 라벨을 text-xs 기준으로 통일
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.18  임도헌   Modified  모바일 BottomSheet에서는 선택된 뱃지 설명 패널과 컬렉션 그리드를 같은 스크롤 흐름으로 묶어 읽기 맥락을 정리
+ * 2026.04.18  임도헌   Modified  모바일에서는 선택된 뱃지 타일과 설명 패널이 같은 강조 언어를 쓰도록 연결감을 보강
+ * 2026.04.18  임도헌   Modified  모바일에서 하단 배지를 선택하면 설명 패널이 보이도록 상단으로 부드럽게 스크롤하는 흐름 추가
+ * 2026.04.18  임도헌   Modified  데스크톱 배지 모달 대비와 툴팁 화살표/박스 경계 표현을 보강해 가시성과 완성도를 높임
+ * 2026.04.18  임도헌   Modified  미획득/선택 상태의 대비를 높여 라이트·다크 모드 모두에서 배지 가시성을 보강
  */
-"use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
@@ -40,9 +47,11 @@ import {
   type Placement,
 } from "@floating-ui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import type { Badge } from "@/features/user/types";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ProfileBadgesModalProps {
   isOpen: boolean;
@@ -52,7 +61,10 @@ interface ProfileBadgesModalProps {
 }
 
 /**
- * 개별 뱃지 아이템 (Tooltip 포함)
+ * 개별 뱃지 타일
+ *
+ * - 데스크톱: hover/focus 시 Floating UI 툴팁 노출
+ * - 모바일: 선택 상태를 타일 자체로 표시하고 상단 설명 패널과 연결
  */
 function BadgeItem({
   badge,
@@ -70,7 +82,7 @@ function BadgeItem({
   const [isOpen, setIsOpen] = useState(false);
   const [arrowRef, setArrowRef] = useState<SVGSVGElement | null>(null);
 
-  // 1. Floating UI 설정: 툴팁 위치 및 동작 제어
+  // Floating UI 설정: 데스크톱 툴팁 위치 및 화살표 정렬 제어
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
     onOpenChange: setIsOpen,
@@ -92,7 +104,7 @@ function BadgeItem({
 
   return (
     <>
-      {/* 뱃지 아이콘 */}
+      {/* 뱃지 타일 */}
       <button
         type="button"
         ref={refs.setReference}
@@ -112,49 +124,68 @@ function BadgeItem({
         aria-label={`${getBadgeKoreanName(badge.name)} 설명 보기`}
         aria-pressed={!showDesktopTooltip ? selected : undefined}
         className={cn(
-          "flex aspect-square w-full flex-col items-center justify-center rounded-xl border p-2.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 sm:p-3",
+          "focus-ring-soft relative flex aspect-square w-full flex-col items-center justify-center rounded-xl border p-2.5 text-left transition-[background-color,color,border-color,box-shadow] sm:p-3",
           isEarned
             ? "bg-brand/5 border-brand/20 dark:bg-brand-light/10 dark:border-brand-light/20"
-            : "bg-surface-dim/30 border-border opacity-50 grayscale",
+            : "bg-surface border-border text-muted/90",
+          showDesktopTooltip &&
+            "hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[0_10px_24px_-18px_rgba(15,23,42,0.7)]",
           !showDesktopTooltip &&
             selected &&
-            "border-brand/35 bg-brand/10 shadow-sm ring-2 ring-brand/15 dark:border-brand-light/35 dark:bg-brand-light/12 dark:ring-brand-light/20"
+            "border-brand/45 bg-brand/10 shadow-sm ring-2 ring-brand/20 dark:border-brand-light/45 dark:bg-brand-light/14 dark:ring-brand-light/25"
         )}
       >
+        {!showDesktopTooltip && selected && (
+          <>
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-brand/70 dark:bg-brand-light/70"
+            />
+            <span className="absolute right-2 top-2 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm dark:bg-brand-light dark:text-slate-950">
+              선택됨
+            </span>
+          </>
+        )}
         <div className="relative mb-1.5 h-10 w-10 sm:mb-2 sm:h-12 sm:w-12">
           <Image
             src={`${badge.icon}/public`}
             alt={badge.name}
             fill
-            className="object-contain"
+            className={cn(
+              "object-contain",
+              !isEarned && "grayscale opacity-75"
+            )}
           />
         </div>
         <span
           className={cn(
-            "text-[10px] text-center font-medium leading-tight sm:text-[11px]",
-            isEarned ? "text-primary" : "text-muted"
+            "text-xs text-center font-medium leading-tight",
+            isEarned ? "text-primary" : "text-muted/85"
           )}
-          >
-            {getBadgeKoreanName(badge.name)}
-          </span>
+        >
+          {getBadgeKoreanName(badge.name)}
+        </span>
       </button>
 
-      {/* 툴팁 (Hover 시 표시) */}
+      {/* 데스크톱 툴팁 */}
       {showDesktopTooltip && isOpen && (
         <div
           ref={refs.setFloating}
           role="tooltip"
           style={{ ...floatingStyles, zIndex: 9999 }}
-          className="max-w-[280px] rounded-xl border border-border-strong bg-background px-4 py-3.5 text-sm leading-relaxed text-primary shadow-2xl ring-1 ring-black/5 dark:ring-white/10"
+          className="max-w-[296px] rounded-xl border border-border-strong bg-surface px-4 py-3.5 text-sm leading-relaxed text-primary shadow-[0_20px_48px_-24px_rgba(2,6,23,0.72)] ring-1 ring-white/5"
         >
-          <div className="mb-1.5 font-bold text-primary">
+          <div className="mb-1.5 text-sm font-bold text-primary">
             {getBadgeKoreanName(badge.name)}
           </div>
-          <p className="text-muted">{badge.description}</p>
+          <p className="text-primary/80">{badge.description}</p>
           <FloatingArrow
             ref={setArrowRef}
             context={context}
-            className="fill-background"
+            className="fill-surface drop-shadow-[0_8px_14px_rgba(2,6,23,0.28)]"
+            fill="var(--surface)"
+            stroke="var(--border-strong)"
+            strokeWidth={1}
           />
         </div>
       )}
@@ -167,8 +198,8 @@ function BadgeItem({
  *
  * [기능]
  * 1. 전체 뱃지 목록을 그리드 형태로 렌더링
- * 2. 사용자가 획득한 뱃지는 활성화 상태로 표시
- * 3. 각 뱃지에 마우스를 올리면 상세 설명 툴팁을 보여줌
+ * 2. 획득 여부와 선택 상태를 타일에 반영
+ * 3. 데스크톱은 hover 툴팁, 모바일은 선택된 뱃지 설명 패널을 사용
  */
 export default function ProfileBadgesModal({
   isOpen,
@@ -176,13 +207,17 @@ export default function ProfileBadgesModal({
   badges,
   userBadges,
 }: ProfileBadgesModalProps) {
+  const isMobile = useIsMobile();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
   const [showDesktopTooltip, setShowDesktopTooltip] = useState(false);
   const [selectedBadgeId, setSelectedBadgeId] = useState<number | null>(null);
 
-  // 접근성 (포커스 & 스크롤락 & ESC 닫기)
+  // 접근성: 데스크톱 모달 포커스, ESC 닫기, body scroll lock 관리
   useEffect(() => {
     if (!isOpen) return;
+    if (isMobile) return;
+
     dialogRef.current?.focus();
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeModal();
@@ -193,9 +228,9 @@ export default function ProfileBadgesModal({
       window.removeEventListener("keydown", handleKey);
       unlockBodyScroll();
     };
-  }, [isOpen, closeModal]);
+  }, [closeModal, isMobile, isOpen]);
 
-  // 획득 뱃지 Set (빠른 조회를 위해)
+  // 획득 뱃지 Set (빠른 조회용)
   const earnedSet = useMemo(
     () => new Set(userBadges.map((b) => b.id)),
     [userBadges]
@@ -228,6 +263,98 @@ export default function ProfileBadgesModal({
 
   if (!isOpen) return null;
 
+  const selectedBadgePanel =
+    !showDesktopTooltip && selectedBadge ? (
+      <div className="mb-4 sm:hidden">
+        <div className="overflow-hidden rounded-xl border border-brand/20 bg-background shadow-sm dark:border-brand-light/20">
+          <div className="h-0.5 w-full bg-brand/70 dark:bg-brand-light/70" />
+          <div className="px-4 py-3.5">
+            <div className="flex items-start gap-3">
+              <div className="relative mt-0.5 h-11 w-11 shrink-0 rounded-xl bg-brand/8 dark:bg-brand-light/10">
+                <Image
+                  src={`${selectedBadge.icon}/public`}
+                  alt={selectedBadge.name}
+                  fill
+                  className={cn(
+                    "object-contain p-1.5",
+                    !earnedSet.has(selectedBadge.id) && "grayscale opacity-80"
+                  )}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="inline-flex rounded-full bg-brand/12 px-2 py-1 text-[11px] font-semibold leading-none text-brand dark:bg-brand-light/15 dark:text-brand-light">
+                  현재 선택한 뱃지
+                </div>
+                <div className="mt-2 text-sm font-bold text-primary">
+                  {getBadgeKoreanName(selectedBadge.name)}
+                </div>
+                <div className="mt-1 text-xs font-medium text-muted">
+                  {earnedSet.has(selectedBadge.id)
+                    ? "획득한 뱃지"
+                    : "아직 획득하지 않은 뱃지"}
+                </div>
+              </div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              {selectedBadge.description}
+            </p>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const mobileCollectionLabel = !showDesktopTooltip ? (
+    <div className="mb-3 sm:hidden">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted/80">
+        All Badges
+      </p>
+    </div>
+  ) : null;
+
+  const badgesGrid = (
+    <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5">
+      {badges.map((badge) => (
+        <BadgeItem
+          key={badge.id}
+          badge={badge}
+          isEarned={earnedSet.has(badge.id)}
+          showDesktopTooltip={showDesktopTooltip}
+          selected={selectedBadge?.id === badge.id}
+          onSelect={() => {
+            setSelectedBadgeId(badge.id);
+            if (!showDesktopTooltip) {
+              mobileScrollRef.current?.scrollTo({
+                top: 0,
+                behavior: "smooth",
+              });
+            }
+          }}
+        />
+      ))}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={isOpen}
+        onClose={closeModal}
+        title={`뱃지 컬렉션 (${userBadges.length}/${badges.length})`}
+        contentClassName="px-0 pb-0"
+        panelClassName="max-h-[86dvh]"
+      >
+        <div
+          ref={mobileScrollRef}
+          className="max-h-[62dvh] overflow-y-auto px-4 pb-4 pt-4"
+        >
+          {selectedBadgePanel}
+          {mobileCollectionLabel}
+          {badgesGrid}
+        </div>
+      </BottomSheet>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
@@ -243,58 +370,28 @@ export default function ProfileBadgesModal({
         aria-labelledby="badges-title"
         tabIndex={-1}
         className={cn(
-          "relative w-full sm:max-w-3xl bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
+          "relative w-full overflow-hidden outline-none flex flex-col bg-surface shadow-[0_36px_80px_-32px_rgba(2,6,23,0.82)] ring-1 ring-white/5",
+          "sm:max-w-3xl",
           "h-[80dvh] rounded-t-2xl sm:rounded-2xl",
-          "border-t sm:border border-border-subtle"
+          "border-t sm:border border-border"
         )}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-5 py-4 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-4 sm:px-6">
           <h2 id="badges-title" className="text-lg font-bold text-primary">
             뱃지 컬렉션 ({userBadges.length}/{badges.length})
           </h2>
           <button
             onClick={closeModal}
-            className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {!showDesktopTooltip && selectedBadge && (
-          <div className="shrink-0 border-b border-border-subtle bg-surface px-5 py-4 sm:hidden">
-            <div className="rounded-xl border border-border-subtle bg-background px-4 py-3.5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-primary">
-                    {getBadgeKoreanName(selectedBadge.name)}
-                  </div>
-                  <div className="mt-1 text-xs font-medium text-muted">
-                    {earnedSet.has(selectedBadge.id)
-                      ? "획득한 뱃지"
-                      : "아직 획득하지 않은 뱃지"}
-                  </div>
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-muted">
-                {selectedBadge.description}
-              </p>
-            </div>
-          </div>
-        )}
+        {selectedBadgePanel}
 
         <div className="flex-1 overflow-y-auto p-5 scrollbar-hide sm:p-6">
-          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5">
-            {badges.map((badge) => (
-              <BadgeItem
-                key={badge.id}
-                badge={badge}
-                isEarned={earnedSet.has(badge.id)}
-                showDesktopTooltip={showDesktopTooltip}
-                selected={selectedBadge?.id === badge.id}
-                onSelect={() => setSelectedBadgeId(badge.id)}
-              />
-            ))}
-          </div>
+          {badgesGrid}
         </div>
       </div>
     </div>

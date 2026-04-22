@@ -21,8 +21,8 @@
  * 2026.04.03  임도헌   Modified  스트림 전용 강제 퇴장 액션을 위해 방송 ID 전달 props 추가
  * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 초기 상태 전달 props 추가
  * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지 초기 상태 전달 props 추가
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import type { StreamChatMessage } from "@/features/chat/types";

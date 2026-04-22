@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.15  임도헌   Created   알림 센터에서 푸시/방해 금지/키워드 현황을 한눈에 보여주는 요약 카드 추가
+ * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 설정 요약 보조 라벨을 text-xs 기준으로 정리
  */
 
 import Link from "next/link";
@@ -60,7 +61,7 @@ export default function NotificationSettingsSummary({
         </div>
         <Link
           href={settingsHref}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-brand transition-colors hover:bg-brand/10 dark:text-brand-light dark:hover:bg-brand-light/10"
+          className="focus-ring-soft inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-brand transition-colors hover:bg-brand/10 dark:text-brand-light dark:hover:bg-brand-light/10"
         >
           <Cog6ToothIcon className="size-4" />
           설정
@@ -86,7 +87,7 @@ export default function NotificationSettingsSummary({
           <p className="mt-1 text-sm font-medium text-primary">
             {quietHoursLabel}
           </p>
-          <p className="mt-0.5 text-[11px] text-muted">한국 시간 기준</p>
+          <p className="mt-0.5 text-xs text-muted">한국 시간 기준</p>
         </div>
 
         <div className="rounded-xl border border-border-subtle bg-background px-3 py-3">

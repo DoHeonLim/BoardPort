@@ -24,7 +24,8 @@ export const PASSWORD_REGEX_ERROR =
   "비밀번호는 소문자, 숫자, 특수문자를 포함해야 합니다.";
 
 // 이미지 최대 크기 (Global Utils에서 사용)
-export const MAX_PHOTO_SIZE = 3 * 1024 * 1024;
+export const MAX_PHOTO_SIZE_MB = 10;
+export const MAX_PHOTO_SIZE = MAX_PHOTO_SIZE_MB * 1024 * 1024;
 export const BLUR_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mO8UA8AAiUBUcc3qzwAAAAASUVORK5CYII=";
 

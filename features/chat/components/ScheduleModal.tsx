@@ -9,9 +9,8 @@
  * 2026.02.26  임도헌   Modified  다크모드 가시성(MapPinIcon, 변경버튼) 개선
  * 2026.03.06  임도헌   Modified  닫기 버튼 터치 타겟과 버튼 hover 대비를 표준 규칙에 맞게 조정
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -79,7 +78,7 @@ export default function ScheduleModal({
           </h3>
           <button
             onClick={onClose}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
           >
             <XMarkIcon className="size-6" />
@@ -130,7 +129,7 @@ export default function ScheduleModal({
                 </div>
                 <button
                   onClick={() => setShowMap(true)}
-                  className="rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+                  className="focus-ring-soft rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
                 >
                   변경
                 </button>
@@ -138,7 +137,7 @@ export default function ScheduleModal({
             ) : (
               <button
                 onClick={() => setShowMap(true)}
-                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-all"
+                className="focus-ring-soft w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-colors"
               >
                 <MapPinIcon className="size-5" />
                 <span className="text-sm font-medium">지도에서 장소 선택</span>
@@ -151,7 +150,7 @@ export default function ScheduleModal({
         <div className="p-4 border-t border-border-subtle bg-surface flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="btn-secondary h-10 text-sm border-transparent"
+            className="btn-secondary-modal h-10 px-4 text-sm font-medium"
             disabled={isPending}
           >
             취소

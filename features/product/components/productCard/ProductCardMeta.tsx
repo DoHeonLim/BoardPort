@@ -18,6 +18,8 @@
  * 2026.03.25  임도헌   Modified  리스트 카드 메타 줄의 간격과 구분선 강도를 미세 조정해 날짜 우측 정렬 구조를 유지한 채 polish
  * 2026.03.26  임도헌   Modified  활동 시점(activityAt)과 라벨(activityLabel) 지원으로 프로필 찜 메타 의미를 명확화
  * 2026.03.26  임도헌   Modified  찜 목록에서는 활동 시점을 메타 그룹에 합쳐 액션 버튼과 정렬 충돌을 줄임
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 메타 라벨 타이포 무게를 정리
+ * 2026.04.17  임도헌   Modified  찜한 내역에서도 활동 시점(activityLabel + TimeAgo)이 장소 유무와 무관하게 우측 끝에 고정되도록 정렬 규칙 정리
  */
 
 "use client";
@@ -70,11 +72,10 @@ export default function ProductCardMeta({
   const locationText = [region2, region3].filter(Boolean).join(" ");
   const isGrid = viewMode === "grid";
   const showLocationInGrid = isGrid && !!locationText;
-  const isActivityInline = !isGrid && !!activityLabel;
   const timeMeta = dateValue ? (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       {activityLabel && (
-        <span className="text-[10px] font-medium text-muted/80 sm:text-xs">
+        <span className="text-xs font-normal text-muted/80">
           {activityLabel}
         </span>
       )}
@@ -89,7 +90,7 @@ export default function ProductCardMeta({
   return (
     <div
       className={cn(
-        "w-full min-w-0 overflow-hidden text-[10px] sm:text-xs text-muted",
+        "w-full min-w-0 overflow-hidden text-xs text-muted",
         isGrid ? "flex flex-col gap-1" : "flex items-center gap-1.5"
       )}
     >
@@ -115,7 +116,7 @@ export default function ProductCardMeta({
 
       <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden">
         {bumpCount > 0 && (
-          <div className="flex items-center gap-0.5 text-brand dark:text-brand-light font-bold shrink-0">
+          <div className="flex shrink-0 items-center gap-0.5 font-bold text-brand dark:text-brand-light">
             <ArrowUpIcon className="size-3" />
             <span>{bumpCount}</span>
           </div>
@@ -156,18 +157,13 @@ export default function ProductCardMeta({
               </>
             )}
             {timeMeta && (
-              <>
-                <span
-                  className={cn(
-                    "shrink-0 text-border-subtle dark:text-neutral-700/80",
-                    !isActivityInline && "ml-auto"
-                  )}
-                >
+              <div className="ml-auto flex shrink-0 items-center gap-1.5 pr-1 sm:pr-1.5">
+                <span className="shrink-0 text-border-subtle dark:text-neutral-700/80">
                   |
                 </span>
-                {/* 4. 작성 시간 */}
+                {/* 4. 작성/활동 시간 */}
                 {timeMeta}
-              </>
+              </div>
             )}
           </>
         )}

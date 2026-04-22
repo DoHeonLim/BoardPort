@@ -8,6 +8,7 @@
  * 2026.03.08  임도헌   Created   접근성 속성을 포함한 폼 에러 요약 배너 컴포넌트 추가
  * 2026.03.12  임도헌   Modified  중첩 에러를 재귀 수집해 상위 3개만 노출하는 요약 규칙 명확화
  * 2026.03.25  임도헌   Modified  인증 화면에서 필드 에러와 함께 보일 때 부담이 덜하도록 배너 밀도와 톤을 완화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 배너 제목/본문 크기와 weight를 정리
  */
 
 "use client";
@@ -59,8 +60,8 @@ export default function FormErrorSummary<TFieldValues extends FieldValues>({
       aria-live="assertive"
       className="rounded-xl border border-danger/20 bg-danger/[0.06] px-4 py-2.5 text-danger dark:bg-danger/[0.08]"
     >
-      <p className="text-[0.95rem] font-semibold">{title}</p>
-      <ul className="mt-1 space-y-0.5 text-[0.82rem] sm:text-sm">
+      <p className="text-base font-medium">{title}</p>
+      <ul className="mt-1 space-y-0.5 text-sm">
         {messages.map((message) => (
           <li key={message}>{message}</li>
         ))}

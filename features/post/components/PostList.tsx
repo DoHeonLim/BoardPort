@@ -22,15 +22,20 @@
  * 2026.03.12  임도헌   Modified  게시글 뷰 토글 외곽선을 border-border-subtle 톤으로 통일
  * 2026.03.14  임도헌   Modified  첫 페이지 totalCount를 활용해 총 게시글 수와 뷰 토글을 같은 헤더 row로 정리
  * 2026.03.26  임도헌   Modified  리스트 뷰 본문 폭과 헤더 간격을 조정해 게시글 카드 리듬을 정리
+ * 2026.04.14  임도헌   Modified  현재 목록 경로(returnTo) 계산을 상위 리스트로 승격해 카드별 훅 비용을 줄임
+ * 2026.04.14  임도헌   Modified  상단 3개 게시글 카드까지 우선 로드해 실제 LCP 후보를 lazy 대상에서 제외
+ * 2026.04.14  임도헌   Modified  LCP 우선 로드 카드 수 상수를 모듈 상단으로 분리하고 파생값 구간을 역할별로 정리
  */
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostCard from "@/features/post/components/postCard";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { PostSearchParams } from "@/features/post/types";
 import { cn } from "@/lib/utils";
@@ -39,6 +44,8 @@ interface PostListProps {
   searchParams: PostSearchParams;
   queryKeyExtra?: unknown;
 }
+
+const LCP_PRIORITY_CARD_COUNT = 3;
 
 /**
  * 게시글 목록 렌더링 컴포넌트
@@ -58,6 +65,8 @@ export default function PostList({
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
   const triggerRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
 
   // Suspense에 의해 data 보장
   const { posts, totalCount, isFetchingNextPage, hasMore, loadMore } =
@@ -66,7 +75,12 @@ export default function PostList({
       queryKeyExtra,
     });
 
+  // 렌더링용 파생값의 훅 호출 아래 1회 계산
   const displayCount = totalCount ?? posts.length;
+  const returnTo = useMemo(() => {
+    const next = currentSearchParams.toString();
+    return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
+  }, [pathname, currentSearchParams]);
 
   useInfiniteScroll({
     triggerRef,
@@ -92,7 +106,7 @@ export default function PostList({
           <button
             onClick={() => setViewMode("list")}
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "list"
                 ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                 : "text-muted hover:bg-background/70 hover:text-primary"
@@ -104,7 +118,7 @@ export default function PostList({
           <button
             onClick={() => setViewMode("grid")}
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "grid"
                 ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                 : "text-muted hover:bg-background/70 hover:text-primary"
@@ -124,8 +138,14 @@ export default function PostList({
             : "mx-auto grid max-w-4xl grid-cols-1 gap-3 sm:gap-4"
         )}
       >
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} viewMode={viewMode} />
+        {posts.map((post, index) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            viewMode={viewMode}
+            isPriority={index < LCP_PRIORITY_CARD_COUNT}
+            returnTo={returnTo}
+          />
         ))}
       </div>
 

@@ -20,6 +20,7 @@
  * 2026.04.03  임도헌   Modified  메시지 hard delete를 soft delete로 전환해 삭제 placeholder를 지원
  * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지 등록/수정/해제 서비스 추가
  * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 대상 목록 조회 서비스 추가
+ * 2026.04.07  임도헌   Modified  방송 제목/설명 수정 실시간 동기화 브로드캐스트 추가
  */
 
 import "server-only";
@@ -30,7 +31,7 @@ import { isUniqueConstraintError } from "@/lib/errors";
 import type { StreamChatMessage } from "@/features/chat/types";
 
 /**
- * 방송(Broadcast) 1:1 채팅방 생성
+ * 방송(Broadcast) 전용 채팅방 생성
  * - 이미 존재하면 해당 방 ID를 반환 (Idempotent).
  * - 동시성 문제(Unique Constraint) 발생 시 조회 후 반환으로 fallback 처리
  *
@@ -567,6 +568,36 @@ export const updatePinnedChatNotice = async (
   } catch (e) {
     console.error("[updatePinnedChatNotice] error:", e);
     return { success: false, error: "UPDATE_FAILED" };
+  }
+};
+
+/**
+ * 방송 제목/설명 수정 결과를 현재 채팅방 참여자에게 실시간 전파
+ * - 이미 스트림 상세에 열려 있는 시청자는 새로고침 없이 제목/설명을 즉시 갱신
+ *
+ * @param {number} broadcastId - 방송 ID
+ * @param {string} title - 최신 방송 제목
+ * @param {string | null} description - 최신 방송 설명
+ */
+export const broadcastStreamMetaUpdated = async (
+  broadcastId: number,
+  title: string,
+  description: string | null
+) => {
+  try {
+    const room = await getStreamChatRoom(broadcastId);
+    if (!room?.id) return;
+
+    await supabase.channel(`room-${room.id}`).send({
+      type: "broadcast",
+      event: "stream_meta_updated",
+      payload: {
+        title,
+        description,
+      },
+    });
+  } catch (e) {
+    console.error("[broadcastStreamMetaUpdated] error:", e);
   }
 };
 

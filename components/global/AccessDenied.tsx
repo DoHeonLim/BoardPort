@@ -21,6 +21,8 @@
  * 2026.03.18  임도헌   Modified  FOLLOWERS_ONLY CTA를 실제 세션 기준으로 분기하고, callbackUrl/returnTo 복원 + 도메인별 목록 fallback으로 403 복귀 문맥을 통합 정리
  * 2026.03.23  임도헌   Modified  금지 상태 상세 카드와 내부 구분선을 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.04.04  임도헌   Modified  helper/props 설명을 보강해 사유별 복귀 문맥과 CTA 분기 의도를 더 명확히 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 접근 거부 안내 강조 텍스트를 500 기준으로 정리
+ * 2026.04.20  임도헌   Modified  팔로워 전용 CTA가 버튼 폭 안에서 자연스럽게 줄바꿈되도록 문구 배치를 정리
  */
 
 "use client";
@@ -161,7 +163,7 @@ export default function AccessDenied({
         {reason === "BLOCKED" && (
           <>
             <p className="state-description">
-              <span className="font-semibold text-primary">@{username}</span>
+              <span className="font-medium text-primary">@{username}</span>
               님과 차단 관계가 설정되어 있어 페이지에 접근할 수 없습니다.
             </p>
             <div className="state-actions">
@@ -184,7 +186,7 @@ export default function AccessDenied({
         {reason === "FOLLOWERS_ONLY" && (
           <>
             <p className="state-description">
-              <span className="font-semibold text-primary">@{username}</span>
+              <span className="font-medium text-primary">@{username}</span>
               님의 방송은{" "}
               <span className="font-medium text-indigo-500">팔로워 전용</span>
               입니다.
@@ -196,7 +198,14 @@ export default function AccessDenied({
                   disabled={pending}
                   className="btn-primary min-h-[44px] w-full"
                 >
-                  {pending ? "처리 중..." : "팔로우하고 입장하기"}
+                  {pending ? (
+                    "처리 중..."
+                  ) : (
+                    <span className="flex flex-col items-center leading-tight">
+                      <span>팔로우하고</span>
+                      <span>입장하기</span>
+                    </span>
+                  )}
                 </button>
               ) : (
                 <button
@@ -228,7 +237,7 @@ export default function AccessDenied({
         {reason === "PRIVATE" && (
           <>
             <p className="state-description">
-              <span className="font-semibold text-primary">@{username}</span>
+              <span className="font-medium text-primary">@{username}</span>
               님의 방송은{" "}
               <span className="font-medium text-amber-500">비밀번호</span>가
               필요합니다.

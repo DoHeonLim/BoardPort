@@ -11,6 +11,7 @@
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서 가격/상태 배지 밀도를 조정
  * 2026.03.12  임도헌   Modified  카드 상태 배지를 시맨틱 토큰 기반 톤으로 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 가격과 상태 배지의 타이포 스케일을 정리
  */
 
 import { cn } from "@/lib/utils";
@@ -43,14 +44,13 @@ export default function ProductCardPrice({
       <span
         className={cn(
           "font-bold text-brand dark:text-brand-light",
-          isGrid ? "text-[15px] sm:text-lg" : "text-base sm:text-lg"
+          "text-base sm:text-lg"
         )}
       >
         {formatToWon(price)}
         <span
           className={cn(
-            "font-normal ml-0.5 text-primary",
-            isGrid ? "text-[11px] sm:text-sm" : "text-xs sm:text-sm"
+            "ml-0.5 text-xs font-normal text-primary sm:text-sm"
           )}
         >
           원
@@ -58,12 +58,12 @@ export default function ProductCardPrice({
       </span>
 
       {isSold && (
-        <span className="inline-flex items-center rounded bg-surface-dim px-1.5 py-0.5 text-[9px] font-bold text-muted sm:text-[10px]">
+        <span className="inline-flex items-center rounded bg-surface-dim px-1.5 py-0.5 text-xs font-bold text-muted">
           판매완료
         </span>
       )}
       {isReserved && (
-        <span className="inline-flex items-center rounded bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand dark:bg-brand-light/15 dark:text-brand-light sm:text-[10px]">
+        <span className="inline-flex items-center rounded border border-brand/20 bg-brand/15 px-1.5 py-0.5 text-xs font-bold text-brand-dark dark:border-brand-light/25 dark:bg-brand-light/20 dark:text-gray-100">
           예약중
         </span>
       )}

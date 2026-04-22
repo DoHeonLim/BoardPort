@@ -13,6 +13,7 @@
  * 2026.03.18  임도헌   Modified  차단 후 복귀 경로를 정규화하고 이동 흐름의 중복 router.refresh를 제거해 안전성과 재요청 비용을 함께 정리
  * 2026.03.23  임도헌   Modified  데스크톱 옵션 메뉴 셸과 내부 구분선을 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.04.03  임도헌   Modified  판매자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
+ * 2026.04.14  임도헌   Modified  버튼 type 명시와 주석 정리로 상세 상단 옵션 메뉴의 안전성을 보강
  */
 "use client";
 
@@ -36,7 +37,7 @@ const ReportModal = dynamic(
   { ssr: false }
 );
 
-interface productOptionMenuProps {
+interface ProductOptionMenuProps {
   productId: number;
   sellerId: number;
   sellerName: string;
@@ -55,7 +56,7 @@ export default function ProductOptionMenu({
   productId,
   sellerId,
   sellerName,
-}: productOptionMenuProps) {
+}: ProductOptionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
@@ -104,11 +105,12 @@ export default function ProductOptionMenu({
   return (
     <div className="relative" ref={menuRef}>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="상품 옵션 열기"
         aria-expanded={isOpen}
         aria-haspopup={isMobile ? "dialog" : "menu"}
-        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+        className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
       >
         <EllipsisVerticalIcon className="size-6" />
       </button>
@@ -119,23 +121,25 @@ export default function ProductOptionMenu({
           className="absolute right-0 mt-2 w-44 bg-surface rounded-xl shadow-xl border border-border-subtle z-50 overflow-hidden"
         >
           <button
+            type="button"
             onClick={() => {
               setIsOpen(false);
               setBlockConfirmOpen(true);
             }}
             role="menuitem"
-            className="w-full text-left px-4 py-3 text-sm font-medium text-danger hover:bg-danger/10 dark:hover:bg-danger/20 flex items-center gap-2"
+            className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
           >
             <UserMinusIcon className="size-4" />
             판매자 차단하기
           </button>
           <button
+            type="button"
             onClick={() => {
               setIsOpen(false);
               setReportOpen(true);
             }}
             role="menuitem"
-            className="w-full text-left px-4 py-3 text-sm font-medium text-primary hover:bg-surface-dim flex items-center gap-2 border-t border-border-subtle"
+            className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
           >
             <ExclamationTriangleIcon className="size-4" />
             상품 신고하기
@@ -156,7 +160,7 @@ export default function ProductOptionMenu({
               setIsOpen(false);
               setBlockConfirmOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
           >
             <UserMinusIcon className="size-5 shrink-0" />
             판매자 차단하기
@@ -167,7 +171,7 @@ export default function ProductOptionMenu({
               setIsOpen(false);
               setReportOpen(true);
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             <ExclamationTriangleIcon className="size-5 shrink-0" />
             상품 신고하기

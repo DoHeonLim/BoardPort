@@ -11,6 +11,7 @@
  * 2026.03.17  임도헌   Modified  브라우저 개입을 줄인 상단 인디케이터 기반 단순 구조로 재정리
  * 2026.03.17  임도헌   Modified  래퍼 내부 상대좌표와 화면 높이 비례 시작 영역을 사용해 상단 요약/첫 카드 영역까지 자연스럽게 확장
  * 2026.03.17  임도헌   Modified  문서 스크롤 소스를 통일해 최상단 판정과 모바일 hideable header 동작을 일관화
+ * 2026.04.13  임도헌   Modified  CLS 민감 페이지에서 기능을 끌 수 있도록 enabled 옵션 추가 및 인디케이터 비활성 시 DOM 마운트 제거
  */
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
@@ -28,6 +29,7 @@ const PULL_START_SLOP = 12;
 interface PullToRefreshProps {
   children: ReactNode;
   className?: string;
+  enabled?: boolean;
 }
 
 /**
@@ -42,6 +44,7 @@ interface PullToRefreshProps {
 export default function PullToRefresh({
   children,
   className,
+  enabled = true,
 }: PullToRefreshProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -84,6 +87,7 @@ export default function PullToRefresh({
   /** pull-to-refresh 후보 제스처 시작 */
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (typeof window === "undefined") return;
+    if (!enabled) return;
     if (window.innerWidth >= 768) return;
     if (isRefreshing) return;
     if (getScrollTop() > 0) return;
@@ -106,6 +110,7 @@ export default function PullToRefresh({
   /** pull 거리 계산 */
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     if (typeof window === "undefined") return;
+    if (!enabled) return;
     if (!draggingRef.current || startYRef.current == null) return;
     if (window.innerWidth >= 768) return;
     if (getScrollTop() > 0) {
@@ -143,6 +148,7 @@ export default function PullToRefresh({
 
   /** pull 완료 시 새로고침 실행 */
   const handleTouchEnd = () => {
+    if (!enabled) return;
     if (!draggingRef.current) return;
 
     draggingRef.current = false;
@@ -184,37 +190,36 @@ export default function PullToRefresh({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
-      <div
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center transition-opacity duration-200 md:hidden",
-          indicatorVisible ? "opacity-100" : "opacity-0"
-        )}
-        style={{
-          transform: `translateY(${Math.max(8, pullDistance * 0.4)}px)`,
-        }}
-      >
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/95 px-3 py-1.5 text-xs font-medium text-muted shadow-sm backdrop-blur-sm">
-          <ArrowPathIcon
-            className={cn(
-              "size-4 transition-transform duration-200",
-              isRefreshing ? "animate-spin" : ""
-            )}
-            style={{
-              transform: isRefreshing
-                ? undefined
-                : `rotate(${progress * 180}deg)`,
-            }}
-          />
-          <span>
-            {isRefreshing
-              ? "새로고침 중..."
-              : pullDistance >= PULL_THRESHOLD
-                ? "손을 떼면 새로고침"
-                : "아래로 당겨 새로고침"}
-          </span>
+      {indicatorVisible ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center transition-opacity duration-200 md:hidden"
+          style={{
+            transform: `translateY(${Math.max(8, pullDistance * 0.4)}px)`,
+          }}
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/95 px-3 py-1.5 text-xs font-medium text-muted shadow-sm backdrop-blur-sm">
+            <ArrowPathIcon
+              className={cn(
+                "size-4 transition-transform duration-200",
+                isRefreshing ? "animate-spin" : ""
+              )}
+              style={{
+                transform: isRefreshing
+                  ? undefined
+                  : `rotate(${progress * 180}deg)`,
+              }}
+            />
+            <span>
+              {isRefreshing
+                ? "새로고침 중..."
+                : pullDistance >= PULL_THRESHOLD
+                  ? "손을 떼면 새로고침"
+                  : "아래로 당겨 새로고침"}
+            </span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {children}
     </div>

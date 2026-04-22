@@ -78,7 +78,7 @@ export default function AdminBarChart({ items }: AdminBarChartProps) {
             axisLine: { show: false },
             axisLabel: {
               color: theme.textPrimary,
-              fontWeight: 600,
+              fontWeight: 500,
               fontSize: 12,
             },
           },

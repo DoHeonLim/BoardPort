@@ -16,6 +16,7 @@
  * 2026.03.14  임도헌   Modified  기본 Empty State 문구를 등대방송 톤에 맞게 가볍게 다듬되 기능 중심 흐름은 유지
  * 2026.03.28  임도헌   Modified  검색 empty state 문법을 제품/게시글과 통일하고 검색어는 보조 문구로 재배치
  * 2026.03.28  임도헌   Modified  스트림 모드(라이브/다시보기)에 따라 제목/설명/CTA를 분기하도록 확장
+ * 2026.04.16  임도헌   Modified  빈 상태 CTA 링크 자동 prefetch를 끄고 실제 선택 시 이동하도록 정리
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
@@ -31,6 +32,7 @@ interface Props {
 /**
  * 스트리밍 목록이 비어있을 때 표시되는 UI
  * 검색어, 카테고리, 팔로잉 스코프 여부에 따라 적절한 안내 메시지를 표시
+ * 빈 상태 CTA는 목록 최초 렌더 비용을 키우지 않도록 모두 의도 기반 이동으로만 동작
  */
 export default function StreamEmptyState({
   keyword,
@@ -64,7 +66,9 @@ export default function StreamEmptyState({
       ? `팔로잉 중인 ${isRecordingMode ? "다시보기" : "방송"}이 없어 다른 카테고리나 전체 목록을 확인해보세요.`
       : "다른 카테고리를 확인해보세요.";
   } else if (isFollowingScope) {
-    title = isRecordingMode ? "팔로잉 다시보기가 없습니다." : "팔로잉 방송이 없습니다.";
+    title = isRecordingMode
+      ? "팔로잉 다시보기가 없습니다."
+      : "팔로잉 방송이 없습니다.";
     description = isRecordingMode
       ? "관심 있는 스트리머를 팔로우해 지난 방송과 새 신호를 함께 받아보세요."
       : "관심 있는 스트리머를 팔로우해 새 신호를 받아보세요.";
@@ -91,6 +95,7 @@ export default function StreamEmptyState({
           {!hasKeyword && !hasCategory && !isFollowingScope && (
             <Link
               href={isRecordingMode ? "/streams?mode=live" : "/streams/add"}
+              prefetch={false}
               className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
             >
               {isRecordingMode ? "라이브 보러가기" : "방송 시작하기"}
@@ -99,6 +104,7 @@ export default function StreamEmptyState({
           {(hasKeyword || hasCategory) && (
             <Link
               href={isRecordingMode ? "/streams?mode=recordings" : "/streams"}
+              prefetch={false}
               className="btn-secondary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
             >
               전체 목록 보기
@@ -107,6 +113,7 @@ export default function StreamEmptyState({
           {isFollowingScope && (
             <Link
               href={isRecordingMode ? "/streams?mode=recordings" : "/streams"}
+              prefetch={false}
               className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
             >
               {isRecordingMode ? "전체 다시보기 보기" : "전체 방송 보기"}

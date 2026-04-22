@@ -14,27 +14,34 @@
  * 2026.03.25  임도헌   Modified  데스크톱 헤더 요약 박스와 초기화 액션 존재감을 낮춰 목록보다 크롬이 먼저 튀지 않도록 polish
  * 2026.04.02  임도헌   Modified  데스크톱 헤더 JSDoc 보강
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.13  임도헌   Modified  검색 모달을 동적 로딩으로 전환해 products 헤더 초기 JS 평가 부담을 완화
+ * 2026.04.13  임도헌   Modified  모바일/데스크톱 헤더와 중복되던 검색/필터 상태 로직을 공통 훅으로 정리
+ * 2026.04.17  임도헌   Modified  데스크톱 제품 헤더의 상품 검색 버튼 스타일을 정리
+ * 2026.04.20  임도헌   Modified  다크 모드에서도 상품 검색 트리거 포커스 톤이 다른 헤더 액션과 일관되도록 공용 포커스 유틸을 적용
+ * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 데스크톱 헤더 노출 기준을 맞춰 640~767px 구간 레이아웃 mismatch 정리
  */
 "use client";
 
-import { useState } from "react";
+import dynamic from "next/dynamic";
 import { XMarkIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import ProductCategoryDropdown from "@/features/search/components/ProductCategoryDropdown";
 import ClientFilterWrapper from "@/features/search/components/ClientFilterWrapper";
 import RegionFilterToggle from "@/features/search/components/RegionFilterToggle";
 import NotificationBell from "@/components/global/NotificationBell";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
-import SearchModal from "@/features/search/components/SearchModal";
-import { useSearchHistory } from "@/features/search/hooks/useSearchHistory";
-import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
+import { useProductHeaderState } from "@/features/product/hooks/useProductHeaderState";
 import type {
   PopularSearchItem,
   SearchHistoryItem,
 } from "@/features/search/types";
-import { getProductHeaderSummary } from "@/features/product/utils/getProductHeaderSummary";
 import type { Category } from "@/generated/prisma/client";
 import type { FilterState } from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
+
+const SearchModal = dynamic(
+  () => import("@/features/search/components/SearchModal"),
+  { loading: () => null }
+);
 
 interface ProductDesktopHeaderProps {
   categories: Category[];
@@ -75,37 +82,26 @@ export default function ProductDesktopHeader({
   currentRange,
   fullLocation,
 }: ProductDesktopHeaderProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { resetFilterParams, updateKeyword } = useSearchParamsUtils();
   const {
-    history: localSearchHistory,
-    addHistory,
+    isSearchOpen,
+    setIsSearchOpen,
+    handleSearch,
+    filterSummary,
+    hasActiveFilters,
+    resetFilterParams,
+    localSearchHistory,
     removeHistory,
     clearHistory,
-  } = useSearchHistory(searchHistory);
-
-  const { summary: filterSummary } = getProductHeaderSummary({
+  } = useProductHeaderState({
     categories,
     filters,
     keyword,
+    searchHistory,
   });
-  const hasActiveFilters = Boolean(
-    filters.category ||
-    filters.minPrice ||
-    filters.maxPrice ||
-    filters.game_type ||
-    filters.condition
-  );
-
-  const handleSearch = (nextKeyword: string) => {
-    addHistory(nextKeyword);
-    updateKeyword(nextKeyword);
-    setIsSearchOpen(false);
-  };
 
   return (
     <>
-      <header className="sticky top-0 z-30 hidden border-b border-border-subtle bg-background md:block">
+      <header className="sticky top-0 z-30 hidden border-b border-border-subtle bg-background sm:block">
         <div className="mx-auto max-w-5xl px-5 pt-3 pb-3 lg:px-6">
           <div className="flex items-center gap-3 py-1">
             <div className="shrink-0">
@@ -128,8 +124,7 @@ export default function ProductDesktopHeader({
             <button
               type="button"
               onClick={() => setIsSearchOpen(true)}
-              aria-label="검색창 열기"
-              className="flex h-11 min-w-0 flex-1 items-center gap-3 rounded-2xl border border-border bg-surface-dim px-4 text-sm text-muted transition-colors hover:bg-surface"
+              className="searchbar-compact-trigger focus-ring-soft min-w-0 flex-1 gap-3 px-4"
             >
               <MagnifyingGlassIcon className="size-5 shrink-0 text-muted" />
               <span className="truncate text-left">
@@ -147,7 +142,6 @@ export default function ProductDesktopHeader({
               <ProductCategoryDropdown categories={categories} tone="neutral" />
             </div>
 
-            {/* 필터 요약 박스 — 활성 필터 있을 때 X 버튼 내장 */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center rounded-2xl border border-border-subtle bg-surface px-4 py-2.5">
                 <p className="min-w-0 flex-1 truncate text-sm font-medium text-muted/90">
@@ -158,7 +152,7 @@ export default function ProductDesktopHeader({
                     type="button"
                     onClick={resetFilterParams}
                     aria-label="필터 초기화 (검색어 유지)"
-                    className="ml-2 shrink-0 rounded-full p-0.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+                    className="focus-ring-soft ml-2 shrink-0 rounded-full p-0.5 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
                   >
                     <XMarkIcon className="size-4" />
                   </button>

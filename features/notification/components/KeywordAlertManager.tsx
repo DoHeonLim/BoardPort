@@ -14,6 +14,7 @@
  * 2026.03.16  임도헌   Modified  모달 재사용을 위해 비접기 모드와 즉시 refresh 동기화 지원 추가
  * 2026.03.19  임도헌   Modified  모바일에서 Select/입력 폼 줄바꿈을 허용해 좁은 폭 모달의 정보 밀도를 완화
  * 2026.03.22  임도헌   Modified  지역 범위 Select 고정 폭을 제거해 좁은 폭 설정 화면 밀도 완화
+ * 2026.04.18  임도헌   Modified  모바일 키워드 입력 바가 한 줄 안에서 안정적으로 보이도록 입력/추가 버튼 배치를 재정리
  */
 
 "use client";
@@ -73,7 +74,7 @@ export default function KeywordAlertManager({
   const hasDistinctGu =
     !!userLocation.region2 && userLocation.region2 !== userLocation.region1;
 
-  //  DB의 range값이 유저의 실제 데이터와 맞지 않을 경우를 대비한 안전한 Fallback
+  // DB 저장값과 실제 지역 데이터 불일치 대비 기본 범위 보정
   const safeInitialRange: RegionRange =
     dbRange === "DONG" && !userLocation.region3
       ? "GU"
@@ -93,6 +94,9 @@ export default function KeywordAlertManager({
     setIsExpanded(defaultExpanded);
   }, [defaultExpanded]);
 
+  /**
+   * 키워드 등록 요청과 목록 새로고침
+   */
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const val = keyword.trim();
@@ -105,6 +109,7 @@ export default function KeywordAlertManager({
     startTransition(async () => {
       const res = await addKeywordAction(val, selectedRange);
       if (res.success) {
+        // 등록 성공 뒤 입력 초기화와 목록 재동기화
         toast.success(`'${val}' 알림이 등록되었습니다.`);
         setKeyword("");
         router.refresh();
@@ -137,7 +142,7 @@ export default function KeywordAlertManager({
             <button
               type="button"
               onClick={() => setIsExpanded(false)}
-              className="inline-flex shrink-0 items-center justify-center rounded-full p-1 text-muted hover:bg-surface-dim hover:text-primary"
+              className="focus-ring-soft inline-flex shrink-0 items-center justify-center rounded-full p-1 text-muted hover:bg-surface-dim hover:text-primary"
               aria-label="키워드 관리 접기"
             >
               <ChevronUpIcon className="size-5" />
@@ -146,7 +151,7 @@ export default function KeywordAlertManager({
             <button
               type="button"
               onClick={() => setIsExpanded(true)}
-              className="inline-flex shrink-0 items-center justify-center rounded-full p-1 text-muted hover:bg-surface-dim hover:text-primary"
+              className="focus-ring-soft inline-flex shrink-0 items-center justify-center rounded-full p-1 text-muted hover:bg-surface-dim hover:text-primary"
               aria-label="키워드 관리 펼치기"
             >
               <ChevronDownIcon className="size-5" />
@@ -165,6 +170,7 @@ export default function KeywordAlertManager({
                 }
                 className="h-10 text-xs font-medium"
               >
+                {/* 유저 지역 데이터 기준 범위 옵션 노출 */}
                 {userLocation.region3 && (
                   <option value="DONG">동 ({userLocation.region3})</option>
                 )}
@@ -178,19 +184,20 @@ export default function KeywordAlertManager({
               </Select>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex items-stretch gap-2">
               <input
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder="관심 있는 물품 키워드"
-                className="input-primary h-10 flex-1 border-none bg-surface-dim px-4 text-sm"
+                className="input-primary h-10 min-w-0 flex-1 border-none bg-surface-dim px-4 text-sm"
                 disabled={isPending}
               />
               <button
                 type="submit"
                 disabled={isPending || !keyword.trim()}
-                className="btn-primary flex h-10 shrink-0 items-center justify-center px-4 sm:w-auto"
+                className="btn-primary flex h-10 w-12 shrink-0 items-center justify-center rounded-xl px-0"
+                aria-label="키워드 추가"
               >
                 {isPending ? (
                   <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-gray-900/30 dark:border-t-gray-900" />

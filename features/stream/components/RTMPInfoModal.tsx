@@ -25,9 +25,10 @@
  * 2026.03.24  임도헌   Modified  사용자 혼란을 줄이기 위해 RTMP 모달에서는 송출 정보 삭제 UI를 제거하고 재발급 중심 흐름으로 정리
  * 2026.03.24  임도헌   Modified  iPhone SE급 작은 화면에서도 모달이 잘리지 않도록 상단 정렬/내부 스크롤과 모바일 간격을 보정
  * 2026.03.27  임도헌   Modified  생성 완료 후 상세 이동은 replace + returnTo=/streams로 통일해 뒤로가기가 생성 폼으로 복귀하지 않도록 정리
+ * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 송출 정보 확인 흐름을 하단 시트로 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 주요 CTA weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import React, {
   useEffect,
@@ -38,6 +39,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import BottomSheet from "@/components/global/BottomSheet";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import {
@@ -52,6 +54,7 @@ import {
 import { cn } from "@/lib/utils";
 import { deleteBroadcastAction } from "@/features/stream/actions/delete";
 import { rotateLiveInputKeyAction } from "@/features/stream/actions/key";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface RTMPInfoModalProps {
   open: boolean;
@@ -83,6 +86,7 @@ export default function RTMPInfoModal({
   liveInputId,
   broadcastId,
 }: RTMPInfoModalProps) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   // 패널 참조 (포커스 트랩 등에서 사용)
   const panelRef = useRef<HTMLDivElement>(null);
@@ -124,6 +128,7 @@ export default function RTMPInfoModal({
   // 열릴 때 첫 포커스 + 바디 스크롤 잠금
   useEffect(() => {
     if (!open) return;
+    if (isMobile) return;
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => firstFocusRef.current?.focus(), 0);
     lockBodyScroll();
@@ -132,11 +137,12 @@ export default function RTMPInfoModal({
       unlockBodyScroll();
       previousFocusRef.current?.focus?.();
     };
-  }, [open]);
+  }, [open, isMobile]);
 
   // ESC / Tab Trap -> Escape는 닫기 확인 로직(requestClose)으로 연결
   useEffect(() => {
     if (!open) return;
+    if (isMobile) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         requestClose();
@@ -166,7 +172,7 @@ export default function RTMPInfoModal({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, isMobile]);
 
   const copy = async (text: string, which: "url" | "key") => {
     try {
@@ -264,6 +270,185 @@ export default function RTMPInfoModal({
 
   const closingCancelsBroadcast = !!broadcastId;
   const hasNestedConfirmOpen = closeConfirmOpen;
+  const handleMoveToBroadcast = () => {
+    if (!broadcastId) return;
+    navigatedToBroadcastRef.current = true;
+    setCloseConfirmOpen(false);
+    onOpenChange(false);
+    router.replace(
+      `/streams/${broadcastId}?returnTo=${encodeURIComponent("/streams")}`
+    );
+  };
+
+  const content = (
+    <>
+      <p className="mb-4 text-sm leading-6 text-muted sm:mb-6">
+        아래 정보를 OBS 등 방송 소프트웨어에 입력하세요.{" "}
+        <span className="font-medium text-danger">
+          스트림 키는 절대 공유하지 마세요.
+        </span>
+      </p>
+
+      <div className="mb-4 space-y-2 sm:mb-5">
+        <label className="text-sm font-medium text-primary">RTMP URL</label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <code className="flex-1 break-all rounded-xl border border-border bg-surface-dim px-4 py-3 text-sm font-mono text-primary">
+            {rtmpUrlState}
+          </code>
+          <button
+            type="button"
+            ref={firstFocusRef}
+            onClick={() => copy(rtmpUrlState, "url")}
+            className={cn(
+              "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
+              "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:shrink-0"
+            )}
+          >
+            {copiedUrl ? (
+              <span className="flex items-center gap-1 text-brand dark:text-brand-light">
+                <CheckIcon className="size-4" /> 복사됨
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <ClipboardIcon className="size-4" /> 복사
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-primary">스트림 키</label>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-dim px-4 py-3">
+            <code className="flex-1 break-all text-sm font-mono text-primary">
+              {showKey ? streamKeyState : maskedKey}
+            </code>
+            <button
+              type="button"
+              onClick={() => setShowKey((v) => !v)}
+              aria-label={showKey ? "스트림 키 숨기기" : "스트림 키 보기"}
+              className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-primary"
+              title={showKey ? "숨기기" : "보기"}
+            >
+              {showKey ? (
+                <EyeSlashIcon className="size-5" />
+              ) : (
+                <EyeIcon className="size-5" />
+              )}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+            <button
+              type="button"
+              onClick={() => copy(streamKeyState, "key")}
+              className={cn(
+                "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
+                "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+              disabled={!streamKeyState}
+            >
+              {copiedKey ? (
+                <span className="flex items-center gap-1 text-brand dark:text-brand-light">
+                  <CheckIcon className="size-4" /> 복사됨
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <ClipboardIcon className="size-4" /> 복사
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRotate}
+              disabled={isRotating}
+              aria-label="스트림 키 재발급"
+              className={cn(
+                "focus-ring-soft inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-amber-600 transition-colors",
+                "hover:bg-amber-500/10 dark:text-amber-400"
+              )}
+              title="키 재발급"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <ArrowPathIcon
+                  className={cn("size-4", isRotating && "animate-spin")}
+                />
+                재발급
+              </span>
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-muted">
+          * 키가 유출되었다면 재발급하세요. (기존 키 즉시 만료)
+        </p>
+      </div>
+
+      <div className="mt-6 space-y-3 border-t border-border-subtle pt-4 sm:mt-8 sm:space-y-4">
+        {closingCancelsBroadcast ? (
+          <p className="text-xs leading-5 text-muted">
+            이 창을 닫으면 방금 만든 방송이 취소됩니다. 스트림 키가 유출되었을
+            때는 위에서 재발급을 사용하세요.
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+
+  const footer = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        onClick={handleClose}
+        className={cn(
+          "focus-ring-soft h-11 rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
+          "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
+        )}
+        disabled={isDeleting}
+      >
+        {closingCancelsBroadcast ? "생성 취소하고 닫기" : "닫기"}
+      </button>
+
+      <button
+        type="button"
+        onClick={handleMoveToBroadcast}
+        disabled={!broadcastId}
+        className="focus-ring-strong inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[188px]"
+      >
+        <span>방송 페이지로 이동</span>
+        <ArrowTopRightOnSquareIcon className="size-4" />
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <BottomSheet
+          open={open}
+          title="방송 송출 정보"
+          description="OBS 등 방송 소프트웨어에 아래 RTMP URL과 스트림 키를 입력하세요."
+          onClose={hasNestedConfirmOpen ? () => {} : requestClose}
+          contentClassName="pt-4"
+          footer={footer}
+        >
+          {content}
+        </BottomSheet>
+
+        <ConfirmDialog
+          open={closeConfirmOpen}
+          title="생성한 방송 취소"
+          description="이 창을 닫으면 방금 만든 방송이 취소됩니다. 계속할까요?"
+          confirmLabel="생성 취소"
+          cancelLabel="돌아가기"
+          onConfirm={handleClose}
+          onCancel={() => setCloseConfirmOpen(false)}
+          loading={isDeleting}
+        />
+      </>
+    );
+  }
 
   return (
     <div
@@ -291,160 +476,14 @@ export default function RTMPInfoModal({
               onClick={requestClose}
               aria-label="송출 정보 모달 닫기"
               title="닫기"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isDeleting}
             >
               <XMarkIcon className="size-6" />
             </button>
           </div>
-
-          <p className="mb-4 text-sm leading-6 text-muted sm:mb-6">
-            아래 정보를 OBS 등 방송 소프트웨어에 입력하세요.{" "}
-            <span className="text-danger font-medium">
-              스트림 키는 절대 공유하지 마세요.
-            </span>
-          </p>
-
-          {/* RTMP URL */}
-          <div className="mb-4 space-y-2 sm:mb-5">
-            <label className="text-sm font-medium text-primary">RTMP URL</label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <code className="flex-1 rounded-xl border border-border bg-surface-dim px-4 py-3 text-sm font-mono text-primary break-all">
-                {rtmpUrlState}
-              </code>
-              <button
-                type="button"
-                ref={firstFocusRef}
-                onClick={() => copy(rtmpUrlState, "url")}
-                className={cn(
-                  "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
-                  "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:shrink-0"
-                )}
-              >
-                {copiedUrl ? (
-                  <span className="flex items-center gap-1 text-brand dark:text-brand-light">
-                    <CheckIcon className="size-4" /> 복사됨
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1">
-                    <ClipboardIcon className="size-4" /> 복사
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Stream Key */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-primary">
-              스트림 키
-            </label>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-dim px-4 py-3">
-                <code className="flex-1 text-sm font-mono text-primary break-all">
-                  {showKey ? streamKeyState : maskedKey}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => setShowKey((v) => !v)}
-                  aria-label={showKey ? "스트림 키 숨기기" : "스트림 키 보기"}
-                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-primary"
-                  title={showKey ? "숨기기" : "보기"}
-                >
-                  {showKey ? (
-                    <EyeSlashIcon className="size-5" />
-                  ) : (
-                    <EyeIcon className="size-5" />
-                  )}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => copy(streamKeyState, "key")}
-                  className={cn(
-                    "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
-                    "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
-                  )}
-                  disabled={!streamKeyState}
-                >
-                  {copiedKey ? (
-                    <span className="flex items-center gap-1 text-brand dark:text-brand-light">
-                      <CheckIcon className="size-4" /> 복사됨
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <ClipboardIcon className="size-4" /> 복사
-                    </span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleRotate}
-                  disabled={isRotating}
-                  aria-label="스트림 키 재발급"
-                  className={cn(
-                    "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-amber-600 transition-colors",
-                    "hover:bg-amber-500/10 dark:text-amber-400"
-                  )}
-                  title="키 재발급"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <ArrowPathIcon
-                      className={cn("size-4", isRotating && "animate-spin")}
-                    />
-                    재발급
-                  </span>
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-muted">
-              * 키가 유출되었다면 재발급하세요. (기존 키 즉시 만료)
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="mt-6 space-y-3 border-t border-border-subtle pt-4 sm:mt-8 sm:space-y-4">
-            {closingCancelsBroadcast ? (
-              <p className="text-xs leading-5 text-muted">
-                이 창을 닫으면 방금 만든 방송이 취소됩니다. 스트림 키가
-                유출되었을 때는 위에서 재발급을 사용하세요.
-              </p>
-            ) : null}
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={handleClose}
-                className={cn(
-                  "h-11 rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
-                  "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
-                )}
-                disabled={isDeleting}
-              >
-                {closingCancelsBroadcast ? "생성 취소하고 닫기" : "닫기"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!broadcastId) return;
-                  navigatedToBroadcastRef.current = true;
-                  setCloseConfirmOpen(false);
-                  onOpenChange(false);
-                  router.replace(
-                    `/streams/${broadcastId}?returnTo=${encodeURIComponent("/streams")}`
-                  );
-                }}
-                disabled={!broadcastId}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[188px]"
-              >
-                <span>방송 페이지로 이동</span>
-                <ArrowTopRightOnSquareIcon className="size-4" />
-              </button>
-            </div>
-          </div>
+          {content}
+          <div className="mt-2">{footer}</div>
         </div>
       </div>
 

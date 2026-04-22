@@ -22,8 +22,9 @@
  * 2026.03.11  임도헌   Modified  flat 헤더 톤에 맞춰 compact 높이와 border 토큰 사용 흐름 반영
  * 2026.03.12  임도헌   Modified  compact 헤더 검색 트리거와 토큰 기반 입력 밀도 규칙 명확화
  * 2026.03.27  임도헌   Modified  검색 중 로딩 인디케이터가 얇은 막대로 보이지 않도록 스피너 표시 요소를 보정
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 래퍼 아래에서만 사용되도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.17  임도헌   Modified  탭 상단 검색바에 공통 입력 스타일 클래스를 적용
  */
-"use client";
 
 import { useEffect, useState } from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
@@ -82,9 +83,8 @@ export default function SearchBar({
         autoFocus={autoFocus}
         className={cn(
           compact
-            ? "input-primary h-10 w-full rounded-xl pl-10 pr-9 text-sm sm:h-11 sm:rounded-2xl"
-            : "input-primary h-11 w-full pl-10 pr-9 text-sm",
-          "bg-surface-dim border border-border focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20"
+            ? "searchbar-compact-input pl-10 pr-9"
+            : "input-primary h-11 w-full pl-10 pr-9 text-sm bg-surface-dim border border-border focus:border-brand/70 focus:bg-surface dark:focus:bg-black/20"
         )}
       />
       <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-muted pointer-events-none" />

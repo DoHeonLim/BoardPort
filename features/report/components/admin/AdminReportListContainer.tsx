@@ -14,19 +14,21 @@
  * 2026.03.23  임도헌   Modified  관리자 신고 목록 탭/테이블 셸과 리스트 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.29  임도헌   Modified  모바일 카드형 분기와 관리자 전용 네이밍 정리로 신고 목록 스캔 흐름을 정비
  * 2026.03.30  임도헌   Modified  신고 처리 모달 자동 오픈, 대상 식별자/부모 문맥 표시, 내부 admin 링크 same-tab 동선을 함께 보강
+ * 2026.04.10  임도헌   Modified  신고 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  초기 번들 부담을 줄이기 위해 처리 모달을 지연 로딩하고 내부 링크 프리패치를 제한
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import TimeAgo from "@/components/ui/TimeAgo";
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
 import ReportStatusBadge from "@/features/report/components/admin/ReportStatusBadge";
-import ReportActionDialog from "@/features/report/components/admin/ReportActionDialog";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
   getDirectTargetUrl,
@@ -44,6 +46,11 @@ import type {
   AdminReportItem,
 } from "@/features/report/types";
 import { cn } from "@/lib/utils";
+
+const ReportActionDialog = dynamic(
+  () => import("@/features/report/components/admin/ReportActionDialog"),
+  { ssr: false }
+);
 
 interface AdminReportListContainerProps {
   data: AdminReportListResponse;
@@ -75,7 +82,7 @@ export default function AdminReportListContainer({
   const autoOpenReportId = Number(searchParams.get("open"));
   const selectedReport =
     selectedReportId !== null
-      ? reports.find((report) => report.id === selectedReportId) ?? null
+      ? (reports.find((report) => report.id === selectedReportId) ?? null)
       : null;
   // 안전한 내부 복귀 경로
   // 상세 진입과 모달 자동 오픈을 오갈 때 raw 외부 경로가 다시 전파되지 않도록 내부 경로 정규화
@@ -94,7 +101,9 @@ export default function AdminReportListContainer({
     if (!Number.isFinite(autoOpenReportId) || autoOpenReportId <= 0) return;
     if (selectedReportId) return;
 
-    const matchedReport = data.items.find((report) => report.id === autoOpenReportId);
+    const matchedReport = data.items.find(
+      (report) => report.id === autoOpenReportId
+    );
     if (matchedReport) {
       setSelectedReportId(matchedReport.id);
     }
@@ -151,14 +160,14 @@ export default function AdminReportListContainer({
     <div className="space-y-6">
       <AdminSearchBar placeholder="신고자, 사유, 설명, 대상 ID 검색" />
 
-      {/* Tab Filters */}
+      {/* 탭 필터 */}
       <div className="flex gap-2 border-b border-border-subtle overflow-x-auto scrollbar-hide">
         {["PENDING", "RESOLVED", "DISMISSED", "ALL"].map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
             className={cn(
-              "px-4 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap",
+              "focus-ring-soft rounded-t-lg px-4 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap",
               currentStatus === tab
                 ? "border-brand text-brand dark:text-brand-light"
                 : "border-transparent text-muted hover:text-primary"
@@ -198,26 +207,31 @@ export default function AdminReportListContainer({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <ReportStatusBadge status={report.status} />
-                      <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-bold text-primary">
+                      <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-bold text-primary">
                         {REPORT_REASON_LABELS[report.reason]}
                       </span>
                     </div>
                     <div className="mt-3 flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-mono text-muted">
+                        <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-muted">
                           {targetLabel} #{getReportTargetId(report)}
                         </span>
                         {targetHref ? (
                           <Link
                             href={targetHref}
+                            prefetch={false}
                             target={isInternalTarget ? undefined : "_blank"}
-                            rel={isInternalTarget ? undefined : "noopener noreferrer"}
-                            className="text-muted hover:text-brand"
+                            rel={
+                              isInternalTarget
+                                ? undefined
+                                : "noopener noreferrer"
+                            }
+                            className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                           >
                             <ArrowTopRightOnSquareIcon className="size-4" />
                           </Link>
                         ) : (
-                          <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-medium text-muted">
+                          <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-medium text-muted">
                             단독 상세 없음
                           </span>
                         )}
@@ -229,33 +243,33 @@ export default function AdminReportListContainer({
                       ) : null}
                       <span
                         className={cn(
-                          "inline-flex w-fit items-center rounded-full px-2 py-1 text-[10px] font-bold",
+                          "inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-bold",
                           (report.recentStrikeTotal ?? 0) > 0
                             ? "bg-danger/10 text-danger"
                             : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                         )}
                       >
-                        최근 90일 strike {(report.recentStrikeTotal ?? 0)}회
+                        최근 90일 strike {report.recentStrikeTotal ?? 0}회
                       </span>
                     </div>
                   </div>
                   <button
                     onClick={() => setSelectedReportId(report.id)}
-                    className="shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark"
+                    className="focus-ring-strong shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark"
                   >
                     {report.status === "PENDING" ? "처리하기" : "내역보기"}
                   </button>
                 </div>
 
                 <div className="mt-4 rounded-xl bg-surface-dim/30 px-3 py-3">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                     신고 내용
                   </p>
                   <p className="mt-2 text-sm leading-6 text-primary">
                     {report.description || "-"}
                   </p>
                   {report.adminComment ? (
-                    <div className="mt-3 rounded-lg bg-surface px-3 py-2 text-[11px] leading-5 text-primary">
+                    <div className="mt-3 rounded-lg bg-surface px-3 py-2 text-xs leading-5 text-primary">
                       {report.adminComment}
                     </div>
                   ) : null}
@@ -263,23 +277,23 @@ export default function AdminReportListContainer({
 
                 <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
                   <div className="min-w-0">
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                    <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                       신고자
                     </dt>
                     <dd className="mt-1 flex items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-primary">
+                      <span className="truncate text-sm font-medium text-primary">
                         {report.reporter.username}
                       </span>
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-mono text-muted">
+                      <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-mono text-muted">
                         #{report.reporter.id}
                       </span>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                    <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
                       접수 일시
                     </dt>
-                    <dd className="mt-1 text-sm font-semibold text-primary">
+                    <dd className="mt-1 text-sm font-medium text-primary">
                       <TimeAgo date={report.created_at} />
                     </dd>
                   </div>
@@ -325,83 +339,92 @@ export default function AdminReportListContainer({
                       key={report.id}
                       className="hover:bg-surface-dim/30 transition-colors"
                     >
-                    <td className="px-6 py-4">
-                      <ReportStatusBadge status={report.status} />
-                    </td>
-                    <td className="px-6 py-4 font-bold text-primary">
-                      {REPORT_REASON_LABELS[report.reason]}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-surface-dim px-2 py-1 rounded text-[10px] font-mono text-muted">
-                            {targetLabel} #{getReportTargetId(report)}
-                          </span>
-                          {targetHref && (
-                            <Link
-                              href={targetHref}
-                              target={isInternalTarget ? undefined : "_blank"}
-                              rel={isInternalTarget ? undefined : "noopener noreferrer"}
-                              className="text-muted hover:text-brand"
-                            >
-                              <ArrowTopRightOnSquareIcon className="size-4" />
-                            </Link>
-                          )}
-                          {!getTargetUrl(report, returnTo) && (
-                            <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-medium text-muted">
-                              단독 상세 없음
+                      <td className="px-6 py-4">
+                        <ReportStatusBadge status={report.status} />
+                      </td>
+                      <td className="px-6 py-4 font-bold text-primary">
+                        {REPORT_REASON_LABELS[report.reason]}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-surface-dim px-2 py-1 rounded text-xs font-mono text-muted">
+                              {targetLabel} #{getReportTargetId(report)}
                             </span>
+                            {targetHref && (
+                              <Link
+                                href={targetHref}
+                                prefetch={false}
+                                target={isInternalTarget ? undefined : "_blank"}
+                              rel={
+                                isInternalTarget
+                                  ? undefined
+                                  : "noopener noreferrer"
+                              }
+                              className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                            >
+                                <ArrowTopRightOnSquareIcon className="size-4" />
+                              </Link>
+                            )}
+                            {!getTargetUrl(report, returnTo) && (
+                              <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-medium text-muted">
+                                단독 상세 없음
+                              </span>
+                            )}
+                          </div>
+                          {targetParentLabel && report.targetParentPreview ? (
+                            <span className="text-xs leading-5 text-muted">
+                              {targetParentLabel}: {report.targetParentPreview}
+                            </span>
+                          ) : null}
+                          <span
+                            className={cn(
+                              "inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-bold",
+                              (report.recentStrikeTotal ?? 0) > 0
+                                ? "bg-danger/10 text-danger"
+                                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            )}
+                          >
+                            최근 90일 strike {report.recentStrikeTotal ?? 0}회
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 max-w-xs truncate text-muted">
+                        <div className="space-y-1">
+                          <div className="truncate">
+                            {report.description || "-"}
+                          </div>
+                          {report.adminComment && (
+                            <div className="rounded-lg bg-surface-dim/60 px-3 py-2 text-xs text-primary whitespace-pre-line">
+                              {report.adminComment}
+                            </div>
                           )}
                         </div>
-                        {targetParentLabel && report.targetParentPreview ? (
-                          <span className="text-[11px] leading-5 text-muted">
-                            {targetParentLabel}: {report.targetParentPreview}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-primary">
+                            {report.reporter.username}
                           </span>
-                        ) : null}
-                        <span
-                          className={cn(
-                            "inline-flex w-fit items-center rounded-full px-2 py-1 text-[10px] font-bold",
-                            (report.recentStrikeTotal ?? 0) > 0
-                              ? "bg-danger/10 text-danger"
-                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                          )}
+                          <span className="rounded-full bg-surface-dim px-2 py-0.5 text-xs font-mono text-muted">
+                            #{report.reporter.id}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-muted">
+                        <TimeAgo date={report.created_at} />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => setSelectedReportId(report.id)}
+                          className="focus-ring-soft rounded px-1 py-0.5 text-xs font-bold text-brand hover:underline dark:text-brand-light"
                         >
-                          최근 90일 strike {(report.recentStrikeTotal ?? 0)}회
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 max-w-xs truncate text-muted">
-                      <div className="space-y-1">
-                        <div className="truncate">{report.description || "-"}</div>
-                        {report.adminComment && (
-                          <div className="rounded-lg bg-surface-dim/60 px-3 py-2 text-[11px] text-primary whitespace-pre-line">
-                            {report.adminComment}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-primary">
-                          {report.reporter.username}
-                        </span>
-                        <span className="rounded-full bg-surface-dim px-2 py-0.5 text-[10px] font-mono text-muted">
-                          #{report.reporter.id}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-muted">
-                      <TimeAgo date={report.created_at} />
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => setSelectedReportId(report.id)}
-                        className="text-xs font-bold text-brand dark:text-brand-light hover:underline"
-                      >
-                        {report.status === "PENDING" ? "처리하기" : "내역보기"}
-                      </button>
-                    </td>
-                  </tr>
+                          {report.status === "PENDING"
+                            ? "처리하기"
+                            : "내역보기"}
+                        </button>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -424,11 +447,17 @@ export default function AdminReportListContainer({
           currentStrikeTotal={selectedReport?.recentStrikeTotal ?? 0}
           reporterUsername={selectedReport?.reporter.username}
           reportDescription={selectedReport?.description ?? null}
-          targetLabel={selectedReport ? getReportTargetLabel(selectedReport) : undefined}
-          targetId={selectedReport ? getReportTargetId(selectedReport) : undefined}
+          targetLabel={
+            selectedReport ? getReportTargetLabel(selectedReport) : undefined
+          }
+          targetId={
+            selectedReport ? getReportTargetId(selectedReport) : undefined
+          }
           targetPreview={selectedReport?.targetPreview ?? null}
           targetParentLabel={
-            selectedReport ? getReportTargetParentLabel(selectedReport) : undefined
+            selectedReport
+              ? getReportTargetParentLabel(selectedReport)
+              : undefined
           }
           targetParentId={
             selectedReport ? getReportTargetParentId(selectedReport) : null
@@ -438,7 +467,9 @@ export default function AdminReportListContainer({
             selectedReport ? getDirectTargetUrl(selectedReport, returnTo) : null
           }
           targetParentUrl={
-            selectedReport ? getParentContextUrl(selectedReport, returnTo) : null
+            selectedReport
+              ? getParentContextUrl(selectedReport, returnTo)
+              : null
           }
           reportStatus={selectedReport?.status}
           existingAdminComment={selectedReport?.adminComment ?? null}

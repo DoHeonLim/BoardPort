@@ -10,6 +10,9 @@
  * 2026.03.23  임도헌   Modified  관리자 감사 로그 테이블 셸과 리스트 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.29  임도헌   Modified  관리자 전용 네이밍 정리와 모바일 카드형 분기로 긴 로그 스캔 흐름을 정비
  * 2026.03.30  임도헌   Modified  액션/대상 타입 빠른 필터를 comment·review·message까지 확장
+ * 2026.04.10  임도헌   Modified  감사 로그 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  모바일 카드 lazy paint, 액션/ID 배지 대비, 상세 링크 프리패치를 최적화
+ * 2026.04.19  임도헌   Modified  액션/대상 타입 필터 칩에 공용 포커스 링을 적용해 관리자 목록 포커스 문법을 통일
  */
 
 "use client";
@@ -84,10 +87,7 @@ export default function AdminAuditLogListContainer({
     { value: "STREAM", label: "방송" },
   ];
 
-  const handleFilterChange = (
-    key: "action" | "targetType",
-    value: string
-  ) => {
+  const handleFilterChange = (key: "action" | "targetType", value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value === "ALL") {
       params.delete(key);
@@ -112,7 +112,7 @@ export default function AdminAuditLogListContainer({
               type="button"
               onClick={() => handleFilterChange("action", filter.value)}
               className={cn(
-                "rounded-full border px-3 py-2 text-xs font-bold transition-colors",
+                "focus-ring-soft rounded-full border px-3 py-2 text-xs font-bold transition-colors",
                 activeAction === filter.value
                   ? "border-border-strong bg-brand/10 text-brand dark:text-brand-light"
                   : "border-border bg-surface text-muted hover:text-primary"
@@ -130,7 +130,7 @@ export default function AdminAuditLogListContainer({
               type="button"
               onClick={() => handleFilterChange("targetType", filter.value)}
               className={cn(
-                "rounded-full border px-3 py-2 text-xs font-bold transition-colors",
+                "focus-ring-soft rounded-full border px-3 py-2 text-xs font-bold transition-colors",
                 activeTargetType === filter.value
                   ? "border-border-strong bg-brand/10 text-brand dark:text-brand-light"
                   : "border-border bg-surface text-muted hover:text-primary"
@@ -145,12 +145,15 @@ export default function AdminAuditLogListContainer({
       <div className="space-y-4 md:hidden">
         {data.items.length === 0 ? (
           <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
-            {hasQuery ? "검색된 감사 로그가 없습니다." : "기록된 감사 로그가 없습니다."}
+            {hasQuery
+              ? "검색된 감사 로그가 없습니다."
+              : "기록된 감사 로그가 없습니다."}
           </div>
         ) : (
           data.items.map((log) => {
             const actionLabel = AUDIT_ACTION_LABELS[log.action] || log.action;
-            const targetLabel = TARGET_TYPE_LABELS[log.targetType] || log.targetType;
+            const targetLabel =
+              TARGET_TYPE_LABELS[log.targetType] || log.targetType;
             const targetUrl = getAuditLogTargetUrl(log, returnTo);
             const isDanger = [
               "BAN_USER",
@@ -158,8 +161,12 @@ export default function AdminAuditLogListContainer({
               "DELETE_POST",
               "DELETE_STREAM",
             ].includes(log.action);
-            const isSuccess = ["UNBAN_USER", "RESOLVE_REPORT"].includes(log.action);
-            const isInfo = ["CHANGE_ROLE", "DISMISS_REPORT"].includes(log.action);
+            const isSuccess = ["UNBAN_USER", "RESOLVE_REPORT"].includes(
+              log.action
+            );
+            const isInfo = ["CHANGE_ROLE", "DISMISS_REPORT"].includes(
+              log.action
+            );
             const isStructured = log.reason?.includes("Title:");
             let displayReason = log.reason;
             let metaInfo = "";
@@ -174,41 +181,56 @@ export default function AdminAuditLogListContainer({
               <article
                 key={log.id}
                 className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm"
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "220px",
+                }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={cn(
-                          "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
-                          isDanger && "bg-danger/10 text-danger",
+                          "rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wider",
+                          isDanger &&
+                            "border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-950/30 dark:text-red-300",
                           isSuccess &&
-                            "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-                          isInfo && "bg-brand/10 text-brand dark:text-brand-light"
+                            "border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+                          isInfo &&
+                            "border-brand/15 bg-brand/10 text-brand dark:text-brand-light"
                         )}
                       >
                         {actionLabel}
                       </span>
-                      <span className="rounded-full bg-surface-dim px-2 py-1 text-[10px] font-mono text-muted">
+                      <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-primary ring-1 ring-border-subtle">
                         {targetLabel} #{log.targetId}
                       </span>
                       {targetUrl ? (
                         <Link
                           href={targetUrl}
-                          target={targetUrl.startsWith("/admin") ? undefined : "_blank"}
-                          rel={targetUrl.startsWith("/admin") ? undefined : "noopener noreferrer"}
-                          className="text-muted transition-colors hover:text-brand"
+                          prefetch={false}
+                          target={
+                            targetUrl.startsWith("/admin")
+                              ? undefined
+                              : "_blank"
+                          }
+                          rel={
+                            targetUrl.startsWith("/admin")
+                              ? undefined
+                              : "noopener noreferrer"
+                          }
+                          className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                           aria-label={`${targetLabel} ${log.targetId} 상세 보기`}
                         >
                           <ArrowTopRightOnSquareIcon className="size-4" />
                         </Link>
                       ) : null}
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-primary">
+                    <p className="mt-3 text-sm font-medium text-primary">
                       {displayReason || "-"}
                     </p>
                     {metaInfo ? (
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-muted">
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">
                         {metaInfo}
                       </p>
                     ) : null}
@@ -217,7 +239,7 @@ export default function AdminAuditLogListContainer({
                     <p className="text-xs font-bold text-primary">
                       {log.admin.username}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted">
+                    <p className="mt-1 text-xs text-muted">
                       <TimeAgo date={log.created_at} />
                     </p>
                   </div>
@@ -244,7 +266,9 @@ export default function AdminAuditLogListContainer({
               {data.items.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-20 text-center text-muted">
-                    {hasQuery ? "검색된 감사 로그가 없습니다." : "기록된 감사 로그가 없습니다."}
+                    {hasQuery
+                      ? "검색된 감사 로그가 없습니다."
+                      : "기록된 감사 로그가 없습니다."}
                   </td>
                 </tr>
               ) : (
@@ -296,12 +320,13 @@ export default function AdminAuditLogListContainer({
                       <td className="px-6 py-4">
                         <span
                           className={cn(
-                            "px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider",
-                            isDanger && "bg-danger/10 text-danger",
+                            "rounded border px-2.5 py-1 text-xs font-bold uppercase tracking-wider",
+                            isDanger &&
+                              "border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-950/30 dark:text-red-300",
                             isSuccess &&
-                              "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                              "border-emerald-200 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
                             isInfo &&
-                              "bg-brand/10 text-brand dark:text-brand-light"
+                              "border-brand/15 bg-brand/10 text-brand dark:text-brand-light"
                           )}
                         >
                           {actionLabel}
@@ -309,20 +334,29 @@ export default function AdminAuditLogListContainer({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div>
-                            <span className="font-semibold text-primary">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-primary">
                               {targetLabel}
                             </span>
-                            <span className="text-muted ml-1 font-mono text-[10px]">
+                            <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
                               #{log.targetId}
                             </span>
                           </div>
                           {targetUrl ? (
                             <Link
                               href={targetUrl}
-                              target={targetUrl.startsWith("/admin") ? undefined : "_blank"}
-                              rel={targetUrl.startsWith("/admin") ? undefined : "noopener noreferrer"}
-                              className="text-muted transition-colors hover:text-brand"
+                              prefetch={false}
+                              target={
+                                targetUrl.startsWith("/admin")
+                                  ? undefined
+                                  : "_blank"
+                              }
+                              rel={
+                                targetUrl.startsWith("/admin")
+                                  ? undefined
+                                  : "noopener noreferrer"
+                              }
+                              className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                               aria-label={`${targetLabel} ${log.targetId} 상세 보기`}
                             >
                               <ArrowTopRightOnSquareIcon className="size-4" />
@@ -333,7 +367,7 @@ export default function AdminAuditLogListContainer({
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-0.5 max-w-md whitespace-normal">
                           {isStructured && metaInfo && (
-                            <span className="text-[10px] text-muted/60 truncate">
+                            <span className="text-xs text-muted/60 truncate">
                               {metaInfo}
                             </span>
                           )}

@@ -25,7 +25,8 @@
  * 2026.03.23  임도헌   Modified  알림 센터 카드 셸과 리스트 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.28  임도헌   Modified  링크형 알림은 이동 전에 읽음 처리를 완료하도록 버튼 기반 탐색으로 정리
  * 2026.04.02  임도헌   Modified  알림 필터 라벨과 타입을 notification constants/types 공용 정의로 분리
- *
+ * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 상단 액션/필터/보조 CTA의 weight와 text-xs 스케일을 정리
+ * 2026.04.18  임도헌   Modified  설정 링크 prefetch를 끄고 키워드 모달/읽은 알림 대비를 정리해 알림 목록 초기 렌더 부담을 완화
  */
 "use client";
 
@@ -114,6 +115,7 @@ export default function NotificationListContainer({
   const activeFilter = data.activeFilter;
 
   useEffect(() => {
+    // 서버 응답 기준 로컬 목록 재동기화
     setNotifications(data.items);
   }, [data.items]);
 
@@ -121,6 +123,9 @@ export default function NotificationListContainer({
   const decrement = useNotificationStore((state) => state.decrement);
   const clear = useNotificationStore((state) => state.clear);
 
+  /**
+   * 개별 알림 읽음 처리와 전역 뱃지 동기화
+   */
   const handleMarkAsRead = async (id: number) => {
     const res = await markNotificationAsReadAction(id);
     if (res.success) {
@@ -134,6 +139,9 @@ export default function NotificationListContainer({
     }
   };
 
+  /**
+   * 전체 알림 읽음 처리와 전역 뱃지 초기화
+   */
   const handleMarkAllAsRead = () => {
     startMarkingAll(async () => {
       const res = await markAllNotificationsAsReadAction();
@@ -150,6 +158,9 @@ export default function NotificationListContainer({
     });
   };
 
+  /**
+   * 링크형 알림 열기 전 읽음 처리와 상세 이동
+   */
   const handleOpenNotification = async (notification: NotificationItem) => {
     const href = buildNotificationHref(notification.link);
     if (!notification.isRead) {
@@ -233,14 +244,15 @@ export default function NotificationListContainer({
           <button
             type="button"
             onClick={() => setIsKeywordModalOpen(true)}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:min-h-0 sm:px-3 sm:text-xs"
+            className="focus-ring-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:min-h-0 sm:px-3"
           >
             <MagnifyingGlassIcon className="size-4" />
             키워드
           </button>
           <Link
             href={settingsHref}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:min-h-0 sm:px-3 sm:text-xs"
+            prefetch={false}
+            className="focus-ring-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:min-h-0 sm:px-3"
           >
             <Cog6ToothIcon className="size-4" />
             설정
@@ -249,7 +261,7 @@ export default function NotificationListContainer({
             <button
               onClick={handleMarkAllAsRead}
               disabled={isMarkingAll}
-              className="flex min-h-[36px] items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5 text-[11px] font-bold text-brand transition-colors hover:bg-brand/20 dark:bg-brand-light/10 dark:text-brand-light sm:min-h-0 sm:gap-2 sm:px-3 sm:text-xs"
+              className="focus-ring-soft flex min-h-[36px] items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/20 dark:bg-brand-light/10 dark:text-brand-light sm:min-h-0 sm:gap-2 sm:px-3"
             >
               {isMarkingAll && (
                 <span className="size-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -263,6 +275,7 @@ export default function NotificationListContainer({
 
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
         {filters.map((filter) => {
+          // 서버 집계 기준 필터 카운트 표시
           const count = data.filterCounts[filter];
           return (
             <button
@@ -270,7 +283,7 @@ export default function NotificationListContainer({
               type="button"
               onClick={() => changeFilter(filter)}
               className={cn(
-                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors",
+                "focus-ring-soft shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 activeFilter === filter
                   ? "border-brand bg-brand/10 text-brand dark:border-brand-light dark:bg-brand-light/10 dark:text-brand-light"
                   : "border-border bg-surface text-muted hover:border-border-strong hover:text-primary"
@@ -296,10 +309,14 @@ export default function NotificationListContainer({
             {notifications.map((notification) => (
               <li
                 key={notification.id}
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "136px",
+                }}
                 className={cn(
                   "flex items-start gap-4 px-5 py-4 transition-colors sm:items-center",
                   notification.isRead
-                    ? "bg-surface opacity-60"
+                    ? "bg-surface"
                     : "bg-surface hover:bg-surface-dim/50"
                 )}
               >
@@ -331,10 +348,10 @@ export default function NotificationListContainer({
                         type="button"
                         onClick={() => handleOpenNotification(notification)}
                         className={cn(
-                          "min-w-0 flex-1 text-left font-bold line-clamp-1 transition-colors",
+                          "focus-ring-soft min-w-0 flex-1 rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
                           notification.isRead
-                            ? "text-muted"
-                            : "text-primary hover:text-brand"
+                            ? "text-slate-600 dark:text-slate-300"
+                            : "text-primary hover:text-brand dark:hover:text-brand-light"
                         )}
                       >
                         {notification.title}
@@ -344,7 +361,7 @@ export default function NotificationListContainer({
                         <button
                           type="button"
                           onClick={() => handleOpenNotification(notification)}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted transition-colors hover:border-border-strong hover:bg-surface-dim hover:text-primary"
+                          className="focus-ring-soft inline-flex shrink-0 items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-border-strong hover:bg-surface-dim hover:text-primary dark:text-slate-200"
                         >
                           보기
                           <ArrowUpRightIcon className="size-3.5" />
@@ -356,25 +373,25 @@ export default function NotificationListContainer({
                       type="button"
                       onClick={() => handleMarkAsRead(notification.id)}
                       className={cn(
-                        "line-clamp-1 text-left font-bold transition-colors",
+                        "focus-ring-soft rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
                         notification.isRead
-                          ? "text-muted"
-                          : "text-primary hover:text-brand"
+                          ? "text-slate-600 dark:text-slate-300"
+                          : "text-primary hover:text-brand dark:hover:text-brand-light"
                       )}
                     >
                       {notification.title}
                     </button>
                   )}
-                  <p className="text-sm text-muted line-clamp-2 mt-0.5 leading-snug">
+                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-slate-600 dark:text-slate-300">
                     {notification.body}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <TimeAgo
                       date={notification.created_at}
-                      className="text-[10px]"
+                      className="text-xs text-slate-500 dark:text-slate-300"
                     />
                     {!notification.link && (
-                      <span className="text-[10px] text-muted">
+                      <span className="text-xs text-slate-500 dark:text-slate-300">
                         이동 없이 읽음 처리
                       </span>
                     )}
@@ -384,7 +401,7 @@ export default function NotificationListContainer({
                 {!notification.isRead && (
                   <button
                     onClick={() => handleMarkAsRead(notification.id)}
-                    className="mt-0.5 p-2 text-muted transition-colors hover:text-brand dark:hover:text-brand-light sm:mt-0"
+                    className="focus-ring-soft mt-0.5 rounded-lg p-2 text-slate-500 transition-colors hover:text-brand dark:text-slate-300 dark:hover:text-brand-light sm:mt-0"
                     title="읽음 처리"
                   >
                     <EnvelopeOpenIcon className="size-5" />
@@ -401,12 +418,14 @@ export default function NotificationListContainer({
         totalPages={data.totalPages}
       />
 
-      <KeywordAlertModal
-        isOpen={isKeywordModalOpen}
-        onClose={() => setIsKeywordModalOpen(false)}
-        initialKeywords={keywordAlerts}
-        userLocation={userLocation}
-      />
+      {isKeywordModalOpen ? (
+        <KeywordAlertModal
+          isOpen={isKeywordModalOpen}
+          onClose={() => setIsKeywordModalOpen(false)}
+          initialKeywords={keywordAlerts}
+          userLocation={userLocation}
+        />
+      ) : null}
     </div>
   );
 }

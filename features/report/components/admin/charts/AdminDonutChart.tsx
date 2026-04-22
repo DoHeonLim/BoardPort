@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.29  임도헌   Created   상태 분포 표현용 공통 도넛 차트를 추가하고 ECharts 기반으로 정리
  * 2026.03.30  임도헌   Modified  ECharts 높이와 컨테이너 크기를 동기화하고 중앙 레이블 정렬을 바로잡아 패널 깨짐을 방지
+ * 2026.04.10  임도헌   Modified  도넛 차트 중앙 라벨과 비율 리스트 weight를 관리자 타이포 정책에 맞춰 정리
  */
 
 "use client";
@@ -96,13 +97,13 @@ export default function AdminDonutChart({
           />
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
             <div className="space-y-1 text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted">
                 {centerLabel}
               </p>
-              <p className="text-2xl font-black tracking-tight text-primary sm:text-3xl">
+              <p className="text-2xl font-bold tracking-tight text-primary sm:text-3xl">
                 {centerValue ?? total.toLocaleString()}
               </p>
-              <p className="text-[11px] text-muted">현재 관리자 상태 요약</p>
+              <p className="text-xs text-muted">현재 관리자 상태 요약</p>
             </div>
           </div>
         </div>
@@ -119,11 +120,11 @@ export default function AdminDonutChart({
                     className="size-2.5 rounded-full"
                     style={{ backgroundColor: slice.color }}
                   />
-                  <span className="text-sm font-semibold text-primary">
+                  <span className="text-sm font-medium text-primary">
                     {slice.label}
                   </span>
                 </div>
-                <span className="text-sm font-black text-primary">
+                <span className="text-sm font-bold text-primary">
                   {slice.value.toLocaleString()}건
                 </span>
               </div>
@@ -136,7 +137,7 @@ export default function AdminDonutChart({
                   }}
                 />
               </div>
-              <p className="mt-2 text-[11px] font-medium text-muted">
+              <p className="mt-2 text-xs font-medium text-muted">
                 전체의 {ratio.toFixed(1)}%
               </p>
             </div>

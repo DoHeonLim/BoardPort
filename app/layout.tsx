@@ -1,18 +1,32 @@
+/**
+ * File Name : app/layout.tsx
+ * Description : 앱 공통 루트 레이아웃
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2026.04.12  임도헌   Created   라우트 그룹 개편에 맞춰 공통 루트 레이아웃만 유지하도록 구조 분리
+ */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import ThemeProvider from "@/components/global/providers/ThemeProvider";
-import AppWrapper from "@/components/global/AppWrapper";
-import GlobalToaster from "@/components/global/GlobalToaster";
-import QueryProvider from "@/components/global/providers/QueryProvider";
-import { NotificationStoreProvider } from "@/components/global/providers/NotificationStoreProvider";
-import { ModalStoreProvider } from "@/components/global/providers/ModalStoreProvider";
-import NotificationBoot from "@/features/notification/components/NotificationBoot";
 
-const pretendard = localFont({
-  src: "../public/fonts/PretendardVariable.woff2",
-  variable: "--font-sans",
+const pretendardSubset = localFont({
+  src: [
+    {
+      path: "./fonts/Pretendard-Regular.subset.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/Pretendard-Bold.subset.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
   display: "swap",
+  preload: false,
+  variable: "--font-pretendard-subset",
 });
 
 export const viewport: Viewport = {
@@ -50,35 +64,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" suppressHydrationWarning>
-      <body className={pretendard.variable}>
-        <AppWrapper>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <QueryProvider>
-              <NotificationStoreProvider>
-                <ModalStoreProvider>
-                  <GlobalToaster />
-
-                  <NotificationBoot />
-
-                  {children}
-                </ModalStoreProvider>
-              </NotificationStoreProvider>
-            </QueryProvider>
-          </ThemeProvider>
-        </AppWrapper>
-      </body>
+    <html
+      lang="ko"
+      suppressHydrationWarning
+      className={pretendardSubset.variable}
+    >
+      <body className="font-sans">{children}</body>
     </html>
   );
 }
+

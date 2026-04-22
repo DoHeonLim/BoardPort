@@ -12,6 +12,7 @@
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialReviews Props 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.03  임도헌   Modified  파일 헤더 오타 수정
+ * 2026.04.17  임도헌   Modified  리뷰 무한스크롤 훅의 캐시/커서/반환 책임 설명 보강
  */
 "use client";
 
@@ -30,11 +31,11 @@ export interface UseReviewPaginationResult {
 /**
  * 사용자 프로필 리뷰 목록 무한 스크롤 훅
  *
- * [상태 추출 및 페이징 제어 로직]
+ * [기능]
  * - `queryKeys.reviews.user(userId)` 식별자를 통해 대상 사용자별 리뷰 쿼리 상태를 격리 보존
- * - `useSuspenseInfiniteQuery` 연동을 통해 데이터 지연 로딩 방지 및 선언적 에러 핸들링 지원
- * - 서버 액션(`getUserReviewsAction`) 호출 및 키셋 커서(`lastCreatedAt`, `lastId`) 기반 페이징 자동화
- * - 평탄화된 리뷰 배열(reviews) 및 추가 데이터 패칭 상태 추출
+ * - `useSuspenseInfiniteQuery`로 프로필 리뷰 모달의 첫 렌더를 Suspense 경계와 맞춰 단순화
+ * - 서버 액션(`getUserReviewsAction`)이 반환한 키셋 커서(`lastCreatedAt`, `lastId`)를 다음 페이지 기준으로 재사용
+ * - 평탄화된 리뷰 배열(reviews)과 추가 데이터 로딩 상태를 함께 반환
  *
  * @param {number} userId - 리뷰를 조회할 대상 사용자 ID
  * @returns {UseReviewPaginationResult} 추출된 리뷰 배열 및 페이징 상태 객체
@@ -52,7 +53,7 @@ export function useReviewPagination(userId: number): UseReviewPaginationResult {
       staleTime: 60 * 1000,
     });
 
-  // 페이지 응답 평탄화
+  // 페이지 단위 응답의 리뷰 리스트 즉시 렌더링용 1차원 배열 변환
   const reviews = data.pages.flatMap((p) => p.reviews);
 
   return {

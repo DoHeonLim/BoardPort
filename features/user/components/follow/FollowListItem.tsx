@@ -80,7 +80,7 @@ export default function FollowListItem({
           onClick={handleClick}
           disabled={pending}
           className={cn(
-            "inline-flex h-8 min-w-[86px] items-center justify-center px-3 text-xs font-medium rounded-lg transition-colors border shrink-0",
+            "focus-ring-soft inline-flex h-8 min-w-[86px] items-center justify-center px-3 text-xs font-medium rounded-lg transition-colors border shrink-0",
             "disabled:opacity-50 disabled:cursor-not-allowed",
             following
               ? "bg-surface text-muted border-border-subtle hover:bg-surface-dim hover:border-border dark:bg-surface-dim dark:text-primary dark:border-border dark:hover:bg-border/40" // Unfollow

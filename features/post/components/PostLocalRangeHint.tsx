@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.14  임도헌   Created   CREW/FREE 카테고리에서 넓은 범위를 탐색 중일 때 동네 범위 안내 힌트 추가
+ * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 카테고리 강조 weight를 500 기준으로 정리
  */
 "use client";
 
@@ -39,7 +40,7 @@ export default function PostLocalRangeHint({
     <div className="mb-4 flex items-start gap-2 rounded-2xl border border-border-subtle bg-surface-dim/70 px-4 py-3 text-sm shadow-sm">
       <MapPinIcon className="mt-0.5 size-4 shrink-0 text-brand" />
       <p className="text-muted">
-        <span className="font-semibold text-primary">
+        <span className="font-medium text-primary">
           {POST_CATEGORY[currentCategory as keyof typeof POST_CATEGORY]}
         </span>{" "}
         카테고리는 동네 범위에서 더 유용한 글이 많습니다. 상단 지역

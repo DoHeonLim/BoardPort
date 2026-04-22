@@ -8,6 +8,7 @@
  * 2026.03.03  임도헌   Created   usePostComment에서 Delete 로직 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.03  임도헌   Modified  댓글 삭제 성공 토스트를 녹화 댓글과 같은 문법으로 통일
+ * 2026.04.09  임도헌   Modified  성공 결과가 화면에 바로 드러나는 댓글 삭제는 실패 토스트만 남기도록 정리
  */
 "use client";
 
@@ -37,7 +38,6 @@ export function useDeletePostCommentMutation(postId: number) {
       return res;
     },
     onSuccess: () => {
-      toast.success("댓글을 삭제했습니다.");
       // 삭제 직후 최신 댓글 목록 재조회
       queryClient.invalidateQueries({ queryKey });
     },

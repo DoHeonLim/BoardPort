@@ -24,8 +24,11 @@
  * 2026.03.30  임도헌   Modified  사용자 이해를 높이기 위해 카테고리 라벨을 자유/모집/후기/공략/질문 기준으로 정리
  * 2026.03.31  임도헌   Modified  추천 카테고리 추가에 맞춰 탭/툴팁 ref 구성을 확장
  * 2026.04.02  임도헌   Modified  게시글 탭 롱프레스 시간을 search 도메인 공용 상수 기준으로 정리
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 compact 탭 크기를 text-xs/text-sm 스케일로 정리
+ * 2026.04.10  임도헌   Modified  상위 게시글 헤더 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.04.14  임도헌   Modified  카테고리 탭 링크 prefetch를 비활성화해 탭별 RSC 선요청을 줄임
+ * 2026.04.20  임도헌   Modified  키보드 포커스가 브라우저 기본 outline으로 보이지 않도록 공용 soft 포커스 규칙을 적용
  */
-"use client";
 
 import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -159,7 +162,7 @@ export default function PostCategoryTabs({
       <button
         onClick={() => scroll("left")}
         className={cn(
-          "absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 rounded-full border shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100",
+          "focus-ring-soft absolute left-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 rounded-full border shadow-sm text-muted hover:text-primary transition-[background-color,color,border-color,box-shadow,opacity] opacity-60 group-hover/scroll:opacity-100",
           tone === "neutral"
             ? "bg-background border-border-subtle"
             : "bg-surface/80 backdrop-blur-sm border-border-subtle"
@@ -192,20 +195,21 @@ export default function PostCategoryTabs({
           >
             <Link
               href="/posts"
+              prefetch={false}
               onClick={(e) => {
                 e.preventDefault();
                 handleCategoryClick();
               }}
               className={cn(
-                "inline-flex items-center rounded-full font-medium transition-all whitespace-nowrap",
+                "focus-ring-soft inline-flex items-center rounded-full font-medium transition-[background-color,color,border-color,box-shadow] whitespace-nowrap",
                 compact
-                  ? "min-h-[32px] px-3 text-[13px] sm:min-h-[36px] sm:px-4 sm:text-sm"
+                  ? "min-h-[32px] px-3 text-xs sm:min-h-[36px] sm:px-4 sm:text-sm"
                   : "min-h-[36px] px-4 text-sm",
                 !currentCategory
                   ? "bg-brand text-white shadow-md dark:border dark:border-white/20"
                   : tone === "neutral"
-                  ? "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-border-subtle"
-                  : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border-subtle"
+                    ? "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-border-subtle"
+                    : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border-subtle"
               )}
             >
               ⚓ 전체
@@ -256,20 +260,21 @@ export default function PostCategoryTabs({
             >
               <Link
                 href={`/posts?category=${key}`}
+                prefetch={false}
                 onClick={(e) => {
                   e.preventDefault();
                   handleCategoryClick(key);
                 }}
                 className={cn(
-                  "inline-flex items-center rounded-full font-medium transition-all whitespace-nowrap",
+                  "focus-ring-soft inline-flex items-center rounded-full font-medium transition-[background-color,color,border-color,box-shadow] whitespace-nowrap",
                   compact
-                    ? "min-h-[32px] px-3 text-[13px] sm:min-h-[36px] sm:px-4 sm:text-sm"
+                    ? "min-h-[32px] px-3 text-xs sm:min-h-[36px] sm:px-4 sm:text-sm"
                     : "min-h-[36px] px-4 text-sm",
                   currentCategory === key
                     ? "bg-brand text-white shadow-md dark:border dark:border-white/20"
                     : tone === "neutral"
-                    ? "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-border-subtle"
-                    : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border-subtle"
+                      ? "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-border-subtle"
+                      : "bg-surface-dim text-muted hover:bg-surface hover:text-primary border border-transparent hover:border-border-subtle"
                 )}
               >
                 {value}
@@ -309,7 +314,7 @@ export default function PostCategoryTabs({
       <button
         onClick={() => scroll("right")}
         className={cn(
-          "absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 rounded-full border shadow-sm text-muted hover:text-primary transition-all opacity-60 group-hover/scroll:opacity-100",
+          "focus-ring-soft absolute right-0 top-1/2 -translate-y-1/2 z-20 hidden sm:flex items-center justify-center size-8 rounded-full border shadow-sm text-muted hover:text-primary transition-[background-color,color,border-color,box-shadow,opacity] opacity-60 group-hover/scroll:opacity-100",
           tone === "neutral"
             ? "bg-background border-border-subtle"
             : "bg-surface/80 backdrop-blur-sm border-border-subtle"

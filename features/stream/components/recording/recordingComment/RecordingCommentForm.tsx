@@ -18,6 +18,7 @@
  * 2026.03.19  임도헌   Modified  댓글 입력바 외곽 패널을 solid 톤으로 조정해 배경 위 가시성을 보강
  * 2026.03.25  임도헌   Modified  라이트 모드 댓글 입력창 대비를 소폭 올려 첫인상 가시성을 보강
  * 2026.03.27  임도헌   Modified  녹화 댓글 전송 버튼에 다크 밀집 화면용 아이콘 전용 quiet-dark 버튼 변형 적용
+ * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
  */
 "use client";
 
@@ -57,6 +58,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
 
     setText(""); // 낙관적 폼 초기화
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+    textareaRef.current?.blur();
 
     try {
       const formData = new FormData();
@@ -66,7 +68,6 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
       await createComment(formData);
     } catch {
       setText(trimmed); // 에러 시 복구
-    } finally {
       textareaRef.current?.focus();
     }
   };
@@ -79,7 +80,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
   };
 
   return (
-    <div className="flex w-full items-end gap-2 rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm transition-colors">
+    <div className="flex w-full items-end gap-2 rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm transition-colors focus-within:border-brand/40 dark:focus-within:border-brand-light/40">
       <div className="flex flex-1 items-center rounded-[20px] border border-black/[0.08] bg-surface-dim/80 px-4 py-2 dark:border-border-subtle dark:bg-surface-dim focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-background transition-colors">
         <textarea
           ref={textareaRef}
@@ -89,7 +90,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
           placeholder="댓글을 남겨보세요..."
-          className="w-full max-h-[120px] resize-none border-none bg-transparent p-0 text-sm leading-6 text-primary placeholder:text-muted/80 dark:placeholder:text-muted sm:text-base focus:ring-0"
+          className="w-full max-h-[120px] resize-none border-none bg-transparent p-0 text-sm leading-6 text-primary placeholder:text-muted/80 dark:placeholder:text-muted sm:text-base focus:outline-none focus:ring-0"
           rows={1}
         />
       </div>
@@ -98,7 +99,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
         onClick={submit}
         disabled={isLoading || !text.trim()}
         className={cn(
-          "btn-primary-quiet-dark-icon flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] transition-all shadow-sm dark:border-border-subtle",
+          "btn-primary-quiet-dark-icon flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] transition-[background-color,color,border-color,box-shadow] shadow-sm dark:border-border-subtle",
           "active:scale-95",
           "disabled:bg-surface-dim disabled:text-muted/55 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         )}

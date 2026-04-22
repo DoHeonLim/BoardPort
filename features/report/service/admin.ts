@@ -452,7 +452,7 @@ export async function updateReportStatus(
       finalAdminComment = `${trimmedComment}\n[조치] ${resolution.action} / ${strikeText}${durationText}`;
     }
 
-    // 신고 상태와 관리자 기록을 먼저 저장해 이후 감사 로그/알림과 기준을 맞춘다
+    // 신고 상태와 관리자 기록 선저장을 통한 이후 감사 로그/알림 기준 정렬
     await db.report.update({
       where: { id: reportId },
       data: {
@@ -462,7 +462,7 @@ export async function updateReportStatus(
       },
     });
 
-    // 실제 처리 결과는 별도 감사 로그에 남겨 운영 추적과 strike 집계를 가능하게 한다
+    // 실제 처리 결과의 별도 감사 로그 기록 및 운영 추적/strike 집계 가능 상태 유지
     const actionType =
       status === "RESOLVED" ? "RESOLVE_REPORT" : "DISMISS_REPORT";
     await createAuditLog({

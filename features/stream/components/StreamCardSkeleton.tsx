@@ -21,24 +21,24 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function StreamCardSkeleton() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
-      {/* Thumbnail (16:9) */}
+      {/* 썸네일 (16:9) */}
       <div className="relative aspect-video w-full border-b border-border-subtle bg-surface-dim">
         <Skeleton className="w-full h-full" />
       </div>
 
-      {/* Info */}
+      {/* 정보 영역 */}
       <div className="flex flex-1 flex-col justify-between gap-1.5 p-2.5 sm:gap-2 sm:p-3">
         <div className="space-y-2">
-          <Skeleton className="h-4 w-3/4 rounded" /> {/* Title */}
+          <Skeleton className="h-4 w-3/4 rounded" /> {/* 제목 */}
           <div className="flex items-center gap-2">
-            <Skeleton className="size-8 rounded-full" /> {/* Avatar */}
-            <Skeleton className="h-3 w-20 rounded" /> {/* Username */}
+            <Skeleton className="size-8 rounded-full" /> {/* 아바타 */}
+            <Skeleton className="h-3 w-20 rounded" /> {/* 사용자 이름 */}
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 border-t border-border-subtle pt-1.5">
-          <Skeleton className="h-3 w-16 rounded" /> {/* Category */}
-          <Skeleton className="h-3 w-12 rounded" /> {/* Time */}
+          <Skeleton className="h-3 w-16 rounded" /> {/* 카테고리 */}
+          <Skeleton className="h-3 w-12 rounded" /> {/* 시간 */}
         </div>
       </div>
     </div>

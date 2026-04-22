@@ -9,8 +9,8 @@
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.03.09  임도헌   Modified  자식 카테고리가 없는 대분류는 소분류 Select를 숨기도록 보강
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  */
-"use client";
 
 import type { Category } from "@/generated/prisma/client";
 import Select from "@/components/ui/Select";

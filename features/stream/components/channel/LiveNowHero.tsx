@@ -22,6 +22,7 @@
  * 2026.03.18  임도헌   Modified  현재 채널 경로를 내부 경로 기준으로 정규화한 필수 returnTo로 전달해 재사용 시 루트 복귀와 nested returnTo 예외를 함께 방지
  * 2026.03.19  임도헌   Modified  채널 상단 정보량을 줄이기 위해 섹션 설명과 여백을 한 단계 압축
  * 2026.03.25  임도헌   Modified  라이브 empty state의 세로 밀도를 소폭 낮춰 첫 화면 비어 보임을 완화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 팔로우 CTA weight를 500 기준으로 정리
  */
 
 "use client";
@@ -131,7 +132,7 @@ function HeroMedia({
         stream.visibility === "PRIVATE" && role !== "OWNER";
 
   const isPlayable = !isPrivateLocked && !isFollowersTeaser;
-  // 현재 채널 경로를 필수 returnTo로 넘겨 재사용 시에도 루트 복귀를 막는다.
+  // 현재 채널 경로의 필수 returnTo 전달을 통한 재사용 시 루트 복귀 방지
   const detailHref = `/streams/${stream.id}?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
@@ -140,7 +141,7 @@ function HeroMedia({
         <>
           <Link
             href={detailHref}
-            className="absolute inset-0 z-10"
+            className="focus-ring-strong-inset absolute inset-0 z-10 rounded-2xl"
             aria-label="상세보기"
           >
             <span className="sr-only">상세보기</span>
@@ -301,7 +302,7 @@ function FollowersTeaser({
         <button
           type="button"
           onClick={onFollow}
-          className="px-5 py-2.5 rounded-full bg-brand text-white text-sm font-semibold shadow hover:bg-brand-light transition"
+          className="focus-ring-strong rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-brand-light"
         >
           팔로우하고 시청하기
         </button>

@@ -16,6 +16,7 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.12  임도헌   Modified  리뷰 작성 별점 색상을 채움형 노란 별 기준으로 복원
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 textarea와 하단 액션 버튼이 덜 가려지도록 시트형 배치 적용
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -87,8 +88,8 @@ export default function CreateReviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4">
+      {/* 배경 오버레이 */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={handleBackdrop}
@@ -96,17 +97,17 @@ export default function CreateReviewModal({
 
       <div
         className={cn(
-          "relative w-full max-w-md rounded-2xl shadow-xl mx-4 overflow-hidden",
+          "relative flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-t-3xl shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
           "bg-surface border border-border-subtle"
         )}
       >
-        {/* Header */}
+        {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-subtle bg-surface">
           <h2 className="text-lg font-bold text-primary">거래 후기 작성</h2>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6">
+        {/* 본문 */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="flex justify-center">
             <UserAvatar
               avatar={userAvatar}
@@ -118,13 +119,13 @@ export default function CreateReviewModal({
             />
           </div>
 
-          {/* Star Rating */}
+          {/* 별점 선택 */}
           <div className="flex justify-center gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <StarIcon
                 key={star}
                 className={cn(
-                  "cursor-pointer w-10 h-10 transition-all duration-200",
+                  "cursor-pointer w-10 h-10 transition-colors motion-safe:transition-transform duration-200",
                   star <= (hoverRating || rating)
                     ? "text-yellow-400 scale-110"
                     : "text-neutral-300 dark:text-neutral-700",
@@ -137,7 +138,7 @@ export default function CreateReviewModal({
             ))}
           </div>
 
-          {/* Textarea */}
+          {/* 텍스트 입력 */}
           <textarea
             value={reviewText}
             onChange={(e) => setReviewText(e.target.value)}
@@ -146,18 +147,18 @@ export default function CreateReviewModal({
               "w-full h-32 p-4 rounded-xl resize-none",
               "bg-surface-dim border-transparent focus:bg-surface focus:border-brand/50",
               "text-primary placeholder:text-muted/60 focus:ring-2 focus:ring-brand/20",
-              "transition-all"
+              "transition-[background-color,color,border-color,box-shadow]"
             )}
             disabled={isSubmitting}
           />
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
+        {/* 하단 액션 */}
+        <div className="shrink-0 px-6 py-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
           <button
             onClick={handleBackdrop}
             disabled={isSubmitting}
-            className="btn-secondary h-10 text-sm border-transparent hover:bg-surface-dim"
+            className="btn-secondary-modal h-10 px-4 text-sm font-medium"
           >
             취소
           </button>

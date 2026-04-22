@@ -25,6 +25,8 @@
  * 2026.03.14  임도헌   Modified  목록 카드에서도 예약중/판매완료 거래 상태를 배지로 노출
  * 2026.03.27  임도헌   Modified  채팅방 카드에 상품명과 거래 상태를 함께 노출해 목록 스캔성과 검색 문맥을 보강
  * 2026.03.27  임도헌   Modified  상품 대화 우선 구조에 맞춰 카드 위계를 상품명 중심으로 재배치
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 카드 제목과 상태 배지 크기/weight를 400/500/700 기준으로 정리
+ * 2026.04.14  임도헌   Modified  채팅 목록 최적화 대응으로 카드 초기 요청과 렌더 부담을 줄임
  * ===============================================================================================
  * ChatRoomCard (채팅방 목록 아이템)를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  *
@@ -61,8 +63,9 @@ export default function ChatRoomCard({ room, unreadCount }: ChatRoomCardProps) {
   return (
     <Link
       href={`/chats/${room.id}`}
+      prefetch={false}
       className={cn(
-        "group flex w-full items-start gap-4 rounded-2xl p-4 transition-all duration-200",
+        "focus-ring-strong group flex w-full items-start gap-4 rounded-2xl p-4 transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-200",
         "border border-border-subtle bg-surface shadow-sm",
         "hover:shadow-sm hover:border-brand/30 dark:hover:border-brand-light/30 active:scale-[0.99]"
       )}
@@ -75,7 +78,7 @@ export default function ChatRoomCard({ room, unreadCount }: ChatRoomCardProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p
-              className="truncate text-[15px] font-semibold leading-5 text-primary sm:text-base"
+              className="truncate text-base font-medium leading-5 text-primary"
               title={room.product.title}
             >
               {room.product.title}
@@ -83,12 +86,12 @@ export default function ChatRoomCard({ room, unreadCount }: ChatRoomCardProps) {
             <div className="mt-1.5 flex min-w-0 items-center gap-2">
               <ChatRoomHeader user={room.users[0]} />
               {isReserved && (
-                <span className="inline-flex shrink-0 items-center rounded bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand dark:bg-brand-light/15 dark:text-brand-light">
+                <span className="inline-flex shrink-0 items-center rounded border border-brand/20 bg-brand/15 px-1.5 py-0.5 text-xs font-bold text-brand-dark dark:border-brand-light/25 dark:bg-brand-light/20 dark:text-gray-100">
                   예약중
                 </span>
               )}
               {isSold && (
-                <span className="inline-flex shrink-0 items-center rounded bg-surface-dim px-1.5 py-0.5 text-[9px] font-bold text-muted">
+                <span className="inline-flex shrink-0 items-center rounded bg-surface-dim px-1.5 py-0.5 text-xs font-bold text-muted">
                   판매완료
                 </span>
               )}

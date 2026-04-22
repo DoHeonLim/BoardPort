@@ -7,16 +7,10 @@
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   모바일 액션 메뉴 및 필터용 공용 바텀시트 추가
  * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 검색 모달 등과 중첩되어도 스크롤 잠금/복구 안정화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
@@ -194,14 +188,16 @@ export default function BottomSheet({
               type="button"
               onClick={onClose}
               aria-label="시트 닫기"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             >
               <XMarkIcon className="size-6" />
             </button>
           </div>
         </div>
 
-        <div className={cn("flex-1 overflow-y-auto px-4 pb-4", contentClassName)}>
+        <div
+          className={cn("flex-1 overflow-y-auto px-4 pb-4", contentClassName)}
+        >
           {children}
         </div>
 

@@ -17,8 +17,9 @@
  * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 검색 모달/시트 중첩 상황에서도 스크롤 잠금 복구를 안정화
  * 2026.03.23  임도헌   Modified  구조 구분선 성격에 맞게 모달 셸과 헤더/푸터/분할선 보더를 subtle 기준으로 정리
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.17  임도헌   Modified  모바일 검색 모달 상단 검색창과 닫기 버튼 톤을 탭 헤더 검색바와 같은 계열로 정리
  */
-"use client";
 
 import { useState, useEffect } from "react";
 import SearchBar from "@/features/search/components/SearchBar";
@@ -51,7 +52,7 @@ interface SearchModalProps {
  * [반응형 레이아웃]
  * - createPortal을 사용하여 부모 헤더의 backdrop-filter로 인한 CSS fixed 깨짐 현상(Stacking Context) 해결
  * - Mobile: 전체 화면(`fixed inset-0`)을 덮는 오버레이 형태
- * - Desktop: 검색바 하단에 부착되는 드롭다운(`absolute`) 형태
+ * - Desktop: 중앙 상단에 뜨는 커맨드 팔레트형 모달 카드 형태
  *
  * [기능]
  * - 검색어 입력 (`SearchBar`)
@@ -103,15 +104,21 @@ export default function SearchModal({
     return createPortal(
       <div className="fixed inset-0 z-[100] flex flex-col bg-background">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-border-subtle bg-background p-4 shrink-0">
+        <div className="flex items-center gap-2 border-b border-border-subtle bg-background px-3 py-3 shrink-0">
           <button
             onClick={onClose}
-            className="p-2 -ml-2 text-muted hover:text-primary transition-colors"
+            className="focus-ring-soft inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-dim text-muted shadow-sm transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
           >
-            <XMarkIcon className="size-6" />
+            <XMarkIcon className="size-5" />
           </button>
-          <SearchBar onSearch={onSearch} value={value} autoFocus />
+          <SearchBar
+            onSearch={onSearch}
+            value={value}
+            autoFocus
+            compact
+            className="min-w-0 flex-1"
+          />
         </div>
 
         {/* Content */}
@@ -157,7 +164,12 @@ export default function SearchModal({
       >
         {/* Search Input Area */}
         <div className="shrink-0 border-b border-border-subtle bg-surface p-6">
-          <SearchBar onSearch={onSearch} value={value} className="mx-0" />
+          <SearchBar
+            onSearch={onSearch}
+            value={value}
+            compact
+            className="mx-0"
+          />
         </div>
 
         {/* History & Popular Area */}
@@ -184,7 +196,7 @@ export default function SearchModal({
         <div className="flex justify-end border-t border-border-subtle bg-surface p-4 shrink-0">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-muted hover:text-primary hover:bg-surface-dim rounded-xl transition-colors"
+            className="focus-ring-soft flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-4 stroke-2" /> 닫기 (ESC)
           </button>

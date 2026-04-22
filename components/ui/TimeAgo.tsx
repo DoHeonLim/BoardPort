@@ -17,6 +17,7 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.26  임도헌   Modified  텍스트 크기 10px로 수정
  * 2026.04.04  임도헌   Modified  export 주석을 보강해 상대 시간 자동 갱신 정책을 더 명확히 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 기본 상대시간 크기를 text-xs로 정리
  */
 
 "use client";
@@ -136,10 +137,13 @@ export default function TimeAgo({
           : computeAutoInterval(Date.now(), parsedDate.getTime());
 
       // setTimeout으로 가변 주기 스케줄링(Interval drift 최소화)
-      timerRef.current = window.setTimeout(() => {
-        setNow(Date.now());
-        schedule(); // 재귀 스케줄
-      }, Math.max(1000, base)); // 최소 1초
+      timerRef.current = window.setTimeout(
+        () => {
+          setNow(Date.now());
+          schedule(); // 재귀 스케줄
+        },
+        Math.max(1000, base)
+      ); // 최소 1초
     };
 
     // 가시성 이벤트 핸들링
@@ -168,7 +172,7 @@ export default function TimeAgo({
   }, [parsedDate, refreshMs, live]);
 
   const baseClass =
-    "text-[10px] text-muted dark:text-neutral-400 hover:text-primary transition-colors";
+    "text-xs text-muted dark:text-neutral-400 hover:text-primary transition-colors";
 
   // 잘못된 날짜짜
   if (!parsedDate) {

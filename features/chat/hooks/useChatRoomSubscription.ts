@@ -21,6 +21,7 @@
  * 2026.04.01  임도헌   Modified  message_deleted 이벤트로 마지막 메시지와 unreadCount를 동기화
  * 2026.04.02  임도헌   Modified  채팅방 목록 구독 훅 JSDoc 반환 설명 보강
  * 2026.04.04  임도헌   Modified  사용자 채널 rooms_refresh 구독으로 새 채팅방 등장 시 목록 재조회 지원
+ * 2026.04.14  임도헌   Modified  채팅 목록 성능 점검 대응으로 방별 구독을 제거하고 사용자 단위 refresh 채널만 유지
  */
 
 "use client";
@@ -28,10 +29,8 @@
 import { useEffect } from "react";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
-import { subscribeToRoomUpdates } from "@/features/chat/utils/realtime";
 import { getChatRoomsAction } from "@/features/chat/actions/room";
 import { CHAT_EVENT } from "@/features/chat/constants";
-import type { ChatMessage, ChatRoom } from "@/features/chat/types";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -39,10 +38,9 @@ import { supabase } from "@/lib/supabase";
  *
  * [기능 및 동작 원리]
  * 1. `useSuspenseQuery`를 활용하여 하이드레이션된 채팅방 목록을 선언적으로 가져옴
- * 2. `subscribeToRoomUpdates`를 통해 각 채팅방의 웹소켓 이벤트를 구독
- * 3. 메시지 수신(`message`) 및 읽음 처리(`message_read`) 발생 시 `queryClient.setQueryData`를 사용하여 전역 캐시를 즉각적으로 갱신
- * 4. 읽음 이벤트는 `readerId === 현재 사용자`일 때만 unreadCount를 0으로 반영하여 상대방의 읽음 상태와 혼동되지 않도록 처리
- * 5. 로컬 상태(`useState`)를 완전히 제거하고 단일 진실 공급원(SSOT)을 TanStack Query Cache로 일원화
+ * 2. 사용자 단위 `rooms_refresh` 이벤트만 구독하여 목록이 바뀔 때마다 query를 재검증
+ * 3. 목록 페이지에서 방 개수만큼 채널을 열지 않아 초기 JS 실행량과 실시간 연결 수를 줄임
+ * 4. `pagehide`/`visibilitychange` 시 채널을 정리해 뒤로가기 캐시와 백그라운드 자원 사용을 방해하지 않도록 정리
  *
  * @param {number} userId - 현재 접속 중인 사용자 ID
  * @returns {{ rooms: ChatRoom[] }} 최신화된 채팅방 목록 query 결과
@@ -58,111 +56,60 @@ export default function useChatRoomSubscription(userId: number) {
     staleTime: 60 * 1000,
   });
 
-  // 배열이 변경될 때마다 재구독되는 현상을 방지하기 위해 ID 목록을 직렬화하여 의존성으로 사용
-  const roomIdsString = rooms.map((r) => r.id).join(",");
-
   useEffect(() => {
-    // 새 채팅방 생성/재연결처럼 roomId 목록 바깥에서 생기는 변화를 사용자 채널로 재동기화
-    const channel = supabase.channel(`user-${userId}-chat-rooms`);
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    channel
-      .on("broadcast", { event: CHAT_EVENT.ROOMS_REFRESH }, () => {
-        void queryClient.invalidateQueries({ queryKey });
-      })
-      .subscribe();
+    const refreshRooms = () => {
+      void queryClient.invalidateQueries({ queryKey });
+    };
+
+    const subscribe = () => {
+      if (activeChannel) return;
+
+      activeChannel = supabase
+        .channel(`user-${userId}-chat-rooms`)
+        .on("broadcast", { event: CHAT_EVENT.ROOMS_REFRESH }, refreshRooms)
+        .subscribe();
+    };
+
+    const unsubscribe = () => {
+      if (!activeChannel) return;
+
+      void supabase.removeChannel(activeChannel);
+      activeChannel = null;
+    };
+
+    const handlePageHide = () => {
+      unsubscribe();
+    };
+
+    const handlePageShow = () => {
+      subscribe();
+      refreshRooms();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        unsubscribe();
+        return;
+      }
+
+      subscribe();
+      refreshRooms();
+    };
+
+    subscribe();
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      channel.unsubscribe();
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      unsubscribe();
     };
   }, [queryClient, queryKey, userId]);
-
-  useEffect(() => {
-    if (!roomIdsString) return;
-
-    const roomIds = roomIdsString.split(",");
-
-    const unsubscribe = subscribeToRoomUpdates({
-      userId,
-      roomIds,
-      // 2. 메시지 수신 시 캐시 직접 조작
-      onMessage: (message: ChatMessage) => {
-        queryClient.setQueryData(
-          queryKey,
-          (oldRooms: ChatRoom[] | undefined) => {
-            if (!oldRooms) return oldRooms;
-
-            const newRooms = oldRooms.map((room) => {
-              if (room.id === message.productChatRoomId) {
-                return {
-                  ...room,
-                  lastMessage: message,
-                  unreadCount:
-                    message.type === "SYSTEM"
-                      ? room.unreadCount ?? 0
-                      : (room.unreadCount ?? 0) + 1,
-                };
-              }
-              return room;
-            });
-
-            // 가장 최근 대화가 상단으로 오도록 정렬을 재수행
-            return newRooms.sort((a, b) => {
-              const aTime = a.lastMessage?.created_at || a.updated_at;
-              const bTime = b.lastMessage?.created_at || b.updated_at;
-              return new Date(bTime).getTime() - new Date(aTime).getTime();
-            });
-          }
-        );
-      },
-      // 3. 메시지 읽음 처리 시 캐시 카운트 초기화
-      onMessageRead: ({ roomId, readerId }) => {
-        if (readerId !== userId) return;
-
-        queryClient.setQueryData(
-          queryKey,
-          (oldRooms: ChatRoom[] | undefined) => {
-            if (!oldRooms) return oldRooms;
-            return oldRooms.map((room) => {
-              if (room.id === roomId) {
-                return { ...room, unreadCount: 0 };
-              }
-              return room;
-            });
-          }
-        );
-      },
-      onMessageDeleted: ({ roomId, message, wasUnread }) => {
-        queryClient.setQueryData(
-          queryKey,
-          (oldRooms: ChatRoom[] | undefined) => {
-            if (!oldRooms) return oldRooms;
-
-            return oldRooms.map((room) => {
-              if (room.id !== roomId) return room;
-
-              const nextRoom = { ...room };
-
-              if (room.lastMessage?.id === message.id) {
-                nextRoom.lastMessage = message;
-              }
-
-              if (
-                wasUnread &&
-                message.user.id !== userId &&
-                (room.unreadCount ?? 0) > 0
-              ) {
-                nextRoom.unreadCount = (room.unreadCount ?? 0) - 1;
-              }
-
-              return nextRoom;
-            });
-          }
-        );
-      },
-    });
-
-    return () => unsubscribe();
-  }, [roomIdsString, userId, queryClient, queryKey]);
 
   return { rooms };
 }

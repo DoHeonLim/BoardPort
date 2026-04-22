@@ -63,6 +63,7 @@ export default function ProfileSettingMenu({
   // Zustand 스토어 액션 호출 (명시적 상태 변경)
   const openModal = useModalStore((state) => state.openModal);
   const currentSearch = searchParams?.toString();
+  // 현재 경로 기반 복귀 URL 계산
   const returnTo = sanitizeCallbackUrl(
     `${pathname}${currentSearch ? `?${currentSearch}` : ""}`
   );
@@ -118,6 +119,7 @@ export default function ProfileSettingMenu({
     };
 
     menu.addEventListener("keydown", onKey as unknown as EventListener);
+    // 메뉴 오픈 직후 첫 항목 포커스
     focusables[0]?.focus(); // 메뉴 열리면 첫 항목 포커스
 
     return () =>
@@ -133,7 +135,7 @@ export default function ProfileSettingMenu({
         aria-expanded={open}
         title="설정"
         className={cn(
-          "flex items-center justify-center size-10 rounded-xl transition-colors shadow-sm",
+          "focus-ring-soft flex items-center justify-center size-10 rounded-xl transition-colors shadow-sm",
           "bg-surface border border-border-subtle text-muted hover:text-primary hover:bg-surface-dim",
           isAdmin && "border-brand/30 text-brand dark:text-brand-light"
         )}
@@ -154,7 +156,7 @@ export default function ProfileSettingMenu({
                 href="/admin"
                 role="menuitem"
                 data-menuitem="true"
-                className="flex items-center gap-2 px-4 py-3 text-sm font-bold text-brand dark:text-brand-light bg-brand/5 hover:bg-brand/10 dark:bg-brand-light/10 dark:hover:bg-brand-light/20 transition-colors"
+                className="focus-ring-soft flex items-center gap-2 px-4 py-3 text-sm font-bold text-brand dark:text-brand-light bg-brand/5 hover:bg-brand/10 dark:bg-brand-light/10 dark:hover:bg-brand-light/20 transition-colors"
                 onClick={() => setOpen(false)}
               >
                 <ComputerDesktopIcon className="size-4" />
@@ -169,7 +171,7 @@ export default function ProfileSettingMenu({
             href={`/profile/edit?returnTo=${encodeURIComponent(returnTo)}`}
             role="menuitem"
             data-menuitem="true"
-            className="block px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft block px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
             onClick={() => setOpen(false)}
           >
             프로필 수정
@@ -185,7 +187,7 @@ export default function ProfileSettingMenu({
               setOpen(false);
               openModal("password"); // Zustand 액션으로 교체
             }}
-            className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
           >
             비밀번호 변경
           </button>
@@ -217,7 +219,7 @@ export default function ProfileSettingMenu({
               href={`/profile/edit?returnTo=${encodeURIComponent(returnTo)}`}
               role="menuitem"
               data-menuitem="true"
-              className="block px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors"
+              className="focus-ring-soft block px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors"
               onClick={() => setOpen(false)}
             >
               이메일 설정 필요
@@ -234,7 +236,7 @@ export default function ProfileSettingMenu({
               setOpen(false);
               openModal("block"); // Zustand 액션으로 교체
             }}
-            className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
           >
             차단한 선원 관리
           </button>

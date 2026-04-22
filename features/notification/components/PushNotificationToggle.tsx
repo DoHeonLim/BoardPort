@@ -16,6 +16,7 @@
  * 2026.02.28  임도헌   Modified  iOS 사파리 가이드 제공
  * 2026.03.27  임도헌   Modified  토글은 상태만 담당하고 설치/재연결 안내는 부모 섹션이 아래에 쌓아 주도록 구조 정리
  * 2026.04.02  임도헌   Modified  푸시 상태 타입 import를 notification/types 공용 정의로 정리
+ * 2026.04.17  임도헌   Modified  토글의 실제 책임(상태 라벨/스위치) 기준으로 주석과 a11y 설명 최신화
  */
 
 "use client";
@@ -34,7 +35,8 @@ type PushNotificationToggleProps = {
  *
  * [기능]
  * - `usePushNotification` 훅을 사용하여 현재 구독 상태를 조회하고 제어
- * - 브라우저 미지원 또는 프라이빗 모드일 경우 안내 메시지를 표시
+ * - iOS 설치 필요/재연결 필요/권한 필요 같은 현재 상태를 라벨로 노출
+ * - 실제 상세 안내 문구는 부모 섹션이 렌더링하고, 이 컴포넌트는 토글과 상태 전달만 담당
  * - 토글 클릭 시 구독(subscribe) 또는 구독 해제(unsubscribe)를 수행
  */
 export function PushNotificationToggle({
@@ -84,6 +86,7 @@ export function PushNotificationToggle({
     effectiveStatus !== "unsupported" &&
     effectiveStatus !== "private_mode";
 
+  // 상태 전환 가능 환경에서만 실제 subscribe/unsubscribe 수행
   const handleToggle = async () => {
     if (loading || !canToggle) return;
     setLoading(true);
@@ -136,8 +139,10 @@ export function PushNotificationToggle({
           disabled={loading}
           role="switch"
           aria-checked={isSubscribed}
+          // 프로필/설정 페이지 모두 같은 이름으로 읽히도록 고정 라벨 사용
+          aria-label="푸시 알림 받기"
           className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+            "focus-ring-soft relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
             isSubscribed
               ? "bg-brand"
               : effectiveStatus === "needs_reconnect"

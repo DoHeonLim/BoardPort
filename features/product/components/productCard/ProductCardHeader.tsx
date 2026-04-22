@@ -12,6 +12,7 @@
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.26  임도헌   Modified  게임 타입 UI 수정
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서 헤더 정보 밀도와 말줄임 폭을 조정
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 헤더의 초소형 타이포 스케일을 단순화
  */
 
 import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
@@ -46,13 +47,15 @@ export function ProductCardHeader({
     <div
       className={cn(
         "flex items-center text-muted",
-        isGrid ? "gap-1 text-[9px] sm:gap-1.5 sm:text-xs" : "gap-1.5 text-[10px] sm:text-xs"
+        isGrid
+          ? "gap-1 text-xs sm:gap-1.5"
+          : "gap-1.5 text-xs"
       )}
     >
       <span
         className={cn(
           "inline-flex items-center rounded-[4px] font-bold tracking-tight shrink-0",
-          isGrid ? "px-1.5 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[9px] sm:text-[10px]",
+          "px-1.5 py-0.5 text-xs",
           "bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-gray-100 hover:bg-brand/20 transition-colors"
         )}
       >

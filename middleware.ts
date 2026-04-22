@@ -10,6 +10,7 @@
  * 2025.12.23  임도헌   Modified  비로그인 리다이렉트 파라미터 통일(/login?callbackUrl=...)
  * 2026.02.06  임도헌   Modified  관리자 경로 보호 및 정지 유저 접근 제한 로직 추가
  * 2026.03.06  임도헌   Modified  /offline 등 공용 경로 허용과 게스트 전용 경로 분리를 통해 오프라인/PWA 리다이렉트 충돌을 정리
+ * 2026.04.12  임도헌   Modified  robots.txt·sitemap.xml 메타 라우트를 인증 미들웨어 예외로 처리
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -24,6 +25,8 @@ const alwaysAccessibleUrls: IRoutes = {
   "/offline": true,
   "/403": true,
   "/manifest.webmanifest": true,
+  "/robots.txt": true,
+  "/sitemap.xml": true,
 };
 
 // 비로그인 전용 경로
@@ -48,6 +51,7 @@ const authGuestOnlyUrls: IRoutes = {
  *    `/403?reason=BANNED` 페이지로 강제 리다이렉트
  * 3. `/admin` 경로는 `ADMIN` 역할이 아닌 경우 접근을 차단
  * 4. 비로그인 유저가 보호된 경로 접근 시 로그인 페이지로 리다이렉트 (CallbackUrl 보존)
+ * 5. 로그인 유저가 로그인/회원가입 등 게스트 전용 경로 접근 시 `/products`로 리다이렉트
  */
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -68,6 +72,7 @@ export async function middleware(request: NextRequest) {
   const isBanned = !!session.banned; // 세션에 저장된 정지 여부
   const isAlwaysAccessible = !!alwaysAccessibleUrls[pathname];
   const isGuestOnly = !!authGuestOnlyUrls[pathname];
+  // public 경로는 "항상 허용 경로"와 "비로그인 전용 경로"를 합친 개념
   const isPublicPath = isAlwaysAccessible || isGuestOnly;
 
   // 2. 이용 정지(Banned) 유저 가드
@@ -103,6 +108,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|manifest.webmanifest|sw.js|workbox-*.js|pwa-push.js|images).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|workbox-*.js|pwa-push.js|images).*)",
   ],
 };

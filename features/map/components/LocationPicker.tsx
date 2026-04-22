@@ -18,9 +18,9 @@
  * 2026.03.29  임도헌   Modified  하단 안내 힌트의 blur를 제거하고 확인 CTA를 검색 버튼과 동일한 bg-brand 톤으로 통일
  * 2026.03.29  임도헌   Modified  지도 위 힌트/선택 카드 텍스트 대비를 높여 라이트·다크 가시성 정리
  * 2026.04.02  임도헌   Modified  초기 지도 중심 좌표를 map/constants 공용 상수로 분리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.10  임도헌   Modified  map 타이포 정책에 맞춰 안내 힌트와 선택 위치 라벨 크기/weight를 400·500·700 기준으로 정리
  */
-
-"use client";
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -180,20 +180,20 @@ export default function LocationPicker({
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
       <div className="bg-surface w-full overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:max-w-2xl sm:h-[80dvh] sm:rounded-3xl border-0 sm:border sm:border-border-subtle">
-        {/* Header */}
+        {/* 헤더 */}
         <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0 z-20 relative">
           <h3 className="font-bold text-primary text-lg">거래 장소 선택</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft rounded-full p-2 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             aria-label="거래 장소 선택 모달 닫기"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Search Bar */}
+        {/* 검색 바 */}
         <div className="p-4 bg-surface border-b border-border-subtle shrink-0 z-20 relative">
           <div className="relative">
             <input
@@ -208,7 +208,7 @@ export default function LocationPicker({
             <button
               type="button"
               onClick={executeSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-colors"
+              className="focus-ring-strong absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-dark"
               aria-label="거래 장소 검색 실행"
             >
               검색
@@ -216,7 +216,7 @@ export default function LocationPicker({
           </div>
         </div>
 
-        {/* Main Map Container */}
+        {/* 메인 지도 영역 */}
         <div className="flex-1 relative w-full h-full min-h-0 bg-surface-dim z-0">
           <Map
             center={center}
@@ -227,7 +227,7 @@ export default function LocationPicker({
             {marker && <MapMarker position={marker} />}
           </Map>
 
-          {/* Search Results List Overlay */}
+          {/* 검색 결과 목록 오버레이 */}
           {searchResults.length > 0 && (
             <div className="absolute inset-x-3 top-3 z-10 max-h-[50%] overflow-hidden rounded-2xl border border-border-subtle bg-surface/98 shadow-2xl backdrop-blur-sm">
               <div className="max-h-[50dvh] divide-y divide-border-subtle overflow-y-auto">
@@ -236,7 +236,7 @@ export default function LocationPicker({
                     key={i}
                     type="button"
                     onClick={() => handleResultClick(rs)}
-                    className="w-full text-left p-4 bg-surface hover:bg-surface-dim transition-colors flex flex-col gap-0.5 active:bg-surface-dim/80"
+                    className="focus-ring-soft flex w-full flex-col gap-0.5 bg-surface p-4 text-left transition-colors hover:bg-surface-dim active:bg-surface-dim/80"
                   >
                     <span className="text-sm font-bold text-gray-900 dark:text-white">
                       {rs.place_name}
@@ -253,7 +253,7 @@ export default function LocationPicker({
           {!selectedInfo && searchResults.length === 0 && (
             <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 sm:inset-x-auto sm:left-4 sm:bottom-4 sm:max-w-sm">
               <div className="rounded-2xl border border-border-subtle bg-surface px-4 py-3 shadow-lg">
-                <p className="text-sm font-semibold text-primary">
+                <p className="text-sm font-medium text-primary">
                   지도를 누르거나 검색 결과를 선택하세요.
                 </p>
                 <p className="mt-1 text-xs text-muted dark:text-slate-300/90">
@@ -264,7 +264,7 @@ export default function LocationPicker({
             </div>
           )}
 
-          {/* Selected Info & Confirm Button (Bottom Floating) */}
+          {/* 선택 정보 및 확인 버튼 (하단 고정) */}
           {selectedInfo && (
             <div className="absolute bottom-3 inset-x-4 z-30 animate-slide-up sm:bottom-4">
               <div className="flex flex-col gap-2 rounded-2xl border border-border-subtle bg-surface p-3 shadow-2xl ring-1 ring-black/5">
@@ -273,7 +273,7 @@ export default function LocationPicker({
                     <MapPinIcon className="size-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wider text-brand dark:text-brand-light">
+                    <p className="mb-0.5 text-xs font-bold uppercase tracking-wider text-brand dark:text-brand-light">
                       선택된 위치
                     </p>
                     <p className="font-bold text-primary text-base truncate">
@@ -289,7 +289,7 @@ export default function LocationPicker({
                 <button
                   type="button"
                   onClick={() => onSelect(selectedInfo)}
-                  className="h-11 w-full rounded-xl bg-brand text-sm font-bold text-white shadow-md transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-neutral-400 disabled:text-neutral-300"
+                  className="focus-ring-strong h-11 w-full rounded-xl bg-brand text-sm font-bold text-white shadow-md transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-neutral-400 disabled:text-neutral-300"
                 >
                   이 위치로 설정하기
                 </button>
@@ -324,7 +324,7 @@ export default function LocationPicker({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+              className="focus-ring-soft rounded-full p-2 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
               aria-label="거래 장소 선택 모달 닫기"
             >
               <XMarkIcon className="size-6" />

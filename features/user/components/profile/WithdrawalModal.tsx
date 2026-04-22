@@ -6,8 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.23  임도헌   Created    ProfileEditForm에서 분리하여 독립 컴포넌트화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useTransition } from "react";
 import { toast } from "sonner";

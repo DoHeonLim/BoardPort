@@ -53,10 +53,13 @@
  * 2026.03.27  임도헌   Modified  상세 채팅 입력바 셸을 한 단계 조용하게 정리해 배경 일러스트와 경쟁을 완화
  * 2026.03.28  임도헌   Modified  현재 대화 검색을 메시지 표면 하이라이트, 검색 중/결과 없음 피드백, 최신 결과 우선 탐색, 모바일 플로팅 이동 버튼, 순환형 내비게이션 기준으로 전반 정리
  * 2026.04.02  임도헌   Modified  메시지 삭제/반응 액션과 채팅방 목록 마지막 메시지 캐시 동기화 흐름 추가
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 검색 상태 문구 강조 weight를 500 기준으로 정리
+ * 2026.04.21  임도헌   Modified  검색/뷰포트 상태를 전용 훅으로 분리하고 함수 설명 주석을 정리
+ * 2026.04.22  임도헌   Modified  메시지 삭제 확인을 브라우저 confirm 대신 공용 ConfirmDialog로 통일
  */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -64,6 +67,7 @@ import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import ChatMessageBubble from "@/features/chat/components/ChatMessageBubble";
 import ChatInputBar from "@/features/chat/components/ChatInputBar";
+import ConfirmDialog from "@/components/global/ConfirmDialog";
 import useChatSubscription from "@/features/chat/hooks/useChatSubscription";
 import useInfiniteMessages from "@/features/chat/hooks/useInfiniteMessages";
 import AppointmentBubble from "@/features/chat/components/AppointmentBubble";
@@ -80,6 +84,8 @@ import type { LocationData } from "@/features/map/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { queryKeys } from "@/lib/queryKeys";
 import type { ChatMessageReactionKey } from "@/features/chat/constants";
+import useChatMessageViewport from "@/features/chat/hooks/useChatMessageViewport";
+import useChatSearchNavigator from "@/features/chat/hooks/useChatSearchNavigator";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -91,7 +97,9 @@ const ScheduleModal = dynamic(
 );
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+  return error instanceof Error
+    ? error.message
+    : "알 수 없는 오류가 발생했습니다.";
 }
 
 interface ChatMessagesListProps {
@@ -126,25 +134,6 @@ export default function ChatMessagesList({
   searchNavigation = null,
   onSearchMetaChange,
 }: ChatMessagesListProps) {
-  /**
-   * 검색 매치 강조 톤 결정
-   * - active 결과와 일반 매치를 시각적으로 구분해 이전/다음 이동 위치를 명확히 보여준다.
-   */
-  const getSearchHighlightTone = (
-    isActive: boolean,
-    isHit: boolean
-  ): "active" | "hit" | null => {
-    if (isActive) {
-      return "active";
-    }
-
-    if (isHit) {
-      return "hit";
-    }
-
-    return null;
-  };
-
   const [isInitialBottomAligned, setIsInitialBottomAligned] = useState(false);
 
   // 선언적 데이터 패칭 (Suspense 보장)
@@ -171,123 +160,49 @@ export default function ChatMessagesList({
   const router = useRouter();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const [unseenCount, setUnseenCount] = useState(0);
   const [reportMessageId, setReportMessageId] = useState<number | null>(null);
-  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(null);
+  const [deleteConfirmMessageId, setDeleteConfirmMessageId] = useState<
+    number | null
+  >(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<number | null>(
+    null
+  );
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-  const [searchMatchIds, setSearchMatchIds] = useState<number[]>([]);
-  const [activeSearchIndex, setActiveSearchIndex] = useState<number>(-1);
+  const {
+    unseenCount,
+    isKeyboardOpen,
+    setMessageElement,
+    scrollToMessageById,
+    scrollToLatestMessage,
+    prepareOwnMessageScroll,
+    handleReceivedMessageScroll,
+  } = useChatMessageViewport({
+    messages,
+    containerRef,
+    isMobile,
+    onInitialBottomAligned: () => setIsInitialBottomAligned(true),
+  });
 
-  const isAtBottomRef = useRef(true);
-  const hasInitialScrolledRef = useRef(false);
-  const lastMessageIdRef = useRef<number | null>(null);
-  const messageElementMapRef = useRef(new Map<number, HTMLDivElement>());
-  const pendingScrollModeRef = useRef<"self" | "incoming" | null>(null);
-  const BOTTOM_THRESHOLD_PX = 100;
-  const trimmedSearchQuery = searchQuery.trim();
-  const isSearchMode = trimmedSearchQuery.length > 0;
-  const showSearchPendingNotice =
-    isSearchMode &&
-    searchMatchIds.length === 0 &&
-    (isFetchingNextPage || hasMore);
-  const showSearchEmptyNotice =
-    isSearchMode &&
-    searchMatchIds.length === 0 &&
-    !isFetchingNextPage &&
-    !hasMore;
-  const showMobileSearchNavigator =
-    isMobile && isSearchMode && searchMatchIds.length > 0;
-
-  const setMessageElement = useCallback(
-    (messageId: number, element: HTMLDivElement | null) => {
-      if (element) {
-        messageElementMapRef.current.set(messageId, element);
-        return;
-      }
-      messageElementMapRef.current.delete(messageId);
-    },
-    []
-  );
-
-  /**
-   * 특정 메시지 DOM으로 스크롤 이동
-   * - 검색 결과 이전/다음 이동과 최초 매치 자동 포커스에 사용
-   */
-  const scrollToMessageById = useCallback(
-    (messageId: number, behavior: ScrollBehavior = "smooth") => {
-      const targetElement = messageElementMapRef.current.get(messageId);
-      if (!targetElement) return;
-
-      targetElement.scrollIntoView({
-        block: "center",
-        behavior,
-      });
-    },
-    []
-  );
-
-  const emitSearchMeta = useCallback(
-    (count: number, activeIndex: number) => {
-      onSearchMetaChange?.({
-        count,
-        current: count === 0 || activeIndex < 0 ? 0 : activeIndex + 1,
-        canGoPrev: count > 1,
-        canGoNext: count > 1,
-      });
-    },
-    [onSearchMetaChange]
-  );
-
-  const navigateSearch = useCallback(
-    (direction: "next" | "prev") => {
-      if (searchMatchIds.length === 0) return;
-
-      setActiveSearchIndex((prev) => {
-        const baseIndex = prev >= 0 ? prev : 0;
-        const nextIndex =
-          direction === "prev"
-            ? (baseIndex + 1) % searchMatchIds.length
-            : (baseIndex - 1 + searchMatchIds.length) % searchMatchIds.length;
-
-        emitSearchMeta(searchMatchIds.length, nextIndex);
-
-        requestAnimationFrame(() => {
-          scrollToMessageById(searchMatchIds[nextIndex]);
-        });
-
-        return nextIndex;
-      });
-    },
-    [emitSearchMeta, scrollToMessageById, searchMatchIds]
-  );
-
-  const scrollToLatestMessage = useCallback(
-    (behavior: ScrollBehavior = "auto") => {
-      const container = containerRef.current;
-      if (!container || messages.length === 0) return;
-
-      const lastMessage = messages[messages.length - 1];
-      const targetElement = lastMessage
-        ? messageElementMapRef.current.get(lastMessage.id)
-        : null;
-
-      if (targetElement) {
-        targetElement.scrollIntoView({
-          block: "end",
-          behavior,
-        });
-      } else {
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior,
-        });
-      }
-
-      isAtBottomRef.current = true;
-      setUnseenCount(0);
-    },
-    [containerRef, messages]
-  );
+  const {
+    searchMatchIds,
+    trimmedSearchQuery,
+    showSearchPendingNotice,
+    showSearchEmptyNotice,
+    showMobileSearchNavigator,
+    navigateSearch,
+    getSearchHighlightToneForMessage,
+  } = useChatSearchNavigator({
+    messages,
+    searchQuery,
+    searchNavigation,
+    hasMore,
+    isFetchingNextPage,
+    loadMore,
+    onSearchMetaChange,
+    scrollToMessageById,
+    isMobile,
+    isKeyboardOpen,
+  });
 
   /**
    * 채팅방 목록 마지막 메시지 미리보기 동기화
@@ -316,46 +231,55 @@ export default function ChatMessagesList({
   );
 
   /**
-   * 본인 메시지 삭제 핸들러
-   * - 행은 유지한 채 삭제 상태만 반영하고, 현재 방의 마지막 메시지 미리보기도 함께 동기화
+   * 메시지 삭제 확인창 열기
+   * - 네이티브 confirm 대신 공용 ConfirmDialog를 사용해 앱 전반의 확인 UX를 통일
    */
   const handleDeleteMessage = useCallback(
-    async (messageId: number) => {
+    (messageId: number) => {
       if (deletingMessageId === messageId) return;
-
-      const shouldDelete = window.confirm("이 메시지를 삭제할까요?");
-      if (!shouldDelete) return;
-
-      setDeletingMessageId(messageId);
-
-      try {
-        const result = await deleteMessageAction(messageId);
-
-        if (!result.success) {
-          toast.error(result.error);
-          return;
-        }
-
-        replaceMessage(result.data);
-
-        if (messages[messages.length - 1]?.id === result.data.id) {
-          syncRoomPreviewMessage(result.data);
-        }
-
-        toast.success("메시지를 삭제했습니다.");
-      } catch {
-        toast.error("메시지 삭제에 실패했습니다.");
-      } finally {
-        setDeletingMessageId(null);
-      }
+      setDeleteConfirmMessageId(messageId);
     },
-    [
-      deletingMessageId,
-      messages,
-      replaceMessage,
-      syncRoomPreviewMessage,
-    ]
+    [deletingMessageId]
   );
+
+  /**
+   * 본인 메시지 삭제 실행
+   * - 행은 유지한 채 삭제 상태만 반영하고, 현재 방의 마지막 메시지 미리보기도 함께 동기화
+   */
+  const confirmDeleteMessage = useCallback(async () => {
+    if (deleteConfirmMessageId == null) return;
+    if (deletingMessageId === deleteConfirmMessageId) return;
+
+    setDeletingMessageId(deleteConfirmMessageId);
+
+    try {
+      const result = await deleteMessageAction(deleteConfirmMessageId);
+
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+
+      replaceMessage(result.data);
+
+      if (messages[messages.length - 1]?.id === result.data.id) {
+        syncRoomPreviewMessage(result.data);
+      }
+
+      toast.success("메시지를 삭제했습니다.");
+      setDeleteConfirmMessageId(null);
+    } catch {
+      toast.error("메시지 삭제에 실패했습니다.");
+    } finally {
+      setDeletingMessageId(null);
+    }
+  }, [
+    deleteConfirmMessageId,
+    deletingMessageId,
+    messages,
+    replaceMessage,
+    syncRoomPreviewMessage,
+  ]);
 
   /**
    * 메시지 반응 토글 핸들러
@@ -365,7 +289,10 @@ export default function ChatMessagesList({
   const handleToggleReaction = useCallback(
     async (messageId: number, reactionKey: ChatMessageReactionKey) => {
       try {
-        const result = await toggleMessageReactionAction(messageId, reactionKey);
+        const result = await toggleMessageReactionAction(
+          messageId,
+          reactionKey
+        );
 
         if (!result.success) {
           toast.error(result.error);
@@ -390,62 +317,13 @@ export default function ChatMessagesList({
     try {
       const resData = await proposeAppointment({ date, location });
       if (resData) {
-        pendingScrollModeRef.current = "self";
+        prepareOwnMessageScroll();
         addMessage(resData);
       }
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
-
-  /**
-   * 스크롤 바닥 여부 감지
-   */
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const onScroll = () => {
-      const distanceToBottom =
-        el.scrollHeight - (el.scrollTop + el.clientHeight);
-      const atBottom = distanceToBottom <= BOTTOM_THRESHOLD_PX;
-      isAtBottomRef.current = atBottom;
-
-      if (atBottom) setUnseenCount(0);
-    };
-
-    el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [containerRef]);
-
-  /**
-   * 실시간/전송으로 마지막 메시지가 갱신되었을 때만 자동 스크롤
-   * - self: 내가 보낸 메시지는 항상 최신 위치로 이동
-   * - incoming: 사용자가 이미 최신 구간을 보고 있을 때만 따라감
-   * - null: 과거 메시지 탐색 중 들어온 새 메시지이므로 점프하지 않음
-   */
-  useEffect(() => {
-    if (!hasInitialScrolledRef.current) return;
-
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg) return;
-
-    if (lastMessageIdRef.current === lastMsg.id) return;
-
-    lastMessageIdRef.current = lastMsg.id;
-
-    const pendingMode = pendingScrollModeRef.current;
-    pendingScrollModeRef.current = null;
-
-    if (!pendingMode) return;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollToLatestMessage(pendingMode === "incoming" ? "smooth" : "auto");
-      });
-    });
-  }, [messages, scrollToLatestMessage]);
 
   /**
    * Supabase 실시간 웹소켓 구독
@@ -455,16 +333,8 @@ export default function ChatMessagesList({
     currentUserId: user.id,
     throttleReadUpdate: true,
     onNewMessage: (newMessage) => {
-      const isOwn = newMessage.user.id === user.id;
-      if (isOwn) {
-        pendingScrollModeRef.current = "self";
-      } else if (isAtBottomRef.current) {
-        pendingScrollModeRef.current = "incoming";
-      } else {
-        pendingScrollModeRef.current = null;
-        setUnseenCount((c) => c + 1);
-      }
-
+      // 최신 구간 미확인 시 unseenCount만 증가, 화면 점프 방지
+      handleReceivedMessageScroll(newMessage.user.id === user.id);
       addMessage(newMessage);
     },
     onMessageDeleted: ({ message, wasUnread }) => {
@@ -501,82 +371,6 @@ export default function ChatMessagesList({
   });
 
   /**
-   * 최초 진입 시 실제 마지막 메시지를 우선 노출
-   * - 렌더 직후 마지막 메시지 DOM 기준으로 정렬하여 이미지/버블 높이 차이에도 안정적으로 맞춤
-   * - 타깃 DOM을 찾지 못하면 기존처럼 최하단으로 이동
-   * - 초기 바닥 정렬이 끝나기 전에는 상단 fetchMore를 막아 긴 채팅방에서 과거 메시지 로드와 경쟁하지 않도록 유지
-   */
-  useEffect(() => {
-    if (hasInitialScrolledRef.current || messages.length === 0) return;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        scrollToLatestMessage("auto");
-        lastMessageIdRef.current = messages[messages.length - 1]?.id ?? null;
-        hasInitialScrolledRef.current = true;
-        setIsInitialBottomAligned(true);
-      });
-    });
-  }, [messages, scrollToLatestMessage]);
-
-  useEffect(() => {
-    const normalizedQuery = trimmedSearchQuery.toLowerCase();
-
-    if (!normalizedQuery) {
-      setSearchMatchIds([]);
-      setActiveSearchIndex(-1);
-      emitSearchMeta(0, -1);
-      return;
-    }
-
-    const matches = messages
-      .filter(
-        (message) =>
-          typeof message.payload === "string" &&
-          message.payload.toLowerCase().includes(normalizedQuery)
-      )
-      .map((message) => message.id)
-      .reverse();
-
-    setSearchMatchIds(matches);
-
-    if (matches.length === 0) {
-      setActiveSearchIndex(-1);
-      emitSearchMeta(0, -1);
-
-      if (hasMore && !isFetchingNextPage) {
-        void loadMore();
-      }
-      return;
-    }
-
-    setActiveSearchIndex(0);
-    emitSearchMeta(matches.length, 0);
-
-    requestAnimationFrame(() => {
-      scrollToMessageById(matches[0]);
-    });
-  }, [
-    hasMore,
-    isFetchingNextPage,
-    loadMore,
-    messages,
-    emitSearchMeta,
-    scrollToMessageById,
-    searchQuery,
-    trimmedSearchQuery,
-  ]);
-
-  /**
-   * 헤더의 이전/다음 검색 이동 요청 처리
-   * - 매치 배열을 순환하며 활성 인덱스를 갱신하고 해당 메시지로 스크롤
-   */
-  useEffect(() => {
-    if (!searchNavigation || searchMatchIds.length === 0) return;
-    navigateSearch(searchNavigation.direction);
-  }, [navigateSearch, searchMatchIds.length, searchNavigation]);
-
-  /**
    * 메시지 전송 핸들러
    */
   const onSubmit = async (
@@ -587,7 +381,7 @@ export default function ChatMessagesList({
     try {
       const resData = await sendMessage({ text, imageUrl, imageIsAnimated });
       if (resData?.message) {
-        pendingScrollModeRef.current = "self";
+        prepareOwnMessageScroll();
         addMessage(resData.message);
         queryClient.setQueryData(
           queryKeys.chats.list(user.id),
@@ -648,7 +442,7 @@ export default function ChatMessagesList({
               </div>
             ) : (
               <div className="max-w-[88%] rounded-2xl border border-border bg-background/95 px-3.5 py-2 text-center text-xs leading-relaxed text-muted shadow-sm">
-                <span className="font-semibold text-primary">
+                <span className="font-medium text-primary">
                   &apos;{trimmedSearchQuery}&apos;
                 </span>
                 에 대한 검색 결과가 없어요.
@@ -665,16 +459,7 @@ export default function ChatMessagesList({
         )}
 
         {messages.map((message) => {
-          const isSearchHit = searchMatchIds.includes(message.id);
-          const isActiveSearchHit =
-            activeSearchIndex >= 0 &&
-            searchMatchIds[activeSearchIndex] === message.id;
-
           if (message.type === "SYSTEM") {
-            const searchHighlight = getSearchHighlightTone(
-              isActiveSearchHit,
-              isSearchHit
-            );
             return (
               <div
                 key={message.id}
@@ -682,7 +467,7 @@ export default function ChatMessagesList({
               >
                 <SystemMessage
                   text={message.payload ?? ""}
-                  searchHighlight={searchHighlight}
+                  searchHighlight={getSearchHighlightToneForMessage(message.id)}
                 />
               </div>
             );
@@ -690,10 +475,6 @@ export default function ChatMessagesList({
 
           if (message.type === "APPOINTMENT") {
             const isOwn = message.user.id === user.id;
-            const searchHighlight = getSearchHighlightTone(
-              isActiveSearchHit,
-              isSearchHit
-            );
             return (
               <div
                 key={message.id}
@@ -707,16 +488,13 @@ export default function ChatMessagesList({
                   isOwnMessage={isOwn}
                   currentUserId={user.id}
                   isCounterpartyLeft={isCounterpartyLeft}
-                  searchHighlight={searchHighlight}
+                  searchHighlight={getSearchHighlightToneForMessage(
+                    message.id
+                  )}
                 />
               </div>
             );
           }
-
-          const searchHighlight = getSearchHighlightTone(
-            isActiveSearchHit,
-            isSearchHit
-          );
           return (
             <div
               key={message.id}
@@ -730,7 +508,7 @@ export default function ChatMessagesList({
                 onReport={(id) => setReportMessageId(id)}
                 onDelete={handleDeleteMessage}
                 onReact={handleToggleReaction}
-                searchHighlight={searchHighlight}
+                searchHighlight={getSearchHighlightToneForMessage(message.id)}
               />
             </div>
           );
@@ -740,13 +518,13 @@ export default function ChatMessagesList({
       </div>
 
       {/* 안 읽은 새 메시지 안내 버튼 */}
-      {unseenCount > 0 && (
+      {unseenCount > 0 && !isKeyboardOpen && (
         <button
           type="button"
           onClick={() => {
             scrollToLatestMessage("smooth");
           }}
-          className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full border border-border-subtle bg-background px-3 py-1.5 text-sm text-primary shadow-lg"
+          className="focus-ring-soft absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full border border-border-subtle bg-background px-3 py-1.5 text-sm text-primary shadow-lg"
         >
           새 메시지 {unseenCount}개 보기
         </button>
@@ -759,7 +537,7 @@ export default function ChatMessagesList({
               type="button"
               onClick={() => navigateSearch("prev")}
               disabled={searchMatchIds.length <= 1}
-              className="inline-flex size-11 items-center justify-center bg-background text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:text-muted/45"
+              className="focus-ring-soft inline-flex size-11 items-center justify-center bg-background text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:text-muted/45"
               aria-label="이전 검색 결과"
             >
               <ChevronUpIcon className="size-5" />
@@ -769,7 +547,7 @@ export default function ChatMessagesList({
               type="button"
               onClick={() => navigateSearch("next")}
               disabled={searchMatchIds.length <= 1}
-              className="inline-flex size-11 items-center justify-center bg-background text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:text-muted/45"
+              className="focus-ring-soft inline-flex size-11 items-center justify-center bg-background text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:text-muted/45"
               aria-label="다음 검색 결과"
             >
               <ChevronDownIcon className="size-5" />
@@ -800,6 +578,22 @@ export default function ChatMessagesList({
         isOpen={scheduleModalOpen}
         onClose={() => setScheduleModalOpen(false)}
         onConfirm={handleProposeAppointment}
+      />
+      <ConfirmDialog
+        open={deleteConfirmMessageId !== null}
+        onCancel={() => {
+          if (deletingMessageId !== null) return;
+          setDeleteConfirmMessageId(null);
+        }}
+        onConfirm={confirmDeleteMessage}
+        title="메시지를 삭제할까요?"
+        description="삭제된 메시지는 대화 흐름을 위해 자리만 남고, 내용은 복구할 수 없습니다."
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        loading={
+          deleteConfirmMessageId !== null &&
+          deletingMessageId === deleteConfirmMessageId
+        }
       />
     </div>
   );

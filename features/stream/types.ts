@@ -20,6 +20,7 @@
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 강제 퇴장 결과 타입 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 채팅 금지 토글 결과 타입 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 고정 공지 수정 결과 타입 추가
+ * 2026.04.07  임도헌   Modified  스트림 제목/설명 실시간 동기화 payload 타입 추가
  */
 
 import { StreamChatMessage } from "@/features/chat/types";
@@ -88,7 +89,7 @@ export interface UserInfo extends UserSummary {
 export interface BroadcastSummary {
   id: number; //Broadcast PK
   latestVodId?: number | null; // 가장 최근 VodAsset id
-  stream_id: string; // Cloudflare Live Input UID (iframe/임베드 식별자)
+  stream_id: string; // Cloudflare Live Input UID (iframe/임베드 식별용)
   title: string;
   thumbnail: string | null;
   thumbnailAnimated?: boolean;
@@ -158,6 +159,20 @@ export type CreateBroadcastResult =
       broadcastId: number; // 생성된 Broadcast PK
       rtmpUrl: string; // OBS 입력용
       streamKey: string; // OBS 입력용
+    }
+  | (ServiceFailure & { fieldErrors?: Record<string, string[]> });
+
+/** 방송 제목/설명 실시간 동기화 payload */
+export interface StreamMetaUpdatePayload {
+  title: string;
+  description: string | null;
+}
+
+/** 방송 제목/설명 수정 결과 */
+export type UpdateBroadcastMetaResult =
+  | {
+      success: true;
+      data: StreamMetaUpdatePayload;
     }
   | (ServiceFailure & { fieldErrors?: Record<string, string[]> });
 

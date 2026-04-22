@@ -12,9 +12,9 @@
  * 2026.03.27  임도헌   Modified  라이트/다크 공통 가시성을 위해 액션 메뉴 패널과 약속 잡기 아이콘 대비를 재정리
  * 2026.03.27  임도헌   Modified  채팅 액션 메뉴 보조 설명을 제거하고 단일 라인 액션 구조로 간결화
  * 2026.04.02  임도헌   Modified  액션 메뉴 컴포넌트 JSDoc 보강
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 액션 메뉴 버튼 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import { useState, useRef, useEffect } from "react";
 import {
@@ -46,15 +46,24 @@ export default function ChatActionMenu({
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // 입력창 포커스를 유지한 채 액션 메뉴만 토글
+  const preventFocusSteal = (
+    event:
+      | React.MouseEvent<HTMLButtonElement>
+      | React.PointerEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+  };
+
   // 외부 클릭 감지 (메뉴 닫기)
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    if (isOpen) document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [isOpen]);
 
   return (
@@ -62,9 +71,11 @@ export default function ChatActionMenu({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        onMouseDown={preventFocusSteal}
+        onPointerDown={preventFocusSteal}
         disabled={disabled}
         className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-full border border-transparent transition-colors",
+          "focus-ring-soft flex size-10 shrink-0 items-center justify-center rounded-full border border-transparent transition-colors",
           "bg-surface-dim text-muted hover:text-primary",
           isOpen && "border-border bg-surface text-primary shadow-sm"
         )}
@@ -83,11 +94,14 @@ export default function ChatActionMenu({
       {isOpen && (
         <div className="absolute bottom-full left-0 z-50 mb-2 w-44 overflow-hidden rounded-2xl border border-border bg-background p-2 shadow-2xl">
           <button
+            type="button"
             onClick={() => {
               setIsOpen(false);
               onSelectPhoto();
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-primary transition-colors hover:bg-surface-dim"
+            onMouseDown={preventFocusSteal}
+            onPointerDown={preventFocusSteal}
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light">
               <PhotoIcon className="size-5" />
@@ -96,11 +110,14 @@ export default function ChatActionMenu({
           </button>
           <div className="my-1 h-px bg-border-subtle" />
           <button
+            type="button"
             onClick={() => {
               setIsOpen(false);
               onSelectAppointment();
             }}
-            className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-primary transition-colors hover:bg-surface-dim"
+            onMouseDown={preventFocusSteal}
+            onPointerDown={preventFocusSteal}
+            className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
           >
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-dim text-primary shadow-sm">
               <CalendarDaysIcon className="size-5" />

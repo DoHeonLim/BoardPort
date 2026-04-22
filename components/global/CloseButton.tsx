@@ -80,7 +80,7 @@ export default function CloseButton({
         "size-10 sm:size-11",
         "bg-surface-dim hover:bg-border/80",
         "text-muted hover:text-primary",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+        "focus-ring-soft",
         className
       )}
     >

@@ -21,6 +21,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.19  임도헌   Modified  댓글 입력바 외곽 패널을 solid 톤으로 정리해 상세 섹션 시작 가시성을 보강
  * 2026.03.30  임도헌   Modified  게시글 카테고리 plain 라벨 정리에 맞춰 댓글 플레이스홀더를 일반 문맥으로 조정
+ * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
  */
 "use client";
 
@@ -66,6 +67,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
 
     setText(""); // 낙관적 폼 초기화
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+    textareaRef.current?.blur();
 
     try {
       const formData = new FormData();
@@ -75,7 +77,6 @@ export default function PostCommentForm({ postId }: { postId: number }) {
       await createComment(formData);
     } catch {
       setText(trimmed); // 에러 시 복구
-    } finally {
       textareaRef.current?.focus();
     }
   };
@@ -90,11 +91,11 @@ export default function PostCommentForm({ postId }: { postId: number }) {
   return (
     <div
       className={cn(
-        "w-full rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm transition-colors",
+        "w-full rounded-2xl border border-border-subtle bg-surface p-3 shadow-sm transition-colors focus-within:border-brand/40 dark:focus-within:border-brand-light/40",
         "flex items-end gap-2"
       )}
     >
-      <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">
+      <div className="flex flex-1 items-center rounded-[20px] border border-transparent bg-surface-dim px-4 py-2 transition-colors focus-within:bg-surface">
         <textarea
           ref={textareaRef}
           value={text}
@@ -103,7 +104,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
           placeholder="댓글을 남겨보세요..."
-          className="w-full bg-transparent border-none p-0 text-sm sm:text-base text-primary placeholder:text-muted resize-none max-h-[120px] focus:ring-0 leading-6"
+          className="w-full max-h-[120px] resize-none border-none bg-transparent p-0 text-sm leading-6 text-primary placeholder:text-muted focus:outline-none focus:ring-0 sm:text-base"
           rows={1}
         />
       </div>
@@ -112,7 +113,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
         onClick={submit}
         disabled={isPending || !text.trim()}
         className={cn(
-          "shrink-0 size-10 rounded-full flex items-center justify-center transition-all shadow-sm",
+          "focus-ring-soft shrink-0 size-10 rounded-full flex items-center justify-center transition-[background-color,color,border-color,box-shadow] shadow-sm",
           "bg-brand-light dark:bg-brand text-white hover:bg-brand hover:dark:bg-brand-light active:scale-95",
           "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         )}

@@ -63,7 +63,7 @@ export default function PostCommentDeleteButton({
         aria-label="댓글 삭제"
         onClick={() => setIsConfirmOpen(true)}
         className={cn(
-          "p-1.5 rounded-full transition-colors",
+          "focus-ring-soft p-1.5 rounded-full transition-colors",
           "text-muted hover:text-danger hover:bg-danger/10",
           "disabled:opacity-50 disabled:cursor-not-allowed"
         )}

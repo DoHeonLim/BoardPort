@@ -17,6 +17,8 @@
  * 2026.03.18  임도헌   Modified  현재 보고 있는 동일 프로필에선 self-navigation을 막아 nested returnTo 누적 방지
  * 2026.03.19  임도헌   Modified  공용 아바타의 현재 경로도 내부 경로 기준으로 정규화해 raw returnTo 재전파를 방지
  * 2026.04.04  임도헌   Modified  props/export 주석을 보강해 공용 아바타의 링크/표시 정책을 더 명확히 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 닉네임 라벨 weight를 500 기준으로 정리
+ * 2026.04.20  임도헌   Modified  프로필 링크 포커스가 브라우저 기본 outline 대신 공용 soft 포커스 톤을 따르도록 정리
  */
 
 "use client";
@@ -41,8 +43,14 @@ interface UserAvatarProps {
   /** 닉네임 뒤에 붙는 보조 텍스트 */
   text?: string;
   className?: string;
+  /** 닉네임 라벨에만 추가로 적용할 클래스 */
+  usernameClassName?: string;
+  /** 아바타 원형 자체에만 추가로 적용할 클래스 */
+  avatarClassName?: string;
   /** 채팅/리스트 등 초소형 배치용: 바깥 패딩 제거, 호버 제거 */
   compact?: boolean;
+  /** 필요 시 Next.js prefetch 비활성화 */
+  prefetch?: boolean;
 }
 
 /**
@@ -64,11 +72,15 @@ export default function UserAvatar({
   disabled = false,
   text,
   className,
+  usernameClassName,
+  avatarClassName,
   compact = false,
+  prefetch = true,
 }: UserAvatarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const profilePath = `/profile/${username}`;
+  const imageAlt = showUsername ? "" : username;
 
   // CSS box size와 실제 이미지 요청 px를 맞춰서 흐림 방지
   const sizes = {
@@ -93,16 +105,18 @@ export default function UserAvatar({
           className={cn(
             "rounded-full object-cover bg-surface",
             sizes[size].box,
-            "ring-1 ring-border"
+            "ring-1 ring-border",
+            avatarClassName
           )}
           src={`${avatar}/public`}
-          alt={username}
+          alt={imageAlt}
         />
       ) : (
         <div
           className={cn(
             "flex items-center justify-center rounded-full bg-surface-dim ring-1 ring-border",
-            sizes[size].box
+            sizes[size].box,
+            avatarClassName
           )}
         >
           <UserIcon className="size-3/5 text-muted/50" />
@@ -112,7 +126,12 @@ export default function UserAvatar({
       {(showUsername || text || created_at) && (
         <div className="flex flex-col min-w-0">
           {showUsername && (
-            <div className="text-sm font-semibold text-primary truncate">
+            <div
+              className={cn(
+                "truncate text-sm font-medium text-primary",
+                usernameClassName
+              )}
+            >
               {username}
               {text && (
                 <span className="font-normal text-muted ml-1">{text}</span>
@@ -137,7 +156,9 @@ export default function UserAvatar({
   return (
     <Link
       href={`${profilePath}?returnTo=${encodeURIComponent(returnTo)}`}
-      aria-label={`${username} 프로필`}
+      prefetch={prefetch}
+      className="focus-ring-soft block w-fit rounded-lg leading-none"
+      aria-label={showUsername ? undefined : `${username} 프로필`}
     >
       {root}
     </Link>

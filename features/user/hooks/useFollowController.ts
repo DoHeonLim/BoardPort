@@ -21,11 +21,13 @@
  * 2026.03.03  임도헌   Modified  useState 및 delta.ts 전면 제거 후 TanStack Query(users.followStats) 연동
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.31  임도헌   Modified  헤더 통계와 모달 페이징 제어 목적이 보이도록 설명 톤 통일
+ * 2026.04.08  임도헌   Modified  프로필/채널 헤더 팔로우 성공 시 맥락형 토스트를 노출해 상태 전환 체감 보강
  */
 "use client";
 
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import { useFollowPagination } from "@/features/user/hooks/useFollowPagination";
 import { queryKeys } from "@/lib/queryKeys";
@@ -106,11 +108,23 @@ export function useFollowController({
    */
   const onToggleFollow = useCallback(async () => {
     if (!viewerId) return onRequireLogin?.();
-    await toggle(ownerId, followStats.isFollowing, {
+    const wasFollowing = followStats.isFollowing;
+    const res = await toggle(ownerId, wasFollowing, {
       viewerId,
       onRequireLogin,
     });
-  }, [viewerId, onRequireLogin, followStats.isFollowing, toggle, ownerId]);
+
+    if (!wasFollowing && res?.success && res.isFollowing) {
+      toast.success(`${ownerUsername}님을 팔로우했습니다.`);
+    }
+  }, [
+    viewerId,
+    onRequireLogin,
+    followStats.isFollowing,
+    toggle,
+    ownerId,
+    ownerUsername,
+  ]);
 
   /**
    * 리스트 내부의 특정 유저 팔로우 토글

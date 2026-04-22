@@ -1,0 +1,64 @@
+/**
+ * File Name : app/(app)/(tabs)/profile/(product)/my-purchases/loading.tsx
+ * Description : 나의 구매 제품 페이지 로딩 스켈레톤
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2025.10.07  임도헌   Created   로딩 스켈레톤 추가
+ * 2025.11.13  임도헌   Modified  현재 카드형 UI 구조와 톤으로 재정렬
+ * 2026.01.16  임도헌   Modified  [UI] ProductCard 스타일 스켈레톤 적용
+ * 2026.03.12  임도헌   Modified  프로필 구매 내역 스켈레톤 구분선을 border-border-subtle 톤으로 통일
+ * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/(product)/my-purchases/loading.tsx 에서 app/(app)/(tabs)/profile/(product)/my-purchases/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.04.17  임도헌   Modified  실카드 메타 배치에 맞춰 좋아요/활동 메타 구간의 상단 구분선을 제거하고 간격만 유지
+ */
+
+import Skeleton from "@/components/ui/Skeleton";
+
+export default function Loading() {
+  return (
+    <div className="min-h-screen bg-background transition-colors">
+      <div className="px-page-x py-6 flex flex-col gap-4">
+        {/* List Skeleton */}
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm"
+          >
+            <div className="flex p-4 gap-4">
+              {/* Thumbnail */}
+              <Skeleton className="size-24 sm:size-28 rounded-xl shrink-0" />
+
+              {/* Info */}
+              <div className="flex-1 flex flex-col justify-between py-1">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-5 w-3/4 rounded" />
+                    <Skeleton className="h-5 w-14 rounded" />
+                  </div>
+                  <Skeleton className="h-4 w-20 rounded" />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-3 w-10 rounded" />
+                    <Skeleton className="size-5 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-16 rounded" />
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="grid grid-cols-2 border-t border-border-subtle">
+              <Skeleton className="h-10 rounded-none bg-surface-dim/50" />
+              <Skeleton className="h-10 rounded-none border-l border-border-subtle bg-surface-dim/50" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+

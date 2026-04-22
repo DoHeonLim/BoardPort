@@ -38,6 +38,26 @@ export const POST_SELECT: Prisma.PostSelect = {
     },
     take: 1,
   },
+  blocks: {
+    where: {
+      type: {
+        in: ["IMAGE", "EMBED"],
+      },
+    },
+    orderBy: { order: "asc" },
+    select: {
+      type: true,
+      embedUrl: true,
+      embedThumbnailUrl: true,
+      postImage: {
+        select: {
+          url: true,
+          isAnimated: true,
+        },
+      },
+    },
+    take: 1,
+  },
   latitude: true,
   longitude: true,
   locationName: true,

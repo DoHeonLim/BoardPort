@@ -30,7 +30,10 @@ import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
-import { toggleFollowAction } from "@/features/user/actions/follow";
+import {
+  toggleFollowAction,
+  type FollowActionResult,
+} from "@/features/user/actions/follow";
 
 const DEFAULT_STREAM_LIST_FILTERS = { category: "", keyword: "" } as const;
 
@@ -52,7 +55,11 @@ export function useFollowToggle() {
   );
 
   const toggle = useCallback(
-    async (userId: number, isFollowingNow: boolean, opts?: any) => {
+    async (
+      userId: number,
+      isFollowingNow: boolean,
+      opts?: any
+    ): Promise<FollowActionResult | undefined> => {
       if (isPending(userId)) return;
       setPendingIds((prev) => new Set(prev).add(userId));
 
@@ -67,7 +74,7 @@ export function useFollowToggle() {
           } else {
             toast.error(res.error);
           }
-          return;
+          return res;
         }
 
         const delta = res.changed ? (intent === "follow" ? 1 : -1) : 0;
@@ -233,9 +240,14 @@ export function useFollowToggle() {
 
         // 3. 모달 리스트 데이터 갱신을 위해 무효화 처리를 수행
         queryClient.invalidateQueries({ queryKey: queryKeys.follows.all });
+        return res;
       } catch (e) {
         console.error("Toggle Follow Error:", e);
         toast.error("요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return {
+          success: false,
+          error: "요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+        };
       } finally {
         setPendingIds((prev) => {
           const next = new Set(prev);

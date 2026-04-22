@@ -20,6 +20,7 @@
  * 2026.03.06  임도헌   Modified  모바일 카드 간격과 데스크톱 간격을 분리해 리스트 밀도를 정리
  * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
  * 2026.03.25  임도헌   Modified  스트림 카드 간격을 뷰포트별로 재조정해 목록 리듬 완화
+ * 2026.04.17  임도헌   Modified  스트림 목록의 검색 정규화/가시 탭 로딩/팔로우 요청 위임 책임 설명 보강
  */
 
 "use client";
@@ -42,11 +43,11 @@ interface StreamListProps {
 /**
  * 스트리밍 목록 렌더링 컴포넌트
  *
- * [상태 주입 및 스크롤 페이징 로직]
- * - `useStreamPagination` 훅을 통한 서버 하이드레이션 데이터 추출 및 무한 스크롤 상태 자동화 적용
- * - 사용자 가시성(`usePageVisibility`) 기반 `useInfiniteScroll` 감지를 활용한 불필요한 데이터 페칭 방지
- * - `isFetchingNextPage` 플래그를 통한 스크롤 하단 로딩 스피너 분리 표시
- * - 조회 범위(`scope`) 및 팔로우 액션 콜백 주입에 따른 렌더링 최적화
+ * [기능]
+ * - `scope`와 검색 파라미터를 정규화한 뒤 `useStreamPagination`에 전달해 목록/다음 페이지 상태를 조회
+ * - 현재 보이는 탭에서만 `useInfiniteScroll`을 활성화해 숨겨진 탭의 추가 요청을 막음
+ * - 카드 렌더링은 `StreamCard`에 위임하고, 팔로우가 필요한 경우 `onRequestFollow`만 상위에서 주입
+ * - 하단 로딩 배지는 `isFetchingNextPage`로만 분리해 목록 본문과 무한 스크롤 상태를 단순하게 유지
  */
 export default function StreamList({
   scope,
@@ -61,7 +62,7 @@ export default function StreamList({
   const category = (searchParams.category || "").trim();
   const keyword = (searchParams.keyword || "").trim();
 
-  // TanStack Query 기반 페이지네이션 훅 호출 (상태 관리 전임)
+  // 목록/다음 페이지 상태의 공용 Suspense pagination 훅 위임
   const { streams, isFetchingNextPage, hasMore, loadMore } =
     useStreamPagination({
       scope,

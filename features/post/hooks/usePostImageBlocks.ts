@@ -7,12 +7,12 @@
  * Date        Author   Status    Description
  * 2026.03.31  임도헌   Created   PostForm에서 이미지 블록 자산 상태와 드래그/첨부 처리 로직 분리
  * 2026.03.31  임도헌   Modified  초기 자산 복원, 다중 선택 시 연속 IMAGE 블록 생성 흐름 주석 보강
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  */
-"use client";
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MAX_PHOTO_SIZE } from "@/lib/constants";
+import { MAX_PHOTO_SIZE, MAX_PHOTO_SIZE_MB } from "@/lib/constants";
 import type { PostEditorBlock } from "@/features/post/types";
 import {
   createImageEditorBlock,
@@ -55,7 +55,9 @@ export function usePostImageBlocks({
     }
 
     if (file.size > MAX_PHOTO_SIZE) {
-      toast.error("이미지 크기는 10MB 이하만 첨부할 수 있습니다.");
+      toast.error(
+        `이미지 크기는 ${MAX_PHOTO_SIZE_MB}MB 이하만 첨부할 수 있습니다.`
+      );
       return false;
     }
 
@@ -119,7 +121,9 @@ export function usePostImageBlocks({
       }
 
       if (file.size > MAX_PHOTO_SIZE) {
-        toast.error("이미지 크기는 10MB 이하만 첨부할 수 있습니다.");
+        toast.error(
+          `이미지 크기는 ${MAX_PHOTO_SIZE_MB}MB 이하만 첨부할 수 있습니다.`
+        );
         continue;
       }
 
@@ -131,7 +135,9 @@ export function usePostImageBlocks({
     updateImageBlockAsset(blockId, validFiles[0]);
 
     if (validFiles.length > 1) {
-      const nextBlocks = validFiles.slice(1).map(() => createImageEditorBlock());
+      const nextBlocks = validFiles
+        .slice(1)
+        .map(() => createImageEditorBlock());
 
       nextBlocks.forEach((block, index) => {
         updateImageBlockAsset(block.id, validFiles[index + 1]);
