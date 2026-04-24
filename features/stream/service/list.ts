@@ -18,6 +18,7 @@
  * 2026.03.25  임도헌   Modified  메인 스트리밍 리스트에서 실제 팔로우 상태를 함께 조회해 FOLLOWERS 잠금 플래그를 정확히 계산
  * 2026.03.29  임도헌   Modified  메인 다시보기 목록에 최신/인기 정렬과 팔로잉만 보조 필터를 분리 적용
  * 2026.04.02  임도헌   Modified  방송 요약 Prisma select import를 selects.ts 기준으로 정리
+ * 2026.04.24  임도헌   Modified  프로필 방송국의 종료 방송 썸네일도 최신 ready VOD thumbnail_url을 우선 사용하도록 보정
  */
 
 import "server-only";
@@ -383,8 +384,11 @@ export async function getRecentBroadcasts(
     select: BROADCAST_SUMMARY_SELECT,
   });
 
-  return broadcasts.map((b) => ({
-    ...serializeStream(
+  return broadcasts.map((b) => {
+    // getRecentBroadcasts는 Broadcast 중심 DTO지만, 종료 방송 카드는 최신 ready VOD로 이동
+    // 따라서 대표 이미지도 Broadcast 업로드 썸네일보다 VOD 처리 완료 썸네일 우선
+    const latestVod = b.vodAssets[0] ?? null;
+    const stream = serializeStream(
       {
         ...b,
         stream_id: b.liveInput.provider_uid,
@@ -393,9 +397,17 @@ export async function getRecentBroadcasts(
         tags: b.tags,
       },
       { isFollowing: false, isMine: includePrivate }
-    ),
-    latestVodId: b.vodAssets[0]?.id ?? null,
-  }));
+    );
+
+    return {
+      ...stream,
+      thumbnail: latestVod?.thumbnail_url ?? stream.thumbnail,
+      thumbnailAnimated: latestVod?.thumbnail_url
+        ? false
+        : stream.thumbnailAnimated,
+      latestVodId: latestVod?.id ?? null,
+    };
+  });
 }
 
 /* -------------------------------------------------------------------------- */

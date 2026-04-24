@@ -53,7 +53,9 @@
  * 2026.04.13  임도헌   Modified  모바일 요청에서는 데스크톱 헤더 렌더링을 건너뛰고 목록 prefetch를 헤더 데이터와 병렬화해 초기 응답 지연을 완화
  * 2026.04.13  임도헌   Modified  최근 성능 실험 이력 중 상충되던 pull-to-refresh 주석을 정리하고 모바일 사용 상태로 기준을 통일
  * 2026.04.13  임도헌   Modified  모바일 UA 판별 로직을 제품 유틸로 분리해 페이지 책임을 축소
+ * 2026.04.24  임도헌   Modified  ProductListRefreshRelay와 ProductModalReopenRelay를 함께 주입해 목록 refresh와 모달 fallback 책임을 분리
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 분기 기준을 일치시켜 640~767px 구간 헤더 레이아웃 mismatch 정리
+ * 2026.04.24  임도헌   Modified  제품 목록 refresh relay와 모달 reopen relay를 분리해 navigation 복귀 책임을 명확화
  */
 
 import { Suspense } from "react";
@@ -71,6 +73,7 @@ import ProductMobileHeader from "@/features/product/components/ProductMobileHead
 import ProductList from "@/features/product/components/ProductList";
 import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
 import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
+import ProductListRefreshRelay from "@/features/product/components/ProductListRefreshRelay";
 import ProductModalReopenRelay from "@/features/product/components/ProductModalReopenRelay";
 import { fetchProductCategories } from "@/features/product/service/category";
 import {
@@ -208,6 +211,7 @@ export default async function ProductsPage({
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
+      <ProductListRefreshRelay />
       <ProductModalReopenRelay />
       <div className="sm:hidden">
         <ProductMobileHeader

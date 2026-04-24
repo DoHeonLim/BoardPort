@@ -12,15 +12,18 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 찜 목록 빈 상태 CTA 타이포를 정리
  * 2026.04.17  임도헌   Modified  찜 목록의 무한 스크롤/빠른 해제/상단 카드 우선 로드 책임 설명 보강
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 카드만 priority 적용하고 빈 상태 heading/order 정리
+ * 2026.04.24  임도헌   Modified  찜 목록 제품 상세 진입 시 현재 목록 경로를 returnTo로 전달
  */
 "use client";
 
 import { useRef } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import ProductCard from "@/features/product/components/productCard";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { HeartIcon } from "@heroicons/react/24/outline";
 import type { LikedProductListItem } from "@/features/product/types";
 
@@ -37,6 +40,12 @@ import type { LikedProductListItem } from "@/features/product/types";
  * @param {number} props.userId - 조회할 대상 유저 ID
  */
 export default function MyLikesList({ userId }: { userId: number }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const returnTo = sanitizeCallbackUrl(
+    currentQuery ? `${pathname}?${currentQuery}` : pathname
+  );
   const liked = useProductPagination<LikedProductListItem>({
     mode: "profile",
     scope: { type: "LIKED", userId },
@@ -90,6 +99,7 @@ export default function MyLikesList({ userId }: { userId: number }) {
             // 첫 카드만 대표 LCP 후보로 우선 로드해 초기 이미지 경쟁 완화
             isPriority={index === 0}
             showQuickUnlike
+            returnTo={returnTo}
           />
         ))}
       </div>

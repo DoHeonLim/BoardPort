@@ -46,6 +46,7 @@
  * 2026.04.08  임도헌   Modified   방송국 rail 좌우 정렬선을 다른 프로필 섹션과 같은 시작선으로 맞춤
  * 2026.04.17  임도헌   Modified   방송국 링크/후기·뱃지/판매 목록 섹션 주석을 현재 구조 기준으로 최신화
  * 2026.04.19  임도헌   Modified   타인 프로필 판매 목록 탭 active 톤을 판매내역과 같은 기준으로 정리
+ * 2026.04.24  임도헌   Modified   타인 프로필 제품 카드에 현재 프로필 returnTo를 전달해 상세 복귀 문맥 유지
  */
 
 "use client";
@@ -421,6 +422,7 @@ export default function UserProfile({
                   type={activeTab}
                   userId={user.id}
                   viewMode={viewMode}
+                  returnTo={next}
                 />
               </Suspense>
             </div>
@@ -455,10 +457,12 @@ function SalesTabContent({
   type,
   userId,
   viewMode,
+  returnTo,
 }: {
   type: ProductStatus;
   userId: number;
   viewMode: ViewMode;
+  returnTo: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
@@ -505,6 +509,7 @@ function SalesTabContent({
             product={product}
             viewMode={viewMode}
             isPriority={i < 4}
+            returnTo={returnTo}
           />
         ))}
       </div>

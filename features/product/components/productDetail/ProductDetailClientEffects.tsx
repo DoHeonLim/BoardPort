@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.14  임도헌   Created   최근 본 상품 저장과 편집 후 refresh 플래그 소비를 별도 클라이언트 island로 분리
  * 2026.04.14  임도헌   Modified  클라이언트 island의 책임과 부작용 범위가 드러나도록 함수 상단 JSDoc 설명을 보강
+ * 2026.04.24  임도헌   Modified  navigation refresh helper로 제품 상세 refresh flag 소비 로직을 단순화
  */
 
 "use client";
@@ -19,8 +20,8 @@ import {
   saveRecentViewedProduct,
 } from "@/features/product/utils/recentViewed";
 import {
-  consumeNavigationRefreshFlag,
-  createNavigationRefreshFlagKey,
+  consumeNavigationRefresh,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 
 interface ProductDetailClientEffectsProps {
@@ -39,6 +40,7 @@ export default function ProductDetailClientEffects({
 }: ProductDetailClientEffectsProps) {
   const router = useRouter();
 
+  // 브라우저 저장소 기반 최근 본 상품 동기화
   useEffect(() => {
     if (product.hidden_at) {
       removeRecentViewedProduct(product.id);
@@ -67,15 +69,19 @@ export default function ProductDetailClientEffects({
     });
   }, [product]);
 
+  // 일반 상세 detail-edit back 복귀 시에만 서버 payload 1회 재요청
   useEffect(() => {
     if (isModalContext) return;
 
-    const refreshKey = createNavigationRefreshFlagKey(
-      "product-detail-refresh",
-      product.id
-    );
     // detail-edit 저장 후 back 복귀한 기존 상세의 1회 최신화
-    if (!consumeNavigationRefreshFlag(refreshKey)) return;
+    if (
+      !consumeNavigationRefresh(
+        NAVIGATION_REFRESH_SCOPES.PRODUCT_DETAIL,
+        product.id
+      )
+    ) {
+      return;
+    }
     router.refresh();
   }, [isModalContext, product.id, router]);
 

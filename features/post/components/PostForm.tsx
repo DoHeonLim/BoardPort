@@ -31,11 +31,13 @@
  * 2026.04.05  임도헌   Modified  게시글 detail-edit 저장/취소는 back 복귀 + 1회 refresh/상단 스크롤로 정리해 중복 히스토리와 스크롤 전파 문제를 함께 보정
  * 2026.04.14  임도헌   Modified  지도 선택 모달을 지연 로드하고 mode 기반 내부 서버 액션 선택으로 작성 페이지 초기 번들 부담을 완화
  * 2026.04.21  임도헌   Modified  메타/위치/하단 액션 섹션을 분리하고 주요 함수 설명 주석을 보강
+ * 2026.04.24  임도헌   Modified  detail-edit 저장 back 복귀는 명시적 내부 returnTo 문맥과 히스토리가 모두 있을 때만 허용하도록 보강
+ * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 detail-edit 복귀 플래그 기록 중복을 정리
  */
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,8 +72,9 @@ import { usePostVideoUpload } from "@/features/post/hooks/usePostVideoUpload";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import {
-  createNavigationRefreshFlagKey,
-  setNavigationRefreshFlag,
+  canUseBrowserBack,
+  markNavigationRefresh,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 import PostMetaSection from "@/features/post/components/PostMetaSection";
 import PostLocationSection from "@/features/post/components/PostLocationSection";
@@ -114,7 +117,7 @@ const LazyLocationPicker = dynamic(
  * - 블록 렌더링 UI는 `PostEditorBlocksField`, 순수 초기화 헬퍼는 `utils/editor`로 분리
  * - 카테고리, 태그, 지도 기반 위치(Location) 데이터 매핑 기능 제공
  * - FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반의 검증 UX 적용
- * - 폼 제출 시 mode에 맞는 내부 서버 액션을 선택하고 결과에 따른 복귀/리다이렉트 처리
+ * - 폼 제출 시 mode에 맞는 내부 서버 액션을 선택하고 결과에 따른 back/replace 복귀를 처리
  *
  * @param {PostFormProps} props - 초기값, 모드, 복귀 경로, 상세 수정 플로우 설정
  */
@@ -128,10 +131,17 @@ export default function PostForm({
   editFlow,
 }: PostFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   // 쿼리 클라이언트 인스턴스 가져오기
   const queryClient = useQueryClient();
   const imageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const rawReturnTo = searchParams.get("returnTo");
+  // 게시글 detail-edit 저장은 명시적 내부 returnTo 문맥이 있는 경우에만 back 허용
+  const canResumeDetailEditHistory =
+    editFlow === "detail-edit" &&
+    !!rawReturnTo &&
+    canUseBrowserBack();
 
   const initialFormValues = useMemo(
     () =>
@@ -180,10 +190,10 @@ export default function PostForm({
   // create/edit 공개 props에는 직렬화 가능한 값만 두고, 서버 액션은 mode로 내부 선택
   const action = mode === "create" ? createPostAction : updatePostAction;
 
-  // 상세 진입 편집 복귀
-  // detail-edit는 기존 상세 히스토리를 재사용하고, 직접 진입처럼 back 대상이 없을 때만 안전 경로로 replace
+  // detail-edit 저장은 명시적 returnTo 문맥이 확인될 때만 back 사용
+  // 직접 진입/북마크처럼 내부 복귀 문맥이 없으면 안전한 backUrl replace로 정리
   const returnToDetailEditOrigin = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
+    if (canResumeDetailEditHistory) {
       router.back();
       return;
     }
@@ -662,8 +672,9 @@ export default function PostForm({
         if (isEdit && editFlow === "detail-edit") {
           // 상세 진입 편집 복귀
           // back 복귀 직후 상세가 1회 최신화/상단 스크롤을 수행하도록 세션 플래그 기록
-          setNavigationRefreshFlag(
-            createNavigationRefreshFlagKey("post-detail-refresh", result.postId)
+          markNavigationRefresh(
+            NAVIGATION_REFRESH_SCOPES.POST_DETAIL,
+            result.postId
           );
           returnToDetailEditOrigin();
           return;

@@ -30,6 +30,7 @@
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 모바일 카테고리 칩 weight를 500 기준으로 정리
  * 2026.04.14  임도헌   Modified  상세 지도/복귀 부작용을 전용 컴포넌트로 분리해 초기 본문 비용과 scroll 복귀 안정성을 함께 개선
  * 2026.04.14  임도헌   Modified  main 랜드마크와 섹션 헤딩 레벨을 정리해 접근성과 문서 구조를 보강
+ * 2026.04.24  임도헌   Modified  detail-edit 링크에도 항상 내부 returnTo를 실어 저장 back 안전 조건과 정합성을 맞춤
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
@@ -93,10 +94,11 @@ export default function PostDetail({
   const canEdit = post.user.id === user.id;
   const categoryLabel =
     post.category && POST_CATEGORY[post.category as PostCategoryType];
-  const editHref =
-    hasExplicitReturnTo && returnTo
-      ? `/posts/${post.id}/edit?returnTo=${encodeURIComponent(returnTo)}&flow=detail-edit`
-      : `/posts/${post.id}/edit?flow=detail-edit`;
+  // detail-edit는 항상 내부 상세 경로를 returnTo로 포함해 저장 시 안전한 back 기준 정렬
+  const detailReturnTo = returnTo ?? `/posts/${post.id}`;
+  const editHref = `/posts/${post.id}/edit?returnTo=${encodeURIComponent(
+    detailReturnTo
+  )}&flow=detail-edit`;
 
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">
@@ -113,6 +115,7 @@ export default function PostDetail({
         backHref={returnTo}
         canEdit={canEdit}
         editHref={editHref}
+        preferHistoryBack={hasExplicitReturnTo}
       />
 
       <main className="mx-auto flex w-full max-w-mobile flex-col gap-8 px-page-x py-6">

@@ -8,6 +8,9 @@
  * 2026.04.06  임도헌   Created   상세/모달 상세의 수정/삭제 액션을 상단 메뉴로 통합
  * 2026.04.08  임도헌   Modified  삭제 후 최근 본 상품에서 제거하고 목록 진입 문맥이면 back + 목록 refresh로 복귀하도록 보강
  * 2026.04.09  임도헌   Modified  판매완료 상품 숨기기/숨김 해제 액션과 복귀 분기 추가
+ * 2026.04.24  임도헌   Modified  내 판매 목록 삭제 복귀는 replace+refresh를 우선 적용하고 일반 back 분기와 주석을 현재 정책 기준으로 정리
+ * 2026.04.24  임도헌   Modified  내 판매 목록도 전용 refresh relay를 통해 back + 1회 refresh 복귀를 사용하도록 조정
+ * 2026.04.24  임도헌   Modified  returnTo 문맥 분류와 navigation refresh helper로 삭제/숨김 복귀 분기 중복을 정리
  */
 "use client";
 
@@ -28,8 +31,10 @@ import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { removeRecentViewedProduct } from "@/features/product/utils/recentViewed";
 import {
-  createNavigationRefreshFlagKey,
-  setNavigationRefreshFlag,
+  canUseBrowserBack,
+  markNavigationRefresh,
+  NAVIGATION_REFRESH_ROOT_ID,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 
 interface ProductOwnerMenuProps {
@@ -39,6 +44,15 @@ interface ProductOwnerMenuProps {
   isHidden?: boolean;
 }
 
+type ProductReturnContext = "products" | "my-sales" | "chats" | "other";
+
+function getProductReturnContext(rawReturnTo: string | null): ProductReturnContext {
+  if (rawReturnTo?.startsWith("/products")) return "products";
+  if (rawReturnTo?.startsWith("/profile/my-sales")) return "my-sales";
+  if (rawReturnTo?.startsWith("/chats/")) return "chats";
+  return "other";
+}
+
 /**
  * 상품 상세 owner 전용 관리 메뉴
  *
@@ -46,7 +60,8 @@ interface ProductOwnerMenuProps {
  * - 상단 메뉴 버튼 하나로 수정/숨기기/삭제 관리 액션 제공
  * - 판매완료 상품만 숨기기/숨김 해제를 허용
  * - 모바일은 BottomSheet, 데스크톱은 드롭다운 메뉴 사용
- * - 목록에서 진입한 상세/모달은 삭제 후 history back으로 목록 문맥 유지
+ * - `/products` 문맥은 삭제 후 back 복귀를 우선하고, 목록 mixed tree 정리는 ProductListRefreshRelay에 위임
+ * - `/profile/my-sales` 문맥도 back 복귀를 우선하고, 내 판매 mixed tree 정리는 MySalesRefreshRelay에 위임
  * - 숨기기/숨김 해제는 공개 목록(/products) 또는 내 판매(/profile/my-sales) 문맥으로 자연스럽게 복귀
  */
 export default function ProductOwnerMenu({
@@ -67,13 +82,30 @@ export default function ProductOwnerMenu({
   const returnTo = rawReturnTo
     ? sanitizeCallbackUrl(rawReturnTo)
     : "/products";
+  const returnContext = getProductReturnContext(rawReturnTo);
   const nextAfterDelete =
-    returnTo && !returnTo.startsWith("/chats/") ? returnTo : "/products";
+    returnContext !== "chats" ? returnTo : "/products";
+  const hasBackHistory = canUseBrowserBack();
+  // 모달 상세는 목록 위에 열린 상태가 정상 문맥이므로 제품 목록 returnTo에서만 back 복귀 허용
+  const canGoBackToProductsListModal =
+    isModalContext &&
+    returnContext === "products" &&
+    hasBackHistory;
+  const canGoBackToMySales =
+    returnContext === "my-sales" && hasBackHistory;
+  // rawReturnTo가 있어야 내부 문맥에서 온 복귀로 판단하고 history 재사용 허용
+  // full-page 상세 삭제는 모바일 퍼스트 기준으로 back UX 우선
+  const canGoBackAfterDelete =
+    !!rawReturnTo &&
+    returnContext !== "chats" &&
+    returnContext !== "my-sales" &&
+    hasBackHistory;
   const editFlow = isModalContext ? "modal-edit" : "detail-edit";
   const editHref = `/products/view/${productId}/edit?returnTo=${encodeURIComponent(
     returnTo
   )}&flow=${editFlow}`;
 
+  // 데스크톱 드롭다운만 외부 클릭으로 닫고, 모바일 BottomSheet는 자체 닫기 UX 사용
   useEffect(() => {
     if (isMobile) return;
 
@@ -90,6 +122,22 @@ export default function ProductOwnerMenu({
   const handleEdit = () => {
     setIsOpen(false);
     router.push(editHref);
+  };
+
+  const goBackWithRefresh = (
+    scope:
+      | typeof NAVIGATION_REFRESH_SCOPES.PRODUCTS_LIST
+      | typeof NAVIGATION_REFRESH_SCOPES.MY_SALES
+  ) => {
+    // 복귀 대상 화면의 relay가 flag를 소비해 stale/mixed tree 상태 정리
+    markNavigationRefresh(scope, NAVIGATION_REFRESH_ROOT_ID);
+    router.back();
+  };
+
+  const replaceReturnToAndRefresh = () => {
+    // 안전한 back 대상이 없을 때는 명시 경로로 이동 후 현재 트리 재요청
+    router.replace(returnTo);
+    router.refresh();
   };
 
   const handleToggleHidden = () => {
@@ -116,24 +164,25 @@ export default function ProductOwnerMenu({
         removeRecentViewedProduct(productId);
       }
 
-      if (rawReturnTo?.startsWith("/products")) {
-        setNavigationRefreshFlag(
-          createNavigationRefreshFlagKey("products-list-refresh", "root")
-        );
-
-        if (typeof window !== "undefined" && window.history.length > 1) {
-          router.back();
+      if (returnContext === "products") {
+        // 공개 목록/모달 문맥은 back 복귀 후 제품 목록 relay에서 mixed tree 정리
+        if (canGoBackToProductsListModal) {
+          goBackWithRefresh(NAVIGATION_REFRESH_SCOPES.PRODUCTS_LIST);
           return;
         }
 
-        router.replace(returnTo);
-        router.refresh();
+        replaceReturnToAndRefresh();
         return;
       }
 
-      if (rawReturnTo?.startsWith("/profile/my-sales")) {
-        router.replace(returnTo);
-        router.refresh();
+      if (returnContext === "my-sales") {
+        // 내 판매 문맥은 전용 relay가 my-sales 화면의 stale/mixed tree 정리
+        if (canGoBackToMySales) {
+          goBackWithRefresh(NAVIGATION_REFRESH_SCOPES.MY_SALES);
+          return;
+        }
+
+        replaceReturnToAndRefresh();
         return;
       }
 
@@ -155,24 +204,35 @@ export default function ProductOwnerMenu({
       setIsOpen(false);
       removeRecentViewedProduct(productId);
 
-      if (rawReturnTo?.startsWith("/products")) {
-        setNavigationRefreshFlag(
-          createNavigationRefreshFlagKey("products-list-refresh", "root")
-        );
-
-        if (typeof window !== "undefined" && window.history.length > 1) {
-          router.back();
+      if (returnContext === "products") {
+        // 제품 목록에서 진입한 상세 삭제는 모바일 back UX를 우선 유지
+        if (canGoBackToProductsListModal) {
+          goBackWithRefresh(NAVIGATION_REFRESH_SCOPES.PRODUCTS_LIST);
           return;
         }
 
-        router.replace(returnTo);
-        router.refresh();
+        if (canGoBackAfterDelete) {
+          goBackWithRefresh(NAVIGATION_REFRESH_SCOPES.PRODUCTS_LIST);
+          return;
+        }
+
+        replaceReturnToAndRefresh();
         return;
       }
 
-      if (rawReturnTo?.startsWith("/profile/my-sales")) {
-        router.replace(returnTo);
-        router.refresh();
+      if (returnContext === "my-sales") {
+        // 내 판매에서 진입한 상세 삭제도 back 복귀 후 relay reload로 잔상 제거
+        if (canGoBackToMySales) {
+          goBackWithRefresh(NAVIGATION_REFRESH_SCOPES.MY_SALES);
+          return;
+        }
+
+        replaceReturnToAndRefresh();
+        return;
+      }
+
+      if (canGoBackAfterDelete) {
+        router.back();
         return;
       }
 

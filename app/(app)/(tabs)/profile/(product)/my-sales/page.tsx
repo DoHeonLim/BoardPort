@@ -19,6 +19,7 @@
  * 2026.03.03  임도헌   Modified  TanStack Query HydrationBoundary 적용 및 initialSelling Props 제거
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/(product)/my-sales/page.tsx 에서 app/(app)/(tabs)/profile/(product)/my-sales/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.04.24  임도헌   Modified  상세 삭제/숨김 후 back 복귀 stale 보정을 위한 my-sales refresh relay 주입
  */
 
 import { redirect } from "next/navigation";
@@ -27,6 +28,7 @@ import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import MySalesProductList from "@/features/product/components/MySalesProductList";
+import MySalesRefreshRelay from "@/features/product/components/MySalesRefreshRelay";
 import {
   getUserTabCounts,
   getUserProductsList,
@@ -61,6 +63,7 @@ export default async function MySalesPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
+      <MySalesRefreshRelay />
       <MySalesProductList userId={userId} initialCounts={initialCounts} />
     </HydrationBoundary>
   );

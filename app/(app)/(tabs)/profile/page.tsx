@@ -34,6 +34,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/page.tsx 에서 app/(app)/(tabs)/profile/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.16  임도헌   Modified   profile Lighthouse 대응으로 서버 선로딩/클라이언트 하단 지연 로드 구조 설명 주석 보강
  * 2026.04.17  임도헌   Modified   헤더 보조 주석을 현재 역할 기준으로 다듬어 unreadCount 선로딩 의도를 명확화
+ * 2026.04.24  임도헌   Modified   녹화 상세 삭제 후 내 프로필로 back 복귀할 때 방송국 섹션을 1회 refresh하도록 relay 추가
  */
 
 import { redirect } from "next/navigation";
@@ -53,6 +54,7 @@ import { getUserAverageRating } from "@/features/user/service/metric";
 import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import RecordingListRefreshRelay from "@/features/stream/components/RecordingListRefreshRelay";
 
 export const dynamic = "force-dynamic";
 
@@ -82,27 +84,30 @@ export default async function ProfilePage() {
   const queryClient = getQueryClient();
 
   // 2. 대량 데이터 병렬 로딩 (성능 최적화)
-  const [averageRating, badgesPair, streams, unreadCount, previewReviews] = await Promise.all([
-    getUserAverageRating(user.id),
-    (async () => {
-      const [badges, badgesEarned] = await Promise.all([
-        getAllBadges(),
-        getUserBadges(user.id),
-      ]);
-      return { badges, userBadges: badgesEarned };
-    })(),
-    getRecentBroadcasts(user.id, 6, true),
-    getUnreadNotificationCount(),
-    getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.reviews.user(user.id),
-      queryFn: () => getUserReviewsAction(user.id, null),
-      initialPageParam: null as any,
-    }),
-  ]);
+  const [averageRating, badgesPair, streams, unreadCount, previewReviews] =
+    await Promise.all([
+      getUserAverageRating(user.id),
+      (async () => {
+        const [badges, badgesEarned] = await Promise.all([
+          getAllBadges(),
+          getUserBadges(user.id),
+        ]);
+        return { badges, userBadges: badgesEarned };
+      })(),
+      getRecentBroadcasts(user.id, 6, true),
+      getUnreadNotificationCount(),
+      getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
+      queryClient.prefetchInfiniteQuery({
+        queryKey: queryKeys.reviews.user(user.id),
+        queryFn: () => getUserReviewsAction(user.id, null),
+        initialPageParam: null as any,
+      }),
+    ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
+      {/* 녹화 상세 삭제 후 /profile로 back 복귀하면 내 방송국 목록만 1회 서버 payload 재요청으로 보정 */}
+      <RecordingListRefreshRelay />
       <header className="sticky top-0 z-30 h-16 border-b border-border-subtle bg-background shadow-sm">
         <div className="flex h-full items-center justify-end gap-2 px-page-x">
           {/* 헤더에서 바로 필요한 unread count의 서버 동시 준비 및 첫 렌더 즉시 노출 */}
@@ -138,6 +143,3 @@ export default async function ProfilePage() {
     </div>
   );
 }
-
-
-
