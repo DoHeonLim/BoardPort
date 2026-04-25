@@ -170,6 +170,7 @@ export default async function RecordingVodPage({
         liveInputUid={base.broadcast.stream_id}
         categoryLabel={category?.kor_name ?? null}
         categoryIcon={category?.icon ?? null}
+        preferHistoryBack={!!searchParams?.returnTo}
       />
 
       <main className="flex-1 flex flex-col items-center gap-3 pb-20 px-page-x py-6 w-full max-w-mobile mx-auto">

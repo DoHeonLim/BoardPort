@@ -18,6 +18,9 @@
  * 2026.03.25  임도헌   Modified  owner 전용 녹화 삭제 액션을 상단 메뉴로 이동해 상세 본문 시청 흐름을 단순화
  * 2026.04.03  임도헌   Modified  다시보기 상단 옵션의 차단/신고 위계와 삭제 문구를 다른 도메인과 같은 액션 문법으로 정리
  * 2026.04.08  임도헌   Modified  녹화 삭제 후 목록/채널 진입 문맥이면 back + 1회 refresh로 복귀하도록 정리
+ * 2026.04.24  임도헌   Modified  녹화 삭제의 back/replace 복귀 조건이 현재 정책 기준으로 드러나도록 주석 보강
+ * 2026.04.24  임도헌   Modified  내 프로필 방송국에서 진입한 녹화 삭제도 back + refresh 복귀 대상으로 포함
+ * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 녹화 삭제 후 back 복귀 플래그 기록 중복을 정리
  */
 
 "use client";
@@ -41,8 +44,9 @@ import UserAvatar from "@/components/global/UserAvatar";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn, handleShare } from "@/lib/utils";
 import {
-  createNavigationRefreshFlagKey,
-  setNavigationRefreshFlag,
+  canUseBrowserBack,
+  markNavigationRefresh,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 
 const ReportModal = dynamic(
@@ -50,16 +54,37 @@ const ReportModal = dynamic(
   { ssr: false }
 );
 
+/**
+ * 녹화 삭제 후 `router.back()`으로 복귀해도 안전한 내부 목록 문맥인지 판별
+ *
+ * - `/streams...`: 메인 라이브/다시보기 목록
+ * - `/profile`: 내 프로필의 "내 방송국" 섹션
+ * - `/profile/{username}/channel`: 유저 채널 다시보기 섹션
+ *
+ * 그 외 경로는 삭제 후 복귀 위치를 예측하기 어려우므로 replace fallback 사용
+ */
+function isSafeRecordingReturnTarget(href: string) {
+  return (
+    href.startsWith("/streams") ||
+    /^\/profile(?:\?|$)/.test(href) ||
+    /^\/profile\/[^/]+\/channel(?:\?|$)/.test(href)
+  );
+}
+
 interface RecordingTopbarProps {
   broadcastId: number;
   ownerId: number;
   username: string;
   avatar: string | null;
   isOwner?: boolean;
-  backHref?: string; // 기본: /streams
+  /** 뒤로가기/삭제 완료 후 돌아갈 내부 경로. 기본값은 다시보기 목록이다. */
+  backHref?: string;
   liveInputUid?: string | null;
-  categoryLabel?: string | null; /** 방송 카테고리 표시용 (선택) */
+  /** 방송 카테고리 표시용 라벨 */
+  categoryLabel?: string | null;
   categoryIcon?: string | null;
+  /** 명시적 returnTo 문맥에서 삭제 후 router.back() 복귀를 허용할지 여부 */
+  preferHistoryBack?: boolean;
 }
 
 /**
@@ -67,6 +92,7 @@ interface RecordingTopbarProps {
  * - 좌측에 뒤로가기 버튼과 작성자 프로필을 배치
  * - 우측에 카테고리 칩, 공유 버튼, 소유자/시청자별 옵션 메뉴를 노출
  * - 소유자는 녹화 삭제, 시청자는 스트리머 차단/다시보기 신고 액션을 실행
+ * - 녹화 삭제는 목록/채널/내 프로필 문맥이 명시된 경우에만 back을 재사용하고, 그 외에는 replace 복귀를 사용
  * - 스크롤 중에도 상단에 고정되어 상세 액션 접근을 유지
  */
 export default function RecordingTopbar({
@@ -79,6 +105,7 @@ export default function RecordingTopbar({
   liveInputUid,
   categoryLabel,
   categoryIcon,
+  preferHistoryBack = false,
 }: RecordingTopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -149,15 +176,21 @@ export default function RecordingTopbar({
       setDeleteConfirmOpen(false);
       setMenuOpen(false);
 
-      if (typeof window !== "undefined" && window.history.length > 1) {
-        setNavigationRefreshFlag(
-          createNavigationRefreshFlagKey("recording-list-refresh", backHref)
-        );
+      const canReturnWithHistory =
+        preferHistoryBack &&
+        canUseBrowserBack() &&
+        isSafeRecordingReturnTarget(backHref);
+
+      if (canReturnWithHistory) {
+        // 삭제 후에는 기존 목록/채널/프로필 히스토리 엔트리로 돌아가고,
+        // 복귀 화면에서만 1회 router.refresh()를 실행해 stale 목록 보정
+        markNavigationRefresh(NAVIGATION_REFRESH_SCOPES.RECORDING_LIST, backHref);
         router.back();
         return;
       }
 
       router.replace(backHref || `/profile/${username}/channel`);
+      router.refresh();
     } catch (error) {
       console.error(error);
       toast.error(

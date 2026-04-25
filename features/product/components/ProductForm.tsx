@@ -40,6 +40,9 @@
  * 2026.04.14  임도헌   Modified  지연 로드/복귀 흐름/업로드 단계 주석을 현재 구조 기준으로 간결하게 정리
  * 2026.04.14  임도헌   Modified  use client 직렬화 경고를 피하기 위해 서버 액션 prop을 제거하고 mode 기반 내부 선택으로 전환
  * 2026.04.21  임도헌   Modified  이미지/카테고리/거래 장소/하단 액션 섹션을 분리하고 함수 설명을 보강
+ * 2026.04.24  임도헌   Modified  edit 저장 back 복귀는 명시적 내부 returnTo 문맥과 히스토리가 모두 있을 때만 허용하도록 보강
+ * 2026.04.24  임도헌   Modified  detail-edit 취소도 안전한 내부 returnTo 문맥이면 back 복귀를 우선 사용하도록 정리
+ * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 detail/modal edit 복귀 플래그 기록 중복을 정리
  */
 
 /**
@@ -94,8 +97,9 @@ import type { LocationData } from "@/features/map/types";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import {
-  createNavigationRefreshFlagKey,
-  setNavigationRefreshFlag,
+  canUseBrowserBack,
+  markNavigationRefresh,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 import {
   stripProductImagePublicVariant,
@@ -139,7 +143,7 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  * - RHF + Zod 기반 검증과 필드 상태를 관리
  * - 이미지 업로드/정렬/애니메이션 메타를 통합 관리
  * - 대분류/소분류, 거래 장소, 태그 등 부가 입력 흐름을 함께 조정
- * - 저장 성공 후 create/edit 진입 맥락에 맞춰 복귀 경로를 분기
+ * - 저장 성공 후 create/edit 진입 맥락에 맞춰 back 또는 replace 복귀 경로를 분기
  * - 지도 선택 모달은 첫 화면 번들을 줄이기 위해 필요 시점에만 지연 로드
  */
 export default function ProductForm({
@@ -154,6 +158,9 @@ export default function ProductForm({
   // 저장 후 상세/목록 복귀에 재사용할 returnTo를 안전한 내부 경로로 정제
   const rawReturnTo = sp.get("returnTo");
   const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : null;
+  // back 복귀는 앱이 심어 둔 내부 returnTo 문맥과 실제 히스토리가 함께 있을 때만 허용
+  const canResumeEditHistory =
+    !!rawReturnTo && canUseBrowserBack();
   const isModalEditFlow = sp.get("flow") === "modal-edit";
   const [resetSignal, setResetSignal] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -161,9 +168,10 @@ export default function ProductForm({
   // create/edit 공개 props에는 직렬화 가능한 값만 두고, 서버 액션은 mode로 내부 선택
   const action = mode === "create" ? createProductAction : updateProductAction;
 
-  // modal-edit는 기존 히스토리를 우선 재사용하고, back 대상이 없을 때만 목록 릴레이로 복귀
+  // modal-edit는 앱이 만든 returnTo 문맥이 확인될 때만 back 재사용
+  // 직접 진입/북마크처럼 안전한 복귀 대상이 없으면 openProductId fallback으로 모달 재오픈
   const returnToModalEditOrigin = (productId: number) => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
+    if (canResumeEditHistory) {
       router.back();
       return;
     }
@@ -178,11 +186,13 @@ export default function ProductForm({
     router.replace(`/products/view/${productId}`);
   };
 
-  // detail-edit는 기존 상세 히스토리를 우선 재사용하고, 직접 진입일 때만 상세 replace로 복귀
+  // detail-edit 저장은 명시적 returnTo 문맥이 있는 경우에만 back 사용
+  // 그 외 직접 진입/외부 히스토리 가능성은 전체 문서 이동으로 상세를 다시 로드해 stale tree 회피
   const returnToDetailEditOrigin = (productId: number, detailHref: string) => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      setNavigationRefreshFlag(
-        createNavigationRefreshFlagKey("product-detail-refresh", productId)
+    if (canResumeEditHistory) {
+      markNavigationRefresh(
+        NAVIGATION_REFRESH_SCOPES.PRODUCT_DETAIL,
+        productId
       );
       router.back();
       return;
@@ -503,8 +513,9 @@ export default function ProductForm({
           );
           if (isModalEditFlow) {
             // 모달 상세는 1회 refresh 플래그를 남기고 이전 히스토리로 복귀
-            setNavigationRefreshFlag(
-              createNavigationRefreshFlagKey("product-modal-refresh", productId)
+            markNavigationRefresh(
+              NAVIGATION_REFRESH_SCOPES.PRODUCT_MODAL,
+              productId
             );
             returnToModalEditOrigin(productId);
           } else {
@@ -555,7 +566,7 @@ export default function ProductForm({
   }, [previews.length, clearErrors]);
 
   /**
-   * 폼을 초기 상태로 되돌린다.
+   * 폼 초기 상태 복원
    * - RHF 값뿐 아니라 업로드 미리보기/애니메이션 메타/대분류 선택 상태까지 함께 복원
    */
   const resetForm = () => {
@@ -579,7 +590,7 @@ export default function ProductForm({
 
   /**
    * 대분류 선택 변경
-   * - 기타(OTHER)는 대분류 자체를 최종 categoryId로 사용하고, 일반 카테고리는 소분류를 다시 선택하게 만든다.
+   * - 기타(OTHER)는 대분류 자체를 최종 categoryId로 사용하고, 일반 카테고리는 소분류 재선택 유도
    */
   const handleMainCategoryChange = (value: string) => {
     const id = value ? Number(value) : null;
@@ -792,8 +803,8 @@ export default function ProductForm({
             return;
           }
 
-          if (mode === "edit") {
-            router.replace(cancelHref);
+          if (mode === "edit" && defaultValues.id) {
+            returnToDetailEditOrigin(defaultValues.id, cancelHref);
             return;
           }
 

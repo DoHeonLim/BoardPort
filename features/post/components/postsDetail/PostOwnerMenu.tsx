@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.06  임도헌   Created   게시글 상세의 수정/삭제 액션을 상단 관리 메뉴로 통합
  * 2026.04.08  임도헌   Modified  삭제 후 목록 진입 문맥이면 back + posts 목록 refresh로 복귀하도록 보강
+ * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 삭제 후 back 복귀 플래그 기록 중복을 정리
  */
 "use client";
 
@@ -24,8 +25,10 @@ import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { deletePostAction } from "@/features/post/actions/delete";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
-  createNavigationRefreshFlagKey,
-  setNavigationRefreshFlag,
+  canUseBrowserBack,
+  markNavigationRefresh,
+  NAVIGATION_REFRESH_ROOT_ID,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 
 interface PostOwnerMenuProps {
@@ -41,8 +44,9 @@ interface PostOwnerMenuProps {
  * [기능]
  * - 상단 메뉴 버튼 하나로 수정/삭제 액션 제공
  * - 모바일은 BottomSheet, 데스크톱은 드롭다운 메뉴 사용
- * - 목록에서 진입한 상세는 삭제 후 history back으로 목록 문맥 유지
- * - 직접 진입처럼 안전한 back 대상이 없을 때만 게시글 목록 또는 안전한 returnTo 경로로 replace 복귀
+ * - 목록/이전 화면 문맥에서 진입한 상세 삭제는 history back으로 기존 엔트리를 재사용
+ * - 게시글 목록 문맥은 세션 refresh 플래그를 1회 소비해 stale list를 보정
+ * - 직접 진입처럼 안전한 back 대상이 없을 때만 `nextAfterDelete` 기준으로 replace 복귀
  */
 export default function PostOwnerMenu({
   postId,
@@ -57,6 +61,7 @@ export default function PostOwnerMenu({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  // 데스크톱 드롭다운만 외부 클릭으로 닫고, 모바일 BottomSheet는 자체 닫기 UX 사용
   useEffect(() => {
     if (isMobile) return;
 
@@ -84,14 +89,14 @@ export default function PostOwnerMenu({
         setConfirmOpen(false);
         setIsOpen(false);
 
-        if (
-          preferHistoryBack &&
-          typeof window !== "undefined" &&
-          window.history.length > 1
-        ) {
-          setNavigationRefreshFlag(
-            createNavigationRefreshFlagKey("posts-list-refresh", "root")
-          );
+        if (preferHistoryBack && canUseBrowserBack()) {
+          // 게시글 목록 문맥은 back 전에 flag를 남겨 복귀 후 stale list 보정
+          if (nextAfterDelete.startsWith("/posts")) {
+            markNavigationRefresh(
+              NAVIGATION_REFRESH_SCOPES.POSTS_LIST,
+              NAVIGATION_REFRESH_ROOT_ID
+            );
+          }
           router.back();
           return;
         }

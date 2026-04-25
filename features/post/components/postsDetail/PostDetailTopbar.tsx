@@ -61,6 +61,7 @@ interface PostDetailTopbarProps {
   backHref?: string;
   canEdit?: boolean;
   editHref?: string;
+  preferHistoryBack?: boolean;
 }
 
 /**
@@ -77,6 +78,7 @@ export default function PostDetailTopbar({
   backHref,
   canEdit,
   editHref,
+  preferHistoryBack = false,
 }: PostDetailTopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -162,7 +164,7 @@ export default function PostDetailTopbar({
               postId={postId}
               editHref={editHref!}
               nextAfterDelete={nextAfterDelete}
-              preferHistoryBack={Boolean(backHref)}
+              preferHistoryBack={preferHistoryBack}
             />
           ) : (
             <div className="relative" ref={menuRef}>

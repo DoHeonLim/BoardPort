@@ -18,7 +18,7 @@
  * 2026.03.13  임도헌   Modified  returnTo 복귀 경로를 수정 화면의 저장/삭제 흐름에 반영
  * 2026.03.14  임도헌   Modified  상세에서 진입한 수정 흐름을 flow=detail-edit로 받아 저장 후 back 복귀 기준을 명시
  * 2026.03.18  임도헌   Modified  detail-edit 삭제 복귀를 정규화된 returnTo 기준으로 판단하고, back 복귀 + 목록 refresh 플래그로 stale list와 raw 쿼리 예외를 함께 정리
- * 2026.04.01  임도헌   Modified  게시글 detail-edit 삭제는 history back 대신 명시 경로 복귀로 정리해 상세/목록 히스토리 문맥을 분리
+ * 2026.04.01  임도헌   Modified  당시 게시글 detail-edit 삭제 복귀를 명시 경로 기준으로 정리해 상세/목록 히스토리 문맥을 분리
  * 2026.03.23  임도헌   Modified  게시글 수정 페이지 id 가드를 상세 본문과 같은 유효 숫자/양수 기준으로 통일
  * 2026.04.06  임도헌   Modified  게시글 삭제를 상세 owner 메뉴로 이동해 수정 페이지는 편집 전용으로 단순화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/edit/page.tsx 에서 app/(app)/posts/[id]/edit/page.tsx 로 변경 (라우트 그룹 개편)

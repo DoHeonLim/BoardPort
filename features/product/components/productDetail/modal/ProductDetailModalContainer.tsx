@@ -21,9 +21,10 @@
  * 2026.03.18  임도헌   Modified  모달 상세의 returnTo를 sanitizeCallbackUrl 기준으로 정리해 닫기/수정 복귀 경로 안전성 보강
  * 2026.03.22  임도헌   Modified  데스크톱 모달 높이와 보더 톤을 최근 상세 모달 기준으로 정리
  * 2026.04.02  임도헌   Modified  모달 상세에서 수정 진입은 push를 유지하고 저장 후 목록 릴레이 재오픈 흐름과 정합성을 맞춤
- * 2026.04.06  임도헌   Modified  modal-edit 저장 후 back 우선, 목록 릴레이 fallback 기준으로 주석 최신화
+ * 2026.04.06  임도헌   Modified  modal-edit 저장 후 back 우선, 모달 재오픈 fallback 기준으로 주석 최신화
  * 2026.04.06  임도헌   Modified  모달 owner 액션도 상단 관리 메뉴로 통일
  * 2026.04.09  임도헌   Modified  모달 owner 메뉴에도 판매완료 숨김 상태를 전달해 상세/모달 관리 정책을 통일
+ * 2026.04.24  임도헌   Modified  navigation refresh helper로 모달 refresh flag 소비와 back 가능 여부 판별을 정리
  */
 "use client";
 
@@ -38,8 +39,9 @@ import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import type { ProductDetailType } from "@/features/product/types";
 import { cn } from "@/lib/utils";
 import {
-  consumeNavigationRefreshFlag,
-  createNavigationRefreshFlagKey,
+  canUseBrowserBack,
+  consumeNavigationRefresh,
+  NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 
 interface ProductDetailProps {
@@ -54,7 +56,7 @@ interface ProductDetailProps {
  * - 배경 스크롤 잠금, 포커스 트랩, ESC 닫기 등 모달 필수 기능을 제공
  * - 닫기 시 `returnTo` 쿼리 파라미터를 사용하여 이전 목록 상태를 유지하며 복귀
  * - 모달 편집은 `flow=modal-edit`로 진입하고 저장 후 기존 모달 히스토리로 back 복귀를 우선 사용
- * - history back 대상이 없을 때만 목록 릴레이 fallback으로 같은 모달 상세를 다시 연다
+ * - history back 대상이 없을 때만 ProductModalReopenRelay fallback으로 같은 모달 상세를 다시 연다
  */
 export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
@@ -78,20 +80,23 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   }, []);
 
   useEffect(() => {
-    const refreshKey = createNavigationRefreshFlagKey(
-      "product-modal-refresh",
-      props.product.id
-    );
-    // 모달 편집 저장 후 history back 대상이 없어 목록 릴레이를 거쳐 다시 열린 상세만
+    // modal-edit 저장 후 기존 모달 상세로 back 복귀했거나 fallback으로 재오픈된 상세만
     // 세션 플래그를 1회 소비해 최신 데이터로 다시 동기화.
-    if (!consumeNavigationRefreshFlag(refreshKey)) return;
+    if (
+      !consumeNavigationRefresh(
+        NAVIGATION_REFRESH_SCOPES.PRODUCT_MODAL,
+        props.product.id
+      )
+    ) {
+      return;
+    }
     router.refresh();
   }, [props.product.id, router]);
 
   // 모달 닫기와 편집 진입에 재사용하는 복귀 경로 정제
   const returnTo = sanitizeCallbackUrl(sp.get("returnTo") ?? "/products");
   const handleOverlayClick = () => {
-    if (window.history.length > 1) {
+    if (canUseBrowserBack()) {
       router.back();
       return;
     }
