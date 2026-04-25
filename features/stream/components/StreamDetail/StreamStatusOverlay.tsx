@@ -57,14 +57,14 @@ export default function StreamStatusOverlay({
   );
 
   useEffect(() => {
-    // 부모에서 내려온 상태가 바뀌면 오버레이 내부 상태도 동기화한다
+    // 서버 props 또는 부모 로컬 상태가 바뀌면 오버레이와 플레이어 조건을 함께 맞춘다
     const next = (status?.toUpperCase?.() as StreamStatus) || "DISCONNECTED";
     setCurrent((prev) => (prev === next ? prev : next));
     onStatusChange?.(next);
   }, [status, onStatusChange]);
 
   useEffect(() => {
-    // Cloudflare webhook이 발행한 live-status 이벤트를 상세 화면에서 직접 반영한다
+    // Cloudflare webhook의 live-status 이벤트를 상세 화면에서 직접 반영한다
     const channel = supabase.channel("live-status");
 
     channel.on("broadcast", { event: "status" }, (msg) => {

@@ -108,7 +108,7 @@ export default function StreamDetail({
   }, [stream.status]);
 
   const handleStatusChange = useCallback((next: StreamStatus) => {
-    // Overlay가 받은 live-status 이벤트를 iframe 렌더 조건에 반영한다
+    // Overlay가 구독한 live-status 이벤트를 iframe 렌더 조건에 반영한다
     setCurrentStatus((prev) => (prev === next ? prev : next));
   }, []);
 
