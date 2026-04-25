@@ -35,6 +35,7 @@
  * 2026.03.24  임도헌   Modified  데스크톱 라이트 모드 위계를 조금 더 분리하고 owner 송출 정보 영역 폭을 줄여 관리 정보의 무게를 완화
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상세 정보 패널 타이포를 text-xs·sm·500 기준으로 정리
  * 2026.04.16  임도헌   Modified  CONNECTED 상태에서만 iframe을 렌더링하고 종료/준비 상태는 썸네일 fallback으로 전환해 초기 로드 비용을 완화
+ * 2026.04.25  임도헌   Modified  실시간 방송 상태를 부모 상태에 반영해 새로고침 없이 상세 iframe이 표시되도록 보강
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -48,7 +49,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import StreamStatusOverlay from "@/features/stream/components/StreamDetail/StreamStatusOverlay";
@@ -59,6 +60,7 @@ import StreamTitle from "@/features/stream/components/StreamDetail/StreamTitle";
 import { useFollowController } from "@/features/user/hooks/useFollowController";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import { StreamDetailDTO } from "@/features/stream/service/detail";
+import type { StreamStatus } from "@/features/stream/types";
 import type { UserProfile } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
@@ -72,12 +74,17 @@ interface StreamDetailProps {
   >;
 }
 
+function normalizeStreamStatus(status?: StreamStatus | string | null) {
+  return ((status?.toUpperCase?.() ?? "DISCONNECTED") as StreamStatus);
+}
+
 /**
  * 스트리밍 상세 정보 및 메타 컨테이너 컴포넌트
  *
  * [상태 주입 및 레이아웃 제어 로직]
  * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
  * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`를 배치하고, 모바일 정보 토글은 플레이어 우상단 칩으로 제어
+ * - `live-status` 수신 상태를 부모 상태로 동기화해 새로고침 없이 iframe 렌더 조건을 갱신한다
  * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용을 줄인다
  * - 모바일은 cross-origin iframe 제약 때문에 플레이어 자체 클릭 대신 플레이어 안 우상단 정보 토글 버튼으로 상세 정보를 열고 닫는다
  * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
@@ -90,6 +97,20 @@ export default function StreamDetail({
   ownerProfile,
 }: StreamDetailProps) {
   const isOwner = !!me && stream.user.id === me;
+  // SSR 초기 상태와 Realtime 수신 상태를 함께 반영하는 상세 화면 기준 상태
+  const [currentStatus, setCurrentStatus] = useState<StreamStatus>(() =>
+    normalizeStreamStatus(stream.status)
+  );
+
+  useEffect(() => {
+    // router.refresh 등으로 서버 상태가 갱신되면 로컬 상태도 맞춘다
+    setCurrentStatus(normalizeStreamStatus(stream.status));
+  }, [stream.status]);
+
+  const handleStatusChange = useCallback((next: StreamStatus) => {
+    // Overlay가 구독한 live-status 이벤트를 iframe 렌더 조건에 반영한다
+    setCurrentStatus((prev) => (prev === next ? prev : next));
+  }, []);
 
   // 모바일은 기본 숨김, 데스크톱은 기본 펼침으로 시작
   const [opened, setOpened] = useState(false);
@@ -118,10 +139,8 @@ export default function StreamDetail({
     viewerId: ownerProfile.viewerId ?? undefined,
   });
   const showInfoSection = isDesktop || opened;
-  const normalizedStatus = (stream.status?.toUpperCase?.() ??
-    "DISCONNECTED") as "CONNECTED" | "ENDED" | "DISCONNECTED" | "READY";
-  const hasStatusOverlay = normalizedStatus !== "CONNECTED";
-  const shouldRenderLivePlayer = normalizedStatus === "CONNECTED";
+  const hasStatusOverlay = currentStatus !== "CONNECTED";
+  const shouldRenderLivePlayer = currentStatus === "CONNECTED";
 
   return (
     <div className="relative space-y-2">
@@ -169,9 +188,10 @@ export default function StreamDetail({
         })()}
         <StreamStatusOverlay
           username={stream.user.username}
-          status={stream.status}
+          status={currentStatus}
           streamId={stream.stream_id}
           isOwner={isOwner}
+          onStatusChange={handleStatusChange}
         />
         <button
           type="button"
