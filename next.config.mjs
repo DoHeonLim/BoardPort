@@ -61,6 +61,7 @@ const imageOrigins = unique([
   "https://imagedelivery.net",
   "https://w7.pngwing.com",
   "https://i.ytimg.com",
+  "https://mts.daumcdn.net",
   "https://customer-fllme7un34f7981k.cloudflarestream.com",
   "https://videodelivery.net",
   cloudflareStreamOrigin,
@@ -71,6 +72,10 @@ const connectOrigins = unique([
   supabaseOrigin,
   supabaseWsOrigin,
   kakaoMapsOrigin,
+  "https://imagedelivery.net",
+  "https://upload.imagedelivery.net",
+  "https://upload.cloudflarestream.com",
+  "https://i.ytimg.com",
 ]);
 const frameOrigins = unique([
   "https://www.youtube-nocookie.com",
