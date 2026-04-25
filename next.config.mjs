@@ -1,7 +1,6 @@
 import withPWA from "next-pwa";
 
-const isProduction = process.env.NODE_ENV === "production";
-
+// 환경변수 URL에서 CSP에 넣을 origin만 안전하게 추출한다.
 function normalizeOrigin(value) {
   if (!value) return null;
 
@@ -12,6 +11,7 @@ function normalizeOrigin(value) {
   }
 }
 
+// Supabase HTTPS origin을 Realtime WebSocket origin으로 변환한다.
 function toWebSocketOrigin(origin) {
   if (!origin) return null;
 
@@ -30,15 +30,16 @@ function toWebSocketOrigin(origin) {
   }
 }
 
+// falsey 값과 중복 출처를 제거해 CSP source list를 안정화한다.
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+// directive 이름과 source 목록을 CSP 문자열 조각으로 만든다.
 function buildDirective(name, sources) {
   return `${name} ${sources.join(" ")}`;
 }
 
-const appOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL);
 const supabaseOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const supabaseWsOrigin = toWebSocketOrigin(supabaseOrigin);
 const cloudflareStreamOrigin = normalizeOrigin(
@@ -46,31 +47,28 @@ const cloudflareStreamOrigin = normalizeOrigin(
 );
 const kakaoMapsOrigin = "https://dapi.kakao.com";
 
-const isSecureAppOrigin = (() => {
-  if (!appOrigin) return false;
-
-  try {
-    return new URL(appOrigin).protocol === "https:";
-  } catch {
-    return false;
-  }
-})();
-
 const imageOrigins = unique([
   "https://avatars.githubusercontent.com",
   "https://imagedelivery.net",
   "https://w7.pngwing.com",
   "https://i.ytimg.com",
+  "https://mts.daumcdn.net",
+  "https://t1.daumcdn.net",
   "https://customer-fllme7un34f7981k.cloudflarestream.com",
   "https://videodelivery.net",
   cloudflareStreamOrigin,
 ]);
 
-const scriptOrigins = unique([kakaoMapsOrigin]);
+const scriptOrigins = unique([kakaoMapsOrigin, "https://t1.daumcdn.net"]);
 const connectOrigins = unique([
   supabaseOrigin,
   supabaseWsOrigin,
   kakaoMapsOrigin,
+  "https://t1.daumcdn.net",
+  "https://imagedelivery.net",
+  "https://upload.imagedelivery.net",
+  "https://upload.cloudflarestream.com",
+  "https://i.ytimg.com",
 ]);
 const frameOrigins = unique([
   "https://www.youtube-nocookie.com",
@@ -125,12 +123,8 @@ const securityHeaders = [
   },
 ];
 
-if (isProduction && isSecureAppOrigin) {
-  securityHeaders.push({
-    key: "Strict-Transport-Security",
-    value: "max-age=86400",
-  });
-}
+// Vercel custom domain은 기본으로 Strict-Transport-Security: max-age=63072000을 내려준다.
+// 운영 HSTS는 앱 헤더가 아니라 플랫폼 계층에서 관리한다.
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
