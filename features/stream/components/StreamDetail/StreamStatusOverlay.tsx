@@ -17,6 +17,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 오버레이 CTA weight를 500 기준으로 정리
  * 2026.04.16  임도헌   Modified  종료 오버레이 CTA는 자동 prefetch를 끄고 상태 변화가 있을 때만 이동 의도를 받도록 조정
  * 2026.04.20  임도헌   Modified  상세 상단바와 z-index 충돌이 없도록 오버레이 레벨을 한 단계 낮춤
+ * 2026.04.25  임도헌   Modified  live-status 수신 상태를 부모 컴포넌트로 전달해 플레이어 렌더 조건과 동기화
  */
 
 "use client";
@@ -32,6 +33,7 @@ interface StreamStatusOverlayProps {
   status: StreamStatus | string;
   streamId: string;
   isOwner?: boolean;
+  onStatusChange?: (status: StreamStatus) => void;
 }
 
 /**
@@ -39,6 +41,7 @@ interface StreamStatusOverlayProps {
  * - ENDED: 채널 다시보기 CTA 제공
  * - DISCONNECTED/READY 계열: 시청자 또는 소유자에게 송출 준비 상태 안내
  * - `live-status` 브로드캐스트 채널을 구독해 상세 화면에서도 상태 변화를 실시간 반영
+ * - 상태 변경을 `onStatusChange`로 부모에 전달해 플레이어 렌더 조건과 동기화
  * - 종료 CTA는 자동 프리패치를 생략해 상세 초기 네트워크 경쟁을 만들지 않는다
  */
 export default function StreamStatusOverlay({
@@ -46,6 +49,7 @@ export default function StreamStatusOverlay({
   status,
   streamId,
   isOwner = false,
+  onStatusChange,
 }: StreamStatusOverlayProps) {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const [current, setCurrent] = useState<StreamStatus>(
@@ -53,11 +57,14 @@ export default function StreamStatusOverlay({
   );
 
   useEffect(() => {
+    // 부모에서 내려온 상태가 바뀌면 오버레이 내부 상태도 동기화한다
     const next = (status?.toUpperCase?.() as StreamStatus) || "DISCONNECTED";
     setCurrent((prev) => (prev === next ? prev : next));
-  }, [status]);
+    onStatusChange?.(next);
+  }, [status, onStatusChange]);
 
   useEffect(() => {
+    // Cloudflare webhook이 발행한 live-status 이벤트를 상세 화면에서 직접 반영한다
     const channel = supabase.channel("live-status");
 
     channel.on("broadcast", { event: "status" }, (msg) => {
@@ -65,6 +72,7 @@ export default function StreamStatusOverlay({
       if (!payload?.streamId || payload.streamId !== streamId) return;
       const next = String(payload.status || "").toUpperCase() as StreamStatus;
       setCurrent((prev) => (prev === next ? prev : next));
+      onStatusChange?.(next);
     });
 
     channel.subscribe();
@@ -77,9 +85,10 @@ export default function StreamStatusOverlay({
         supabase.removeChannel(channel);
       } catch {}
     };
-  }, [streamId]);
+  }, [streamId, onStatusChange]);
 
   useEffect(() => {
+    // 종료 상태에서는 다시보기 CTA로 포커스를 보내 키보드 흐름을 이어준다
     if (current !== "ENDED") return;
     const t = setTimeout(() => linkRef.current?.focus(), 0);
     return () => clearTimeout(t);

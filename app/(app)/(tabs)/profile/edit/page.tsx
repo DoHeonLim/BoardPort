@@ -14,18 +14,18 @@
  * 2026.01.29  임도헌   Modified  프로필 편집 페이지 주석 보강 및 구조 설명 추가
  * 2026.03.13  임도헌   Modified  returnTo 쿼리를 정규화해 저장/취소 후 복귀 경로로 사용
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/edit/page.tsx 에서 app/(app)/(tabs)/profile/edit/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.04.25  임도헌   Modified  ProfileEditForm 서버 액션 prop 전달을 제거해 클라이언트 entry 직렬화 경고를 해소
  */
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import ProfileEditForm from "@/features/user/components/profile/ProfileEditForm";
 import { getCurrentUserForEdit } from "@/features/user/service/edit";
-import { editProfileAction } from "@/features/user/actions/profile";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 /**
  * 프로필 편집 페이지
  * - 세션 검증 후, 편집에 필요한 현재 유저 정보(`getCurrentUserForEdit`)를 조회
- * - `ProfileEditForm`에 초기값과 업데이트 액션을 주입
+ * - `ProfileEditForm`에 초기값과 복귀 경로를 주입
  */
 export default async function EditProfilePage({
   searchParams,
@@ -52,7 +52,7 @@ export default async function EditProfilePage({
     );
   }
 
-  return <ProfileEditForm user={user} action={editProfileAction} returnTo={returnTo} />;
+  return <ProfileEditForm user={user} returnTo={returnTo} />;
 }
 
 

@@ -34,6 +34,7 @@
  * 2026.03.21  임도헌   Modified  방송국 전용 소개글 입력을 유저 채널 페이지로 이동
  * 2026.03.23  임도헌   Modified  프로필 편집 섹션 구분선과 안내 카드 셸을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 전화번호 인증 CTA weight를 500 기준으로 정리
+ * 2026.04.25  임도헌   Modified  서버 액션 prop 전달을 제거하고 소셜 유저 설정 안내의 다크모드 대비를 개선
  */
 "use client";
 
@@ -52,10 +53,7 @@ import {
   profileEditSchema,
   type ProfileEditDTO,
 } from "@/features/user/schemas";
-import type {
-  EditProfileActionState,
-  CurrentUserForEdit,
-} from "@/features/user/types";
+import type { CurrentUserForEdit } from "@/features/user/types";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
@@ -72,6 +70,7 @@ import {
 import { cn } from "@/lib/utils";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { editProfileAction } from "@/features/user/actions/profile";
 
 const ConfirmDialog = dynamic(() => import("@/components/global/ConfirmDialog"), {
   loading: () => null,
@@ -84,13 +83,8 @@ const AvatarCropModal = dynamic(
   }
 );
 
-type EditProfileAction = (
-  formData: FormData
-) => Promise<EditProfileActionState>;
-
 interface ProfileEditFormProps {
   user: CurrentUserForEdit;
-  action: EditProfileAction;
   returnTo: string;
 }
 
@@ -104,11 +98,10 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  * 2. 아바타 관리: 크롭/확대/위치 조정, 업로드(Cloudflare), 미리보기, 삭제
  * 3. 전화번호 인증: 인증번호 발송/검증 프로세스 내장 (수정 시 인증 필수)
  * 4. FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반 검증 UX 적용
- * 5. 서버 액션 연동: 중복 체크 및 업데이트 처리
+ * 5. 서버 액션 연동: 클라이언트 내부에서 프로필 업데이트 액션 호출
  */
 export default function ProfileEditForm({
   user,
-  action,
   returnTo,
 }: ProfileEditFormProps) {
   const router = useRouter();
@@ -137,6 +130,7 @@ export default function ProfileEditForm({
   const [avatarConfirmOpen, setAvatarConfirmOpen] = useState(false);
 
   // --- Schema ---
+  // 소셜 가입 보완 항목과 전화번호 인증 상태에 따라 검증 스키마를 재구성
   const schema = useMemo(
     () =>
       profileEditSchema({
@@ -175,6 +169,7 @@ export default function ProfileEditForm({
   const phoneValue = watch("phone");
   const normalizedPhone = (phoneValue || "").trim();
   const avatarValue = watch("avatar");
+  // 기존 아바타, 새 미리보기, 폼 값을 함께 보고 삭제 버튼 노출 여부를 결정
   const hasAnyAvatar = !!currentPhoto || preview !== "" || !!avatarValue;
 
   // --- Effects ---
@@ -219,6 +214,7 @@ export default function ProfileEditForm({
   const handleImageChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    // 원본 파일은 바로 업로드하지 않고 크롭 모달에서 편집한 뒤 업로드 준비
     const nextFile = event.target.files?.[0];
     if (!nextFile) return;
 
@@ -249,6 +245,7 @@ export default function ProfileEditForm({
   };
 
   const applyAvatarFile = async (nextFile: File) => {
+    // 크롭 결과 파일을 미리보기로 반영하고 Cloudflare direct upload URL을 예약
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
 
     const url = URL.createObjectURL(nextFile);
@@ -343,6 +340,7 @@ export default function ProfileEditForm({
   };
 
   const resetForm = () => {
+    // RHF 값과 미리보기/업로드/전화번호 인증 파생 상태를 함께 원복
     const basePhone = originalPhone;
     rhfReset({
       username: user.username,
@@ -484,7 +482,7 @@ export default function ProfileEditForm({
       fd.append("avatar", data.avatar ?? "");
       fd.append("avatarAnimated", String(data.avatarAnimated ?? false));
 
-      const result = await action(fd);
+      const result = await editProfileAction(fd);
 
       if (!result.success) {
         // 전역 에러(formErrors)는 Toast로, 필드 에러(fieldErrors)는 Input 하단에 표시
@@ -511,6 +509,7 @@ export default function ProfileEditForm({
   const onInvalid = (formErrors: typeof errors) => {
     focusFirstFieldError<ProfileEditDTO>(formErrors, setFocus);
   };
+  // 소셜 가입처럼 이메일 또는 비밀번호가 비어 있는 계정의 보완 안내
   const showSetupNotice = user.needsEmailSetup || user.needsPasswordSetup;
   const phoneReg = register("phone");
 
@@ -594,8 +593,8 @@ export default function ProfileEditForm({
         />
 
         {showSetupNotice && (
-          <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent-foreground">
-            ⚠️ 원활한 서비스 이용을 위해 이메일과 비밀번호를 설정해주세요.
+          <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm dark:border-amber-400/35 dark:bg-amber-400/12 dark:text-amber-100">
+            원활한 서비스 이용을 위해 이메일과 비밀번호를 설정해주세요.
           </div>
         )}
 
