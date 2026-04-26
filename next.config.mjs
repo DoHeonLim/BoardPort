@@ -46,8 +46,6 @@ const cloudflareStreamOrigin = normalizeOrigin(
   process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN
 );
 const kakaoMapsOrigin = "https://dapi.kakao.com";
-const enableStrictScriptReportOnly =
-  process.env.CSP_STRICT_SCRIPT_REPORT_ONLY === "true";
 
 const imageOrigins = unique([
   "https://avatars.githubusercontent.com",
@@ -62,17 +60,12 @@ const imageOrigins = unique([
 ]);
 
 const scriptOrigins = unique([kakaoMapsOrigin, "https://t1.daumcdn.net"]);
-const scriptSources = unique([
-  "'self'",
-  // Preview 전용 실험 플래그가 켜지면 unsafe-inline 없이 Report-Only 위반을 관찰한다.
-  enableStrictScriptReportOnly ? null : "'unsafe-inline'",
-  ...scriptOrigins,
-]);
 const connectOrigins = unique([
   supabaseOrigin,
   supabaseWsOrigin,
   kakaoMapsOrigin,
   "https://t1.daumcdn.net",
+  "https://mts.daumcdn.net",
   "https://imagedelivery.net",
   "https://upload.imagedelivery.net",
   "https://upload.cloudflarestream.com",
@@ -92,9 +85,10 @@ const cspReportOnly = [
   buildDirective("frame-ancestors", ["'self'"]),
   buildDirective("img-src", ["'self'", "data:", "blob:", ...imageOrigins]),
   buildDirective("font-src", ["'self'", "data:"]),
-  // next-themes 초기 인라인 스크립트 가능성을 고려한 1차 관찰용 임시 허용값
+  // next-themes 초기 인라인 스크립트 가능성을 고려해 Report-Only 정책에서는 유지한다.
   buildDirective("style-src", ["'self'", "'unsafe-inline'"]),
-  buildDirective("script-src", scriptSources),
+  // Next/App Router 초기 inline payload와 next-themes bootstrap을 고려해 Report-Only 정책에서는 유지한다.
+  buildDirective("script-src", ["'self'", "'unsafe-inline'", ...scriptOrigins]),
   buildDirective("connect-src", ["'self'", ...connectOrigins]),
   buildDirective("frame-src", ["'self'", ...frameOrigins]),
   buildDirective("worker-src", ["'self'", "blob:"]),
