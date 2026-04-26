@@ -13,6 +13,7 @@
  * 2026.03.09  임도헌   Modified  모바일 리스트 가림을 줄이기 위해 FAB 크기와 하단 여백 미세 조정
  * 2026.04.14  임도헌   Modified  /posts/add 선프리패치를 막아 목록 초기 JS 평가 비용을 완화
  * 2026.04.17  임도헌   Modified  게시글 FAB의 no-prefetch와 safe-area 배치 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.04.26  임도헌   Modified  다크모드 FAB 색조를 primary CTA 톤과 맞춰 정리
  */
 
 import Link from "next/link";
@@ -37,7 +38,7 @@ export default function AddPostButton() {
       aria-label="게시글 작성"
       className={cn(
         "focus-ring-strong fixed z-40 flex items-center justify-center rounded-full transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
-        "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
+        "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
         "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
         "size-12 sm:size-16 bottom-[80px] sm:bottom-24 right-4 sm:right-8",
         // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산

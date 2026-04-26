@@ -19,6 +19,8 @@
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.17  임도헌   Modified  모바일 검색 모달 상단 검색창과 닫기 버튼 톤을 탭 헤더 검색바와 같은 계열로 정리
+ * 2026.04.26  임도헌   Modified  모바일/데스크톱 검색 모달에 dialog 의미와 스크린리더 제목을 보강
+ * 2026.04.26  임도헌   Modified  닫기 버튼의 visible copy에서 단축키 설명을 제거해 액션 라벨만 남김
  */
 
 import { useState, useEffect } from "react";
@@ -102,7 +104,12 @@ export default function SearchModal({
   // [Mobile Layout] Full Screen Fixed
   if (isMobile) {
     return createPortal(
-      <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+      <div
+        className="fixed inset-0 z-[100] flex flex-col bg-background"
+        role="dialog"
+        aria-modal="true"
+        aria-label="검색"
+      >
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border-subtle bg-background px-3 py-3 shrink-0">
           <button
@@ -159,9 +166,15 @@ export default function SearchModal({
 
       {/* Modal Card */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="search-modal-title"
         className="relative flex h-fit max-h-[75vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >
+        <h2 id="search-modal-title" className="sr-only">
+          검색
+        </h2>
         {/* Search Input Area */}
         <div className="shrink-0 border-b border-border-subtle bg-surface p-6">
           <SearchBar
@@ -198,7 +211,7 @@ export default function SearchModal({
             onClick={onClose}
             className="focus-ring-soft flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
-            <XMarkIcon className="size-4 stroke-2" /> 닫기 (ESC)
+            <XMarkIcon className="size-4 stroke-2" /> 닫기
           </button>
         </div>
       </div>

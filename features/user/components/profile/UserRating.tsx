@@ -14,6 +14,7 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.12  임도헌   Modified  평점 별 색상을 채움형 노란 별 기준으로 복원
  * 2026.03.14  임도헌   Modified  프로필 헤더용 반응형 size 프리셋을 추가해 JS matchMedia 없이 CSS만으로 크기 제어
+ * 2026.04.26  임도헌   Modified  평점 표시를 sr-only 텍스트와 장식용 별 아이콘 구조로 정리해 ARIA 경고를 해소
  */
 "use client";
 
@@ -74,12 +75,11 @@ export default function UserRating({
   };
 
   return (
-    <div
-      className={cn("flex items-center gap-1.5", className)}
-      role="img"
-      aria-label={`평점 ${displayAvg}점, 후기 ${totalReviews}개`}
-    >
-      <div className="flex gap-0.5">
+    <div className={cn("flex items-center gap-1.5", className)}>
+      <span className="sr-only">
+        평점 {displayAvg}점, 후기 {totalReviews}개
+      </span>
+      <div className="flex gap-0.5" aria-hidden="true">
         {[0, 1, 2, 3, 4].map((i) => {
           const pct = fillFor(i);
           return (
@@ -109,7 +109,10 @@ export default function UserRating({
         })}
       </div>
       {/* 평점 갯수 */}
-      <span className={cn("font-medium text-muted", textSizes[size])}>
+      <span
+        className={cn("font-medium text-muted", textSizes[size])}
+        aria-hidden="true"
+      >
         {displayAvg} <span className="text-muted/60">({totalReviews})</span>
       </span>
     </div>

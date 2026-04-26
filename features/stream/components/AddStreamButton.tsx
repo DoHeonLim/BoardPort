@@ -13,6 +13,7 @@
  * 2026.03.11  임도헌   Modified  모바일 FAB 크기와 하단 여백을 제품/게시글 탭과 통일
  * 2026.04.16  임도헌   Modified  초기 자동 프리패치 대신 hover/touch 시점 프리패치로 이동 체감 보강
  * 2026.04.17  임도헌   Modified  FAB의 의도 기반 프리패치 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.04.26  임도헌   Modified  다크모드 FAB 색조를 primary CTA 톤과 맞춰 정리
  */
 "use client";
 
@@ -53,7 +54,7 @@ export default function AddStreamButton() {
       title="새 스트리밍 생성"
       className={cn(
         "focus-ring-strong fixed z-40 flex items-center justify-center rounded-full transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
-        "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
+        "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
         "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
         "size-12 sm:size-16 bottom-[80px] sm:bottom-24 right-4 sm:right-8",
         // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산

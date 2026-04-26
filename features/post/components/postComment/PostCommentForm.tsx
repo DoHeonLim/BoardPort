@@ -22,6 +22,7 @@
  * 2026.03.19  임도헌   Modified  댓글 입력바 외곽 패널을 solid 톤으로 정리해 상세 섹션 시작 가시성을 보강
  * 2026.03.30  임도헌   Modified  게시글 카테고리 plain 라벨 정리에 맞춰 댓글 플레이스홀더를 일반 문맥으로 조정
  * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
+ * 2026.04.26  임도헌   Modified  댓글 등록 버튼의 다크모드 hover 색조를 primary CTA 톤과 맞춰 정리
  */
 "use client";
 
@@ -114,7 +115,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
         disabled={isPending || !text.trim()}
         className={cn(
           "focus-ring-soft shrink-0 size-10 rounded-full flex items-center justify-center transition-[background-color,color,border-color,box-shadow] shadow-sm",
-          "bg-brand-light dark:bg-brand text-white hover:bg-brand hover:dark:bg-brand-light active:scale-95",
+          "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:hover:bg-brand-dark active:scale-95",
           "disabled:bg-neutral-200 dark:disabled:bg-neutral-700 disabled:text-muted disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         )}
         aria-label="댓글 등록"

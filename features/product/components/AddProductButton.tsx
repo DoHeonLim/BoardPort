@@ -14,6 +14,7 @@
  * 2026.03.15  임도헌   Modified  최근 본 상품 원형 진입점을 FAB 위에 함께 배치
  * 2026.04.13  임도헌   Modified  최근 본 상품 FAB를 idle 이후 지연 로딩해 products 초기 평가 비용을 완화
  * 2026.04.17  임도헌   Modified  메인 FAB와 최근 본 상품 진입점의 지연 노출 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.04.26  임도헌   Modified  다크모드 FAB 색조를 primary CTA 톤과 맞춰 정리
  */
 "use client";
 
@@ -74,7 +75,7 @@ export default function AddProductButton() {
         aria-label="제품 추가"
         className={cn(
           "focus-ring-strong fixed z-40 flex items-center justify-center rounded-full transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
-          "bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
+          "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
           "shadow-lg hover:shadow-xl hover:scale-105 active:scale-95",
           "size-12 sm:size-16 bottom-[80px] sm:bottom-24 right-4 sm:right-8",
           // 기기의 하단 안전 여백(Safe Area)을 고려하여 bottom 위치를 동적으로 계산

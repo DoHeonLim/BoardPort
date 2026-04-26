@@ -13,9 +13,10 @@
  * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 차단 해제 액션 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.22  임도헌   Modified  차단 해제 액션을 텍스트 링크 대신 명확한 보조 버튼으로 정리
+ * 2026.04.26  임도헌   Modified  차단 관리 모달에 dialog 의미와 제목 연결, ESC 닫기 포커스 흐름을 보강
  */
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toggleBlockAction } from "@/features/user/actions/block";
 import UserAvatar from "@/components/global/UserAvatar";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -49,11 +50,27 @@ export default function BlockedUsersModal({
 }) {
   const [users, setUsers] = useState(initialBlockedUsers);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // 모달 재오픈이나 서버 목록 변경 뒤에는 낙관 상태보다 최신 서버 목록을 우선 반영
     setUsers(initialBlockedUsers);
   }, [initialBlockedUsers, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, isPending, onClose]);
 
   if (!isOpen) return null;
 
@@ -73,9 +90,18 @@ export default function BlockedUsersModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border-subtle">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="blocked-users-title"
+        tabIndex={-1}
+        className="bg-surface w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border-subtle"
+      >
         <div className="px-6 py-4 border-b border-border-subtle flex justify-between items-center bg-surface">
-          <h2 className="font-bold text-primary">차단한 선원 관리</h2>
+          <h2 id="blocked-users-title" className="font-bold text-primary">
+            차단한 선원 관리
+          </h2>
           <button
             onClick={onClose}
             type="button"

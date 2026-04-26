@@ -9,6 +9,7 @@
  * 2026.02.21  임도헌   Modified  regionRange 뱃지 노출 추가
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 지역 범위 칩 weight를 500 기준으로 정리
+ * 2026.04.26  임도헌   Modified  키워드 알림 삭제/빈 상태 문구와 아이콘 버튼 라벨을 구체화
  */
 "use client";
 
@@ -46,7 +47,7 @@ export default function KeywordManagementList({ items }: Props) {
     setDeletingId(id);
     startTransition(async () => {
       const res = await removeKeywordAction(id);
-      if (res.success) toast.success(`'${word}' 알림 해제`);
+      if (res.success) toast.success(`'${word}' 키워드 알림을 삭제했어요.`);
       setDeletingId(null);
     });
   };
@@ -54,7 +55,7 @@ export default function KeywordManagementList({ items }: Props) {
   if (items.length === 0) {
     return (
       <div className="py-6 text-center">
-        <p className="text-sm text-muted">등록된 키워드가 없습니다.</p>
+        <p className="text-sm text-muted">등록한 키워드 알림이 없어요.</p>
       </div>
     );
   }
@@ -78,7 +79,7 @@ export default function KeywordManagementList({ items }: Props) {
             onClick={() => handleDelete(item.id, item.keyword)}
             disabled={isPending}
             className="focus-ring-soft rounded-full p-0.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
-            aria-label="삭제"
+            aria-label={`${item.keyword} 키워드 알림 삭제`}
           >
             <XMarkIcon className="size-3.5" />
           </button>

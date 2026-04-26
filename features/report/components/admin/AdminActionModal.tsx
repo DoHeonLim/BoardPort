@@ -12,9 +12,11 @@
  * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 사유 입력과 하단 액션이 덜 가려지도록 시트형 배치 적용
  * 2026.04.10  임도헌   Modified  관리자 액션 모달의 보조 라벨 크기를 공통 타이포 스케일로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.26  임도헌   Modified  관리자 액션 모달에 dialog 의미와 설명/입력 라벨 연결, ESC 닫기 흐름을 보강
+ * 2026.04.26  임도헌   Modified  primary 확인 버튼의 다크모드 색조를 공용 CTA 톤과 맞춰 정리
  */
 
-import { useState, useTransition, useEffect } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import Select from "@/components/ui/Select";
 
@@ -72,6 +74,7 @@ export default function AdminActionModal({
   const [reason, setReason] = useState("");
   const [banDuration, setBanDuration] = useState(0); // 0: 영구
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // 모달 종료 시 입력 상태 초기화
   // 같은 모달을 여러 대상에 재사용하므로 닫힐 때 사유와 기간을 기본값으로 초기화
@@ -81,6 +84,21 @@ export default function AdminActionModal({
       setBanDuration(0);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPending, onClose, open]);
 
   if (!open) return null;
 
@@ -102,27 +120,44 @@ export default function AdminActionModal({
 
   const variantClasses = {
     primary:
-      "bg-brand dark:bg-brand-light text-white dark:text-gray-900 hover:opacity-90",
+      "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
     danger: "bg-danger text-white hover:bg-red-600",
     success: "bg-emerald-600 text-white hover:bg-emerald-700",
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col rounded-t-3xl border border-border-subtle bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-action-title"
+        aria-describedby="admin-action-description"
+        tabIndex={-1}
+        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col rounded-t-3xl border border-border-subtle bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
+      >
         <div className="flex-1 overflow-y-auto p-6">
-          <h3 className="text-xl font-bold text-primary">{title}</h3>
-          <p className="text-sm text-muted mt-2 mb-6 leading-relaxed">
+          <h3 id="admin-action-title" className="text-xl font-bold text-primary">
+            {title}
+          </h3>
+          <p
+            id="admin-action-description"
+            className="text-sm text-muted mt-2 mb-6 leading-relaxed"
+          >
             {description}
           </p>
 
           <div className="space-y-4">
             {showBanOptions && (
               <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block">
+                <label
+                  htmlFor="admin-action-ban-duration"
+                  className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block"
+                >
                   정지 기간
                 </label>
                 <Select
+                  id="admin-action-ban-duration"
                   value={banDuration}
                   onChange={(e) => setBanDuration(Number(e.target.value))}
                   className="bg-surface-dim border-transparent"
@@ -137,10 +172,14 @@ export default function AdminActionModal({
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted uppercase tracking-wider">
+              <label
+                htmlFor="admin-action-reason"
+                className="text-xs font-bold text-muted uppercase tracking-wider"
+              >
                 사유 입력 <span className="text-danger">*</span>
               </label>
               <textarea
+                id="admin-action-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 disabled={isPending}

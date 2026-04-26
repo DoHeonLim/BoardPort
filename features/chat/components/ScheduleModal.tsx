@@ -10,9 +10,11 @@
  * 2026.03.06  임도헌   Modified  닫기 버튼 터치 타겟과 버튼 hover 대비를 표준 규칙에 맞게 조정
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.26  임도헌   Modified  약속 설정 모달에 dialog 의미와 날짜/시간 입력 라벨 연결, ESC 닫기 흐름을 보강
+ * 2026.04.26  임도헌   Modified  약속 입력 오류 문구를 사용자가 수정할 항목 기준으로 구체화
  */
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   MapPinIcon,
@@ -46,18 +48,34 @@ export default function ScheduleModal({
   const [location, setLocation] = useState<LocationData | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || showMap) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, isPending, onClose, showMap]);
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
     if (!dateStr || !timeStr || !location) {
-      toast.error("날짜, 시간, 장소를 모두 입력해주세요.");
+      toast.error("약속 날짜, 시간, 장소를 모두 입력해주세요.");
       return;
     }
 
     const dateTime = new Date(`${dateStr}T${timeStr}`);
     if (isNaN(dateTime.getTime()) || dateTime < new Date()) {
-      toast.error("올바른 미래 시간을 선택해주세요.");
+      toast.error("현재보다 이후 시간을 선택해주세요.");
       return;
     }
 
@@ -69,10 +87,20 @@ export default function ScheduleModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border-subtle">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="schedule-modal-title"
+        tabIndex={-1}
+        className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border-subtle"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface">
-          <h3 className="font-bold text-primary text-lg flex items-center gap-2">
+          <h3
+            id="schedule-modal-title"
+            className="font-bold text-primary text-lg flex items-center gap-2"
+          >
             <CalendarIcon className="size-5 text-brand dark:text-brand-light" />
             약속 잡기
           </h3>
@@ -90,8 +118,14 @@ export default function ScheduleModal({
           {/* 날짜/시간 선택 */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted">날짜</label>
+              <label
+                htmlFor="schedule-date"
+                className="text-xs font-bold text-muted"
+              >
+                날짜
+              </label>
               <input
+                id="schedule-date"
                 type="date"
                 value={dateStr}
                 onChange={(e) => setDateStr(e.target.value)}
@@ -99,8 +133,14 @@ export default function ScheduleModal({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted">시간</label>
+              <label
+                htmlFor="schedule-time"
+                className="text-xs font-bold text-muted"
+              >
+                시간
+              </label>
               <input
+                id="schedule-time"
                 type="time"
                 value={timeStr}
                 onChange={(e) => setTimeStr(e.target.value)}
@@ -111,7 +151,7 @@ export default function ScheduleModal({
 
           {/* 장소 선택 */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-muted">만날 장소</label>
+            <span className="text-xs font-bold text-muted">만날 장소</span>
             {location ? (
               <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 dark:border-brand-light/30 shadow-sm group">
                 <div className="flex items-center gap-3 min-w-0">

@@ -8,6 +8,7 @@
  * 2026.03.06  임도헌   Created   모바일 액션 메뉴 및 필터용 공용 바텀시트 추가
  * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 검색 모달 등과 중첩되어도 스크롤 잠금/복구 안정화
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.26  임도헌   Modified  드래그 닫기를 pointer 이벤트로 통합해 PC 좁은 viewport의 마우스 드래그도 지원
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -52,6 +53,7 @@ export default function BottomSheet({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const dragStartYRef = useRef(0);
+  const dragCurrentYRef = useRef(0);
   const titleId = useId();
   const fallbackDescriptionId = useId();
   const descriptionId = description ? fallbackDescriptionId : undefined;
@@ -73,6 +75,8 @@ export default function BottomSheet({
       previousFocusRef.current?.focus?.();
       setTranslateY(0);
       setIsDragging(false);
+      dragStartYRef.current = 0;
+      dragCurrentYRef.current = 0;
     };
   }, [open]);
 
@@ -113,26 +117,34 @@ export default function BottomSheet({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    dragStartYRef.current = event.touches[0]?.clientY ?? 0;
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    dragStartYRef.current = event.clientY;
+    dragCurrentYRef.current = 0;
     setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    const currentY = event.touches[0]?.clientY ?? dragStartYRef.current;
-    const deltaY = Math.max(0, currentY - dragStartYRef.current);
+    const deltaY = Math.max(0, event.clientY - dragStartYRef.current);
+    dragCurrentYRef.current = deltaY;
     setTranslateY(deltaY);
   };
 
-  const handleTouchEnd = () => {
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
 
-    if (translateY > 96) {
+    if (dragCurrentYRef.current > 96) {
       onClose();
       return;
     }
 
+    dragCurrentYRef.current = 0;
     setTranslateY(0);
   };
 
@@ -160,10 +172,11 @@ export default function BottomSheet({
         style={{ transform: `translateY(${translateY}px)` }}
       >
         <div
-          className="flex cursor-grab flex-col items-center px-4 pt-3 active:cursor-grabbing"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          className="flex touch-none select-none cursor-grab flex-col items-center px-4 pt-3 active:cursor-grabbing"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
         >
           <div
             className="mb-3 h-1.5 w-12 rounded-full bg-border"

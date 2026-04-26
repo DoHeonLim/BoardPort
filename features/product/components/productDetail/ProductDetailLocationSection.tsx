@@ -10,6 +10,7 @@
  * 2026.04.14  임도헌   Modified  모바일도 위치 섹션 진입 시 실제 지도를 자동 준비하도록 조정해 미리보기 경험 보강
  * 2026.04.14  임도헌   Modified  지도 섹션의 지연 준비 전략과 사용자 흐름이 드러나도록 함수 상단 JSDoc 설명을 보강
  * 2026.04.14  임도헌   Modified  자동 로드 정책에 맞춰 미리보기 카드를 정보 중심의 간소한 로딩 셸로 정리
+ * 2026.04.26  임도헌   Modified  지도 열기 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 
 "use client";
@@ -225,7 +226,7 @@ export default function ProductDetailLocationSection({
               <button
                 type="button"
                 onClick={() => setShouldLoadMap(true)}
-                className="focus-ring-strong inline-flex min-h-10 items-center rounded-lg bg-brand px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-dark dark:bg-brand-light dark:text-background"
+                className="focus-ring-strong inline-flex min-h-10 items-center rounded-lg bg-brand px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
               >
                 {willAutoOpenMap ? "지금 지도 먼저 보기" : "상세 지도 열기"}
               </button>
