@@ -35,6 +35,7 @@
  * 2026.03.23  임도헌   Modified  프로필 편집 섹션 구분선과 안내 카드 셸을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 전화번호 인증 CTA weight를 500 기준으로 정리
  * 2026.04.25  임도헌   Modified  서버 액션 prop 전달을 제거하고 소셜 유저 설정 안내의 다크모드 대비를 개선
+ * 2026.04.26  임도헌   Modified  전화번호 인증 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 "use client";
 
@@ -689,7 +690,7 @@ export default function ProfileEditForm({
                     type="button"
                     onClick={handleSendVerification}
                     disabled={submitting}
-                    className="focus-ring-strong h-input-md w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50 sm:w-auto dark:bg-brand-light dark:hover:bg-brand"
+                    className="focus-ring-strong h-input-md w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50 sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
                   >
                     인증 요청
                   </button>
@@ -711,7 +712,7 @@ export default function ProfileEditForm({
                   type="button"
                   onClick={handleVerifyToken}
                   disabled={submitting}
-                  className="focus-ring-strong h-input-md w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark sm:w-auto dark:bg-brand-light dark:hover:bg-brand"
+                  className="focus-ring-strong h-input-md w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
                 >
                   확인
                 </button>

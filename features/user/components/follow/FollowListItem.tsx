@@ -18,6 +18,7 @@
  * 2026.03.28  임도헌   Modified  팔로우 리스트 행을 카드형으로 정리하고 버튼 무게를 조정해 프로필 모달 밀도 개선
  * 2026.03.29  임도헌   Modified  행 레이아웃을 리스트 문법으로 되돌려 아바타/닉네임을 좌정렬하고 과한 보더를 제거
  * 2026.03.29  임도헌   Modified  팔로우 CTA를 outline 대신 채움형으로 조정해 모달 내 가시성 보강
+ * 2026.04.26  임도헌   Modified  팔로우 목록 CTA와 맞팔로잉 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 
 "use client";
@@ -85,8 +86,8 @@ export default function FollowListItem({
             following
               ? "bg-surface text-muted border-border-subtle hover:bg-surface-dim hover:border-border dark:bg-surface-dim dark:text-primary dark:border-border dark:hover:bg-border/40" // Unfollow
               : buttonVariant === "primary"
-                ? "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand-dark dark:hover:bg-brand-dark/85" // Primary Follow
-                : "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand"
+                ? "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark" // Primary Follow
+                : "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
           )}
         >
           {pending ? "..." : following ? "팔로우 취소" : "팔로우"}

@@ -9,6 +9,8 @@
  * 2026.04.14  임도헌   Modified  상세 본문 제목 흐름에 맞춰 섹션 제목 레벨을 정리
  * 2026.04.14  임도헌   Modified  제품 상세와 동일하게 섹션 진입 시 실제 지도를 자동 준비/노출하도록 정책을 정렬
  * 2026.04.14  임도헌   Modified  자동 로드 정책에 맞춰 미리보기 카드를 정보 중심의 간소한 로딩 셸로 정리
+ * 2026.04.26  임도헌   Modified  지도 열기 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.04.26  임도헌   Modified  위치 섹션 제목 아이콘을 위치 카드 아이콘과 같은 다크모드 톤으로 정리
  */
 "use client";
 
@@ -157,7 +159,7 @@ export default function PostDetailLocationSection({
       className="border-t border-border-subtle pt-4"
     >
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-primary">
-        <MapPinIcon className="size-4 text-brand" />
+        <MapPinIcon className="size-4 text-brand dark:text-brand-light" />
         모임 및 거래 희망 장소
       </h2>
 
@@ -222,7 +224,7 @@ export default function PostDetailLocationSection({
               <button
                 type="button"
                 onClick={() => setShouldLoadMap(true)}
-                className="inline-flex min-h-10 items-center rounded-lg bg-brand px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-dark dark:bg-brand-light dark:text-background"
+                className="inline-flex min-h-10 items-center rounded-lg bg-brand px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
               >
                 {willAutoOpenMap ? "지금 지도 먼저 보기" : "상세 지도 열기"}
               </button>

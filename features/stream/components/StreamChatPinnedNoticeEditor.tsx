@@ -5,6 +5,7 @@
  *
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 고정 공지 편집 UI를 분리
+ * 2026.04.26  임도헌   Modified  저장 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 "use client";
 
@@ -76,7 +77,7 @@ export default function StreamChatPinnedNoticeEditor({
             type="button"
             onClick={onSave}
             disabled={isSaving}
-            className="focus-ring-strong rounded-full bg-brand px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-brand-light dark:text-slate-950"
+            className="focus-ring-strong rounded-full bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60 dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
           >
             {isSaving ? "저장 중..." : initialNotice ? "저장" : "등록"}
           </button>

@@ -23,6 +23,7 @@
  * 2026.03.28  임도헌   Modified  compact 팔로우 CTA의 높이/패딩/그림자를 한 단계 낮춰 헤더에서 과하게 커 보이던 무게를 보정
  * 2026.04.06  임도헌   Modified  좁은 모바일 폭 헤더에서 compact 카운트/버튼이 한 줄에 더 안정적으로 머물도록 간격과 크기 재조정
  * 2026.04.10  임도헌   Modified  follow 타이포 정책에 맞춰 compact 카운트/CTA 크기와 weight를 400·500·700 기준으로 정리
+ * 2026.04.26  임도헌   Modified  채널 팔로우 CTA의 다크모드 대비와 색조를 primary CTA 톤에 맞춰 보강
  */
 "use client";
 
@@ -216,7 +217,7 @@ export default function FollowSection({
             isFollowing ? "focus-ring-soft" : "focus-ring-strong",
             isFollowing
               ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger dark:border-border dark:bg-surface-dim dark:text-primary dark:hover:border-danger/30 dark:hover:bg-danger/10 dark:hover:text-danger"
-              : "border-transparent bg-brand text-white hover:bg-brand-dark dark:bg-brand-light dark:text-gray-100 dark:hover:bg-brand",
+              : "border-transparent bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
           ].join(" ")}
         >
           {isPending ? "처리 중..." : isFollowing ? "팔로우 취소" : "팔로우"}

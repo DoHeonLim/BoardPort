@@ -8,6 +8,7 @@
  * 2026.02.06  임도헌   Created   usePathname을 활용한 활성화 스타일 적용
  * 2026.03.30  임도헌   Modified  관리자 모바일/데스크톱 공통 네비게이션에서 같은 활성 상태 문법을 재사용하도록 정리
  * 2026.04.18  임도헌   Modified  관리자 셸 링크 프리패치를 비활성화해 과도한 백그라운드 라우트 요청을 줄임
+ * 2026.04.26  임도헌   Modified  활성 링크의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 
 "use client";
@@ -42,7 +43,7 @@ export default function AdminNavLink({ href, icon, label }: AdminNavLinkProps) {
       className={cn(
         "focus-ring-soft flex items-center gap-3 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors group",
         isActive
-          ? "bg-brand dark:bg-brand-light text-white dark:text-gray-900 shadow-md"
+          ? "bg-brand text-white shadow-md dark:bg-brand dark:text-white"
           : "text-muted hover:bg-surface-dim hover:text-primary"
       )}
     >

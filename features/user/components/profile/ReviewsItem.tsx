@@ -21,6 +21,7 @@
  * 2026.03.14  임도헌   Modified  리뷰에 표시되는 상품명을 상세 링크로 연결해 거래 맥락 진입성을 보강
  * 2026.03.18  임도헌   Modified  리뷰 상품 링크용 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
  * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 작성자 라벨 weight와 메타 text-xs 스케일을 정리
+ * 2026.04.26  임도헌   Modified  리뷰 별점 aria-label을 sr-only 텍스트로 교체해 금지 ARIA 속성 경고를 해소
  */
 "use client";
 
@@ -100,13 +101,12 @@ export default function ReviewItem({
               <span className="text-sm font-medium text-primary">
                 {review.user?.username || "알 수 없음"}
               </span>
-              <div
-                className="mt-0.5 flex items-center gap-0.5"
-                aria-label={`평점 ${review.rate}점`}
-              >
+              <div className="mt-0.5 flex items-center gap-0.5">
+                <span className="sr-only">평점 {review.rate}점</span>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <StarIcon
                     key={star}
+                    aria-hidden="true"
                     className={cn(
                       "size-3 sm:size-3.5",
                       star <= review.rate

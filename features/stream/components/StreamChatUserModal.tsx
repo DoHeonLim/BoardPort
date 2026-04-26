@@ -22,9 +22,10 @@
  * 2026.04.04  임도헌   Modified  호스트 운영 안내 문구를 confirm 문구와 같은 차단 정책 톤으로 미세 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 운영 안내와 액션 버튼 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.26  임도헌   Modified  스트림 채팅 유저 모달에 dialog 의미와 제목/닫기 라벨, ESC 닫기 흐름을 보강
  */
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createPortal } from "react-dom";
@@ -111,10 +112,28 @@ export default function StreamChatUserModal({
     useState<ModerationIntent | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen || !targetUser || !mounted || isConfirmOpen || reportOpen) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isConfirmOpen, isOpen, mounted, onClose, reportOpen, targetUser]);
 
   if (!isOpen || !targetUser || !mounted) return null;
   const isMe = viewerId === targetUser.id;
@@ -267,6 +286,11 @@ export default function StreamChatUserModal({
       >
         {/* 모달 본체 */}
         <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="stream-chat-user-title"
+          tabIndex={-1}
           className={cn(
             "relative my-auto w-full max-w-xs overflow-hidden rounded-2xl shadow-2xl",
             "max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)]",
@@ -279,6 +303,7 @@ export default function StreamChatUserModal({
             <button
               onClick={onClose}
               className="focus-ring-soft rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+              aria-label="유저 메뉴 닫기"
             >
               <XMarkIcon className="size-6" />
             </button>
@@ -294,7 +319,10 @@ export default function StreamChatUserModal({
               disabled
               className="mb-3 ring-1 ring-brand/10 dark:ring-white/6"
             />
-            <h3 className="mb-6 text-lg font-bold text-primary">
+            <h3
+              id="stream-chat-user-title"
+              className="mb-6 text-lg font-bold text-primary"
+            >
               {targetUser.username}
             </h3>
 

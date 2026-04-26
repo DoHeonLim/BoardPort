@@ -21,6 +21,7 @@
  * 2026.03.27  임도헌   Modified  iOS 설치 필요 상태를 포함할 수 있도록 푸시 상태 타입 확장
  * 2026.04.02  임도헌   Modified  푸시 상태 타입을 notification/types 공용 정의로 분리
  * 2026.04.17  임도헌   Modified  푸시 구독 훅의 초기 점검/재연결/해제 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.04.26  임도헌   Modified  초기 자동 점검의 Service Worker ready 타임아웃을 콘솔 오류/토스트로 노출하지 않도록 완화
  */
 
 "use client";
@@ -75,11 +76,15 @@ function checkSupport() {
  *
  * @param label - 로깅용 라벨 (check, subscribe 등)
  * @param timeoutMs - 대기 시간 (기본 10초)
+ * @param options.logError - 사용자 액션이 아닌 초기 점검에서는 콘솔 에러를 남기지 않도록 제어
  */
 async function waitForServiceWorkerReady(
   label: string,
-  timeoutMs = 10000
+  timeoutMs = 10000,
+  options: { logError?: boolean } = {}
 ): Promise<ServiceWorkerRegistration> {
+  const { logError = true } = options;
+
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     throw new Error("SERVICE_WORKER_NOT_SUPPORTED");
   }
@@ -88,15 +93,21 @@ async function waitForServiceWorkerReady(
     // 1. 현재 등록된 SW 확인
     const existing = await navigator.serviceWorker.getRegistration();
     if (!existing) {
-      console.warn(
-        `[push] no existing ServiceWorker registration detected. (${label})`
-      );
+      if (logError) {
+        console.warn(
+          `[push] no existing ServiceWorker registration detected. (${label})`
+        );
+      }
       // 2. 수동 등록 시도 (Idempotent)
       try {
         await navigator.serviceWorker.register("/sw.js");
-        console.info("[push] tried manual ServiceWorker.register('/sw.js').");
+        if (logError) {
+          console.info("[push] tried manual ServiceWorker.register('/sw.js').");
+        }
       } catch (e) {
-        console.error("[push] manual ServiceWorker register failed:", e);
+        if (logError) {
+          console.error("[push] manual ServiceWorker register failed:", e);
+        }
       }
     }
 
@@ -116,9 +127,17 @@ async function waitForServiceWorkerReady(
 
     return registration;
   } catch (e: any) {
-    console.error(`[push] service worker not ready (${label}):`, e);
+    if (logError) {
+      console.error(`[push] service worker not ready (${label}):`, e);
+    }
     throw e;
   }
+}
+
+function isServiceWorkerReadyTimeout(error: unknown) {
+  return (
+    error instanceof Error && error.message === "SERVICE_WORKER_READY_TIMEOUT"
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -191,7 +210,9 @@ export function usePushNotification() {
         }
 
         // 2-2. Service Worker 준비
-        const registration = await waitForServiceWorkerReady("check");
+        const registration = await waitForServiceWorkerReady("check", 10000, {
+          logError: false,
+        });
         if (!mounted) return;
 
         // 2-3. 브라우저의 현재 Push 구독 정보 가져오기
@@ -268,17 +289,16 @@ export function usePushNotification() {
         }
       } catch (e: any) {
         if (!mounted) return;
-        console.error("[push] check failed:", e);
+        const readyTimeout = isServiceWorkerReadyTimeout(e);
+        if (!readyTimeout) {
+          console.error("[push] check failed:", e);
+        }
         clearLocalState();
         setStatus(
           Notification.permission === "denied"
             ? "permission_denied"
             : "disabled"
         );
-
-        if (e?.message === "SERVICE_WORKER_READY_TIMEOUT") {
-          toast.error("푸시 알림 초기화 지연. 새로고침 후 다시 시도해주세요.");
-        }
       }
     };
 
@@ -402,7 +422,7 @@ export function usePushNotification() {
       );
     } catch (e: any) {
       console.error("[push] subscribe failed:", e);
-      if (e?.message === "SERVICE_WORKER_READY_TIMEOUT") {
+      if (isServiceWorkerReadyTimeout(e)) {
         toast.error("초기화 실패. 새로고침 후 다시 시도해주세요.");
       } else {
         toast.error(`푸시 알림 설정 실패: ${e?.message ?? "오류 발생"}`);

@@ -21,6 +21,7 @@
  * 2026.03.20  임도헌   Modified  플레이어 상태 메타를 항해 로그 칩처럼 읽히도록 타이포와 대비를 추가 정리
  * 2026.03.20  임도헌   Modified  방송 종료 상태는 danger 계열 칩으로 조정해 라이브 종료 의미를 더 분명하게 전달
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상태 칩 타이포를 text-xs·500 기준으로 정리
+ * 2026.04.26  임도헌   Modified  라이브 상태 칩의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 
 "use client";
@@ -99,7 +100,7 @@ export default function LiveStatusButton({
           : "상태 확인중";
 
   const colorClass = isLive
-    ? "bg-brand text-white dark:bg-brand-light"
+    ? "bg-brand text-white dark:bg-brand"
     : isEnded
       ? "border border-danger/20 bg-danger/10 text-danger dark:border-danger/30 dark:bg-danger/15 dark:text-danger"
       : "border border-border-subtle bg-surface text-muted";

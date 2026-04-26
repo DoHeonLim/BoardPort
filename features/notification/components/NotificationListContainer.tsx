@@ -27,6 +27,9 @@
  * 2026.04.02  임도헌   Modified  알림 필터 라벨과 타입을 notification constants/types 공용 정의로 분리
  * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 상단 액션/필터/보조 CTA의 weight와 text-xs 스케일을 정리
  * 2026.04.18  임도헌   Modified  설정 링크 prefetch를 끄고 키워드 모달/읽은 알림 대비를 정리해 알림 목록 초기 렌더 부담을 완화
+ * 2026.04.26  임도헌   Modified  좁은 화면에서도 링크형 알림의 보기 버튼이 제목 행 오른쪽에 유지되도록 2열 배치로 정리
+ * 2026.04.26  임도헌   Modified  개별 읽음 처리를 "읽음으로 표시" 보조 버튼으로 정리해 보기 액션과 구분
+ * 2026.04.26  임도헌   Modified  읽음 액션 토스트 문구를 화면 버튼 라벨과 같은 표현으로 통일
  */
 "use client";
 
@@ -56,7 +59,6 @@ import {
   ChatBubbleLeftEllipsisIcon,
   CheckBadgeIcon,
   Cog6ToothIcon,
-  EnvelopeOpenIcon,
   ArrowUpRightIcon,
   MagnifyingGlassIcon,
   PlayCircleIcon,
@@ -135,7 +137,7 @@ export default function NotificationListContainer({
       // 알림 읽음 처리 완료 시 전역 뱃지 카운트 1 차감
       decrement(1);
     } else {
-      toast.error(res.error ?? "읽음 처리 실패");
+      toast.error(res.error ?? "알림을 읽음으로 표시하지 못했어요.");
     }
   };
 
@@ -149,11 +151,11 @@ export default function NotificationListContainer({
         setNotifications((prev) =>
           prev.map((noti) => ({ ...noti, isRead: true }))
         );
-        toast.success("모든 알림을 읽음 처리했습니다.");
-        // 모두 읽음 처리 완료 시 전역 뱃지 카운트 초기화
+        toast.success("모든 알림을 읽음으로 표시했어요.");
+        // 모든 알림을 읽음으로 표시하면 전역 뱃지 카운트를 초기화
         clear();
       } else {
-        toast.error(res.error ?? "모든 알림 읽음 처리 실패");
+        toast.error(res.error ?? "모든 알림을 읽음으로 표시하지 못했어요.");
       }
     });
   };
@@ -173,7 +175,7 @@ export default function NotificationListContainer({
         );
         decrement(1);
       } else {
-        toast.error(res.error ?? "읽음 처리 실패");
+        toast.error(res.error ?? "알림을 읽음으로 표시하지 못했어요.");
       }
     }
     router.push(href);
@@ -261,7 +263,9 @@ export default function NotificationListContainer({
             <button
               onClick={handleMarkAllAsRead}
               disabled={isMarkingAll}
-              className="focus-ring-soft flex min-h-[36px] items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/20 dark:bg-brand-light/10 dark:text-brand-light sm:min-h-0 sm:gap-2 sm:px-3"
+              aria-label={`모든 알림 ${unreadCount}개를 읽음으로 표시`}
+              title="모든 알림을 읽음으로 표시"
+              className="focus-ring-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:border-brand/45 hover:bg-brand/15 disabled:opacity-60 dark:border-brand-light/30 dark:bg-brand-light/10 dark:text-brand-light dark:hover:bg-brand-light/15 sm:min-h-0 sm:gap-2"
             >
               {isMarkingAll && (
                 <span className="size-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -343,7 +347,7 @@ export default function NotificationListContainer({
 
                 <div className="flex-1 min-w-0">
                   {notification.link ? (
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => handleOpenNotification(notification)}
@@ -357,7 +361,7 @@ export default function NotificationListContainer({
                         {notification.title}
                       </button>
                       {/* 링크형 알림은 별도 CTA를 노출해 이동 동작 인지성 보강 */}
-                      <div className="flex justify-start sm:justify-end">
+                      <div className="flex justify-end">
                         <button
                           type="button"
                           onClick={() => handleOpenNotification(notification)}
@@ -385,28 +389,24 @@ export default function NotificationListContainer({
                   <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-slate-600 dark:text-slate-300">
                     {notification.body}
                   </p>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                     <TimeAgo
                       date={notification.created_at}
                       className="text-xs text-slate-500 dark:text-slate-300"
                     />
-                    {!notification.link && (
-                      <span className="text-xs text-slate-500 dark:text-slate-300">
-                        이동 없이 읽음 처리
-                      </span>
+                    {!notification.isRead && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkAsRead(notification.id)}
+                        aria-label={`${notification.title} 알림을 읽음으로 표시`}
+                        title="읽음으로 표시"
+                        className="focus-ring-soft inline-flex min-h-[24px] items-center rounded-full border border-brand/35 bg-brand/12 px-2.5 py-0.5 text-xs font-semibold text-brand shadow-[0_0_0_1px_rgba(59,130,246,0.04)] transition-colors hover:border-brand/50 hover:bg-brand/18 dark:border-brand-light/35 dark:bg-brand-light/12 dark:text-brand-light dark:hover:bg-brand-light/18"
+                      >
+                        읽음으로 표시
+                      </button>
                     )}
                   </div>
                 </div>
-
-                {!notification.isRead && (
-                  <button
-                    onClick={() => handleMarkAsRead(notification.id)}
-                    className="focus-ring-soft mt-0.5 rounded-lg p-2 text-slate-500 transition-colors hover:text-brand dark:text-slate-300 dark:hover:text-brand-light sm:mt-0"
-                    title="읽음 처리"
-                  >
-                    <EnvelopeOpenIcon className="size-5" />
-                  </button>
-                )}
               </li>
             ))}
           </ul>

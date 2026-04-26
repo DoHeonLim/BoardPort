@@ -12,6 +12,7 @@
  * 2026.03.12  임도헌   Modified  페이지당 10개 기준과 currentPage 보정 로직 추가
  * 2026.03.16  임도헌   Modified  알림 센터 서버 필터와 전체 필터 개수 집계 응답 추가
  * 2026.04.02  임도헌   Modified  공용 알림 타입과 필터 상수를 types/constants 파일로 분리
+ * 2026.04.26  임도헌   Modified  읽음 처리 실패 문구를 알림 센터 UI 액션 라벨과 같은 표현으로 정리
  */
 
 import "server-only";
@@ -324,7 +325,7 @@ export async function markNotificationAsRead(
     return { success: true };
   } catch (error) {
     console.error("[markNotificationAsRead] Error:", error);
-    return { success: false, error: "알림 읽음 처리 실패" };
+    return { success: false, error: "알림을 읽음으로 표시하지 못했어요." };
   }
 }
 
@@ -343,6 +344,9 @@ export async function markAllNotificationsAsRead(
     return { success: true };
   } catch (error) {
     console.error("[markAllNotificationsAsRead] Error:", error);
-    return { success: false, error: "모든 알림 읽음 처리 실패" };
+    return {
+      success: false,
+      error: "모든 알림을 읽음으로 표시하지 못했어요.",
+    };
   }
 }

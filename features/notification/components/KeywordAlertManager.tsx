@@ -15,6 +15,7 @@
  * 2026.03.19  임도헌   Modified  모바일에서 Select/입력 폼 줄바꿈을 허용해 좁은 폭 모달의 정보 밀도를 완화
  * 2026.03.22  임도헌   Modified  지역 범위 Select 고정 폭을 제거해 좁은 폭 설정 화면 밀도 완화
  * 2026.04.18  임도헌   Modified  모바일 키워드 입력 바가 한 줄 안에서 안정적으로 보이도록 입력/추가 버튼 배치를 재정리
+ * 2026.04.26  임도헌   Modified  키워드 알림 등록 성공 문구를 관리 목록의 삭제 문구와 같은 문법으로 정리
  */
 
 "use client";
@@ -110,7 +111,7 @@ export default function KeywordAlertManager({
       const res = await addKeywordAction(val, selectedRange);
       if (res.success) {
         // 등록 성공 뒤 입력 초기화와 목록 재동기화
-        toast.success(`'${val}' 알림이 등록되었습니다.`);
+        toast.success(`'${val}' 키워드 알림을 등록했어요.`);
         setKeyword("");
         router.refresh();
       } else {

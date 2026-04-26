@@ -17,6 +17,7 @@
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  * 2026.03.23  임도헌   Modified  데스크톱에서 텍스트형 모달이 세로로만 길어지지 않도록 폭을 한 단계 확장
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.26  임도헌   Modified  리뷰 상세 별점 aria-label을 sr-only 텍스트와 장식용 아이콘 구조로 정리
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -119,13 +120,12 @@ export default function ReviewDetailModal({
               {title}
             </h3>
             {review && (
-              <div
-                className="flex gap-0.5"
-                aria-label={`별점 ${review.rate}점`}
-              >
+              <div className="flex gap-0.5">
+                <span className="sr-only">별점 {review.rate}점</span>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <StarIcon
                     key={star}
+                    aria-hidden="true"
                     className={cn(
                       "w-4 h-4",
                       star <= review.rate

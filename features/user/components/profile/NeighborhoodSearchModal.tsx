@@ -13,6 +13,8 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.17  임도헌   Modified  모바일 BottomSheet 검색행을 공용 검색 모달 패턴(입력 내부 CTA)으로 맞춰 줄바꿈/높이 불균형을 정리
  * 2026.04.20  임도헌   Modified  동 이름 단일 검색에서도 누락이 덜 생기도록 카카오 주소 검색 결과 확장과 추가 로딩을 지원
+ * 2026.04.26  임도헌   Modified  데스크톱 동네 검색 모달의 dialog 의미와 검색 입력/닫기 버튼 라벨을 보강
+ * 2026.04.26  임도헌   Modified  동네 검색 로딩/오류/빈 결과 문구를 사용자 행동 기준으로 정리
  */
 
 import { useState } from "react";
@@ -120,7 +122,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
     const trimmedKeyword = searchKeyword.trim();
     if (!trimmedKeyword) return;
     if (loading || !window.kakao?.maps?.services) {
-      toast.error("지도 시스템을 로딩 중입니다. 잠시 후 시도해주세요.");
+      toast.error("동네 검색을 준비 중이에요. 잠시 후 다시 시도해주세요.");
       return;
     }
 
@@ -156,7 +158,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
           if (page > 1) return;
 
           toast.info(
-            "검색 결과가 없습니다. '동', '읍', '면' 단위로 검색해보세요."
+            "일치하는 동네가 없어요. '동', '읍', '면' 이름으로 검색해보세요."
           );
         } else {
           setHasNextPage(false);
@@ -165,7 +167,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
             return;
           }
 
-          toast.error("검색 중 오류가 발생했습니다.");
+          toast.error("동네를 검색하지 못했어요. 잠시 후 다시 시도해주세요.");
         }
       },
       {
@@ -208,8 +210,8 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
 
   const searchContent = error ? (
     <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-      <p className="mb-2 font-bold text-danger">시스템 로드 실패</p>
-      <p className="text-sm text-muted">네트워크 상태를 확인해주세요.</p>
+      <p className="mb-2 font-bold text-danger">동네 검색을 열지 못했어요</p>
+      <p className="text-sm text-muted">네트워크 상태를 확인한 뒤 다시 시도해주세요.</p>
     </div>
   ) : loading ? (
     <div className="flex flex-col items-center justify-center px-6 py-20">
@@ -226,6 +228,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
             type="text"
             className="input-primary h-12 w-full bg-surface-dim pl-10 pr-16 text-sm shadow-sm focus:bg-surface"
             placeholder="동, 읍, 면으로 검색 (예: 서초동)"
+            aria-label="동네 이름 검색어"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -245,10 +248,10 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
         {results.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted">
             {isSearching
-              ? "검색 결과를 불러오는 중입니다."
+              ? "동네 검색 결과를 불러오는 중이에요."
               : activeKeyword
-                ? "검색 결과가 없습니다. 검색어를 조금 더 구체적으로 입력해보세요."
-                : "현재 위치한 동네 이름을 검색해주세요."}
+                ? "일치하는 동네가 없어요. 동/읍/면 이름을 조금 더 구체적으로 입력해보세요."
+                : "현재 위치한 동네 이름을 입력해 검색해보세요."}
           </div>
         ) : (
           <div className="space-y-3">
@@ -291,12 +294,20 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
   // 모달 기본 뼈대
   const modalWrapper = (content: React.ReactNode) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border-subtle shadow-2xl sm:max-w-lg">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="neighborhood-search-title"
+        className="bg-surface flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border-subtle shadow-2xl sm:max-w-lg"
+      >
         <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0">
-          <h3 className="font-bold text-primary">내 동네 검색</h3>
+          <h3 id="neighborhood-search-title" className="font-bold text-primary">
+            내 동네 검색
+          </h3>
           <button
             onClick={onClose}
             className="focus-ring-soft rounded-full p-1 text-muted hover:text-primary transition-colors"
+            aria-label="내 동네 검색 모달 닫기"
           >
             <XMarkIcon className="size-6" />
           </button>

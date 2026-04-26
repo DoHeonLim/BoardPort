@@ -47,6 +47,7 @@
  * 2026.04.17  임도헌   Modified   방송국 링크/후기·뱃지/판매 목록 섹션 주석을 현재 구조 기준으로 최신화
  * 2026.04.19  임도헌   Modified   타인 프로필 판매 목록 탭 active 톤을 판매내역과 같은 기준으로 정리
  * 2026.04.24  임도헌   Modified   타인 프로필 제품 카드에 현재 프로필 returnTo를 전달해 상세 복귀 문맥 유지
+ * 2026.04.26  임도헌   Modified   차단 해제 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  */
 
 "use client";
@@ -250,7 +251,7 @@ export default function UserProfile({
             disabled={isUnblocking}
             className={cn(
               "mt-6 h-10 px-6 text-sm font-medium rounded-xl transition-colors",
-              "bg-brand text-white shadow-sm hover:bg-brand-dark dark:bg-brand-light dark:hover:bg-brand",
+              "bg-brand text-white shadow-sm hover:bg-brand-dark dark:bg-brand dark:hover:bg-brand-dark",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >

@@ -17,10 +17,11 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.18  임도헌   Modified  내부 대상 링크 프리패치를 비활성화해 모달 진입 전 불필요한 선요청을 줄임
  * 2026.04.19  임도헌   Modified  관련 콘텐츠 삭제 체크박스에 공용 포커스 링을 적용해 관리자 폼 포커스 문법을 통일
+ * 2026.04.26  임도헌   Modified  신고 처리 모달에 dialog 의미와 설명/폼 라벨 연결, ESC 닫기 흐름을 보강
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateReportAction } from "@/features/report/actions/admin";
 import Select from "@/components/ui/Select";
@@ -105,6 +106,7 @@ export default function ReportActionDialog({
   );
   const [deleteContent, setDeleteContent] = useState(recommended.deleteContent);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const isReadOnly = reportStatus !== "PENDING";
 
   useEffect(() => {
@@ -117,6 +119,21 @@ export default function ReportActionDialog({
     );
     setDeleteContent(recommended.deleteContent);
   }, [existingAdminComment, open, recommended]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPending, onClose, open]);
 
   if (!open) return null;
 
@@ -171,10 +188,23 @@ export default function ReportActionDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col rounded-t-3xl border border-border-subtle bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-action-title"
+        aria-describedby="report-action-description"
+        tabIndex={-1}
+        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col rounded-t-3xl border border-border-subtle bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
+      >
         <div className="flex-1 overflow-y-auto p-6">
-          <h3 className="text-lg font-bold text-primary mb-2">신고 처리</h3>
-          <p className="text-sm text-muted mb-4">
+          <h3
+            id="report-action-title"
+            className="text-lg font-bold text-primary mb-2"
+          >
+            신고 처리
+          </h3>
+          <p id="report-action-description" className="text-sm text-muted mb-4">
             {isReadOnly
               ? "이미 처리된 신고의 조치 내역입니다."
               : "조치 내용이나 기각 사유를 입력하세요."}
@@ -327,10 +357,14 @@ export default function ReportActionDialog({
           {!isReadOnly && (
             <div className="space-y-4 mb-4">
               <div>
-                <label className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block">
+                <label
+                  htmlFor="report-resolution-action"
+                  className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block"
+                >
                   승인 시 조치 유형
                 </label>
                 <Select
+                  id="report-resolution-action"
                   value={action}
                   onChange={(e) =>
                     setAction(e.target.value as ReportResolutionAction)
@@ -349,10 +383,14 @@ export default function ReportActionDialog({
 
               {action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN && (
                 <div>
-                  <label className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block">
+                  <label
+                    htmlFor="report-ban-duration"
+                    className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block"
+                  >
                     정지 기간
                   </label>
                   <Select
+                    id="report-ban-duration"
                     value={durationDays}
                     onChange={(e) => setDurationDays(Number(e.target.value))}
                     disabled={isPending}
@@ -381,6 +419,7 @@ export default function ReportActionDialog({
           )}
 
           <textarea
+            aria-label={isReadOnly ? "관리자 기록" : "처리 내용"}
             className="input-primary w-full h-32 p-4 text-sm resize-none mb-6 bg-surface-dim border-none"
             placeholder={
               isReadOnly ? "관리자 기록" : "처리 내용을 입력하세요..."

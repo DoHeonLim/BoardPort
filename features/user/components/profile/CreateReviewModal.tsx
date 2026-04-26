@@ -17,9 +17,10 @@
  * 2026.03.12  임도헌   Modified  리뷰 작성 별점 색상을 채움형 노란 별 기준으로 복원
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 textarea와 하단 액션 버튼이 덜 가려지도록 시트형 배치 적용
+ * 2026.04.26  임도헌   Modified  리뷰 작성 모달에 dialog 의미와 별점 radiogroup, 후기 입력 라벨을 추가해 접근성을 보강
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,7 @@ export default function CreateReviewModal({
   const [hoverRating, setHoverRating] = useState(0); // 별점 호버 효과용
   const [reviewText, setReviewText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // 모달 닫힐 때 폼 리셋
   const resetForm = useCallback(() => {
@@ -63,6 +65,21 @@ export default function CreateReviewModal({
   useEffect(() => {
     if (!isOpen) resetForm();
   }, [isOpen, resetForm]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSubmitting) onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -96,6 +113,11 @@ export default function CreateReviewModal({
       />
 
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-review-title"
+        tabIndex={-1}
         className={cn(
           "relative flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-t-3xl shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
           "bg-surface border border-border-subtle"
@@ -103,7 +125,9 @@ export default function CreateReviewModal({
       >
         {/* 헤더 */}
         <div className="px-6 py-4 border-b border-border-subtle bg-surface">
-          <h2 className="text-lg font-bold text-primary">거래 후기 작성</h2>
+          <h2 id="create-review-title" className="text-lg font-bold text-primary">
+            거래 후기 작성
+          </h2>
         </div>
 
         {/* 본문 */}
@@ -120,21 +144,35 @@ export default function CreateReviewModal({
           </div>
 
           {/* 별점 선택 */}
-          <div className="flex justify-center gap-1">
+          <div
+            className="flex justify-center gap-1"
+            role="radiogroup"
+            aria-label="거래 별점"
+          >
             {[1, 2, 3, 4, 5].map((star) => (
-              <StarIcon
+              <button
                 key={star}
-                className={cn(
-                  "cursor-pointer w-10 h-10 transition-colors motion-safe:transition-transform duration-200",
-                  star <= (hoverRating || rating)
-                    ? "text-yellow-400 scale-110"
-                    : "text-neutral-300 dark:text-neutral-700",
-                  !isSubmitting && "hover:scale-125"
-                )}
+                type="button"
+                role="radio"
+                aria-checked={rating === star}
+                aria-label={`${star}점`}
+                disabled={isSubmitting}
+                className="focus-ring-soft rounded-full p-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 onMouseEnter={() => !isSubmitting && setHoverRating(star)}
                 onMouseLeave={() => !isSubmitting && setHoverRating(0)}
                 onClick={() => !isSubmitting && setRating(star)}
-              />
+              >
+                <StarIcon
+                  aria-hidden="true"
+                  className={cn(
+                    "h-10 w-10 transition-colors motion-safe:transition-transform duration-200",
+                    star <= (hoverRating || rating)
+                      ? "text-yellow-400 scale-110"
+                      : "text-neutral-300 dark:text-neutral-700",
+                    !isSubmitting && "hover:scale-125"
+                  )}
+                />
+              </button>
             ))}
           </div>
 
@@ -143,6 +181,7 @@ export default function CreateReviewModal({
             value={reviewText}
             onChange={(e) => setReviewText(e.target.value)}
             placeholder="솔직한 거래 경험을 남겨주세요."
+            aria-label="거래 후기 내용"
             className={cn(
               "w-full h-32 p-4 rounded-xl resize-none",
               "bg-surface-dim border-transparent focus:bg-surface focus:border-brand/50",
