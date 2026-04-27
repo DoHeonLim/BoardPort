@@ -65,6 +65,7 @@ const connectOrigins = unique([
   supabaseWsOrigin,
   kakaoMapsOrigin,
   "https://t1.daumcdn.net",
+  "https://mts.daumcdn.net",
   "https://imagedelivery.net",
   "https://upload.imagedelivery.net",
   "https://upload.cloudflarestream.com",
@@ -84,9 +85,9 @@ const cspReportOnly = [
   buildDirective("frame-ancestors", ["'self'"]),
   buildDirective("img-src", ["'self'", "data:", "blob:", ...imageOrigins]),
   buildDirective("font-src", ["'self'", "data:"]),
-  // next-themes 초기 인라인 스크립트 가능성을 고려한 1차 관찰용 임시 허용값
+  // next-themes 초기 인라인 스크립트 가능성을 고려해 Report-Only 정책에서는 유지한다.
   buildDirective("style-src", ["'self'", "'unsafe-inline'"]),
-  // Report-Only 관찰 단계에서는 인라인 스크립트를 임시 허용하고 2차에서 축소를 검토
+  // Next/App Router 초기 inline payload와 next-themes bootstrap을 고려해 Report-Only 정책에서는 유지한다.
   buildDirective("script-src", ["'self'", "'unsafe-inline'", ...scriptOrigins]),
   buildDirective("connect-src", ["'self'", ...connectOrigins]),
   buildDirective("frame-src", ["'self'", ...frameOrigins]),
