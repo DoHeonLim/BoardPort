@@ -14,11 +14,14 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  관리자 액션 모달에 dialog 의미와 설명/입력 라벨 연결, ESC 닫기 흐름을 보강
  * 2026.04.26  임도헌   Modified  primary 확인 버튼의 다크모드 색조를 공용 CTA 톤과 맞춰 정리
+ * 2026.04.28  임도헌   Modified  모바일 관리자 액션을 공용 BottomSheet로 분기해 작은 화면의 입력/버튼 잘림을 완화
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import BottomSheet from "@/components/global/BottomSheet";
 import { cn } from "@/lib/utils";
 import Select from "@/components/ui/Select";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface AdminActionModalProps {
   open: boolean;
@@ -56,6 +59,7 @@ interface AdminActionModalProps {
  * 3. 비동기 처리 중 로딩 상태 표시 및 버튼 비활성화
  * 4. 삭제/정지/권한 변경처럼 관리자 확인이 필요한 액션을 공통 문법으로 재사용
  * 5. Audit Log 기록을 위한 필수 메타데이터 확보
+ * 6. 모바일은 BottomSheet, 데스크톱은 중앙 모달로 분기해 입력/버튼 접근성 유지
  */
 export default function AdminActionModal({
   open,
@@ -75,6 +79,7 @@ export default function AdminActionModal({
   const [banDuration, setBanDuration] = useState(0); // 0: 영구
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // 모달 종료 시 입력 상태 초기화
   // 같은 모달을 여러 대상에 재사용하므로 닫힐 때 사유와 기간을 기본값으로 초기화
@@ -86,7 +91,7 @@ export default function AdminActionModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
 
     const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -98,7 +103,7 @@ export default function AdminActionModal({
       window.clearTimeout(timer);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isPending, onClose, open]);
+  }, [isMobile, isPending, onClose, open]);
 
   if (!open) return null;
 
@@ -125,8 +130,107 @@ export default function AdminActionModal({
     success: "bg-emerald-600 text-white hover:bg-emerald-700",
   };
 
+  const content = (
+    <div className="space-y-4">
+      {showBanOptions && (
+        <div>
+          <label
+            htmlFor="admin-action-ban-duration"
+            className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block"
+          >
+            정지 기간
+          </label>
+          <Select
+            id="admin-action-ban-duration"
+            value={banDuration}
+            onChange={(e) => setBanDuration(Number(e.target.value))}
+            className="bg-surface-dim border-transparent"
+          >
+            <option value={0}>영구 정지 (Permanent)</option>
+            <option value={1}>1일 정지</option>
+            <option value={3}>3일 정지</option>
+            <option value={7}>7일 정지</option>
+            <option value={30}>30일 정지</option>
+          </Select>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label
+          htmlFor="admin-action-reason"
+          className="text-xs font-bold text-muted uppercase tracking-wider"
+        >
+          사유 입력 <span className="text-danger">*</span>
+        </label>
+        <textarea
+          id="admin-action-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          disabled={isPending}
+          placeholder={placeholder}
+          className="input-primary h-32 w-full resize-none border-none bg-surface-dim p-4 text-sm focus:ring-brand/15 dark:focus:ring-brand-light/15"
+        />
+        <p className="text-xs text-right text-muted">
+          {reason.length} / {minReasonLength}자 이상
+        </p>
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <div className="flex flex-col justify-end gap-3 sm:flex-row">
+      <button
+        onClick={onClose}
+        disabled={isPending}
+        className="btn-secondary-modal flex-1 px-4 text-sm font-medium sm:flex-none"
+      >
+        취소
+      </button>
+
+      {secondaryLabel && onSecondaryAction && (
+        <button
+          onClick={handleSecondary}
+          disabled={isPending}
+          className="btn-secondary flex-1 sm:flex-none border-border"
+        >
+          {secondaryLabel}
+        </button>
+      )}
+
+      <button
+        onClick={handleConfirm}
+        disabled={isPending || reason.trim().length < minReasonLength}
+        className={cn(
+          "focus-ring-strong flex items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] disabled:opacity-50",
+          variantClasses[confirmVariant]
+        )}
+      >
+        {isPending && (
+          <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        )}
+        {confirmLabel}
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open
+        title={title}
+        description={description}
+        onClose={onClose}
+        footer={footer}
+        contentClassName="pt-4"
+        panelClassName="max-h-[90dvh]"
+      >
+        {content}
+      </BottomSheet>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div
         ref={dialogRef}
         role="dialog"
@@ -134,7 +238,7 @@ export default function AdminActionModal({
         aria-labelledby="admin-action-title"
         aria-describedby="admin-action-description"
         tabIndex={-1}
-        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col rounded-t-3xl border border-border-subtle bg-surface shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border-subtle bg-surface shadow-2xl"
       >
         <div className="flex-1 overflow-y-auto p-6">
           <h3 id="admin-action-title" className="text-xl font-bold text-primary">
@@ -146,85 +250,11 @@ export default function AdminActionModal({
           >
             {description}
           </p>
-
-          <div className="space-y-4">
-            {showBanOptions && (
-              <div>
-                <label
-                  htmlFor="admin-action-ban-duration"
-                  className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block"
-                >
-                  정지 기간
-                </label>
-                <Select
-                  id="admin-action-ban-duration"
-                  value={banDuration}
-                  onChange={(e) => setBanDuration(Number(e.target.value))}
-                  className="bg-surface-dim border-transparent"
-                >
-                  <option value={0}>영구 정지 (Permanent)</option>
-                  <option value={1}>1일 정지</option>
-                  <option value={3}>3일 정지</option>
-                  <option value={7}>7일 정지</option>
-                  <option value={30}>30일 정지</option>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label
-                htmlFor="admin-action-reason"
-                className="text-xs font-bold text-muted uppercase tracking-wider"
-              >
-                사유 입력 <span className="text-danger">*</span>
-              </label>
-              <textarea
-                id="admin-action-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                disabled={isPending}
-                placeholder={placeholder}
-                className="input-primary h-32 w-full resize-none border-none bg-surface-dim p-4 text-sm focus:ring-brand/15 dark:focus:ring-brand-light/15"
-              />
-              <p className="text-xs text-right text-muted">
-                {reason.length} / {minReasonLength}자 이상
-              </p>
-            </div>
-          </div>
+          {content}
         </div>
 
-        <div className="shrink-0 flex flex-col justify-end gap-3 border-t border-border-subtle bg-surface px-6 py-4 sm:flex-row">
-          <button
-            onClick={onClose}
-            disabled={isPending}
-            className="btn-secondary-modal flex-1 px-4 text-sm font-medium sm:flex-none"
-          >
-            취소
-          </button>
-
-          {secondaryLabel && onSecondaryAction && (
-            <button
-              onClick={handleSecondary}
-              disabled={isPending}
-              className="btn-secondary flex-1 sm:flex-none border-border"
-            >
-              {secondaryLabel}
-            </button>
-          )}
-
-          <button
-            onClick={handleConfirm}
-            disabled={isPending || reason.trim().length < minReasonLength}
-            className={cn(
-              "focus-ring-strong px-6 py-2.5 text-sm font-bold rounded-xl shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] disabled:opacity-50 flex items-center justify-center gap-2",
-              variantClasses[confirmVariant]
-            )}
-          >
-            {isPending && (
-              <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            )}
-            {confirmLabel}
-          </button>
+        <div className="shrink-0 border-t border-border-subtle bg-surface px-6 py-4">
+          {footer}
         </div>
       </div>
     </div>

@@ -16,6 +16,8 @@
  * 2026.03.30  임도헌   Modified  신고 처리 모달 자동 오픈, 대상 식별자/부모 문맥 표시, 내부 admin 링크 same-tab 동선을 함께 보강
  * 2026.04.10  임도헌   Modified  신고 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  초기 번들 부담을 줄이기 위해 처리 모달을 지연 로딩하고 내부 링크 프리패치를 제한
+ * 2026.04.27  임도헌   Modified  신고 처리 모달이 대상 타입에 맞춰 조치 추천을 보정할 수 있도록 targetType 전달
+ * 2026.04.28  임도헌   Modified  신고 처리 모달에 실제 조치 대상 유저 메타를 전달
  */
 
 "use client";
@@ -36,6 +38,7 @@ import {
   getReportTargetId,
   getReportTargetParentId,
   getReportTargetParentLabel,
+  getReportTargetType,
   getParentContextUrl,
   getTargetUrl,
 } from "@/features/report/utils/adminFormatter";
@@ -67,6 +70,7 @@ interface AdminReportListContainerProps {
  * 4. 최근 90일 strike 누적치와 관리자 조치 내역을 함께 보여줌
  * 5. `open` 파라미터로 특정 신고 처리 모달을 자동으로 열 수 있음
  * 6. 처리 성공 시 현재 탭 기준에 맞춰 낙관적 업데이트와 목록 제거를 반영
+ * 7. 처리 모달이 조치 대상 유저와 대상 타입을 알 수 있도록 메타를 전달
  */
 export default function AdminReportListContainer({
   data,
@@ -463,6 +467,8 @@ export default function AdminReportListContainer({
             selectedReport ? getReportTargetParentId(selectedReport) : null
           }
           targetParentPreview={selectedReport?.targetParentPreview ?? null}
+          targetResolvedUserId={selectedReport?.targetResolvedUserId ?? null}
+          targetResolvedUsername={selectedReport?.targetResolvedUsername ?? null}
           targetUrl={
             selectedReport ? getDirectTargetUrl(selectedReport, returnTo) : null
           }
@@ -470,6 +476,9 @@ export default function AdminReportListContainer({
             selectedReport
               ? getParentContextUrl(selectedReport, returnTo)
               : null
+          }
+          targetType={
+            selectedReport ? getReportTargetType(selectedReport) : undefined
           }
           reportStatus={selectedReport?.status}
           existingAdminComment={selectedReport?.adminComment ?? null}

@@ -13,6 +13,8 @@
  * 2026.04.10  임도헌   Modified  감사 로그 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  모바일 카드 lazy paint, 액션/ID 배지 대비, 상세 링크 프리패치를 최적화
  * 2026.04.19  임도헌   Modified  액션/대상 타입 필터 칩에 공용 포커스 링을 적용해 관리자 목록 포커스 문법을 통일
+ * 2026.04.28  임도헌   Modified  신고 제재 관련 감사 로그 사유를 운영자가 읽기 쉬운 한글 요약으로 포맷
+ * 2026.04.28  임도헌   Modified  삭제 감사 로그의 OwnerID 옆에 유저명을 함께 표시
  */
 
 "use client";
@@ -24,7 +26,10 @@ import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
-import { getAuditLogTargetUrl } from "@/features/report/utils/adminFormatter";
+import {
+  formatAuditReason,
+  getAuditLogTargetUrl,
+} from "@/features/report/utils/adminFormatter";
 import { cn } from "@/lib/utils";
 import {
   AUDIT_ACTION_LABELS,
@@ -46,6 +51,7 @@ interface Props {
  * 2. 데스크톱 테이블과 모바일 카드형 레이아웃으로 감사 로그를 읽기 쉽게 분기
  * 3. 로그 액션 타입에 따라 시각적 배지를 차별화하고, 추적 가능한 대상은 바로가기 링크를 연결
  * 4. 구조화된 사유를 파싱해 원인과 메타 정보를 분리해 보여주고 페이지네이션을 통합
+ * 5. 삭제 로그의 소유자 ID는 유저명과 함께 표시해 삭제 후에도 대상 식별성을 유지
  */
 export default function AdminAuditLogListContainer({
   data,
@@ -167,15 +173,11 @@ export default function AdminAuditLogListContainer({
             const isInfo = ["CHANGE_ROLE", "DISMISS_REPORT"].includes(
               log.action
             );
-            const isStructured = log.reason?.includes("Title:");
-            let displayReason = log.reason;
-            let metaInfo = "";
-
-            if (isStructured && log.reason) {
-              const parts = log.reason.split(" / ");
-              displayReason = parts[parts.length - 1].replace("Reason: ", "");
-              metaInfo = parts.slice(0, parts.length - 1).join(" | ");
-            }
+            const { displayReason, metaInfo } = formatAuditReason(
+              log.action,
+              log.reason,
+              { reasonOwnerUsername: log.reasonOwnerUsername }
+            );
 
             return (
               <article
@@ -292,19 +294,11 @@ export default function AdminAuditLogListContainer({
                     log.action
                   );
 
-                  // 구조화된 감사 로그 문구는 메타와 실제 사유를 분리해 스캔하기 쉽게 노출
-                  const isStructured = log.reason?.includes("Title:");
-                  let displayReason = log.reason;
-                  let metaInfo = "";
-
-                  if (isStructured && log.reason) {
-                    const parts = log.reason.split(" / ");
-                    displayReason = parts[parts.length - 1].replace(
-                      "Reason: ",
-                      ""
-                    );
-                    metaInfo = parts.slice(0, parts.length - 1).join(" | ");
-                  }
+                  const { displayReason, metaInfo } = formatAuditReason(
+                    log.action,
+                    log.reason,
+                    { reasonOwnerUsername: log.reasonOwnerUsername }
+                  );
 
                   return (
                     <tr
@@ -366,7 +360,7 @@ export default function AdminAuditLogListContainer({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-0.5 max-w-md whitespace-normal">
-                          {isStructured && metaInfo && (
+                          {metaInfo && (
                             <span className="text-xs text-muted/60 truncate">
                               {metaInfo}
                             </span>

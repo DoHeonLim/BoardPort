@@ -13,6 +13,8 @@
  * 2026.03.09  임도헌   Modified  strike 누적을 AuditLog 기반으로 기록 및 합산
  * 2026.03.30  임도헌   Modified  관리자 신고 목록과 처리 모달이 직접 대상·부모 문맥·최근 strike를 함께 읽을 수 있도록 메타를 보강
  * 2026.04.03  임도헌   Modified  관리자 신고 목록 필터 타입을 report/types 공용 정의로 이동
+ * 2026.04.27  임도헌   Modified  신고 기각 코멘트 payload와 승인 조치 payload를 구분해 서버 검증 흐름 보강
+ * 2026.04.28  임도헌   Modified  신고 처리 모달이 실제 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 조회 추가
  */
 
 import "server-only";
@@ -30,6 +32,7 @@ import type {
   AdminReportItem,
   ReportFilter,
   ReportResolutionInput,
+  ReportStatusInput,
 } from "@/features/report/types";
 import { Prisma } from "@/generated/prisma/client";
 import {
@@ -304,14 +307,14 @@ export async function getReportsAdmin(
  * @param adminId - 처리 담당 관리자 ID
  * @param reportId - 대상 신고 ID
  * @param status - 변경할 상태
- * @param adminComment - 관리자 코멘트
+ * @param resolution - 승인 조치 payload 또는 기각 코멘트 payload
  * @returns {Promise<ServiceResult>} 처리 결과
  */
 export async function updateReportStatus(
   adminId: number,
   reportId: number,
   status: "RESOLVED" | "DISMISSED",
-  resolution?: ReportResolutionInput
+  resolution?: ReportStatusInput
 ): Promise<ServiceResult> {
   try {
     const report = await db.report.findUnique({
@@ -349,7 +352,10 @@ export async function updateReportStatus(
       };
     }
 
-    if (status === "RESOLVED" && !resolution) {
+    if (
+      status === "RESOLVED" &&
+      (!resolution || !isReportResolutionInput(resolution))
+    ) {
       return {
         success: false,
         error: "승인 시 조치 유형을 선택해주세요.",
@@ -360,7 +366,7 @@ export async function updateReportStatus(
 
     let finalAdminComment = trimmedComment;
 
-    if (status === "RESOLVED" && resolution) {
+    if (status === "RESOLVED" && isReportResolutionInput(resolution)) {
       // strike 가산 이력은 별도 감사 로그로 남겨 최근 누적 계산 기준으로 재사용
       if (targetUserId && resolution.strike > 0) {
         await createAuditLog({
@@ -483,6 +489,12 @@ export async function updateReportStatus(
   }
 }
 
+function isReportResolutionInput(
+  input: ReportStatusInput | undefined
+): input is ReportResolutionInput {
+  return !!input && "action" in input;
+}
+
 /**
  * strike 감사 로그 사유 문자열 조립
  * 후속 strike 집계 파싱에 필요한 moderation 메타를 함께 포함
@@ -545,23 +557,25 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
     getReviewOwnerMap(reports),
   ]);
 
-  // 다양한 대상 타입을 최종 사용자 기준으로 환산해 최근 strike 누적을 붙임
-  const strikeMap = await getRecentUserStrikeMap(
-    reports
-      .map((report) =>
-        getResolvedTargetUserIdFromMaps(report, {
-          userMetaMap,
-          productMetaMap,
-          postMetaMap,
-          commentMetaMap,
-          streamMetaMap,
-          productMessageMetaMap,
-          streamMessageMetaMap,
-          reviewMetaMap,
-        })
-      )
-      .filter((userId): userId is number => !!userId)
-  );
+  // 다양한 대상 타입을 최종 사용자 기준으로 환산해 최근 strike 누적과 유저명을 붙임
+  const resolvedTargetUserIds = reports
+    .map((report) =>
+      getResolvedTargetUserIdFromMaps(report, {
+        userMetaMap,
+        productMetaMap,
+        postMetaMap,
+        commentMetaMap,
+        streamMetaMap,
+        productMessageMetaMap,
+        streamMessageMetaMap,
+        reviewMetaMap,
+      })
+    )
+    .filter((userId): userId is number => !!userId);
+  const [strikeMap, targetUserNameMap] = await Promise.all([
+    getRecentUserStrikeMap(resolvedTargetUserIds),
+    getUserNameMap(resolvedTargetUserIds),
+  ]);
 
   return reports.map((report) => {
     const targetResolvedUserId = getResolvedTargetUserIdFromMaps(report, {
@@ -588,6 +602,9 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
     return {
       ...report,
       targetResolvedUserId,
+      targetResolvedUsername: targetResolvedUserId
+        ? (targetUserNameMap.get(targetResolvedUserId) ?? null)
+        : null,
       recentStrikeTotal: targetResolvedUserId
         ? (strikeMap.get(targetResolvedUserId) ?? 0)
         : 0,
@@ -806,6 +823,22 @@ async function getUserMetaMap(reports: { targetUserId: number | null }[]) {
   });
 
   return new Map(rows.map((row) => [row.id, { username: row.username }]));
+}
+
+/**
+ * 조치 대상 유저명 조회
+ * 간접 신고도 모달에서 실제 제재 대상 유저를 확인할 수 있도록 표시 메타만 분리 조회
+ */
+async function getUserNameMap(userIds: number[]) {
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) return new Map<number, string>();
+
+  const rows = await db.user.findMany({
+    where: { id: { in: uniqueUserIds } },
+    select: { id: true, username: true },
+  });
+
+  return new Map(rows.map((row) => [row.id, row.username]));
 }
 
 async function getProductOwnerMap(reports: { targetProductId: number | null }[]) {

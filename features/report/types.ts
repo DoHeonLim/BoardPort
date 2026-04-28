@@ -9,6 +9,9 @@
  * 2026.03.09  임도헌   Modified  신고 처리 정책 설계를 위한 제재 액션/입력 타입 추가
  * 2026.03.30  임도헌   Modified  관리자 신고 리스트가 대상 요약과 부모 콘텐츠 추적 정보를 함께 가질 수 있도록 확장
  * 2026.04.03  임도헌   Modified  신고 대상/처리 액션/관리자 필터 타입을 공용 정의로 통합
+ * 2026.04.27  임도헌   Modified  신고 기각 코멘트 payload와 승인 조치 payload 타입을 분리
+ * 2026.04.28  임도헌   Modified  신고 처리 모달에서 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 확장
+ * 2026.04.28  임도헌   Modified  삭제 감사 로그 OwnerID의 표시용 유저명 메타 추가
  */
 
 import type { Report } from "@/generated/prisma/client";
@@ -56,6 +59,14 @@ export interface ReportResolutionInput {
   deleteContent?: boolean;
 }
 
+/** 신고 기각 시 관리자가 입력해야 하는 처리 사유 */
+export interface ReportDismissalInput {
+  adminComment: string;
+}
+
+/** 신고 승인/기각 처리에 공통으로 전달되는 입력 payload */
+export type ReportStatusInput = ReportResolutionInput | ReportDismissalInput;
+
 /** 신고 처리 결과 요약 DTO */
 export interface ReportResolutionResult {
   reportId: number;
@@ -88,7 +99,10 @@ export interface AdminReportItem extends Report {
     id: number;
     username: string;
   };
+  /** 댓글/리뷰/메시지처럼 간접 대상일 때도 실제 제재 기준이 되는 유저 ID */
   targetResolvedUserId?: number | null;
+  /** 처리 모달에서 운영자가 확인할 수 있는 실제 조치 대상 유저명 */
+  targetResolvedUsername?: string | null;
   recentStrikeTotal?: number;
   targetPreview?: string | null;
   targetParentPostId?: number | null;
@@ -116,6 +130,8 @@ export interface AdminAuditLogItem {
   targetType: string;
   targetId: number;
   reason: string | null;
+  /** 삭제 로그 reason 안의 OwnerID에 대응하는 표시용 유저명 */
+  reasonOwnerUsername?: string | null;
   created_at: Date;
 }
 
