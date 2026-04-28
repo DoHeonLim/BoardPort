@@ -9,6 +9,7 @@
  * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 검색 모달 등과 중첩되어도 스크롤 잠금/복구 안정화
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  드래그 닫기를 pointer 이벤트로 통합해 PC 좁은 viewport의 마우스 드래그도 지원
+ * 2026.04.28  임도헌   Modified  닫기 버튼 등 상호작용 요소 클릭이 드래그 시작으로 처리되지 않도록 보강
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -34,6 +35,7 @@ interface BottomSheetProps {
  * [상호작용]
  * - 포털 렌더링으로 상위 stacking context 영향 없이 화면 최상단에 노출
  * - ESC, 백드롭 클릭, 드래그 다운 제스처로 닫기 지원
+ * - 닫기 버튼, 링크, 입력 요소처럼 클릭 가능한 영역은 드래그 시작 대상에서 제외
  * - 열릴 때 포커스를 시트 내부로 이동시키고 닫힐 때 기존 포커스로 복귀
  */
 export default function BottomSheet({
@@ -119,6 +121,15 @@ export default function BottomSheet({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    const target = event.target as HTMLElement | null;
+    // 닫기 버튼이나 입력 컨트롤 조작이 드래그 시작으로 오인되지 않도록 제외
+    if (
+      target?.closest(
+        'a,button,input,textarea,select,[role="button"],[data-drag-ignore="true"]'
+      )
+    ) {
+      return;
+    }
 
     dragStartYRef.current = event.clientY;
     dragCurrentYRef.current = 0;

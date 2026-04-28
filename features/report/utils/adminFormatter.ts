@@ -8,9 +8,135 @@
  * 2026.02.06  임도헌   Created   관리자 신고/감사 로그 대상의 라벨·ID·추적 링크 포맷팅 유틸 추가
  * 2026.03.18  임도헌   Modified  신고 목록 대상 상세 링크 생성 시 현재 관리자 경로를 returnTo로 함께 전달
  * 2026.03.30  임도헌   Modified  USER 대상 신고와 REPORT 감사 로그를 admin 화면으로 바로 추적하고, 댓글·리뷰·메시지의 직접 대상/부모 문맥 링크를 함께 제공하도록 확장
+ * 2026.04.28  임도헌   Modified  신고 제재 감사 로그 사유를 운영자용 한글 요약으로 변환하는 포맷터 추가
+ * 2026.04.28  임도헌   Modified  삭제 감사 로그의 OwnerID 메타에 유저명을 덧붙이는 표시 포맷 보강
  */
 
-import { AdminAuditLogItem, AdminReportItem } from "@/features/report/types";
+import { REPORT_RESOLUTION_ACTION_LABELS } from "@/features/report/constants";
+import type {
+  AdminAuditLogItem,
+  AdminReportItem,
+  ReportResolutionAction,
+} from "@/features/report/types";
+
+/**
+ * 감사 로그 사유를 관리자 화면 표시용 본문과 보조 메타로 분리
+ * - 저장된 원본 reason은 strike 집계와 운영 추적에 재사용되므로 변경하지 않음
+ * - 화면에서는 내부 action 키, moderation metadata, OwnerID 보조 정보를 운영자용 문구로 치환
+ */
+export function formatAuditReason(
+  action: string,
+  reason: string | null,
+  options?: { reasonOwnerUsername?: string | null }
+) {
+  if (!reason) return { displayReason: "-", metaInfo: "" };
+
+  if (action === "ADD_STRIKE") {
+    const [baseReason, meta] = reason.split("[moderation-meta]");
+    const metaInfo = formatModerationMeta(meta);
+
+    return {
+      displayReason: baseReason.trim() || "-",
+      metaInfo,
+    };
+  }
+
+  if (action === "WARN_USER") {
+    const match = reason.match(
+      /^(.*)\s+\(action:\s*([^,]+),\s*strike:\s*(\d+),\s*total:\s*(\d+)\)$/
+    );
+
+    if (!match) return { displayReason: reason, metaInfo: "" };
+
+    const [, baseReason, rawAction, strike, total] = match;
+    const actionLabel =
+      REPORT_RESOLUTION_ACTION_LABELS[rawAction as ReportResolutionAction] ??
+      rawAction;
+
+    return {
+      displayReason: baseReason.trim() || "-",
+      metaInfo: `조치: ${actionLabel} / strike ${strike}회 / 누적 ${total}회`,
+    };
+  }
+
+  if (action === "RESOLVE_REPORT") {
+    const [baseReason, actionSummary] = reason.split("\n[조치]");
+    return {
+      displayReason: baseReason.trim() || "-",
+      metaInfo: actionSummary
+        ? formatReportResolutionSummary(actionSummary)
+        : "",
+    };
+  }
+
+  if (reason.includes("Title:")) {
+    const parts = reason.split(" / ");
+    return {
+      displayReason: parts[parts.length - 1].replace("Reason: ", ""),
+      metaInfo: parts
+        .slice(0, parts.length - 1)
+        .map((part) =>
+          formatOwnerIdPart(part, options?.reasonOwnerUsername)
+        )
+        .join(" | "),
+    };
+  }
+
+  return { displayReason: reason, metaInfo: "" };
+}
+
+/**
+ * 삭제 로그의 OwnerID 조각에 유저명을 덧붙여 운영자가 ID와 닉네임을 함께 확인하도록 변환
+ */
+function formatOwnerIdPart(part: string, ownerUsername?: string | null) {
+  if (!ownerUsername || !/\bOwnerID:\s*\d+/.test(part)) return part;
+  return `${part} (${ownerUsername})`;
+}
+
+/**
+ * ADD_STRIKE 로그의 moderation metadata를 한글 보조 문구로 변환
+ * - metadata는 `buildStrikeAuditReason`에서 만든 내부 파싱 포맷
+ */
+function formatModerationMeta(meta?: string) {
+  if (!meta?.trim()) return "";
+
+  const action = meta.match(/action=([^;]+)/)?.[1];
+  const strike = meta.match(/strike=(\d+)/)?.[1];
+  const duration = meta.match(/duration=(\d+)/)?.[1];
+  const actionLabel = action
+    ? (REPORT_RESOLUTION_ACTION_LABELS[action as ReportResolutionAction] ??
+      action)
+    : null;
+  const durationText =
+    duration && Number(duration) > 0
+      ? ` / 기간 ${duration}일`
+      : duration === "0"
+        ? " / 기간 없음"
+        : "";
+
+  return [
+    actionLabel ? `조치: ${actionLabel}` : null,
+    strike ? `strike ${strike}회` : null,
+  ]
+    .filter(Boolean)
+    .join(" / ")
+    .concat(durationText);
+}
+
+/**
+ * 신고 승인 로그의 `[조치]` 요약에서 내부 action 키만 화면 라벨로 변환
+ */
+function formatReportResolutionSummary(summary: string) {
+  const trimmedSummary = summary.trim();
+  if (!trimmedSummary) return "";
+
+  const [rawAction, ...rest] = trimmedSummary.split(" / ");
+  const action = rawAction.trim();
+  const actionLabel =
+    REPORT_RESOLUTION_ACTION_LABELS[action as ReportResolutionAction] ?? action;
+
+  return [`조치: ${actionLabel}`, ...rest].join(" / ");
+}
 
 /**
  * 신고 대상의 타입 문자열 추출

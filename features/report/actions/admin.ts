@@ -9,6 +9,7 @@
  * 2026.03.10  임도헌   Modified  신고 승인 시 조치 유형(payload) 전달과 목록 리밸리데이션 흐름 반영
  * 2026.03.30  임도헌   Modified  신고 인사이트 조회 액션을 추가하고 관리자 페이지를 action 계층으로 통일
  * 2026.04.03  임도헌   Modified  관리자 신고 목록 필터 타입 import를 report/types 공용 정의로 정리
+ * 2026.04.27  임도헌   Modified  기각 처리도 관리자 코멘트 payload를 전달할 수 있도록 입력 타입 확장
  */
 
 "use server";
@@ -25,8 +26,8 @@ import type {
   AdminReportInsights,
   AdminReportListResponse,
   ReportFilter,
+  ReportStatusInput,
 } from "@/features/report/types";
-import type { ReportResolutionInput } from "@/features/report/types";
 
 /**
  * 신고 목록 조회 Action
@@ -79,13 +80,13 @@ export async function getReportInsightsAction(): Promise<
  *
  * @param reportId - 대상 신고 ID
  * @param status - 변경할 상태
- * @param resolution - 관리자 처리 payload (선택)
+ * @param resolution - 승인 조치 또는 기각 사유 payload (선택)
  * @returns {Promise<ServiceResult>} 처리 결과
  */
 export async function updateReportAction(
   reportId: number,
   status: "RESOLVED" | "DISMISSED",
-  resolution?: ReportResolutionInput
+  resolution?: ReportStatusInput
 ): Promise<ServiceResult> {
   // 권한 및 adminId 확보
   const auth = await verifyAdminAccess();
