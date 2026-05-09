@@ -5,14 +5,14 @@
  *
  * 📋 [BoardPort 캐싱 정책 가이드]
  *
- * 1. Next.js fetch 캐시 (서버 사이드) - 현재 파일(cacheTags) 사용
- *   - 대상: 공통 콘텐츠 (모든 유저가 같은 데이터를 봄), 업데이트 빈도가 낮은 데이
+ * 1. Next.js fetch 캐시 (서버 사이드) - cacheTags.ts 사용
+ *   - 대상: 공통 콘텐츠 (모든 유저가 같은 데이터를 봄), 업데이트 빈도가 낮은 데이터
  *   - 예시: 카테고리 목록, 뱃지 전체 목록, 게시글 상세(본문), 상품 상세(본문)
  *   - 효과: DB API 호출 비용 90% 이상 절감
  *
  * 2. TanStack Query (클라이언트 사이드) - queryKeys.ts 사용
- *   - 대상: 개인화 데이터 (유저별로 다른 데이터), 실시간 데이터
- *   - 예시: 내 동네/차단이 필터링된 상품 목록, 채팅방 목록, 알림 목록, 좋아요 상태
+ *   - 대상: 개인화 데이터, 실시간 데이터, 클라이언트 탐색 맥락을 유지해야 하는 목록
+ *   - 예시: 내 동네/차단이 필터링된 상품 목록, 보드게임 도감 목록, 채팅방 목록, 알림 목록, 좋아요 상태
  *   - 효과: 탭 전환/뒤로가기 시 API 호출 0회 (즉각 반응)
  *
  * 3. 혼합 사용 (상세 페이지 패턴)
@@ -26,6 +26,7 @@
  * 2026.03.03  임도헌   Modified  유저(User) 도메인 키 추가 (팔로우 통계 상태 관리용)
  * 2026.03.03  임도헌   Modified  채팅(Chat) 도메인 룸 목록 키 추가
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.05.08  임도헌   Modified  보드게임 도감 목록 query key 추가
  */
 
 /**
@@ -33,7 +34,7 @@
  *
  * [캐시 제어 전략]
  * - 문자열 오타 방지 및 구조적 확장을 위한 Query Key Factory 패턴 도입
- * - 도메인(Product, Post, Chat, User 등) 및 개인화 속성(userId, scope 등)별 쿼리 키 계층화 적용
+ * - 도메인(Product, Post, Chat, User, BoardGame 등) 및 개인화 속성(userId, scope 등)별 쿼리 키 계층화 적용
  * - Mutation 성공 시 연관된 쿼리를 일관성 있게 무효화(invalidateQueries)하기 위한 단일 진실 공급원(SSOT) 역할 수행
  */
 export const queryKeys = {
@@ -114,5 +115,13 @@ export const queryKeys = {
   search: {
     all: ["search"] as const,
     history: () => [...queryKeys.search.all, "history"] as const,
+  },
+
+  // 7. 보드게임 도감(BoardGame) 도메인
+  boardgames: {
+    all: ["boardgames"] as const,
+    lists: () => [...queryKeys.boardgames.all, "list"] as const,
+    list: (params: Record<string, any>) =>
+      [...queryKeys.boardgames.lists(), params] as const,
   },
 };

@@ -23,6 +23,7 @@
  * 2026.04.14  임도헌   Modified  목록 카드 링크 prefetch를 비활성화해 상세/작성 경로 선로딩을 줄임
  * 2026.04.14  임도헌   Modified  현재 목록 경로(returnTo)와 대표 카드 우선 로드 여부를 상위에서 주입받도록 정리
  * 2026.04.20  임도헌   Modified  게시글 카드 포커스가 브라우저 기본 outline 대신 keyboard-only inset 링으로 보이도록 조정
+ * 2026.05.03  임도헌   Modified  게시글 목록 카드에 연결 보드게임 요약 배지 표시
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -44,6 +45,7 @@ import PostCardMeta from "@/features/post/components/postCard/PostCardMeta";
 import PostCardThumbnail from "@/features/post/components/postCard/PostCardThumbnail";
 import PostCardTitle from "@/features/post/components/postCard/PostCardTitle";
 import PostCardTags from "@/features/post/components/postCard/PostCardTags";
+import BoardGameSummaryBadge from "@/features/boardgame/components/BoardGameSummaryBadge";
 import { cn } from "@/lib/utils";
 
 interface PostCardProps {
@@ -102,6 +104,7 @@ export default function PostCard({
         <div className="flex flex-col gap-0.5">
           <PostCardHeader category={post.category} viewMode={viewMode} />
           <PostCardTitle title={post.title} viewMode={viewMode} />
+          <BoardGameSummaryBadge items={post.board_games} className="mt-0.5" />
         </div>
 
         {/* 중단: 태그 영역 (공간을 채워 메타 정보를 아래로 밀어냄) */}

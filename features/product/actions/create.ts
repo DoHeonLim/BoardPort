@@ -25,6 +25,7 @@
  * 2026.03.12  임도헌   Modified  GIF 조건부 최적화를 위한 photosAnimated 메타 파싱 및 전달 추가
  * 2026.04.02  임도헌   Modified  파일 설명과 생성 액션 주석을 서버 액션 톤으로 정리
  * 2026.04.04  임도헌   Modified  FormData 파싱/검증/서비스 위임 단계의 인라인 주석 보강
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 추가
  */
 "use server";
 
@@ -32,6 +33,7 @@ import { revalidatePath } from "next/cache";
 import getSession from "@/lib/session";
 import { createProduct } from "@/features/product/service/create";
 import { productFormSchema } from "@/features/product/schemas";
+import { parseBoardGameIdsFormValue } from "@/features/boardgame/utils/form";
 import type { ProductFormResponse, ProductDTO } from "@/features/product/types";
 
 /**
@@ -113,6 +115,17 @@ export async function createProductAction(
     }
   }
 
+  // 연결 보드게임 ID 파싱
+  const boardGameIds = parseBoardGameIdsFormValue(formData.get("boardGameIds"));
+  if (!boardGameIds) {
+    return {
+      success: false,
+      fieldErrors: {
+        boardGameIds: ["보드게임 연결 정보 형식이 올바르지 않습니다."],
+      },
+    };
+  }
+
   // 스키마 검증용 원시 payload 구성
   const rawData = {
     title: formData.get("title"),
@@ -128,6 +141,7 @@ export async function createProductAction(
     completeness: formData.get("completeness"),
     has_manual: formData.get("has_manual") === "true",
     categoryId: formData.get("categoryId"),
+    boardGameIds,
     tags,
     location: locationData,
   };
@@ -152,6 +166,9 @@ export async function createProductAction(
   // 생성 직후 목록/프로필 판매 문맥 갱신
   revalidatePath("/products");
   revalidatePath("/profile");
+  boardGameIds.forEach((boardGameId) => {
+    revalidatePath(`/boardgames/${boardGameId}`);
+  });
 
   return { success: true, productId: result.data.productId };
 }

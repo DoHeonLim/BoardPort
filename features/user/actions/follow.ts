@@ -9,6 +9,7 @@
  * 2026.03.05  임도헌   Modified  서버 캐시 무효화(`revalidateTag`) 방식 탈피, `queryClient.setQueryData`를 활용한 즉각적 UI 갱신(Optimistic Update) 적용
  * 2026.03.07  임도헌   Modified  팔로우 실패 사유를 구조화된 결과로 반환하도록 보강
  * 2026.03.27  임도헌   Modified  팔로우 직후 스트림 팔로잉 탭 진입 시 stale 목록이 재사용되지 않도록 /streams 경로 캐시 무효화 추가
+ * 2026.05.08  임도헌   Modified  FollowActionResult를 features/user/types.ts 공용 타입으로 이동
  */
 "use server";
 
@@ -20,18 +21,8 @@ import {
   getFollowersService,
   getFollowingService,
 } from "@/features/user/service/follow";
-import type { FollowListCursor } from "@/features/user/types";
+import type { FollowActionResult, FollowListCursor } from "@/features/user/types";
 import { USER_ERRORS } from "@/features/user/constants";
-
-export type FollowActionResult =
-  | {
-      success: true;
-      changed: boolean;
-      isFollowing: boolean;
-      delta: number;
-      counts: { viewerFollowing: number; targetFollowers: number };
-    }
-  | { success: false; error: string; code?: string };
 
 /**
  * 팔로워 목록 조회 (Client Infinite Scroll용)

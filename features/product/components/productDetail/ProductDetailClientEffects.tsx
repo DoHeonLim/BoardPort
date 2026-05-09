@@ -8,6 +8,7 @@
  * 2026.04.14  임도헌   Created   최근 본 상품 저장과 편집 후 refresh 플래그 소비를 별도 클라이언트 island로 분리
  * 2026.04.14  임도헌   Modified  클라이언트 island의 책임과 부작용 범위가 드러나도록 함수 상단 JSDoc 설명을 보강
  * 2026.04.24  임도헌   Modified  navigation refresh helper로 제품 상세 refresh flag 소비 로직을 단순화
+ * 2026.05.03  임도헌   Modified  최근 본 상품 스냅샷에도 연결 보드게임 정보를 함께 저장
  */
 
 "use client";
@@ -66,6 +67,7 @@ export default function ProductDetailClientEffects({
       category: product.category,
       _count: product._count,
       search_tags: product.search_tags,
+      board_games: product.board_games,
     });
   }, [product]);
 

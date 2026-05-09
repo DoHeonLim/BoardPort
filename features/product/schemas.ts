@@ -20,6 +20,7 @@
  * 2026.03.08  임도헌   Modified  requiredTrimmedString, requiredNumber 공통 유틸 적용 및 빈 문자열 입력 검증 보강
  * 2026.03.08  임도헌   Modified  최대 인원은 최소 인원 이상이어야 하는 교차 필드 검증 추가
  * 2026.03.12  임도헌   Modified  이미지 애니메이션 메타 저장용 photosAnimated 필드 추가
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 검증 필드 추가
  */
 
 import { z } from "zod";
@@ -81,6 +82,11 @@ export const productFormSchema = z.object({
       .int()
       .positive("카테고리를 선택해주세요.")
   ),
+  boardGameIds: z
+    .array(z.number().int().positive())
+    .max(5, "보드게임은 최대 5개까지 연결할 수 있습니다.")
+    .optional()
+    .default([]),
   tags: z
     .array(z.string())
     .max(5, "태그는 최대 5개까지 입력 가능합니다.")

@@ -1,6 +1,7 @@
 /**
  * File Name : features/product/service/userList.ts
  * Description : 프로필/마이페이지 공용 제품 목록(초기/무한스크롤)
+ * Author : 임도헌
  *
  * History
  * Date        Author   Status     Description
@@ -23,10 +24,13 @@
  * 2026.03.26  임도헌   Modified  LIKED 목록에 productLike.created_at 기반 liked_at을 함께 매핑
  * 2026.04.02  임도헌   Modified  scope where helper JSDoc 보강
  * 2026.04.09  임도헌   Modified  숨김 상품은 찜 목록에서 제외하고 내 판매/구매 내역에서는 계속 관리할 수 있도록 조회 범위 분리
+ * 2026.05.03  임도헌   Modified  프로필 판매/구매/찜 목록의 보드게임 relation을 카드 DTO에 맞게 평탄화
+ * 2026.05.08  임도헌   Modified  UserProductsScope를 features/product/types.ts 공용 타입으로 이동
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
 import { PROFILE_SALES_UNIFIED_SELECT } from "@/features/product/selects";
 import type {
@@ -36,24 +40,14 @@ import type {
   MyPurchasedListItem,
   ProductType,
   LikedProductListItem,
+  UserProductsScope,
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
 
-/**
- * 유저 제품 목록 조회 범위 (Scope) 정의
- * - SELLING: 판매 중
- * - RESERVED: 예약 중
- * - SOLD: 판매 완료
- * - PURCHASED: 구매 내역
- * - LIKED: 좋아요 내역
- */
-export type UserProductsScope =
-  | { type: "SELLING"; userId: number }
-  | { type: "RESERVED"; userId: number }
-  | { type: "SOLD"; userId: number }
-  | { type: "PURCHASED"; userId: number }
-  | { type: "LIKED"; userId: number };
+type ProfileProductListRow = Prisma.ProductGetPayload<{
+  select: typeof PROFILE_SALES_UNIFIED_SELECT;
+}>;
 
 /**
  * Scope별 Prisma where 조건 생성
@@ -90,6 +84,25 @@ function whereFor(scope: UserProductsScope) {
         product_likes: { some: { userId: scope.userId } },
       };
   }
+}
+
+/**
+ * 프로필/찜 목록 카드 DTO에 맞춘 공개 보드게임 locale 평탄화
+ *
+ * @param row - PROFILE_SALES_UNIFIED_SELECT로 조회한 제품 row
+ * @returns ProductCard가 바로 사용할 수 있는 제품 목록 DTO
+ */
+function mapProfileProductRow(row: ProfileProductListRow): ProductType {
+  return {
+    ...row,
+    board_games: row.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 관리자 공개 전 locale은 프로필/찜 목록 카드에서 제외
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  };
 }
 
 /**
@@ -168,7 +181,7 @@ export async function getUserProductsList<
     const hasNext = likedRows.length > TAKE;
     const pageRows = hasNext ? likedRows.slice(0, TAKE) : likedRows;
     const products = pageRows.map((r) => ({
-      ...r.product,
+      ...mapProfileProductRow(r.product),
       liked_at: r.created_at,
     })) as unknown as T[];
     const nextCursor = hasNext
@@ -201,9 +214,10 @@ export async function getUserProductsList<
   });
 
   const hasNext = rows.length > TAKE;
-  const products = (hasNext ? rows.slice(0, TAKE) : rows) as unknown as T[];
+  const pageRows = hasNext ? rows.slice(0, TAKE) : rows;
+  const products = pageRows.map(mapProfileProductRow) as unknown as T[];
   const nextCursor = hasNext
-    ? (products[products.length - 1] as any)!.id
+    ? (pageRows[pageRows.length - 1]?.id ?? null)
     : null;
 
   return { products, nextCursor };

@@ -1,6 +1,6 @@
 import withPWA from "next-pwa";
 
-// 환경변수 URL에서 CSP에 넣을 origin만 안전하게 추출한다.
+// 환경변수 URL에서 CSP에 넣을 origin만 안전하게 추출
 function normalizeOrigin(value) {
   if (!value) return null;
 
@@ -11,7 +11,7 @@ function normalizeOrigin(value) {
   }
 }
 
-// Supabase HTTPS origin을 Realtime WebSocket origin으로 변환한다.
+// Supabase HTTPS origin을 Realtime WebSocket origin으로 변환
 function toWebSocketOrigin(origin) {
   if (!origin) return null;
 
@@ -30,12 +30,12 @@ function toWebSocketOrigin(origin) {
   }
 }
 
-// falsey 값과 중복 출처를 제거해 CSP source list를 안정화한다.
+// falsey 값과 중복 출처를 제거해 CSP source list를 안정화
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-// directive 이름과 source 목록을 CSP 문자열 조각으로 만든다.
+// directive 이름과 source 목록을 CSP 문자열 조각으로 변환
 function buildDirective(name, sources) {
   return `${name} ${sources.join(" ")}`;
 }
@@ -49,6 +49,7 @@ const kakaoMapsOrigin = "https://dapi.kakao.com";
 
 const imageOrigins = unique([
   "https://avatars.githubusercontent.com",
+  "https://cf.geekdo-images.com",
   "https://imagedelivery.net",
   "https://w7.pngwing.com",
   "https://i.ytimg.com",
@@ -85,9 +86,9 @@ const cspReportOnly = [
   buildDirective("frame-ancestors", ["'self'"]),
   buildDirective("img-src", ["'self'", "data:", "blob:", ...imageOrigins]),
   buildDirective("font-src", ["'self'", "data:"]),
-  // next-themes 초기 인라인 스크립트 가능성을 고려해 Report-Only 정책에서는 유지한다.
+  // next-themes 초기 인라인 스크립트 가능성을 고려해 Report-Only 정책에서는 유지
   buildDirective("style-src", ["'self'", "'unsafe-inline'"]),
-  // Next/App Router 초기 inline payload와 next-themes bootstrap을 고려해 Report-Only 정책에서는 유지한다.
+  // Next/App Router 초기 inline payload와 next-themes bootstrap을 고려해 Report-Only 정책에서는 유지
   buildDirective("script-src", ["'self'", "'unsafe-inline'", ...scriptOrigins]),
   buildDirective("connect-src", ["'self'", ...connectOrigins]),
   buildDirective("frame-src", ["'self'", ...frameOrigins]),
@@ -124,8 +125,8 @@ const securityHeaders = [
   },
 ];
 
-// Vercel custom domain은 기본으로 Strict-Transport-Security: max-age=63072000을 내려준다.
-// 운영 HSTS는 앱 헤더가 아니라 플랫폼 계층에서 관리한다.
+// Vercel custom domain 기본 Strict-Transport-Security: max-age=63072000 제공
+// 운영 HSTS는 앱 헤더가 아니라 플랫폼 계층에서 관리
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -137,6 +138,7 @@ const nextConfig = {
         port: "",
         pathname: "**",
       },
+      { hostname: "cf.geekdo-images.com" },
       { hostname: "imagedelivery.net" },
       { hostname: "w7.pngwing.com" },
       { hostname: "i.ytimg.com" },

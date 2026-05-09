@@ -15,6 +15,7 @@
  * 2026.03.31  임도헌   Modified  수정 action의 블록/이미지 payload 파싱 단계 주석 보강
  * 2026.04.01  임도헌   Modified  기존 첨부 동영상 유지 수정 케이스를 서버 검증과 맞추는 hasAttachedVideo 보정 추가
  * 2026.04.02  임도헌   Modified  파일 설명과 수정 액션 주석을 현재 서버 액션 톤으로 정리
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
  */
 "use server";
 
@@ -27,6 +28,7 @@ import {
   postEditorBlocksSchema,
   postFormSchema,
 } from "@/features/post/schemas";
+import { parseBoardGameIdsFormValue } from "@/features/boardgame/utils/form";
 import type {
   PostActionResponse,
   PostEditorBlock,
@@ -144,6 +146,17 @@ export async function updatePostAction(
     }
   }
 
+  // 연결 보드게임 ID 파싱
+  const boardGameIds = parseBoardGameIdsFormValue(formData.get("boardGameIds"));
+  if (!boardGameIds) {
+    return {
+      success: false,
+      fieldErrors: {
+        boardGameIds: ["보드게임 연결 정보 형식이 올바르지 않습니다."],
+      },
+    };
+  }
+
   const rawData = {
     id,
     title: formData.get("title"),
@@ -152,6 +165,7 @@ export async function updatePostAction(
     tags,
     photos,
     photosAnimated,
+    boardGameIds,
     videoDraftKey: formData.get("videoDraftKey")?.toString() || null,
     removeVideo: formData.get("removeVideo")?.toString() === "true",
     hasAttachedVideo: false,
@@ -195,6 +209,7 @@ export async function updatePostAction(
     tags: parsed.data.tags || [],
     photos: parsed.data.photos || [],
     photosAnimated: parsed.data.photosAnimated || [],
+    boardGameIds: parsed.data.boardGameIds || [],
     videoDraftKey: parsed.data.videoDraftKey ?? null,
     removeVideo: parsed.data.removeVideo ?? false,
     blocks,
@@ -210,6 +225,9 @@ export async function updatePostAction(
 
   revalidateTag(T.POST_DETAIL(result.data.postId)); // 상세 본문 갱신
   revalidatePath("/posts");
+  boardGameIds.forEach((boardGameId) => {
+    revalidatePath(`/boardgames/${boardGameId}`);
+  });
 
   return { success: true, postId: result.data.postId };
 }

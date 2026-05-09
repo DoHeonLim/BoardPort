@@ -31,6 +31,8 @@
  * 2026.04.14  임도헌   Modified  상세 지도/복귀 부작용을 전용 컴포넌트로 분리해 초기 본문 비용과 scroll 복귀 안정성을 함께 개선
  * 2026.04.14  임도헌   Modified  main 랜드마크와 섹션 헤딩 레벨을 정리해 접근성과 문서 구조를 보강
  * 2026.04.24  임도헌   Modified  detail-edit 링크에도 항상 내부 returnTo를 실어 저장 back 안전 조건과 정합성을 맞춤
+ * 2026.05.03  임도헌   Modified  게시글 상세에 연결된 보드게임 카탈로그 칩 노출
+ * 2026.05.04  임도헌   Modified  게시글 상세의 연결 보드게임을 도감 이동 카드로 강조
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
@@ -52,6 +54,7 @@ import PostDetailTopbar from "@/features/post/components/postsDetail/PostDetailT
 import PostDetailClientEffects from "@/features/post/components/postsDetail/PostDetailClientEffects";
 import PostDetailLocationSection from "@/features/post/components/postsDetail/PostDetailLocationSection";
 import PostComment from "@/features/post/components/postComment";
+import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
 import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
 import { POST_CATEGORY, type PostCategoryType } from "@/features/post/constants";
 
@@ -136,6 +139,11 @@ export default function PostDetail({
 
         {/* 4. 태그 */}
         <PostDetailTags tags={post.tags} />
+
+        <LinkedBoardGameChips
+          items={post.board_games?.map(({ boardGame }) => boardGame) ?? []}
+          variant="cards"
+        />
 
         {/* 5. 지도 (장소) */}
         <PostDetailLocationSection

@@ -43,6 +43,12 @@
  * 2026.04.24  임도헌   Modified  edit 저장 back 복귀는 명시적 내부 returnTo 문맥과 히스토리가 모두 있을 때만 허용하도록 보강
  * 2026.04.24  임도헌   Modified  detail-edit 취소도 안전한 내부 returnTo 문맥이면 back 복귀를 우선 사용하도록 정리
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 detail/modal edit 복귀 플래그 기록 중복을 정리
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 선택 필드 추가
+ * 2026.05.03  임도헌   Modified  선택한 보드게임 메타데이터로 게임 정보 필드를 채우는 보조 액션 추가
+ * 2026.05.03  임도헌   Modified  상품명/태그 보조 흐름을 고려해 보드게임 연결 필드를 기본 정보 상단으로 이동
+ * 2026.05.03  임도헌   Modified  선택한 보드게임 기준 제품명 채우기와 검색 태그 추가 액션 보강
+ * 2026.05.03  임도헌   Modified  보드게임 기반 제품명/태그/게임 정보 보조 액션 주석 보강
+ * 2026.05.05  임도헌   Modified  상품 폼 복귀/위치/검증 핸들러 JSDoc 보강
  */
 
 /**
@@ -109,6 +115,8 @@ import ProductImageSection from "@/features/product/components/ProductImageSecti
 import ProductCategorySection from "@/features/product/components/ProductCategorySection";
 import ProductLocationSection from "@/features/product/components/ProductLocationSection";
 import ProductFormActions from "@/features/product/components/ProductFormActions";
+import BoardGameRelationField from "@/features/boardgame/components/BoardGameRelationField";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 const LazyLocationPicker = dynamic(
   () => import("@/features/map/components/LocationPicker"),
@@ -131,6 +139,7 @@ interface ProductFormProps {
   mode: "create" | "edit";
   defaultValues?: Partial<productFormValues>;
   categories: Category[];
+  boardGameOptions?: BoardGameRelationOption[];
   submitText?: string;
   cancelHref?: string;
 }
@@ -150,6 +159,7 @@ export default function ProductForm({
   mode,
   defaultValues = {},
   categories,
+  boardGameOptions = [],
   cancelHref = "/products",
 }: ProductFormProps) {
   const router = useRouter();
@@ -159,8 +169,7 @@ export default function ProductForm({
   const rawReturnTo = sp.get("returnTo");
   const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : null;
   // back 복귀는 앱이 심어 둔 내부 returnTo 문맥과 실제 히스토리가 함께 있을 때만 허용
-  const canResumeEditHistory =
-    !!rawReturnTo && canUseBrowserBack();
+  const canResumeEditHistory = !!rawReturnTo && canUseBrowserBack();
   const isModalEditFlow = sp.get("flow") === "modal-edit";
   const [resetSignal, setResetSignal] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -168,8 +177,11 @@ export default function ProductForm({
   // create/edit 공개 props에는 직렬화 가능한 값만 두고, 서버 액션은 mode로 내부 선택
   const action = mode === "create" ? createProductAction : updateProductAction;
 
-  // modal-edit는 앱이 만든 returnTo 문맥이 확인될 때만 back 재사용
-  // 직접 진입/북마크처럼 안전한 복귀 대상이 없으면 openProductId fallback으로 모달 재오픈
+  /**
+   * 모달 편집 저장 후 기존 모달 상세 문맥으로 복귀
+   *
+   * @param productId - 저장된 상품 id
+   */
   const returnToModalEditOrigin = (productId: number) => {
     if (canResumeEditHistory) {
       router.back();
@@ -186,8 +198,14 @@ export default function ProductForm({
     router.replace(`/products/view/${productId}`);
   };
 
-  // detail-edit 저장은 명시적 returnTo 문맥이 있는 경우에만 back 사용
-  // 그 외 직접 진입/외부 히스토리 가능성은 전체 문서 이동으로 상세를 다시 로드해 stale tree 회피
+  /**
+   * 일반 상세 편집 저장 후 상세 페이지로 복귀
+   *
+   * 명시적 returnTo 문맥의 back 사용과 직접 진입 시 전체 문서 이동으로 stale tree 회피
+   *
+   * @param productId - 저장된 상품 id
+   * @param detailHref - fallback 상세 URL
+   */
   const returnToDetailEditOrigin = (productId: number, detailHref: string) => {
     if (canResumeEditHistory) {
       markNavigationRefresh(
@@ -218,6 +236,7 @@ export default function ProductForm({
       completeness: defaultValues.completeness || "PERFECT",
       has_manual: defaultValues.has_manual ?? true,
       categoryId: defaultValues.categoryId ?? undefined,
+      boardGameIds: defaultValues.boardGameIds || [],
       tags: defaultValues.tags || [],
       location: defaultValues.location ?? null,
     }),
@@ -271,6 +290,18 @@ export default function ProductForm({
     defaultValues: initialFormValues,
   });
   const selectedCategoryId = watch("categoryId");
+  const watchedBoardGameIds = watch("boardGameIds");
+  const selectedBoardGameIds = useMemo(
+    () => watchedBoardGameIds ?? [],
+    [watchedBoardGameIds]
+  );
+  const selectedBoardGameForAutofill = useMemo(
+    () =>
+      boardGameOptions.find(
+        (option) => option.id === selectedBoardGameIds[0]
+      ) ?? null,
+    [boardGameOptions, selectedBoardGameIds]
+  );
 
   const categoryErrorMessage = errors.categoryId?.message;
   const mainCategoryErrors =
@@ -335,6 +366,125 @@ export default function ProductForm({
     }
   }, [minPlayers, maxPlayers, setValue]);
 
+  /**
+   * 보드게임 카탈로그의 플레이 시간 메타데이터를 상품 폼 입력값 형태로 변환
+   *
+   * @param option - 선택한 보드게임 옵션
+   * @returns `30-60분` 또는 `60분` 형식의 플레이 시간 문자열
+   */
+  const getBoardGamePlayTimeText = (option: BoardGameRelationOption) => {
+    if (option.minPlayTime && option.maxPlayTime) {
+      return option.minPlayTime === option.maxPlayTime
+        ? `${option.minPlayTime}분`
+        : `${option.minPlayTime}-${option.maxPlayTime}분`;
+    }
+
+    return option.playingTime ? `${option.playingTime}분` : "";
+  };
+
+  /**
+   * 선택한 보드게임의 구조화 메타데이터를 상품 게임 정보 입력값으로 복사
+   * 제품 상태/구성품 상태는 판매자가 직접 판단해야 하므로 인원과 시간만 자동 입력
+   */
+  const fillGameInfoFromBoardGame = () => {
+    if (!selectedBoardGameForAutofill) return;
+
+    const playTimeText = getBoardGamePlayTimeText(selectedBoardGameForAutofill);
+
+    if (selectedBoardGameForAutofill.minPlayers) {
+      setValue("min_players", selectedBoardGameForAutofill.minPlayers, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (selectedBoardGameForAutofill.maxPlayers) {
+      setValue("max_players", selectedBoardGameForAutofill.maxPlayers, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (playTimeText) {
+      setValue("play_time", playTimeText, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    toast.success("선택한 보드게임의 인원과 플레이 시간을 채웠습니다.");
+  };
+
+  /**
+   * 선택한 보드게임의 한국어 제목, 원제, 별칭을 상품 검색 태그 후보로 정규화
+   *
+   * @param option - 선택한 보드게임 옵션
+   * @returns 중복을 제거한 태그 후보 목록
+   */
+  const getBoardGameSuggestedTags = (option: BoardGameRelationOption) => {
+    const candidates = [
+      option.locale.title,
+      option.primaryName,
+      ...option.locale.aliases,
+    ];
+    const seen = new Set<string>();
+
+    return candidates
+      .map((tag) => tag.trim())
+      .filter((tag) => {
+        if (!tag) return false;
+        const key = tag.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
+  /**
+   * 선택한 보드게임의 검수된 한국어 제목을 제품명에 반영
+   */
+  const fillTitleFromBoardGame = () => {
+    if (!selectedBoardGameForAutofill) return;
+
+    setValue("title", selectedBoardGameForAutofill.locale.title, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    toast.success("선택한 보드게임명을 제품명에 반영했습니다.");
+  };
+
+  /**
+   * 선택한 보드게임의 이름/별칭을 상품 검색 태그에 추가
+   * 기존 수동 태그를 지우지 않고, 상품 태그 최대 개수 안에서 빈 자리만 채움
+   */
+  const addTagsFromBoardGame = () => {
+    if (!selectedBoardGameForAutofill) return;
+
+    const currentTags = getValues("tags") ?? [];
+    const currentKeys = new Set(currentTags.map((tag) => tag.toLowerCase()));
+    const nextTags = [...currentTags];
+
+    for (const tag of getBoardGameSuggestedTags(selectedBoardGameForAutofill)) {
+      if (nextTags.length >= 5) break;
+      const key = tag.toLowerCase();
+      if (currentKeys.has(key)) continue;
+
+      currentKeys.add(key);
+      nextTags.push(tag);
+    }
+
+    if (nextTags.length === currentTags.length) {
+      toast.info("추가할 보드게임 태그가 없거나 태그가 이미 가득 찼습니다.");
+      return;
+    }
+
+    setValue("tags", nextTags, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    toast.success("보드게임명과 별칭을 검색 태그에 추가했습니다.");
+  };
+
   // 수정 모드 첫 진입 시 categoryId 기반 선택 상태를 복원
   useEffect(() => {
     if (defaultValues.categoryId && categories.length > 0) {
@@ -378,6 +528,9 @@ export default function ProductForm({
   const location = watch("location");
   const imageSectionRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * 이미지 업로드 섹션 열기와 포커스/스크롤 이동
+   */
   const focusImageSection = () => {
     setIsImageFormOpen(true);
     imageSectionRef.current?.focus();
@@ -388,12 +541,19 @@ export default function ProductForm({
     });
   };
 
-  // 지도 모달에서 선택한 위치를 폼 값으로 반영
+  /**
+   * 지도 모달에서 선택한 위치를 상품 거래 위치로 반영
+   *
+   * @param data - 선택한 위치 데이터
+   */
   const handleLocationSelect = (data: LocationData) => {
     setValue("location", data, { shouldDirty: true });
     setIsMapOpen(false);
   };
 
+  /**
+   * 상품 거래 위치 초기화
+   */
   const handleRemoveLocation = () => {
     setValue("location", null, { shouldDirty: true });
   };
@@ -475,13 +635,21 @@ export default function ProductForm({
         formData.append("location", JSON.stringify(data.location));
       }
       formData.append("tags", JSON.stringify(data.tags || []));
+      formData.append("boardGameIds", JSON.stringify(data.boardGameIds || []));
 
       // 이미지 목록과 애니메이션 메타는 별도 필드로 전송
       allPhotos.forEach((url) => formData.append("photos[]", url));
       formData.append("photosAnimated", JSON.stringify(allPhotosAnimated));
 
       // 나머지 일반 필드는 문자열로 자동 매핑
-      const skipFields = ["id", "location", "tags", "photos", "photosAnimated"];
+      const skipFields = [
+        "id",
+        "location",
+        "tags",
+        "boardGameIds",
+        "photos",
+        "photosAnimated",
+      ];
       Object.entries(data).forEach(([key, value]) => {
         if (
           !skipFields.includes(key) &&
@@ -551,6 +719,11 @@ export default function ProductForm({
     }
   };
 
+  /**
+   * 유효성 오류 발생 시 이미지 오류 우선 처리와 첫 오류 필드 이동
+   *
+   * @param formErrors - React Hook Form 오류 객체
+   */
   const onInvalid = (formErrors: typeof errors) => {
     if (formErrors.photos) {
       focusImageSection();
@@ -645,6 +818,53 @@ export default function ProductForm({
         </p>
       </div>
 
+      <BoardGameRelationField
+        options={boardGameOptions}
+        selectedIds={selectedBoardGameIds}
+        onChange={(ids) =>
+          setValue("boardGameIds", ids, {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
+        }
+        disabled={isUploading}
+        errors={
+          errors.boardGameIds?.message ? [errors.boardGameIds.message] : []
+        }
+      />
+
+      {selectedBoardGameForAutofill && (
+        <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-dim/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-primary">
+              {selectedBoardGameForAutofill.locale.title} 기준으로 입력 보조
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              제품명과 검색 태그만 보조로 채우고, 상세 설명과 제품 상태는 직접
+              입력합니다.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={fillTitleFromBoardGame}
+              disabled={isUploading}
+              className="focus-ring-soft inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-bold text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              제품명 채우기
+            </button>
+            <button
+              type="button"
+              onClick={addTagsFromBoardGame}
+              disabled={isUploading}
+              className="focus-ring-soft inline-flex h-9 items-center justify-center rounded-lg border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-brand-dark transition-colors hover:border-brand/50 hover:bg-brand/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
+            >
+              검색 태그 추가
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-form-gap md:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] md:items-start">
         <div className="md:order-1">
           <Input
@@ -698,11 +918,23 @@ export default function ProductForm({
         errors={[errors.description?.message ?? ""]}
       />
 
-      <div className="flex flex-col gap-1 pt-1">
-        <h2 className="text-sm font-medium text-primary">게임 정보</h2>
-        <p className="text-xs leading-relaxed text-muted">
-          플레이 조건과 제품 상태를 함께 정리해 구매 판단을 돕습니다.
-        </p>
+      <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-medium text-primary">게임 정보</h2>
+          <p className="text-xs leading-relaxed text-muted">
+            플레이 조건과 제품 상태를 함께 정리해 구매 판단을 돕습니다.
+          </p>
+        </div>
+        {selectedBoardGameForAutofill && (
+          <button
+            type="button"
+            onClick={fillGameInfoFromBoardGame}
+            disabled={isUploading}
+            className="focus-ring-soft inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-brand-dark transition-colors hover:border-brand/50 hover:bg-brand/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
+          >
+            도감 정보로 채우기
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-form-gap">

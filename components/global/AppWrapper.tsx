@@ -12,6 +12,7 @@
  * 2026.02.07  임도헌   Modified  "use client" 전환 및 Admin 경로에서 모바일 제약 해제 로직 추가
  * 2026.03.20  임도헌   Modified  스트림 라이브/녹화 상세는 일반 앱 폭 제약을 해제해 데스크톱 full-width 쉘 레이아웃을 허용
  * 2026.03.25  임도헌   Modified  TabBar가 실제 앱 셸 폭을 읽을 수 있도록 wrapper id를 명시
+ * 2026.04.29  임도헌   Modified  보드게임 카탈로그 목록/상세의 데스크톱 확장 레이아웃을 위해 일반 앱 폭 제약 해제
  */
 "use client";
 
@@ -27,7 +28,7 @@ interface AppWrapperProps {
  * 앱 전체 라우트용 셸 래퍼
  *
  * - 일반 사용자 경로의 모바일 폭 제약 적용
- * - 관리자/스트림 몰입형 상세의 데스크톱 확장 레이아웃 허용
+ * - 관리자/보드게임 카탈로그/스트림 몰입형 상세의 데스크톱 확장 레이아웃 허용
  * - TabBar 폭 측정용 기준 wrapper 제공
  *
  * @param {AppWrapperProps} props - 자식 노드와 추가 className
@@ -36,6 +37,7 @@ interface AppWrapperProps {
 export default function AppWrapper({ children, className }: AppWrapperProps) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
+  const isBoardGameCatalogRoute = pathname?.startsWith("/boardgames");
   const isImmersiveStreamRoute =
     /^\/streams\/[^/]+(?:\/recording)?$/.test(pathname ?? "");
 
@@ -47,8 +49,9 @@ export default function AppWrapper({ children, className }: AppWrapperProps) {
         "bg-background dark:bg-background-dark",
         "text-neutral-900 dark:text-neutral-100",
         "transition-colors duration-300",
-        // 관리자/스트림 몰입형 상세는 데스크톱 폭 제약을 제거
+        // 관리자/보드게임 카탈로그/스트림 몰입형 상세는 데스크톱 폭 제약을 제거
         !isAdmin &&
+          !isBoardGameCatalogRoute &&
           !isImmersiveStreamRoute &&
           "sm:max-w-screen-sm sm:mx-auto sm:shadow-xl",
         className

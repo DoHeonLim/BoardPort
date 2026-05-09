@@ -12,6 +12,7 @@
  * 2026.01.23  임도헌   Merged    streamFormSchema + streamCommentFormSchema 통합
  * 2026.03.08  임도헌   Modified  requiredTrimmedString/requiredNumber 공통 유틸 적용으로 빈값 검증과 카테고리 숫자 처리 통일
  * 2026.03.12  임도헌   Modified  썸네일 애니메이션 메타 저장용 thumbnailAnimated 필드 추가
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 검증 필드 추가
  */
 
 import { z } from "zod";
@@ -75,6 +76,11 @@ export const streamFormSchema = z
         });
         return deduped.slice(0, 5);
       }),
+    boardGameIds: z
+      .array(z.number().int().positive())
+      .max(5, "보드게임은 최대 5개까지 연결할 수 있습니다.")
+      .optional()
+      .default([]),
   })
   .superRefine((data, ctx) => {
     if (data.visibility === STREAM_VISIBILITY.PRIVATE) {

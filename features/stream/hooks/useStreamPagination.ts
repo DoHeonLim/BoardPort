@@ -11,6 +11,7 @@
  * 2026.03.04  임도헌   Modified  getStreamsListAction 연동 및 쿼리 페이징 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.17  임도헌   Modified  현재 훅이 담당하는 범위가 무한 스크롤 페이징 중심으로 읽히도록 설명을 최신화
+ * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  */
 
 "use client";
@@ -18,10 +19,10 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { getStreamsListAction } from "@/features/stream/actions/list";
 import { queryKeys } from "@/lib/queryKeys";
-import type { BroadcastSummary } from "@/features/stream/types";
+import type { BroadcastSummary, StreamScope } from "@/features/stream/types";
 
 interface UseStreamPaginationParams {
-  scope: "all" | "following";
+  scope: StreamScope;
   searchParams: Record<string, string>;
   viewerId?: number | null;
 }

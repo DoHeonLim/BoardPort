@@ -14,6 +14,7 @@
  * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타 저장용 avatarAnimated 필드 추가
  * 2026.03.21  임도헌   Modified  방송국 소개 수정용 ChannelDescriptionActionState 타입 추가
  * 2026.04.03  임도헌   Modified  관리자 필터 및 액션 상태 type alias 설명 보강
+ * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입을 user types로 이동
  */
 
 import type { Role } from "@/generated/prisma/enums";
@@ -73,6 +74,17 @@ export type FollowListUser = {
 
 /** 팔로우 리스트 커서 */
 export type FollowListCursor = { lastId: number } | null;
+
+/** 팔로우/언팔로우 토글 서버 액션 결과 */
+export type FollowActionResult =
+  | {
+      success: true;
+      changed: boolean;
+      isFollowing: boolean;
+      delta: number;
+      counts: { viewerFollowing: number; targetFollowers: number };
+    }
+  | { success: false; error: string; code?: string };
 
 /** 프로필 리뷰 아이템 */
 export interface ProfileReview {

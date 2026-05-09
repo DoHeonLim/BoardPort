@@ -12,6 +12,7 @@
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Merged    checkBroadcastAccess, unlockPrivateBroadcast, getViewerRole 통합 및 순수 함수화
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.05.08  임도헌   Modified  외부 사용이 없는 접근 제한 내부 타입 export 제거
  */
 
 import "server-only";
@@ -24,14 +25,14 @@ import type {
 } from "@/features/stream/types";
 
 // 접근 제한 사유 상수
-export const EXCLUSION = {
+const EXCLUSION = {
   PRIVATE: "PRIVATE", // 비공개 방송 (비밀번호 필요)
   FOLLOWERS_ONLY: "FOLLOWERS_ONLY", // 팔로워 전용 (팔로우 필요)
 } as const;
 
-export type ExclusionReason = (typeof EXCLUSION)[keyof typeof EXCLUSION];
+type ExclusionReason = (typeof EXCLUSION)[keyof typeof EXCLUSION];
 
-export type AccessResult =
+type AccessResult =
   | { allowed: true; reason: null }
   | { allowed: false; reason: ExclusionReason };
 

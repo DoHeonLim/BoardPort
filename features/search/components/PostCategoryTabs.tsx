@@ -28,6 +28,8 @@
  * 2026.04.10  임도헌   Modified  상위 게시글 헤더 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  * 2026.04.14  임도헌   Modified  카테고리 탭 링크 prefetch를 비활성화해 탭별 RSC 선요청을 줄임
  * 2026.04.20  임도헌   Modified  키보드 포커스가 브라우저 기본 outline으로 보이지 않도록 공용 soft 포커스 규칙을 적용
+ * 2026.05.03  임도헌   Modified  카테고리 툴팁이 뒤 콘텐츠와 섞이지 않도록 불투명 surface 톤으로 보정
+ * 2026.05.05  임도헌   Modified  카테고리 탭 상호작용 핸들러 JSDoc 보강
  */
 
 import { useRef, useState } from "react";
@@ -68,6 +70,11 @@ export default function PostCategoryTabs({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null); // long press 타이머 ref
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
+  /**
+   * 게시글 카테고리 변경 시 검색어 초기화와 목록 URL 갱신
+   *
+   * @param category - 선택한 게시글 카테고리 key, 없으면 전체
+   */
   const handleCategoryClick = (category?: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("keyword"); // 검색어 초기화
@@ -84,6 +91,11 @@ export default function PostCategoryTabs({
   const isTouchDevice =
     typeof window !== "undefined" && "ontouchstart" in window;
 
+  /**
+   * 터치 디바이스에서 long press 툴팁 노출 타이머 시작
+   *
+   * @param key - 툴팁을 띄울 카테고리 key
+   */
   const handleTouchStart = (key: string) => {
     if (isTouchDevice) {
       timeoutRef.current = setTimeout(() => {
@@ -92,6 +104,9 @@ export default function PostCategoryTabs({
     }
   };
 
+  /**
+   * long press 툴팁 타이머와 활성 툴팁 상태 정리
+   */
   const handleTouchEnd = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -143,6 +158,11 @@ export default function PostCategoryTabs({
     }),
   } as const;
 
+  /**
+   * 카테고리 탭 목록의 버튼 방향 기준 부드러운 스크롤
+   *
+   * @param direction - 스크롤 방향
+   */
   const scroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
       const scrollAmount = 200;
@@ -235,7 +255,7 @@ export default function PostCategoryTabs({
                 position: "fixed",
                 zIndex: 9999,
               }}
-              className="pointer-events-none rounded-lg border border-border-subtle bg-background/96 px-3 py-1.5 text-sm text-primary shadow-lg backdrop-blur-sm"
+              className="pointer-events-none rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-primary shadow-lg"
             >
               모든 게시글을 볼 수 있습니다
             </div>
@@ -296,7 +316,7 @@ export default function PostCategoryTabs({
                     position: "fixed",
                     zIndex: 9999,
                   }}
-                  className="pointer-events-none rounded-lg border border-border-subtle bg-background/96 px-3 py-1.5 text-sm text-primary shadow-lg backdrop-blur-sm"
+                  className="pointer-events-none rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-primary shadow-lg"
                 >
                   {
                     POST_CATEGORY_DESCRIPTIONS[

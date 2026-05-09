@@ -17,6 +17,8 @@
  * 2026.04.09  임도헌   Modified  숨김 상품은 최근 본 상품에 저장하지 않고 owner 상세에는 숨김 배지를 노출
  * 2026.04.14  임도헌   Modified  본문 컨테이너를 서버 기준으로 재구성하고 클라이언트 부작용/지도 섹션을 분리해 초기 상세 비용을 절감
  * 2026.04.14  임도헌   Modified  서버 컨테이너 책임과 섹션 조합 흐름이 드러나도록 함수 상단 JSDoc 설명을 보강
+ * 2026.05.03  임도헌   Modified  상품 상세에 연결된 보드게임 카탈로그 칩 노출
+ * 2026.05.06  임도헌   Modified  게시글/방송 상세와 동일한 도감 이동 카드 표시로 통일
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
@@ -41,6 +43,7 @@ import ProductDetailTags from "@/features/product/components/productDetail/Produ
 import ProductDetailActions from "@/features/product/components/productDetail/ProductDetailActions";
 import ProductDetailClientEffects from "@/features/product/components/productDetail/ProductDetailClientEffects";
 import ProductDetailLocationSection from "@/features/product/components/productDetail/ProductDetailLocationSection";
+import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -104,6 +107,11 @@ export default function ProductDetailContainer({
             condition={product.condition}
             completeness={product.completeness}
             has_manual={product.has_manual}
+          />
+
+          <LinkedBoardGameChips
+            items={product.board_games?.map(({ boardGame }) => boardGame) ?? []}
+            variant="cards"
           />
 
           {/* 위치 섹션의 뷰포트 근접 시점 한정 지도 준비 시작 및 초기 비용 억제 */}

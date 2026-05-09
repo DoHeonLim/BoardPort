@@ -46,6 +46,9 @@
  * 2026.04.16  임도헌   Modified  다시보기 첫 카드 썸네일을 우선 로드할 수 있도록 thumbnailPriority 옵션 추가
  * 2026.04.20  임도헌   Modified  스트림 카드 포커스가 묻히지 않도록 카드 컨테이너에도 keyboard-only inset 링을 보강
  * 2026.04.20  임도헌   Modified  카드 링크를 세로 축 레이아웃으로 고정해 썸네일이 정보 영역 폭을 밀어내지 않도록 정리
+ * 2026.05.03  임도헌   Modified  방송/다시보기 카드에 연결 보드게임 요약 배지 표시
+ * 2026.05.05  임도헌   Modified  방송 제목 우선 흐름에 맞춰 연결 보드게임을 제목 오른쪽 보조 맥락으로 재배치
+ * 2026.05.05  임도헌   Modified  방송 카드 preview/잠금 처리 핸들러 JSDoc 보강
  */
 
 "use client";
@@ -59,9 +62,11 @@ import { cn, formatToTimeAgo, formatDuration } from "@/lib/utils";
 import UserAvatar from "@/components/global/UserAvatar";
 import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { StreamCategory, StreamVisibility } from "@/features/stream/types";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
+import BoardGameSummaryBadge from "@/features/boardgame/components/BoardGameSummaryBadge";
 
 const PrivateAccessModal = dynamic(
   () => import("@/features/stream/components/PrivateAccessModal"),
@@ -83,6 +88,7 @@ interface StreamCardProps {
     | null /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */;
   category?: StreamCategory | null;
   tags?: { name: string }[];
+  boardGames?: Array<{ boardGame: BoardGameRelationOption }>;
   duration?: number; // 초 단위
   viewCount?: number; // 조회수
   shortDescription?: boolean;
@@ -134,6 +140,7 @@ export default function StreamCard(props: StreamCardProps) {
     startedAt,
     category,
     tags,
+    boardGames,
     duration,
     viewCount,
     shortDescription = false,
@@ -210,7 +217,9 @@ export default function StreamCard(props: StreamCardProps) {
   // 프리뷰를 띄울 자격(락이 없고 실제 라이브일 때만)
   const shouldPreview = isLive && !lockMask;
 
-  // hover debounce: 짧은 스치기 무시
+  /**
+   * hover/focus preview 시작 debounce 처리
+   */
   const startHover = () => {
     if (!shouldPreview) return;
     if (hoverTimerRef.current) {
@@ -223,6 +232,9 @@ export default function StreamCard(props: StreamCardProps) {
     }, 200);
   };
 
+  /**
+   * hover/focus preview 상태와 대기 타이머 정리
+   */
   const endHover = () => {
     if (hoverTimerRef.current) {
       window.clearTimeout(hoverTimerRef.current);
@@ -244,6 +256,11 @@ export default function StreamCard(props: StreamCardProps) {
   const shouldRenderPreview =
     shouldPreview && isHoveredOrFocused && !previewError;
 
+  /**
+   * 잠긴 방송 카드 클릭 시 follow/password 흐름 진입
+   *
+   * @param e - 카드 링크 클릭 이벤트
+   */
   const handleStreamClick = (e: React.MouseEvent) => {
     if (followersOnlyLocked) {
       e.preventDefault();
@@ -455,16 +472,16 @@ export default function StreamCard(props: StreamCardProps) {
           )}
         >
           <div className={cn(isGridLayout ? "space-y-1.5" : "space-y-2")}>
-            <h3
-              className={cn(
-                "line-clamp-2 font-medium text-primary leading-snug group-hover:text-brand dark:group-hover:text-brand-light transition-colors",
-                isGridLayout
-                  ? "min-h-[1.75rem] text-base sm:min-h-[2rem]"
-                  : "text-base"
-              )}
-            >
-              {title}
-            </h3>
+            <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+              <h3 className="line-clamp-2 min-w-0 font-medium text-base leading-snug text-primary transition-colors group-hover:text-brand dark:group-hover:text-brand-light sm:flex-1">
+                {title}
+              </h3>
+
+              <BoardGameSummaryBadge
+                items={boardGames}
+                className="sm:max-w-[46%] sm:justify-end"
+              />
+            </div>
 
             {showStreamer && (
               <div className="flex items-center gap-2.5">
@@ -478,6 +495,7 @@ export default function StreamCard(props: StreamCardProps) {
                 />
               </div>
             )}
+
           </div>
 
           {/* 하단 메타 정보 */}
@@ -492,40 +510,39 @@ export default function StreamCard(props: StreamCardProps) {
                   isGridLayout ? "pt-1.5" : "pt-2"
                 )}
               >
-                {/* 태그와 시간/길이/조회수를 분리해 작은 화면 카드 밀도 완화 */}
-                {formattedTags && (
-                  <div className="mb-1 min-w-0">
-                    <span
-                      className={cn(
-                        "block truncate font-medium text-brand dark:text-brand-light",
-                        isGridLayout
-                          ? "max-w-[120px] sm:max-w-[180px]"
-                          : "max-w-[160px] sm:max-w-[220px]"
-                      )}
-                    >
-                      {formattedTags}
-                    </span>
-                  </div>
-                )}
+                <div className="flex min-w-0 items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    {formattedTags && (
+                      <span
+                        className={cn(
+                          "block truncate font-medium text-brand dark:text-brand-light",
+                          isGridLayout
+                            ? "max-w-[150px] sm:max-w-[220px]"
+                            : "max-w-[180px] sm:max-w-[260px]"
+                        )}
+                      >
+                        {formattedTags}
+                      </span>
+                    )}
 
-                <div className="flex min-w-0 items-center gap-2">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    {!isLive && duration && duration > 0 && (
-                      <span className="shrink-0">
-                        {formatDuration(duration)}
-                      </span>
-                    )}
-                    {!isLive &&
-                      duration &&
-                      duration > 0 &&
-                      typeof viewCount === "number" && (
-                        <span className="text-border shrink-0">|</span>
+                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      {!isLive && duration && duration > 0 && (
+                        <span className="shrink-0">
+                          {formatDuration(duration)}
+                        </span>
                       )}
-                    {!isLive && typeof viewCount === "number" && (
-                      <span className="shrink-0">
-                        조회 {viewCount.toLocaleString()}
-                      </span>
-                    )}
+                      {!isLive &&
+                        duration &&
+                        duration > 0 &&
+                        typeof viewCount === "number" && (
+                          <span className="text-border shrink-0">|</span>
+                        )}
+                      {!isLive && typeof viewCount === "number" && (
+                        <span className="shrink-0">
+                          조회 {viewCount.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {startedAtIso && (

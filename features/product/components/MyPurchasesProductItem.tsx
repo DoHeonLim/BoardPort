@@ -38,6 +38,8 @@
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 썸네일 우선 로드, 상세 링크 프리패치 비활성화, 카드 제목 heading 정리
  * 2026.04.19  임도헌   Modified  내 구매 카드 hover 피드백을 그림자 중심으로 정리하고 제목 색 과반응을 제거
  * 2026.04.20  임도헌   Modified  썸네일/제목 링크가 기본 outline 대신 공용 포커스 톤을 따르도록 정리
+ * 2026.05.03  임도헌   Modified  프로필 구매 카드에 연결 보드게임 배지 표시 추가
+ * 2026.05.05  임도헌   Modified  구매 내역 카드 helper와 리뷰 삭제 핸들러 JSDoc 보강
  */
 
 "use client";
@@ -61,6 +63,7 @@ import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { deleteReviewAction } from "@/features/review/actions/delete";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
+import ProductCardBoardGameBadge from "@/features/product/components/productCard/ProductCardBoardGameBadge";
 import type { GameType, MyPurchasedListItem } from "@/features/product/types";
 import type { ProductReview } from "@/features/review/types";
 import dynamic from "next/dynamic";
@@ -80,6 +83,12 @@ type Props = {
   onReviewChanged?: (patch: Partial<MyPurchasedListItem>) => void;
 };
 
+/**
+ * 구매 내역 카드 보조 메타 정보의 작은 칩 표시
+ *
+ * @param props - 표시할 chip children
+ * @returns 메타 chip UI
+ */
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-xs font-medium leading-none text-primary shadow-sm">
@@ -88,6 +97,11 @@ function Chip({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * 구매 완료 상태의 compact pill 표시
+ *
+ * @returns 구매 완료 pill UI
+ */
 function PurchasePill() {
   return (
     <span className="rounded bg-neutral-500 px-2 py-0.5 text-xs font-bold text-white shadow-sm">
@@ -96,6 +110,12 @@ function PurchasePill() {
   );
 }
 
+/**
+ * 구매 내역 카드 수치 메타의 아이콘 동반 표시
+ *
+ * @param props - 아이콘과 표시 값
+ * @returns metric row UI
+ */
 function Metric({
   icon,
   children,
@@ -136,6 +156,12 @@ export default function MyPurchasesProductItem({
     deleteConfirm: false, // 삭제 확인 다이얼로그
   });
 
+  /**
+   * 리뷰 관련 모달의 열림 상태 부분 갱신
+   *
+   * @param key - 제어할 모달 key
+   * @param open - 다음 열림 상태
+   */
   const toggleModal = (key: keyof typeof modalState, open: boolean) => {
     setModalState((prev) => ({ ...prev, [key]: open }));
   };
@@ -184,7 +210,9 @@ export default function MyPurchasesProductItem({
     },
   });
 
-  // 리뷰 삭제 핸들러
+  /**
+   * 구매자가 작성한 리뷰 삭제 및 로컬/상위 목록 상태 동기화
+   */
   const confirmDeleteReview = async () => {
     if (!buyerReview?.id) return;
     try {
@@ -290,6 +318,10 @@ export default function MyPurchasesProductItem({
             <div className="mt-1 text-sm font-bold text-brand dark:text-brand-light sm:text-base">
               {formatToWon(product.price)}원
             </div>
+            <ProductCardBoardGameBadge
+              items={product.board_games}
+              viewMode="list"
+            />
             {metaChips.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {metaChips.map((chip) => (

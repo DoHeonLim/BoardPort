@@ -20,6 +20,8 @@
  * 2026.03.26  임도헌   Modified  찜 목록에서는 활동 시점을 메타 그룹에 합쳐 액션 버튼과 정렬 충돌을 줄임
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 메타 라벨 타이포 무게를 정리
  * 2026.04.17  임도헌   Modified  찜한 내역에서도 활동 시점(activityLabel + TimeAgo)이 장소 유무와 무관하게 우측 끝에 고정되도록 정렬 규칙 정리
+ * 2026.05.04  임도헌   Modified  그리드 카드의 위치/시간/반응 메타를 한 줄로 압축
+ * 2026.05.04  임도헌   Modified  그리드 카드 작성 시간을 우측 끝에 고정해 장소 유무와 무관한 정렬 유지
  */
 
 "use client";
@@ -71,7 +73,6 @@ export default function ProductCardMeta({
   // 동 단위까지만 표시 (예: "동작구 사당동")
   const locationText = [region2, region3].filter(Boolean).join(" ");
   const isGrid = viewMode === "grid";
-  const showLocationInGrid = isGrid && !!locationText;
   const timeMeta = dateValue ? (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       {activityLabel && (
@@ -87,33 +88,61 @@ export default function ProductCardMeta({
     </span>
   ) : null;
 
+  if (isGrid) {
+    return (
+      <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted">
+        {locationText ? (
+          <div
+            className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden"
+            title={locationText}
+          >
+            <MapPinIcon className="size-3 shrink-0" />
+            <span className="truncate">{locationText}</span>
+          </div>
+        ) : (
+          <span className="min-w-0 flex-1" aria-hidden="true" />
+        )}
+
+        {(bumpCount > 0 || likes >= 0 || views >= 0) && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {bumpCount > 0 && (
+              <div className="flex items-center gap-0.5 font-bold text-brand dark:text-brand-light">
+                <ArrowUpIcon className="size-3" />
+                <span>{bumpCount}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-0.5">
+              <HeartIcon
+                className={cn(
+                  "size-3",
+                  likes > 0 ? "text-rose-500" : "text-muted/70"
+                )}
+              />
+              <span>{likes}</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <EyeIcon className="size-3 text-muted/70" />
+              <span>{views}</span>
+            </div>
+          </div>
+        )}
+
+        {timeMeta && (
+          <div className="flex shrink-0 items-center gap-1 pl-1">
+            {timeMeta}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
         "w-full min-w-0 overflow-hidden text-xs text-muted",
-        isGrid ? "flex flex-col gap-1" : "flex items-center gap-1.5"
+        "flex items-center gap-1.5"
       )}
     >
-      {/* 1. 끌어올리기 (있을 때만 표시) */}
-      {/* 그리드: 위치 정보 행 */}
-      {showLocationInGrid && (
-        <div
-          className="flex items-center justify-between gap-1 min-w-0 text-muted"
-          title={locationText}
-        >
-          {/* 좌측: 위치 */}
-          <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-            <MapPinIcon className="size-3 shrink-0" />
-            <span className="truncate">{locationText}</span>
-          </div>
-          {/* 우측: 시간 (위치와 같은 행) */}
-          {timeMeta}
-        </div>
-      )}
-
-      {/* 그리드: 위치 없을 때 시간만 단독 노출 */}
-      {isGrid && !locationText && timeMeta}
-
       <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden">
         {bumpCount > 0 && (
           <div className="flex shrink-0 items-center gap-0.5 font-bold text-brand dark:text-brand-light">

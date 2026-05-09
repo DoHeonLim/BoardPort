@@ -21,9 +21,13 @@
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 채팅 금지 토글 결과 타입 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 고정 공지 수정 결과 타입 추가
  * 2026.04.07  임도헌   Modified  스트림 제목/설명 실시간 동기화 payload 타입 추가
+ * 2026.05.03  임도헌   Modified  방송 요약/상세의 보드게임 카탈로그 연결 타입 추가
+ * 2026.05.03  임도헌   Modified  다시보기 카드에서도 연결 보드게임 요약을 표시할 수 있도록 타입 확장
+ * 2026.05.08  임도헌   Modified  서비스 상세 DTO와 목록 액션 응답 타입을 types.ts로 이동
  */
 
 import { StreamChatMessage } from "@/features/chat/types";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import type { ServiceFailure } from "@/lib/types";
 import {
   STREAM_VISIBILITY,
@@ -37,6 +41,9 @@ import {
 
 /** 방송 상세에서의 조회자 역할 */
 export type ViewerRole = "OWNER" | "FOLLOWER" | "VISITOR";
+
+/** 방송 목록 조회 범위 */
+export type StreamScope = "all" | "following";
 
 /** 방송 공개 범위 타입 */
 export type StreamVisibility =
@@ -101,6 +108,9 @@ export interface BroadcastSummary {
   user: UserSummary;
   category?: StreamCategory | null;
   tags?: StreamTag[];
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
   /** 접근성/UI 보조 플래그(서버에서 계산해 전달 가능) */
   requiresPassword?: boolean; // PRIVATE 이면서 비번 설정됨
   followersOnlyLocked?: boolean; // FOLLOWERS 이지만 뷰어가 팔로워가 아님
@@ -124,6 +134,9 @@ export interface VodForGrid {
   viewCount?: number;
   category?: StreamCategory | null;
   tags?: StreamTag[];
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
   requiresPassword?: boolean; // 접근 보조 플래그(있으면 우선)
   followersOnlyLocked?: boolean;
 }
@@ -137,6 +150,69 @@ export type RecordingSort = "latest" | "popular";
 export interface VodForPage extends VodForGrid {
   broadcastStatus?: StreamStatus; // 방송 상태(부모) — 삭제/버튼 표시 분기 등에 유용
   description?: string | null; // 추가 메타(원하면 확장)
+}
+
+/** 방송 상세 페이지 조립용 DTO */
+export interface StreamDetailDTO {
+  title: string;
+  stream_id: string;
+  thumbnail: string | null;
+  userId: number;
+  user: {
+    id: number;
+    username: string;
+    avatar?: string | null;
+  };
+  category?: StreamCategory | null;
+  tags?: { name: string }[] | null;
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
+  started_at?: Date | null;
+  description?: string | null;
+  pinnedChatNotice?: string | null;
+  status: string;
+  visibility: StreamVisibility;
+}
+
+/** 녹화본 상세 페이지 조립용 DTO */
+export interface VodDetailDTO {
+  vodId: number;
+  uid: string;
+  durationSec: number | null;
+  readyAt: Date | null;
+  createdAt: Date;
+  views: number;
+  counts: { likes: number; comments: number };
+  broadcast: {
+    id: number;
+    title: string;
+    visibility: StreamVisibility;
+    stream_id: string;
+    owner: { id: number; username: string; avatar: string | null };
+    category: {
+      id: number;
+      eng_name: string;
+      kor_name: string;
+      icon: string | null;
+    } | null;
+    tags: { id: number; name: string }[];
+    board_games?: Array<{
+      boardGame: BoardGameRelationOption;
+    }>;
+  };
+}
+
+/** 라이브 방송 목록 액션 응답 */
+export interface StreamsPage {
+  streams: BroadcastSummary[];
+  nextCursor: number | null;
+}
+
+/** 다시보기 목록 액션 응답 */
+export interface RecordingsPage {
+  recordings: VodForGrid[];
+  nextCursor: number | null;
 }
 
 /** 댓글 타입 */

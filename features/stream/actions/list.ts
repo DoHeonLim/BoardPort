@@ -18,31 +18,25 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.29  임도헌   Modified  다시보기 최신/인기 정렬과 팔로잉만 보조 필터 액션 파라미터 정리
  * 2026.03.31  임도헌   Modified  방송/다시보기 목록 액션 역할이 보이도록 설명 톤 통일
+ * 2026.05.08  임도헌   Modified  목록 응답 타입과 조회 범위 타입을 features/stream/types.ts로 이동
  */
 
 "use server";
 
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import { getRecordingsList, getStreamsList } from "@/features/stream/service/list";
-import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
+import type {
+  RecordingsPage,
+  StreamsPage,
+  StreamScope,
+} from "@/features/stream/types";
 import getSession from "@/lib/session";
 
-export type StreamsPage = {
-  streams: BroadcastSummary[];
-  nextCursor: number | null;
-};
-
-export type RecordingsPage = {
-  recordings: VodForGrid[];
-  nextCursor: number | null;
-};
-
-type Scope = "all" | "following";
 const TAKE = STREAMS_PAGE_TAKE;
 
 /**
  * 입력값 정규화
- * 빈 문자열 검색 파라미터를 undefined로 바꿔 service 조건 분기와 맞춥니다.
+ * 빈 문자열 검색 파라미터를 undefined로 바꿔 service 조건 분기와 정합성 유지
  */
 function norm(v?: string) {
   const t = v?.trim();
@@ -57,14 +51,14 @@ function norm(v?: string) {
  * - URL 검색 파라미터(카테고리, 키워드) 공백 정규화 처리 후 Service 레이어 전달
  * - 무한 스크롤을 위한 현재 페이지 데이터(streams) 및 다음 커서(nextCursor) 도출
  *
- * @param {Scope} scope - 조회 범위 ("all" | "following")
+ * @param {StreamScope} scope - 조회 범위 ("all" | "following")
  * @param {number | null} cursor - 이전 페이지의 마지막 방송 ID
  * @param {Record<string, string>} searchParams - 카테고리 및 키워드 필터 조건
  * @param {number | null} viewerId - 조회자 ID (팔로잉 목록 확인용)
  * @returns {Promise<StreamsPage>} 평탄화된 방송 목록과 페이징 커서 반환
  */
 export async function getStreamsListAction(
-  scope: Scope,
+  scope: StreamScope,
   cursor: number | null,
   searchParams: Record<string, string>,
   viewerId: number | null

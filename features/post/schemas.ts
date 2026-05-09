@@ -19,6 +19,7 @@
  * 2026.03.30  임도헌   Modified  가벼운 블록 편집기 저장용 PostEditorBlock 스키마 추가
  * 2026.03.31  임도헌   Modified  유튜브 전용 EMBED 블록 검증 필드 추가
  * 2026.04.01  임도헌   Modified  수정 폼의 기존 첨부 동영상 유지 케이스를 위한 hasAttachedVideo 검증 필드 추가
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 검증 필드 추가
  */
 
 import { z } from "zod";
@@ -70,6 +71,11 @@ export const postFormSchema = z.object({
     .array(z.string())
     .max(5, "태그는 최대 5개까지만 입력할 수 있습니다.")
     .optional(),
+  boardGameIds: z
+    .array(z.number().int().positive())
+    .max(5, "보드게임은 최대 5개까지 연결할 수 있습니다.")
+    .optional()
+    .default([]),
   photos: z.array(z.string()).optional(),
   photosAnimated: z.array(z.boolean()).optional().default([]),
   videoDraftKey: z.string().trim().optional().nullable(),

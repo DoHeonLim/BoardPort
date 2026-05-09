@@ -19,15 +19,25 @@
  * 2026.03.29  임도헌   Modified  메인 다시보기 목록에 최신/인기 정렬과 팔로잉만 보조 필터를 분리 적용
  * 2026.04.02  임도헌   Modified  방송 요약 Prisma select import를 selects.ts 기준으로 정리
  * 2026.04.24  임도헌   Modified  프로필 방송국의 종료 방송 썸네일도 최신 ready VOD thumbnail_url을 우선 사용하도록 보정
+ * 2026.05.03  임도헌   Modified  방송/다시보기 카드 표시용 연결 보드게임 locale 매핑 추가
+ * 2026.05.08  임도헌   Modified  보드게임 relation select 공용화 및 팔로우 상태 확인용 select factory 적용
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeStream } from "@/features/stream/utils/serializer";
-import { BROADCAST_SUMMARY_SELECT } from "@/features/stream/selects";
+import {
+  BROADCAST_SUMMARY_SELECT,
+  buildBroadcastSummarySelectWithViewerFollow,
+} from "@/features/stream/selects";
+import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import { getBlockedUserIds } from "@/features/user/service/block";
-import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
+import type {
+  BroadcastSummary,
+  StreamScope,
+  VodForGrid,
+} from "@/features/stream/types";
 
 /* -------------------------------------------------------------------------- */
 /*                                1. Main List                                */
@@ -46,7 +56,7 @@ import type { BroadcastSummary, VodForGrid } from "@/features/stream/types";
  * @returns {Promise<BroadcastSummary[]>} 필터링 및 직렬화가 완료된 방송 목록
  */
 export async function getStreamsList(params: {
-  scope: "all" | "following";
+  scope: StreamScope;
   category?: string;
   keyword?: string;
   viewerId: number;
@@ -55,27 +65,8 @@ export async function getStreamsList(params: {
 }): Promise<BroadcastSummary[]> {
   const { scope, category, keyword, viewerId, cursor, take } = params;
 
-  const summarySelectWithViewerFollow = {
-    ...BROADCAST_SUMMARY_SELECT,
-    liveInput: {
-      select: {
-        provider_uid: true,
-        userId: true,
-        user: {
-          select: {
-            id: true,
-            username: true,
-            avatar: true,
-            followers: {
-              where: { followerId: viewerId },
-              select: { id: true },
-              take: 1,
-            },
-          },
-        },
-      },
-    },
-  } satisfies Prisma.BroadcastSelect;
+  const summarySelectWithViewerFollow =
+    buildBroadcastSummarySelectWithViewerFollow(viewerId);
 
   // 1. 차단된 유저 ID 목록 조회
   const blockedIds = await getBlockedUserIds(viewerId);
@@ -275,6 +266,7 @@ export async function getRecordingsList(params: {
           visibility: true,
           category: { select: { id: true, kor_name: true, icon: true } },
           tags: { select: { id: true, name: true } },
+          board_games: { select: STREAM_BOARD_GAME_RELATION_SELECT },
           liveInput: {
             select: {
               userId: true,
@@ -325,6 +317,13 @@ export async function getRecordingsList(params: {
       viewCount: v.views,
       category: b.category,
       tags: b.tags,
+      board_games: b.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 공개 locale이 있는 연결만 방송 카드의 보드게임 뱃지로 사용
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
       requiresPassword: b.visibility === "PRIVATE" ? !isMine : false,
       followersOnlyLocked:
         b.visibility === "FOLLOWERS" ? !isMine && !isFollowing : false,
@@ -490,6 +489,7 @@ export async function getChannelVods(
           visibility: true,
           category: { select: { id: true, kor_name: true, icon: true } },
           tags: { select: { id: true, name: true } },
+          board_games: { select: STREAM_BOARD_GAME_RELATION_SELECT },
           liveInput: {
             select: {
               user: { select: { id: true, username: true, avatar: true } },
@@ -518,6 +518,13 @@ export async function getChannelVods(
       viewCount: v.views,
       category: b.category,
       tags: b.tags,
+      board_games: b.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 공개 locale이 없는 연결은 다시보기 그리드 표시 대상에서 제외
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
       requiresPassword: false,
       followersOnlyLocked: false,
     };

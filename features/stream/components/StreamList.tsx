@@ -4,6 +4,7 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2025.08.25  임도헌   Created   StreamCard 호환 + 내부 페이지네이션 내장
  * 2025.08.26  임도헌   Modified  usePageVisibility + 새 useInfiniteScroll 옵션 추가
  * 2025.09.10  임도헌   Modified  append 중복 방지(Map), 에러 메시지/aria 보강, 사소한 정리
@@ -21,6 +22,8 @@
  * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
  * 2026.03.25  임도헌   Modified  스트림 카드 간격을 뷰포트별로 재조정해 목록 리듬 완화
  * 2026.04.17  임도헌   Modified  스트림 목록의 검색 정규화/가시 탭 로딩/팔로우 요청 위임 책임 설명 보강
+ * 2026.05.03  임도헌   Modified  방송 카드에 연결 보드게임 요약 배지 표시
+ * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  */
 
 "use client";
@@ -30,11 +33,10 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import StreamCard from "@/features/stream/components/StreamCard";
 import { useStreamPagination } from "@/features/stream/hooks/useStreamPagination";
-
-type Scope = "all" | "following";
+import type { StreamScope } from "@/features/stream/types";
 
 interface StreamListProps {
-  scope: Scope;
+  scope: StreamScope;
   searchParams: { category?: string; keyword?: string };
   onRequestFollow?: (streamer: { id: number; username: string }) => void;
   viewerId?: number | null;
@@ -101,6 +103,7 @@ export default function StreamList({
               startedAt={s.started_at}
               category={s.category}
               tags={tags}
+              boardGames={s.board_games}
               requiresPassword={s.requiresPassword}
               isFollowersOnly={s.visibility === "FOLLOWERS"}
               followersOnlyLocked={s.followersOnlyLocked}

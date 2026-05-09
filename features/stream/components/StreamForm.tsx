@@ -26,6 +26,9 @@
  * 2026.03.28  임도헌   Modified   추가/수정 폼 카테고리 Select는 이모지 없이 텍스트 라벨만 노출하도록 정리
  * 2026.04.02  임도헌   Modified   Cloudflare 썸네일 base URL 생성을 stream image utils 기준으로 통일
  * 2026.04.18  임도헌   Modified   use client 직렬화 경고를 피하기 위해 action prop 제거 및 현재 지원 범위(create) 기준으로 정리
+ * 2026.05.03  임도헌   Modified   보드게임 카탈로그 연결 선택 필드 추가
+ * 2026.05.04  임도헌   Modified   보드게임 연결 필드를 방송 제목 다음으로 올려 방송 주제 맥락을 먼저 선택하도록 정리
+ * 2026.05.05  임도헌   Modified   방송 생성/카테고리/검증 핸들러 JSDoc 보강
  */
 "use client";
 
@@ -54,6 +57,8 @@ import { buildStreamImageDeliveryUrl } from "@/features/stream/utils/image";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { cn } from "@/lib/utils";
+import BoardGameRelationField from "@/features/boardgame/components/BoardGameRelationField";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 const RTMPInfoModal = dynamic(
   () => import("@/features/stream/components/RTMPInfoModal"),
@@ -63,6 +68,7 @@ const RTMPInfoModal = dynamic(
 interface StreamFormProps {
   categories: StreamCategory[];
   defaultValues?: Partial<StreamFormValues>;
+  boardGameOptions?: BoardGameRelationOption[];
   cancelHref?: string;
 }
 
@@ -82,6 +88,7 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 export default function StreamForm({
   categories,
   defaultValues,
+  boardGameOptions = [],
   cancelHref = "/streams",
 }: StreamFormProps) {
   // defaultValues에 소분류만 주어진 경우 해당 부모 대분류 복원 및 2단 Select 일관 렌더링
@@ -128,11 +135,13 @@ export default function StreamForm({
       password: "",
       streamCategoryId: undefined as unknown as number,
       tags: [],
+      boardGameIds: [],
       ...defaultValues,
     },
   });
 
   const watchVisibility = watch("visibility");
+  const selectedBoardGameIds = watch("boardGameIds") ?? [];
   const isPrivateVisibilitySelected =
     watchVisibility === STREAM_VISIBILITY.PRIVATE;
 
@@ -170,12 +179,22 @@ export default function StreamForm({
   const subCategoryErrors =
     categoryErrorMessage && selectedMainCategory ? [categoryErrorMessage] : [];
 
+  /**
+   * 방송 대분류 변경 시 하위 카테고리 선택값 초기화
+   *
+   * @param value - 선택한 대분류 id 문자열
+   */
   const handleMainCategoryChange = (value: string) => {
     const id = value ? Number(value) : null;
     setSelectedMainCategory(id);
     resetField("streamCategoryId");
   };
 
+  /**
+   * 방송 생성 폼 제출과 썸네일 업로드 후 서버 액션 호출
+   *
+   * @param data - 검증 완료된 방송 생성 입력값
+   */
   const onSubmit = async (data: StreamFormValues) => {
     try {
       // 1) 썸네일 업로드
@@ -209,9 +228,10 @@ export default function StreamForm({
 
       // [특수 필드 1] JSON 직렬화
       formData.append("tags", JSON.stringify((data.tags ?? []).slice(0, 5)));
+      formData.append("boardGameIds", JSON.stringify(data.boardGameIds ?? []));
 
       // [자동화] 나머지 필드들
-      const skipFields = ["tags", "thumbnail"];
+      const skipFields = ["tags", "boardGameIds", "thumbnail"];
       Object.entries(data).forEach(([key, value]) => {
         if (
           !skipFields.includes(key) &&
@@ -263,6 +283,11 @@ export default function StreamForm({
     }
   };
 
+  /**
+   * 유효성 오류 발생 시 첫 오류 필드로 포커스 이동
+   *
+   * @param formErrors - React Hook Form 오류 객체
+   */
   const onInvalid = (formErrors: typeof errors) => {
     focusFirstFieldError<StreamFormValues>(formErrors, setFocus);
   };
@@ -282,6 +307,22 @@ export default function StreamForm({
           errors={errors.title?.message ? [errors.title.message] : []}
           {...register("title")}
         />
+
+        <BoardGameRelationField
+          options={boardGameOptions}
+          selectedIds={selectedBoardGameIds}
+          onChange={(ids) =>
+            setValue("boardGameIds", ids, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+          disabled={isSubmitting}
+          errors={
+            errors.boardGameIds?.message ? [errors.boardGameIds.message] : []
+          }
+        />
+
         <Input
           type="textarea"
           label="방송 설명"

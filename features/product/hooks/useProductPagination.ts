@@ -20,6 +20,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.11  임도헌   Modified  첫 페이지 totalCount를 노출해 무한스크롤 중에도 전체 검색 결과 수를 고정 표시
  * 2026.04.17  임도헌   Modified  Suspense 무한 쿼리 기준 현재 동작과 맞지 않던 initialData 설명을 제거하고 훅 책임 주석을 최신화
+ * 2026.05.08  임도헌   Modified  프로필 제품 목록 조회 범위 타입 import 경로를 product types로 정리
  */
 
 "use client";
@@ -32,8 +33,11 @@ import {
 import { getUserProductsAction } from "@/features/user/actions/product";
 import { getProductsAction } from "@/features/product/actions/list";
 import { queryKeys } from "@/lib/queryKeys";
-import type { UserProductsScope } from "@/features/product/service/userList";
-import type { Paginated, ProductSearchParams } from "@/features/product/types";
+import type {
+  Paginated,
+  ProductSearchParams,
+  UserProductsScope,
+} from "@/features/product/types";
 
 // =============================================================================
 // 1. Hook Configuration Types

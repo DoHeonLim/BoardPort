@@ -42,6 +42,7 @@
  * 2026.04.20  임도헌   Modified  다시보기 팔로잉 필터 선택 상태 대비를 높이고 모바일 제어와 active 문법을 맞춤
  * 2026.04.20  임도헌   Modified  앱 셸이 sm 폭 제약으로 전환되는 구간부터 데스크톱 헤더를 사용하도록 헤더 분기 breakpoint를 정리
  * 2026.04.20  임도헌   Modified  sm 구간 데스크톱 헤더가 뒤 콘텐츠를 비치지 않도록 반투명 헤더/카테고리 레일 표면을 불투명 톤으로 정리
+ * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
 */
 import { Suspense } from "react";
 import { Metadata } from "next";
@@ -67,7 +68,11 @@ import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatu
 import RecordingListRefreshRelay from "@/features/stream/components/RecordingListRefreshRelay";
 import { getRecordingsListAction, getStreamsListAction } from "@/features/stream/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
-import type { RecordingSort, StreamMode } from "@/features/stream/types";
+import type {
+  RecordingSort,
+  StreamMode,
+  StreamScope,
+} from "@/features/stream/types";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +82,7 @@ interface StreamsPageProps {
     category?: string;
     mode?: StreamMode;
     sort?: RecordingSort;
-    scope?: "all" | "following";
+    scope?: StreamScope;
   };
 }
 
@@ -164,7 +169,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
       : prefetchData?.pages[0]?.streams.length === 0;
 
   // 탭 링크 빌더
-  const buildHref = (nextScope: "all" | "following") => {
+  const buildHref = (nextScope: StreamScope) => {
     const sp = new URLSearchParams();
     if (mode !== "live") sp.set("mode", mode);
     if (mode === "recordings" && recordingSort !== "latest") {

@@ -17,11 +17,15 @@
  * 2026.03.11  임도헌   Modified  무한스크롤 목록에서도 전체 검색 결과 수를 고정 표시할 수 있도록 totalCount 필드 추가
  * 2026.03.12  임도헌   Modified  사용자 업로드 이미지의 애니메이션 여부 저장을 위한 메타 필드 추가
  * 2026.03.26  임도헌   Modified  찜 목록 전용 liked_at 타입과 카드 활동 시점 prop 타입 추가
+ * 2026.05.03  임도헌   Modified  프로필 구매 목록에서도 연결 보드게임 배지를 표시할 수 있도록 타입 확장
  * 2026.03.26  임도헌   Modified  ProductCard에 찜 목록 전용 빠른 해제 UI prop 추가
  * 2026.04.02  임도헌   Modified  ProductFormResponse union 정리와 상태 타입 일관성 보강
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입을 search 도메인 공용 타입으로 이동
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상태(hidden_at) 지원을 위해 상세/목록 타입 필드 확장
  * 2026.04.13  임도헌   Modified  ProductCard returnTo를 상위 리스트에서 주입할 수 있도록 prop 확장
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 DTO 및 상세 타입 추가
+ * 2026.05.03  임도헌   Modified  상품 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 목록 타입 확장
+ * 2026.05.08  임도헌   Modified  프로필/마이페이지 제품 목록 조회 범위 타입을 product types로 이동
  */
 
 import {
@@ -31,6 +35,7 @@ import {
 } from "@/features/product/constants";
 import type { ProductReview } from "@/features/review/types";
 import { LocationData } from "@/features/map/types";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 // =============================================================================
 // 1. Utility Types
@@ -39,6 +44,21 @@ import { LocationData } from "@/features/map/types";
 export type ISODate = Date | string | null;
 /** 상품 판매 상태 */
 export type ProductStatus = "selling" | "reserved" | "sold";
+
+/**
+ * 유저 제품 목록 조회 범위
+ * - SELLING: 판매 중
+ * - RESERVED: 예약 중
+ * - SOLD: 판매 완료
+ * - PURCHASED: 구매 내역
+ * - LIKED: 좋아요 내역
+ */
+export type UserProductsScope =
+  | { type: "SELLING"; userId: number }
+  | { type: "RESERVED"; userId: number }
+  | { type: "SOLD"; userId: number }
+  | { type: "PURCHASED"; userId: number }
+  | { type: "LIKED"; userId: number };
 
 // =============================================================================
 // 2. Data Transfer Objects (DTO) - 요청/응답 데이터
@@ -61,6 +81,7 @@ export interface ProductDTO {
   has_manual: boolean;
   categoryId: number;
   location?: LocationData | null;
+  boardGameIds?: number[];
 }
 
 /** 제품 검색 파라미터 */
@@ -210,6 +231,9 @@ export interface ProductFullDetails extends BaseProduct {
   region2?: string | null;
   region3?: string | null;
   hidden_at?: ISODate;
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
 }
 
 /**
@@ -240,6 +264,9 @@ export interface ProductDetailType extends ProductFullDetails {
   _count: {
     product_likes: number;
   };
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
 }
 
 /**
@@ -267,6 +294,9 @@ export interface ProductType extends BaseProduct {
   _count: {
     product_likes: number;
   };
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
 }
 
 /**
@@ -302,6 +332,7 @@ export interface MyPurchasedListItem extends Pick<
   | "category"
   | "views"
   | "_count"
+  | "board_games"
 > {
   purchased_at: ISODate;
   user: ProfileUserLite; // 판매자 정보

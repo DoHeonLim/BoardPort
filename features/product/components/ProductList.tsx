@@ -34,6 +34,7 @@
  * 2026.03.25  임도헌   Modified  뷰 토글 박스의 외곽선/활성 상태를 차분하게 조정해 출시 직전 polish 반영
  * 2026.04.13  임도헌   Modified  카드별 현재 경로 계산을 상위로 승격해 목록 hydration 비용을 완화
  * 2026.04.13  임도헌   Modified  첫 화면 대표 카드 1장만 priority를 사용하도록 이미지 우선순위를 조정
+ * 2026.05.09  임도헌   Modified  좁은 폭에서 헤더 액션과 뷰 토글이 겹치지 않도록 줄바꿈 허용
  */
 
 "use client";
@@ -120,15 +121,15 @@ export default function ProductList({
 
   return (
     <div className="flex flex-col">
-      <div className="mb-4 flex items-center justify-between px-1">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <span className="shrink-0 text-sm font-medium text-muted">
             총 <span className="text-primary font-bold">{displayCount}</span>
             개의 상품
           </span>
-          {headerAction && <div className="shrink-0">{headerAction}</div>}
+          {headerAction && <div className="min-w-0 shrink">{headerAction}</div>}
         </div>
-        <div className="flex rounded-xl border border-border-subtle bg-surface p-1">
+        <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
           <button
             onClick={() => setViewMode("list")}
             aria-label="리스트 보기"

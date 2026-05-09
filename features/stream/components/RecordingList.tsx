@@ -8,6 +8,7 @@
  * 2026.03.28  임도헌   Created   스트림 메인 탭용 다시보기 그리드 리스트 추가
  * 2026.04.16  임도헌   Modified  첫 다시보기 카드 썸네일을 우선 로드해 LCP 후보를 더 빠르게 노출
  * 2026.04.17  임도헌   Modified  다시보기 무한 스크롤과 첫 카드 우선 로드 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.05.03  임도헌   Modified  다시보기 카드에 연결 보드게임 요약 배지 표시
  */
 "use client";
 
@@ -93,6 +94,7 @@ export default function RecordingList({
             startedAt={rec.readyAt}
             category={rec.category}
             tags={rec.tags}
+            boardGames={rec.board_games}
             duration={rec.duration}
             viewCount={rec.viewCount}
             href={rec.href}
