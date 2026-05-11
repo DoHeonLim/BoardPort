@@ -33,11 +33,16 @@
  * 2026.03.31  임도헌   Modified  레거시 description/video/images 기반 PostBlock fallback 제거
  * 2026.03.31  임도헌   Modified  유튜브 전용 EMBED 블록 저장 로직 추가
  * 2026.04.02  임도헌   Modified  게시글 서비스 export/helper JSDoc 태그 형식 정리
+ * 2026.05.03  임도헌   Modified  게시글 생성/수정/상세에 보드게임 카탈로그 연결 반영
+ * 2026.05.03  임도헌   Modified  게시글 목록 카드 표시용 연결 보드게임 locale 매핑 추가
+ * 2026.05.03  임도헌   Modified  게시글-보드게임 연결 저장/교체 정책 주석 보강
+ * 2026.05.08  임도헌   Modified  게시글 상세 보드게임 relation select를 공용 상수로 교체
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
+import { POST_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { POST_SELECT } from "@/features/post/selects";
@@ -58,6 +63,29 @@ import type {
 } from "@/features/post/types";
 
 const TAKE = POSTS_PAGE_TAKE;
+
+type PostListRow = Prisma.PostGetPayload<{
+  select: typeof POST_SELECT;
+}>;
+
+/**
+ * 게시글 목록 DTO에 맞게 공개 보드게임 locale만 평탄화
+ *
+ * @param row - POST_SELECT로 조회한 게시글 row
+ * @returns PostCard가 바로 사용할 수 있는 게시글 목록 DTO
+ */
+function mapPostListRow(row: PostListRow): PostDetail {
+  return {
+    ...row,
+    board_games: row.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 공개 한국어 locale이 없는 카탈로그 연결은 게시글 카드에서 제외
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  } as PostDetail;
+}
 
 /**
  * 게시글 생성/수정 시 연결되지 않은 동영상 초안을 실제 게시글 자산으로 연결
@@ -390,9 +418,23 @@ export async function getPostDetail(id: number): Promise<PostDetail | null> {
             postVideo: true,
           },
         },
+        board_games: {
+          select: POST_BOARD_GAME_RELATION_SELECT,
+        },
       },
     });
-    return post as PostDetail | null;
+    if (!post) return null;
+
+    return {
+      ...post,
+      board_games: post.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 상세에서도 공개 전 보드게임 locale은 노출하지 않아 목록 조건과 정합성 유지
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
+    } as PostDetail;
   } catch (e) {
     console.error("[getPostDetail] Error:", e);
     return null;
@@ -455,10 +497,11 @@ export async function getPostsList(
   ]);
 
   const hasNextPage = rows.length > TAKE;
-  const posts = hasNextPage ? rows.slice(0, TAKE) : rows;
+  const pageRows = hasNextPage ? rows.slice(0, TAKE) : rows;
+  const posts = pageRows.map(mapPostListRow);
   const nextCursor = hasNextPage ? posts[posts.length - 1].id : null;
 
-  return { posts: posts as PostDetail[], nextCursor, totalCount };
+  return { posts, nextCursor, totalCount };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -487,6 +530,8 @@ export async function createPost(
     if (!status.success) return status;
 
     const nextTags = Array.from(new Set(data.tags));
+    // 보드게임 연결은 게시글 분류/태그와 독립적인 선택 관계라 join table에만 저장
+    const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
 
     const post = await db.$transaction(async (tx) => {
       // 게시글 본문 생성
@@ -536,6 +581,17 @@ export async function createPost(
             })
           )
         );
+      }
+
+      if (boardGameIds.length) {
+        // 게시글 본문/태그와 분리된 카탈로그 연결만 join table에 저장
+        await tx.postBoardGame.createMany({
+          data: boardGameIds.map((boardGameId) => ({
+            postId: newPost.id,
+            boardGameId,
+          })),
+          skipDuplicates: true,
+        });
       }
 
       // 동영상 draft 연결
@@ -607,6 +663,8 @@ export async function updatePost(
 
     const prevTags = new Set(existing.tags.map((tag) => tag.name));
     const nextTags = Array.from(new Set(data.tags));
+    // 수정 폼의 현재 보드게임 선택값을 전체 교체 기준으로 정규화
+    const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
     const nextTagSet = new Set(nextTags);
     const removedTags = Array.from(prevTags).filter((tag) => !nextTagSet.has(tag));
     const addedTags = nextTags.filter((tag) => !prevTags.has(tag));
@@ -640,6 +698,8 @@ export async function updatePost(
         where: { id: data.id },
         data: { tags: { set: [] } },
       });
+      // 수정 폼의 현재 선택값 기준으로 연결 보드게임을 전체 교체해 삭제된 선택 잔존 방지
+      await tx.postBoardGame.deleteMany({ where: { postId: data.id } });
 
       // 기본 정보 및 태그 갱신
       await tx.post.update({
@@ -691,6 +751,17 @@ export async function updatePost(
             })
           )
         );
+      }
+
+      if (boardGameIds.length) {
+        // 기존 연결 삭제 이후 현재 선택값만 재삽입해 제거된 보드게임 잔존 방지
+        await tx.postBoardGame.createMany({
+          data: boardGameIds.map((boardGameId) => ({
+            postId: data.id,
+            boardGameId,
+          })),
+          skipDuplicates: true,
+        });
       }
 
       // 동영상 제거 또는 새 draft 연결

@@ -16,6 +16,8 @@
  * 2026.04.08  임도헌   Modified  모바일에서는 하단 시트형, 데스크톱에서는 중앙 카드형으로 분리해 키보드/안전영역 대응 보강
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.21  임도헌   Modified  중첩 모달 위에서도 확인 다이얼로그가 안정적으로 보이도록 포털 레이어 우선순위를 10단위 규칙으로 정리
+ * 2026.04.29  임도헌   Modified  비파괴 확인 액션에서도 사용할 수 있도록 confirm 버튼 primary 톤 옵션 추가
+ * 2026.05.05  임도헌   Modified  키보드/배경 클릭 처리 helper JSDoc 보강
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +31,7 @@ interface ConfirmDialogProps {
   description?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: "danger" | "primary";
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
@@ -47,6 +50,7 @@ export default function ConfirmDialog({
   description,
   confirmLabel = "확인",
   cancelLabel = "취소",
+  confirmVariant = "danger",
   onConfirm,
   onCancel,
   loading = false,
@@ -83,6 +87,11 @@ export default function ConfirmDialog({
   useEffect(() => {
     if (!open) return;
 
+    /**
+     * ESC 닫기와 Tab 포커스 순환을 처리
+     *
+     * @param e - 전역 keydown 이벤트
+     */
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (!loading) onCancel();
@@ -122,6 +131,11 @@ export default function ConfirmDialog({
     if (!loading) onCancel();
   };
 
+  /**
+   * 패널 내부 클릭이 backdrop close로 전파되지 않도록 차단
+   *
+   * @param e - 패널 클릭 이벤트
+   */
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return createPortal(
@@ -175,7 +189,12 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="focus-ring-strong rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-600 disabled:opacity-50"
+            className={cn(
+              "focus-ring-strong rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50",
+              confirmVariant === "primary"
+                ? "bg-brand hover:bg-brand-dark"
+                : "bg-danger hover:bg-red-600"
+            )}
           >
             {loading ? "처리 중..." : confirmLabel}
           </button>

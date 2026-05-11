@@ -14,6 +14,7 @@
  * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
  * 2026.03.16  임도헌   Modified  좁은 화면에서는 태그 노출 수를 한 단계 더 줄일 수 있도록 모바일 제한 prop 추가
  * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 태그/더보기 라벨을 text-xs 기준으로 정리
+ * 2026.05.04  임도헌   Modified  그리드 하단 보조 메타 행에서 태그 묶음을 한 줄로 압축할 수 있도록 className 지원
  */
 
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ interface ProductCardTagsProps {
   tags: ProductTag[];
   maxTags?: number;
   mobileMaxTags?: number;
+  className?: string;
 }
 
 /**
@@ -33,6 +35,7 @@ export function ProductCardTags({
   tags,
   maxTags = 3,
   mobileMaxTags,
+  className,
 }: ProductCardTagsProps) {
   if (!tags || tags.length === 0) return null;
 
@@ -45,7 +48,7 @@ export function ProductCardTags({
   const mobileMoreCount = Math.max(0, tags.length - normalizedMobileMaxTags);
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className={cn("flex flex-wrap gap-1.5", className)}>
       {displayTags.map((tag, index) => (
         <span
           key={index}

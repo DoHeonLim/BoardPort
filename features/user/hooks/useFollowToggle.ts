@@ -22,6 +22,7 @@
  * 2026.03.17  임도헌   Modified  모달 내 토글 시 viewer 자신의 followingCount와 row 상태도 즉시 갱신되도록 캐시 동기화 보강
  * 2026.03.27  임도헌   Modified  스트림 상세에서 팔로우 직후 전체 방송의 팔로잉 탭이 즉시 갱신되도록 기본 following 목록 캐시 시딩 및 stale 처리 보강
  * 2026.03.31  임도헌   Modified  훅 역할과 캐시 동기화 맥락이 보이도록 설명 톤 통일
+ * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입 import 경로를 user types로 정리
  */
 
 "use client";
@@ -30,10 +31,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
-import {
-  toggleFollowAction,
-  type FollowActionResult,
-} from "@/features/user/actions/follow";
+import { toggleFollowAction } from "@/features/user/actions/follow";
+import type { FollowActionResult } from "@/features/user/types";
 
 const DEFAULT_STREAM_LIST_FILTERS = { category: "", keyword: "" } as const;
 

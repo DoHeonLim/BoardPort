@@ -33,7 +33,8 @@
  * 2026.04.10  임도헌   Modified  app 타이포 정책에 맞춰 제품 수정 상단 제목 weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/edit/page.tsx 에서 app/(app)/products/view/[id]/edit/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  ProductForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
-*/
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
+ */
 
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
@@ -41,6 +42,7 @@ import ProductForm from "@/features/product/components/ProductForm";
 import { fetchProductCategories } from "@/features/product/service/category";
 import { convertProductToFormValues } from "@/features/product/utils/converter";
 import { getProductDetail } from "@/features/product/service/detail";
+import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
 import BackButton from "@/components/global/BackButton";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
@@ -83,7 +85,10 @@ export default async function EditPage({
   if (!isOwner) redirect("/products");
 
   // 2. 데이터 준비
-  const categories = await fetchProductCategories();
+  const [categories, boardGameOptionsResult] = await Promise.all([
+    fetchProductCategories(),
+    getBoardGameRelationOptions(),
+  ]);
   const defaultValues = convertProductToFormValues(product);
 
   return (
@@ -109,10 +114,12 @@ export default async function EditPage({
           mode="edit"
           defaultValues={defaultValues}
           categories={categories}
+          boardGameOptions={
+            boardGameOptionsResult.success ? boardGameOptionsResult.data : []
+          }
           cancelHref={cancelHref}
         />
       </div>
     </div>
   );
 }
-

@@ -17,6 +17,8 @@
  * 2026.03.07  임도헌   Modified  태그 중복 입력 방지 및 count 증가 기준을 고유 태그 단위로 정리
  * 2026.03.12  임도헌   Modified  제품 이미지 저장 시 애니메이션 여부 메타를 함께 기록
  * 2026.04.04  임도헌   Modified  상품 생성 트랜잭션/후처리 단계의 인라인 주석 보강
+ * 2026.05.03  임도헌   Modified  상품 생성 시 보드게임 카탈로그 연결 저장 추가
+ * 2026.05.03  임도헌   Modified  상품-보드게임 연결 저장 정책 주석 보강
  */
 import "server-only";
 
@@ -28,11 +30,11 @@ import type { ServiceResult } from "@/lib/types";
 import type { ProductDTO } from "@/features/product/types";
 
 /**
- * 신규 제품을 생성
+ * 신규 제품 생성
  * [검증 및 처리]
- * 1. 정지 유저 체크: `validateUserStatus`를 호출하여 이용 정지 상태인 경우 생성을 차단합니다.
- * 2. 트랜잭션 처리: 제품 정보 저장, 이미지 연결, 태그 카운트 증가를 원자적으로 수행합니다.
- * 3. 후처리: 키워드 알림 발송 및 뱃지 체크를 비동기로 실행합니다.
+ * 1. 정지 유저 체크: `validateUserStatus` 호출 후 이용 정지 상태 생성 차단
+ * 2. 트랜잭션 처리: 제품 정보 저장, 이미지 연결, 태그 카운트 증가의 원자적 수행
+ * 3. 후처리: 키워드 알림 발송 및 뱃지 체크의 비동기 실행
  *
  * @param {number} userId - 작성자(판매자) ID
  * @param {ProductDTO} data - 제품 생성 데이터 DTO
@@ -49,6 +51,8 @@ export const createProduct = async (
   try {
     // 태그 저장/카운트 정산용 고유 태그 목록 구성
     const uniqueTags = Array.from(new Set(data.tags));
+    // 선택된 보드게임은 중복 제거 후 join table 연결 대상으로만 사용
+    const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
 
     // 상품 본문/위치/카테고리/태그 연결용 create payload 구성
     const productData: Prisma.ProductCreateInput = {
@@ -95,6 +99,17 @@ export const createProduct = async (
             isAnimated: data.photosAnimated?.[index] ?? false,
             productId: newProduct.id,
           })),
+        });
+      }
+
+      // 보드게임 선택 연결만 join table에 기록, 원천 카탈로그 데이터 불변
+      if (boardGameIds.length > 0) {
+        await tx.productBoardGame.createMany({
+          data: boardGameIds.map((boardGameId) => ({
+            productId: newProduct.id,
+            boardGameId,
+          })),
+          skipDuplicates: true,
         });
       }
 

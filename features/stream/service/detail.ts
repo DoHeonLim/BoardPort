@@ -16,36 +16,17 @@
  * 2026.04.02  임도헌   Modified  상세 DTO와 조회 함수 반환 설명 보강
  * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지(pinnedChatNotice) 필드 조회 추가
  * 2026.04.16  임도헌   Modified  상세 비연결 상태 fallback용 thumbnail 필드를 DTO에 포함
+ * 2026.05.03  임도헌   Modified  방송/녹화 상세에 연결된 보드게임 카탈로그 정보 포함
+ * 2026.05.08  임도헌   Modified  방송/녹화 상세 보드게임 relation select를 공용 상수로 교체
+ * 2026.05.08  임도헌   Modified  상세 DTO 타입을 features/stream/types.ts로 이동
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
-import type { StreamVisibility } from "@/features/stream/types";
-
-/** 방송 상세 페이지 조립용 내부 DTO */
-export type StreamDetailDTO = {
-  title: string;
-  stream_id: string; // CF UID
-  thumbnail: string | null;
-  userId: number;
-  user: {
-    id: number;
-    username: string;
-    avatar?: string | null;
-  };
-  category?: {
-    kor_name: string;
-    icon?: string | null;
-  } | null;
-  tags?: { name: string }[] | null;
-  started_at?: Date | null;
-  description?: string | null;
-  pinnedChatNotice?: string | null;
-  status: string;
-  visibility: StreamVisibility;
-};
+import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
+import type { StreamDetailDTO, VodDetailDTO } from "@/features/stream/types";
 
 /**
  * 방송(Broadcast) 상세 정보 조회 로직
@@ -80,6 +61,9 @@ export async function getBroadcastDetail(
         },
         category: { select: { kor_name: true, icon: true } },
         tags: { select: { name: true } },
+        board_games: {
+          select: STREAM_BOARD_GAME_RELATION_SELECT,
+        },
       },
     });
 
@@ -99,6 +83,13 @@ export async function getBroadcastDetail(
         ? { kor_name: b.category.kor_name, icon: b.category.icon }
         : null,
       tags: b.tags ?? [],
+      board_games: b.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 공개 한국어 locale이 있는 보드게임 연결만 방송 상세에 노출
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
       started_at: b.started_at ?? null,
       description: b.description ?? null,
       pinnedChatNotice: b.pinnedChatNotice ?? null,
@@ -127,31 +118,6 @@ export const getCachedBroadcastDetail = (id: number) => {
     ["broadcast-detail-data", String(id)],
     { tags: [T.BROADCAST_DETAIL(id)], revalidate: 3600 }
   )();
-};
-
-/** 녹화본 상세 페이지 조립용 내부 DTO */
-export type VodDetailDTO = {
-  vodId: number;
-  uid: string;
-  durationSec: number | null;
-  readyAt: Date | null;
-  createdAt: Date;
-  views: number;
-  counts: { likes: number; comments: number };
-  broadcast: {
-    id: number;
-    title: string;
-    visibility: StreamVisibility;
-    stream_id: string;
-    owner: { id: number; username: string; avatar: string | null };
-    category: {
-      id: number;
-      eng_name: string;
-      kor_name: string;
-      icon: string | null;
-    } | null;
-    tags: { id: number; name: string }[];
-  };
 };
 
 /**
@@ -192,6 +158,9 @@ export async function getVodDetail(
             select: { id: true, eng_name: true, kor_name: true, icon: true },
           },
           tags: { select: { id: true, name: true } },
+          board_games: {
+            select: STREAM_BOARD_GAME_RELATION_SELECT,
+          },
         },
       },
     },
@@ -222,6 +191,13 @@ export async function getVodDetail(
       },
       category: vod.broadcast.category ?? null,
       tags: (vod.broadcast.tags ?? []).map((t) => ({ id: t.id, name: t.name })),
+      board_games: vod.broadcast.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 녹화 상세도 방송 상세와 같은 공개 locale 기준으로 보드게임 연결 표시
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
     },
   };
 }

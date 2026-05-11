@@ -4,6 +4,7 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2025.07.30  임도헌   Created    streamSchema 분리 적용
  * 2025.08.10  임도헌   Modified   PRIVATE 비밀번호 bcrypt 해시 저장
  * 2025.08.21  임도헌   Modified   서버 전용 ENV 적용/응답 검증/에러 메시지 표준화/불필요 외부호출 방지
@@ -19,6 +20,8 @@
  * 2026.03.07  임도헌   Modified  생성 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  방송 태그 중복 제거 및 공백 정리
  * 2026.03.12  임도헌   Modified  방송 썸네일 저장 시 애니메이션 메타를 함께 기록
+ * 2026.05.03  임도헌   Modified  방송 생성 시 보드게임 카탈로그 연결 저장 추가
+ * 2026.05.03  임도헌   Modified  방송-보드게임 연결 저장 정책 주석 보강
  */
 
 import "server-only";
@@ -61,11 +64,14 @@ export const createBroadcast = async (
     password,
     streamCategoryId,
     tags,
+    boardGameIds,
   } = data;
 
   const nextTags = Array.from(
     new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))
   );
+  // 방송과 보드게임은 선택 관계만 저장하고 카탈로그 원천 데이터는 변경하지 않음
+  const linkedBoardGameIds = Array.from(new Set(boardGameIds ?? []));
 
   // 비공개 비밀번호 해싱
   let passwordHash: string | null = null;
@@ -110,6 +116,14 @@ export const createBroadcast = async (
               connectOrCreate: nextTags.map((name) => ({
                 where: { name },
                 create: { name },
+              })),
+            }
+          : undefined,
+        // 방송-보드게임 선택 연결만 저장, 카탈로그 원천/locale 데이터 불변
+        board_games: linkedBoardGameIds.length
+          ? {
+              create: linkedBoardGameIds.map((boardGameId) => ({
+                boardGame: { connect: { id: boardGameId } },
               })),
             }
           : undefined,

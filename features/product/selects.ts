@@ -7,7 +7,12 @@
  * Date        Author   Status    Description
  * 2026.04.02  임도헌   Created   constants.ts에 섞여 있던 제품 조회 select 상수를 전용 파일로 분리
  * 2026.04.09  임도헌   Modified  내 판매/구매/찜 프로필 목록에서 판매완료 숨김 상태를 함께 다룰 수 있도록 hidden_at 필드 추가
+ * 2026.05.03  임도헌   Modified  공개 상품 목록 카드에 연결 보드게임 칩을 표시할 수 있도록 보드게임 locale select 추가
+ * 2026.05.03  임도헌   Modified  프로필 판매/구매/찜 목록도 보드게임 칩을 사용할 수 있도록 공용 relation select 적용
+ * 2026.05.08  임도헌   Modified  보드게임 relation select를 features/boardgame/selects.ts 공용 상수로 교체
  */
+
+import { PRODUCT_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 
 /** 기본 제품 목록 조회용 Select (ProductList, Search 등) */
 export const PRODUCT_SELECT = {
@@ -57,6 +62,9 @@ export const PRODUCT_SELECT = {
       name: true,
     },
   },
+  board_games: {
+    select: PRODUCT_BOARD_GAME_RELATION_SELECT,
+  },
 } as const;
 
 /**
@@ -96,6 +104,9 @@ export const PROFILE_SALES_UNIFIED_SELECT = {
   },
   _count: { select: { product_likes: true } },
   search_tags: { select: { name: true } },
+  board_games: {
+    select: PRODUCT_BOARD_GAME_RELATION_SELECT,
+  },
   user: { select: { username: true, avatar: true } },
   reviews: {
     select: {

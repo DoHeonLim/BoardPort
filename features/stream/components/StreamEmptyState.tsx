@@ -17,15 +17,16 @@
  * 2026.03.28  임도헌   Modified  검색 empty state 문법을 제품/게시글과 통일하고 검색어는 보조 문구로 재배치
  * 2026.03.28  임도헌   Modified  스트림 모드(라이브/다시보기)에 따라 제목/설명/CTA를 분기하도록 확장
  * 2026.04.16  임도헌   Modified  빈 상태 CTA 링크 자동 prefetch를 끄고 실제 선택 시 이동하도록 정리
+ * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
-import type { StreamMode } from "@/features/stream/types";
+import type { StreamMode, StreamScope } from "@/features/stream/types";
 
 interface Props {
   keyword?: string;
   category?: string;
-  scope?: "all" | "following";
+  scope?: StreamScope;
   mode?: StreamMode;
 }
 

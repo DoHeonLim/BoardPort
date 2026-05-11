@@ -20,6 +20,7 @@
  * 2026.03.07  임도헌   Modified  태그 payload 파싱 오류를 ActionState 실패로 정규화
  * 2026.03.08  임도헌   Modified  Zod 검증 실패를 fieldErrors 형태로 반환해 폼 하단 에러 매핑과 연결
  * 2026.03.12  임도헌   Modified  GIF 조건부 최적화를 위한 thumbnailAnimated 메타 파싱 및 전달 추가
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
  */
 
 "use server";
@@ -28,6 +29,7 @@ import { revalidatePath } from "next/cache";
 import getSession from "@/lib/session";
 import { createBroadcast } from "@/features/stream/service/create";
 import { streamFormSchema } from "@/features/stream/schemas";
+import { parseBoardGameIdsFormValue } from "@/features/boardgame/utils/form";
 import type { CreateBroadcastResult } from "@/features/stream/types";
 
 /**
@@ -70,6 +72,20 @@ export const createBroadcastAction = async (
       };
     }
 
+    // 연결 보드게임 ID 파싱
+    const boardGameIds = parseBoardGameIdsFormValue(
+      formData.get("boardGameIds")
+    );
+    if (!boardGameIds) {
+      return {
+        success: false,
+        error: "보드게임 연결 정보 형식이 올바르지 않습니다.",
+        fieldErrors: {
+          boardGameIds: ["보드게임 연결 정보 형식이 올바르지 않습니다."],
+        },
+      };
+    }
+
     // 생성 payload 구성
     const rawData = {
       title: formData.get("title"),
@@ -80,6 +96,7 @@ export const createBroadcastAction = async (
       password: formData.get("password"),
       streamCategoryId: Number(formData.get("streamCategoryId")),
       tags: tagsSafe,
+      boardGameIds,
     };
 
     // 폼 스키마 검증
@@ -98,6 +115,9 @@ export const createBroadcastAction = async (
     // 목록 경로 갱신
     if (result.success) {
       revalidatePath("/streams", "page");
+      boardGameIds.forEach((boardGameId) => {
+        revalidatePath(`/boardgames/${boardGameId}`);
+      });
     }
 
     return result;

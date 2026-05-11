@@ -48,6 +48,8 @@
  * 2026.04.17  임도헌   Modified  태그와 좋아요/조회수 메타 사이 불필요한 구분선을 제거해 카드 리듬을 단순화
  * 2026.04.19  임도헌   Modified  내 판매 카드 hover 피드백을 그림자 중심으로 정리하고 제목/테두리 과반응을 제거
  * 2026.04.20  임도헌   Modified  썸네일/제목 링크가 기본 outline 대신 공용 포커스 톤을 따르도록 정리
+ * 2026.05.03  임도헌   Modified  프로필 판매 카드에 연결 보드게임 배지 표시 추가
+ * 2026.05.05  임도헌   Modified  판매 내역 카드 helper와 상태/리뷰 핸들러 JSDoc 보강
  */
 
 "use client";
@@ -86,6 +88,7 @@ import { bumpProductAction } from "@/features/product/actions/bump";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import { removeRecentViewedProduct } from "@/features/product/utils/recentViewed";
+import ProductCardBoardGameBadge from "@/features/product/components/productCard/ProductCardBoardGameBadge";
 import type {
   MySalesListItem,
   ProductStatus,
@@ -132,7 +135,12 @@ interface PurchaseUserInfo {
   avatar: string | null;
 }
 
-// 상태 뱃지 UI
+/**
+ * 판매 탭 상태의 카드 상단 pill 표시
+ *
+ * @param props - 현재 판매 상태 tab
+ * @returns 상태 pill 또는 null
+ */
 function StatusPill({ tab }: { tab?: ProductStatus }) {
   if (!tab) return null;
   const styles = {
@@ -152,6 +160,12 @@ function StatusPill({ tab }: { tab?: ProductStatus }) {
   );
 }
 
+/**
+ * 판매 내역 카드 보조 메타 정보의 작은 칩 표시
+ *
+ * @param props - 표시할 chip children
+ * @returns 메타 chip UI
+ */
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-xs font-medium leading-none text-primary shadow-sm">
@@ -160,6 +174,12 @@ function Chip({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * 판매 내역 카드 수치 메타의 아이콘 동반 표시
+ *
+ * @param props - 아이콘과 표시 값
+ * @returns metric row UI
+ */
 function Metric({
   icon,
   children,
@@ -207,6 +227,12 @@ export default function MySalesProductItem({
     deleteConfirm: false, // 리뷰 삭제 확인
   });
 
+  /**
+   * 판매 내역 카드 내부 모달의 열림 상태 부분 갱신
+   *
+   * @param key - 제어할 모달 key
+   * @param open - 다음 열림 상태
+   */
   const toggleModal = (key: keyof typeof modalState, open: boolean) => {
     setModalState((prev) => ({ ...prev, [key]: open }));
   };
@@ -267,7 +293,13 @@ export default function MySalesProductItem({
     }
   }, [product.purchase_user, product.purchase_userId]);
 
-  // 리뷰 등록
+  /**
+   * 판매자가 구매자에게 남기는 리뷰 등록
+   *
+   * @param text - 리뷰 내용
+   * @param rating - 별점
+   * @returns 등록 성공 여부
+   */
   const handleSubmitReview = async (text: string, rating: number) => {
     const res = await submitReview(text, rating);
     return !!res.ok;
@@ -278,7 +310,9 @@ export default function MySalesProductItem({
   // 끌어올리기 횟수 제한
   const isBumpMaxed = product.bump_count >= MAX_BUMP_COUNT;
 
-  // 끌어올리기
+  /**
+   * 판매글 끌어올리기 실행 후 성공 시 로컬 bump count 즉시 반영
+   */
   const handleBump = () => {
     startBump(async () => {
       const res = await bumpProductAction(product.id);
@@ -295,7 +329,9 @@ export default function MySalesProductItem({
     });
   };
 
-  // 리뷰 삭제
+  /**
+   * 판매자가 작성한 리뷰 삭제 및 목록 상태 동기화
+   */
   const confirmDeleteReview = async () => {
     try {
       const reviewId = sellerReviews[0]?.id;
@@ -369,13 +405,17 @@ export default function MySalesProductItem({
     [onOptimisticMove, onMoveFailed, product, type]
   );
 
-  // 예약중 -> 판매완료
+  /**
+   * 예약 중인 상품을 판매 완료 상태로 변경
+   */
   const handleUpdateToSold = () =>
     runWithOptimistic("sold", () =>
       updateProductStatusAction(product.id, "sold")
     );
 
-  // 판매완료/예약중 -> 판매중 (리뷰 삭제 경고 후 실행)
+  /**
+   * 판매 완료/예약 중 상품의 판매 중 전환과 관련 리뷰 상태 정리
+   */
   const updateToSelling = async () => {
     await runWithOptimistic("selling", async () => {
       const res = await updateProductStatusAction(product.id, "selling");
@@ -389,11 +429,17 @@ export default function MySalesProductItem({
     toggleModal("warning", false);
   };
 
+  /**
+   * 판매 중 전환 전 리뷰 삭제 경고 필요 여부 판단과 다음 액션 분기
+   */
   const handleUpdateToSelling = () => {
     if (type === "sold") toggleModal("warning", true);
     else updateToSelling();
   };
 
+  /**
+   * 판매 완료 상품의 공개 목록 숨김 상태 토글
+   */
   const handleToggleHidden = async () => {
     const nextHidden = !product.hidden_at;
 
@@ -432,7 +478,12 @@ export default function MySalesProductItem({
     }
   };
 
-  // 예약자 선택 완료
+  /**
+   * 선택한 예약자의 상품 연결과 예약 상태 변경
+   *
+   * @param rid - 예약자 user id
+   * @returns 예약 처리 성공 여부
+   */
   const handleReserveConfirm = async (rid: number) => {
     const nextProd = {
       ...product,
@@ -559,6 +610,10 @@ export default function MySalesProductItem({
             <div className="mt-1 text-sm font-bold text-brand dark:text-brand-light sm:text-base">
               {formatToWon(product.price)}원
             </div>
+            <ProductCardBoardGameBadge
+              items={product.board_games}
+              viewMode={isGrid ? "grid" : "list"}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5 mt-2">

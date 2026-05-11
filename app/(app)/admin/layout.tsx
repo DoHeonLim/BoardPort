@@ -13,6 +13,7 @@
  * 2026.03.30  임도헌   Modified  세션·DB 직접 조회를 제거하고 관리자 인증 서비스를 재사용하도록 구조 정리
  * 2026.04.10  임도헌   Modified  관리자 셸 라벨과 로고 weight를 Pretendard subset 3-weight 정책에 맞춰 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/layout.tsx 에서 app/(app)/admin/layout.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.04.28  임도헌   Modified  보드게임 카탈로그 관리 진입점 추가
 */
 
 import { redirect } from "next/navigation";
@@ -27,6 +28,7 @@ import {
   DocumentMagnifyingGlassIcon,
   VideoCameraIcon,
   ClipboardDocumentListIcon,
+  Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import Logo from "@/components/ui/Logo";
 import AdminNavLink from "@/features/user/components/admin/AdminNavLink";
@@ -112,6 +114,11 @@ export default async function AdminLayout({
             href="/admin/streams"
             icon={<VideoCameraIcon />}
             label="방송 관리"
+          />
+          <AdminNavLink
+            href="/admin/boardgames"
+            icon={<Squares2X2Icon />}
+            label="도감 관리"
           />
           <AdminNavLink
             href="/admin/logs"

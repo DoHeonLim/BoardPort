@@ -16,6 +16,7 @@
  * 2026.04.13  임도헌   Modified  ProductListSkeleton 상단 툴바와 중복되던 상품 수/뷰 토글 스켈레톤을 단일 노출로 정리
  * 2026.04.17  임도헌   Modified  라우트 로딩이 모바일/데스크톱 헤더와 본문 스켈레톤을 어떻게 나누는지 설명 주석 보강
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 스켈레톤 분기 기준을 일치시켜 640~767px 구간 mismatch 정리
+ * 2026.05.09  임도헌   Modified  보드게임 도감/키워드 알림 액션이 포함된 상품 목록 헤더 구조 반영
  */
 
 import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
@@ -24,8 +25,8 @@ import Skeleton from "@/components/ui/Skeleton";
 /**
  * products 라우트 전용 loading UI
  *
- * - 모바일/데스크톱 헤더 골격은 이 파일에서 직접 렌더링해 첫 진입 구조를 빠르게 맞춘다
- * - 본문 카드 영역은 `ProductListSkeleton`을 재사용하되, 툴바 스켈레톤은 이미 여기서 그렸으므로 중복 노출하지 않는다
+ * - 모바일/데스크톱 헤더 골격은 이 파일에서 직접 렌더링해 첫 진입 구조와 빠르게 정합
+ * - 본문 카드 영역은 `ProductListSkeleton`을 재사용하되, 툴바 스켈레톤은 여기서 단일 노출
  */
 export default function Loading() {
   return (
@@ -61,8 +62,12 @@ export default function Loading() {
       </header>
 
       <div className="flex-1 px-page-x py-6">
-        <div className="flex items-center justify-between mb-4 px-1">
-          <Skeleton className="h-5 w-28 rounded-lg" />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <Skeleton className="h-5 w-28 rounded-lg" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-9 rounded-full sm:w-28" />
+          </div>
           <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
             <Skeleton className="size-11 rounded-lg" />
             <Skeleton className="size-11 rounded-lg" />

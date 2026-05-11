@@ -18,6 +18,7 @@
  * 2026.03.23  임도헌   Modified  키워드 알림 유도 점선 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.03.25  임도헌   Modified  검색 결과 없음 상태에서 키워드 알림 카드를 메인 empty state보다 더 보조적으로 보이게 polish
  * 2026.03.28  임도헌   Modified  제품 검색 결과 없음 상태에서 검색어를 제목 대신 보조 문구로 다시 노출해 게시글과 피드백 문법을 통일
+ * 2026.04.28  임도헌   Modified  상품 검색 결과 없음 상태에서 보드게임 도감 탐색 진입점 추가
  */
 "use client";
 
@@ -36,7 +37,8 @@ interface ProductEmptyStateProps {
 /**
  * 제품 목록이 비어있을 때 표시되는 UI
  *
- * - 검색어(keyword)가 있다면 `KeywordAlertButton`을 제공하여 키워드 등록을 유도함
+ * - 검색어(keyword)가 있다면 `KeywordAlertButton`을 제공하여 키워드 등록 유도
+ * - 검색 결과가 없을 때 같은 검색어로 보드게임 도감을 탐색할 수 있는 보조 동선 제공
  * - 유저가 현재 탐색 중인 지역 범위(`currentRange`)를 버튼에 전달하여 의도에 맞는 범위 등록 지원
  *
  * @param hasSearchParams - 검색 필터 적용 여부
@@ -101,11 +103,19 @@ export default function ProductEmptyState({
             <p className="text-xs font-medium text-muted/90">
               이 키워드로 새 상품이 등록되면 알려드릴까요?
             </p>
-            <KeywordAlertButton
-              keyword={keyword}
-              alertId={alertId}
-              currentRange={currentRange}
-            />
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <KeywordAlertButton
+                keyword={keyword}
+                alertId={alertId}
+                currentRange={currentRange}
+              />
+              <Link
+                href={`/boardgames?q=${encodeURIComponent(keyword)}`}
+                className="focus-ring-soft inline-flex min-h-9 items-center rounded-full border border-border bg-surface px-3 text-xs font-bold text-brand transition hover:bg-surface-dim dark:text-brand-light"
+              >
+                도감에서 찾아보기
+              </Link>
+            </div>
           </div>
         )}
       </div>

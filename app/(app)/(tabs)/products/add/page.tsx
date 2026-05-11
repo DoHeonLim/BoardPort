@@ -30,10 +30,12 @@
  * 2026.03.06  임도헌   Modified  작성 페이지 정적 프리렌더를 비활성화해 인증 기반 폼 진입 흐름을 안정화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/add/page.tsx 에서 app/(app)/(tabs)/products/add/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  ProductForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
  */
 
 import ProductForm from "@/features/product/components/ProductForm";
 import { fetchProductCategories } from "@/features/product/service/category";
+import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -45,15 +47,18 @@ export const revalidate = 0;
  * - `ProductForm`을 'create' 모드로 렌더링
  */
 export default async function AddPage() {
-  const categories = await fetchProductCategories();
+  const [categories, boardGameOptionsResult] = await Promise.all([
+    fetchProductCategories(),
+    getBoardGameRelationOptions(),
+  ]);
 
   return (
     <ProductForm
       mode="create"
       categories={categories}
+      boardGameOptions={
+        boardGameOptionsResult.success ? boardGameOptionsResult.data : []
+      }
     />
   );
 }
-
-
-

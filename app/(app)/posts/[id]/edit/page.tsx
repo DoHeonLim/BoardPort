@@ -23,13 +23,19 @@
  * 2026.04.06  임도헌   Modified  게시글 삭제를 상세 owner 메뉴로 이동해 수정 페이지는 편집 전용으로 단순화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/edit/page.tsx 에서 app/(app)/posts/[id]/edit/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  PostForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
-*/
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 초기값 및 옵션 주입
+ * 2026.05.09  임도헌   Modified  수정 페이지 정적 프리렌더를 비활성화해 인증/보드게임 옵션 DB 조회 안정화
+ */
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import PostForm from "@/features/post/components/PostForm";
 import { getPostDetail } from "@/features/post/service/post";
 import { LocationData } from "@/features/map/types";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * 게시글 수정 페이지
@@ -83,6 +89,8 @@ export default async function PostEditPage({
     };
   }
 
+  const boardGameOptionsResult = await getBoardGameRelationOptions();
+
   return (
     <div className="min-h-screen bg-background">
       <PostForm
@@ -95,12 +103,17 @@ export default async function PostEditPage({
           tags: post.tags.map((tag) => tag.name),
           photos: post.images.map((image) => image.url),
           photosAnimated: post.images.map((image) => image.isAnimated ?? false),
+          boardGameIds:
+            post.board_games?.map(({ boardGame }) => boardGame.id) ?? [],
           videoDraftKey: null,
           hasAttachedVideo: !!post.video,
           removeVideo: false,
           location: initialLocation,
         }}
         backUrl={isDetailEditFlow ? detailHref : safeReturnTo}
+        boardGameOptions={
+          boardGameOptionsResult.success ? boardGameOptionsResult.data : []
+        }
         submitLabel="수정 완료"
         initialVideo={post.video ?? null}
         initialBlocks={post.blocks ?? []}
@@ -109,4 +122,3 @@ export default async function PostEditPage({
     </div>
   );
 }
-

@@ -22,6 +22,8 @@
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  * 2026.04.02  임도헌   Modified  가격 인하 helper JSDoc 보강
  * 2026.04.04  임도헌   Modified  제품 수정 트랜잭션/가격 인하 후처리 단계의 인라인 주석 보강
+ * 2026.05.03  임도헌   Modified  상품 수정 시 보드게임 카탈로그 연결 교체 저장 추가
+ * 2026.05.03  임도헌   Modified  상품-보드게임 연결 교체 정책 주석 보강
  */
 import "server-only";
 
@@ -240,6 +242,8 @@ export async function updateProduct(
     const isPriceDropped = data.price < existing.price;
     const oldPrice = existing.price;
     const nextTags = Array.from(new Set(data.tags));
+    // 수정 폼의 현재 보드게임 선택값을 전체 교체 기준으로 정규화
+    const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
     const prevTags = existing.search_tags.map((tag) => tag.name);
     const removedTags = prevTags.filter((tag) => !nextTags.includes(tag));
     const addedTags = nextTags.filter((tag) => !prevTags.includes(tag));
@@ -256,6 +260,8 @@ export async function updateProduct(
         where: { id: productId },
         data: { search_tags: { set: [] } },
       });
+      // 수정 폼의 현재 선택값을 단일 진실로 보고 기존 보드게임 연결 전체 교체
+      await tx.productBoardGame.deleteMany({ where: { productId } });
 
       // 상품 본문 갱신 및 새 태그 재연결
       await tx.product.update({
@@ -291,6 +297,17 @@ export async function updateProduct(
             isAnimated: data.photosAnimated?.[index] ?? false,
             productId,
           })),
+        });
+      }
+
+      if (boardGameIds.length > 0) {
+        // 기존 연결을 비운 뒤 현재 선택값만 재삽입해 수정 폼과 DB 상태 일치
+        await tx.productBoardGame.createMany({
+          data: boardGameIds.map((boardGameId) => ({
+            productId,
+            boardGameId,
+          })),
+          skipDuplicates: true,
         });
       }
 

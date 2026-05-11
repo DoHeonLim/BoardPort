@@ -22,12 +22,15 @@
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상품 접근 제어를 위해 hidden_at 필드를 상세/메타 조회에 포함
  * 2026.04.11  임도헌   Modified  제품 상세 이미지에도 isAnimated 메타를 포함해 GIF가 Next 최적화 경고 없이 렌더되도록 보강
  * 2026.04.14  임도헌   Modified  상세/모달 공통 서버 로더를 추가해 좋아요/차단 상태 조회 중복을 통합
+ * 2026.05.03  임도헌   Modified  제품 상세에 연결된 보드게임 카탈로그 정보 포함
+ * 2026.05.08  임도헌   Modified  제품 상세 보드게임 relation select를 공용 상수로 교체
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
+import { PRODUCT_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import type { ProductDetailType } from "@/features/product/types";
 import { getProductLikeStatus } from "@/features/product/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
@@ -59,10 +62,24 @@ export async function getProductDetail(
           select: { eng_name: true, kor_name: true, icon: true, parent: true },
         },
         search_tags: { select: { name: true } },
+        board_games: {
+          select: PRODUCT_BOARD_GAME_RELATION_SELECT,
+        },
         _count: { select: { product_likes: true } },
       },
     });
-    return product as ProductDetailType | null;
+    if (!product) return null;
+
+    return {
+      ...product,
+      board_games: product.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 상세에서도 공개 한국어 locale이 없는 카탈로그 연결은 숨김
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
+    } as ProductDetailType;
   } catch (e) {
     console.error("getProductById Error:", e);
     return null;

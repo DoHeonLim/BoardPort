@@ -22,7 +22,7 @@ import StreamDetail from "@/features/stream/components/StreamDetail";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import StreamDetailLayout from "@/features/stream/components/StreamDetailLayout";
 import StreamTopbar from "@/features/stream/components/StreamTopBar";
-import type { StreamDetailDTO } from "@/features/stream/service/detail";
+import type { StreamDetailDTO } from "@/features/stream/types";
 import type { UserProfile } from "@/features/user/types";
 
 interface StreamDetailClientShellProps {

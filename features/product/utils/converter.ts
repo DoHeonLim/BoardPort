@@ -10,6 +10,7 @@
  * 2026.01.20  임도헌   Moved     lib/convertProductToFormValues -> utils/converter
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.03.12  임도헌   Modified  수정 폼 초기값에서 이미지 애니메이션 메타를 함께 복원하도록 확장
+ * 2026.05.03  임도헌   Modified  수정 폼 초기값에 연결 보드게임 id 목록 포함
  */
 
 import { productFormValues } from "@/features/product/schemas";
@@ -42,6 +43,10 @@ export function convertProductToFormValues(
     };
   }
 
+  // 연결 선택 필드 초기값은 BoardPort 내부 BoardGame id 목록으로 복원
+  const boardGameIds =
+    product.board_games?.map(({ boardGame }) => boardGame.id) ?? [];
+
   return {
     id: product.id,
     title: product.title,
@@ -57,6 +62,7 @@ export function convertProductToFormValues(
     completeness: product.completeness as CompletenessType,
     has_manual: product.has_manual,
     categoryId: product.categoryId,
+    boardGameIds,
     tags: product.search_tags.map((tag) => tag.name),
     location: locationData,
   };

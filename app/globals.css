@@ -22,6 +22,7 @@
    2026.04.18  임도헌 - 모바일 브라우저 기본 tap highlight를 줄여 버튼 터치 잔상을 완화
    2026.04.20  임도헌 - 라이트모드 보조 액션 포커스 가시성을 위해 focus-ring-soft 강도를 한 단계 보강
    2026.04.20  임도헌 - 라이트모드 primary CTA 포커스가 배경과 겹치지 않도록 btn-primary 계열을 inset white ring 중심으로 보강
+   2026.04.29  임도헌 - 네이티브 select option 색을 시맨틱 토큰으로 고정해 다크모드 드롭다운 가독성 보강
  */
 
 @tailwind base;
@@ -260,6 +261,11 @@
     focus:ring-brand focus:dark:ring-brand-light 
     placeholder:text-muted
     text-primary;
+  }
+
+  .input-primary option {
+    background-color: var(--surface);
+    color: var(--text-primary);
   }
 
   .searchbar-compact-input {

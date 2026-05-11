@@ -4,6 +4,7 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2025.08.09  임도헌   Created   다시보기 그리드 분리
  * 2025.08.14  임도헌   Modified  썸네일 URL 정규화 + StreamCard 재사용
  * 2025.08.26  임도헌   Modified  서버 계산 플래그 우선 적용
@@ -27,6 +28,7 @@
  * 2026.03.21  임도헌   Modified  유저 채널 다시보기 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
  * 2026.03.25  임도헌   Modified  다시보기 1개일 때 2열 그리드 공백이 과해 보이지 않도록 단일 카드 레이아웃을 보정
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 다시보기 카드 썸네일만 우선 로드해 유저 채널 LCP 후보를 앞당김
+ * 2026.05.03  임도헌   Modified  채널 다시보기 카드에 연결 보드게임 요약 배지 표시
  */
 
 "use client";
@@ -101,14 +103,14 @@ export default function RecordingGrid({
             const isFollowersOnly = rec.visibility === "FOLLOWERS";
 
             /**
-             * FOLLOWERS 잠금은 "팔로우 직후 즉시 반영"이 필요하다.
-             * - 서버 플래그(rec.followersOnlyLocked)는 초기 렌더의 기본값으로만 사용하고,
-             * - 클라이언트 상태(role/isFollowing)를 SSOT로 한 번 더 적용해 잠금 여부를 계산
+             * FOLLOWERS 잠금의 "팔로우 직후 즉시 반영" 보장
+             * - 서버 플래그(rec.followersOnlyLocked)는 초기 렌더 기본값으로만 사용
+             * - 클라이언트 상태(role/isFollowing)를 SSOT로 한 번 더 적용해 잠금 여부 계산
              *
              * 규칙:
              * - OWNER는 항상 잠금 없음
              * - FOLLOWERS 타입이고 OWNER가 아니면: isFollowing이 false일 때만 잠금
-             * - 그 외 타입은 서버 플래그를 그대로 따른다.
+             * - 그 외 타입은 서버 플래그 기준
              */
             const followersOnlyLocked = isFollowersOnly
               ? role !== "OWNER" && !isFollowing
@@ -141,6 +143,7 @@ export default function RecordingGrid({
                 }}
                 startedAt={when}
                 category={rec.category}
+                boardGames={rec.board_games}
                 duration={hasDuration ? rec.duration : undefined}
                 viewCount={hasViews ? rec.viewCount : undefined}
                 href={href}

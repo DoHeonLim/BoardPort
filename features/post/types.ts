@@ -19,9 +19,12 @@
  * 2026.03.30  임도헌   Modified  저장 전 가벼운 블록 편집기용 PostEditorBlock 타입 및 DTO 필드 추가
  * 2026.03.31  임도헌   Modified  유튜브 전용 EMBED 블록 저장용 편집기 필드 추가
  * 2026.04.02  임도헌   Modified  PostActionResponse를 success/failure union으로 정리
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 DTO 및 상세 타입 추가
+ * 2026.05.03  임도헌   Modified  게시글 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 타입 설명 보강
  */
 
 import { LocationData } from "@/features/map/types";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 // =============================================================================
 // 1. Data Transfer Objects (DTO) - 요청/응답 데이터
@@ -68,6 +71,7 @@ export interface PostCreateDTO {
   videoDraftKey?: string | null;
   removeVideo?: boolean;
   blocks?: PostEditorBlock[];
+  boardGameIds?: number[];
 }
 
 /** 게시글 수정 DTO */
@@ -177,6 +181,9 @@ export interface PostDetail extends BasePost {
   region1?: string | null;
   region2?: string | null;
   region3?: string | null;
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
   _count: {
     post_likes: number;
     comments: number;

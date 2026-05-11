@@ -33,6 +33,9 @@
  * 2026.04.21  임도헌   Modified  메타/위치/하단 액션 섹션을 분리하고 주요 함수 설명 주석을 보강
  * 2026.04.24  임도헌   Modified  detail-edit 저장 back 복귀는 명시적 내부 returnTo 문맥과 히스토리가 모두 있을 때만 허용하도록 보강
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 detail-edit 복귀 플래그 기록 중복을 정리
+ * 2026.05.03  임도헌   Modified  게시글 작성/수정 폼에 보드게임 카탈로그 연결 필드 추가
+ * 2026.05.04  임도헌   Modified  보드게임 연결 필드를 카테고리 다음으로 올려 게시글 주제 맥락을 먼저 선택하도록 정리
+ * 2026.05.05  임도헌   Modified  게시글 편집기/위치/검증 핸들러 JSDoc 보강
  */
 "use client";
 
@@ -79,6 +82,8 @@ import {
 import PostMetaSection from "@/features/post/components/PostMetaSection";
 import PostLocationSection from "@/features/post/components/PostLocationSection";
 import PostFormActions from "@/features/post/components/PostFormActions";
+import BoardGameRelationField from "@/features/boardgame/components/BoardGameRelationField";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 interface PostFormProps {
   mode: "create" | "edit";
@@ -86,6 +91,7 @@ interface PostFormProps {
   initialVideo?: PostVideo | null;
   initialBlocks?: PostBlock[];
   backUrl: string;
+  boardGameOptions?: BoardGameRelationOption[];
   submitLabel?: string;
   editFlow?: string;
 }
@@ -127,6 +133,7 @@ export default function PostForm({
   initialVideo,
   initialBlocks,
   backUrl,
+  boardGameOptions = [],
   submitLabel = "작성 완료",
   editFlow,
 }: PostFormProps) {
@@ -139,9 +146,7 @@ export default function PostForm({
   const rawReturnTo = searchParams.get("returnTo");
   // 게시글 detail-edit 저장은 명시적 내부 returnTo 문맥이 있는 경우에만 back 허용
   const canResumeDetailEditHistory =
-    editFlow === "detail-edit" &&
-    !!rawReturnTo &&
-    canUseBrowserBack();
+    editFlow === "detail-edit" && !!rawReturnTo && canUseBrowserBack();
 
   const initialFormValues = useMemo(
     () =>
@@ -155,6 +160,7 @@ export default function PostForm({
         hasAttachedVideo: false,
         removeVideo: false,
         tags: [],
+        boardGameIds: [],
         location: null,
       },
     [initialValues]
@@ -190,8 +196,12 @@ export default function PostForm({
   // create/edit 공개 props에는 직렬화 가능한 값만 두고, 서버 액션은 mode로 내부 선택
   const action = mode === "create" ? createPostAction : updatePostAction;
 
-  // detail-edit 저장은 명시적 returnTo 문맥이 확인될 때만 back 사용
-  // 직접 진입/북마크처럼 내부 복귀 문맥이 없으면 안전한 backUrl replace로 정리
+  /**
+   * 상세 편집 저장/취소 후 안전한 상세 문맥으로 복귀
+   *
+   * 명시적 내부 returnTo와 브라우저 히스토리가 함께 있을 때만 back을 재사용하고,
+   * 직접 진입처럼 문맥이 불명확한 경우 안전한 상세 URL로 replace
+   */
   const returnToDetailEditOrigin = () => {
     if (canResumeDetailEditHistory) {
       router.back();
@@ -289,9 +299,11 @@ export default function PostForm({
     );
   }, [editorBlocks, imageBlockAssets, setValue]);
 
-  // 폼 리셋
-  // RHF 값만 reset하면 블록/이미지/동영상 draft 상태가 남는 구조
-  // 편집기와 미디어 훅 상태까지 함께 초기값으로 복원하는 흐름
+  /**
+   * 게시글 폼을 초기값으로 복원
+   *
+   * RHF 값뿐 아니라 블록 편집기, 이미지 블록 asset, 동영상 draft 상태를 함께 복원
+   */
   const resetForm = () => {
     reset(initialFormValues);
     setResetSignal((prev) => prev + 1);
@@ -312,16 +324,23 @@ export default function PostForm({
   // 위치 관련 상태
   const [isMapOpen, setIsMapOpen] = useState(false);
   const location = watch("location");
+  const selectedBoardGameIds = watch("boardGameIds") ?? [];
 
-  // 위치 선택 핸들러
+  /**
+   * 지도에서 선택한 위치를 게시글 위치 값으로 반영
+   *
+   * @param data - 지도 선택 위치 데이터
+   */
   const handleLocationSelect = (data: LocationData) => {
     setValue("location", data, { shouldDirty: true });
     setIsMapOpen(false);
   };
 
-  // 이미지 블록 추가
-  // 새 블록 생성 직후 해당 위치로 스크롤
-  // 긴 글에서도 방금 추가한 이미지 슬롯을 바로 채우기 위한 UX
+  /**
+   * 이미지 블록 추가 후 새 블록 위치로 스크롤
+   *
+   * 긴 글에서도 방금 추가한 이미지 슬롯을 바로 채울 수 있도록 이동 보조
+   */
   const addImageBlock = () => {
     if (isEditorLocked) return;
 
@@ -344,9 +363,9 @@ export default function PostForm({
     });
   };
 
-  // 텍스트 블록 추가
-  // 텍스트 블록 추가 직후 새 블록 위치로 이동
-  // 작성 문맥 유지를 위한 보조 UX
+  /**
+   * 텍스트 블록 추가 후 새 블록 위치로 스크롤
+   */
   const addTextBlock = () => {
     if (isEditorLocked) return;
 
@@ -360,9 +379,11 @@ export default function PostForm({
     });
   };
 
-  // 동영상 블록 추가
-  // 게시글당 영상 1개 제한
-  // 기존 VIDEO 블록 존재 시 추가 차단
+  /**
+   * 동영상 블록 추가
+   *
+   * 게시글당 동영상은 1개만 허용하므로 기존 VIDEO 블록이 있으면 추가 차단
+   */
   const addVideoBlock = () => {
     if (isEditorLocked) return;
 
@@ -384,7 +405,9 @@ export default function PostForm({
     });
   };
 
-  // 유튜브 임베드 블록 추가
+  /**
+   * YouTube URL 입력용 임베드 블록 추가
+   */
   const addEmbedBlock = () => {
     if (isEditorLocked) return;
 
@@ -398,7 +421,12 @@ export default function PostForm({
     });
   };
 
-  // 텍스트 블록 수정
+  /**
+   * 특정 텍스트 블록의 내용 갱신
+   *
+   * @param id - 수정할 editor block id
+   * @param value - 새 텍스트 내용
+   */
   const updateTextBlock = (id: string, value: string) => {
     if (isEditorLocked) return;
 
@@ -409,7 +437,12 @@ export default function PostForm({
     );
   };
 
-  // 유튜브 임베드 블록 수정
+  /**
+   * 특정 임베드 블록의 URL 값 갱신
+   *
+   * @param id - 수정할 editor block id
+   * @param value - 새 embed URL
+   */
   const updateEmbedBlock = (id: string, value: string) => {
     if (isEditorLocked) return;
 
@@ -420,7 +453,12 @@ export default function PostForm({
     );
   };
 
-  // 버튼 기반 블록 이동
+  /**
+   * 버튼 클릭으로 editor block 순서를 한 칸 이동
+   *
+   * @param index - 현재 block index
+   * @param direction - 이동 방향, -1은 위/왼쪽, 1은 아래/오른쪽
+   */
   const moveBlock = (index: number, direction: -1 | 1) => {
     if (isEditorLocked) return;
 
@@ -435,7 +473,11 @@ export default function PostForm({
     });
   };
 
-  // 드래그 기반 블록 이동
+  /**
+   * drag and drop 결과를 editor block 순서에 반영
+   *
+   * @param result - react-beautiful-dnd drag 종료 결과
+   */
   const handleDragEnd = (result: DropResult) => {
     if (isEditorLocked) return;
 
@@ -451,7 +493,11 @@ export default function PostForm({
     });
   };
 
-  // 블록 제거
+  /**
+   * editor block 제거와 연결된 미디어 draft 상태 정리
+   *
+   * @param index - 제거할 block index
+   */
   const removeEditorBlock = (index: number) => {
     if (isEditorLocked) return;
 
@@ -472,7 +518,11 @@ export default function PostForm({
     });
   };
 
-  // 동영상 파일 선택
+  /**
+   * 파일 input으로 선택한 동영상을 draft 업로드 훅으로 전달
+   *
+   * @param event - 동영상 file input change 이벤트
+   */
   const handleVideoChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -480,7 +530,11 @@ export default function PostForm({
     event.target.value = "";
   };
 
-  // 동영상 드래그 첨부
+  /**
+   * 드래그한 동영상 파일을 draft 업로드 훅으로 전달
+   *
+   * @param event - 동영상 drop 이벤트
+   */
   const handleVideoDrop = async (
     event: React.DragEvent<HTMLDivElement | HTMLButtonElement>
   ) => {
@@ -625,6 +679,7 @@ export default function PostForm({
         formData.append("location", JSON.stringify(data.location));
       }
       formData.append("tags", JSON.stringify(data.tags || []));
+      formData.append("boardGameIds", JSON.stringify(data.boardGameIds || []));
       formData.append("blocksJson", JSON.stringify(submittedBlocks));
 
       // [특수 필드 3] 이미지 배열
@@ -636,6 +691,7 @@ export default function PostForm({
         "id",
         "location",
         "tags",
+        "boardGameIds",
         "photos",
         "photosAnimated",
         "hasAttachedVideo",
@@ -704,6 +760,11 @@ export default function PostForm({
     }
   };
 
+  /**
+   * 유효성 오류 발생 시 첫 번째 오류 필드로 포커스 이동
+   *
+   * @param formErrors - React Hook Form 오류 객체
+   */
   const onInvalid = (formErrors: typeof errors) => {
     focusFirstFieldError<PostFormValues>(formErrors, setFocus);
   };
@@ -724,7 +785,22 @@ export default function PostForm({
           categoryErrorMessage={errors.category?.message}
           titleRegister={register("title")}
           titleErrorMessage={errors.title?.message}
-        />
+        >
+          <BoardGameRelationField
+            options={boardGameOptions}
+            selectedIds={selectedBoardGameIds}
+            onChange={(ids) =>
+              setValue("boardGameIds", ids, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            disabled={isUploading}
+            errors={
+              errors.boardGameIds?.message ? [errors.boardGameIds.message] : []
+            }
+          />
+        </PostMetaSection>
 
         <PostEditorBlocksField
           editorBlocks={editorBlocks}

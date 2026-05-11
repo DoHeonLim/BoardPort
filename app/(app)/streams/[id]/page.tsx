@@ -54,8 +54,8 @@ import StreamBlockGuard from "@/features/stream/components/StreamBlockGuard";
 import {
   getBroadcastDetail,
   getCachedBroadcastDetail,
-  StreamDetailDTO,
 } from "@/features/stream/service/detail";
+import type { StreamDetailDTO } from "@/features/stream/types";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import { checkBroadcastAccess } from "@/features/stream/service/access";
 import {

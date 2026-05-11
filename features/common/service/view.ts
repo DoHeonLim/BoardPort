@@ -13,6 +13,7 @@
  * 2026.03.05  임도헌   Modified   조회 경로의 revalidateTag 제거(고빈도 캐시 무효화 방지), 상세 캐시 무효화 책임을 mutation action으로 이관
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.28  임도헌   Modified   공략(MAP) 조회수 누적 뱃지가 상세 진입 증가에도 반응하도록 후처리 추가
+ * 2026.05.08  임도헌   Modified   외부 사용이 없는 조회 대상 내부 타입 export 제거
  */
 
 "use server";
@@ -22,7 +23,7 @@ import { checkRuleSageBadge } from "@/features/user/service/badge";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { ViewTargetType } from "@/generated/prisma/client";
 
-export type IncrementViewsTarget = "PRODUCT" | "POST" | "VOD";
+type IncrementViewsTarget = "PRODUCT" | "POST" | "VOD";
 
 // 조회수 중복 증가 방지 시간 (3분)
 const COOLDOWN_MS = 3 * 60 * 1000;

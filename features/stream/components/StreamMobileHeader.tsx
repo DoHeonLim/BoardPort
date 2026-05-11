@@ -20,6 +20,7 @@
  * 2026.04.16  임도헌   Modified  spacer 기본 높이를 예약해 초기 CLS를 줄이고 상단 링크 프리패치를 완화
  * 2026.04.20  임도헌   Modified  모바일 카테고리 시트 포커스를 공용 링 톤으로 통일하고 다시보기 팔로잉 필터 active 대비를 보강
  * 2026.04.20  임도헌   Modified  좁은 모바일 폭에서도 다시보기 제어줄이 깨지지 않도록 필터 버튼 최소 너비와 패딩을 압축
+ * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  */
 "use client";
 
@@ -33,7 +34,11 @@ import StreamSearchBarWrapper from "@/features/stream/components/StreamSearchBar
 import { STREAM_CATEGORY } from "@/features/stream/constants";
 import { useHideableHeader } from "@/hooks/useHideableHeader";
 import { cn } from "@/lib/utils";
-import type { RecordingSort, StreamMode } from "@/features/stream/types";
+import type {
+  RecordingSort,
+  StreamMode,
+  StreamScope,
+} from "@/features/stream/types";
 
 const DEFAULT_MOBILE_HEADER_HEIGHT = 132;
 
@@ -41,7 +46,7 @@ interface StreamMobileHeaderProps {
   viewerId: number;
   unreadCount: number;
   mode: StreamMode;
-  scope: "all" | "following";
+  scope: StreamScope;
   recordingSort: RecordingSort;
   category?: string;
   keyword?: string;
@@ -74,7 +79,7 @@ export default function StreamMobileHeader({
   /**
    * 스코프 변경 시 현재 keyword/category는 유지한 채 scope만 갱신
    */
-  const buildHref = (nextScope: "all" | "following") => {
+  const buildHref = (nextScope: StreamScope) => {
     const sp = new URLSearchParams();
     if (mode !== "live") sp.set("mode", mode);
     if (mode === "recordings" && recordingSort !== "latest") {

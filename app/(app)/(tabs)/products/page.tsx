@@ -56,9 +56,12 @@
  * 2026.04.24  임도헌   Modified  ProductListRefreshRelay와 ProductModalReopenRelay를 함께 주입해 목록 refresh와 모달 fallback 책임을 분리
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 분기 기준을 일치시켜 640~767px 구간 헤더 레이아웃 mismatch 정리
  * 2026.04.24  임도헌   Modified  제품 목록 refresh relay와 모달 reopen relay를 분리해 navigation 복귀 책임을 명확화
+ * 2026.04.28  임도헌   Modified  항구 목록에서 보드게임 도감 진입 액션 추가
+ * 2026.05.05  임도헌   Modified  URL 쿼리 숫자 파싱 helper JSDoc 보강
  */
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
@@ -106,6 +109,12 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * URL query의 숫자 필터 값을 서버 조회에 사용할 수 있는 number로 변환
+ *
+ * @param val - URL searchParams에서 읽은 문자열 값
+ * @returns 유효한 숫자 또는 undefined
+ */
 function parseNumberParam(val: string | undefined): number | undefined {
   if (!val) return undefined;
   const num = Number(val);
@@ -262,13 +271,30 @@ export default async function ProductsPage({
                   searchParams={queryParams}
                   queryKeyExtra={currentRange}
                   headerAction={
-                    searchParams.keyword ? (
-                      <KeywordAlertButton
-                        keyword={searchParams.keyword}
-                        alertId={matchedAlert?.id}
-                        currentRange={currentRange}
-                      />
-                    ) : undefined
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href="/boardgames"
+                        className="focus-ring-soft inline-flex min-h-8 items-center rounded-full border border-border bg-surface px-3.5 text-xs font-bold text-brand transition hover:bg-surface-dim dark:text-brand-light"
+                      >
+                        {searchParams.keyword ? (
+                          <>
+                            <span className="sm:hidden">도감</span>
+                            <span className="hidden sm:inline">
+                              보드게임 도감
+                            </span>
+                          </>
+                        ) : (
+                          "보드게임 도감"
+                        )}
+                      </Link>
+                      {searchParams.keyword ? (
+                        <KeywordAlertButton
+                          keyword={searchParams.keyword}
+                          alertId={matchedAlert?.id}
+                          currentRange={currentRange}
+                        />
+                      ) : null}
+                    </div>
                   }
                 />
               </Suspense>

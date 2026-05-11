@@ -18,11 +18,13 @@
  * 2026.03.06  임도헌   Modified   작성 페이지 정적 프리렌더를 비활성화해 인증 기반 폼 진입 흐름을 안정화
  * 2026.03.07  임도헌   Modified   StreamForm 취소 경로를 명시적으로 주입(v1.2 Cancelable Flow)
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/add/page.tsx 에서 app/(app)/streams/add/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
+ */
 
 import type { Metadata } from "next";
 import StreamForm from "@/features/stream/components/StreamForm";
 import { fetchStreamCategories } from "@/features/stream/service/category";
+import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,6 +42,7 @@ export const metadata: Metadata = {
  */
 export default async function AddStreamPage() {
   let categories: Awaited<ReturnType<typeof fetchStreamCategories>> = [];
+  const boardGameOptionsResult = await getBoardGameRelationOptions();
 
   try {
     categories = await fetchStreamCategories();
@@ -59,9 +62,11 @@ export default async function AddStreamPage() {
 
       <StreamForm
         categories={categories ?? []}
+        boardGameOptions={
+          boardGameOptionsResult.success ? boardGameOptionsResult.data : []
+        }
         cancelHref="/streams"
       />
     </div>
   );
 }
-

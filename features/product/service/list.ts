@@ -17,6 +17,7 @@
  * 2026.03.11  임도헌   Modified  무한스크롤 중에도 전체 검색 결과 수를 고정 표시할 수 있도록 totalCount 반환 추가
  * 2026.04.04  임도헌   Modified  검색 조건 조립/페이징 계산 단계의 인라인 주석 보강
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상품(hidden_at)은 공개 제품 목록과 검색 결과에서 제외
+ * 2026.05.03  임도헌   Modified  상품 카드 표시용 연결 보드게임 locale 매핑 추가
  */
 import "server-only";
 import db from "@/lib/db";
@@ -32,6 +33,29 @@ import type {
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
+
+type ProductListRow = Prisma.ProductGetPayload<{
+  select: typeof PRODUCT_SELECT;
+}>;
+
+/**
+ * 목록 카드 DTO에 맞게 공개 보드게임 locale만 평탄화
+ *
+ * @param row - PRODUCT_SELECT로 조회한 제품 row
+ * @returns ProductCard가 바로 사용할 수 있는 제품 목록 DTO
+ */
+function mapProductListRow(row: ProductListRow): ProductType {
+  return {
+    ...row,
+    board_games: row.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 공개 한국어 locale이 없는 연결은 카드 노출 대상에서 제외
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  };
+}
 
 /**
  * 제품 검색 조건 동적 쿼리 빌더
@@ -176,7 +200,8 @@ export async function getProductsList(
 
   // LIMIT + 1 기준의 다음 페이지 존재 판별
   const hasNext = rows.length > (params.take ?? TAKE);
-  const products = hasNext ? rows.slice(0, params.take ?? TAKE) : rows;
+  const pageRows = hasNext ? rows.slice(0, params.take ?? TAKE) : rows;
+  const products = pageRows.map(mapProductListRow);
   const nextCursor = hasNext ? products[products.length - 1].id : null;
 
   return { products, nextCursor, totalCount };

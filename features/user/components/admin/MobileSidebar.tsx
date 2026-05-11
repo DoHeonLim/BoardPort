@@ -10,6 +10,7 @@
  * 2026.03.30  임도헌   Modified  현재 섹션 이동 후 자동 닫힘과 데스크톱과 동일한 정보 구조를 유지하도록 정리
  * 2026.04.10  임도헌   Modified  모바일 관리자 드로어의 섹션 라벨 크기를 공통 타이포 스케일로 정리
  * 2026.04.18  임도헌   Modified  닫기 아이콘 버튼에 접근 가능한 이름과 button 타입을 추가
+ * 2026.04.28  임도헌   Modified  보드게임 카탈로그 관리 메뉴를 모바일 관리자 드로어에 추가
  */
 "use client";
 
@@ -28,6 +29,7 @@ import {
   DocumentMagnifyingGlassIcon,
   VideoCameraIcon,
   ClipboardDocumentListIcon,
+  Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import UserAvatar from "@/components/global/UserAvatar";
 import AdminNavLink from "@/features/user/components/admin/AdminNavLink";
@@ -131,6 +133,11 @@ export default function MobileSidebar({
             href="/admin/streams"
             icon={<VideoCameraIcon />}
             label="방송 관리"
+          />
+          <AdminNavLink
+            href="/admin/boardgames"
+            icon={<Squares2X2Icon />}
+            label="도감 관리"
           />
           <AdminNavLink
             href="/admin/logs"

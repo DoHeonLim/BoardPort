@@ -36,6 +36,9 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상세 정보 패널 타이포를 text-xs·sm·500 기준으로 정리
  * 2026.04.16  임도헌   Modified  CONNECTED 상태에서만 iframe을 렌더링하고 종료/준비 상태는 썸네일 fallback으로 전환해 초기 로드 비용을 완화
  * 2026.04.25  임도헌   Modified  실시간 방송 상태를 부모 상태에 반영해 새로고침 없이 상세 iframe이 표시되도록 보강
+ * 2026.05.03  임도헌   Modified  방송 상세 정보 패널에 연결된 보드게임 카탈로그 칩 노출
+ * 2026.05.04  임도헌   Modified  방송에서 다루는 보드게임을 상세 공통 카드 스타일로 표시
+ * 2026.05.05  임도헌   Modified  방송 상태 정규화와 반응형 패널 동기화 JSDoc 보강
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -57,10 +60,10 @@ import StreamCategoryTags from "@/features/stream/components/StreamDetail/Stream
 import StreamDescription from "@/features/stream/components/StreamDetail/StreamDescription";
 import StreamSecretInfo from "@/features/stream/components/StreamDetail/StreamSecretInfo";
 import StreamTitle from "@/features/stream/components/StreamDetail/StreamTitle";
+import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
 import { useFollowController } from "@/features/user/hooks/useFollowController";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
-import { StreamDetailDTO } from "@/features/stream/service/detail";
-import type { StreamStatus } from "@/features/stream/types";
+import type { StreamDetailDTO, StreamStatus } from "@/features/stream/types";
 import type { UserProfile } from "@/features/user/types";
 import { cn } from "@/lib/utils";
 
@@ -74,6 +77,12 @@ interface StreamDetailProps {
   >;
 }
 
+/**
+ * 서버/Realtime에서 들어온 방송 상태 값을 상세 화면 기준 enum으로 정규화
+ *
+ * @param status - 서버 또는 브로드캐스트에서 받은 상태 값
+ * @returns 상세 화면에서 사용할 StreamStatus
+ */
 function normalizeStreamStatus(status?: StreamStatus | string | null) {
   return ((status?.toUpperCase?.() ?? "DISCONNECTED") as StreamStatus);
 }
@@ -117,6 +126,9 @@ export default function StreamDetail({
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");
+    /**
+     * 현재 viewport 기준 정보 패널 기본 열림 상태 동기화
+     */
     const apply = () => {
       setIsDesktop(mql.matches);
       setOpened(mql.matches);
@@ -319,6 +331,16 @@ export default function StreamDetail({
                 <StreamDescription description={stream.description} />
               </div>
             )}
+
+            <div className="mt-3">
+              <LinkedBoardGameChips
+                items={
+                  stream.board_games?.map(({ boardGame }) => boardGame) ?? []
+                }
+                title="방송에서 다루는 보드게임"
+                variant="cards"
+              />
+            </div>
 
             {isOwner && (
               <div className="mt-3 border-t border-border-subtle pt-3 sm:mt-3.5 sm:pt-3.5 lg:max-w-[640px]">

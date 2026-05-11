@@ -4,6 +4,7 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2025.08.06  임도헌   Created   녹화본 상세정보 컴포넌트 통합
  * 2025.09.20  임도헌   Modified  VodAsset 단위 좋아요/댓글/조회수 설계 반영
  * 2025.09.22  임도헌   Modified  RecordingDetailStream 제거 → getVodDetail DTO에 정렬
@@ -13,6 +14,8 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.17  임도헌   Modified  녹화 상세 메타 패널과 영상 영역 간 간격을 조정해 최신 상세 톤에 맞게 정리
  * 2026.03.19  임도헌   Modified  녹화 상세 영상/메타 패널 외곽선을 border-border-subtle 기준으로 맞춰 채널 카드 톤과 통일
+ * 2026.05.03  임도헌   Modified  녹화 상세에 부모 방송과 연결된 보드게임 카탈로그 칩 노출
+ * 2026.05.05  임도헌   Modified  방송 상세과 같은 보드게임 카드형 표시로 통일
  * ===============================================================================================
  * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
@@ -30,10 +33,15 @@ import RecordingTitle from "@/features/stream/components/recording/recordingDeta
 import RecordingVideo from "@/features/stream/components/recording/recordingDetail/RecordingVideo";
 import RecordingMeta from "@/features/stream/components/recording/recordingDetail/RecordingMeta";
 import RecordingLikeButton from "@/features/stream/components/recording/recordingDetail/RecordingLikeButton";
+import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 interface RecordingDetailProps {
   /** 방송 메타: 제목 + 소유자 */
-  broadcast: { title: string };
+  broadcast: {
+    title: string;
+    board_games?: Array<{ boardGame: BoardGameRelationOption }>;
+  };
 
   /** VodAsset 식별/표시용 */
   vodId: number; // 좋아요/댓글/조회수는 VodAsset 기준
@@ -91,6 +99,11 @@ export default function RecordingDetail({
           }
         />
       </div>
+      <LinkedBoardGameChips
+        items={broadcast.board_games?.map(({ boardGame }) => boardGame) ?? []}
+        title="방송에서 다루는 보드게임"
+        variant="cards"
+      />
     </div>
   );
 }
