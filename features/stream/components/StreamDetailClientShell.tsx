@@ -13,9 +13,10 @@
  * 2026.04.03  임도헌   Modified  반응형 레이아웃 전환 시 실시간 상태 분리 방지를 위해 채팅 인스턴스를 단일화
  * 2026.04.08  임도헌   Modified  방송 제목/설명 수정 결과와 실시간 메타 동기화를 상세 로컬 상태에 즉시 반영
  * 2026.04.16  임도헌   Modified  상세 전용 실시간 구독과 main landmark 위치를 셸에 고정해 상태/시맨틱 진입점을 일원화
+ * 2026.05.17  임도헌   Modified  live-status 상태 반영을 셸 단일 구독으로 모아 상세 하위 컴포넌트 중복 구독 제거
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { StreamChatMessage } from "@/features/chat/types";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import StreamDetail from "@/features/stream/components/StreamDetail";
@@ -77,11 +78,23 @@ export default function StreamDetailClientShell({
 
   const openChat = () => setIsChatOpen(true);
   const closeChat = () => setIsChatOpen(false);
+  const handleRealtimeStatus = useCallback((payload: { status?: string }) => {
+    if (!payload.status) return;
+
+    // live-status의 현재 방송 상태를 셸 상태에 먼저 반영해 iframe/오버레이 조건을 즉시 동기화
+    setStreamState((prev) => ({
+      ...prev,
+      status: payload.status ?? prev.status,
+    }));
+  }, []);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
       {/* 상세 전체가 공유하는 live-status 구독 지점을 셸 레벨에 고정 */}
-      <LiveStatusRealtimeSubscriber />
+      <LiveStatusRealtimeSubscriber
+        streamId={stream.stream_id}
+        onStatus={handleRealtimeStatus}
+      />
 
       <StreamTopbar
         streamId={streamId}

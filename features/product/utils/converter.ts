@@ -11,9 +11,10 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.03.12  임도헌   Modified  수정 폼 초기값에서 이미지 애니메이션 메타를 함께 복원하도록 확장
  * 2026.05.03  임도헌   Modified  수정 폼 초기값에 연결 보드게임 id 목록 포함
+ * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
  */
 
-import { productFormValues } from "@/features/product/schemas";
+import type { ProductFormValues } from "@/features/product/schemas";
 import type {
   CompletenessType,
   ConditionType,
@@ -25,11 +26,11 @@ import type {
  * 제품 상세 정보를 수정 폼(react-hook-form)의 defaultValues 구조로 변환
  *
  * @param {ProductFullDetails} product - DB에서 조회한 제품 상세 정보
- * @returns {productFormValues} 폼 초기값 객체
+ * @returns {ProductFormValues} 폼 초기값 객체
  */
 export function convertProductToFormValues(
   product: ProductFullDetails
-): productFormValues {
+): ProductFormValues {
   // 위치 데이터 변환 로직
   let locationData = null;
   if (product.latitude && product.longitude && product.locationName) {

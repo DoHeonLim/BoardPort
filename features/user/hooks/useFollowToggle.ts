@@ -23,18 +23,30 @@
  * 2026.03.27  임도헌   Modified  스트림 상세에서 팔로우 직후 전체 방송의 팔로잉 탭이 즉시 갱신되도록 기본 following 목록 캐시 시딩 및 stale 처리 보강
  * 2026.03.31  임도헌   Modified  훅 역할과 캐시 동기화 맥락이 보이도록 설명 톤 통일
  * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입 import 경로를 user types로 정리
+ * 2026.05.16  임도헌   Modified  팔로우/스트림 캐시 갱신 타입을 명시해 any 캐스팅 제거
  */
 
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
 import { toggleFollowAction } from "@/features/user/actions/follow";
-import type { FollowActionResult } from "@/features/user/types";
+import type {
+  FollowActionResult,
+  FollowListPage,
+  FollowStatsCache,
+} from "@/features/user/types";
+import type { BroadcastSummary, StreamsPage } from "@/features/stream/types";
 
 const DEFAULT_STREAM_LIST_FILTERS = { category: "", keyword: "" } as const;
+
+type FollowToggleOptions = {
+  viewerId?: number | null;
+  refresh?: boolean;
+  onRequireLogin?: () => void;
+};
 
 /**
  * 팔로우/언팔로우 토글 액션 및 낙관적 상태 갱신 훅
@@ -57,7 +69,7 @@ export function useFollowToggle() {
     async (
       userId: number,
       isFollowingNow: boolean,
-      opts?: any
+      opts?: FollowToggleOptions
     ): Promise<FollowActionResult | undefined> => {
       if (isPending(userId)) return;
       setPendingIds((prev) => new Set(prev).add(userId));
@@ -82,7 +94,7 @@ export function useFollowToggle() {
         // profile/channel 상단 카운트와 버튼 상태를 같은 기준으로 즉시 동기화
         queryClient.setQueryData(
           queryKeys.users.followStats(userId),
-          (old: any) => {
+          (old: FollowStatsCache | undefined) => {
             if (!old) return old;
             return {
               ...old,
@@ -97,7 +109,7 @@ export function useFollowToggle() {
           // 모달 안 토글 후에도 헤더 숫자가 늦게 남지 않도록 즉시 반영
           queryClient.setQueryData(
             queryKeys.users.followStats(opts.viewerId),
-            (old: any) => {
+            (old: FollowStatsCache | undefined) => {
               if (!old) return old;
               return {
                 ...old,
@@ -109,13 +121,13 @@ export function useFollowToggle() {
 
         queryClient.setQueriesData(
           { queryKey: queryKeys.follows.all },
-          (oldData: any) => {
+          (oldData: InfiniteData<FollowListPage> | undefined) => {
             if (!oldData?.pages) return oldData;
             return {
               ...oldData,
-              pages: oldData.pages.map((page: any) => ({
+              pages: oldData.pages.map((page) => ({
                 ...page,
-                users: page.users.map((user: any) =>
+                users: page.users.map((user) =>
                   user.id === userId
                     ? { ...user, isFollowedByViewer: res.isFollowing }
                     : user
@@ -127,15 +139,17 @@ export function useFollowToggle() {
 
         // 스트리밍 목록 캐시 동기화
         // followersOnly 잠금 상태와 기본 "팔로잉" 탭 시드를 함께 맞춰 탭 전환 지연을 줄임
-        const streamQueryEntries = queryClient.getQueriesData({
+        const streamQueryEntries = queryClient.getQueriesData<
+          InfiniteData<StreamsPage>
+        >({
           queryKey: queryKeys.streams.lists(),
         });
-        const targetUserStreams = new Map<number, any>();
+        const targetUserStreams = new Map<number, BroadcastSummary>();
 
         for (const [, data] of streamQueryEntries) {
-          if (!data || !(data as any).pages) continue;
+          if (!data?.pages) continue;
 
-          for (const page of (data as any).pages) {
+          for (const page of data.pages) {
             for (const stream of page?.streams ?? []) {
               if (stream?.user?.id !== userId) continue;
               targetUserStreams.set(stream.id, {
@@ -150,47 +164,50 @@ export function useFollowToggle() {
         for (const [queryKey] of streamQueryEntries) {
           const scope = Array.isArray(queryKey) ? queryKey[2] : undefined;
 
-          queryClient.setQueryData(queryKey, (oldData: any) => {
-            if (!oldData?.pages) return oldData;
+          queryClient.setQueryData<InfiniteData<StreamsPage>>(
+            queryKey,
+            (oldData) => {
+              if (!oldData?.pages) return oldData;
 
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page: any, pageIndex: number) => {
-                let streams = (page.streams ?? []).map((stream: any) => {
-                  if (
-                    stream?.user?.id === userId &&
-                    stream.visibility === "FOLLOWERS"
-                  ) {
-                    return {
-                      ...stream,
-                      followersOnlyLocked: !res.isFollowing,
-                    };
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page, pageIndex) => {
+                  let streams = (page.streams ?? []).map((stream) => {
+                    if (
+                      stream?.user?.id === userId &&
+                      stream.visibility === "FOLLOWERS"
+                    ) {
+                      return {
+                        ...stream,
+                        followersOnlyLocked: !res.isFollowing,
+                      };
+                    }
+                    return stream;
+                  });
+
+                  if (scope === "following") {
+                    if (res.isFollowing && pageIndex === 0) {
+                      const existingIds = new Set(
+                        streams.map((stream) => stream.id)
+                      );
+                      streams = [
+                        ...Array.from(targetUserStreams.values()).filter(
+                          (stream) => !existingIds.has(stream.id)
+                        ),
+                        ...streams,
+                      ];
+                    } else if (!res.isFollowing) {
+                      streams = streams.filter(
+                        (stream) => stream?.user?.id !== userId
+                      );
+                    }
                   }
-                  return stream;
-                });
 
-                if (scope === "following") {
-                  if (res.isFollowing && pageIndex === 0) {
-                    const existingIds = new Set(
-                      streams.map((stream: any) => stream.id)
-                    );
-                    streams = [
-                      ...Array.from(targetUserStreams.values()).filter(
-                        (stream: any) => !existingIds.has(stream.id)
-                      ),
-                      ...streams,
-                    ];
-                  } else if (!res.isFollowing) {
-                    streams = streams.filter(
-                      (stream: any) => stream?.user?.id !== userId
-                    );
-                  }
-                }
-
-                return { ...page, streams };
-              }),
-            };
-          });
+                  return { ...page, streams };
+                }),
+              };
+            }
+          );
         }
 
         if (res.isFollowing && targetUserStreams.size > 0) {
@@ -199,40 +216,43 @@ export function useFollowToggle() {
             DEFAULT_STREAM_LIST_FILTERS
           );
 
-          queryClient.setQueryData(defaultFollowingKey, (oldData: any) => {
-            const seededStreams = Array.from(targetUserStreams.values());
+          queryClient.setQueryData<InfiniteData<StreamsPage>>(
+            defaultFollowingKey,
+            (oldData) => {
+              const seededStreams = Array.from(targetUserStreams.values());
 
-            if (!oldData?.pages) {
+              if (!oldData?.pages) {
+                return {
+                  pages: [{ streams: seededStreams, nextCursor: null }],
+                  pageParams: [null],
+                };
+              }
+
+              const firstPage = oldData.pages[0] ?? {
+                streams: [],
+                nextCursor: null,
+              };
+              const existingIds = new Set(
+                (firstPage.streams ?? []).map((stream) => stream.id)
+              );
+
               return {
-                pages: [{ streams: seededStreams, nextCursor: null }],
-                pageParams: [null],
+                ...oldData,
+                pages: [
+                  {
+                    ...firstPage,
+                    streams: [
+                      ...seededStreams.filter(
+                        (stream) => !existingIds.has(stream.id)
+                      ),
+                      ...(firstPage.streams ?? []),
+                    ],
+                  },
+                  ...oldData.pages.slice(1),
+                ],
               };
             }
-
-            const firstPage = oldData.pages[0] ?? {
-              streams: [],
-              nextCursor: null,
-            };
-            const existingIds = new Set(
-              (firstPage.streams ?? []).map((stream: any) => stream.id)
-            );
-
-            return {
-              ...oldData,
-              pages: [
-                {
-                  ...firstPage,
-                  streams: [
-                    ...seededStreams.filter(
-                      (stream: any) => !existingIds.has(stream.id)
-                    ),
-                    ...(firstPage.streams ?? []),
-                  ],
-                },
-                ...oldData.pages.slice(1),
-              ],
-            };
-          });
+          );
 
           queryClient.invalidateQueries({ queryKey: defaultFollowingKey });
         }

@@ -15,6 +15,7 @@
  * 2026.02.12  임도헌   Modified  KEYWORD 타입 푸시 정책(Tag, Defaults) 추가
  * 2026.03.07  임도헌   Modified  SYSTEM 기본 tag가 KEYWORD로 폴스루되지 않도록 분기 수정
  * 2026.04.02  임도헌   Modified  푸시 결과 타입과 알림 타입을 notification/types 공용 정의로 분리
+ * 2026.05.16  임도헌   Modified  푸시 payload 타입을 명시해 any 제거
  */
 
 import webPush from "web-push";
@@ -57,6 +58,21 @@ interface SendNotificationProps {
    */
   ttlSeconds?: number;
 }
+
+type WebPushPayload = {
+  title: string;
+  body: string;
+  link?: string;
+  type: NotificationType;
+  icon?: string;
+  badge?: string;
+  image?: string;
+  url?: string;
+  tag?: string;
+  renotify?: boolean;
+  timestamp?: number;
+  data?: Record<string, unknown>;
+};
 
 /* ---------- ENV & web-push 초기화 (프로세스 생애주기 1회) ---------- */
 const VAPID_PUB = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -140,7 +156,7 @@ function defaultsFor(type: NotificationType) {
 }
 
 /* ---------- 4KB payload 보호 ---------- */
-function ensureMaxPayload(json: any): string {
+function ensureMaxPayload(json: WebPushPayload): string {
   const text = JSON.stringify(json);
   // Node에서 문자열 길이는 코드 유닛 기준이라 대략 체크, 여유 버퍼를 둠(3800B)
   // 이미지 URL 등으로 4KB를 초과할 수 있어 본문을 우선 축약
@@ -168,7 +184,7 @@ function ensureMaxPayload(json: any): string {
   const final = JSON.stringify(clone);
   return final.length <= MAX_BYTES
     ? final
-    : JSON.stringify({ title: json.title, body: "…" });
+    : JSON.stringify({ title: json.title, body: "..." });
 }
 
 /**

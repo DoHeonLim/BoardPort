@@ -1,6 +1,6 @@
 /**
  * File Name : features/chat/actions/badge.ts
- * Description : 채팅 뱃지 체크 Controller
+ * Description : 채팅 뱃지 체크 서버 액션
  * Author : 임도헌
  *
  * History
@@ -9,6 +9,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Moved     app/chats/[id]/actions/badge.ts -> features/chat/actions/badge.ts
  * 2026.04.02  임도헌   Modified  뱃지 액션 JSDoc 반환 설명 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

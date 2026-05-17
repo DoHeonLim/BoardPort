@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/create.ts
- * Description : 스트리밍 생성 Controller
+ * Description : 스트리밍 생성 서버 액션
  * Author : 임도헌
  *
  * History

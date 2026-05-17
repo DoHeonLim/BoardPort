@@ -8,11 +8,18 @@
  * 2026.05.05  임도헌   Created   목록 페이지 페이지네이션 UI 분리
  * 2026.05.06  임도헌   Modified  관리자 페이지네이션과 같은 숫자형/ellipsis 탐색 패턴으로 정리
  * 2026.05.06  임도헌   Modified  숫자형 페이지네이션 JSDoc 명사형 기준 정리
+ * 2026.05.12  임도헌   Modified  페이지 번호 직접 입력 이동 폼 추가
  */
+"use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
 import { buildBoardGameListHref } from "@/features/boardgame/utils/catalogFilters";
 import type { BoardGameCatalogFilters } from "@/features/boardgame/types/catalog";
 
@@ -74,9 +81,34 @@ export default function BoardGamePagination({
   totalPages,
   filters,
 }: BoardGamePaginationProps) {
+  const router = useRouter();
+  const [targetPage, setTargetPage] = useState(String(page));
+
+  // URL 이동이나 브라우저 뒤로가기 이후에도 입력값이 현재 페이지와 어긋나지 않도록 동기화
+  useEffect(() => {
+    setTargetPage(String(page));
+  }, [page]);
+
   if (totalPages <= 1) return null;
 
   const visiblePages = buildVisiblePages(page, totalPages);
+
+  const handleJumpSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    // 사용자가 범위를 벗어난 페이지를 입력해도 유효 범위 안으로 보정해 이동
+    const parsedPage = Number.parseInt(targetPage, 10);
+    if (!Number.isFinite(parsedPage)) {
+      setTargetPage(String(page));
+      return;
+    }
+
+    const nextPage = Math.min(Math.max(parsedPage, 1), totalPages);
+    setTargetPage(String(nextPage));
+    if (nextPage === page) return;
+
+    router.push(buildBoardGameListHref(nextPage, filters));
+  };
 
   return (
     <nav
@@ -120,6 +152,43 @@ export default function BoardGamePagination({
       <span className="ml-1 text-xs font-medium text-muted">
         총 {totalPages}페이지
       </span>
+
+      <form
+        onSubmit={handleJumpSubmit}
+        className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-2 py-1 shadow-sm"
+        aria-label="페이지 번호로 바로 이동"
+      >
+        <label htmlFor="boardgame-page-jump" className="sr-only">
+          이동할 페이지 번호
+        </label>
+        <input
+          id="boardgame-page-jump"
+          type="number"
+          min={1}
+          max={totalPages}
+          inputMode="numeric"
+          value={targetPage}
+          onChange={(event) => setTargetPage(event.target.value)}
+          onBlur={() => {
+            if (!targetPage.trim()) setTargetPage(String(page));
+          }}
+          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-center text-sm font-medium text-primary outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+          aria-describedby="boardgame-page-jump-total"
+        />
+        <span
+          id="boardgame-page-jump-total"
+          className="whitespace-nowrap text-xs font-medium text-muted"
+        >
+          / {totalPages}
+        </span>
+        <button
+          type="submit"
+          className="focus-ring-soft inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg bg-surface-dim text-muted transition-colors hover:bg-brand hover:text-white"
+          aria-label="입력한 페이지로 이동"
+        >
+          <ArrowRightIcon className="size-4" aria-hidden="true" />
+        </button>
+      </form>
 
       <PageLink
         page={page + 1}

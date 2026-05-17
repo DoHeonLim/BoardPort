@@ -1,12 +1,13 @@
 /**
  * File Name : features/stream/actions/access.ts
- * Description : 방송 접근 권한 관리 Controller
+ * Description : 방송 접근 권한 관리 서버 액션
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   created   app/streams/[id]/actions.ts (unlockPrivateBroadcastAction) -> features/stream/actions/access.ts
  * 2026.04.02  임도헌   Modified  비공개 방송 잠금 해제 액션 JSDoc 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 
 "use server";

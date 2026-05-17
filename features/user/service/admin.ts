@@ -12,6 +12,7 @@
  * 2026.03.07  임도헌   Modified  관리자 액션 실패 문구를 구체화(v1.2)
  * 2026.03.10  임도헌   Modified  신고 승인 후 강제 정지 전용 banUserByAdmin 경로 추가
  * 2026.04.03  임도헌   Modified  관리자 유저 목록 필터 타입을 user/types 공용 정의로 이동
+ * 2026.05.16  임도헌   Modified  관리자 유저 목록 select를 selects.ts로 분리
  */
 
 import "server-only";
@@ -24,9 +25,9 @@ import type { ServiceResult } from "@/lib/types";
 import type {
   AdminUserInsights,
   UserFilter,
-  AdminUserItem,
   AdminUserListResponse,
 } from "@/features/user/types";
+import { ADMIN_USER_ITEM_SELECT } from "@/features/user/selects";
 
 /**
  * 유저 관리 인사이트 조회
@@ -164,23 +165,7 @@ export async function getUsersAdmin(
       db.user.count({ where }),
       db.user.findMany({
         where,
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          avatar: true,
-          role: true,
-          bannedAt: true,
-          created_at: true,
-          // 활동 지표 카운트
-          _count: {
-            select: {
-              posts: true,
-              products: true,
-              reports_received: true, // 받은 신고 수 (중요!)
-            },
-          },
-        },
+        select: ADMIN_USER_ITEM_SELECT,
         orderBy: { created_at: "desc" }, // 최신 가입순
         skip,
         take: limit,
@@ -190,7 +175,7 @@ export async function getUsersAdmin(
     return {
       success: true,
       data: {
-        items: items as AdminUserItem[],
+        items,
         total,
         totalPages: Math.ceil(total / limit),
         currentPage: page,

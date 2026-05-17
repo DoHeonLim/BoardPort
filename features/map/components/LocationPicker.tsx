@@ -20,6 +20,7 @@
  * 2026.04.02  임도헌   Modified  초기 지도 중심 좌표를 map/constants 공용 상수로 분리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.10  임도헌   Modified  map 타이포 정책에 맞춰 안내 힌트와 선택 위치 라벨 크기/weight를 400·500·700 기준으로 정리
+ * 2026.05.16  임도헌   Modified  카카오 장소 검색 결과 타입을 명시해 any 제거
  */
 
 import { useState, useEffect } from "react";
@@ -33,7 +34,10 @@ import {
   MapPinIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import type { LocationData } from "@/features/map/types";
+import type {
+  KakaoPlaceSearchResult,
+  LocationData,
+} from "@/features/map/types";
 
 interface LocationPickerProps {
   onSelect: (data: LocationData) => void;
@@ -64,7 +68,9 @@ export default function LocationPicker({
     null
   );
   const [selectedInfo, setSelectedInfo] = useState<LocationData | null>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<KakaoPlaceSearchResult[]>(
+    []
+  );
 
   // 초기 위치 데이터 연동
   useEffect(() => {
@@ -134,7 +140,7 @@ export default function LocationPicker({
 
     ps.keywordSearch(keyword, (data, status) => {
       if (status === window.kakao.maps.services.Status.OK) {
-        setSearchResults(data);
+        setSearchResults(data as KakaoPlaceSearchResult[]);
         const first = data[0];
         setCenter({ lat: Number(first.y), lng: Number(first.x) });
       } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
@@ -169,7 +175,7 @@ export default function LocationPicker({
     updateLocationInfo(coords, undefined);
   };
 
-  const handleResultClick = (rs: any) => {
+  const handleResultClick = (rs: KakaoPlaceSearchResult) => {
     const pos = { lat: Number(rs.y), lng: Number(rs.x) };
     setCenter(pos);
     updateLocationInfo(pos, rs.place_name);

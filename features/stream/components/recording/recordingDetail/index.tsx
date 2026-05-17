@@ -16,6 +16,7 @@
  * 2026.03.19  임도헌   Modified  녹화 상세 영상/메타 패널 외곽선을 border-border-subtle 기준으로 맞춰 채널 카드 톤과 통일
  * 2026.05.03  임도헌   Modified  녹화 상세에 부모 방송과 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.05  임도헌   Modified  방송 상세과 같은 보드게임 카드형 표시로 통일
+ * 2026.05.12  임도헌   Modified  녹화 상세 본문에 방송 카테고리/태그 노출 추가
  * ===============================================================================================
  * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
@@ -34,12 +35,16 @@ import RecordingVideo from "@/features/stream/components/recording/recordingDeta
 import RecordingMeta from "@/features/stream/components/recording/recordingDetail/RecordingMeta";
 import RecordingLikeButton from "@/features/stream/components/recording/recordingDetail/RecordingLikeButton";
 import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
+import StreamCategoryTags from "@/features/stream/components/StreamDetail/StreamCategoryTags";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
+import type { StreamCategory, StreamTag } from "@/features/stream/types";
 
 interface RecordingDetailProps {
   /** 방송 메타: 제목 + 소유자 */
   broadcast: {
     title: string;
+    category?: StreamCategory | null;
+    tags?: StreamTag[] | null;
     board_games?: Array<{ boardGame: BoardGameRelationOption }>;
   };
 
@@ -79,7 +84,13 @@ export default function RecordingDetail({
 }: RecordingDetailProps) {
   return (
     <div className="flex w-full flex-col gap-5">
-      <RecordingTitle title={broadcast.title} />
+      <div className="space-y-2 px-1">
+        <RecordingTitle title={broadcast.title} />
+        <StreamCategoryTags
+          category={broadcast.category ?? undefined}
+          tags={broadcast.tags ?? undefined}
+        />
+      </div>
       <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
         <RecordingVideo uid={uid} />
       </div>

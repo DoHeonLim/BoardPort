@@ -26,12 +26,14 @@
  * 2026.03.28  임도헌   Modified  모바일 제품 헤더 터치 문법에 맞춰 카테고리 선택을 Bottom Sheet로 통일
  * 2026.04.02  임도헌   Modified  카테고리 옵션/빠른 분류 키 타입을 search 도메인 공용 타입 기준으로 정리
  * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 분류 라벨 및 섹션 헤더 weight를 500 기준으로 정리
+ * 2026.05.16  임도헌   Modified  빠른 분류 선택 시 초기화할 쿼리 키를 search 상수로 분리
  */
 "use client";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GAME_TYPE_DISPLAY, GAME_TYPES } from "@/features/product/constants";
+import { SEARCH_QUICK_CATEGORY_RESET_KEYS } from "@/features/search/constants";
 import BottomSheet from "@/components/global/BottomSheet";
 import type {
   ProductQuickCategoryParamKey,
@@ -76,14 +78,7 @@ export default function ProductCategoryDropdown({
   ) => {
     const params = new URLSearchParams(searchParams.toString());
     // 세부 검색 조건 초기화
-    [
-      "keyword",
-      "minPrice",
-      "maxPrice",
-      "condition",
-      "category",
-      "game_type",
-    ].forEach((key) => params.delete(key));
+    SEARCH_QUICK_CATEGORY_RESET_KEYS.forEach((key) => params.delete(key));
     params.set(name, value);
 
     return params.toString();

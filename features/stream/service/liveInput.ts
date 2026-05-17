@@ -11,6 +11,7 @@
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Merged    LiveInput 관련 로직 통합 및 Session 의존성 제거
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.05.16  임도헌   Modified  Cloudflare Live Input 응답 타입을 명시해 any 캐스팅 제거
  */
 
 import "server-only";
@@ -28,6 +29,26 @@ const AUTH = `Bearer ${CF_TOKEN}`;
 const DEFAULT_RTMPS_URL =
   process.env.NEXT_PUBLIC_CLOUDFLARE_RTMP_URL?.trim() ||
   "rtmps://live.cloudflare.com:443/live/";
+
+type CloudflareLiveInputResponse = {
+  result?: {
+    uid?: string;
+    rtmps?: {
+      url?: string;
+      streamKey?: string;
+    };
+  };
+};
+
+const readCloudflareLiveInputResponse = async (
+  response: Response
+): Promise<CloudflareLiveInputResponse> => {
+  try {
+    return (await response.json()) as CloudflareLiveInputResponse;
+  } catch {
+    return {};
+  }
+};
 
 /**
  * Cloudflare Live Input 외부 자산 삭제
@@ -112,7 +133,7 @@ export async function ensureLiveInput(userId: number, nameHint: string) {
       }
     );
 
-    const data = await res.json().catch(() => ({} as any));
+    const data = await readCloudflareLiveInputResponse(res);
     if (!res.ok || !data?.result) {
       throw new Error(`Cloudflare Live Input 생성 실패 (${res.status})`);
     }
@@ -307,7 +328,7 @@ export async function rotateLiveInputKey(
     }
   );
 
-  const data = await createRes.json().catch(() => ({} as any));
+  const data = await readCloudflareLiveInputResponse(createRes);
   if (!createRes.ok || !data?.result) {
     return {
       success: false,
@@ -316,8 +337,15 @@ export async function rotateLiveInputKey(
   }
 
   const newUid = data.result.uid;
-  const newRtmpUrl = data.result.rtmps?.url;
+  const newRtmpUrl = data.result.rtmps?.url ?? DEFAULT_RTMPS_URL;
   const newStreamKey = data.result.rtmps?.streamKey;
+
+  if (!newUid || !newStreamKey) {
+    return {
+      success: false,
+      error: "새 Live Input 응답에 필요한 키 정보가 없습니다.",
+    };
+  }
 
   // 3. DB 업데이트
   await db.liveInput.update({

@@ -39,6 +39,7 @@
  * 2026.05.03  임도헌   Modified  방송 상세 정보 패널에 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.04  임도헌   Modified  방송에서 다루는 보드게임을 상세 공통 카드 스타일로 표시
  * 2026.05.05  임도헌   Modified  방송 상태 정규화와 반응형 패널 동기화 JSDoc 보강
+ * 2026.05.17  임도헌   Modified  live-status 직접 구독 제거 후 셸에서 내려온 상태 props 기준으로 렌더링
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -52,7 +53,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import StreamStatusOverlay from "@/features/stream/components/StreamDetail/StreamStatusOverlay";
@@ -93,11 +94,11 @@ function normalizeStreamStatus(status?: StreamStatus | string | null) {
  * [상태 주입 및 레이아웃 제어 로직]
  * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
  * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`를 배치하고, 모바일 정보 토글은 플레이어 우상단 칩으로 제어
- * - `live-status` 수신 상태를 부모 상태로 동기화해 새로고침 없이 iframe 렌더 조건을 갱신한다
- * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용을 줄인다
- * - 모바일은 cross-origin iframe 제약 때문에 플레이어 자체 클릭 대신 플레이어 안 우상단 정보 토글 버튼으로 상세 정보를 열고 닫는다
+ * - 셸에서 동기화한 `live-status` 상태를 props로 받아 새로고침 없이 iframe 렌더 조건을 갱신
+ * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용 완화
+ * - 모바일은 cross-origin iframe 제약 때문에 플레이어 자체 클릭 대신 플레이어 안 우상단 정보 토글 버튼으로 상세 정보 제어
  * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
- * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키를 확인할 수 있다
+ * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키 확인 가능
  */
 export default function StreamDetail({
   stream,
@@ -106,20 +107,7 @@ export default function StreamDetail({
   ownerProfile,
 }: StreamDetailProps) {
   const isOwner = !!me && stream.user.id === me;
-  // SSR 초기 상태와 Realtime 수신 상태를 함께 반영하는 상세 화면 기준 상태
-  const [currentStatus, setCurrentStatus] = useState<StreamStatus>(() =>
-    normalizeStreamStatus(stream.status)
-  );
-
-  useEffect(() => {
-    // router.refresh 등으로 서버 상태가 갱신되면 로컬 상태도 맞춘다
-    setCurrentStatus(normalizeStreamStatus(stream.status));
-  }, [stream.status]);
-
-  const handleStatusChange = useCallback((next: StreamStatus) => {
-    // Overlay가 구독한 live-status 이벤트를 iframe 렌더 조건에 반영한다
-    setCurrentStatus((prev) => (prev === next ? prev : next));
-  }, []);
+  const currentStatus = normalizeStreamStatus(stream.status);
 
   // 모바일은 기본 숨김, 데스크톱은 기본 펼침으로 시작
   const [opened, setOpened] = useState(false);
@@ -201,9 +189,7 @@ export default function StreamDetail({
         <StreamStatusOverlay
           username={stream.user.username}
           status={currentStatus}
-          streamId={stream.stream_id}
           isOwner={isOwner}
-          onStatusChange={handleStatusChange}
         />
         <button
           type="button"

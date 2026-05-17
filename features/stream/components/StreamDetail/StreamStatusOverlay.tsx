@@ -7,7 +7,7 @@
  * Date        Author   Status    Description
  * 2025.07.31  임도헌   Created   플레이어 상태 오버레이 컴포넌트 분리
  * 2026.03.20  임도헌   Renamed   StreamEndedOverlay -> StreamStatusOverlay로 이름을 변경하고 종료 외 READY, DISCONNECTED 상태까지 공통 처리
- * 2026.03.21  임도헌   Modified  라이브 상세 플레이어 위 상태 표현을 카드형 오버레이로 정리하고 모바일 작은 화면 대응을 보강
+ * 2026.03.21  임도헌   Modified  방송 상세 플레이어 위 상태 표현을 카드형 오버레이로 정리하고 모바일 작은 화면 대응을 보강
  * 2026.03.24  임도헌   Modified  라이트 모드에서도 카드 배경과 텍스트 대비가 충분히 보이도록 오버레이 표면 톤을 보정
  * 2026.03.24  임도헌   Modified  모바일은 상태 카드를 플레이어 폭에 더 가깝게 확장해 좌우 검은 여백 체감을 줄임
  * 2026.03.24  임도헌   Modified  상태 카드 배경을 불투명한 단색 표면으로 고정해 플레이어 배경과 섞여 보이지 않게 조정
@@ -18,77 +18,40 @@
  * 2026.04.16  임도헌   Modified  종료 오버레이 CTA는 자동 prefetch를 끄고 상태 변화가 있을 때만 이동 의도를 받도록 조정
  * 2026.04.20  임도헌   Modified  상세 상단바와 z-index 충돌이 없도록 오버레이 레벨을 한 단계 낮춤
  * 2026.04.25  임도헌   Modified  live-status 수신 상태를 부모 컴포넌트로 전달해 플레이어 렌더 조건과 동기화
+ * 2026.05.16  임도헌   Modified  live-status payload 타입을 명시해 any 캐스팅 제거
+ * 2026.05.17  임도헌   Modified  live-status 직접 구독을 제거하고 상세 셸 단일 구독 상태를 props로 수신
  */
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-import { StreamStatus } from "@/features/stream/types";
+import type { StreamStatus } from "@/features/stream/types";
 import { cn } from "@/lib/utils";
 
 interface StreamStatusOverlayProps {
   username: string;
   status: StreamStatus | string;
-  streamId: string;
   isOwner?: boolean;
-  onStatusChange?: (status: StreamStatus) => void;
 }
 
 /**
  * 방송이 CONNECTED가 아닐 때 플레이어 위에 덮어씌우는 상태 오버레이
  * - ENDED: 채널 다시보기 CTA 제공
  * - DISCONNECTED/READY 계열: 시청자 또는 소유자에게 송출 준비 상태 안내
- * - `live-status` 브로드캐스트 채널을 구독해 상세 화면에서도 상태 변화를 실시간 반영
- * - 상태 변경을 `onStatusChange`로 부모에 전달해 플레이어 렌더 조건과 동기화
- * - 종료 CTA는 자동 프리패치를 생략해 상세 초기 네트워크 경쟁을 만들지 않는다
+ * - `live-status`는 상세 셸에서 한 번만 구독하고, 이 컴포넌트는 전달받은 상태만 표시
+ * - 종료 CTA는 자동 프리패치를 생략해 상세 초기 네트워크 경쟁 방지
  */
 export default function StreamStatusOverlay({
   username,
   status,
-  streamId,
   isOwner = false,
-  onStatusChange,
 }: StreamStatusOverlayProps) {
   const linkRef = useRef<HTMLAnchorElement>(null);
-  const [current, setCurrent] = useState<StreamStatus>(
-    (status?.toUpperCase?.() as StreamStatus) || "DISCONNECTED"
-  );
+  const current = (status?.toUpperCase?.() as StreamStatus) || "DISCONNECTED";
 
   useEffect(() => {
-    // 서버 props 또는 부모 로컬 상태가 바뀌면 오버레이와 플레이어 조건을 함께 맞춘다
-    const next = (status?.toUpperCase?.() as StreamStatus) || "DISCONNECTED";
-    setCurrent((prev) => (prev === next ? prev : next));
-    onStatusChange?.(next);
-  }, [status, onStatusChange]);
-
-  useEffect(() => {
-    // Cloudflare webhook의 live-status 이벤트를 상세 화면에서 직접 반영한다
-    const channel = supabase.channel("live-status");
-
-    channel.on("broadcast", { event: "status" }, (msg) => {
-      const payload = (msg as any)?.payload || {};
-      if (!payload?.streamId || payload.streamId !== streamId) return;
-      const next = String(payload.status || "").toUpperCase() as StreamStatus;
-      setCurrent((prev) => (prev === next ? prev : next));
-      onStatusChange?.(next);
-    });
-
-    channel.subscribe();
-
-    return () => {
-      try {
-        channel.unsubscribe();
-      } catch {}
-      try {
-        supabase.removeChannel(channel);
-      } catch {}
-    };
-  }, [streamId, onStatusChange]);
-
-  useEffect(() => {
-    // 종료 상태에서는 다시보기 CTA로 포커스를 보내 키보드 흐름을 이어준다
+    // 종료 상태에서는 다시보기 CTA로 포커스를 보내 키보드 흐름 유지
     if (current !== "ENDED") return;
     const t = setTimeout(() => linkRef.current?.focus(), 0);
     return () => clearTimeout(t);

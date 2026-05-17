@@ -81,7 +81,7 @@ export default function RecordingLikeButton({
 
       return { previous };
     },
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
       toast.error("좋아요 처리에 실패했습니다.");
       queryClient.setQueryData(queryKey, context?.previous);

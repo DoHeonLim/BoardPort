@@ -7,6 +7,7 @@
  * Date        Author   Status     Description
  * 2025.12.22  임도헌   Created    P2002 Unique 에러 가드 유틸 추가
  * 2025.12.23  임도헌   Modified   meta.target 정규화(배열/문자열) 처리 보강
+ * 2026.05.17  임도헌   Modified   Prisma meta.target 타입 단언을 구체화
  */
 
 import { Prisma } from "@/generated/prisma/client";
@@ -28,7 +29,8 @@ export function isUniqueConstraintError(
 
   if (!fields?.length) return true;
 
-  const targetRaw = (err.meta as any)?.target;
+  const meta = err.meta as { target?: unknown } | null | undefined;
+  const targetRaw = meta?.target;
   const targets: string[] = Array.isArray(targetRaw)
     ? targetRaw.map(String)
     : typeof targetRaw === "string"

@@ -14,6 +14,7 @@
  * 2026.03.12  임도헌   Modified  스트림 썸네일 애니메이션 메타 조회 필드 추가
  * 2026.04.02  임도헌   Modified  BROADCAST_SUMMARY_SELECT를 selects.ts로 분리하고 스트림 상수 설명 보강
  * 2026.04.03  임도헌   Modified  스트림 채팅 고정 공지 최대 길이 상수 추가
+ * 2026.05.16  임도헌   Modified  스트림 채팅 입력 제한과 전송 제한 상수 추가
  */
 
 // =============================================================================
@@ -64,3 +65,12 @@ export const STREAM_CATEGORY = {
 
 /** 스트림 채팅 상단 고정 공지 최대 길이 */
 export const STREAM_PINNED_NOTICE_MAX_LENGTH = 160;
+
+/** 스트림 채팅 메시지 최대 길이 */
+export const STREAM_CHAT_MESSAGE_MAX_LENGTH = 2000;
+
+/** 스트림 채팅 전송 제한 시간 창(ms) */
+export const STREAM_CHAT_RATE_LIMIT_WINDOW_MS = 10_000;
+
+/** 스트림 채팅 전송 제한 시간 창 안의 최대 메시지 수 */
+export const STREAM_CHAT_RATE_LIMIT_MAX = 10;

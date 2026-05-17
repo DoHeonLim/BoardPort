@@ -19,11 +19,15 @@
  * 2026.03.25  임도헌   Modified  인증 화면에서 소셜 로그인 묶음이 과하게 강하지 않도록 높이와 타이포 무게를 조정
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 소셜 로그인 버튼 타이포 스케일을 표준화
  * 2026.04.13  임도헌   Modified  SMS 로그인 CTA의 명도 대비를 높여 접근성 기준을 보강
+ * 2026.05.12  임도헌   Modified  포인터 이동 시 blur 검증으로 CTA가 한 번 막히지 않도록 focus 이동 방지 처리
+ * 2026.05.16  임도헌   Modified  포인터 이벤트 핸들러를 가진 클라이언트 컴포넌트임을 명시
  */
+"use client";
 
 import Link from "next/link";
 import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
+import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
 
 /**
  * 소셜 로그인 버튼 묶음
@@ -66,6 +70,7 @@ export default function SocialLogin({
           "text-sm font-medium sm:text-base"
         )}
         href={kakaoHref}
+        onPointerDown={preventPointerDownFocus}
       >
         <svg
           className="size-5"
@@ -82,6 +87,7 @@ export default function SocialLogin({
         aria-label="GitHub로 계속하기"
         className={cn(baseButtonClass)}
         href={githubHref}
+        onPointerDown={preventPointerDownFocus}
       >
         <svg className="size-5" viewBox="0 0 15 15" fill="currentColor">
           <path
@@ -101,6 +107,7 @@ export default function SocialLogin({
           "focus-ring-strong"
         )}
         href={smsHref}
+        onPointerDown={preventPointerDownFocus}
       >
         <ChatBubbleOvalLeftEllipsisIcon className="size-5" />
         <span>SMS로 계속하기</span>

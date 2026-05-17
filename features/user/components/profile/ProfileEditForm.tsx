@@ -36,6 +36,7 @@
  * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 전화번호 인증 CTA weight를 500 기준으로 정리
  * 2026.04.25  임도헌   Modified  서버 액션 prop 전달을 제거하고 소셜 유저 설정 안내의 다크모드 대비를 개선
  * 2026.04.26  임도헌   Modified  전화번호 인증 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.05.15  임도헌   Modified  이메일/비밀번호 설정 안내 박스의 다크모드 텍스트 대비 보강
  */
 "use client";
 
@@ -594,7 +595,7 @@ export default function ProfileEditForm({
         />
 
         {showSetupNotice && (
-          <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm dark:border-amber-400/35 dark:bg-amber-400/12 dark:text-amber-100">
+          <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/70 dark:text-amber-100">
             원활한 서비스 이용을 위해 이메일과 비밀번호를 설정해주세요.
           </div>
         )}
@@ -726,7 +727,7 @@ export default function ProfileEditForm({
             )}
 
             <div className="text-xs text-muted leading-relaxed">
-              * 전화번호 변경은 인증 완료 시 즉시 저장됩니다.
+   * 전화번호 변경은 인증 완료 시 즉시 저장
               <br />* 이미 인증된 번호는 삭제할 수 없습니다.
             </div>
           </div>

@@ -21,6 +21,8 @@
  * 2026.04.24  임도헌   Modified  프로필 방송국의 종료 방송 썸네일도 최신 ready VOD thumbnail_url을 우선 사용하도록 보정
  * 2026.05.03  임도헌   Modified  방송/다시보기 카드 표시용 연결 보드게임 locale 매핑 추가
  * 2026.05.08  임도헌   Modified  보드게임 relation select 공용화 및 팔로우 상태 확인용 select factory 적용
+ * 2026.05.15  임도헌   Modified  전체 방송/다시보기 목록에서도 PRIVATE 항목을 노출하고 카드 진입 시 비밀번호로 접근 제어하도록 복구
+ * 2026.05.15  임도헌   Modified  유저 채널 VOD 조회에 커서 기반 페이징을 적용해 무한스크롤 대응
  */
 
 import "server-only";
@@ -125,9 +127,9 @@ export async function getStreamsList(params: {
       visibility: { in: ["PUBLIC", "FOLLOWERS", "PRIVATE"] },
     });
   } else {
-    // 전체 목록에서는 PRIVATE 제외, PUBLIC/FOLLOWERS 노출
+    // 전체 목록에서도 PRIVATE 방송은 발견 가능해야 하며, 접근 제한은 카드/상세 진입 단계에서 처리
     conditions.push({
-      OR: [{ visibility: "PUBLIC" }, { visibility: "FOLLOWERS" }],
+      visibility: { in: ["PUBLIC", "FOLLOWERS", "PRIVATE"] },
     });
   }
 
@@ -228,7 +230,8 @@ export async function getRecordingsList(params: {
   }
 
   conditions.push({
-    broadcast: { visibility: { in: ["PUBLIC", "FOLLOWERS"] } },
+    // 다시보기 목록도 라이브/채널과 동일하게 PRIVATE를 발견 가능하게 두고, 상세 진입 시 비밀번호로 제한
+    broadcast: { visibility: { in: ["PUBLIC", "FOLLOWERS", "PRIVATE"] } },
   });
 
   if (followingOnly) {
@@ -444,7 +447,7 @@ export async function getChannelLive(
       user: b.liveInput.user,
       tags: b.tags,
     },
-    { isFollowing: false, isMine: false } // Controller에서 오버라이드 예정
+    { isFollowing: false, isMine: false } // 상위 계층에서 보정할 기본 뷰어 상태
   );
 }
 
@@ -456,18 +459,21 @@ export async function getChannelLive(
  * 유저 채널 "다시보기(VOD)" 그리드 목록 조회 로직
  *
  * [데이터 가공 전략]
- * - 종료된(`ENDED`) 방송에 매핑된 VodAsset 레코드를 처리 완료(`ready_at`) 및 생성일(`created_at`) 역순으로 조회
+ * - 종료된(`ENDED`) 방송에 매핑된 VodAsset 레코드를 처리 완료(`ready_at`) 및 id 역순으로 조회
  * - UI 그리드 렌더링에 최적화된 DTO(`VodForGrid`) 매핑 및 반환
  *
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수
+ * @param {number | null} cursor - 이전 페이지의 마지막 VOD id
  */
 export async function getChannelVods(
   ownerId: number,
-  take: number
+  take: number,
+  cursor: number | null = null
 ): Promise<VodForGrid[]> {
   const vods = await db.vodAsset.findMany({
     where: {
+      ready_at: { not: null },
       broadcast: {
         liveInput: { userId: ownerId },
         status: "ENDED",
@@ -498,7 +504,8 @@ export async function getChannelVods(
         },
       },
     },
-    orderBy: [{ ready_at: "desc" }, { created_at: "desc" }],
+    orderBy: [{ ready_at: "desc" }, { id: "desc" }],
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     take,
   });
 

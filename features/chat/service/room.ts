@@ -29,6 +29,7 @@
  * 2026.04.02  임도헌   Modified  채팅방 서비스 helper/export JSDoc 태그 형식 정리
  * 2026.04.03  임도헌   Modified  차단/생성 실패 문구를 다른 채팅 서비스와 같은 정책 설명 톤으로 정리
  * 2026.04.04  임도헌   Modified  새 채팅방 재연결 시 사용자 채널 rooms_refresh로 목록 재동기화 지원
+ * 2026.05.12  임도헌   Modified  TabBar 뱃지와 채팅방 목록 기준을 맞춘 전체 미읽음 메시지 집계 추가
  */
 
 import "server-only";
@@ -119,7 +120,6 @@ async function findReusableRoom(productId: number, userId: number) {
  *
  * @param {number} productId - 상품 ID
  * @param {number} userId - 요청자 ID
- * @param {number} ownerId - 판매자 ID
  * @param {number} [retries=5] - 최대 재시도 횟수
  * @param {number} [intervalMs=120] - 재시도 간격(ms)
  * @returns {Promise<string | null>} 생성/복구된 채팅방 ID 또는 null
@@ -127,7 +127,6 @@ async function findReusableRoom(productId: number, userId: number) {
 async function waitForExistingRoom(
   productId: number,
   userId: number,
-  ownerId: number,
   retries = 5,
   intervalMs = 120
 ) {
@@ -270,6 +269,33 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
         unreadCount: unreadMap.get(room.id) ?? 0,
       },
     ];
+  });
+}
+
+/**
+ * 사용자가 참여 중인 채팅방의 전체 미읽음 메시지 수 조회
+ * - 채팅방 목록 뱃지와 같은 기준으로 차단 관계, 삭제 메시지, 시스템 메시지를 제외
+ *
+ * @param {number} userId - 미읽음 집계를 조회하는 사용자 ID
+ * @returns {Promise<number>} 전체 미읽음 채팅 메시지 수
+ */
+export async function getUnreadChatMessageCount(userId: number): Promise<number> {
+  const blockedIds = await getBlockedUserIds(userId);
+
+  return db.productMessage.count({
+    where: {
+      productChatRoomId: { not: null },
+      isRead: false,
+      deleted_at: null,
+      type: { not: "SYSTEM" },
+      userId: { not: userId },
+      room: {
+        users: {
+          some: { id: userId },
+          none: { id: { in: blockedIds } },
+        },
+      },
+    },
   });
 }
 
@@ -422,8 +448,7 @@ export async function createChatRoom(
   if (roomCreationLocks.has(lockKey)) {
     const existingRoomId = await waitForExistingRoom(
       productId,
-      userId,
-      product.userId
+      userId
     );
     if (existingRoomId) return existingRoomId;
     throw new Error("채팅방 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.");

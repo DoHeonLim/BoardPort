@@ -25,6 +25,7 @@
  * 2026.03.23  임도헌   Modified  로그인 폼 내 소셜 로그인 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.25  임도헌   Modified  인증 도움 링크와 소셜 섹션 위계를 다듬어 기본 로그인 흐름이 먼저 읽히도록 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 보조 링크 타이포 무게를 정리
+ * 2026.05.12  임도헌   Modified  보조 링크 클릭 시 input blur 검증으로 이동이 지연되지 않도록 처리
  */
 "use client";
 
@@ -43,6 +44,7 @@ import { login } from "@/features/auth/actions/login";
 import { loginSchema, type LoginSchema } from "@/features/auth/schemas/login";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
 
 type FormData = LoginSchema;
 
@@ -76,6 +78,7 @@ export default function LoginForm({
   const router = useRouter();
   const hasShownInitialErrorRef = useRef(false);
 
+  // 소셜 로그인 실패 등 URL에서 전달된 초기 인증 에러를 최초 1회만 토스트로 안내
   useEffect(() => {
     if (!initialErrorMessage || hasShownInitialErrorRef.current) return;
     hasShownInitialErrorRef.current = true;
@@ -157,6 +160,7 @@ export default function LoginForm({
       <div className="-mt-0.5 text-right">
         <Link
           href={`/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          onPointerDown={preventPointerDownFocus}
           className="focus-ring-soft rounded-md px-1 py-0.5 text-sm font-medium text-muted underline-offset-4 transition-colors hover:text-primary hover:underline"
         >
           비밀번호를 잊으셨나요?
@@ -186,6 +190,7 @@ export default function LoginForm({
             href={`/create-account?callbackUrl=${encodeURIComponent(
               callbackUrl
             )}`}
+            onPointerDown={preventPointerDownFocus}
             className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
           >
             회원가입 하기

@@ -1,6 +1,6 @@
 /**
  * File Name : app/(app)/streams/[id]/page.tsx
- * Description : 라이브 스트리밍 개별 페이지 (Broadcast 스키마 기준)
+ * Description : 방송 상세 페이지 (Broadcast 스키마 기준)
  * Author : 임도헌
  *
  * History
@@ -35,15 +35,17 @@
  * 2026.03.21  임도헌   Modified  full-width 스트림 셸, 우측 sticky 채팅 레일, 모바일 인라인 채팅 섹션 구조로 상세 레이아웃을 재정리
  * 2026.03.21  임도헌   Modified  방송 정보 카드 팔로우 CTA를 위해 소유자 프로필 초기 상태를 함께 주입
  * 2026.03.24  임도헌   Modified  스트림 상세 전용 Client Shell로 채팅 열림 상태를 로컬 관리하도록 단순화
- * 2026.03.27  임도헌   Modified  라이브 상세 본문은 최신 상태를 직접 조회하도록 바꿔 CONNECTED/ENDED 오버레이 stale 현상 방지
+ * 2026.03.27  임도헌   Modified  방송 상세 본문은 최신 상태를 직접 조회하도록 바꿔 CONNECTED/ENDED 오버레이 stale 현상 방지
  * 2026.04.03  임도헌   Modified  전역 차단과 방송 전용 강제 퇴장을 구분하기 위해 StreamBlockGuard에 방송 ID를 함께 전달
  * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 초기 상태를 상세 클라이언트 셸에 함께 주입
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/page.tsx 에서 app/(app)/streams/[id]/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.05.15  임도헌   Modified  방송 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
+ */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
 
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
@@ -68,8 +70,9 @@ import {
   checkBlockRelation,
   getBlockedUserIds,
 } from "@/features/user/service/block";
+import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 
-// 메타데이터 생성
+// 방송 상세 공유/브라우저 탭 메타데이터 생성
 export async function generateMetadata({
   params,
 }: {
@@ -87,6 +90,7 @@ export async function generateMetadata({
 
   const title = `${stream.title} - ${stream.user.username}`;
   const desc = stream.description?.slice(0, 100) || "보드포트 라이브 스트리밍";
+  const imageUrl = `/streams/${id}/og-image`;
 
   return {
     title,
@@ -94,12 +98,28 @@ export async function generateMetadata({
     openGraph: {
       title,
       description: desc,
+      url: `/streams/${id}`,
+      type: "video.other",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${stream.title} 방송 미리보기`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: desc,
+      images: [imageUrl],
     },
   };
 }
 
 /**
- * 라이브 방송 상세 페이지
+ * 방송 상세 페이지
  *
  * [기능]
  * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
@@ -120,7 +140,7 @@ export default async function StreamDetailPage({
 }) {
   const broadcastId = Number(params.id);
   if (!Number.isFinite(broadcastId) || broadcastId <= 0) notFound();
-  // 라이브 상세 복귀 기본 경로 고정
+  // 방송 상세 직접 진입 시에도 스트림 목록으로 자연스럽게 복귀하도록 기본 경로 고정
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/streams");
   const detailHref = `/streams/${broadcastId}?returnTo=${encodeURIComponent(
     returnTo
@@ -130,6 +150,14 @@ export default async function StreamDetailPage({
     getSession(),
     getBroadcastDetail(broadcastId),
   ]);
+  const isSharePreviewCrawler = isSocialCrawlerUserAgent(
+    headers().get("user-agent")
+  );
+
+  // 공유 미리보기 크롤러는 generateMetadata 수집만 필요하므로 본문 렌더링 생략
+  if (!session?.id && isSharePreviewCrawler) {
+    return null;
+  }
 
   if (!session?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
@@ -151,7 +179,7 @@ export default async function StreamDetailPage({
     }
   }
 
-  // 2. 기존 권한 체크 (PRIVATE / FOLLOWERS)
+  // 2. 공개 설정 권한 체크 (PRIVATE / FOLLOWERS)
   const isOwner = session.id === ownerId;
   if (!isOwner) {
     const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
@@ -190,12 +218,12 @@ export default async function StreamDetailPage({
         ? Promise.resolve(false)
         : isStreamViewerMuted(broadcastId, session.id),
     ]);
-  // 현재 접속한 유저가 과거에 차단했던 유저 목록을 DB에서 가져옴(기존 채팅에서 차단한 유저의 메세지 지우기 위해서)
+  // 기존 채팅 메시지 필터링을 위해 현재 유저가 차단한 유저 목록 조회
   const blockedIds = session.id ? await getBlockedUserIds(session.id) : [];
 
   return (
     <>
-      {/* 실시간 차단 감지 가드 추가 */}
+      {/* 실시간 차단 감지 가드 */}
       <StreamBlockGuard
         viewerId={session?.id ?? null}
         ownerId={ownerId}

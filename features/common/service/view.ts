@@ -1,6 +1,6 @@
 /**
  * File Name : features/common/service/view.ts
- * Description : 조회수 증가 공통 서비스 (ViewThrottle 3분 쿨다운 + DB increment + tag revalidate)
+ * Description : 조회수 증가 공통 서비스
  * Author : 임도헌
  *
  * History
@@ -14,6 +14,7 @@
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.28  임도헌   Modified   공략(MAP) 조회수 누적 뱃지가 상세 진입 증가에도 반응하도록 후처리 추가
  * 2026.05.08  임도헌   Modified   외부 사용이 없는 조회 대상 내부 타입 export 제거
+ * 2026.05.16  임도헌   Modified   캐시 재검증 제거 이후 흐름에 맞게 주석 정리 및 공용 타입/상수 분리
  */
 
 "use server";
@@ -21,12 +22,9 @@
 import db from "@/lib/db";
 import { checkRuleSageBadge } from "@/features/user/service/badge";
 import { isUniqueConstraintError } from "@/lib/errors";
+import { VIEW_THROTTLE_COOLDOWN_MS } from "@/features/common/constants";
+import type { IncrementViewsArgs } from "@/features/common/types";
 import type { ViewTargetType } from "@/generated/prisma/client";
-
-type IncrementViewsTarget = "PRODUCT" | "POST" | "VOD";
-
-// 조회수 중복 증가 방지 시간 (3분)
-const COOLDOWN_MS = 3 * 60 * 1000;
 
 /**
  * 조회수 증가 가능 여부 확인 (내부 헬퍼)
@@ -49,7 +47,7 @@ export async function shouldCountView(
   if (!Number.isFinite(targetId) || targetId <= 0) return false;
 
   const now = new Date();
-  const threshold = new Date(now.getTime() - COOLDOWN_MS);
+  const threshold = new Date(now.getTime() - VIEW_THROTTLE_COOLDOWN_MS);
 
   // 2. 기존 조회 기록 확인
   const existing = await db.viewThrottle.findUnique({
@@ -106,19 +104,13 @@ export async function shouldCountView(
   return updated.count === 1;
 }
 
-type IncrementViewsArgs = {
-  target: IncrementViewsTarget;
-  targetId: number;
-  viewerId: number | null;
-};
-
 /**
  * 통합 조회수 증가 서비스
  *
  * 1. `ViewThrottle` 테이블을 조회하여 동일 유저/타겟의 마지막 조회 시간을 확인
- * 2. [Throttle] 마지막 조회로부터 3분(COOLDOWN_MS)이 지나지 않았다면 카운트를 증가시키지 않음 (어뷰징 방지)
+ * 2. [Throttle] 마지막 조회로부터 3분이 지나지 않았다면 카운트를 증가시키지 않음
  * 3. 쿨다운이 지났거나 첫 조회라면 `views` 컬럼을 원자적으로 증가(+1) 시킴
- * 4. 성공 시 관련 캐시 태그(상세 정보)를 무효화하여 최신 상태를 반영
+ * 4. MAP 게시글 조회 성공 시 공략 누적 뱃지 후처리를 best-effort로 실행
  *
  * @returns 실제 DB 증가가 일어났는지 여부 (UI 낙관적 업데이트용)
  */

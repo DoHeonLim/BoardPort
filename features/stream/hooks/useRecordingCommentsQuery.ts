@@ -15,6 +15,7 @@
  * 2026.03.03  임도헌   Modified  useRecordingComment에서 Read 로직 분리 및 useSuspenseInfiniteQuery 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.31  임도헌   Modified  커서 조회와 평탄화 반환 역할이 보이도록 설명 톤 통일
+ * 2026.05.13  임도헌   Modified  댓글 페이징 응답의 nextCursor를 사용해 불필요한 빈 추가 요청을 방지
  */
 "use client";
 
@@ -45,16 +46,12 @@ export function useRecordingCommentsQuery(vodId: number, pageSize = 10) {
         );
       },
       initialPageParam: undefined as number | undefined,
-      getNextPageParam: (lastPage: any) => {
-        return lastPage.length === pageSize
-          ? lastPage[lastPage.length - 1].id
-          : undefined;
-      },
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 60 * 1000,
     });
 
   // Suspense 환경 기준 평탄화
-  const comments = data.pages.flat();
+  const comments = data.pages.flatMap((page) => page.comments);
 
   return {
     comments,

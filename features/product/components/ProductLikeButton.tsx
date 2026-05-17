@@ -22,6 +22,7 @@
  * 2026.03.26  임도헌   Modified  찜한 내역 카드 상단 빠른 해제를 위한 quick-remove variant 지원
  * 2026.03.26  임도헌   Modified  quick-remove 버튼의 모바일 라벨/톤을 줄여 제목 공간과 액션 위계를 보정
  * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 quick-remove 초소형 라벨을 text-xs/font-medium 기준으로 통일
+ * 2026.05.16  임도헌   Modified  제품 목록/찜 목록 캐시 갱신 shape 타입 정리
  */
 "use client";
 
@@ -39,6 +40,7 @@ import {
   pickProductFromLists,
 } from "@/features/product/utils/productQueryCache";
 import { cn } from "@/lib/utils";
+import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
 
 interface ProductLikeButtonProps {
   isLiked: boolean;
@@ -47,6 +49,13 @@ interface ProductLikeButtonProps {
   variant?: "stack" | "quick-remove";
   className?: string;
 }
+
+type ProductLikeCacheItem = {
+  id: number;
+  _count: {
+    product_likes: number;
+  };
+};
 
 /**
  * 제품 좋아요 버튼 컴포넌트
@@ -105,22 +114,22 @@ export default function ProductLikeButton({
       // 2) /products 목록 캐시 즉시 반영 (_count.product_likes)
       queryClient.setQueriesData(
         { queryKey: queryKeys.products.lists() },
-        (oldData: any) => {
+        (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
           if (!oldData?.pages) return oldData;
           return {
             ...oldData,
-            pages: oldData.pages.map((page: any) => ({
+            pages: oldData.pages.map((page) => ({
               ...page,
-              products: page.products.map((p: any) =>
-                p.id === productId
+              products: page.products.map((product) =>
+                product.id === productId
                   ? {
-                      ...p,
+                      ...product,
                       _count: {
-                        ...p._count,
+                        ...product._count,
                         product_likes: nextLikeCount,
                       },
                     }
-                  : p
+                  : product
               ),
             })),
           };
@@ -131,13 +140,15 @@ export default function ProductLikeButton({
       if (data.isLiked) {
         queryClient.setQueriesData(
           { predicate: (query) => isLikedScopeKey(query.queryKey) },
-          (oldData: any) => {
+          (oldData: ProductInfiniteCache<{ id: number }> | undefined) => {
             if (!oldData?.pages) return oldData;
             return {
               ...oldData,
-              pages: oldData.pages.map((page: any) => ({
+              pages: oldData.pages.map((page) => ({
                 ...page,
-                products: page.products.filter((p: any) => p.id !== productId),
+                products: page.products.filter(
+                  (product) => product.id !== productId
+                ),
               })),
             };
           }
@@ -146,18 +157,18 @@ export default function ProductLikeButton({
 
       // 좋아요 추가: LIKED 첫 페이지에 즉시 prepend
       if (!data.isLiked) {
-        const snapshot = pickProductFromLists(
+        const snapshot = pickProductFromLists<ProductLikeCacheItem>(
           listQueries,
           productId
         );
         if (snapshot) {
           queryClient.setQueriesData(
             { predicate: (query) => isLikedScopeKey(query.queryKey) },
-            (oldData: any) => {
+            (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
               if (!oldData?.pages?.length) return oldData;
 
-              const alreadyExists = oldData.pages.some((page: any) =>
-                page.products.some((p: any) => p.id === productId)
+              const alreadyExists = oldData.pages.some((page) =>
+                page.products.some((product) => product.id === productId)
               );
               if (alreadyExists) return oldData;
 
@@ -179,7 +190,7 @@ export default function ProductLikeButton({
 
       return { previousLikeStatus, listQueries, likedQueries };
     },
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
       toast.error("좋아요 처리에 실패했습니다.");
 

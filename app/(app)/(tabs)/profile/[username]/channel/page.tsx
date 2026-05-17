@@ -27,7 +27,8 @@
  * 2026.03.22  임도헌   Modified  유저 방송국 전용 메타데이터를 추가해 채널 소개와 제목을 페이지 문맥에 맞게 노출
  * 2026.04.09  임도헌   Modified  타인 방송국에도 프로필 페이지와 같은 상단 액션바(뒤로가기, 차단/신고 메뉴) 추가
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/channel/page.tsx 에서 app/(app)/(tabs)/profile/[username]/channel/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.05.15  임도헌   Modified  채널 다시보기 첫 페이지를 TAKE+1로 조회해 클라이언트 무한스크롤 커서 전달
+ */
 
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -43,6 +44,7 @@ import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session"
 import { getChannelLive, getChannelVods } from "@/features/stream/service/list";
 import { getViewerRole } from "@/features/stream/service/access";
 import { checkBlockRelation } from "@/features/user/service/block";
+import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import type {
   BroadcastSummary,
   ViewerRole,
@@ -110,7 +112,7 @@ export default async function ChannelPage({
   // 2. 데이터 병렬 조회 (차단 여부 체크 추가)
   const [liveResult, vods, roleResult, isBlocked] = await Promise.all([
     getChannelLive(ownerId),
-    getChannelVods(ownerId, 30),
+    getChannelVods(ownerId, STREAMS_PAGE_TAKE + 1),
     getViewerRole(viewerId, ownerId),
     viewerId ? checkBlockRelation(viewerId, ownerId) : Promise.resolve(false),
   ]);
@@ -130,8 +132,8 @@ export default async function ChannelPage({
     liveStreamForUI = { ...s, requiresPassword };
   }
 
-  // 4. VOD 목록 잠금 보정 (Controller Layer)
-  const recordingsForGrid: VodForGrid[] = vods.map((v) => {
+  // 4. VOD 목록 잠금 보정 (서버 페이지 계층)
+  const recordingsWithAccess: VodForGrid[] = vods.map((v) => {
     const isPrivate = v.visibility === "PRIVATE";
     const isFollowers = v.visibility === "FOLLOWERS";
 
@@ -147,6 +149,13 @@ export default async function ChannelPage({
         !(resolvedRole === "OWNER" || resolvedRole === "FOLLOWER"),
     };
   });
+  const hasMoreRecordings = recordingsWithAccess.length > STREAMS_PAGE_TAKE;
+  const recordingsForGrid = hasMoreRecordings
+    ? recordingsWithAccess.slice(0, STREAMS_PAGE_TAKE)
+    : recordingsWithAccess;
+  const recordingsNextCursor = hasMoreRecordings
+    ? recordingsForGrid[recordingsForGrid.length - 1].vodId
+    : null;
 
   return (
     <>
@@ -170,6 +179,7 @@ export default async function ChannelPage({
       <UserChannelContainer
         liveNow={liveStreamForUI}
         recordings={recordingsForGrid}
+        recordingsNextCursor={recordingsNextCursor}
         userInfo={{ ...userInfo, isFollowing, isBlocked }}
         me={resolvedRole === "OWNER"}
         viewerId={viewerId ?? undefined}

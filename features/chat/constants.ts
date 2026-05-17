@@ -8,6 +8,7 @@
  * 2026.04.01  임도헌   Modified  메시지 반응 상수 및 실시간 이벤트(message_reaction) 추가
  * 2026.04.02  임도헌   Modified  채팅 상수 설명 보강
  * 2026.04.04  임도헌   Modified  새 채팅방 등장 시 목록 재동기화를 위한 rooms_refresh 이벤트 추가
+ * 2026.05.16  임도헌   Modified  Prisma include shape를 selects.ts로 분리해 상수 파일 역할 정리
  */
 
 /** 채팅 목록/메시지 페이지당 로드 개수 */
@@ -39,12 +40,3 @@ export type ChatMessageReactionKey =
 export const CHAT_MESSAGE_REACTION_KEYS = Object.keys(
   CHAT_MESSAGE_REACTION_META
 ) as ChatMessageReactionKey[];
-
-/** 채팅 메시지 조회 공통 include */
-export const MESSAGE_INCLUDE = {
-  user: { select: { id: true, username: true, avatar: true } },
-  appointment: true, // 약속 정보 포함
-  reactions: {
-    select: { reactionKey: true, userId: true },
-  },
-};

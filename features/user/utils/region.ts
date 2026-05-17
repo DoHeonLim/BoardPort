@@ -7,9 +7,12 @@
  * Date        Author   Status    Description
  * 2026.02.20  임도헌   Created   지역 범위 비교 로직(isWithinRegionRange) 및 쿼리 빌더 분리
  * 2026.02.22  임도헌   Modified  위치 미설정 유저 방어(Fallback) 및 특수 행정구역 처리 일치화
+ * 2026.05.16  임도헌   Modified  지역 where 조건 타입을 명시해 any 제거
  */
 
 import type { RegionRange } from "@/generated/prisma/client";
+
+type RegionWhere = Partial<Record<"region1" | "region2" | "region3", string>>;
 
 /**
  * 유저의 동네 설정 범위 안에 특정 지역이 포함되는지 확인
@@ -82,13 +85,13 @@ export function buildRegionWhere(user: {
   region2?: string | null;
   region3?: string | null;
   regionRange: RegionRange;
-}) {
+}): RegionWhere {
   // 위치 설정을 아예 하지 않은 신규 유저는 필터 없이 전국 데이터를 띄워줌
   if (!user.region1) {
     return {};
   }
 
-  let condition: any = {};
+  let condition: RegionWhere = {};
   const hasGu = !!user.region2 && user.region2 !== user.region1; // 구 존재 여부
 
   switch (user.regionRange) {
@@ -101,17 +104,17 @@ export function buildRegionWhere(user: {
     case "GU":
       if (hasGu) {
         // 일반적인 도시: '구' 단위 필터
-        condition = { region2: user.region2 };
+        condition = { region2: user.region2 ?? undefined };
       } else {
         // 구가 없는 지역은 '시' 전체 대신 '동'으로 좁혀 보여줌(세종시)
         if (user.region3) condition = { region3: user.region3 };
-        else condition = { region1: user.region1 };
+        else condition = { region1: user.region1 ?? undefined };
       }
       break;
 
     case "CITY":
       // 시/도 단위는 언제나 region1
-      condition = { region1: user.region1 };
+      condition = { region1: user.region1 ?? undefined };
       break;
 
     case "ALL":

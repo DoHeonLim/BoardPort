@@ -13,6 +13,7 @@
  * 2026.03.25  임도헌   Modified  선택 이메일은 상단 에러 요약에서 제외하고 활동 지역 액션 라벨을 더 조용하게 정리
  * 2026.04.02  임도헌   Modified  온보딩 폼 JSDoc 보강
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 온보딩 도움 문구와 지역 액션 타이포를 정리
+ * 2026.05.12  임도헌   Modified  지역 선택 버튼이 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
  */
 "use client";
 
@@ -39,6 +40,7 @@ import type { AuthOnboardingState } from "@/features/auth/types";
 import type { LocationData } from "@/features/map/types";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
 
 type FormValues = Partial<OnboardingSchema>;
 
@@ -234,6 +236,7 @@ export default function OnboardingForm({
             <p className="text-sm font-medium text-primary">활동 지역</p>
             <button
               type="button"
+              onPointerDown={preventPointerDownFocus}
               onClick={() => setIsLocationModalOpen(true)}
               className="focus-ring-soft flex min-h-[56px] items-center justify-between rounded-xl border border-border bg-surface px-4 text-left transition-colors hover:bg-surface-dim"
             >

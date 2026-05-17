@@ -6,7 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2024.10.14  임도헌   Created
- * 2024.10.14  임도헌   Modified  동네생활 게시글 페이지 추가
+ * 2024.10.14  임도헌   Modified  커뮤니티 게시글 페이지 추가
  * 2024.11.05  임도헌   Modified  댓글 기능 추가
  * 2024.11.06  임도헌   Modified  댓글 기능 수정
  * 2024.11.12  임도헌   Modified  프로필 이미지 없을 경우의 코드 추가
@@ -35,12 +35,14 @@
  * 2026.03.18  임도헌   Modified  returnTo 미지정 시 게시글 목록(/posts)으로 복귀하도록 기본 경로 고정
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/page.tsx 에서 app/(app)/posts/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  제품 상세와 동일하게 가드 후 조회수 반영/화면 보정 순서로 조정
-*/
+ * 2026.05.15  임도헌   Modified  게시글 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
+ */
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import getSession from "@/lib/session";
@@ -54,6 +56,7 @@ import { getCachedPost } from "@/features/post/service/post";
 import { getPostLikeStatus } from "@/features/post/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { getPostCommentsListAction } from "@/features/post/actions/comments";
+import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 
 export async function generateMetadata({
   params,
@@ -71,8 +74,9 @@ export async function generateMetadata({
   }
 
   const desc = post.description
-    ? post.description.slice(0, 100).replace(/\n/g, " ")
+    ? post.description.slice(0, 100).replace(/\s+/g, " ")
     : "보드포트 항해일지";
+  const imageUrl = `/posts/${id}/og-image`;
 
   return {
     title: post.title,
@@ -80,6 +84,22 @@ export async function generateMetadata({
     openGraph: {
       title: post.title,
       description: desc,
+      url: `/posts/${id}`,
+      type: "article",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${post.title} 게시글 미리보기`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: desc,
+      images: [imageUrl],
     },
   };
 }
@@ -114,6 +134,14 @@ export default async function PostDetailPage({
 
   const session = await getSession();
   const userId = session?.id ?? null;
+  const isSharePreviewCrawler = isSocialCrawlerUserAgent(
+    headers().get("user-agent")
+  );
+
+  // 공유 미리보기 크롤러는 generateMetadata 수집만 필요하므로 본문 렌더링 생략
+  if (!userId && isSharePreviewCrawler) {
+    return null;
+  }
 
   // 비로그인 접근 제한 (미들웨어 보조)
   if (!userId) {
@@ -171,4 +199,3 @@ export default async function PostDetailPage({
     </HydrationBoundary>
   );
 }
-

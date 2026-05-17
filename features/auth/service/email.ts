@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/service/email.ts
- * Description : 이메일 인증 서버 액션 (토큰 전송/검증)
+ * Description : 이메일 인증 비즈니스 로직 (토큰 전송/검증)
  * Author : 임도헌
  *
  * History
@@ -26,9 +26,10 @@
  * 2026.03.14  임도헌   Modified   메일 발송 전 테스트/예약 도메인 차단 및 MX 검사 적용
  * 2026.03.17  임도헌   Modified   새 인증 메일 발송 성공 후에만 이전 토큰을 정리해 발송 실패 시 기존 유효 토큰 보존
  * 2026.04.02  임도헌   Modified   내부 인증 helper JSDoc 보강
+ * 2026.05.16  임도헌   Modified   서버 액션 래퍼를 actions/email.ts로 분리하고 서비스는 인증 처리만 담당
  */
 
-"use server";
+import "server-only";
 import { z, type typeToFlattenedError } from "zod";
 import validator from "validator";
 import { revalidatePath } from "next/cache";
@@ -87,7 +88,7 @@ function calcCooldownRemainingFromCreatedAt(createdAt: Date): number {
 }
 
 /**
- * 이메일 인증 프로세스 메인 핸들러 (useFormState Action)
+ * 이메일 인증 프로세스 메인 핸들러
  *
  * 1. Intent가 'request' 또는 'resend'일 때:
  *    - 메일 발송 가능 이메일 주소 검증(테스트/예약 도메인 차단, MX 검사)
@@ -104,7 +105,7 @@ function calcCooldownRemainingFromCreatedAt(createdAt: Date): number {
  * @param {FormData} formData - 폼 데이터 (email, token, intent)
  * @returns {Promise<EmailVerifyState>} 요청/검증/쿨다운 상태 포함 결과
  */
-export async function verifyEmail(
+export async function handleEmailVerification(
   prevState: EmailVerifyState,
   formData: FormData
 ): Promise<EmailVerifyState> {

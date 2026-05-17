@@ -9,10 +9,10 @@
  * 2026.02.25  임도헌   Modified   OG 이미지에 텍스트 대신 새 로고(logo-text.png) 적용
  * 2026.03.23  임도헌   Modified  잘못된 id 경로는 DB 조회 전 가드해 OG 이미지 라우트 예외 가능성을 줄임
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/opengraph-image.tsx 에서 app/(app)/products/view/[id]/opengraph-image.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
+ */
 
-/* eslint-disable @next/next/no-img-element */
-import { ImageResponse } from "next/og";
+import sharp from "sharp";
 import db from "@/lib/db";
 import { formatToWon } from "@/lib/utils";
 
@@ -20,39 +20,187 @@ export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const FALLBACK_LOGO_TEXT = "BoardPort";
+
+/**
+ * DB 문자열을 SVG text node에 안전하게 넣기 위한 최소 escape 처리
+ */
+function escapeSvgText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * OG 이미지처럼 폭이 고정된 영역에서 텍스트가 넘치지 않도록 문자 수 기준 줄 분리
+ * 한글/영문 폭 차이를 정확히 재지는 않지만, 공유 카드의 안정적인 폴백으로 충분한 예측 가능성 확보
+ */
+function splitLines(value: string, maxChars: number, maxLines: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of normalized.split(" ")) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxChars) {
+      current = next;
+      continue;
+    }
+
+    if (current) lines.push(current);
+    current = word;
+    if (lines.length === maxLines - 1) break;
+  }
+
+  if (current && lines.length < maxLines) lines.push(current);
+  if (normalized.length > lines.join(" ").length && lines.length) {
+    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, -1)}...`;
+  }
+
+  return lines.length ? lines : [FALLBACK_LOGO_TEXT];
+}
+
+/**
+ * 외부 상품 이미지를 sharp 합성용 Buffer로 조회
+ * Cloudflare 이미지 장애나 만료 URL 발생 시 카드 전체 실패 대신 텍스트 카드 폴백
+ */
+async function fetchImageBuffer(src: string | null) {
+  if (!src) return null;
+
+  try {
+    const response = await fetch(src);
+    if (!response.ok) return null;
+    return Buffer.from(await response.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 잘못된 ID나 삭제된 상품을 위한 기본 BoardPort OG 이미지
+ */
+function buildFallbackSvg() {
+  return `
+    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="630" fill="#f8fafc"/>
+      <text x="600" y="292" text-anchor="middle" font-family="Arial, sans-serif" font-size="78" font-weight="700" fill="#1e3a8a">BoardPort</text>
+      <text x="600" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#64748b">모든 게임이 모이는 곳</text>
+    </svg>
+  `;
+}
+
+/**
+ * 상품 정보 영역 SVG 생성
+ * 실제 상품 이미지는 sharp composite 단계에서 왼쪽 절반에 합성하므로, 여기서는 우측 정보 패널과 fallback만 구성
+ */
+function buildProductSvg({
+  title,
+  description,
+  price,
+  seller,
+  statusText,
+  statusColor,
+  hasImage,
+}: {
+  title: string;
+  description: string;
+  price: number;
+  seller: string;
+  statusText: string;
+  statusColor: string;
+  hasImage: boolean;
+}) {
+  const titleLines = splitLines(title, 14, 2);
+  const descriptionLines = splitLines(description, 17, 3);
+  const titleText = titleLines
+    .map(
+      (line, index) =>
+        `<text x="682" y="${180 + index * 48}" font-family="Arial, sans-serif" font-size="40" font-weight="700" fill="#0f172a">${escapeSvgText(line)}</text>`
+    )
+    .join("");
+  const descriptionText = descriptionLines
+    .map(
+      (line, index) =>
+        `<text x="682" y="${304 + index * 33}" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#64748b">${escapeSvgText(line)}</text>`
+    )
+    .join("");
+
+  return `
+    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="630" fill="#f8fafc"/>
+      <rect x="0" y="0" width="600" height="630" fill="#dbeafe"/>
+      ${
+        hasImage
+          ? ""
+          : '<text x="300" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="52" font-weight="700" fill="#94a3b8">No Image</text>'
+      }
+      <rect x="600" y="0" width="600" height="630" fill="#ffffff"/>
+      <rect x="636" y="44" width="500" height="542" rx="30" fill="#f8fafc"/>
+      <rect x="636" y="44" width="500" height="542" rx="30" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+      <rect x="682" y="82" width="132" height="44" rx="14" fill="${statusColor}"/>
+      <text x="748" y="113" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">${statusText}</text>
+      ${titleText}
+      <rect x="682" y="264" width="386" height="118" rx="20" fill="#ffffff"/>
+      <rect x="682" y="264" width="386" height="118" rx="20" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
+      ${descriptionText}
+      <text x="682" y="454" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#1e3a8a">${formatToWon(price)}원</text>
+      <rect x="682" y="498" width="386" height="2" rx="1" fill="#dbeafe"/>
+      <text x="682" y="552" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#64748b">판매자: ${escapeSvgText(seller)}</text>
+      <text x="1068" y="552" text-anchor="end" font-family="Arial, sans-serif" font-size="29" font-weight="700" fill="#1e3a8a">BoardPort</text>
+    </svg>
+  `;
+}
+
+/**
+ * SVG 정보 패널과 대표 이미지를 합성한 PNG Response 생성
+ */
+async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
+  const composites: sharp.OverlayOptions[] = [];
+
+  if (imageBuffer) {
+    try {
+      // 공유 카드에서 대표 이미지 영역이 비지 않도록 왼쪽 절반에 cover 합성
+      const productImage = await sharp(imageBuffer)
+        .resize(600, 630, { fit: "cover", position: "centre" })
+        .png()
+        .toBuffer();
+      composites.push({ input: productImage, left: 0, top: 0 });
+    } catch {
+      // 외부 이미지 처리 실패 시 텍스트 중심 OG 이미지로 폴백
+    }
+  }
+
+  const png = await sharp(Buffer.from(svg))
+    .composite(composites)
+    .png()
+    .toBuffer();
+
+  return new Response(new Uint8Array(png), {
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=300, stale-while-revalidate=86400",
+    },
+  });
+}
+
+/**
+ * 제품 상세 공유용 OG 이미지 엔트리
+ * next/og의 Windows 로컬 폰트 경로 오류 회피를 위한 sharp 직접 PNG 생성
+ */
 export default async function Image({ params }: { params: { id: string } }) {
   const id = Number(params.id);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const logoUrl = `${baseUrl}/images/logo-text.png`;
 
   if (!Number.isFinite(id) || id <= 0) {
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            background: "#f8fafc",
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <img
-            src={logoUrl}
-            alt="BoardPort"
-            style={{ width: 400, objectFit: "contain" }}
-          />
-        </div>
-      ),
-      { ...size }
-    );
+    return createPngResponse(buildFallbackSvg(), null);
   }
 
   const product = await db.product.findUnique({
     where: { id },
     select: {
       title: true,
+      description: true,
       price: true,
       purchase_userId: true,
       reservation_userId: true,
@@ -62,27 +210,7 @@ export default async function Image({ params }: { params: { id: string } }) {
   });
 
   if (!product) {
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            background: "#f8fafc",
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <img
-            src={logoUrl}
-            alt="BoardPort"
-            style={{ width: 400, objectFit: "contain" }}
-          />
-        </div>
-      ),
-      { ...size }
-    );
+    return createPngResponse(buildFallbackSvg(), null);
   }
 
   const isSold = !!product.purchase_userId;
@@ -92,119 +220,20 @@ export default async function Image({ params }: { params: { id: string } }) {
   const imageUrl = product.images[0]?.url
     ? `${product.images[0].url}/public`
     : null;
+  const imageBuffer = await fetchImageBuffer(imageUrl);
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "row",
-          backgroundColor: "#f8fafc",
-          fontFamily: "sans-serif",
-        }}
-      >
-        <div
-          style={{
-            width: "50%",
-            height: "100%",
-            display: "flex",
-            backgroundColor: "#e2e8f0",
-            overflow: "hidden",
-          }}
-        >
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={product.title}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : (
-            <div
-              style={{
-                fontSize: 64,
-                color: "#94a3b8",
-                display: "flex",
-                width: "100%",
-                height: "100%",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              No Image
-            </div>
-          )}
-        </div>
-
-        <div
-          style={{
-            width: "50%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            padding: "40px",
-            backgroundColor: "#ffffff",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              backgroundColor: statusColor,
-              borderRadius: "12px",
-              padding: "8px 20px",
-              marginBottom: "20px",
-              width: "fit-content",
-            }}
-          >
-            <span style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>
-              {statusText}
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: 48,
-              fontWeight: 700,
-              color: "#0f172a",
-              lineHeight: 1.2,
-              marginBottom: "20px",
-              display: "-webkit-box",
-            }}
-          >
-            {product.title}
-          </div>
-          <div
-            style={{
-              fontSize: 40,
-              fontWeight: "bold",
-              color: "#1e3a8a",
-              marginBottom: "40px",
-            }}
-          >
-            {formatToWon(product.price)}원
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginTop: "auto",
-            }}
-          >
-            <div style={{ fontSize: 24, color: "#64748b" }}>
-              판매자: {product.user.username}
-            </div>
-            <img
-              src={logoUrl}
-              alt="BoardPort"
-              style={{ height: 40, objectFit: "contain" }}
-            />
-          </div>
-        </div>
-      </div>
-    ),
-    { ...size }
+  return createPngResponse(
+    buildProductSvg({
+      title: product.title,
+      description:
+        product.description?.trim().replace(/\s+/g, " ") ||
+        "보드포트 상품 상세를 확인해보세요.",
+      price: product.price,
+      seller: product.user.username,
+      statusText,
+      statusColor,
+      hasImage: !!imageBuffer,
+    }),
+    imageBuffer
   );
 }
-

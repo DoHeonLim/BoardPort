@@ -11,10 +11,13 @@
  * 2026.03.07  임도헌   Modified  관리자 액션 실패 문구를 구체화(v1.2)
  * 2026.03.31  임도헌   Modified  관리자 삭제도 일반 삭제와 같은 태그/이미지 cleanup 규칙을 재사용
  * 2026.04.02  임도헌   Modified  관리자 서비스 JSDoc 태그 형식 정리
+ * 2026.05.15  임도헌   Modified  관리자 상품 검색 범위에 검색 태그명 포함
+ * 2026.05.16  임도헌   Modified  관리자 검색 where 조건 타입 명시
  */
 
 import "server-only";
 import db from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { createAuditLog } from "@/features/report/service/audit";
 import { sendAdminActionNotification } from "@/features/notification/service/notification";
 import { hardDeleteProductWithCleanup } from "@/features/product/service/delete";
@@ -28,6 +31,7 @@ import type {
  * 관리자용 전체 상품 목록 조회
  * - 삭제된 상품을 제외한 전체 상품을 최신순으로 조회
  * - 관리자 페이지네이션을 위한 메타데이터를 포함
+ * - 조치 대상 탐색을 위해 제목, 작성자, ID, 검색 태그명 검색을 지원
  *
  * @param page - 현재 페이지 (기본값: 1)
  * @param limit - 페이지당 항목 수 (기본값: 20)
@@ -43,15 +47,21 @@ export async function getProductsAdmin(
     const skip = (page - 1) * limit;
 
     // 검색 조건 구성
-    const where: any = {};
+    const where: Prisma.ProductWhereInput = {};
     if (query) {
       // 숫자 검색어의 상품 ID 직접 매칭 지원
       const parsedProductId = /^\d+$/.test(query.trim())
         ? Number(query.trim())
         : null;
+      // 신고/조치 대상 탐색 목적에 맞춘 사용자 노출 태그 포함 검색
       where.OR = [
         { title: { contains: query, mode: "insensitive" } },
         { user: { username: { contains: query, mode: "insensitive" } } },
+        {
+          search_tags: {
+            some: { name: { contains: query, mode: "insensitive" } },
+          },
+        },
         ...(parsedProductId !== null ? [{ id: parsedProductId }] : []),
       ];
     }

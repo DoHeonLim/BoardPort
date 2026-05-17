@@ -20,6 +20,7 @@
  * 2026.03.14  임도헌   Modified  토큰 단계에서 인증번호 재전송 버튼을 제공해 전화번호 재입력 없이 재시도할 수 있도록 보강
  * 2026.03.14  임도헌   Modified  인증 성공 시 온보딩 필요 여부를 서버 redirectTo 규칙으로 통일
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 SMS 인증 안내와 액션 링크 타이포를 정리
+ * 2026.05.12  임도헌   Modified  토큰 단계 보조 액션이 blur 검증으로 한 번 막히지 않도록 처리
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
@@ -42,6 +43,7 @@ import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import Input from "@/components/ui/Input";
 import { sendPhoneToken, verifyPhoneToken } from "@/features/auth/actions/sms";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
 
 type Phase = "phone" | "token";
 type FormValues = { phone?: string; token?: string };
@@ -208,6 +210,7 @@ export default function SmsForm({
           <div className="flex items-center justify-center gap-4 text-center">
             <button
               type="button"
+              onPointerDown={preventPointerDownFocus}
               onClick={handleResendToken}
               disabled={isPending}
               className="focus-ring-soft rounded-md px-1.5 py-1 text-sm font-medium text-brand underline-offset-4 transition-colors hover:underline disabled:opacity-60 dark:text-brand-light"
@@ -216,6 +219,7 @@ export default function SmsForm({
             </button>
             <button
               type="button"
+              onPointerDown={preventPointerDownFocus}
               onClick={() => {
                 setPhase("phone");
                 setFormError(null);

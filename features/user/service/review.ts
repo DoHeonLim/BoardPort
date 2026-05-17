@@ -16,15 +16,22 @@
  * 2026.02.05  임도헌   Modified   리뷰 조회 시 차단 유저 필터링 로직 추가
  * 2026.03.05  임도헌   Modified  서버 캐싱(`unstable_cache`) 래퍼 제거 및 파편화된 조회 함수를 단일 페이징 함수(`getUserReviews`)로 통합
  * 2026.03.26  임도헌   Modified   차단 필터 병합 시 자기 작성 리뷰 제외 조건이 유지되도록 received 조건 정정
+ * 2026.05.13  임도헌   Modified   후기 목록 페이징에서 마지막 페이지가 불필요한 추가 요청을 만들지 않도록 nextCursor 계산 보정
+ * 2026.05.16  임도헌   Modified   후기 select를 selects.ts로 분리하고 DTO 매핑 타입을 명시
  */
 import "server-only";
 import db from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ProfileReview, ReviewCursor } from "@/features/user/types";
 import { getBlockedUserIds } from "@/features/user/service/block";
+import { PROFILE_REVIEW_SELECT } from "@/features/user/selects";
 
-// Prisma -> DTO 매핑
-function toProfileReviewDTO(r: any): ProfileReview {
+type ProfileReviewRow = Prisma.ReviewGetPayload<{
+  select: typeof PROFILE_REVIEW_SELECT;
+}>;
+
+// Prisma row -> 프로필 후기 DTO 매핑
+function toProfileReviewDTO(r: ProfileReviewRow): ProfileReview {
   return {
     id: r.id,
     created_at: r.created_at,
@@ -56,17 +63,6 @@ async function receivedReviewsWhere(
 
   return base;
 }
-
-const reviewSelect = {
-  id: true,
-  created_at: true,
-  rate: true,
-  payload: true,
-  user: { select: { id: true, username: true, avatar: true } },
-  product: {
-    select: { id: true, title: true, userId: true, purchase_userId: true },
-  },
-} as const;
 
 /**
  * 리뷰 목록 통합 조회 로직
@@ -113,15 +109,17 @@ export async function getUserReviews(
   const take = Math.max(1, Math.min(limit, 50));
   const rows = await db.review.findMany({
     where,
-    select: reviewSelect,
+    select: PROFILE_REVIEW_SELECT,
     orderBy: [{ created_at: "desc" }, { id: "desc" }],
-    take,
+    take: take + 1,
   });
 
   // DTO 변환 및 다음 커서 계산
-  const reviews = rows.map(toProfileReviewDTO);
-  const tail = rows[rows.length - 1];
-  const nextCursor = tail
+  const hasMore = rows.length > take;
+  const pageRows = hasMore ? rows.slice(0, take) : rows;
+  const reviews = pageRows.map(toProfileReviewDTO);
+  const tail = pageRows[pageRows.length - 1];
+  const nextCursor = hasMore && tail
     ? { lastCreatedAt: tail.created_at, lastId: tail.id }
     : null;
 

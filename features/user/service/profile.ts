@@ -23,6 +23,7 @@
  * 2026.03.07  임도헌   Modified  위치 저장 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  위치 변경 mutation에 정지 유저 가드 추가
  * 2026.03.21  임도헌   Modified  방송국 헤더용 채널 소개글(channelDescription) 조회 추가
+ * 2026.05.16  임도헌   Modified  유저 경량 정보 select를 selects.ts로 분리
  */
 
 import "server-only";
@@ -35,6 +36,7 @@ import type { ServiceResult } from "@/lib/types";
 import type { UserProfile, UserLite } from "@/features/user/types";
 import type { LocationData } from "@/features/map/types";
 import type { RegionRange } from "@/generated/prisma/enums";
+import { USER_LITE_SELECT } from "@/features/user/selects";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers
@@ -165,7 +167,7 @@ export async function getUserInfoById(
 
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { id: true, username: true, avatar: true },
+    select: USER_LITE_SELECT,
   });
 
   if (!user) return null;

@@ -43,12 +43,17 @@
  * 2026.04.20  임도헌   Modified  앱 셸이 sm 폭 제약으로 전환되는 구간부터 데스크톱 헤더를 사용하도록 헤더 분기 breakpoint를 정리
  * 2026.04.20  임도헌   Modified  sm 구간 데스크톱 헤더가 뒤 콘텐츠를 비치지 않도록 반투명 헤더/카테고리 레일 표면을 불투명 톤으로 정리
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
+ * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
 */
 import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import {
+  dehydrate,
+  HydrationBoundary,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import PullToRefresh from "@/components/global/PullToRefresh";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
@@ -70,8 +75,10 @@ import { getRecordingsListAction, getStreamsListAction } from "@/features/stream
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import type {
   RecordingSort,
+  RecordingsPage,
   StreamMode,
   StreamScope,
+  StreamsPage as StreamsListPage,
 } from "@/features/stream/types";
 
 export const dynamic = "force-dynamic";
@@ -158,15 +165,22 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
     getUnreadNotificationCount(),
   ]);
 
-  const prefetchData = queryClient.getQueryData<any>(
+  const prefetchData = queryClient.getQueryData<
+    InfiniteData<StreamsListPage | RecordingsPage>
+  >(
     mode === "recordings"
       ? queryKeys.streams.recordingList(recordingSort, recordingQueryParams)
       : queryKeys.streams.list(scope, liveQueryParams)
   );
+  const firstPage = prefetchData?.pages[0];
   const isDataEmpty =
     mode === "recordings"
-      ? prefetchData?.pages[0]?.recordings.length === 0
-      : prefetchData?.pages[0]?.streams.length === 0;
+      ? firstPage && "recordings" in firstPage
+        ? firstPage.recordings.length === 0
+        : false
+      : firstPage && "streams" in firstPage
+        ? firstPage.streams.length === 0
+        : false;
 
   // 탭 링크 빌더
   const buildHref = (nextScope: StreamScope) => {

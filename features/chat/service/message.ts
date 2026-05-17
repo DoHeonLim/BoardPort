@@ -37,9 +37,9 @@ import { supabase } from "@/lib/supabase";
 import {
   CHAT_EVENT,
   CHAT_MESSAGE_REACTION_META,
-  MESSAGE_INCLUDE,
   MESSAGE_LOAD_LIMIT,
 } from "@/features/chat/constants";
+import { MESSAGE_INCLUDE } from "@/features/chat/selects";
 import {
   canSendPushForType,
   isNotificationTypeEnabled,
@@ -331,7 +331,7 @@ export async function createMessage(
         });
 
         // 알림 전송 (In-app & Push) - Fire & Forget
-        const tasks: Promise<any>[] = [];
+        const tasks: Promise<unknown>[] = [];
 
         tasks.push(
           supabase.channel(`user-${receiverId}-notifications`).send({

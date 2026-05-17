@@ -15,7 +15,7 @@
  * 2026.02.04  임도헌   Modified  이미지 포함 메시지 렌더링 로직 추가
  * 2026.02.06  임도헌   Modified  상대방 메시지에 신고 메뉴(더보기) UI 추가
  * 2026.02.23  임도헌   Modified  다크 모드 시 본인 말풍선 가시성 개선 (bg-brand-light)
- * 2026.02.26  임도헌   Modified  메세지 오버플로우 방지
+ * 2026.02.26  임도헌   Modified  메시지 오버플로우 방지
  * 2026.03.12  임도헌   Modified  이미지 확대 오버레이에 공용 bodyScrollLock 유틸 적용
  * 2026.03.12  임도헌   Modified  사용자 업로드 GIF만 조건부 최적화 예외 처리하도록 imageIsAnimated 메타 연동
  * 2026.03.12  임도헌   Modified  상대 메시지 말풍선과 메뉴 오버레이를 border-border-subtle 기준으로 정리
@@ -32,6 +32,7 @@
  * 2026.04.05  임도헌   Modified  모바일 롱프레스 메뉴가 미세한 손가락 흔들림에는 유지되도록 시간/이동 허용치 조정
  * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 메타 타임 크기를 text-xs 기준으로 정리
  * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 이미지 확대 모달과 상대 아바타 초기 비용을 줄임
+ * 2026.05.12  임도헌   Modified  이미지 캡션 구분선을 제거하고 여백으로만 말풍선 내부 흐름을 정리
  */
 "use client";
 
@@ -524,12 +525,11 @@ export default function ChatMessageBubble({
                       className={cn(
                         "text-sm leading-relaxed break-words whitespace-pre-wrap",
                         "overflow-wrap-anywhere",
+                        // 말풍선 내부 경계가 과해 보이지 않도록 선 대신 여백으로 분리
                         hasCaption &&
-                          "mt-1.5 border-t px-2.5 pb-1 pt-2.5 leading-6",
+                          "mt-2 px-2.5 pb-1 pt-0.5 leading-6",
                         hasCaption &&
-                          (isOwnMessage
-                            ? "border-white/12 text-white"
-                            : "border-border-subtle text-primary")
+                          (isOwnMessage ? "text-white" : "text-primary")
                       )}
                     >
                       {message.payload}

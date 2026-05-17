@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/actions/sms.ts
- * Description : SMS 인증 Controller
+ * Description : SMS 인증 서버 액션
  * Author : 임도헌
  *
  * History
@@ -8,7 +8,7 @@
  * 2024.10.04  임도헌   Created
  * 2024.10.04  임도헌   Modified  폼 제출 및 검증 기능 추가
  * 2024.10.11  임도헌   Modified  인증 번호 검증 때 전화번호까지 검증
- * 2025.04.05  임도헌   Modified  twillo에서 CoolSMS로 변경
+ * 2025.04.05  임도헌   Modified  Twilio에서 CoolSMS로 변경
  * 2025.06.05  임도헌   Modified  비즈니스 로직 분리
  * 2025.06.07  임도헌   Modified  리디렉션 제거
  * 2025.12.07  임도헌   Modified  VERIFIED_SAILOR 뱃지 체크를 badgeChecks.onVerificationUpdate로 통일
@@ -16,6 +16,7 @@
  * 2026.01.20  임도헌   Modified  Service 분리 및 로직 단순화
  * 2026.01.30  임도헌   Moved     app/(auth)/sms/actions.ts -> features/auth/actions/sms.ts
  * 2026.04.04  임도헌   Modified  전화번호/SMS 토큰 검증과 세션 저장 단계의 인라인 주석 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

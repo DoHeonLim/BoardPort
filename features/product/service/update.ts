@@ -95,7 +95,7 @@ async function notifyPriceDrop(params: {
         },
       });
 
-      const tasks: Promise<any>[] = [];
+      const tasks: Promise<unknown>[] = [];
 
       // In-app Broadcast
       tasks.push(
@@ -127,7 +127,7 @@ async function notifyPriceDrop(params: {
             image,
             tag: `price-drop-${productId}`, // 중복 알림 방지 태그
             renotify: true,
-          }).then(async (res: any) => {
+          }).then(async (res) => {
             if (res?.success && (res.data?.sent ?? 0) > 0) {
               await db.notification.update({
                 where: { id: notification.id },

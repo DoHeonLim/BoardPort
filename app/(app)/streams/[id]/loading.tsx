@@ -1,15 +1,15 @@
 /**
  * File Name : app/(app)/streams/[id]/loading.tsx
- * Description : 라이브 상세 로딩 스켈레톤
+ * Description : 방송 상세 로딩 스켈레톤
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
- * 2026.01.14  임도헌   Created   라이브 상세 로딩 페이지 추가
- * 2026.03.12  임도헌   Modified  flat 헤더 톤과 현재 라이브 상세 레이아웃 밀도에 맞춰 스켈레톤 정리
+ * 2026.01.14  임도헌   Created   방송 상세 로딩 페이지 추가
+ * 2026.03.12  임도헌   Modified  flat 헤더 톤과 현재 방송 상세 레이아웃 밀도에 맞춰 스켈레톤 정리
  * 2026.03.29  임도헌   Modified  StreamTopbar의 뒤로가기/가시성 칩/액션 버튼 구조에 맞춰 상단 스켈레톤 재정렬
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/loading.tsx 에서 app/(app)/streams/[id]/loading.tsx 로 변경 (라우트 그룹 개편)
-*/
+ */
 
 import Skeleton from "@/components/ui/Skeleton";
 

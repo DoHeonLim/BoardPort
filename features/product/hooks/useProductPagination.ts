@@ -21,6 +21,7 @@
  * 2026.03.11  임도헌   Modified  첫 페이지 totalCount를 노출해 무한스크롤 중에도 전체 검색 결과 수를 고정 표시
  * 2026.04.17  임도헌   Modified  Suspense 무한 쿼리 기준 현재 동작과 맞지 않던 initialData 설명을 제거하고 훅 책임 주석을 최신화
  * 2026.05.08  임도헌   Modified  프로필 제품 목록 조회 범위 타입 import 경로를 product types로 정리
+ * 2026.05.16  임도헌   Modified  제품 무한스크롤 캐시 shape 타입을 공용 유틸 타입으로 정리
  */
 
 "use client";
@@ -33,6 +34,7 @@ import {
 import { getUserProductsAction } from "@/features/user/actions/product";
 import { getProductsAction } from "@/features/product/actions/list";
 import { queryKeys } from "@/lib/queryKeys";
+import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
 import type {
   Paginated,
   ProductSearchParams,
@@ -176,7 +178,7 @@ export function useProductPagination<T extends { id: number }>(
    */
   const updateOne = useCallback(
     (id: number, patch: Partial<T>) => {
-      queryClient.setQueryData(queryKey, (oldData: any) => {
+      queryClient.setQueryData<ProductInfiniteCache<T>>(queryKey, (oldData) => {
         // [방어 로직] 캐시 구조가 비어있거나 깨져있을 경우 무시
         if (!oldData || !oldData.pages || oldData.pages.length === 0)
           return oldData;

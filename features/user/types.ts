@@ -15,6 +15,8 @@
  * 2026.03.21  임도헌   Modified  방송국 소개 수정용 ChannelDescriptionActionState 타입 추가
  * 2026.04.03  임도헌   Modified  관리자 필터 및 액션 상태 type alias 설명 보강
  * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입을 user types로 이동
+ * 2026.05.16  임도헌   Modified  팔로우 캐시 동기화용 페이지/통계 타입 추가
+ * 2026.05.17  임도헌   Modified  차단 관리 모달용 차단 유저 요약 타입 추가
  */
 
 import type { Role } from "@/generated/prisma/enums";
@@ -29,6 +31,11 @@ export type UserLite = {
   username: string;
   avatar: string | null;
 };
+
+/** 차단 관리 모달에서 사용하는 차단 대상 사용자 요약 */
+export interface BlockedUserSummary {
+  blocked: UserLite;
+}
 
 /** 프로필 조회 결과 (상세) */
 export interface UserProfile {
@@ -85,6 +92,19 @@ export type FollowActionResult =
       counts: { viewerFollowing: number; targetFollowers: number };
     }
   | { success: false; error: string; code?: string };
+
+/** 팔로우 통계 캐시 상태 */
+export type FollowStatsCache = {
+  isFollowing: boolean;
+  followerCount: number;
+  followingCount: number;
+};
+
+/** 팔로우 목록 무한스크롤 페이지 */
+export type FollowListPage = {
+  users: FollowListUser[];
+  nextCursor: FollowListCursor;
+};
 
 /** 프로필 리뷰 아이템 */
 export interface ProfileReview {

@@ -12,6 +12,7 @@
  * 2026.02.23  임도헌   Modified  보안 가드(과거 시간, IDOR, Ghost User) 및 동시성 제어 강화
  * 2026.03.07  임도헌   Modified  약속 관련 실패 문구를 구체화(v1.2)
  * 2026.04.02  임도헌   Modified  약속 서비스 JSDoc 태그 형식 정리
+ * 2026.05.16  임도헌   Modified  약속 처리 에러 분기를 unknown-safe 방식으로 정리
  */
 
 import "server-only";
@@ -28,6 +29,9 @@ import { sendPushNotification } from "@/features/notification/service/sender";
 import type { ServiceResult } from "@/lib/types";
 import type { ChatMessage } from "@/features/chat/types";
 import type { LocationData } from "@/features/map/types";
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "";
 
 /**
  * 약속 제안하기
@@ -192,8 +196,9 @@ export async function proposeAppointment(
     });
 
     return { success: true, data: chatMessage };
-  } catch (error: any) {
-    if (error.message === "PRODUCT_ALREADY_TRADED") {
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    if (message === "PRODUCT_ALREADY_TRADED") {
       return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
     }
     console.error("proposeAppointment error:", error);
@@ -436,10 +441,11 @@ export async function acceptAppointment(
       success: true,
       data: { productId: apt.chatRoom.productId, sellerId, buyerId },
     };
-  } catch (error: any) {
-    if (error.message === "ALREADY_PROCESSED_APT")
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    if (message === "ALREADY_PROCESSED_APT")
       return { success: false, error: "이미 처리된 약속입니다." };
-    if (error.message === "PRODUCT_ALREADY_TRADED")
+    if (message === "PRODUCT_ALREADY_TRADED")
       return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
 
     console.error("acceptAppointment error:", error);
@@ -543,8 +549,9 @@ export async function cancelAppointment(
     });
 
     return { success: true };
-  } catch (error: any) {
-    if (error.message === "ALREADY_PROCESSED") {
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    if (message === "ALREADY_PROCESSED") {
       return { success: false, error: "이미 처리된 약속입니다." };
     }
     return {

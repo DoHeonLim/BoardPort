@@ -257,7 +257,7 @@ export async function toggleProductLike(
     }
 
     return { success: true };
-  } catch (e: any) {
+  } catch (e: unknown) {
     // 좋아요 중복 요청(레이스)일 경우 멱등 처리
     if (isLike && isUniqueConstraintError(e, ["userId", "productId"])) {
       return { success: true };

@@ -10,8 +10,10 @@
  * 2026.05.03  임도헌   Modified  공개 상품 목록 카드에 연결 보드게임 칩을 표시할 수 있도록 보드게임 locale select 추가
  * 2026.05.03  임도헌   Modified  프로필 판매/구매/찜 목록도 보드게임 칩을 사용할 수 있도록 공용 relation select 적용
  * 2026.05.08  임도헌   Modified  보드게임 relation select를 features/boardgame/selects.ts 공용 상수로 교체
+ * 2026.05.16  임도헌   Modified  Prisma select 타입 검증을 satisfies 기준으로 통일
  */
 
+import { Prisma } from "@/generated/prisma/client";
 import { PRODUCT_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 
 /** 기본 제품 목록 조회용 Select (ProductList, Search 등) */
@@ -65,7 +67,7 @@ export const PRODUCT_SELECT = {
   board_games: {
     select: PRODUCT_BOARD_GAME_RELATION_SELECT,
   },
-} as const;
+} satisfies Prisma.ProductSelect;
 
 /**
  * 프로필(판매/구매) 목록 조회용 Unified Select
@@ -117,4 +119,4 @@ export const PROFILE_SALES_UNIFIED_SELECT = {
       rate: true,
     },
   },
-} as const;
+} satisfies Prisma.ProductSelect;

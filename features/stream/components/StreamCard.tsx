@@ -49,6 +49,8 @@
  * 2026.05.03  임도헌   Modified  방송/다시보기 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.05  임도헌   Modified  방송 제목 우선 흐름에 맞춰 연결 보드게임을 제목 오른쪽 보조 맥락으로 재배치
  * 2026.05.05  임도헌   Modified  방송 카드 preview/잠금 처리 핸들러 JSDoc 보강
+ * 2026.05.15  임도헌   Modified  레일 카드 카테고리 배지가 남는 가로폭을 우선 사용하고 부족할 때만 말줄임되도록 조정
+ * 2026.05.15  임도헌   Modified  모바일 터치 환경에서 썸네일 미리보기 버튼으로 라이브 프리뷰를 켤 수 있도록 보강
  */
 
 "use client";
@@ -60,7 +62,12 @@ import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn, formatToTimeAgo, formatDuration } from "@/lib/utils";
 import UserAvatar from "@/components/global/UserAvatar";
-import { PhotoIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import {
+  PhotoIcon,
+  LockClosedIcon,
+  PlayIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { StreamCategory, StreamVisibility } from "@/features/stream/types";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
@@ -100,7 +107,7 @@ interface StreamCardProps {
   visibility?: StreamVisibility /** visibility가 있으면 배지/잠금 보조 판별에 사용 가능 */;
   // 옵션: 언락 이후에도 '비밀' 배지를 계속 보여주고 싶다면 명시적으로 true 전달
   isPrivateType?: boolean /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비밀' 배지를 유지하고 싶을 때 사용) */;
-  onRequestFollow?: () => void; // 팔로우 CTA// 옵션 액션
+  onRequestFollow?: () => void; // 팔로우 CTA 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
   /** 프로필/채널처럼 소유자가 자명한 컨텍스트에서의 스트리머 정보 숨김 가능 */
@@ -116,14 +123,13 @@ interface StreamCardProps {
  * 1. 라이브 및 녹화본(VOD) 정보를 카드 형태로 표시
  * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 조회수 등)를 렌더링
  * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공
- * 4. 마우스 호버 시 라이브 미리보기(iframe)를 로드
+ * 4. 데스크톱 hover/focus 또는 모바일 미리보기 버튼으로 라이브 미리보기(iframe)를 로드
  * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행
  * 6. 작은 화면에서는 태그/시간/조회수 메타를 2단으로 분리해 카드 밀도 완화
  *
  * [권한]
  * - `PRIVATE` 방송: `requiresPassword` prop을 SSOT로 사용 (서버에서 세션의 언락 여부까지 확인하여 주입됨)
- * - `FOLLOWERS` 방송: 서버에서 받은 `followersOnlyLocked` 플래그를 기본으로 하되,
- *   클라이언트의 팔로우 상태(`isFollowing`) 변화를 실시간으로 반영하여 잠금을 즉시 해제/설정
+ * - `FOLLOWERS` 방송: 상위 목록/채널에서 계산한 `followersOnlyLocked` 플래그를 기준으로 잠금 UI 표시
  */
 export default function StreamCard(props: StreamCardProps) {
   const pathname = usePathname();
@@ -211,6 +217,7 @@ export default function StreamCard(props: StreamCardProps) {
   // ======== Hover/Focus 기반 Preview 로직 (IntersectionObserver 제거) ========
   const hoverTimerRef = useRef<number | null>(null);
   const [isHoveredOrFocused, setIsHoveredOrFocused] = useState(false);
+  const [isTouchPreviewActive, setIsTouchPreviewActive] = useState(false);
   const [previewError, setPreviewError] = useState(false);
   const [thumbError, setThumbError] = useState(false);
 
@@ -243,6 +250,21 @@ export default function StreamCard(props: StreamCardProps) {
     setIsHoveredOrFocused(false);
   };
 
+  /**
+   * hover가 없는 터치 환경을 위한 모바일 미리보기 버튼의 iframe preview 상태 토글
+   *
+   * @param e - 카드 링크 내부 버튼 클릭 이벤트
+   */
+  const handleTouchPreviewToggle = (
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!shouldPreview) return;
+    setPreviewError(false);
+    setIsTouchPreviewActive((prev) => !prev);
+  };
+
   useEffect(() => {
     return () => {
       if (hoverTimerRef.current) {
@@ -252,9 +274,17 @@ export default function StreamCard(props: StreamCardProps) {
     };
   }, []);
 
-  // 렌더 조건: 호버/포커스 중일때(접근성 포함) 프리뷰 허용
+  useEffect(() => {
+    if (!shouldPreview) {
+      setIsTouchPreviewActive(false);
+    }
+  }, [shouldPreview]);
+
+  // 렌더 조건: 데스크톱 hover/focus 또는 모바일 버튼 토글 시 프리뷰 허용
   const shouldRenderPreview =
-    shouldPreview && isHoveredOrFocused && !previewError;
+    shouldPreview &&
+    (isHoveredOrFocused || isTouchPreviewActive) &&
+    !previewError;
 
   /**
    * 잠긴 방송 카드 클릭 시 follow/password 흐름 진입
@@ -402,39 +432,78 @@ export default function StreamCard(props: StreamCardProps) {
             </div>
           )}
 
-          {/* [Left] 상태 배지 영역 */}
-          <div className="absolute left-2 top-2 flex flex-wrap gap-1.5 z-10">
-            {showLive && (
-              <span className="rounded bg-danger/90 px-2 py-0.5 text-xs font-bold text-white shadow-sm backdrop-blur-[2px]">
-                LIVE
-              </span>
+          {/* 상태 배지는 우선 노출하고, 좁은 카드에서는 카테고리 배지만 줄여 겹침을 방지 */}
+          <div
+            className={cn(
+              "absolute inset-x-2 top-2 z-10 flex gap-1.5",
+              "items-start justify-between"
             )}
-            {showReplay && (
-              <span className="rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
-                다시보기
-              </span>
-            )}
-            {showFollowers && (
-              <span className="rounded bg-brand/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
-                팔로워
-              </span>
-            )}
-            {showPrivate && (
-              <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
-                <LockClosedIcon className="size-3" aria-hidden="true" />
-                비밀
+          >
+            <div
+              className={cn(
+                "flex min-w-0 shrink-0 flex-wrap gap-1.5",
+                isGridLayout && category ? "max-w-[62%]" : "max-w-full"
+              )}
+            >
+              {showLive && (
+                <span className="rounded bg-danger/90 px-2 py-0.5 text-xs font-bold text-white shadow-sm backdrop-blur-[2px]">
+                  LIVE
+                </span>
+              )}
+              {showReplay && (
+                <span className="rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
+                  다시보기
+                </span>
+              )}
+              {showFollowers && (
+                <span className="rounded bg-brand/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
+                  팔로워
+                </span>
+              )}
+              {showPrivate && (
+                <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
+                  <LockClosedIcon className="size-3" aria-hidden="true" />
+                  비밀
+                </span>
+              )}
+            </div>
+
+            {category && (
+              <span
+                className={cn(
+                  "ml-auto flex min-w-0 items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]",
+                  isGridLayout ? "max-w-[46%]" : "flex-1"
+                )}
+              >
+                {category.icon && (
+                  <span className="shrink-0">{category.icon}</span>
+                )}
+                <span className="truncate">{category.kor_name}</span>
               </span>
             )}
           </div>
 
-          {/* [Right] 카테고리 배지 (New Position) */}
-          {category && (
-            <div className="absolute right-2 top-2 z-10">
-              <span className="flex items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
-                {category.icon && <span>{category.icon}</span>}
-                {category.kor_name}
-              </span>
-            </div>
+          {shouldPreview && (
+            <button
+              type="button"
+              onClick={handleTouchPreviewToggle}
+              aria-label={
+                isTouchPreviewActive ? "라이브 미리보기 닫기" : "라이브 미리보기"
+              }
+              className={cn(
+                "absolute bottom-2 right-2 z-20 hidden size-11 items-center justify-center rounded-full border border-white/20 text-white shadow-sm backdrop-blur-[2px] transition-colors",
+                "[@media(hover:none)]:inline-flex",
+                isTouchPreviewActive
+                  ? "bg-black/70 hover:bg-black/80"
+                  : "bg-brand/90 hover:bg-brand-dark"
+              )}
+            >
+              {isTouchPreviewActive ? (
+                <XMarkIcon className="size-5" aria-hidden="true" />
+              ) : (
+                <PlayIcon className="ml-0.5 size-5" aria-hidden="true" />
+              )}
+            </button>
           )}
 
           {/* 잠금 오버레이 */}

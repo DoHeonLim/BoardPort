@@ -29,6 +29,8 @@
  * 2026.05.03  임도헌   Modified   보드게임 카탈로그 연결 선택 필드 추가
  * 2026.05.04  임도헌   Modified   보드게임 연결 필드를 방송 제목 다음으로 올려 방송 주제 맥락을 먼저 선택하도록 정리
  * 2026.05.05  임도헌   Modified   방송 생성/카테고리/검증 핸들러 JSDoc 보강
+ * 2026.05.15  임도헌   Modified   비공개 방송 입장 비밀번호 필드의 브라우저 자동완성 경고를 줄이기 위해 new-password 힌트 추가
+ * 2026.05.16  임도헌   Modified   방송 카테고리 parentId 타입을 StreamCategory에 반영해 any 의존 제거
  */
 "use client";
 
@@ -91,14 +93,14 @@ export default function StreamForm({
   boardGameOptions = [],
   cancelHref = "/streams",
 }: StreamFormProps) {
-  // defaultValues에 소분류만 주어진 경우 해당 부모 대분류 복원 및 2단 Select 일관 렌더링
+  // defaultValues에 소분류만 주어진 경우 해당 부모 대분류를 복원해 2단 Select 일관 렌더링
   const initialMainCategory = useMemo<number | null>(() => {
     if (!defaultValues?.streamCategoryId) return null;
-    // Prisma 타입과 내부 정의 타입 호환성 (any casting 회피를 위해 as any 사용 가능)
+    // 서버 카테고리 row에는 UI 타입보다 넓은 parentId가 포함될 수 있어 최소 범위로 확인
     const cat = categories.find(
-      (c: any) => c.id === defaultValues.streamCategoryId
+      (category) => category.id === defaultValues.streamCategoryId
     );
-    return (cat as any)?.parentId ?? null;
+    return cat?.parentId ?? null;
   }, [categories, defaultValues?.streamCategoryId]);
 
   const [selectedMainCategory, setSelectedMainCategory] = useState<
@@ -164,13 +166,16 @@ export default function StreamForm({
   } = useImageUpload({ maxImages: 1, setValue, getValues });
 
   // 카테고리 Select의 부모-자식 구조 기준 분리 렌더링
-  // StreamCategory 타입이 Prisma 모델과 약간 다를 수 있으므로 as any 활용
+  // 서버 row의 parentId를 기준으로 대분류/소분류 그룹 분리
   const mainCategories = useMemo(
-    () => categories.filter((c: any) => !c.parentId),
+    () => categories.filter((category) => !category.parentId),
     [categories]
   );
   const subCategories = useMemo(
-    () => categories.filter((c: any) => c.parentId === selectedMainCategory),
+    () =>
+      categories.filter(
+        (category) => category.parentId === selectedMainCategory
+      ),
     [categories, selectedMainCategory]
   );
   const categoryErrorMessage = errors.streamCategoryId?.message;
@@ -361,7 +366,7 @@ export default function StreamForm({
             errors={mainCategoryErrors}
           >
             <option value="">대분류 선택</option>
-            {mainCategories.map((c: any) => (
+            {mainCategories.map((c) => (
               <option key={c.id} value={String(c.id)}>
                 {c.kor_name}
               </option>
@@ -375,7 +380,7 @@ export default function StreamForm({
             errors={subCategoryErrors}
           >
             <option value="">소분류 선택</option>
-            {subCategories.map((c: any) => (
+            {subCategories.map((c) => (
               <option key={c.id} value={String(c.id)}>
                 {c.kor_name}
               </option>
@@ -426,6 +431,7 @@ export default function StreamForm({
               label="비밀번호"
               type="password"
               placeholder="비밀번호 입력"
+              autoComplete="new-password"
               {...register("password")}
               errors={errors.password?.message ? [errors.password.message] : []}
             />

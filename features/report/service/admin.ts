@@ -15,6 +15,7 @@
  * 2026.04.03  임도헌   Modified  관리자 신고 목록 필터 타입을 report/types 공용 정의로 이동
  * 2026.04.27  임도헌   Modified  신고 기각 코멘트 payload와 승인 조치 payload를 구분해 서버 검증 흐름 보강
  * 2026.04.28  임도헌   Modified  신고 처리 모달이 실제 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 조회 추가
+ * 2026.05.16  임도헌   Modified  신고 사유 검색 조건과 목록 후처리 타입 단언 축소
  */
 
 import "server-only";
@@ -34,7 +35,7 @@ import type {
   ReportResolutionInput,
   ReportStatusInput,
 } from "@/features/report/types";
-import { Prisma } from "@/generated/prisma/client";
+import type { Prisma, ReportReason } from "@/generated/prisma/client";
 import {
   REPORT_REASON_LABELS,
   REPORT_RESOLUTION_ACTIONS,
@@ -212,13 +213,15 @@ export async function getReportsAdmin(
       const parsedTargetId = /^\d+$/.test(trimmedQuery)
         ? Number(trimmedQuery)
         : null;
-      const reasonMatches = Object.entries(REPORT_REASON_LABELS)
+      const reasonMatches = (
+        Object.entries(REPORT_REASON_LABELS) as Array<[ReportReason, string]>
+      )
         .filter(
-          ([key, label]) =>
-            key.toLowerCase().includes(normalizedQuery ?? "") ||
+          ([reason, label]) =>
+            reason.toLowerCase().includes(normalizedQuery ?? "") ||
             label.toLowerCase().includes(normalizedQuery ?? "")
         )
-        .map(([key]) => key);
+        .map(([reason]) => reason);
 
       where.AND = [
         {
@@ -258,7 +261,7 @@ export async function getReportsAdmin(
                   { targetReviewId: parsedTargetId },
                 ]
               : []),
-            ...reasonMatches.map((reason) => ({ reason: reason as any })),
+            ...reasonMatches.map((reason) => ({ reason })),
           ],
         },
       ];
@@ -279,7 +282,7 @@ export async function getReportsAdmin(
     ]);
 
     // 최근 strike, 직접 대상, 부모 문맥을 카드/모달에서 바로 읽을 수 있게 후처리
-    const reportItems = await attachStrikeSummary(items as AdminReportItem[]);
+    const reportItems = await attachStrikeSummary(items);
 
     return {
       success: true,

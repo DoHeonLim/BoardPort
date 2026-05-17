@@ -75,9 +75,12 @@ export function PushNotificationToggle({
     setIsIOS(ios);
 
     // 2. 현재 '홈 화면에 추가'된 PWA 모드로 실행 중인지 확인
+    const navigatorWithStandalone = window.navigator as Navigator & {
+      standalone?: boolean;
+    };
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true;
+      navigatorWithStandalone.standalone === true;
     setIsStandalone(standalone);
   }, []);
 

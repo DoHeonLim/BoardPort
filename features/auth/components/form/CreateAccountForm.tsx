@@ -22,6 +22,7 @@
  * 2026.03.25  임도헌   Modified  반복적인 입력 필드를 두 묶음으로 나눠 가입 흐름의 리듬을 정리하고 소셜 구분선을 통일
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 가입 화면 보조 링크 타이포 무게를 정리
  * 2026.04.13  임도헌   Modified  회원가입 입력 필드에 명시적 라벨을 추가해 접근성 문맥을 보강
+ * 2026.05.12  임도헌   Modified  로그인 이동 링크가 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
  */
 "use client";
 
@@ -49,6 +50,7 @@ import SocialLogin from "@/features/auth/components/SocialLogin";
 import { submitCreateAccount } from "@/features/auth/actions/register";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
 
 type FormData = CreateAccountSchema;
 
@@ -195,6 +197,7 @@ export default function CreateAccountForm({
         이미 선원이신가요?{" "}
         <Link
           href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          onPointerDown={preventPointerDownFocus}
           className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
         >
           항해 시작하기

@@ -12,10 +12,12 @@
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수로 통일
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  정지 유저 가드 및 사용자 노출용 실패 문구 구체화
+ * 2026.05.16  임도헌   Modified  Prisma P2025 판별을 unknown-safe 타입 가드로 정리
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import {
   checkBoardExplorerBadge,
   checkPopularWriterBadge,
@@ -24,6 +26,13 @@ import { checkBlockRelation } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { ServiceResult } from "@/lib/types";
+
+/** Prisma 요청 에러 코드 판별 */
+function isPrismaRequestErrorCode(err: unknown, code: string): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError && err.code === code
+  );
+}
 
 /**
  * 게시글 좋아요 상태 및 총 개수 조회 로직
@@ -104,9 +113,9 @@ export async function togglePostLike(
       });
     }
     return { success: true };
-  } catch (e) {
+  } catch (e: unknown) {
     // 이미 좋아요/삭제된 상태는 멱등하게 성공 처리
-    if (isUniqueConstraintError(e) || (e as any).code === "P2025") {
+    if (isUniqueConstraintError(e) || isPrismaRequestErrorCode(e, "P2025")) {
       return { success: true };
     }
     console.error("togglePostLike failed:", e);

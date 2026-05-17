@@ -1,13 +1,13 @@
 /**
  * File Name : features/stream/actions/comments.ts
- * Description : 녹화본 댓글 Controller
+ * Description : 녹화본 댓글 서버 액션
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2025.08.04  임도헌   Created   녹화본 댓글 작성 및 삭제 서버 액션 구현 (legacy liveStream)
  * 2025.09.20  임도헌   Modified  VodAsset 단위로 전환 (RecordingComment.vodId)
- * 2026.01.23  임도헌   Modified  Service(comment.ts) 연동 및 Controller 역할 정립
+ * 2026.01.23  임도헌   Modified  Service(comment.ts) 연동 및 서버 액션 역할 정립
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/[id]/recording/actions/comments.ts -> features/stream/actions/comment.ts
  * 2026.02.05  임도헌   Modified  댓글 조회 시 세션 ID 전달
@@ -16,6 +16,8 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  댓글 생성/삭제 에러 코드를 세분화
  * 2026.03.31  임도헌   Modified  Action 역할과 커서 조회/오류 반환 흐름 설명 보강
+ * 2026.05.13  임도헌   Modified  댓글 조회 액션이 nextCursor를 함께 반환하도록 페이징 응답 구조 정리
+ * 2026.05.16  임도헌   Modified  댓글 액션 에러 분기를 unknown-safe 방식으로 정리
  */
 "use server";
 
@@ -26,6 +28,9 @@ import {
   deleteRecordingComment as deleteService,
 } from "@/features/stream/service/comment";
 import { streamCommentFormSchema } from "@/features/stream/schemas";
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "";
 
 /**
  * 스트리밍 녹화본(VOD) 댓글 페이징 조회 Server Action
@@ -80,11 +85,12 @@ export const createRecordingComment = async (formData: FormData) => {
     );
 
     return { success: true as const };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("댓글 생성 실패:", e);
-    if (e.message === "BANNED_USER")
+    const message = getErrorMessage(e);
+    if (message === "BANNED_USER")
       return { success: false as const, error: "BANNED_USER" as const };
-    if (e.message === "FORBIDDEN")
+    if (message === "FORBIDDEN")
       return { success: false as const, error: "FORBIDDEN" as const };
     return { success: false as const, error: "CREATE_FAILED" as const };
   }
@@ -107,13 +113,14 @@ export const deleteRecordingComment = async (commentId: number) => {
   try {
     await deleteService(commentId, session.id);
     return { success: true as const };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("댓글 삭제 실패:", e);
-    if (e.message === "BANNED_USER")
+    const message = getErrorMessage(e);
+    if (message === "BANNED_USER")
       return { success: false, error: "BANNED_USER" as const };
-    if (e.message === "NOT_FOUND")
+    if (message === "NOT_FOUND")
       return { success: false, error: "NOT_FOUND" as const };
-    if (e.message === "FORBIDDEN")
+    if (message === "FORBIDDEN")
       return { success: false, error: "FORBIDDEN" as const };
     return { success: false, error: "DELETE_FAILED" as const };
   }

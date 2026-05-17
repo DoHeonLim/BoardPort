@@ -335,7 +335,7 @@ export async function updateProductStatus(
           },
         });
 
-        const tasks: Promise<any>[] = [];
+        const tasks: Promise<unknown>[] = [];
         tasks.push(
           supabase.channel(`user-${targetNotiId}-notifications`).send({
             type: "broadcast",
@@ -476,7 +476,7 @@ export async function updateProductStatus(
 
       const sellerPref = prefMap.get(userId) ?? null;
       const buyerPref = prefMap.get(buyerId) ?? null;
-      const tasks: Promise<any>[] = [];
+      const tasks: Promise<unknown>[] = [];
 
       // 판매자 알림 (본인이 누른게 아닐 때만)
       if (
@@ -693,7 +693,7 @@ export async function updateProductStatus(
           },
         });
 
-        const tasks: Promise<any>[] = [];
+        const tasks: Promise<unknown>[] = [];
         tasks.push(
           supabase.channel(`user-${canceledUserId}-notifications`).send({
             type: "broadcast",
@@ -737,8 +737,8 @@ export async function updateProductStatus(
         newStatus: "selling",
       },
     };
-  } catch (err: any) {
-    if (err.message === "ALREADY_PROCESSED") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === "ALREADY_PROCESSED") {
       return { success: false, error: "이미 상태가 변경되었습니다." };
     }
     console.error("updateProductStatus Service Error:", err);

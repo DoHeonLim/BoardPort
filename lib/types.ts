@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2025.02.02  임도헌   Created   공통 타입 정의
+ * 2026.05.17  임도헌   Modified  query key 필터 객체 공용 타입 추가
  */
 
 /**
@@ -37,3 +38,6 @@ export type ServiceFailure<Code extends string = string> = {
 export type ServiceResult<T = void, Code extends string = string> =
   | ServiceSuccess<T>
   | ServiceFailure<Code>;
+
+/** TanStack Query key에 포함하는 직렬화 가능한 필터 객체 */
+export type QueryKeyParams = Record<string, unknown>;

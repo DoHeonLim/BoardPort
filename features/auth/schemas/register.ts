@@ -1,7 +1,7 @@
 /**
  * File Name : features/auth/schemas/register.ts
  * Description : 유저 회원가입 스키마
-s * Author : 임도헌
+ * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description

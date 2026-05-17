@@ -6,12 +6,12 @@
  * History
  * Date        Author   Status    Description
  * 2024.10.14  임도헌   Created
- * 2024.10.14  임도헌   Modified  동네생활 페이지 추가
+ * 2024.10.14  임도헌   Modified  게시글 페이지 추가
  * 2024.11.23  임도헌   Modified  게시글을 최신 게시글순으로 출력되게 수정
  * 2024.11.23  임도헌   Modified  게시글 생성 링크 추가
  * 2024.12.12  임도헌   Modified  게시글 좋아요 명 변경
  * 2024.12.12  임도헌   Modified  게시글 생성 시간 표시 변경
- * 2024.12.18  임도헌   Modified  항해일지 페이지로 변경(동네생활 -> 항해일지)
+ * 2024.12.18  임도헌   Modified  항해일지 페이지로 명칭 변경
  * 2024.12.23  임도헌   Modified  게시글 페이지 다크모드 추가
  * 2025.05.06  임도헌   Modified  그리드/리스트 뷰 모드 추가
  * 2025.05.06  임도헌   Modified  게시글 페이지 컴포넌트 수정
@@ -40,12 +40,17 @@
  * 2026.03.18  임도헌   Modified  detail-edit 삭제 후 back 복귀와 로그인 가드 안정성을 함께 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/posts/page.tsx 에서 app/(app)/(tabs)/posts/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 분기 기준을 일치시켜 640~767px 구간 헤더 레이아웃 mismatch 정리
+ * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
  */
 
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import {
+  dehydrate,
+  HydrationBoundary,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import PullToRefresh from "@/components/global/PullToRefresh";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
@@ -61,7 +66,10 @@ import PostListRefreshRelay from "@/features/post/components/PostListRefreshRela
 import { getUserLocation } from "@/features/user/service/profile";
 import { getPostsListAction } from "@/features/post/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
-import type { PostSearchParams } from "@/features/post/types";
+import type {
+  PostSearchParams,
+  PostsPage as PostsListPage,
+} from "@/features/post/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 
 interface PostsPageProps {
@@ -134,7 +142,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
   });
 
   // 데이터 여부 확인
-  const prefetchData = queryClient.getQueryData<any>(
+  const prefetchData = queryClient.getQueryData<InfiniteData<PostsListPage>>(
     queryKeys.posts.list(postListQueryKey)
   );
   const isDataEmpty = prefetchData?.pages[0]?.posts.length === 0;

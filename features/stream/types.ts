@@ -24,9 +24,12 @@
  * 2026.05.03  임도헌   Modified  방송 요약/상세의 보드게임 카탈로그 연결 타입 추가
  * 2026.05.03  임도헌   Modified  다시보기 카드에서도 연결 보드게임 요약을 표시할 수 있도록 타입 확장
  * 2026.05.08  임도헌   Modified  서비스 상세 DTO와 목록 액션 응답 타입을 types.ts로 이동
+ * 2026.05.16  임도헌   Modified  접근/상태 헬퍼를 utils/access.ts로 분리해 타입 파일 역할 정리
+ * 2026.05.16  임도헌   Modified  live-status Realtime payload 공용 타입 추가
+ * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 추가
  */
 
-import { StreamChatMessage } from "@/features/chat/types";
+import type { StreamChatMessage } from "@/features/chat/types";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import type { ServiceFailure } from "@/lib/types";
 import {
@@ -73,6 +76,7 @@ export interface StreamCategory {
   id?: number;
   kor_name: string;
   icon?: string | null;
+  parentId?: number | null;
 }
 
 /** 방송 태그 정보 */
@@ -244,6 +248,66 @@ export interface StreamMetaUpdatePayload {
   description: string | null;
 }
 
+/** Supabase live-status 브로드캐스트 payload */
+export interface StreamRealtimeStatusPayload {
+  streamId?: string;
+  status?: string;
+  ownerId?: number;
+  token?: string;
+  ts?: number;
+}
+
+/** Cloudflare Stream 상태 필드 원본 형태 */
+export type CloudflareStreamStatusValue =
+  | string
+  | {
+      state?: string | null;
+      [key: string]: unknown;
+    }
+  | null;
+
+/** Cloudflare Stream 재생 URL 묶음 */
+export interface CloudflareStreamPlayback {
+  hls?: string | null;
+  dash?: string | null;
+  [key: string]: unknown;
+}
+
+/** Cloudflare Live Input 참조 */
+export interface CloudflareStreamInputRef {
+  uid?: string | null;
+  [key: string]: unknown;
+}
+
+/** Cloudflare Stream 웹훅/비디오 API에서 수신하는 에셋 페이로드 */
+export interface CloudflareStreamAssetPayload {
+  uid?: string | null;
+  type?: string | null;
+  event?: string | null;
+  event_type?: string | null;
+  liveInput?: string | CloudflareStreamInputRef | null;
+  input?: string | CloudflareStreamInputRef | null;
+  input_id?: string | null;
+  readyToStream?: boolean | null;
+  readyToStreamAt?: string | null;
+  created?: string | null;
+  status?: CloudflareStreamStatusValue;
+  playback?: CloudflareStreamPlayback | null;
+  thumbnail?: string | null;
+  duration?: number | null;
+  meta?: Record<string, unknown> | null;
+  text?: string | null;
+  data?: CloudflareStreamAssetPayload | null;
+  result?: CloudflareStreamAssetPayload | null;
+  [key: string]: unknown;
+}
+
+/** Cloudflare Live Input 하위 비디오 목록 API 응답 */
+export interface CloudflareVideoListResponse {
+  result?: CloudflareStreamAssetPayload[];
+  [key: string]: unknown;
+}
+
 /** 방송 제목/설명 수정 결과 */
 export type UpdateBroadcastMetaResult =
   | {
@@ -345,34 +409,7 @@ export type RotateLiveInputKeyResult =
   | ServiceFailure;
 
 // =============================================================================
-// 4. Utils / Helpers
-// =============================================================================
-
-/** 잠금 해제 실패 코드별 사용자 메시지 */
-export const unlockErrorMessage: Record<UnlockErrorCode, string> = {
-  NOT_LOGGED_IN: "로그인이 필요합니다.",
-  STREAM_NOT_FOUND: "스트림을 찾을 수 없습니다.",
-  NOT_PRIVATE_STREAM: "비공개 스트림이 아닙니다.",
-  NO_PASSWORD_SET: "비밀번호가 설정되지 않았습니다.",
-  INVALID_PASSWORD: "비밀번호가 올바르지 않습니다.",
-  BAD_REQUEST: "요청이 올바르지 않습니다.",
-  MISSING_PASSWORD: "비밀번호를 입력해주세요.",
-  INTERNAL_ERROR: "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-};
-
-/** 비공개 방송 여부 판별 */
-export const isPrivateVisibility = (v: StreamVisibility) =>
-  v === STREAM_VISIBILITY.PRIVATE;
-
-/** 팔로워 전용 방송 여부 판별 */
-export const isFollowersVisibility = (v: StreamVisibility) =>
-  v === STREAM_VISIBILITY.FOLLOWERS;
-
-/** 시청 가능한 준비 완료 VOD 여부 판별 */
-export const isVodReady = (s: VodStatus) => s === VOD_STATUS.READY;
-
-// =============================================================================
-// 5. Admin Types
+// 4. Admin Types
 // =============================================================================
 
 /** 관리자 목록용 방송 요약 정보 */

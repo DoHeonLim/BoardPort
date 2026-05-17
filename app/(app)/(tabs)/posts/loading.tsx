@@ -6,7 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2024.11.01  임도헌   Created
- * 2024.11.01  임도헌   Modified  동네생활 로딩 페이지 추가
+ * 2024.11.01  임도헌   Modified  게시글 로딩 페이지 추가
  * 2024.12.18  임도헌   Modified  항해일지 로딩 페이지 추가
  * 2024.12.18  임도헌   Modified  카테고리 탭 스켈레톤 추가
  * 2025.06.26  임도헌   Created   상단 필터 고정 + 스켈레톤 UI 적용

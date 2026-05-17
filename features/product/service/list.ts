@@ -18,6 +18,7 @@
  * 2026.04.04  임도헌   Modified  검색 조건 조립/페이징 계산 단계의 인라인 주석 보강
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상품(hidden_at)은 공개 제품 목록과 검색 결과에서 제외
  * 2026.05.03  임도헌   Modified  상품 카드 표시용 연결 보드게임 locale 매핑 추가
+ * 2026.05.12  임도헌   Modified  제품 검색의 제목/본문/태그 조건을 대소문자 무시 기준으로 통일
  */
 import "server-only";
 import db from "@/lib/db";
@@ -125,17 +126,22 @@ async function buildSearchWhere(
     params.maxPrice !== undefined && !isNaN(Number(params.maxPrice))
       ? Number(params.maxPrice)
       : undefined;
+  const keyword = params.keyword?.trim();
 
   return {
     AND: [
       { user: { bannedAt: null } },
       { hidden_at: null },
-      params.keyword
+      keyword
         ? {
             OR: [
-              { title: { contains: params.keyword } },
-              { description: { contains: params.keyword } },
-              { search_tags: { some: { name: { contains: params.keyword } } } },
+              { title: { contains: keyword, mode: "insensitive" } },
+              { description: { contains: keyword, mode: "insensitive" } },
+              {
+                search_tags: {
+                  some: { name: { contains: keyword, mode: "insensitive" } },
+                },
+              },
             ],
           }
         : {},

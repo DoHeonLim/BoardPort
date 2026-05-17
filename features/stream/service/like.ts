@@ -8,6 +8,7 @@
  * 2026.01.23  임도헌   Created   녹화본 좋아요 로직 Service 분리
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.03.07  임도헌   Modified  정지 유저/차단 관계/존재 여부 가드 추가
+ * 2026.05.16  임도헌   Modified  Prisma 에러 분기를 unknown-safe 방식으로 정리
  */
 
 import "server-only";
@@ -73,7 +74,7 @@ export async function toggleRecordingLike(
         where: { vodId, userId },
       });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (isLike && isUniqueConstraintError(e, ["userId", "vodId"])) {
       // 이미 좋아요 한 경우 무시 (멱등)
     } else {

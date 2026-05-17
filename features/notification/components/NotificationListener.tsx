@@ -24,6 +24,7 @@
  * 2026.03.18  임도헌   Modified  실시간 토스트 링크와 현재 경로를 내부 경로 기준으로 정규화하고, 보기 액션의 returnTo 유지 및 중복 토스트 비교 로직을 함께 보강
  * 2026.04.13  임도헌   Modified  next/navigation 및 정적 toast/image 의존을 줄여 알림 후속 번들 평가 비용을 완화
  * 2026.04.22  임도헌   Modified  개인 sys_event를 전역 브리지 이벤트로 발행해 스트림 상세 운영 액션(강제 퇴장/채팅 금지/유저 차단)의 실시간 반영 경로를 단일화
+ * 2026.05.17  임도헌   Modified  pagehide/hidden 상태에서 알림 채널을 정리하고 복귀 시 unread count를 서버 기준으로 재동기화
  */
 "use client";
 
@@ -31,6 +32,7 @@ import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 
 type NotiPayload = {
   id?: number;
@@ -77,6 +79,7 @@ function getCurrentPath() {
 export default function NotificationListener({ userId }: { userId: number }) {
   // Zustand 스토어에서 알림 카운트 증가 액션 가져오기
   const increment = useNotificationStore((state) => state.increment);
+  const setUnreadCount = useNotificationStore((state) => state.setUnreadCount);
 
   /**
    * 실시간 토스트의 상세 이동 경로 계산
@@ -114,10 +117,21 @@ export default function NotificationListener({ userId }: { userId: number }) {
     if (!userId) return;
 
     const channelName = `user-${userId}-notifications`;
-    const channel = supabase.channel(channelName);
+    let mounted = true;
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    channel
-      .on("broadcast", { event: "notification" }, async ({ payload }) => {
+    const syncUnreadCount = async () => {
+      const nextCount = await getUnreadNotificationCount();
+      if (!mounted) return;
+      setUnreadCount(nextCount);
+    };
+
+    const subscribe = () => {
+      if (activeChannel) return;
+
+      const channel = supabase.channel(channelName);
+
+      channel.on("broadcast", { event: "notification" }, async ({ payload }) => {
         const p = payload as Partial<NotiPayload>;
 
         if (typeof p.userId === "number" && p.userId !== userId) return;
@@ -193,14 +207,52 @@ export default function NotificationListener({ userId }: { userId: number }) {
         }
       });
 
-    channel.subscribe();
+      channel.subscribe();
+      activeChannel = channel;
+    };
 
-    return () => {
+    const unsubscribe = () => {
+      if (!activeChannel) return;
+      const channel = activeChannel;
+      activeChannel = null;
+
       channel.unsubscribe();
-      // 컴포넌트 언마운트 시(로그아웃 등)에만 연결 해제
+      // 언마운트/페이지 이탈/백그라운드 전환 시 채널 객체까지 제거해 WebSocket 상주 시간을 줄임
       supabase.removeChannel(channel);
     };
-  }, [userId, increment]);
+
+    const handlePageHide = () => {
+      unsubscribe();
+    };
+
+    const handlePageShow = () => {
+      subscribe();
+      void syncUnreadCount();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        unsubscribe();
+        return;
+      }
+
+      subscribe();
+      void syncUnreadCount();
+    };
+
+    subscribe();
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      unsubscribe();
+    };
+  }, [userId, increment, setUnreadCount]);
 
   return null;
 }

@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { unlockPrivateBroadcastAction } from "@/features/stream/actions/access";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
-import { unlockErrorMessage } from "@/features/stream/types";
+import { unlockErrorMessage } from "@/features/stream/utils/access";
 import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";

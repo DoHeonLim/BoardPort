@@ -5,7 +5,8 @@
  *
  * History
  * Date        Author   Status    Description
- * 2026.04.02  임도헌   Created   검색 기록/필터/지역 검색 공용 타입 분리
+ * 2026.04.02  임도헌   Created   검색 기록/필터 공용 타입 분리
+ * 2026.05.17  임도헌   Modified  미사용 RegionSearchModal 제거에 맞춰 지역 검색 전용 타입 정리
  */
 
 /** 검색 기록 아이템 */
@@ -41,10 +42,4 @@ export interface ProductSearchCategoryOption {
   eng_name: string;
   icon: string | null;
   parentId: number | null;
-}
-
-/** 카카오 장소 검색 결과 최소 타입 */
-export interface RegionSearchResultItem {
-  place_name: string;
-  address_name: string;
 }

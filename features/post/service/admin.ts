@@ -11,15 +11,18 @@
  * 2026.03.07  임도헌   Modified  관리자 액션 실패 문구를 구체화(v1.2)
  * 2026.03.31  임도헌   Modified  검색 조건과 강제 삭제 후속 처리 흐름 설명 보강
  * 2026.04.02  임도헌   Modified  관리자 서비스 JSDoc 태그 형식 정리
+ * 2026.05.15  임도헌   Modified  관리자 게시글 검색 범위에 태그명 포함
+ * 2026.05.16  임도헌   Modified  관리자 검색 where 조건 타입 명시
  */
 
 import "server-only";
 import db from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { createAuditLog } from "@/features/report/service/audit";
 import { sendAdminActionNotification } from "@/features/notification/service/notification";
 import { hardDeletePostWithCleanup } from "@/features/post/service/post";
 import type { ServiceResult } from "@/lib/types";
-import { AdminPostListResponse } from "@/features/post/types";
+import type { AdminPostListResponse } from "@/features/post/types";
 import { POST_SELECT } from "@/features/post/selects";
 
 /**
@@ -27,7 +30,7 @@ import { POST_SELECT } from "@/features/post/selects";
  *
  * [기능]
  * - 관리자 전용으로 전체 게시글을 최신순 조회
- * - 제목, 본문, 작성자, 숫자 ID 검색을 함께 지원
+ * - 제목, 본문, 작성자, 태그명, 숫자 ID 검색을 함께 지원
  * - 카드/테이블 공용 목록 DTO를 반환
  *
  * @param {number} page - 현재 페이지
@@ -43,15 +46,19 @@ export async function getPostsAdmin(
   try {
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.PostWhereInput = {};
     // 관리자 검색 조건
-    // 제목, 본문, 작성자, 숫자 ID exact match를 하나의 입력으로 수용
+    // 제목, 본문, 작성자, 태그명, 숫자 ID exact match를 하나의 입력으로 수용
     if (query) {
-      const parsedPostId = /^\d+$/.test(query.trim()) ? Number(query.trim()) : null;
+      const parsedPostId = /^\d+$/.test(query.trim())
+        ? Number(query.trim())
+        : null;
       where.OR = [
         { title: { contains: query, mode: "insensitive" } },
         { description: { contains: query, mode: "insensitive" } }, // 내용 검색 포함
         { user: { username: { contains: query, mode: "insensitive" } } },
+        // 관리자 검색은 숨은 조치 대상을 찾는 목적이 있어 사용자 태그까지 포함
+        { tags: { some: { name: { contains: query, mode: "insensitive" } } } },
         ...(parsedPostId !== null ? [{ id: parsedPostId }] : []),
       ];
     }

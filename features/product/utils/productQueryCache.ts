@@ -6,7 +6,16 @@
  * History
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   LIKED 스코프 판별 및 목록 캐시 스냅샷 추출 유틸 분리
+ * 2026.05.16  임도헌   Modified  무한스크롤 캐시 shape 타입을 명시해 캐시 조작부 any 의존 완화
  */
+
+import type { Paginated } from "@/features/product/types";
+
+/** TanStack Infinite Query가 제품 페이지 목록을 저장하는 캐시 shape */
+export type ProductInfiniteCache<T extends { id: number }> = {
+  pages: Paginated<T>[];
+  pageParams?: unknown[];
+};
 
 /**
  * products/userScope/LIKED/{userId} 구조의 Query Key인지 판별
@@ -34,16 +43,16 @@ export function isLikedScopeKey(key: readonly unknown[]) {
  * - 서버 재요청 전에도 UX를 즉시 맞추기 위해, 이미 로딩된 list 캐시에서 재사용
  * - 데이터 형태가 페이지별로 나뉘어 있으므로 pages -> products 순회로 탐색
  */
-export function pickProductFromLists(
+export function pickProductFromLists<T extends { id: number }>(
   listQueries: [readonly unknown[], unknown][],
   productId: number
-) {
+): T | null {
   for (const [, data] of listQueries) {
-    const pages = (data as any)?.pages;
+    const pages = (data as ProductInfiniteCache<T> | undefined)?.pages;
     if (!Array.isArray(pages)) continue;
 
     for (const page of pages) {
-      const found = page?.products?.find?.((p: any) => p.id === productId);
+      const found = page?.products?.find((product) => product.id === productId);
       if (found) return found;
     }
   }

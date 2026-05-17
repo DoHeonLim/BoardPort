@@ -1,6 +1,6 @@
 /**
  * File Name : features/post/actions/list.ts
- * Description : 게시글 목록 조회 Controller (무한 스크롤)
+ * Description : 게시글 목록 조회 서버 액션 (무한 스크롤)
  * Author : 임도헌
  *
  * History
@@ -20,6 +20,7 @@
  * 2026.03.04  임도헌   Modified  getPostsListAction으로 명칭 변경 및 페이징 조회 로직 통합 호출
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  서버 액션 JSDoc 태그 형식 정리
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

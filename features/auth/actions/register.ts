@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/actions/register.ts
- * Description : 회원가입 Controller
+ * Description : 회원가입 서버 액션
  * Author : 임도헌
  *
  * History
@@ -12,6 +12,7 @@
  * 2026.01.20  임도헌   Modified  선조회 제거, Service 에러 응답 처리, 세션 저장 위임
  * 2026.01.30  임도헌   Moved     app/(auth)/create-account/actions.ts -> features/auth/actions/register.ts
  * 2026.04.04  임도헌   Modified  검증/에러 매핑/세션 저장 단계의 인라인 주석 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 
@@ -32,12 +33,12 @@ import type { ActionState } from "@/features/auth/types";
  * 2. Service 계층을 호출하여 계정을 생성
  * 3. 생성된 유저 ID로 세션을 저장하여 자동 로그인 처리
  *
- * @param {any} _prevState - 이전 상태 (useFormState)
+ * @param {unknown} _prevState - 이전 상태
  * @param {FormData} formData - 폼 데이터
  * @returns {Promise<ActionState<keyof CreateAccountSchema>>} 처리 결과 (성공 여부 및 에러)
  */
 export async function submitCreateAccount(
-  _prevState: any,
+  _prevState: unknown,
   formData: FormData
 ): Promise<ActionState<keyof CreateAccountSchema>> {
   // 폼 원본 값 수집

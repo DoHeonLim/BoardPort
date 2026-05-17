@@ -26,6 +26,7 @@
  * 2026.04.09  임도헌   Modified  숨김 상품은 찜 목록에서 제외하고 내 판매/구매 내역에서는 계속 관리할 수 있도록 조회 범위 분리
  * 2026.05.03  임도헌   Modified  프로필 판매/구매/찜 목록의 보드게임 relation을 카드 DTO에 맞게 평탄화
  * 2026.05.08  임도헌   Modified  UserProductsScope를 features/product/types.ts 공용 타입으로 이동
+ * 2026.05.16  임도헌   Modified  커서 옵션 타입을 Prisma findMany 인자 기준으로 정리
  */
 
 import "server-only";
@@ -194,7 +195,7 @@ export async function getUserProductsList<
   /**======================================================================
    *               기존 SELLING/RESERVED/SOLD/PURCHASED 로직
    * ====================================================================== */
-  let cursorOpt: Record<string, any> = {};
+  let cursorOpt: Pick<Prisma.ProductFindManyArgs, "skip" | "cursor"> = {};
 
   // 커서 유효성 검사 (삭제된 제품일 수 있으므로 확인)
   if (cursor) {

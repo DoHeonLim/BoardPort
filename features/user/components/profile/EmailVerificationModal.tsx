@@ -29,7 +29,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { verifyEmail } from "@/features/auth/service/email";
+import { verifyEmail } from "@/features/auth/actions/email";
 import { INITIAL_EMAIL_VERIFY_STATE } from "@/features/auth/constants";
 import { toast } from "sonner";
 import BottomSheet from "@/components/global/BottomSheet";

@@ -16,14 +16,17 @@
  * 2026.04.01  임도헌   Modified  기존 첨부 동영상 유지 수정 케이스를 서버 검증과 맞추는 hasAttachedVideo 보정 추가
  * 2026.04.02  임도헌   Modified  파일 설명과 수정 액션 주석을 현재 서버 액션 톤으로 정리
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
+ * 2026.05.16  임도헌   Modified  기존 첨부 동영상 유지 여부 조회를 post service 헬퍼로 이동
  */
 "use server";
 
 import getSession from "@/lib/session";
 import { revalidatePath, revalidateTag } from "next/cache";
-import db from "@/lib/db";
 import * as T from "@/lib/cacheTags";
-import { updatePost as updatePostService } from "@/features/post/service/post";
+import {
+  hasOwnedAttachedPostVideo,
+  updatePost as updatePostService,
+} from "@/features/post/service/post";
 import {
   postEditorBlocksSchema,
   postFormSchema,
@@ -179,16 +182,7 @@ export async function updatePostAction(
     !rawData.videoDraftKey &&
     blocks.some((block) => block.type === "VIDEO")
   ) {
-    const existingPostVideo = await db.post.findFirst({
-      where: {
-        id,
-        userId: session.id,
-        video: { isNot: null },
-      },
-      select: { id: true },
-    });
-
-    rawData.hasAttachedVideo = !!existingPostVideo;
+    rawData.hasAttachedVideo = await hasOwnedAttachedPostVideo(id, session.id);
   }
 
   // 폼 스키마 검증

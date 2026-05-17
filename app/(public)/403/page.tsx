@@ -16,6 +16,7 @@
  * 2026.03.06  임도헌   Modified   403 상태 화면 여백을 전역 상태 레이아웃 기준으로 정리
  * 2026.03.18  임도헌   Modified   sid/uid가 없거나 0인 경우 undefined로 정리해 잘못된 CTA 노출 방지
  * 2026.04.12  임도헌   Moved      파일 경로를 app/403/page.tsx 에서 app/(public)/403/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.15  임도헌   Modified   관리자 전용 경로 접근 거부 사유(ADMIN_ONLY) 지원
  */
 
 import { redirect } from "next/navigation";
@@ -39,7 +40,7 @@ function parsePositiveInt(value: string | undefined) {
  *
  * @param {Object} props - Next.js Page Props
  * @param {Object} props.searchParams - URL 쿼리 파라미터
- * @param {string} [props.searchParams.reason] - 거부 사유 ("PRIVATE" | "FOLLOWERS_ONLY" | "UNKNOWN")
+ * @param {string} [props.searchParams.reason] - 거부 사유 ("PRIVATE" | "FOLLOWERS_ONLY" | "ADMIN_ONLY" | "UNKNOWN")
  * @param {string} [props.searchParams.username] - 방송 소유자 닉네임 (표시용)
  * @param {string} [props.searchParams.callbackUrl] - 권한 획득 후 복귀할 URL
  * @param {string} [props.searchParams.sid] - 방송 ID (비밀번호 검증용)
@@ -49,7 +50,13 @@ export default async function AccessDeniedPage({
   searchParams,
 }: {
   searchParams: {
-    reason?: "PRIVATE" | "FOLLOWERS_ONLY" | "BLOCKED" | "BANNED" | "UNKNOWN";
+    reason?:
+      | "PRIVATE"
+      | "FOLLOWERS_ONLY"
+      | "BLOCKED"
+      | "BANNED"
+      | "ADMIN_ONLY"
+      | "UNKNOWN";
     username?: string;
     callbackUrl?: string; // 신규 표준
     sid?: string; // stream id

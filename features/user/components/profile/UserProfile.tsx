@@ -48,6 +48,8 @@
  * 2026.04.19  임도헌   Modified   타인 프로필 판매 목록 탭 active 톤을 판매내역과 같은 기준으로 정리
  * 2026.04.24  임도헌   Modified   타인 프로필 제품 카드에 현재 프로필 returnTo를 전달해 상세 복귀 문맥 유지
  * 2026.04.26  임도헌   Modified   차단 해제 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.05.12  임도헌   Modified   타인 프로필 방송국 StreamCard에 연결 보드게임 메타 전달
+ * 2026.05.16  임도헌   Modified   판매 탭 제품 scope 매핑을 명시해 any 캐스팅 제거
  */
 
 "use client";
@@ -82,7 +84,11 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-import type { ProductType, ViewMode } from "@/features/product/types";
+import type {
+  ProductType,
+  UserProductsScope,
+  ViewMode,
+} from "@/features/product/types";
 import type {
   Badge,
   ProfileAverageRating,
@@ -99,6 +105,12 @@ const ProfileBadgesModal = dynamic(() => import("./ProfileBadgesModal"), {
 });
 
 type ProductStatus = "selling" | "sold";
+type SalesScopeType = Extract<UserProductsScope["type"], "SELLING" | "SOLD">;
+
+const PRODUCT_STATUS_SCOPE_TYPE: Record<ProductStatus, SalesScopeType> = {
+  selling: "SELLING",
+  sold: "SOLD",
+};
 
 interface Props {
   user: UserProfileType & { isFollowing?: boolean };
@@ -304,6 +316,7 @@ export default function UserProfile({
                         startedAt={s.started_at ?? undefined}
                         category={s.category}
                         tags={s.tags}
+                        boardGames={s.board_games}
                         followersOnlyLocked={followersOnlyLocked}
                         requiresPassword={requiresPassword}
                         visibility={s.visibility}
@@ -471,10 +484,10 @@ function SalesTabContent({
   // Suspense에 의해 data가 보장됨 (isLoading 분기 필요 없음)
   const current = useProductPagination<ProductType>({
     mode: "profile",
-    scope: { type: type.toUpperCase() as any, userId },
+    scope: { type: PRODUCT_STATUS_SCOPE_TYPE[type], userId },
   });
 
-  const products = current.products as ProductType[];
+  const products = current.products;
 
   useInfiniteScroll({
     triggerRef,
