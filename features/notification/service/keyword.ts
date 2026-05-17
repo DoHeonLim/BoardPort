@@ -12,6 +12,7 @@
  * 2026.02.22  임도헌   Modified  JSDoc 최신화 (URL Legacy 제거 및 DB SSOT 동기화) 및 Upsert 로직 개선
  * 2026.03.07  임도헌   Modified  키워드 알림 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  push 성공 판정 기준을 res.data.sent로 정정
+ * 2026.05.16  임도헌   Modified  키워드 알림 병렬 작업 타입을 unknown으로 정리
  */
 
 import "server-only";
@@ -122,7 +123,7 @@ export async function checkAndSendKeywordAlert({
   if (recipients.size === 0) return;
 
   const now = new Date();
-  const tasks: Promise<any>[] = [];
+  const tasks: Promise<unknown>[] = [];
 
   // 4. 알림 발송 (병렬 처리)
   for (const [userId, keywords] of recipients.entries()) {

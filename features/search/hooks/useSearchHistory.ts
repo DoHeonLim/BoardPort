@@ -74,7 +74,7 @@ export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
 
       return { previous };
     },
-    onError: (err, newKeyword, context) => {
+    onError: (_err, _newKeyword, context) => {
       queryClient.setQueryData(queryKey, context?.previous);
     },
     onSettled: () => {

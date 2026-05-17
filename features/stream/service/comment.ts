@@ -11,10 +11,13 @@
  * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  * 2026.03.04  임도헌   Modified  `unstable_cache` 및 `revalidateTag` 기반 서버 상태 갱신 방식 제거, 순수 DB 쿼리 로직으로 단일화
  * 2026.03.07  임도헌   Modified  댓글 목록의 정지 유저 은닉 및 삭제 액션 정지 유저 가드 적용
+ * 2026.05.13  임도헌   Modified  댓글 목록 페이징에서 마지막 페이지 이후 빈 추가 요청이 생기지 않도록 nextCursor 응답으로 보정
+ * 2026.05.16  임도헌   Modified  댓글 목록 where 조건 타입 명시
  */
 
 import "server-only";
 import db from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   checkBlockRelation,
   getBlockedUserIds,
@@ -39,7 +42,8 @@ export async function getRecordingCommentsList(
   limit = 10,
   viewerId?: number | null
 ) {
-  const where: any = {
+  const take = Math.max(1, Math.min(limit, 50));
+  const where: Prisma.RecordingCommentWhereInput = {
     vodId,
     user: { bannedAt: null },
   };
@@ -52,9 +56,9 @@ export async function getRecordingCommentsList(
     }
   }
 
-  return await db.recordingComment.findMany({
+  const rows = await db.recordingComment.findMany({
     where,
-    take: limit,
+    take: take + 1,
     skip: cursor ? 1 : 0,
     cursor: cursor ? { id: cursor } : undefined,
     orderBy: { id: "desc" },
@@ -65,6 +69,15 @@ export async function getRecordingCommentsList(
       user: { select: { id: true, username: true, avatar: true } },
     },
   });
+
+  const hasMore = rows.length > take;
+  const comments = hasMore ? rows.slice(0, take) : rows;
+  const tail = comments[comments.length - 1];
+
+  return {
+    comments,
+    nextCursor: hasMore && tail ? tail.id : undefined,
+  };
 }
 
 /**

@@ -15,6 +15,7 @@
  * 2026.04.20  임도헌   Modified  동 이름 단일 검색에서도 누락이 덜 생기도록 카카오 주소 검색 결과 확장과 추가 로딩을 지원
  * 2026.04.26  임도헌   Modified  데스크톱 동네 검색 모달의 dialog 의미와 검색 입력/닫기 버튼 라벨을 보강
  * 2026.04.26  임도헌   Modified  동네 검색 로딩/오류/빈 결과 문구를 사용자 행동 기준으로 정리
+ * 2026.05.16  임도헌   Modified  카카오 주소 검색 응답 타입을 명시해 any 제거
  */
 
 import { useState } from "react";
@@ -44,15 +45,32 @@ interface NeighborhoodSearchResultItem {
   y: string;
 }
 
+interface KakaoAddressSearchItem {
+  address?: {
+    region_1depth_name?: string;
+    region_2depth_name?: string;
+    region_3depth_name?: string;
+    region_3depth_h_name?: string;
+  };
+  x: string;
+  y: string;
+}
+
+interface KakaoPagination {
+  hasNextPage?: boolean;
+}
+
 const SEARCH_PAGE_SIZE = 30;
 
 /**
  * 카카오 주소 검색 응답의 동네 단위 정규화
  */
-function normalizeResults(data: any[]): NeighborhoodSearchResultItem[] {
+function normalizeResults(
+  data: KakaoAddressSearchItem[]
+): NeighborhoodSearchResultItem[] {
   const uniqueRegions = new Map<string, NeighborhoodSearchResultItem>();
 
-  data.forEach((item: any) => {
+  data.forEach((item) => {
     const addr = item.address;
     if (!addr) return;
 
@@ -61,7 +79,7 @@ function normalizeResults(data: any[]): NeighborhoodSearchResultItem[] {
     const r3 = addr.region_3depth_h_name || addr.region_3depth_name;
     const fullName = [r1, r2, r3].filter(Boolean).join(" ");
 
-    if (!fullName || uniqueRegions.has(fullName)) return;
+    if (!r1 || !r2 || !r3 || !fullName || uniqueRegions.has(fullName)) return;
 
     uniqueRegions.set(fullName, {
       address_name: fullName,
@@ -138,7 +156,11 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
 
     geocoder.addressSearch(
       trimmedKeyword,
-      (data: any[], status: string, pagination?: { hasNextPage?: boolean }) => {
+      (
+        data: KakaoAddressSearchItem[],
+        status: string,
+        pagination?: KakaoPagination
+      ) => {
         setIsSearching(false);
         setIsLoadingMore(false);
 

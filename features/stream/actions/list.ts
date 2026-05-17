@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/list.ts
- * Description : 방송 목록 조회 Controller
+ * Description : 방송 목록 조회 서버 액션
  * Author : 임도헌
  *
  * History
@@ -19,20 +19,30 @@
  * 2026.03.29  임도헌   Modified  다시보기 최신/인기 정렬과 팔로잉만 보조 필터 액션 파라미터 정리
  * 2026.03.31  임도헌   Modified  방송/다시보기 목록 액션 역할이 보이도록 설명 톤 통일
  * 2026.05.08  임도헌   Modified  목록 응답 타입과 조회 범위 타입을 features/stream/types.ts로 이동
+ * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤 액션 추가
  */
 
 "use server";
 
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
-import { getRecordingsList, getStreamsList } from "@/features/stream/service/list";
+import {
+  getChannelVods,
+  getRecordingsList,
+  getStreamsList,
+} from "@/features/stream/service/list";
+import { getViewerRole } from "@/features/stream/service/access";
+import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import type {
   RecordingsPage,
   StreamsPage,
   StreamScope,
+  ViewerRole,
+  VodForGrid,
 } from "@/features/stream/types";
 import getSession from "@/lib/session";
 
 const TAKE = STREAMS_PAGE_TAKE;
+type Session = Awaited<ReturnType<typeof getSession>>;
 
 /**
  * 입력값 정규화
@@ -41,6 +51,31 @@ const TAKE = STREAMS_PAGE_TAKE;
 function norm(v?: string) {
   const t = v?.trim();
   return t ? t : undefined;
+}
+
+/**
+ * 채널 다시보기 목록 노출과 접근 권한 분리
+ * PRIVATE는 세션 언락 여부, FOLLOWERS는 현재 팔로우 역할 기준으로 잠금 플래그 보정
+ */
+function applyChannelVodAccess(
+  vods: VodForGrid[],
+  session: Session,
+  role: ViewerRole
+): VodForGrid[] {
+  return vods.map((v) => {
+    const isPrivate = v.visibility === "PRIVATE";
+    const isFollowers = v.visibility === "FOLLOWERS";
+    const unlocked = isPrivate
+      ? isBroadcastUnlockedFromSession(session, v.broadcastId)
+      : false;
+
+    return {
+      ...v,
+      requiresPassword: isPrivate && role !== "OWNER" && !unlocked,
+      followersOnlyLocked:
+        isFollowers && !(role === "OWNER" || role === "FOLLOWER"),
+    };
+  });
 }
 
 /**
@@ -117,6 +152,34 @@ export async function getRecordingsListAction(
 
   const hasMore = list.length > TAKE;
   const trimmed = hasMore ? list.slice(0, TAKE) : list;
+  const nextCursor = hasMore ? trimmed[trimmed.length - 1].vodId : null;
+
+  return { recordings: trimmed, nextCursor };
+}
+
+/**
+ * 유저 채널 다시보기 무한 스크롤 조회 Server Action
+ *
+ * [기능]
+ * - 특정 채널 소유자의 VOD를 커서 기반으로 추가 조회
+ * - PRIVATE/FOLLOWERS 접근 플래그를 현재 세션 기준으로 보정
+ * - 채널 페이지의 첫 SSR 페이지 이후 추가 페이지 로딩에 사용
+ */
+export async function getChannelVodsAction(
+  ownerId: number,
+  cursor: number | null
+): Promise<RecordingsPage> {
+  if (!Number.isFinite(ownerId) || ownerId <= 0) {
+    return { recordings: [], nextCursor: null };
+  }
+
+  const session = await getSession();
+  const role = (await getViewerRole(session?.id ?? null, ownerId)) as ViewerRole;
+  const list = await getChannelVods(ownerId, TAKE + 1, cursor);
+  const withAccess = applyChannelVodAccess(list, session, role);
+
+  const hasMore = withAccess.length > TAKE;
+  const trimmed = hasMore ? withAccess.slice(0, TAKE) : withAccess;
   const nextCursor = hasMore ? trimmed[trimmed.length - 1].vodId : null;
 
   return { recordings: trimmed, nextCursor };

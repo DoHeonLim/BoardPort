@@ -11,15 +11,22 @@
  * Date        Author   Status    Description
  * 2026.01.03  임도헌   Created   isBroadcastUnlockedFromSession 분리(서버 액션 파일 혼합 export 에러 방지)
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
+ * 2026.05.16  임도헌   Modified  세션 helper 입력 타입을 any 대신 최소 세션 shape로 정리
  */
 
 import "server-only";
 
 type UnlockSet = Record<string, true>;
+type UnlockSession =
+  | {
+      unlockedBroadcastIds?: unknown;
+    }
+  | null
+  | undefined;
 const UNLOCK_SESSION_KEY = "unlockedBroadcastIds";
 
 // 세션 객체에서 언락 목록 추출
-function getUnlockSet(session: any): UnlockSet {
+function getUnlockSet(session: UnlockSession): UnlockSet {
   return (session?.[UNLOCK_SESSION_KEY] ?? {}) as UnlockSet;
 }
 
@@ -27,7 +34,7 @@ function getUnlockSet(session: any): UnlockSet {
  * 특정 방송이 현재 세션에서 언락(비밀번호 입력 완료)되었는지 확인
  */
 export function isBroadcastUnlockedFromSession(
-  session: any,
+  session: UnlockSession,
   broadcastId: number
 ): boolean {
   const unlocked = getUnlockSet(session);

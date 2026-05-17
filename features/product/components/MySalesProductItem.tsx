@@ -135,6 +135,11 @@ interface PurchaseUserInfo {
   avatar: string | null;
 }
 
+type ProductStatusActionResult = {
+  success: boolean;
+  error?: string;
+};
+
 /**
  * 판매 탭 상태의 카드 상단 pill 표시
  *
@@ -369,7 +374,7 @@ export default function MySalesProductItem({
   const runWithOptimistic = useCallback(
     async (
       to: ProductStatus,
-      action: () => Promise<any>,
+      action: () => Promise<ProductStatusActionResult>,
       modifiedProduct?: MySalesListItem
     ) => {
       if (!type) {

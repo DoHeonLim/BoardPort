@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/key.ts
- * Description : LiveInput 키 관리 Controller
+ * Description : LiveInput 키 관리 서버 액션
  * Author : 임도헌
  *
  * History

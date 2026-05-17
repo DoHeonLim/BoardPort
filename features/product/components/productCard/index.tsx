@@ -49,6 +49,8 @@
  * 2026.05.04  임도헌   Modified  모바일/그리드 카드에서는 분류 경로를 축약해 상품명과 거래 메타 우선순위 강화
  * 2026.05.04  임도헌   Modified  그리드 카드의 연결 보드게임명/태그와 거래 메타를 각각 한 줄로 압축
  * 2026.05.04  임도헌   Modified  모바일 카드에서는 연결 보드게임명 pill을 생략해 하단 거래 메타 영역 확보
+ * 2026.05.15  임도헌   Modified  찜한 내역 리스트 카드의 빠른 해제 버튼/보드게임 배지/활동 시점 정렬 충돌 해소
+ * 2026.05.15  임도헌   Modified  리스트 카드 하단 메타 여백을 확보하도록 카드 높이와 세로 패딩 미세 조정
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -115,6 +117,8 @@ export default function ProductCard({
   const isGrid = viewMode === "grid";
   const showInlineQuickUnlike = showQuickUnlike && !isGrid;
   const hasBoardGameBadge = Boolean(board_games?.length);
+  const showCornerBoardGameBadge =
+    !isGrid && hasBoardGameBadge && !showInlineQuickUnlike;
 
   // 썸네일은 그리드/리스트 높이 전략이 달라 별도 node로 분리
   const thumbnailNode = (
@@ -138,12 +142,13 @@ export default function ProductCard({
     </div>
   );
 
-  // 데스크톱 리스트 카드의 우측 보드게임 pill과 겹치지 않도록 정보 영역 여백 예약
+  // 찜한 내역은 우측 상단 액션 영역만 예약하고, 하단 메타는 카드 끝까지 사용할 수 있게 분리
   const headerPriceNode = (
     <div
       className={cn(
         "flex min-w-0 flex-col gap-1",
-        !isGrid && hasBoardGameBadge && "sm:pr-[46%]"
+        showInlineQuickUnlike && "pr-16 sm:pr-24",
+        showCornerBoardGameBadge && "sm:pr-[46%]"
       )}
     >
       <ProductCardHeader
@@ -187,6 +192,20 @@ export default function ProductCard({
         className="min-w-0 flex-1 flex-nowrap overflow-hidden"
       />
     </div>
+  ) : showInlineQuickUnlike ? (
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+      <ProductCardBoardGameBadge
+        items={board_games}
+        viewMode={viewMode}
+        className="max-w-[46%] shrink-0"
+      />
+      <ProductCardTags
+        tags={search_tags}
+        maxTags={2}
+        mobileMaxTags={1}
+        className="min-w-0 flex-1 flex-nowrap overflow-hidden"
+      />
+    </div>
   ) : (
     <ProductCardTags tags={search_tags} maxTags={2} mobileMaxTags={1} />
   );
@@ -212,22 +231,19 @@ export default function ProductCard({
   return (
     <div
       className={cn(
-    "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition duration-300",
+        "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-light/50 dark:hover:border-brand-light/50",
         "has-[a[data-card-link]:focus-visible]:ring-2 has-[a[data-card-link]:focus-visible]:ring-brand has-[a[data-card-link]:focus-visible]:ring-inset has-[a[data-card-link]:focus-visible]:ring-offset-0 dark:has-[a[data-card-link]:focus-visible]:ring-brand-light",
-        isGrid ? "flex-col h-full" : "flex-row min-h-[8.5rem] sm:h-[9.5rem] w-full"
+        isGrid ? "flex-col h-full" : "flex-row min-h-[9rem] sm:h-[10rem] w-full"
       )}
     >
       {/* 데스크톱 리스트에서는 연결 보드게임명을 우측 상단 보조 정보로 분리 */}
-      {!isGrid && (
+      {showCornerBoardGameBadge && (
         <ProductCardBoardGameBadge
           items={board_games}
           viewMode={viewMode}
           placement="corner"
-          className={cn(
-            "pointer-events-none absolute right-3 top-3 z-10 hidden sm:flex",
-            showInlineQuickUnlike && "right-20"
-          )}
+          className="pointer-events-none absolute right-3 top-3 z-10 hidden sm:flex"
         />
       )}
 
@@ -261,7 +277,7 @@ export default function ProductCard({
           >
             {thumbnailNode}
 
-            <div className="flex min-w-0 flex-1 px-2.5 py-2 pr-14 sm:px-3.5 sm:py-3 sm:pr-16">
+            <div className="flex min-w-0 flex-1 px-2.5 py-2.5 sm:px-3.5 sm:py-3.5">
               <div className="flex min-w-0 flex-1 flex-col justify-between gap-1.5">
                 {headerPriceNode}
                 {tagsMetaNode}
@@ -283,7 +299,7 @@ export default function ProductCard({
 
           <div
             className={cn(
-              "flex min-w-0 flex-1 px-2.5 py-2 sm:px-3.5 sm:py-3",
+              "flex min-w-0 flex-1 px-2.5 py-2.5 sm:px-3.5 sm:py-3.5",
               showQuickUnlike && isGrid && "pr-14 sm:pr-24",
               isGrid
                 ? "flex-col justify-start gap-1.5 sm:gap-2"

@@ -22,6 +22,7 @@
  * 2026.04.14  임도헌   Modified  좋아요 버튼의 접근성 이름을 시각 레이블과 일치하도록 보강
  * 2026.04.14  임도헌   Modified  게시글 상세 기준으로 좋아요 시각 텍스트를 명시해 Lighthouse 레이블 불일치 가능성을 낮춤
  * 2026.04.14  임도헌   Modified  별도 aria-labelledby 없이 버튼 본문 텍스트를 그대로 이름으로 사용하도록 단순화
+ * 2026.05.12  임도헌   Modified  다른 상세 화면과 맞춰 시각 레이블은 하트와 숫자만 남기고 접근성 이름은 aria-label로 분리
  */
 "use client";
 
@@ -86,7 +87,7 @@ export default function PostLikeButton({
       return { previous };
     },
     // 에러 발생 시 이전 상태로 복구
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
       toast.error("게시글 좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
       queryClient.setQueryData(queryKey, context?.previous);
@@ -96,6 +97,9 @@ export default function PostLikeButton({
       queryClient.invalidateQueries({ queryKey });
     },
   });
+  const likeButtonLabel = data.isLiked
+    ? `게시글 좋아요 취소, 현재 ${data.likeCount.toLocaleString()}개`
+    : `게시글 좋아요, 현재 ${data.likeCount.toLocaleString()}개`;
 
   return (
     <button
@@ -108,15 +112,13 @@ export default function PostLikeButton({
         data.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500"
       )}
       aria-pressed={data.isLiked}
+      aria-label={likeButtonLabel}
     >
       {data.isLiked ? (
         <HeartIcon className="size-6" />
       ) : (
         <OutlineHeartIcon className="size-6" />
       )}
-      <span className="text-sm font-medium">
-        좋아요
-      </span>
       <span className="text-sm font-medium tabular-nums">
         {data.likeCount.toLocaleString()}
       </span>

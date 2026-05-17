@@ -19,6 +19,7 @@
  * 2026.03.03  임도헌   Modified   unstable_cache 래퍼 및 1페이지 분기 로직 제거, 단일 페이징 쿼리로 통합
  * 2026.03.07  임도헌   Modified   요청자 정지 가드 및 팔로우 실패 사유 전달 정합성 보강
  * 2026.03.07  임도헌   Modified   팔로우 목록에서 정지/차단 관계 유저 숨김 처리 추가
+ * 2026.05.16  임도헌   Modified   유저 경량 정보 select를 selects.ts로 분리
  */
 import "server-only";
 import db from "@/lib/db";
@@ -30,6 +31,7 @@ import {
 } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { FollowListCursor, FollowListUser } from "@/features/user/types";
+import { USER_LITE_SELECT } from "@/features/user/selects";
 
 // --- Helper: Batch User Info ---
 /**
@@ -39,7 +41,7 @@ async function batchFetchUserLiteByIds(ids: number[]) {
   if (!ids.length) return new Map();
   const users = await db.user.findMany({
     where: { id: { in: ids }, bannedAt: null },
-    select: { id: true, username: true, avatar: true },
+    select: USER_LITE_SELECT,
   });
   return new Map(users.map((u) => [u.id, u]));
 }

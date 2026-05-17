@@ -21,6 +21,7 @@
  * 2026.03.08  임도헌   Modified  최대 인원은 최소 인원 이상이어야 하는 교차 필드 검증 추가
  * 2026.03.12  임도헌   Modified  이미지 애니메이션 메타 저장용 photosAnimated 필드 추가
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 검증 필드 추가
+ * 2026.05.16  임도헌   Modified  폼 값 타입명을 PascalCase 기준으로 정리
  */
 
 import { z } from "zod";
@@ -108,4 +109,4 @@ export const productFormSchema = z.object({
   path: ["max_players"],
 });
 
-export type productFormValues = z.infer<typeof productFormSchema>;
+export type ProductFormValues = z.infer<typeof productFormSchema>;

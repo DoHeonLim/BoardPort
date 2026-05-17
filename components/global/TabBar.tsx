@@ -25,12 +25,15 @@
  * 2026.03.26  임도헌   Modified  하단 경계에서 본문이 비쳐 보이지 않도록 fixed 래퍼 배경과 overflow를 보강
  * 2026.03.26  임도헌   Modified  하단 1px 서브픽셀 틈으로 콘텐츠가 비쳐 보이는 현상을 막기 위해 탭바를 미세하게 아래로 덮음
  * 2026.03.28  임도헌   Modified  AppWrapper 폭 측정 전 초기 렌더에서도 탭바가 왼쪽으로 압축되지 않도록 전체 폭 fallback을 추가
+ * 2026.05.12  임도헌   Modified  신호 탭에 미읽음 채팅 뱃지와 rooms_refresh 기반 실시간 갱신 추가
+ * 2026.05.17  임도헌   Modified  rooms_refresh 구독을 ChatRoomsRealtimeBridge로 이동해 탭바는 query 표시만 담당
  */
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   NewspaperIcon as SolidNewspaperIcon,
   HomeIcon as SolidHomeIcon,
@@ -46,6 +49,13 @@ import {
   UserIcon as OutlineUserIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { queryKeys } from "@/lib/queryKeys";
+import { getUnreadChatMessageCountAction } from "@/features/chat/actions/room";
+
+interface TabBarProps {
+  userId?: number;
+  initialUnreadChatCount?: number;
+}
 
 /**
  * 하단 글로벌 탭바
@@ -55,12 +65,24 @@ import { cn } from "@/lib/utils";
  * - 현재 경로 기준 active 상태 표시
  * - 모바일 하단 고정 내비게이션 제공
  */
-export default function TabBar() {
+export default function TabBar({
+  userId,
+  initialUnreadChatCount = 0,
+}: TabBarProps) {
   const pathname = usePathname();
   const [shellBounds, setShellBounds] = useState<{
     left: number;
     width: number;
   } | null>(null);
+
+  // 서버에서 받은 초기값으로 첫 렌더 뱃지를 채우고, 이후에는 query invalidation으로 최신화
+  const unreadChatCountQuery = useQuery({
+    queryKey: queryKeys.chats.unreadCount(userId ?? 0),
+    queryFn: getUnreadChatMessageCountAction,
+    enabled: Boolean(userId),
+    initialData: initialUnreadChatCount,
+    staleTime: 60 * 1000,
+  });
 
   const tabs = [
     {
@@ -102,6 +124,7 @@ export default function TabBar() {
   const isMainTab = tabs.some((tab) => tab.href === pathname);
   const shouldShowTabBar = isMainTab || isPublicProfileRoute;
 
+  // fixed 탭바가 AppWrapper 실제 폭과 어긋나지 않도록 브라우저/레이아웃 변화에 맞춰 보정
   useEffect(() => {
     const syncShellBounds = () => {
       const appWrapper = document.getElementById("app-wrapper");
@@ -134,6 +157,10 @@ export default function TabBar() {
   }, [pathname]);
 
   if (!shouldShowTabBar) return null;
+
+  const unreadChatCount = unreadChatCountQuery.data ?? initialUnreadChatCount;
+  const unreadChatBadgeText =
+    unreadChatCount > 99 ? "99+" : String(unreadChatCount);
 
   return (
     <nav
@@ -170,6 +197,8 @@ export default function TabBar() {
                 ? pathname === "/profile" || isPublicProfileRoute
                 : pathname === tab.href;
             const Icon = isActive ? tab.solidIcon : tab.outlineIcon;
+            const isChatTab = tab.href === "/chat";
+            const hasUnreadChat = isChatTab && unreadChatCount > 0;
 
             return (
               <Link
@@ -177,6 +206,11 @@ export default function TabBar() {
                 href={tab.href}
                 prefetch={false}
                 aria-current={isActive ? "page" : undefined}
+                aria-label={
+                  hasUnreadChat
+                    ? `${tab.label}, 읽지 않은 채팅 ${unreadChatCount}개`
+                    : tab.label
+                }
                 className={cn(
                   // [상호작용] 터치 영역 44px 이상 보장 (그리드 높이로 자동 처리)
                   "flex flex-col items-center justify-center gap-1 h-full w-full",
@@ -184,13 +218,28 @@ export default function TabBar() {
                   "focus-ring-soft" // 키보드 접근성
                 )}
               >
-                <Icon
-                  className={cn(
-                    "w-6 h-6 transition-colors duration-200",
-                    isActive ? "text-brand dark:text-brand-light" : "text-muted"
-                  )}
-                  aria-hidden="true"
-                />
+                <span className="relative inline-flex">
+                  <Icon
+                    className={cn(
+                      "w-6 h-6 transition-colors duration-200",
+                      isActive
+                        ? "text-brand dark:text-brand-light"
+                        : "text-muted"
+                    )}
+                    aria-hidden="true"
+                  />
+                  {hasUnreadChat ? (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute -right-2.5 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full",
+                        "bg-danger px-1 text-[10px] font-bold leading-none text-white shadow-sm"
+                      )}
+                    >
+                      {unreadChatBadgeText}
+                    </span>
+                  ) : null}
+                </span>
                 <span
                   className={cn(
                     "text-xs sm:text-sm font-medium transition-colors duration-200",

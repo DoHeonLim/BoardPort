@@ -27,7 +27,12 @@
  * 2026.03.03  임도헌   Modified  채팅(Chat) 도메인 룸 목록 키 추가
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.05.08  임도헌   Modified  보드게임 도감 목록 query key 추가
+ * 2026.05.12  임도헌   Modified  채팅 미읽음 수 뱃지용 query key 추가
+ * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤용 query key 추가
+ * 2026.05.17  임도헌   Modified  query key 필터 객체 타입을 QueryKeyParams로 명시
  */
+
+import type { QueryKeyParams } from "@/lib/types";
 
 /**
  * 전역 TanStack Query 캐시 키 관리 팩토리
@@ -42,7 +47,7 @@ export const queryKeys = {
   products: {
     all: ["products"] as const,
     lists: () => [...queryKeys.products.all, "list"] as const,
-    list: (filters: Record<string, any>) =>
+    list: (filters: QueryKeyParams) =>
       [...queryKeys.products.lists(), filters] as const,
     details: () => [...queryKeys.products.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.products.details(), id] as const,
@@ -57,7 +62,7 @@ export const queryKeys = {
   posts: {
     all: ["posts"] as const,
     lists: () => [...queryKeys.posts.all, "list"] as const,
-    list: (filters: Record<string, any>) =>
+    list: (filters: QueryKeyParams) =>
       [...queryKeys.posts.lists(), filters] as const,
     details: () => [...queryKeys.posts.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.posts.details(), id] as const,
@@ -79,6 +84,8 @@ export const queryKeys = {
     all: ["chats"] as const,
     lists: () => [...queryKeys.chats.all, "list"] as const,
     list: (userId: number) => [...queryKeys.chats.lists(), userId] as const,
+    unreadCount: (userId: number) =>
+      [...queryKeys.chats.all, "unreadCount", userId] as const,
     messages: (roomId: string) =>
       [...queryKeys.chats.all, "messages", roomId] as const,
   },
@@ -87,11 +94,13 @@ export const queryKeys = {
   streams: {
     all: ["streams"] as const,
     lists: () => [...queryKeys.streams.all, "list"] as const,
-    list: (scope: string, filters: Record<string, any>) =>
+    list: (scope: string, filters: QueryKeyParams) =>
       [...queryKeys.streams.lists(), scope, filters] as const,
     recordingLists: () => [...queryKeys.streams.all, "recordings"] as const,
-    recordingList: (scope: string, filters: Record<string, any>) =>
+    recordingList: (scope: string, filters: QueryKeyParams) =>
       [...queryKeys.streams.recordingLists(), scope, filters] as const,
+    channelRecordings: (ownerId: number) =>
+      [...queryKeys.streams.all, "channelRecordings", ownerId] as const,
     vodComments: (vodId: number) =>
       [...queryKeys.streams.all, "vodComments", vodId] as const,
     likeStatus: (vodId: number) =>
@@ -121,7 +130,7 @@ export const queryKeys = {
   boardgames: {
     all: ["boardgames"] as const,
     lists: () => [...queryKeys.boardgames.all, "list"] as const,
-    list: (params: Record<string, any>) =>
+    list: (params: QueryKeyParams) =>
       [...queryKeys.boardgames.lists(), params] as const,
   },
 };

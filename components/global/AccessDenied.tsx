@@ -23,6 +23,7 @@
  * 2026.04.04  임도헌   Modified  helper/props 설명을 보강해 사유별 복귀 문맥과 CTA 분기 의도를 더 명확히 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 접근 거부 안내 강조 텍스트를 500 기준으로 정리
  * 2026.04.20  임도헌   Modified  팔로워 전용 CTA가 버튼 폭 안에서 자연스럽게 줄바꿈되도록 문구 배치를 정리
+ * 2026.05.15  임도헌   Modified  비관리자 admin 접근 거부 안내 상태 추가
  */
 
 "use client";
@@ -36,6 +37,7 @@ import {
   LockClosedIcon,
   UserGroupIcon,
   UserMinusIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 import LogoutButton from "@/components/global/LogoutButton";
 
@@ -44,7 +46,13 @@ const PrivateAccessModal = dynamic(
   { ssr: false }
 );
 
-type Reason = "PRIVATE" | "FOLLOWERS_ONLY" | "BLOCKED" | "BANNED" | "UNKNOWN";
+type Reason =
+  | "PRIVATE"
+  | "FOLLOWERS_ONLY"
+  | "BLOCKED"
+  | "BANNED"
+  | "ADMIN_ONLY"
+  | "UNKNOWN";
 
 interface AccessDeniedProps {
   reason: Reason;
@@ -153,6 +161,8 @@ export default function AccessDenied({
             <UserGroupIcon className="size-10 text-indigo-500" />
           ) : reason === "BLOCKED" ? (
             <UserMinusIcon className="size-10 text-danger" />
+          ) : reason === "ADMIN_ONLY" ? (
+            <ShieldExclamationIcon className="size-10 text-danger" />
           ) : (
             <LockClosedIcon className="size-10 text-muted" />
           )}
@@ -312,6 +322,28 @@ export default function AccessDenied({
                 className="w-full rounded-xl bg-red-600 text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] font-bold"
                 idleLabel="로그아웃 (확인)"
               />
+            </div>
+          </>
+        )}
+
+        {reason === "ADMIN_ONLY" && (
+          <>
+            <p className="state-description">
+              관리자 권한이 있는 계정만 접근할 수 있는 영역입니다.
+            </p>
+            <div className="state-actions">
+              <button
+                onClick={() => router.push("/products")}
+                className="btn-primary min-h-[44px] w-full"
+              >
+                제품 목록으로 이동
+              </button>
+              <button
+                onClick={() => router.back()}
+                className="btn-secondary min-h-[44px] w-full"
+              >
+                뒤로가기
+              </button>
             </div>
           </>
         )}

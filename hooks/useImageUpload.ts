@@ -14,19 +14,31 @@
  * 2026.02.02  임도헌   Modified  주석 보강
  * 2026.02.23  임도헌   Modified  Native Drag & Drop 지원을 위한 로직 분리 및 핸들러 추가
  * 2026.03.12  임도헌   Modified  업로드 이미지의 애니메이션 여부를 photosAnimated 필드와 동기화하는 옵션 추가
+ * 2026.05.17  임도헌   Modified  react-hook-form 연동 타입을 FieldValues 제네릭으로 구체화
  */
 
 import { useState } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
 import { MAX_PHOTO_SIZE, MAX_PHOTO_SIZE_MB } from "@/lib/constants";
-import { UseFormGetValues, UseFormSetValue } from "react-hook-form";
+import type {
+  FieldValues,
+  Path,
+  PathValue,
+  UseFormGetValues,
+  UseFormSetValue,
+} from "react-hook-form";
 import { toast } from "sonner";
 
-interface UseImageUploadProps {
+interface ImageUploadFormFields extends FieldValues {
+  photos?: string[];
+  photosAnimated?: boolean[];
+}
+
+interface UseImageUploadProps<TFieldValues extends ImageUploadFormFields> {
   maxImages?: number; // 최대 업로드 가능한 이미지 수 (기본: 5)
   maxSize?: number; // 개별 이미지 최대 크기 (기본: 10MB)
-  setValue: UseFormSetValue<any>;
-  getValues: UseFormGetValues<any>;
+  setValue: UseFormSetValue<TFieldValues>;
+  getValues: UseFormGetValues<TFieldValues>;
   syncAnimatedFlags?: boolean;
 }
 
@@ -41,18 +53,37 @@ interface UseImageUploadProps {
  * @param {UseImageUploadProps} props - 업로드 제한값과 form 상태 연동 설정
  * @returns {object} 미리보기 상태와 업로드/삭제/정렬 핸들러 묶음
  */
-export function useImageUpload({
+export function useImageUpload<TFieldValues extends ImageUploadFormFields>({
   maxImages = 5,
   maxSize = MAX_PHOTO_SIZE,
   setValue,
   getValues,
   syncAnimatedFlags = false,
-}: UseImageUploadProps) {
+}: UseImageUploadProps<TFieldValues>) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [animatedFlags, setAnimatedFlags] = useState<boolean[]>([]);
   const [isImageFormOpen, setIsImageFormOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const photosField = "photos" as Path<TFieldValues>;
+  const photosAnimatedField = "photosAnimated" as Path<TFieldValues>;
+
+  const setPhotosValue = (value: string[]) => {
+    setValue(photosField, value as PathValue<TFieldValues, Path<TFieldValues>>);
+  };
+
+  const setAnimatedValue = (value: boolean[], shouldDirty = false) => {
+    setValue(
+      photosAnimatedField,
+      value as PathValue<TFieldValues, Path<TFieldValues>>,
+      shouldDirty ? { shouldDirty: true } : undefined
+    );
+  };
+
+  const getPhotoValues = () => {
+    const current = getValues(photosField);
+    return Array.isArray(current) ? (current as string[]) : [];
+  };
 
   /**
    * 입력/드롭 공통 파일 처리
@@ -113,13 +144,13 @@ export function useImageUpload({
       setAnimatedFlags((prev) => {
         const next = [...prev, ...newAnimatedFlags];
         if (syncAnimatedFlags) {
-          setValue("photosAnimated", next, { shouldDirty: true });
+          setAnimatedValue(next, true);
         }
         return next;
       });
 
       // RHF 사진 필드 동기화
-      setValue("photos", [...(getValues("photos") || []), ...newPreviews]);
+      setPhotosValue([...getPhotoValues(), ...newPreviews]);
     } catch (error) {
       console.error(error);
       toast.error("이미지 처리 중 오류가 발생했습니다.");
@@ -156,20 +187,17 @@ export function useImageUpload({
    * 특정 인덱스 이미지 제거
    */
   const handleDeleteImage = (index: number) => {
-    const currentPhotos: string[] = getValues("photos");
+    const currentPhotos = getPhotoValues();
     setPreviews((prev) => prev.filter((_, i) => i !== index));
     setFiles((prev) => prev.filter((_, i) => i !== index));
     setAnimatedFlags((prev) => {
       const next = prev.filter((_, i) => i !== index);
       if (syncAnimatedFlags) {
-        setValue("photosAnimated", next, { shouldDirty: true });
+        setAnimatedValue(next, true);
       }
       return next;
     });
-    setValue(
-      "photos",
-      currentPhotos.filter((_, i) => i !== index)
-    );
+    setPhotosValue(currentPhotos.filter((_, i) => i !== index));
   };
 
   /**
@@ -194,9 +222,9 @@ export function useImageUpload({
     setPreviews(items);
     setFiles(fileItems);
     setAnimatedFlags(flagItems);
-    setValue("photos", items);
+    setPhotosValue(items);
     if (syncAnimatedFlags) {
-      setValue("photosAnimated", flagItems, { shouldDirty: true });
+      setAnimatedValue(flagItems, true);
     }
   };
 
@@ -207,9 +235,9 @@ export function useImageUpload({
     setPreviews([]);
     setFiles([]);
     setAnimatedFlags([]);
-    setValue("photos", []);
+    setPhotosValue([]);
     if (syncAnimatedFlags) {
-      setValue("photosAnimated", []);
+      setAnimatedValue([]);
     }
   };
 

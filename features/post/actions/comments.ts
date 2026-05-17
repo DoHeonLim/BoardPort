@@ -1,6 +1,6 @@
 /**
  * File Name : features/post/actions/comments.ts
- * Description : 댓글 관리 Controller
+ * Description : 댓글 관리 서버 액션
  * Author : 임도헌
  *
  * History
@@ -17,6 +17,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.31  임도헌   Modified  Action 역할과 댓글 조회/후속 처리 맥락이 보이도록 설명 보강
  * 2026.04.02  임도헌   Modified  댓글 액션 반환/파라미터 JSDoc 태그 형식 정리
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

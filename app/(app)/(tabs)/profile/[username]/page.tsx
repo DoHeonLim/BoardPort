@@ -33,6 +33,7 @@
  * 2026.03.18  임도헌   Modified  본인 프로필 리다이렉트 시 /profile 대상 nested returnTo를 평탄화해 자기 자신 체인 누적을 완화
  * 2026.03.22  임도헌   Modified  generateMetadata 설명을 현재 프로필 문맥(방송/판매/활동)에 맞게 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/page.tsx 에서 app/(app)/(tabs)/profile/[username]/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.17  임도헌   Modified  prefetch 커서 타입을 명시
 */
 
 import { Metadata } from "next";
@@ -135,7 +136,7 @@ export default async function UserProfilePage({
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.reviews.user(userProfile.id),
       queryFn: () => getUserReviewsAction(userProfile.id, null),
-      initialPageParam: null as any,
+      initialPageParam: null as number | null,
     }),
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
@@ -144,13 +145,13 @@ export default async function UserProfilePage({
           { type: "SELLING", userId: userProfile.id },
           null
         ),
-      initialPageParam: null as any,
+      initialPageParam: null as number | null,
     }),
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
       queryFn: () =>
         getUserProductsAction({ type: "SOLD", userId: userProfile.id }, null),
-      initialPageParam: null as any,
+      initialPageParam: null as number | null,
     }),
   ]);
 

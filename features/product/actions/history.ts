@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/actions/history.ts
- * Description : 제품 검색 기록 Controller
+ * Description : 제품 검색 기록 서버 액션
  * Author : 임도헌
  *
  * History
@@ -14,6 +14,7 @@
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/(tabs)/products/actions/history.ts -> features/product/actions/history.ts
  * 2026.04.02  임도헌   Modified  검색 기록 액션 JSDoc 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 
 "use server";

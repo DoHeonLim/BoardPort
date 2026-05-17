@@ -22,11 +22,12 @@
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.31  임도헌   Modified  헤더 통계와 모달 페이징 제어 목적이 보이도록 설명 톤 통일
  * 2026.04.08  임도헌   Modified  프로필/채널 헤더 팔로우 성공 시 맥락형 토스트를 노출해 상태 전환 체감 보강
+ * 2026.05.16  임도헌   Modified  팔로우 모달 캐시 조회 타입을 명시해 any 캐스팅 제거
  */
 "use client";
 
 import { useCallback, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import { useFollowPagination } from "@/features/user/hooks/useFollowPagination";
@@ -35,6 +36,7 @@ import {
   getFollowersAction,
   getFollowingAction,
 } from "@/features/user/actions/follow";
+import type { FollowListPage } from "@/features/user/types";
 
 type ControllerParams = {
   ownerId: number;
@@ -104,7 +106,7 @@ export function useFollowController({
 
   /**
    * 헤더의 팔로우 버튼 토글 (Viewer -> Owner)
-   * 실제 캐시 갱신은 `useFollowToggle` 내부에서 처리합니다.
+ * 실제 캐시 갱신은 `useFollowToggle` 내부 처리
    */
   const onToggleFollow = useCallback(async () => {
     if (!viewerId) return onRequireLogin?.();
@@ -136,14 +138,16 @@ export function useFollowController({
       let currentIsFollowing = false;
       // 현재 캐시 기준 팔로우 상태 추출
       // 모달 row의 최신 상태를 기준으로 토글 의도를 계산
-      const cachedData = queryClient.getQueriesData({
+      const cachedData = queryClient.getQueriesData<
+        InfiniteData<FollowListPage>
+      >({
         queryKey: queryKeys.follows.user(ownerUsername),
       });
 
       for (const [, data] of cachedData) {
-        if (!data) continue;
-        for (const page of (data as any).pages) {
-          const found = page.users.find((u: any) => u.id === userId);
+        if (!data?.pages) continue;
+        for (const page of data.pages) {
+          const found = page.users.find((u) => u.id === userId);
           if (found) {
             currentIsFollowing = !!found.isFollowedByViewer;
             break;

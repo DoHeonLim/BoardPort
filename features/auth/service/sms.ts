@@ -1,5 +1,5 @@
 /**
- * File Name : features/auth/sms/service.ts
+ * File Name : features/auth/service/sms.ts
  * Description : SMS 인증 관련 비즈니스 로직 (토큰 생성/발송/검증)
  * Author : 임도헌
  *

@@ -11,6 +11,7 @@
  * 2026.03.07  임도헌   Modified  삭제 실패 문구를 구체화(v1.2)
  * 2026.03.31  임도헌   Modified  일반 삭제/관리자 삭제 공통 cleanup helper와 Cloudflare VOD/썸네일 자산 정리 추가
  * 2026.04.02  임도헌   Modified  Cloudflare 이미지 ID 파싱을 stream image utils로 분리하고 삭제 helper 설명 보강
+ * 2026.05.16  임도헌   Modified  방송 삭제 액션의 사전 조회용 메타 헬퍼 추가
  */
 
 import "server-only";
@@ -19,11 +20,39 @@ import type { Prisma } from "@/generated/prisma/client";
 import { extractCloudflareImageId } from "@/features/stream/utils/image";
 
 type DeleteResult = { success: true } | { success: false; error: string };
+type BroadcastDeleteMeta = {
+  ownerId: number;
+};
 type HardDeleteBroadcastTarget = {
   id: number;
   thumbnail: string | null;
   vodAssets: { provider_asset_id: string }[];
 };
+
+/** 방송 삭제 권한 확인에 필요한 최소 메타 조회 */
+export async function getBroadcastDeleteMeta(
+  broadcastId: number
+): Promise<BroadcastDeleteMeta | null> {
+  const broadcast = await db.broadcast.findUnique({
+    where: { id: broadcastId },
+    select: { liveInput: { select: { userId: true } } },
+  });
+
+  if (!broadcast) return null;
+  return { ownerId: broadcast.liveInput.userId };
+}
+
+/** LiveInput 삭제 성공 후 무효화할 연결 방송 ID 목록 조회 */
+export async function getBroadcastIdsByLiveInput(
+  liveInputId: number
+): Promise<number[]> {
+  const broadcasts = await db.broadcast.findMany({
+    where: { liveInputId },
+    select: { id: true },
+  });
+
+  return broadcasts.map((broadcast) => broadcast.id);
+}
 /** Cloudflare Stream VOD 자산 best-effort 삭제 */
 async function deleteCloudflareVodAsset(providerAssetId: string): Promise<void> {
   const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;

@@ -24,11 +24,13 @@
  * 2026.03.27  임도헌   Modified  검색 중 로딩 인디케이터가 얇은 막대로 보이지 않도록 스피너 표시 요소를 보정
  * 2026.04.10  임도헌   Modified  상위 클라이언트 래퍼 아래에서만 사용되도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.17  임도헌   Modified  탭 상단 검색바에 공통 입력 스타일 클래스를 적용
+ * 2026.05.16  임도헌   Modified  검색 제출 로딩 표시 시간을 search 상수로 분리
  */
 
 import { useEffect, useState } from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
+import { SEARCH_SUBMIT_PENDING_MS } from "@/features/search/constants";
 
 interface SearchBarProps {
   placeholder?: string;
@@ -66,7 +68,7 @@ export default function SearchBar({
     const trimmed = keyword.trim();
     setIsPending(true);
     onSearch(trimmed);
-    setTimeout(() => setIsPending(false), 500); // 최소 로딩 표시
+    setTimeout(() => setIsPending(false), SEARCH_SUBMIT_PENDING_MS);
   };
 
   return (

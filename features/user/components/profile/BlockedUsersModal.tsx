@@ -14,6 +14,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.22  임도헌   Modified  차단 해제 액션을 텍스트 링크 대신 명확한 보조 버튼으로 정리
  * 2026.04.26  임도헌   Modified  차단 관리 모달에 dialog 의미와 제목 연결, ESC 닫기 포커스 흐름을 보강
+ * 2026.05.17  임도헌   Modified  차단 유저 아이템 타입을 user types 공용 타입으로 이동
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -22,10 +23,7 @@ import UserAvatar from "@/components/global/UserAvatar";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-interface BlockedUser {
-  blocked: { id: number; username: string; avatar: string | null };
-}
+import type { BlockedUserSummary } from "@/features/user/types";
 
 /**
  * 차단한 선원(유저) 관리 모달
@@ -44,9 +42,9 @@ export default function BlockedUsersModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  initialBlockedUsers: BlockedUser[];
+  initialBlockedUsers: BlockedUserSummary[];
   loading?: boolean;
-  onUsersChange?: (users: BlockedUser[]) => void;
+  onUsersChange?: (users: BlockedUserSummary[]) => void;
 }) {
   const [users, setUsers] = useState(initialBlockedUsers);
   const [isPending, startTransition] = useTransition();

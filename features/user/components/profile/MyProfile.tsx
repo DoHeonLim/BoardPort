@@ -52,6 +52,7 @@
  * 2026.04.09  임도헌   Modified   판매/구매/찜한 내역 바로가기 진입 시 상단 스크롤 초기화를 명시해 이전 프로필 스크롤 문맥 유지 완화
  * 2026.04.10  임도헌   Modified   profile 타이포 정책에 맞춰 주요 CTA/상태 카드/거래 카드 라벨을 400·500·700 체계로 정리
  * 2026.04.16  임도헌   Modified   profile Lighthouse 대응으로 하단 섹션 지연 로드 분리 및 진입 라벨/a11y 주석 정리
+ * 2026.05.17  임도헌   Modified   차단 유저 목록 상태 타입을 BlockedUserSummary로 명시
  */
 "use client";
 
@@ -78,6 +79,7 @@ import { useModalStore } from "@/components/global/providers/ModalStoreProvider"
 import type { BroadcastSummary } from "@/features/stream/types";
 import type {
   Badge,
+  BlockedUserSummary,
   ProfileAverageRating,
   UserProfile,
 } from "@/features/user/types";
@@ -152,7 +154,9 @@ export default function MyProfile({
   const returnTo = sanitizeCallbackUrl(
     currentQuery ? `${pathname}?${currentQuery}` : pathname
   );
-  const [blockedUsers, setBlockedUsers] = useState<any[] | null>(null);
+  const [blockedUsers, setBlockedUsers] = useState<
+    BlockedUserSummary[] | null
+  >(null);
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(false);
   const [pushStatus, setPushStatus] =
     useState<PushNotificationStatus>("disabled");

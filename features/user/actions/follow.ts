@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/actions/follow.ts
- * Description : 팔로우 토글 Controller
+ * Description : 팔로우 토글 서버 액션
  * Author : 임도헌
  *
  * History
@@ -10,6 +10,7 @@
  * 2026.03.07  임도헌   Modified  팔로우 실패 사유를 구조화된 결과로 반환하도록 보강
  * 2026.03.27  임도헌   Modified  팔로우 직후 스트림 팔로잉 탭 진입 시 stale 목록이 재사용되지 않도록 /streams 경로 캐시 무효화 추가
  * 2026.05.08  임도헌   Modified  FollowActionResult를 features/user/types.ts 공용 타입으로 이동
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

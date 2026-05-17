@@ -24,6 +24,7 @@
  * 2026.04.17  임도헌   Modified  스트림 목록의 검색 정규화/가시 탭 로딩/팔로우 요청 위임 책임 설명 보강
  * 2026.05.03  임도헌   Modified  방송 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
+ * 2026.05.15  임도헌   Modified  전체 목록에 노출되는 PRIVATE 방송도 비밀 배지가 유지되도록 visibility 전달
  */
 
 "use client";
@@ -105,6 +106,8 @@ export default function StreamList({
               tags={tags}
               boardGames={s.board_games}
               requiresPassword={s.requiresPassword}
+              visibility={s.visibility}
+              isPrivateType={s.visibility === "PRIVATE"}
               isFollowersOnly={s.visibility === "FOLLOWERS"}
               followersOnlyLocked={s.followersOnlyLocked}
               onRequestFollow={

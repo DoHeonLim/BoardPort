@@ -6,7 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2024.11.23  임도헌   Created
- * 2024.11.23  임도헌   Modified  동네생활 게시글 생성 코드 추가
+ * 2024.11.23  임도헌   Modified  커뮤니티 게시글 생성 코드 추가
  * 2024.12.10  임도헌   Modified  이미지 여러개 업로드 코드 추가
  * 2025.03.02  임도헌   Modified  게시글 작성시 게시글 추가 관련 뱃지 체크 추가
  * 2025.03.29  임도헌   Modified  checkBoardExplorerBadge 기능 추가
@@ -37,6 +37,9 @@
  * 2026.05.03  임도헌   Modified  게시글 목록 카드 표시용 연결 보드게임 locale 매핑 추가
  * 2026.05.03  임도헌   Modified  게시글-보드게임 연결 저장/교체 정책 주석 보강
  * 2026.05.08  임도헌   Modified  게시글 상세 보드게임 relation select를 공용 상수로 교체
+ * 2026.05.12  임도헌   Modified  동영상 READY/FAILED 웹훅 선도착 상태를 게시글 연결 시 덮어쓰지 않도록 보강
+ * 2026.05.13  임도헌   Modified  게시글 목록 검색을 제목/본문/태그 대소문자 무시 조건으로 통일
+ * 2026.05.16  임도헌   Modified  수정 액션의 기존 첨부 동영상 확인 쿼리를 service 헬퍼로 분리
  */
 import "server-only";
 
@@ -67,6 +70,29 @@ const TAKE = POSTS_PAGE_TAKE;
 type PostListRow = Prisma.PostGetPayload<{
   select: typeof POST_SELECT;
 }>;
+
+/**
+ * 사용자가 소유한 게시글에 연결된 동영상 존재 여부 확인
+ *
+ * @param postId - 확인할 게시글 ID
+ * @param ownerId - 게시글 소유자 ID
+ * @returns 연결 동영상 존재 여부
+ */
+export async function hasOwnedAttachedPostVideo(
+  postId: number,
+  ownerId: number
+): Promise<boolean> {
+  const existingPostVideo = await db.post.findFirst({
+    where: {
+      id: postId,
+      userId: ownerId,
+      video: { isNot: null },
+    },
+    select: { id: true },
+  });
+
+  return !!existingPostVideo;
+}
 
 /**
  * 게시글 목록 DTO에 맞게 공개 보드게임 locale만 평탄화
@@ -110,7 +136,7 @@ async function attachDraftVideoToPost(
   // draftKey와 userId를 함께 확인해 다른 사용자의 업로드 초안 연결 방지
   const draftVideo = await tx.postVideo.findFirst({
     where: { draftKey, userId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 
   if (!draftVideo) {
@@ -146,7 +172,11 @@ async function attachDraftVideoToPost(
     data: {
       postId,
       draftKey: null,
-      status: "PROCESSING",
+      // Cloudflare 웹훅이 게시글 저장보다 먼저 도착한 경우 READY/FAILED를 PROCESSING으로 되돌리지 않음
+      status:
+        draftVideo.status === "READY" || draftVideo.status === "FAILED"
+          ? draftVideo.status
+          : "PROCESSING",
     },
   });
 
@@ -379,9 +409,13 @@ async function buildWhere(
       keyword
         ? {
             OR: [
-              { title: { contains: keyword } },
-              { description: { contains: keyword } },
-              { tags: { some: { name: { contains: keyword } } } },
+              { title: { contains: keyword, mode: "insensitive" } },
+              { description: { contains: keyword, mode: "insensitive" } },
+              {
+                tags: {
+                  some: { name: { contains: keyword, mode: "insensitive" } },
+                },
+              },
             ],
           }
         : {},
@@ -610,7 +644,7 @@ export async function createPost(
     });
 
     // 작성 후 뱃지 체크
-    const badgeTasks: Promise<any>[] = [
+    const badgeTasks: Promise<unknown>[] = [
       badgeChecks.onPostCreate(userId),
       badgeChecks.onEventParticipation(userId),
     ];

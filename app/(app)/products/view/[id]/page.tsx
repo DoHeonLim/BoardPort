@@ -47,9 +47,11 @@
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상품은 판매자/구매자만 상세 접근 가능하도록 가드 추가
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/page.tsx 에서 app/(app)/products/view/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  상세/모달 공통 상세 로더를 적용하고 조회수 반영 시점을 가드 이후로 조정
+ * 2026.05.15  임도헌   Modified  제품 공유 미리보기용 OG 이미지 메타와 소셜 크롤러 접근 분기 추가
  */
 
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
@@ -63,6 +65,7 @@ import ProductOptionMenu from "@/features/product/components/productDetail/Produ
 import ProductShareButton from "@/features/product/components/ProductShareButton";
 import BackButton from "@/components/global/BackButton";
 import getSession from "@/lib/session";
+import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -84,8 +87,12 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   if (product.hidden_at) {
     return { title: "제품을 찾을 수 없음" };
   }
-  // 본문 앞 100자 요약
-  const desc = product.description?.slice(0, 100).replace(/\n/g, " ") ?? "";
+  // 본문 앞 100자 요약. 비어 있으면 공유 카드가 루트 기본 설명으로 떨어지지 않도록 고정 문구 사용
+  const desc =
+    product.description?.trim().slice(0, 100).replace(/\s+/g, " ") ||
+    "보드포트 상품 상세를 확인해보세요.";
+  // 외부 공유 크롤러가 안정적으로 읽을 수 있도록 고정 route handler URL 사용
+  const imageUrl = `/products/view/${id}/og-image`;
 
   return {
     title: product.title,
@@ -93,6 +100,22 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
     openGraph: {
       title: product.title,
       description: desc,
+      url: `/products/view/${id}`,
+      type: "article",
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${product.title} 상품 미리보기`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.title,
+      description: desc,
+      images: [imageUrl],
     },
   };
 }
@@ -127,9 +150,12 @@ export default async function ProductDetailPage({
 
   const session = await getSession();
   const userId = session?.id ?? null;
+  const isSharePreviewCrawler = isSocialCrawlerUserAgent(
+    headers().get("user-agent")
+  );
 
-  // 비로그인 접근 제한
-  if (!userId) {
+  // 비로그인 사용자는 로그인으로 보내되, 공유 미리보기 크롤러는 로그인 리다이렉트 생략
+  if (!userId && !isSharePreviewCrawler) {
     redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
 

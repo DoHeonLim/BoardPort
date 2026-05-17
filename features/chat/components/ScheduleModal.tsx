@@ -12,9 +12,10 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  약속 설정 모달에 dialog 의미와 날짜/시간 입력 라벨 연결, ESC 닫기 흐름을 보강
  * 2026.04.26  임도헌   Modified  약속 입력 오류 문구를 사용자가 수정할 항목 기준으로 구체화
+ * 2026.05.12  임도헌   Modified  약속 모달을 닫은 뒤 다음 제안이 빈 입력값으로 시작되도록 드래프트 초기화
  */
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   MapPinIcon,
@@ -50,12 +51,31 @@ export default function ScheduleModal({
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  const resetDraft = useCallback(() => {
+    setDateStr("");
+    setTimeStr("");
+    setLocation(null);
+    setShowMap(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    resetDraft();
+    onClose();
+  }, [onClose, resetDraft]);
+
+  useEffect(() => {
+    if (isOpen) return;
+
+    // 새 약속 제안이 이전 취소/전송 기록을 이어받지 않도록 닫힌 상태에서 드래프트 초기화
+    resetDraft();
+  }, [isOpen, resetDraft]);
+
   useEffect(() => {
     if (!isOpen || showMap) return;
 
     const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) onClose();
+      if (event.key === "Escape" && !isPending) handleClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -63,7 +83,7 @@ export default function ScheduleModal({
       window.clearTimeout(timer);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, isPending, onClose, showMap]);
+  }, [handleClose, isOpen, isPending, showMap]);
 
   if (!isOpen) return null;
 
@@ -81,7 +101,7 @@ export default function ScheduleModal({
 
     startTransition(() => {
       onConfirm(dateTime, location);
-      onClose();
+      handleClose();
     });
   };
 
@@ -105,7 +125,7 @@ export default function ScheduleModal({
             약속 잡기
           </h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
           >
@@ -189,7 +209,7 @@ export default function ScheduleModal({
         {/* Footer */}
         <div className="p-4 border-t border-border-subtle bg-surface flex justify-end gap-2">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="btn-secondary-modal h-10 px-4 text-sm font-medium"
             disabled={isPending}
           >

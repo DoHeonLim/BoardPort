@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/actions/profile.ts
- * Description : 프로필/계정 관리 Controller
+ * Description : 프로필/계정 관리 서버 액션
  * Author : 임도헌
  *
  * History
@@ -11,6 +11,7 @@
  * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타(avatarAnimated) 저장 지원
  * 2026.03.21  임도헌   Modified  방송국 전용 소개글 저장을 채널 페이지 액션으로 분리
  * 2026.04.03  임도헌   Modified  프로필 정보 조회 액션과 위치 설정 액션 설명 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

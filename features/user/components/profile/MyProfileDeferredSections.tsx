@@ -7,6 +7,7 @@
  * Date        Author   Status     Description
  * 2026.04.16  임도헌   Created
  * 2026.04.16  임도헌   Modified   MyProfile 하단 섹션을 지연 렌더링 전용 컴포넌트로 분리
+ * 2026.05.12  임도헌   Modified   내 방송국 StreamCard에 카테고리/태그/보드게임 메타 전달
  */
 
 import type { CSSProperties } from "react";
@@ -152,6 +153,14 @@ export default function MyProfileDeferredSections({
                     username: stream.user.username,
                     avatar: stream.user.avatar ?? null,
                   }}
+                  startedAt={stream.started_at ?? undefined}
+                  category={stream.category}
+                  tags={stream.tags}
+                  boardGames={stream.board_games}
+                  visibility={stream.visibility}
+                  requiresPassword={stream.requiresPassword}
+                  followersOnlyLocked={stream.followersOnlyLocked}
+                  isPrivateType={stream.visibility === "PRIVATE"}
                   layout="rail"
                   shortDescription
                   showStreamer={false}

@@ -130,7 +130,7 @@ export async function checkBroadcastAccess(
 
 /**
  * PRIVATE 방송 비밀번호 검증
- * - 실제 세션 저장(로그인)은 Controller(Action)에서 수행하며, 여기서는 검증 결과만 반환
+ * - 실제 세션 저장은 서버 액션에서 수행하며, 여기서는 검증 결과만 반환
  *
  * @param {number} broadcastId - 방송 ID
  * @param {string} password - 입력된 비밀번호

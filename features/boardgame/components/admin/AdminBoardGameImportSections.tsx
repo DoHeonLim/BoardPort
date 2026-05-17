@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.05  임도헌   Created   보드게임 import 관련 폼 UI를 컨테이너에서 분리
+ * 2026.05.12  임도헌   Modified  import 액션 버튼 라벨을 4글자 이하로 축약해 줄바꿈 방지
  */
 
 import ImportProgressPanel, {
@@ -110,7 +111,7 @@ export default function AdminBoardGameImportSections({
             <CsvImportForm
               fileName="localeCsvFile"
               fileLabel="한국어 보드게임 검수 CSV 파일"
-              buttonLabel="한국어 반영"
+              buttonLabel="한글반영"
               pendingLabel="반영 중"
               pending={isLocaleImportPending}
               disabled={isAnyImportRunning}
@@ -123,7 +124,7 @@ export default function AdminBoardGameImportSections({
               disabled={isBulkPublishPending}
               className="btn-secondary min-h-11 w-full px-4 text-sm font-bold disabled:opacity-60 sm:w-auto"
             >
-              {isBulkPublishPending ? "공개 중" : "설명 있는 항목 전체 공개"}
+              {isBulkPublishPending ? "공개 중" : "전체공개"}
             </button>
           </div>
         </div>
@@ -136,7 +137,7 @@ export default function AdminBoardGameImportSections({
         note="value=1, confidence=VERIFIED, reviewNeeded=false 행만 반영하며 추론 메커니즘은 제외합니다."
         fileName="mechanicsCsvFile"
         fileLabel="보드게임 메커니즘 CSV 파일"
-        buttonLabel="메커니즘 연결"
+        buttonLabel="메커닉"
         pendingLabel="연결 중"
         pending={isMechanicsImportPending}
         disabled={isAnyImportRunning}
@@ -150,7 +151,7 @@ export default function AdminBoardGameImportSections({
         note="value=1, confidence=VERIFIED, reviewNeeded=false 행만 반영하며 기존 카테고리 연결을 교체합니다."
         fileName="categoriesCsvFile"
         fileLabel="보드게임 카테고리 CSV 파일"
-        buttonLabel="카테고리 연결"
+        buttonLabel="카테고리"
         pendingLabel="연결 중"
         pending={isCategoriesImportPending}
         disabled={isAnyImportRunning}
@@ -164,7 +165,7 @@ export default function AdminBoardGameImportSections({
         note="기존 taxonomy만 업데이트하며, DB에 없는 분류명은 생성하지 않고 스킵합니다."
         fileName="taxonomyKoCsvFile"
         fileLabel="보드게임 분류 한국어명 CSV 파일"
-        buttonLabel="분류명 반영"
+        buttonLabel="명칭반영"
         pendingLabel="반영 중"
         pending={isTaxonomyKoImportPending}
         disabled={isAnyImportRunning}

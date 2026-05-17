@@ -163,7 +163,12 @@ export async function createPostVideoUploadSession(
       }
     );
 
-    const json = await response.json().catch(() => ({}) as Record<string, any>);
+    const json = (await response.json().catch(() => ({}))) as {
+      result?: {
+        uploadURL?: unknown;
+        uid?: unknown;
+      };
+    };
     const uploadURL = json?.result?.uploadURL;
     const uid = json?.result?.uid;
 

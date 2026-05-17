@@ -9,6 +9,7 @@
  * 2026.03.18  임도헌   Modified  로그인 가드에서 진입한 callbackUrl을 비밀번호 재설정 메일과 로그인 복귀 링크까지 유지
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 안내 문구와 복귀 링크 타이포 계층을 정리
  * 2026.04.20  임도헌   Modified  계정 노출 방지 정책을 유지하면서도 비밀번호 재설정 요청 성공 문구를 더 자연스럽게 정리
+ * 2026.05.12  임도헌   Modified  로그인 복귀 링크 클릭 시 blur 검증으로 이동이 지연되지 않도록 처리
  */
 "use client";
 
@@ -28,6 +29,7 @@ import {
   type PasswordResetRequestSchema,
 } from "@/features/auth/schemas/passwordReset";
 import { requestPasswordResetAction } from "@/features/auth/actions/passwordReset";
+import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
 
 /**
  * 비밀번호 찾기 메일 요청 폼
@@ -130,6 +132,7 @@ export default function ForgotPasswordForm({
         다시 로그인하시겠어요?{" "}
         <Link
           href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          onPointerDown={preventPointerDownFocus}
           className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
         >
           로그인으로 돌아가기

@@ -10,10 +10,13 @@
  * 2026.03.09  임도헌   Modified  감사 로그 액션을 DELETE_STREAM으로 정리
  * 2026.03.30  임도헌   Modified  관리자 라이브 검색이 카테고리명까지 포함되도록 확장
  * 2026.03.31  임도헌   Modified  관리자 종료도 일반 삭제와 같은 VOD/썸네일 cleanup 규칙을 재사용
+ * 2026.05.15  임도헌   Modified  관리자 방송 검색 범위에 태그명 포함
+ * 2026.05.16  임도헌   Modified  관리자 방송 검색 where 조건 타입 명시
  */
 
 import "server-only";
 import db from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { createAuditLog } from "@/features/report/service/audit";
 import { sendAdminActionNotification } from "@/features/notification/service/notification";
 import { hardDeleteBroadcastWithCleanup } from "@/features/stream/service/delete";
@@ -28,7 +31,7 @@ import type {
  *
  * [기능]
  * - 기본적으로 현재 방송 중(CONNECTED)인 목록을 조회
- * - 검색어(query)가 있으면 제목, 방송 ID, 스트리머 닉네임, 카테고리명으로 필터링
+ * - 검색어(query)가 있으면 제목, 방송 ID, 스트리머 닉네임, 카테고리명, 태그명으로 필터링
  * - 관리자 카드/테이블에서 바로 쓸 수 있는 형태로 응답을 정규화
  *
  * @param page - 현재 페이지
@@ -45,7 +48,7 @@ export async function getStreamsAdmin(
 
     // 실시간 운영 화면 기준 유지
     // 현재 관리자 방송 목록은 "진행 중인 라이브 모니터링/종료"에 초점을 둔 목록
-    const where: any = { status: "CONNECTED" };
+    const where: Prisma.BroadcastWhereInput = { status: "CONNECTED" };
 
     if (query) {
       const parsedBroadcastId = /^\d+$/.test(query.trim())
@@ -65,6 +68,12 @@ export async function getStreamsAdmin(
             {
               category: {
                 kor_name: { contains: query, mode: "insensitive" },
+              },
+            },
+            // 운영 중인 라이브를 빠르게 찾기 위해 방송 태그명도 관리자 검색에 포함
+            {
+              tags: {
+                some: { name: { contains: query, mode: "insensitive" } },
               },
             },
           ],

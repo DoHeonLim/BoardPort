@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/delete.ts
- * Description : 방송 및 LiveInput 삭제 Controller
+ * Description : 방송 및 LiveInput 삭제 서버 액션
  * Author : 임도헌
  *
  * History
@@ -10,6 +10,7 @@
  * 2026.03.05  임도헌   Modified  개인화된 방송 목록 캐시의 `revalidateTag` 호출 제거 및 `revalidatePath` 기반 단순화 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  삭제 액션 파라미터/반환 JSDoc 보강
+ * 2026.05.16  임도헌   Modified  방송 삭제 사전 조회를 stream service 헬퍼로 이동
  */
 
 "use server";
@@ -17,8 +18,11 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
-import db from "@/lib/db";
-import { deleteBroadcast } from "@/features/stream/service/delete";
+import {
+  deleteBroadcast,
+  getBroadcastDeleteMeta,
+  getBroadcastIdsByLiveInput,
+} from "@/features/stream/service/delete";
 import { deleteLiveInput } from "@/features/stream/service/liveInput";
 
 /**
@@ -33,12 +37,9 @@ export const deleteBroadcastAction = async (broadcastId: number) => {
   const session = await getSession();
   if (!session?.id) return { success: false, error: "로그인이 필요합니다." };
 
-  const broadcast = await db.broadcast.findUnique({
-    where: { id: broadcastId },
-    select: { liveInput: { select: { userId: true } } },
-  });
+  const broadcast = await getBroadcastDeleteMeta(broadcastId);
 
-  if (!broadcast || broadcast.liveInput.userId !== session.id) {
+  if (!broadcast || broadcast.ownerId !== session.id) {
     return { success: false, error: "권한이 없습니다." };
   }
 
@@ -62,16 +63,13 @@ export async function deleteLiveInputAction(liveInputId: number) {
   const session = await getSession();
   if (!session?.id) return { success: false, error: "로그인이 필요합니다." };
 
-  const affected = await db.broadcast.findMany({
-    where: { liveInputId },
-    select: { id: true },
-  });
+  const affectedBroadcastIds = await getBroadcastIdsByLiveInput(liveInputId);
 
   const result = await deleteLiveInput(liveInputId, session.id);
 
   if (result.success) {
-    for (const b of affected) {
-      revalidateTag(T.BROADCAST_DETAIL(b.id));
+    for (const broadcastId of affectedBroadcastIds) {
+      revalidateTag(T.BROADCAST_DETAIL(broadcastId));
     }
   }
 

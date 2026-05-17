@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/actions/review.ts
- * Description : 유저 리뷰 조회 Controller (Client용)
+ * Description : 유저 리뷰 조회 서버 액션
  * Author : 임도헌
  *
  * History
@@ -9,6 +9,7 @@
  * 2026.02.05  임도헌   Modified  리뷰 조회 시 viewerId 전달
  * 2026.03.05  임도헌   Modified  초기 로딩 및 추가 페이징 액션을 단일화(`getUserReviewsAction`)하여 TanStack Query 구조와 정합성 확보
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

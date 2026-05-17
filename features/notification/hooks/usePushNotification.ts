@@ -22,6 +22,7 @@
  * 2026.04.02  임도헌   Modified  푸시 상태 타입을 notification/types 공용 정의로 분리
  * 2026.04.17  임도헌   Modified  푸시 구독 훅의 초기 점검/재연결/해제 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.04.26  임도헌   Modified  초기 자동 점검의 Service Worker ready 타임아웃을 콘솔 오류/토스트로 노출하지 않도록 완화
+ * 2026.05.16  임도헌   Modified  push 에러 처리 타입을 unknown-safe 방식으로 정리
  */
 
 "use client";
@@ -126,7 +127,7 @@ async function waitForServiceWorkerReady(
     ])) as ServiceWorkerRegistration;
 
     return registration;
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (logError) {
       console.error(`[push] service worker not ready (${label}):`, e);
     }
@@ -138,6 +139,10 @@ function isServiceWorkerReadyTimeout(error: unknown) {
   return (
     error instanceof Error && error.message === "SERVICE_WORKER_READY_TIMEOUT"
   );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "오류 발생";
 }
 
 // -----------------------------------------------------------------------------
@@ -287,7 +292,7 @@ export function usePushNotification() {
           setStatus("disabled");
           clearLocalState();
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!mounted) return;
         const readyTimeout = isServiceWorkerReadyTimeout(e);
         if (!readyTimeout) {
@@ -420,12 +425,12 @@ export function usePushNotification() {
           ? "기기 알림 연결이 다시 설정되었습니다."
           : "푸시 알림이 활성화되었습니다."
       );
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[push] subscribe failed:", e);
       if (isServiceWorkerReadyTimeout(e)) {
         toast.error("초기화 실패. 새로고침 후 다시 시도해주세요.");
       } else {
-        toast.error(`푸시 알림 설정 실패: ${e?.message ?? "오류 발생"}`);
+        toast.error(`푸시 알림 설정 실패: ${getErrorMessage(e)}`);
       }
     }
   };
@@ -460,7 +465,7 @@ export function usePushNotification() {
       }
 
       toast.success("푸시 알림이 비활성화되었습니다.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[push] unsubscribe failed:", e);
       toast.error("푸시 알림 해제 중 오류가 발생했습니다.");
     }

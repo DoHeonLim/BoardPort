@@ -1,6 +1,6 @@
 /**
  * File Name : features/post/actions/like.ts
- * Description : 게시글 좋아요 Controller
+ * Description : 게시글 좋아요 서버 액션
  * Author : 임도헌
  *
  * History
@@ -13,6 +13,7 @@
  * 2026.01.30  임도헌   Moved     app/posts/[id]/actions/likes.ts -> features/post/actions/like.ts
  * 2026.03.05  임도헌   Modified  `revalidateTag` 호출 제거 및 `queryClient.setQueryData`를 활용한 좋아요 상태 즉각적 UI 갱신(Optimistic Update) 적용
  * 2026.04.02  임도헌   Modified  좋아요 액션 반환 설명 JSDoc 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

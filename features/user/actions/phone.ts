@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/actions/phone.ts
- * Description : 휴대폰 인증 Controller
+ * Description : 휴대폰 인증 서버 액션
  * Author : 임도헌
  *
  * History

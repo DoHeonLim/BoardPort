@@ -16,7 +16,7 @@
  * 2025.10.05  임도헌   Modified  follow관련 함수 이름 변경(listFollowers -> fetchFollowers, listFollowing -> fetchFollowing)
  * 2025.10.14  임도헌   Modified  FollowSection 도입: 팔로우/모달/페이지네이션 로직 제거
  * 2026.01.06  임도헌   Modified  팔로우 용어/SSOT 정리: 모달 row는 isFollowedByViewer, 섹션 분리는 isMutualWithOwner(owner 기준)
- * 2025.01.06  임도헌   Modified  LiveNowHero에 onFollow 연결
+ * 2026.01.06  임도헌   Modified  LiveNowHero에 onFollow 연결
  * 2026.01.14  임도헌   Modified  [Refactor] UserStreamsClient -> index.tsx, 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
@@ -27,6 +27,7 @@
  * 2026.03.21  임도헌   Modified  다시보기 빈 상태/팔로워 잠금 CTA도 채널 헤더 팔로우 버튼으로 유도되도록 onFollow 경로를 통일
  * 2026.03.23  임도헌   Modified  채널 차단 안내 empty state의 점선 카드 보더를 구조 구분용 subtle 기준으로 정리
  * 2026.03.25  임도헌   Modified  프로필 메인과 탭바 하단 간격을 맞추기 위해 채널 페이지 bottom padding을 통일
+ * 2026.05.15  임도헌   Modified  채널 다시보기 무한스크롤용 첫 페이지 커서 전달
  * ===============================================================================================
  * User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 채널 소개/owner 편집)
@@ -82,6 +83,7 @@ type ChannelDescriptionAction = (
 export default function UserChannelContainer({
   liveNow,
   recordings,
+  recordingsNextCursor = null,
   userInfo,
   me,
   viewerId,
@@ -89,6 +91,7 @@ export default function UserChannelContainer({
 }: {
   liveNow?: BroadcastSummary | null;
   recordings?: VodForGrid[];
+  recordingsNextCursor?: number | null;
   userInfo: ExtendedUserInfo;
   me?: MeProp;
   viewerId?: number;
@@ -128,7 +131,7 @@ export default function UserChannelContainer({
   const recordingsMemo = useMemo(() => recordings ?? [], [recordings]);
 
   /**
-   * 채널 어디서든 팔로우 유도 CTA를 눌렀을 때 헤더 팔로우 버튼으로 자연스럽게 이동시킨다.
+   * 채널 내 팔로우 유도 CTA 클릭 시 헤더 팔로우 버튼으로 자연스러운 이동 유도
    * - 라이브 히어로, 다시보기 empty state, 팔로워 잠금 카드가 같은 진입점을 공유
    */
   const focusFollowButton = () => {
@@ -185,7 +188,9 @@ export default function UserChannelContainer({
 
           {/* VOD Section */}
           <RecordingGrid
+            ownerId={userInfo.id}
             recordings={recordingsMemo}
+            initialNextCursor={recordingsNextCursor}
             role={role}
             isFollowing={isFollowing}
             onFollow={focusFollowButton}

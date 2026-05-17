@@ -1,11 +1,11 @@
 /**
  * File Name : features/stream/components/EditStreamMetaModal.tsx
- * Description : 라이브 방송 제목/설명 빠른 수정 모달
+ * Description : 방송 제목/설명 빠른 수정 모달
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
- * 2026.04.07  임도헌   Created   라이브 상세 상단 메뉴에서 여는 제목/설명 수정 모달 추가
+ * 2026.04.07  임도헌   Created   방송 상세 상단 메뉴에서 여는 제목/설명 수정 모달 추가
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
 
@@ -28,7 +28,7 @@ interface EditStreamMetaModalProps {
 }
 
 /**
- * 라이브 중 제목/설명만 빠르게 수정하는 모달
+ * 방송 제목/설명만 빠르게 수정하는 모달
  *
  * - 모바일은 하단 시트, 데스크톱은 중앙 모달 톤으로 반응형 배치
  * - 저장 성공 시 상세 셸 로컬 상태와 서버 상태를 함께 갱신

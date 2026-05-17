@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/actions/login.ts
- * Description : 로그인 Controller
+ * Description : 로그인 서버 액션
  * Author : 임도헌
  *
  * History
@@ -15,6 +15,7 @@
  * 2026.01.30  임도헌   Moved     app/(auth)/login/actions.ts -> features/auth/actions/login.ts
  * 2026.03.07  임도헌   Modified  정지 계정 안내를 전역 에러로 분리하고 일반 인증 실패는 필드 에러로 유지
  * 2026.04.04  임도헌   Modified  검증/정지 분기/세션 저장 단계의 인라인 주석 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

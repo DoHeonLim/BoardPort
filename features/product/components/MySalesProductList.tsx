@@ -28,6 +28,7 @@
  * 2026.04.17  임도헌   Modified  판매 탭 컨테이너의 Suspense 분리/낙관 이동/리뷰 반영 책임 설명 보강
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 탭 카운트 대비 보정 및 첫 카드 LCP 이미지 우선 로드
  * 2026.04.19  임도헌   Modified  판매 탭 active 대비와 라이트/다크 선택 상태를 현재 UI 기준으로 재정리
+ * 2026.05.16  임도헌   Modified  판매 탭 캐시 이동 payload와 무한스크롤 캐시 shape 타입 정리
  */
 
 "use client";
@@ -59,13 +60,43 @@ import type {
   TabCounts,
   ProductStatus,
   ViewMode,
+  UserProductsScope,
 } from "@/features/product/types";
 import { cn } from "@/lib/utils";
+import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
 
 interface MySalesProductListProps {
   userId: number;
   initialCounts: TabCounts;
 }
+
+type SalesScopeType = Extract<
+  UserProductsScope["type"],
+  "SELLING" | "RESERVED" | "SOLD"
+>;
+
+const PRODUCT_STATUS_SCOPE_TYPE: Record<ProductStatus, SalesScopeType> = {
+  selling: "SELLING",
+  reserved: "RESERVED",
+  sold: "SOLD",
+};
+
+type SalesMovePayload = {
+  from: ProductStatus;
+  to: ProductStatus;
+  product: MySalesListItem;
+  modifiedProduct?: MySalesListItem;
+};
+
+type SalesMoveFailedPayload = Pick<SalesMovePayload, "from" | "to">;
+
+type SalesTabContentProps = {
+  type: ProductStatus;
+  userId: number;
+  viewMode: ViewMode;
+  onOptimisticMove: (payload: SalesMovePayload) => () => void;
+  onMoveFailed: (payload: SalesMoveFailedPayload) => Promise<void>;
+};
 
 /**
  * 나의 판매 제품 목록 탭 컨테이너 컴포넌트
@@ -89,22 +120,22 @@ export default function MySalesProductList({
    * - 탭 간 아이템 이동 시, Query Cache를 직접 조작
    */
   const onOptimisticMove = useCallback(
-    ({
-      from,
-      to,
-      product,
-      modifiedProduct,
-    }: {
-      from: ProductStatus;
-      to: ProductStatus;
-      product: MySalesListItem;
-      modifiedProduct?: MySalesListItem;
-    }): (() => void) => {
-      const fromKey = queryKeys.products.userScope(from.toUpperCase(), userId);
-      const toKey = queryKeys.products.userScope(to.toUpperCase(), userId);
+    ({ from, to, product, modifiedProduct }: SalesMovePayload): (() => void) => {
+      const fromKey = queryKeys.products.userScope(
+        PRODUCT_STATUS_SCOPE_TYPE[from],
+        userId
+      );
+      const toKey = queryKeys.products.userScope(
+        PRODUCT_STATUS_SCOPE_TYPE[to],
+        userId
+      );
 
-      const prevFromData = queryClient.getQueryData(fromKey);
-      const prevToData = queryClient.getQueryData(toKey);
+      const prevFromData =
+        queryClient.getQueryData<ProductInfiniteCache<MySalesListItem>>(
+          fromKey
+        );
+      const prevToData =
+        queryClient.getQueryData<ProductInfiniteCache<MySalesListItem>>(toKey);
       const prevCounts = { ...counts };
 
       let nextProduct = modifiedProduct ?? product;
@@ -122,37 +153,43 @@ export default function MySalesProductList({
         };
       }
 
-      queryClient.setQueryData(fromKey, (oldData: any) => {
-        if (!oldData || !oldData.pages) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            products: page.products.filter((p: any) => p.id !== product.id),
-          })),
-        };
-      });
-
-      queryClient.setQueryData(toKey, (oldData: any) => {
-        if (!oldData || !oldData.pages || oldData.pages.length === 0)
-          return oldData;
-        const newPages = [...oldData.pages];
-        const exists = newPages[0].products.some(
-          (p: any) => p.id === nextProduct.id
-        );
-        if (!exists) {
-          newPages[0] = {
-            ...newPages[0],
-            products: [nextProduct, ...newPages[0].products],
+      queryClient.setQueryData<ProductInfiniteCache<MySalesListItem>>(
+        fromKey,
+        (oldData) => {
+          if (!oldData || !oldData.pages) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              products: page.products.filter((item) => item.id !== product.id),
+            })),
           };
         }
-        return { ...oldData, pages: newPages };
-      });
+      );
+
+      queryClient.setQueryData<ProductInfiniteCache<MySalesListItem>>(
+        toKey,
+        (oldData) => {
+          if (!oldData || !oldData.pages || oldData.pages.length === 0)
+            return oldData;
+          const newPages = [...oldData.pages];
+          const exists = newPages[0].products.some(
+            (item) => item.id === nextProduct.id
+          );
+          if (!exists) {
+            newPages[0] = {
+              ...newPages[0],
+              products: [nextProduct, ...newPages[0].products],
+            };
+          }
+          return { ...oldData, pages: newPages };
+        }
+      );
 
       setCounts((c) => ({
         ...c,
-        [from as keyof TabCounts]: Math.max(0, c[from as keyof TabCounts] - 1),
-        [to as keyof TabCounts]: c[to as keyof TabCounts] + 1,
+        [from]: Math.max(0, c[from] - 1),
+        [to]: c[to] + 1,
       }));
 
       return () => {
@@ -165,12 +202,18 @@ export default function MySalesProductList({
   );
 
   const onMoveFailed = useCallback(
-    async ({ from, to }: any) => {
+    async ({ from, to }: SalesMoveFailedPayload) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.products.userScope(from.toUpperCase(), userId),
+        queryKey: queryKeys.products.userScope(
+          PRODUCT_STATUS_SCOPE_TYPE[from],
+          userId
+        ),
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.products.userScope(to.toUpperCase(), userId),
+        queryKey: queryKeys.products.userScope(
+          PRODUCT_STATUS_SCOPE_TYPE[to],
+          userId
+        ),
       });
     },
     [queryClient, userId]
@@ -272,14 +315,14 @@ function SalesTabContent({
   viewMode,
   onOptimisticMove,
   onMoveFailed,
-}: any) {
+}: SalesTabContentProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
 
   // 컴포넌트가 마운트된 해당 탭의 데이터만 패치
   const current = useProductPagination<MySalesListItem>({
     mode: "profile",
-    scope: { type: type.toUpperCase() as any, userId },
+    scope: { type: PRODUCT_STATUS_SCOPE_TYPE[type], userId },
   });
 
   const products = current.products;

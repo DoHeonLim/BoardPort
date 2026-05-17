@@ -10,9 +10,10 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  카카오 로그인 관련 에러 메시지 추가
  * 2026.04.02  임도헌   Modified  이메일 인증/비밀번호 재설정/인증 후 복귀 정책 상수 추가
+ * 2026.05.16  임도헌   Modified  타입 전용 import를 명시해 런타임 의존성 제거
  */
 
-import { EmailVerifyState } from "@/features/auth/types";
+import type { EmailVerifyState } from "@/features/auth/types";
 
 /** 이메일 인증 폼 초기 상태 */
 export const INITIAL_EMAIL_VERIFY_STATE: EmailVerifyState = {

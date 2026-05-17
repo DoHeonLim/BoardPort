@@ -29,37 +29,70 @@
  * 2026.03.25  임도헌   Modified  다시보기 1개일 때 2열 그리드 공백이 과해 보이지 않도록 단일 카드 레이아웃을 보정
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 다시보기 카드 썸네일만 우선 로드해 유저 채널 LCP 후보를 앞당김
  * 2026.05.03  임도헌   Modified  채널 다시보기 카드에 연결 보드게임 요약 배지 표시
+ * 2026.05.15  임도헌   Modified  채널 다시보기에 커스텀 훅 기반 무한스크롤 적용
  */
 
 "use client";
 
+import { useRef } from "react";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import StreamCard from "@/features/stream/components/StreamCard";
 import RecordingEmptyState from "@/features/stream/components/channel/RecordingEmptyState";
+import { useChannelRecordingsPagination } from "@/features/stream/hooks/useChannelRecordingsPagination";
 import type { ViewerRole, VodForGrid } from "@/features/stream/types";
 
 interface Props {
+  ownerId: number;
   recordings: VodForGrid[]; // VOD 중심 (readyAt/duration/viewCount 포함)
+  initialNextCursor?: number | null;
   role: ViewerRole;
   isFollowing: boolean;
   onFollow?: () => void;
 }
 
 /**
- * 지난 방송(녹화본) 목록을 2열 그리드로 표시하는 컴포넌트
+ * 지난 방송(녹화본) 목록을 반응형 그리드로 표시하는 컴포넌트
  *
  * [기능]
- * 1. 녹화본 목록(`recordings`)을 순회하며 `StreamCard`로 렌더링
+ * 1. SSR로 받은 첫 페이지를 커스텀 훅에 주입하고, 이후 페이지는 무한스크롤로 추가 로드
  * 2. 각 카드의 접근 권한(Private, Followers)을 뷰어 역할(Role)에 따라 계산하여 전달
  * 3. 목록이 비어있을 경우 `RecordingEmptyState`를 표시
  */
 export default function RecordingGrid({
+  ownerId,
   recordings,
+  initialNextCursor = null,
   role,
   isFollowing,
   onFollow,
 }: Props) {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const isVisible = usePageVisibility();
+  const {
+    recordings: pagedRecordings,
+    isFetchingNextPage,
+    hasMore,
+    loadMore,
+  } = useChannelRecordingsPagination({
+    ownerId,
+    initialRecordings: recordings,
+    initialNextCursor,
+  });
+
+  // 다른 피드형 목록과 동일한 화면 하단 감지 기반 다음 VOD 페이지 요청
+  useInfiniteScroll({
+    triggerRef,
+    hasMore,
+    isLoading: isFetchingNextPage,
+    onLoadMore: loadMore,
+    enabled: isVisible,
+    rootMargin: "1000px 0px 0px 0px",
+    threshold: 0.01,
+  });
+
   // 상단에서 이미 빈 배열을 거르는 게 단순/안전
-  if (!recordings?.length)
+  if (!pagedRecordings.length)
     return (
       <RecordingEmptyState
         role={role}
@@ -68,7 +101,7 @@ export default function RecordingGrid({
       />
     );
 
-  const isSingleRecording = recordings.length === 1;
+  const isSingleRecording = pagedRecordings.length === 1;
 
   return (
     <div className="mx-auto max-w-3xl px-4 w-full">
@@ -87,7 +120,7 @@ export default function RecordingGrid({
               : "grid grid-cols-1 gap-4 sm:grid-cols-2"
           }
         >
-          {recordings.map((rec, index) => {
+          {pagedRecordings.map((rec, index) => {
             // 표시 시간 = readyAt (없으면 생략)
             const when = rec.readyAt ?? null;
 
@@ -158,6 +191,18 @@ export default function RecordingGrid({
               />
             );
           })}
+        </div>
+
+        <div className="min-h-[40px] py-6">
+          {hasMore && (
+            <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
+          )}
+          {isFetchingNextPage && (
+            <div className="list-loading-pill">
+              <span className="size-4 animate-spin rounded-full border-2 border-brand/30 border-t-brand" />
+              <span className="whitespace-nowrap">더 불러오는 중...</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

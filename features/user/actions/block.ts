@@ -1,12 +1,13 @@
 /**
  * File Name : features/user/actions/block.ts
- * Description : 유저 차단/해제 Controller
+ * Description : 유저 차단/해제 서버 액션
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.02.04  임도헌   Created   toggleBlockAction 구현
  * 2026.03.05  임도헌   Modified  차단 시 발생하던 광범위한 `revalidateTag` 호출 제거 및 단일 진실 공급원(SSOT)을 로컬 Query Cache로 전환
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

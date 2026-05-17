@@ -13,17 +13,19 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/ui
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.04.04  임도헌   Modified  export 주석을 보강해 react-hook-form 기반 태그 입력 역할을 더 명확히 정리
+ * 2026.05.17  임도헌   Modified  control/name props를 react-hook-form 제네릭 타입으로 구체화
  */
 "use client";
 
 import { XMarkIcon } from "@heroicons/react/24/solid";
 import { useEffect, useState } from "react";
-import { Control, useController } from "react-hook-form";
+import type { Control, FieldValues, Path } from "react-hook-form";
+import { useController } from "react-hook-form";
 import { cn } from "@/lib/utils";
 
-interface TagInputProps {
-  name: string;
-  control: Control<any>;
+interface TagInputProps<TFieldValues extends FieldValues> {
+  name: Path<TFieldValues>;
+  control: Control<TFieldValues>;
   maxTags?: number;
   resetSignal?: number;
   disabled?: boolean;
@@ -39,17 +41,22 @@ interface TagInputProps {
  * @param {TagInputProps} props - 필드 이름, control, 최대 개수, reset 신호 설정
  * @returns {JSX.Element} 태그 입력 필드와 태그 목록
  */
-export default function TagInput({
+export default function TagInput<TFieldValues extends FieldValues>({
   name,
   control,
   maxTags = 5,
   resetSignal,
   disabled = false,
-}: TagInputProps) {
+}: TagInputProps<TFieldValues>) {
   const {
-    field: { value: tags = [], onChange },
+    field: { value, onChange },
     fieldState: { error },
   } = useController({ name, control });
+  const tags = Array.isArray(value)
+    ? (value as unknown[]).filter(
+        (tag): tag is string => typeof tag === "string"
+      )
+    : [];
 
   const [tagInput, setTagInput] = useState("");
 

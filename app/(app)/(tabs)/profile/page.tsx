@@ -35,6 +35,7 @@
  * 2026.04.16  임도헌   Modified   profile Lighthouse 대응으로 서버 선로딩/클라이언트 하단 지연 로드 구조 설명 주석 보강
  * 2026.04.17  임도헌   Modified   헤더 보조 주석을 현재 역할 기준으로 다듬어 unreadCount 선로딩 의도를 명확화
  * 2026.04.24  임도헌   Modified   녹화 상세 삭제 후 내 프로필로 back 복귀할 때 방송국 섹션을 1회 refresh하도록 relay 추가
+ * 2026.05.17  임도헌   Modified   리뷰 prefetch 커서 타입을 명시
  */
 
 import { redirect } from "next/navigation";
@@ -100,7 +101,7 @@ export default async function ProfilePage() {
       queryClient.prefetchInfiniteQuery({
         queryKey: queryKeys.reviews.user(user.id),
         queryFn: () => getUserReviewsAction(user.id, null),
-        initialPageParam: null as any,
+        initialPageParam: null as number | null,
       }),
     ]);
 

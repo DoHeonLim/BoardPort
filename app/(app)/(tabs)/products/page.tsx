@@ -58,13 +58,18 @@
  * 2026.04.24  임도헌   Modified  제품 목록 refresh relay와 모달 reopen relay를 분리해 navigation 복귀 책임을 명확화
  * 2026.04.28  임도헌   Modified  항구 목록에서 보드게임 도감 진입 액션 추가
  * 2026.05.05  임도헌   Modified  URL 쿼리 숫자 파싱 helper JSDoc 보강
+ * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
  */
 
 import { Suspense } from "react";
 import Link from "next/link";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import {
+  dehydrate,
+  HydrationBoundary,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import PullToRefresh from "@/components/global/PullToRefresh";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
@@ -87,6 +92,7 @@ import { getProductsAction } from "@/features/product/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { getUserLocation } from "@/features/user/service/profile";
+import type { Paginated, ProductType } from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 
 interface ProductsPageProps {
@@ -213,7 +219,9 @@ export default async function ProductsPage({
       a.regionRange === currentRange
   );
 
-  const prefetchData = queryClient.getQueryData<any>(
+  const prefetchData = queryClient.getQueryData<
+    InfiniteData<Paginated<ProductType>>
+  >(
     queryKeys.products.list(productListQueryKey)
   );
   const isDataEmpty = prefetchData?.pages[0]?.products.length === 0;

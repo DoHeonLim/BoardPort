@@ -21,6 +21,8 @@
  * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지 등록/수정/해제 서비스 추가
  * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 대상 목록 조회 서비스 추가
  * 2026.04.07  임도헌   Modified  방송 제목/설명 수정 실시간 동기화 브로드캐스트 추가
+ * 2026.05.16  임도헌   Modified  채팅방 생성 에러 분기를 unknown-safe 방식으로 정리
+ * 2026.05.16  임도헌   Modified  메시지 전송 사전 조회/카운트 헬퍼를 서비스 계층으로 분리
  */
 
 import "server-only";
@@ -29,6 +31,11 @@ import { supabase } from "@/lib/supabase";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { StreamChatMessage } from "@/features/chat/types";
+
+type StreamChatSendContext = {
+  broadcastId: number;
+  hostId: number;
+};
 
 /**
  * 방송(Broadcast) 전용 채팅방 생성
@@ -49,10 +56,10 @@ export async function createStreamChatRoom(broadcastId: number) {
     });
 
     return { success: true as const, id: room.id };
-  } catch (e: any) {
+  } catch (e: unknown) {
     const maybeUnique =
       isUniqueConstraintError(e, ["broadcastId"]) ||
-      e?.message?.includes("Unique");
+      (e instanceof Error && e.message.includes("Unique"));
 
     if (maybeUnique) {
       try {
@@ -89,6 +96,49 @@ export const getStreamChatRoom = async (broadcastId: number) => {
     },
   });
 };
+
+/**
+ * 메시지 전송 전 필요한 방송/호스트 컨텍스트 조회
+ */
+export async function getStreamChatSendContext(
+  streamChatRoomId: number
+): Promise<StreamChatSendContext | null> {
+  const room = await db.streamChatRoom.findUnique({
+    where: { id: streamChatRoomId },
+    select: {
+      broadcast: {
+        select: {
+          id: true,
+          liveInput: { select: { userId: true } },
+        },
+      },
+    },
+  });
+
+  if (!room?.broadcast) return null;
+
+  return {
+    broadcastId: room.broadcast.id,
+    hostId: room.broadcast.liveInput.userId,
+  };
+}
+
+/**
+ * 특정 시청자의 최근 채팅 메시지 수 조회
+ */
+export async function countRecentStreamMessages(
+  userId: number,
+  streamChatRoomId: number,
+  since: Date
+) {
+  return db.streamMessage.count({
+    where: {
+      userId,
+      streamChatRoomId,
+      created_at: { gte: since },
+    },
+  });
+}
 
 /**
  * 채팅 메시지 생성

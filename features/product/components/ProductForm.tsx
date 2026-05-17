@@ -49,6 +49,7 @@
  * 2026.05.03  임도헌   Modified  선택한 보드게임 기준 제품명 채우기와 검색 태그 추가 액션 보강
  * 2026.05.03  임도헌   Modified  보드게임 기반 제품명/태그/게임 정보 보조 액션 주석 보강
  * 2026.05.05  임도헌   Modified  상품 폼 복귀/위치/검증 핸들러 JSDoc 보강
+ * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
  */
 
 /**
@@ -93,10 +94,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import TagInput from "@/components/ui/TagInput";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
-import {
-  productFormSchema,
-  productFormValues,
-} from "@/features/product/schemas";
+import { productFormSchema } from "@/features/product/schemas";
 import { queryKeys } from "@/lib/queryKeys";
 import type { Category } from "@/generated/prisma/client";
 import type { LocationData } from "@/features/map/types";
@@ -116,6 +114,7 @@ import ProductCategorySection from "@/features/product/components/ProductCategor
 import ProductLocationSection from "@/features/product/components/ProductLocationSection";
 import ProductFormActions from "@/features/product/components/ProductFormActions";
 import BoardGameRelationField from "@/features/boardgame/components/BoardGameRelationField";
+import type { ProductFormValues } from "@/features/product/schemas";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 const LazyLocationPicker = dynamic(
@@ -137,7 +136,7 @@ const LazyLocationPicker = dynamic(
 
 interface ProductFormProps {
   mode: "create" | "edit";
-  defaultValues?: Partial<productFormValues>;
+  defaultValues?: Partial<ProductFormValues>;
   categories: Category[];
   boardGameOptions?: BoardGameRelationOption[];
   submitText?: string;
@@ -285,7 +284,7 @@ export default function ProductForm({
     setError,
     setFocus,
     clearErrors,
-  } = useForm<productFormValues>({
+  } = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: initialFormValues,
   });
@@ -562,7 +561,7 @@ export default function ProductForm({
    * 폼 유효성 검사를 통과한 뒤 실제 업로드/저장을 수행
    * - blob 미리보기와 기존 Cloudflare URL을 최종 순서대로 재조합한 뒤 서버 액션으로 전달
    */
-  const onValid = async (data: productFormValues) => {
+  const onValid = async (data: ProductFormValues) => {
     if (mode === "create" && files.length === 0) {
       setError("photos", {
         type: "manual",
@@ -693,7 +692,7 @@ export default function ProductForm({
         }
       } else {
         if (result.fieldErrors) {
-          applyFieldErrors<productFormValues>(setError, result.fieldErrors, {
+          applyFieldErrors<ProductFormValues>(setError, result.fieldErrors, {
             setFocus,
           });
         }
@@ -729,7 +728,7 @@ export default function ProductForm({
       focusImageSection();
       return;
     }
-    focusFirstFieldError<productFormValues>(formErrors, setFocus);
+    focusFirstFieldError<ProductFormValues>(formErrors, setFocus);
   };
 
   useEffect(() => {
