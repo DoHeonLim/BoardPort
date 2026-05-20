@@ -20,6 +20,7 @@
  * 2026.03.31  임도헌   Modified  방송/다시보기 목록 액션 역할이 보이도록 설명 톤 통일
  * 2026.05.08  임도헌   Modified  목록 응답 타입과 조회 범위 타입을 features/stream/types.ts로 이동
  * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤 액션 추가
+ * 2026.05.18  임도헌   Modified  채널 다시보기 추가 페이지에서도 현재 사용자 좋아요 여부를 유지하도록 viewerId 전달
  */
 
 "use server";
@@ -175,7 +176,12 @@ export async function getChannelVodsAction(
 
   const session = await getSession();
   const role = (await getViewerRole(session?.id ?? null, ownerId)) as ViewerRole;
-  const list = await getChannelVods(ownerId, TAKE + 1, cursor);
+  const list = await getChannelVods(
+    ownerId,
+    TAKE + 1,
+    cursor,
+    session?.id ?? null
+  );
   const withAccess = applyChannelVodAccess(list, session, role);
 
   const hasMore = withAccess.length > TAKE;

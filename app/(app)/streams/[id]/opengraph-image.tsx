@@ -10,6 +10,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/opengraph-image.tsx 에서 app/(app)/streams/[id]/opengraph-image.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
  * 2026.05.15  임도헌   Modified  다시보기 OG 대표 이미지를 방송 카드와 동일하게 최신 ready VOD 썸네일 우선 사용
+ * 2026.05.19  임도헌   Modified  상대 썸네일 URL 보정 기준을 NEXT_PUBLIC_APP_URL로 통일
  */
 
 import sharp from "sharp";
@@ -83,7 +84,7 @@ function normalizeStreamThumbnailUrl(src: string | null | undefined) {
     return trimmed;
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL;
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (siteUrl && trimmed.startsWith("/")) {
     try {
       return new URL(trimmed, siteUrl).toString();
@@ -193,7 +194,7 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
 }
 
 /**
- * 방송 상세 공유용 OG 이미지 엔트리
+ * 방송 상세 공유 미리보기 이미지 생성 엔트리
  */
 export default async function Image({ params }: { params: { id: string } }) {
   const id = Number(params.id);

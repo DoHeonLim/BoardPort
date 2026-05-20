@@ -23,6 +23,7 @@
  * 2026.05.08  임도헌   Modified  보드게임 relation select 공용화 및 팔로우 상태 확인용 select factory 적용
  * 2026.05.15  임도헌   Modified  전체 방송/다시보기 목록에서도 PRIVATE 항목을 노출하고 카드 진입 시 비밀번호로 접근 제어하도록 복구
  * 2026.05.15  임도헌   Modified  유저 채널 VOD 조회에 커서 기반 페이징을 적용해 무한스크롤 대응
+ * 2026.05.18  임도헌   Modified  다시보기 카드 메타용 좋아요/댓글 수와 현재 사용자 좋아요 여부 매핑 추가
  */
 
 import "server-only";
@@ -168,7 +169,7 @@ export async function getStreamsList(params: {
  * - 처리 완료된 VOD(`ready_at`)만 조회 대상으로 한정
  * - 조회자 기반 차단 및 정지 유저 필터를 동일하게 적용
  * - `followingOnly` 보조 필터로 팔로잉한 스트리머의 다시보기만 좁혀볼 수 있음
- * - 카드에서 필요한 접근 제어 플래그와 메타데이터를 함께 반환
+ * - 카드에서 필요한 접근 제어 플래그와 메타데이터(길이, 조회수, 좋아요/댓글 수, 사용자 좋아요 여부)를 함께 반환
  */
 export async function getRecordingsList(params: {
   sort: "latest" | "popular";
@@ -179,7 +180,15 @@ export async function getRecordingsList(params: {
   cursor: number | null;
   take: number;
 }): Promise<VodForGrid[]> {
-  const { sort, followingOnly = false, category, keyword, viewerId, cursor, take } = params;
+  const {
+    sort,
+    followingOnly = false,
+    category,
+    keyword,
+    viewerId,
+    cursor,
+    take,
+  } = params;
   const blockedIds = await getBlockedUserIds(viewerId);
 
   const conditions: Prisma.VodAssetWhereInput[] = [
@@ -256,6 +265,7 @@ export async function getRecordingsList(params: {
       duration_sec: true,
       ready_at: true,
       views: true,
+      _count: { select: { recordingLikes: true, recordingComments: true } },
       thumbnail_url: true,
       created_at: true,
       broadcastId: true,
@@ -297,6 +307,22 @@ export async function getRecordingsList(params: {
     take,
   });
 
+  // 카드 하트 색상은 현재 조회자의 좋아요 여부를 의미하므로 현재 페이지 VOD만 배치 조회
+  const likedVodIds =
+    viewerId > 0 && vods.length > 0
+      ? new Set(
+          (
+            await db.recordingLike.findMany({
+              where: {
+                userId: viewerId,
+                vodId: { in: vods.map((vod) => vod.id) },
+              },
+              select: { vodId: true },
+            })
+          ).map((like) => like.vodId)
+        )
+      : new Set<number>();
+
   return vods.map((v) => {
     const b = v.broadcast;
     const isMine = b.liveInput.userId === viewerId;
@@ -318,6 +344,9 @@ export async function getRecordingsList(params: {
       readyAt: v.ready_at,
       duration: v.duration_sec ?? 0,
       viewCount: v.views,
+      likeCount: v._count.recordingLikes,
+      commentCount: v._count.recordingComments,
+      isLiked: likedVodIds.has(v.id),
       category: b.category,
       tags: b.tags,
       board_games: b.board_games.flatMap(({ boardGame }) => {
@@ -465,11 +494,13 @@ export async function getChannelLive(
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수
  * @param {number | null} cursor - 이전 페이지의 마지막 VOD id
+ * @param {number | null} viewerId - 현재 조회자 ID, 다시보기 카드의 좋아요 강조 여부 계산에 사용
  */
 export async function getChannelVods(
   ownerId: number,
   take: number,
-  cursor: number | null = null
+  cursor: number | null = null,
+  viewerId: number | null = null
 ): Promise<VodForGrid[]> {
   const vods = await db.vodAsset.findMany({
     where: {
@@ -484,6 +515,7 @@ export async function getChannelVods(
       duration_sec: true,
       ready_at: true,
       views: true,
+      _count: { select: { recordingLikes: true, recordingComments: true } },
       thumbnail_url: true,
       created_at: true,
       broadcast: {
@@ -509,6 +541,22 @@ export async function getChannelVods(
     take,
   });
 
+  // 채널 첫 페이지/추가 페이지 모두 같은 하트 색상 기준을 쓰도록 현재 조회자 좋아요 여부 주입
+  const likedVodIds =
+    viewerId && viewerId > 0 && vods.length > 0
+      ? new Set(
+          (
+            await db.recordingLike.findMany({
+              where: {
+                userId: viewerId,
+                vodId: { in: vods.map((vod) => vod.id) },
+              },
+              select: { vodId: true },
+            })
+          ).map((like) => like.vodId)
+        )
+      : new Set<number>();
+
   return vods.map((v) => {
     const b = v.broadcast;
     return {
@@ -523,6 +571,9 @@ export async function getChannelVods(
       readyAt: v.ready_at,
       duration: v.duration_sec ?? 0,
       viewCount: v.views,
+      likeCount: v._count.recordingLikes,
+      commentCount: v._count.recordingComments,
+      isLiked: likedVodIds.has(v.id),
       category: b.category,
       tags: b.tags,
       board_games: b.board_games.flatMap(({ boardGame }) => {

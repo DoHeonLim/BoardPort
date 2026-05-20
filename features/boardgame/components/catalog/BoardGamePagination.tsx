@@ -9,6 +9,8 @@
  * 2026.05.06  임도헌   Modified  관리자 페이지네이션과 같은 숫자형/ellipsis 탐색 패턴으로 정리
  * 2026.05.06  임도헌   Modified  숫자형 페이지네이션 JSDoc 명사형 기준 정리
  * 2026.05.12  임도헌   Modified  페이지 번호 직접 입력 이동 폼 추가
+ * 2026.05.18  임도헌   Modified  직접 이동 버튼 아이콘을 다음 페이지와 구분되는 Enter 계열 아이콘으로 변경
+ * 2026.05.18  임도헌   Modified  상단/하단 동시 배치와 숫자 버튼 중앙 정렬 보정
  */
 "use client";
 
@@ -16,7 +18,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRightIcon,
+  ArrowTurnDownLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
@@ -27,6 +29,7 @@ interface BoardGamePaginationProps {
   page: number;
   totalPages: number;
   filters: BoardGameCatalogFilters;
+  placement?: "top" | "bottom";
 }
 
 type VisiblePage = number | "ellipsis";
@@ -80,6 +83,7 @@ export default function BoardGamePagination({
   page,
   totalPages,
   filters,
+  placement = "bottom",
 }: BoardGamePaginationProps) {
   const router = useRouter();
   const [targetPage, setTargetPage] = useState(String(page));
@@ -92,6 +96,8 @@ export default function BoardGamePagination({
   if (totalPages <= 1) return null;
 
   const visiblePages = buildVisiblePages(page, totalPages);
+  const jumpInputId = `boardgame-page-jump-${placement}`;
+  const jumpTotalId = `boardgame-page-jump-total-${placement}`;
 
   const handleJumpSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -112,7 +118,11 @@ export default function BoardGamePagination({
 
   return (
     <nav
-      className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
+      className={
+        placement === "top"
+          ? "mb-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
+          : "mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
+      }
       aria-label="보드게임 도감 페이지네이션"
     >
       <PageLink
@@ -158,11 +168,11 @@ export default function BoardGamePagination({
         className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-2 py-1 shadow-sm"
         aria-label="페이지 번호로 바로 이동"
       >
-        <label htmlFor="boardgame-page-jump" className="sr-only">
+        <label htmlFor={jumpInputId} className="sr-only">
           이동할 페이지 번호
         </label>
         <input
-          id="boardgame-page-jump"
+          id={jumpInputId}
           type="number"
           min={1}
           max={totalPages}
@@ -172,11 +182,11 @@ export default function BoardGamePagination({
           onBlur={() => {
             if (!targetPage.trim()) setTargetPage(String(page));
           }}
-          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-center text-sm font-medium text-primary outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
-          aria-describedby="boardgame-page-jump-total"
+          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-center text-sm font-medium leading-none text-primary outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+          aria-describedby={jumpTotalId}
         />
         <span
-          id="boardgame-page-jump-total"
+          id={jumpTotalId}
           className="whitespace-nowrap text-xs font-medium text-muted"
         >
           / {totalPages}
@@ -186,7 +196,7 @@ export default function BoardGamePagination({
           className="focus-ring-soft inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg bg-surface-dim text-muted transition-colors hover:bg-brand hover:text-white"
           aria-label="입력한 페이지로 이동"
         >
-          <ArrowRightIcon className="size-4" aria-hidden="true" />
+          <ArrowTurnDownLeftIcon className="size-4" aria-hidden="true" />
         </button>
       </form>
 
@@ -227,9 +237,9 @@ function PageLink({
   variant?: "page" | "icon";
 }): ReactNode {
   const iconClass =
-    "focus-ring-soft rounded-lg p-2 text-muted transition-colors hover:bg-surface-dim disabled:opacity-30 disabled:hover:bg-transparent";
+    "focus-ring-soft inline-flex size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim disabled:opacity-30 disabled:hover:bg-transparent";
   const pageClass =
-    "focus-ring-soft min-w-10 rounded-xl border px-3 py-2 text-sm font-medium transition-colors";
+    "focus-ring-soft inline-flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-medium leading-none transition-colors";
   const activePageClass = "border-border-strong bg-brand text-white";
   const inactivePageClass =
     "border-border bg-surface text-primary hover:bg-surface-dim";
@@ -237,7 +247,11 @@ function PageLink({
   if (disabled) {
     return (
       <span
-        className={variant === "icon" ? `${iconClass} opacity-30` : `${pageClass} ${inactivePageClass} opacity-40`}
+        className={
+          variant === "icon"
+            ? `${iconClass} opacity-30`
+            : `${pageClass} ${inactivePageClass} opacity-40`
+        }
         aria-disabled="true"
         aria-label={ariaLabel}
       >

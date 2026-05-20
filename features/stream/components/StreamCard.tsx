@@ -51,6 +51,7 @@
  * 2026.05.05  임도헌   Modified  방송 카드 preview/잠금 처리 핸들러 JSDoc 보강
  * 2026.05.15  임도헌   Modified  레일 카드 카테고리 배지가 남는 가로폭을 우선 사용하고 부족할 때만 말줄임되도록 조정
  * 2026.05.15  임도헌   Modified  모바일 터치 환경에서 썸네일 미리보기 버튼으로 라이브 프리뷰를 켤 수 있도록 보강
+ * 2026.05.18  임도헌   Modified  다시보기 카드 메타를 좋아요/댓글/조회수 Heroicons 통계 문법으로 통일
  */
 
 "use client";
@@ -68,6 +69,11 @@ import {
   PlayIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import {
+  ChatBubbleLeftIcon,
+  EyeIcon,
+  HeartIcon,
+} from "@heroicons/react/24/solid";
 import { StreamCategory, StreamVisibility } from "@/features/stream/types";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
@@ -98,6 +104,9 @@ interface StreamCardProps {
   boardGames?: Array<{ boardGame: BoardGameRelationOption }>;
   duration?: number; // 초 단위
   viewCount?: number; // 조회수
+  likeCount?: number; // 다시보기 좋아요 수
+  commentCount?: number; // 다시보기 댓글 수
+  isLiked?: boolean; // 현재 사용자의 다시보기 좋아요 여부
   shortDescription?: boolean;
   href?: string /** 직접 지정하면 우선 사용, 없으면 isLive 기준으로 기본 경로 계산 */;
   // 서버 플래그
@@ -121,11 +130,11 @@ interface StreamCardProps {
  *
  * [기능]
  * 1. 라이브 및 녹화본(VOD) 정보를 카드 형태로 표시
- * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 조회수 등)를 렌더링
+ * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 좋아요, 댓글, 조회수 등)를 렌더링
  * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공
  * 4. 데스크톱 hover/focus 또는 모바일 미리보기 버튼으로 라이브 미리보기(iframe)를 로드
  * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행
- * 6. 작은 화면에서는 태그/시간/조회수 메타를 2단으로 분리해 카드 밀도 완화
+ * 6. 작은 화면에서는 태그/시간/좋아요/댓글/조회수 메타를 2단으로 분리해 카드 밀도 완화
  *
  * [권한]
  * - `PRIVATE` 방송: `requiresPassword` prop을 SSOT로 사용 (서버에서 세션의 언락 여부까지 확인하여 주입됨)
@@ -149,6 +158,9 @@ export default function StreamCard(props: StreamCardProps) {
     boardGames,
     duration,
     viewCount,
+    likeCount,
+    commentCount,
+    isLiked = false,
     shortDescription = false,
     href,
     requiresPassword = false,
@@ -572,7 +584,9 @@ export default function StreamCard(props: StreamCardProps) {
             (formattedTags ||
               startedAtIso ||
               duration ||
-              viewCount != null) && (
+              viewCount != null ||
+              likeCount != null ||
+              commentCount != null) && (
               <div
                 className={cn(
                   "mt-auto min-w-0 border-t border-border-subtle text-xs text-muted",
@@ -603,12 +617,52 @@ export default function StreamCard(props: StreamCardProps) {
                       {!isLive &&
                         duration &&
                         duration > 0 &&
+                        (typeof viewCount === "number" ||
+                          typeof likeCount === "number" ||
+                          typeof commentCount === "number") && (
+                          <span className="text-border shrink-0">|</span>
+                        )}
+                      {!isLive &&
+                        typeof likeCount === "number" && (
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                          {/* 다시보기 카드의 빨간 하트는 전체 좋아요 수가 아니라 현재 사용자 좋아요 여부를 의미 */}
+                          <HeartIcon
+                            className={cn(
+                              "size-3",
+                              isLiked ? "text-rose-500" : "text-muted/70"
+                            )}
+                            aria-hidden="true"
+                          />
+                          {likeCount.toLocaleString()}
+                        </span>
+                      )}
+                      {!isLive &&
+                        typeof likeCount === "number" &&
+                        typeof commentCount === "number" && (
+                          <span className="text-border shrink-0">|</span>
+                        )}
+                      {!isLive && typeof commentCount === "number" && (
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                          <ChatBubbleLeftIcon
+                            className="size-3 text-muted/70"
+                            aria-hidden="true"
+                          />
+                          {commentCount.toLocaleString()}
+                        </span>
+                      )}
+                      {!isLive &&
+                        (typeof likeCount === "number" ||
+                          typeof commentCount === "number") &&
                         typeof viewCount === "number" && (
                           <span className="text-border shrink-0">|</span>
                         )}
                       {!isLive && typeof viewCount === "number" && (
-                        <span className="shrink-0">
-                          조회 {viewCount.toLocaleString()}
+                        <span className="inline-flex shrink-0 items-center gap-1">
+                          <EyeIcon
+                            className="size-3 text-muted/70"
+                            aria-hidden="true"
+                          />
+                          {viewCount.toLocaleString()}
                         </span>
                       )}
                     </div>

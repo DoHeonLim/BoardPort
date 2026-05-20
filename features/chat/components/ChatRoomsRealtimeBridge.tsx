@@ -6,6 +6,9 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.17  임도헌   Created   TabBar와 채팅 목록의 user chat-room 채널 중복 구독 제거
+ * 2026.05.18  임도헌   Modified  탭 밖 채팅 상세까지 포함하도록 앱 전역 브리지 역할로 설명 보강
+ * 2026.05.18  임도헌   Modified  초기 렌더 중 Server Action 재호출을 피하도록 마운트 직후 목록 invalidate 제거
+ * 2026.05.18  임도헌   Modified  rooms_refresh 수신 시 미읽음 수 query를 비활성 상태까지 재검증하도록 보강
  */
 "use client";
 
@@ -22,8 +25,8 @@ interface ChatRoomsRealtimeBridgeProps {
 /**
  * 채팅방 요약 Realtime 브리지
  *
- * - 앱 탭 영역에서 사용자 단위 `rooms_refresh` 채널을 한 번만 구독
- * - 이벤트 수신 시 채팅 목록과 하단 탭바 미읽음 수 query를 함께 무효화
+ * - 로그인 후 앱 영역에서 사용자 단위 `rooms_refresh` 채널을 한 번만 구독
+ * - 이벤트 수신 시 채팅 목록과 TabBar 미읽음 수 query를 함께 재검증
  * - `pagehide`/hidden 상태에서는 채널을 정리하고, 복귀 시 서버 상태를 재검증
  *
  * @param {ChatRoomsRealtimeBridgeProps} props
@@ -40,8 +43,15 @@ export default function ChatRoomsRealtimeBridge({
     const unreadQueryKey = queryKeys.chats.unreadCount(userId);
 
     const refreshChatSummaries = () => {
-      void queryClient.invalidateQueries({ queryKey: listQueryKey });
-      void queryClient.invalidateQueries({ queryKey: unreadQueryKey });
+      // 목록은 화면에 보일 때만 재조회하고, TabBar 뱃지는 어느 화면에서도 최신화되도록 all refetch
+      void queryClient.invalidateQueries({
+        queryKey: listQueryKey,
+        refetchType: "active",
+      });
+      void queryClient.refetchQueries({
+        queryKey: unreadQueryKey,
+        type: "all",
+      });
     };
 
     const subscribe = () => {

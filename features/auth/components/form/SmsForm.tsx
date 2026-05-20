@@ -21,6 +21,7 @@
  * 2026.03.14  임도헌   Modified  인증 성공 시 온보딩 필요 여부를 서버 redirectTo 규칙으로 통일
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 SMS 인증 안내와 액션 링크 타이포를 정리
  * 2026.05.12  임도헌   Modified  토큰 단계 보조 액션이 blur 검증으로 한 번 막히지 않도록 처리
+ * 2026.05.19  임도헌   Modified  서버 액션 예외 처리와 SMS 자동완성 힌트 보강
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
@@ -85,36 +86,40 @@ export default function SmsForm({
   const onSubmit = (data: FormValues) => {
     setFormError(null);
     startTransition(async () => {
-      // 1. 전화번호 전송 단계
-      if (phase === "phone" && data.phone) {
-        const formData = new FormData();
-        formData.append("phone", data.phone);
-        const res = await sendPhoneToken(formData);
+      try {
+        // 1. 전화번호 전송 단계
+        if (phase === "phone" && data.phone) {
+          const formData = new FormData();
+          formData.append("phone", data.phone);
+          const res = await sendPhoneToken(formData);
 
-        if (!res.success) {
-          setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
-        } else {
-          setPhone(data.phone);
-          setPhase("token"); // 다음 단계로 전환
-          toast.success("인증번호가 발송되었습니다. 📨");
-          reset(); // 입력 필드 초기화 (토큰 입력 준비)
+          if (!res.success) {
+            setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
+          } else {
+            setPhone(data.phone);
+            setPhase("token"); // 다음 단계로 전환
+            toast.success("인증번호가 발송되었습니다. 📨");
+            reset(); // 입력 필드 초기화 (토큰 입력 준비)
+          }
         }
-      }
 
-      // 2. 토큰 검증 단계
-      if (phase === "token" && data.token && phone) {
-        const formData = new FormData();
-        formData.append("token", data.token);
-        formData.append("phone", phone);
-        formData.append("callbackUrl", callbackUrl);
-        const res = await verifyPhoneToken(formData);
+        // 2. 토큰 검증 단계
+        if (phase === "token" && data.token && phone) {
+          const formData = new FormData();
+          formData.append("token", data.token);
+          formData.append("phone", phone);
+          formData.append("callbackUrl", callbackUrl);
+          const res = await verifyPhoneToken(formData);
 
-        if (!res.success) {
-          setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
-        } else {
-          toast.success("인증 성공! 항해를 시작합니다. ⚓");
-          router.replace(res.redirectTo ?? callbackUrl);
+          if (!res.success) {
+            setFormError(res.error || "알 수 없는 오류가 발생했습니다.");
+          } else {
+            toast.success("인증 성공! 항해를 시작합니다. ⚓");
+            router.replace(res.redirectTo ?? callbackUrl);
+          }
         }
+      } catch {
+        setFormError("SMS 인증 처리 중 일시적인 오류가 발생했습니다.");
       }
     });
   };
@@ -124,18 +129,22 @@ export default function SmsForm({
 
     setFormError(null);
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append("phone", phone);
-      const res = await sendPhoneToken(formData);
+      try {
+        const formData = new FormData();
+        formData.append("phone", phone);
+        const res = await sendPhoneToken(formData);
 
-      if (!res.success) {
-        setFormError(res.error || "인증번호 재전송에 실패했습니다.");
-        return;
+        if (!res.success) {
+          setFormError(res.error || "인증번호 재전송에 실패했습니다.");
+          return;
+        }
+
+        toast.success("인증번호를 다시 발송했습니다. 📨");
+        reset({ token: "" });
+        setFocus("token");
+      } catch {
+        setFormError("인증번호 재전송 중 일시적인 오류가 발생했습니다.");
       }
-
-      toast.success("인증번호를 다시 발송했습니다. 📨");
-      reset({ token: "" });
-      setFocus("token");
     });
   };
 
@@ -166,6 +175,7 @@ export default function SmsForm({
             {...register("phone")}
             type="tel"
             placeholder="휴대폰 번호 (- 없이 입력)"
+            autoComplete="tel"
             errors={phoneError}
             required
             icon={<DevicePhoneMobileIcon className="size-5" />}
@@ -185,6 +195,7 @@ export default function SmsForm({
             {...register("token")}
             type="number"
             placeholder="인증번호 6자리"
+            autoComplete="one-time-code"
             min={100000}
             max={999999}
             errors={tokenError}

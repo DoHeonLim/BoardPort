@@ -13,7 +13,7 @@ import PostOpenGraphImage from "../opengraph-image";
 export const runtime = "nodejs";
 
 /**
- * 외부 공유 크롤러가 해시 없는 안정적인 URL로 게시글 OG 이미지를 가져가도록 위임
+ * 외부 공유 크롤러용 해시 없는 게시글 OG 이미지 응답 위임
  */
 export async function GET(
   _request: Request,

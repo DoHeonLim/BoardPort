@@ -14,6 +14,7 @@
  * 2026.04.02  임도헌   Modified  온보딩 폼 JSDoc 보강
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 온보딩 도움 문구와 지역 액션 타이포를 정리
  * 2026.05.12  임도헌   Modified  지역 선택 버튼이 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
+ * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  */
 "use client";
 
@@ -146,44 +147,48 @@ export default function OnboardingForm({
 
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
+      try {
+        const formData = new FormData();
 
-      if (forceUsernameSetup) {
-        // 소셜 자동 생성 닉네임 보완 여부를 action에서 다시 판단할 수 있도록 전달
-        formData.append("forceUsernameSetup", "1");
-      }
-
-      if (onboarding.needsUsernameSetup && data.username) {
-        formData.append("username", data.username);
-      }
-      if (onboarding.needsEmailSetup && data.email) {
-        formData.append("email", data.email);
-      }
-      if (onboarding.needsLocationSetup) {
-        formData.append("locationName", data.locationName ?? "");
-        formData.append("region1", data.region1 ?? "");
-        formData.append("region2", data.region2 ?? "");
-        formData.append("region3", data.region3 ?? "");
-        formData.append("latitude", String(data.latitude ?? ""));
-        formData.append("longitude", String(data.longitude ?? ""));
-      }
-
-      const result = await completeOnboardingAction(formData);
-
-      if (!result.success) {
-        if (result.fieldErrors) {
-          applyFieldErrors<FormValues>(setError, result.fieldErrors, {
-            setFocus,
-          });
+        if (forceUsernameSetup) {
+          // 소셜 자동 생성 닉네임 보완 여부를 action에서 다시 판단할 수 있도록 전달
+          formData.append("forceUsernameSetup", "1");
         }
-        if (result.error) {
-          toast.error(result.error);
-        }
-        return;
-      }
 
-      toast.success("항해 준비가 완료되었습니다. 바로 서비스를 이용해보세요.");
-      router.replace(next);
+        if (onboarding.needsUsernameSetup && data.username) {
+          formData.append("username", data.username);
+        }
+        if (onboarding.needsEmailSetup && data.email) {
+          formData.append("email", data.email);
+        }
+        if (onboarding.needsLocationSetup) {
+          formData.append("locationName", data.locationName ?? "");
+          formData.append("region1", data.region1 ?? "");
+          formData.append("region2", data.region2 ?? "");
+          formData.append("region3", data.region3 ?? "");
+          formData.append("latitude", String(data.latitude ?? ""));
+          formData.append("longitude", String(data.longitude ?? ""));
+        }
+
+        const result = await completeOnboardingAction(formData);
+
+        if (!result.success) {
+          if (result.fieldErrors) {
+            applyFieldErrors<FormValues>(setError, result.fieldErrors, {
+              setFocus,
+            });
+          }
+          if (result.error) {
+            toast.error(result.error);
+          }
+          return;
+        }
+
+        toast.success("항해 준비가 완료되었습니다. 바로 서비스를 이용해보세요.");
+        router.replace(next);
+      } catch {
+        toast.error("온보딩 저장 중 일시적인 오류가 발생했습니다.");
+      }
     });
   };
 

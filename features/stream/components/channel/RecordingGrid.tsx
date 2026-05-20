@@ -30,6 +30,7 @@
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 다시보기 카드 썸네일만 우선 로드해 유저 채널 LCP 후보를 앞당김
  * 2026.05.03  임도헌   Modified  채널 다시보기 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.15  임도헌   Modified  채널 다시보기에 커스텀 훅 기반 무한스크롤 적용
+ * 2026.05.18  임도헌   Modified  채널 다시보기 카드에 좋아요/댓글 메타 전달
  */
 
 "use client";
@@ -179,6 +180,9 @@ export default function RecordingGrid({
                 boardGames={rec.board_games}
                 duration={hasDuration ? rec.duration : undefined}
                 viewCount={hasViews ? rec.viewCount : undefined}
+                likeCount={rec.likeCount}
+                commentCount={rec.commentCount}
+                isLiked={rec.isLiked}
                 href={href}
                 requiresPassword={requiresPassword}
                 isFollowersOnly={isFollowersOnly}

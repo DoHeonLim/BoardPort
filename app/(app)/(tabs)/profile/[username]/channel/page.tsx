@@ -28,6 +28,7 @@
  * 2026.04.09  임도헌   Modified  타인 방송국에도 프로필 페이지와 같은 상단 액션바(뒤로가기, 차단/신고 메뉴) 추가
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/channel/page.tsx 에서 app/(app)/(tabs)/profile/[username]/channel/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified  채널 다시보기 첫 페이지를 TAKE+1로 조회해 클라이언트 무한스크롤 커서 전달
+ * 2026.05.18  임도헌   Modified  채널 다시보기 카드 좋아요 메타를 위해 VOD 조회에 viewerId 전달
  */
 
 import { Metadata } from "next";
@@ -112,7 +113,7 @@ export default async function ChannelPage({
   // 2. 데이터 병렬 조회 (차단 여부 체크 추가)
   const [liveResult, vods, roleResult, isBlocked] = await Promise.all([
     getChannelLive(ownerId),
-    getChannelVods(ownerId, STREAMS_PAGE_TAKE + 1),
+    getChannelVods(ownerId, STREAMS_PAGE_TAKE + 1, null, viewerId),
     getViewerRole(viewerId, ownerId),
     viewerId ? checkBlockRelation(viewerId, ownerId) : Promise.resolve(false),
   ]);

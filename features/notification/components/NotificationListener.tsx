@@ -25,14 +25,17 @@
  * 2026.04.13  임도헌   Modified  next/navigation 및 정적 toast/image 의존을 줄여 알림 후속 번들 평가 비용을 완화
  * 2026.04.22  임도헌   Modified  개인 sys_event를 전역 브리지 이벤트로 발행해 스트림 상세 운영 액션(강제 퇴장/채팅 금지/유저 차단)의 실시간 반영 경로를 단일화
  * 2026.05.17  임도헌   Modified  pagehide/hidden 상태에서 알림 채널을 정리하고 복귀 시 unread count를 서버 기준으로 재동기화
+ * 2026.05.18  임도헌   Modified  채팅 알림 수신 시 TabBar 미읽음 query도 함께 재검증
  */
 "use client";
 
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { queryKeys } from "@/lib/queryKeys";
 
 type NotiPayload = {
   id?: number;
@@ -77,6 +80,7 @@ function getCurrentPath() {
  * @param {number} userId - 로그인한 사용자 ID
  */
 export default function NotificationListener({ userId }: { userId: number }) {
+  const queryClient = useQueryClient();
   // Zustand 스토어에서 알림 카운트 증가 액션 가져오기
   const increment = useNotificationStore((state) => state.increment);
   const setUnreadCount = useNotificationStore((state) => state.setUnreadCount);
@@ -126,6 +130,18 @@ export default function NotificationListener({ userId }: { userId: number }) {
       setUnreadCount(nextCount);
     };
 
+    const syncChatUnreadCount = () => {
+      // CHAT 알림은 알림 벨과 별개로 채팅 뱃지도 바꿀 수 있어 보조 재검증 경로를 둠
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chats.list(userId),
+        refetchType: "active",
+      });
+      void queryClient.refetchQueries({
+        queryKey: queryKeys.chats.unreadCount(userId),
+        type: "all",
+      });
+    };
+
     const subscribe = () => {
       if (activeChannel) return;
 
@@ -135,6 +151,11 @@ export default function NotificationListener({ userId }: { userId: number }) {
         const p = payload as Partial<NotiPayload>;
 
         if (typeof p.userId === "number" && p.userId !== userId) return;
+
+        if (p.type === "CHAT") {
+          // 알림 채널은 배포 환경에서 이미 살아 있는 사용자 채널이므로 채팅 뱃지 재검증 보조 경로로 활용
+          syncChatUnreadCount();
+        }
 
         // 사용자가 현재 보고 있는 페이지(예: 지금 대화 중인 채팅방)와 관련된 알림일 경우,
         // 토스트 팝업 표시 및 상단 뱃지 카운트 증가를 생략하여 번쩍거리는 UX 결함을 방지
@@ -252,7 +273,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       unsubscribe();
     };
-  }, [userId, increment, setUnreadCount]);
+  }, [userId, increment, queryClient, setUnreadCount]);
 
   return null;
 }

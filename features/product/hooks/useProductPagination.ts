@@ -22,6 +22,7 @@
  * 2026.04.17  임도헌   Modified  Suspense 무한 쿼리 기준 현재 동작과 맞지 않던 initialData 설명을 제거하고 훅 책임 주석을 최신화
  * 2026.05.08  임도헌   Modified  프로필 제품 목록 조회 범위 타입 import 경로를 product types로 정리
  * 2026.05.16  임도헌   Modified  제품 무한스크롤 캐시 shape 타입을 공용 유틸 타입으로 정리
+ * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  */
 
 "use client";
@@ -31,8 +32,6 @@ import {
   useSuspenseInfiniteQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { getUserProductsAction } from "@/features/user/actions/product";
-import { getProductsAction } from "@/features/product/actions/list";
 import { queryKeys } from "@/lib/queryKeys";
 import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
 import type {
@@ -86,6 +85,102 @@ export interface UseProductPaginationResult<T extends { id: number }> {
   updateOne: (id: number, patch: Partial<T>) => void; // 캐시 내 특정 아이템 부분 업데이트 함수
 }
 
+/**
+ * URLSearchParams에 문자열 값이 있을 때만 추가
+ *
+ * @param params - 조립 중인 URLSearchParams
+ * @param key - query key
+ * @param value - query value
+ */
+function appendStringParam(
+  params: URLSearchParams,
+  key: string,
+  value: string | undefined
+) {
+  if (value) params.set(key, value);
+}
+
+/**
+ * URLSearchParams에 숫자 값이 있을 때만 추가
+ *
+ * @param params - 조립 중인 URLSearchParams
+ * @param key - query key
+ * @param value - query value
+ */
+function appendNumberParam(
+  params: URLSearchParams,
+  key: string,
+  value: number | undefined | null
+) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    params.set(key, String(value));
+  }
+}
+
+/**
+ * 기본 상품 목록 API URL 생성
+ *
+ * @param searchParams - 상품 검색 조건
+ * @param cursor - 다음 페이지 커서
+ * @returns 상품 목록 API URL
+ */
+function buildProductsApiUrl(
+  searchParams: ProductSearchParams | undefined,
+  cursor: number | null
+) {
+  const params = new URLSearchParams();
+  appendNumberParam(params, "cursor", cursor);
+  appendStringParam(params, "keyword", searchParams?.keyword);
+  appendStringParam(params, "category", searchParams?.category);
+  appendNumberParam(params, "minPrice", searchParams?.minPrice);
+  appendNumberParam(params, "maxPrice", searchParams?.maxPrice);
+  appendStringParam(params, "game_type", searchParams?.game_type);
+  appendStringParam(params, "condition", searchParams?.condition);
+
+  const queryString = params.toString();
+  return queryString ? `/api/products?${queryString}` : "/api/products";
+}
+
+/**
+ * 유저 제품 목록 API URL 생성
+ *
+ * @param scope - 유저 제품 목록 조회 범위
+ * @param cursor - 다음 페이지 커서
+ * @returns 유저 제품 목록 API URL
+ */
+function buildUserProductsApiUrl(
+  scope: UserProductsScope,
+  cursor: number | null
+) {
+  const params = new URLSearchParams({
+    type: scope.type,
+    userId: String(scope.userId),
+  });
+  appendNumberParam(params, "cursor", cursor);
+
+  return `/api/products/user-scope?${params.toString()}`;
+}
+
+/**
+ * 제품 목록 API 조회
+ * Client Component queryFn에서는 Server Action 직접 호출 대신 HTTP fetch를 사용해 초기 렌더 fetch waterfall 오류를 방지
+ *
+ * @param url - 호출할 Route Handler URL
+ * @returns 제품 목록 페이지 응답
+ */
+async function fetchProductsPage<T>(url: string): Promise<ProductsEnvelope<T>> {
+  const response = await fetch(url, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error("제품 목록을 불러오지 못했습니다.");
+  }
+
+  return response.json();
+}
+
 // =============================================================================
 // 2. Hook Implementation
 // =============================================================================
@@ -95,9 +190,10 @@ export interface UseProductPaginationResult<T extends { id: number }> {
  *
  * [기능 및 동작 원리]
  * 1. TanStack Query의 `useSuspenseInfiniteQuery`로 커서 기반 무한 스크롤 상태를 조립
- * 2. `mode` 값에 따라 Query Key와 서버 액션(fetcher)을 동적으로 분기해 메인 목록/프로필 목록/커스텀 목록을 공통 처리
- * 3. Suspense 경계 아래에서 평탄화된 제품 배열과 첫 페이지 totalCount를 반환해 상위 리스트가 즉시 렌더링할 수 있게 함
- * 4. `updateOne`으로 단일 아이템만 로컬 캐시에 반영해 좋아요/후기 같은 부분 갱신을 쿼리 무효화 없이 처리
+ * 2. `mode` 값에 따라 Query Key와 조회 URL(fetcher)을 동적으로 분기해 메인 목록/프로필 목록/커스텀 목록을 공통 처리
+ * 3. Client queryFn의 Server Action 직접 호출을 피하도록 기본/프로필 목록은 Route Handler fetch로 조회
+ * 4. Suspense 경계 아래에서 평탄화된 제품 배열과 첫 페이지 totalCount를 반환해 상위 리스트가 즉시 렌더링할 수 있게 함
+ * 5. `updateOne`으로 단일 아이템만 로컬 캐시에 반영해 좋아요/후기 같은 부분 갱신을 쿼리 무효화 없이 처리
  */
 export function useProductPagination<T extends { id: number }>(
   params: UseProductPaginationParams<T>
@@ -148,16 +244,16 @@ export function useProductPagination<T extends { id: number }>(
         }
         // 2. 프로필 탭 모드 (내 판매/구매 내역)
         if (mode === "profile" && profileScope) {
-          return getUserProductsAction<T>(
-            profileScope,
-            pageParam as number | null
+          // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
+          return fetchProductsPage<T>(
+            buildUserProductsApiUrl(profileScope, pageParam as number | null)
           );
         }
         // 3. 기본 카탈로그 모드 (항구 메인)
         // 제네릭 T와의 충돌 방지를 위해 unknown으로 캐스팅 후 반환
-        return (await getProductsAction(
-          pageParam as number | null,
-          searchParams || {}
+        // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
+        return (await fetchProductsPage(
+          buildProductsApiUrl(searchParams, pageParam as number | null)
         )) as unknown as ProductsEnvelope<T>;
       },
       initialPageParam: null as number | null,

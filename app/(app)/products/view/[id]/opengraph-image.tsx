@@ -186,8 +186,8 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
 }
 
 /**
- * 제품 상세 공유용 OG 이미지 엔트리
- * next/og의 Windows 로컬 폰트 경로 오류 회피를 위한 sharp 직접 PNG 생성
+ * 제품 상세 공유 미리보기 이미지 생성 엔트리
+ * next/og의 Windows 로컬 폰트 경로 오류 회피를 위한 sharp 직접 PNG 생성 경로
  */
 export default async function Image({ params }: { params: { id: string } }) {
   const id = Number(params.id);

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.08  임도헌   Created   HydrationBoundary 아래에서 도감 목록 Query 캐시 사용
+ * 2026.05.18  임도헌   Modified  긴 도감 목록 탐색을 위해 목록 상단에도 페이지네이션 배치
  */
 
 "use client";
@@ -64,11 +65,19 @@ export default function BoardGameCatalogListContainer({
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
-              <BoardGameCatalogCard key={item.id} item={item} />
-            ))}
-          </div>
+          <>
+            <BoardGamePagination
+              page={page}
+              totalPages={totalPages}
+              filters={filters}
+              placement="top"
+            />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((item) => (
+                <BoardGameCatalogCard key={item.id} item={item} />
+              ))}
+            </div>
+          </>
         )}
       </section>
 

@@ -13,11 +13,16 @@
  * 2026.03.01  임도헌   Modified  React useOptimistic 제거 및 TanStack Query useMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.17  임도헌   Modified  녹화본 상세 좋아요 버튼의 낙관 업데이트와 접근성 이름 책임 설명 보강
+ * 2026.05.18  임도헌   Modified  녹화본 상세 좋아요 변경 시 메인/채널 다시보기 목록 캐시 동기화 추가
  */
 
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   likeRecording,
   dislikeRecording,
@@ -27,6 +32,13 @@ import { HeartIcon } from "@heroicons/react/24/solid";
 import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  cancelRecordingListQueries,
+  getRecordingListSnapshots,
+  invalidateRecordingListCaches,
+  restoreRecordingListSnapshots,
+  updateRecordingListCaches,
+} from "@/features/stream/utils/recordingListCache";
 
 interface RecordingLikeButtonProps {
   isLiked: boolean;
@@ -40,6 +52,7 @@ interface RecordingLikeButtonProps {
  * [기능]
  * - 부모로부터 주입된 초기값(`initialIsLiked`, `initialLikeCount`)을 `useQuery`의 `initialData`로 설정하여 서버 상태 동기화(Hydration) 구성
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 상태 반전 및 피드백 제공
+ * - 상세에서 좋아요를 바꾼 뒤 뒤로가도 목록 카드의 좋아요 수와 하트 상태가 유지되도록 다시보기 목록 캐시도 함께 갱신
  * - API 요청 에러 발생 시 `onError`에서 캡처된 이전 상태 스냅샷(`previous`)으로 안전한 롤백(Rollback) 처리
  * - `onSettled` 시점 관련 쿼리 무효화(invalidateQueries)를 통한 서버 데이터와의 최종 정합성 보장
  * - 버튼 본문은 숫자만 노출하고, 스크린리더 이름은 `aria-label`로 분리해 상세 페이지 액션 의미를 명확히 전달
@@ -69,25 +82,36 @@ export default function RecordingLikeButton({
       if (res && !res.success) throw new Error(res.error);
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey }),
+        cancelRecordingListQueries(queryClient),
+      ]);
       const previous = queryClient.getQueryData(queryKey);
+      const previousRecordingLists = getRecordingListSnapshots(queryClient);
 
-      queryClient.setQueryData(queryKey, {
+      const nextState = {
         isLiked: !data.isLiked,
         likeCount: data.isLiked
           ? Math.max(0, data.likeCount - 1)
           : data.likeCount + 1,
-      });
+      };
 
-      return { previous };
+      queryClient.setQueryData(queryKey, nextState);
+
+      // 상세에서 좋아요를 바꾼 뒤 뒤로갈 때 이전 목록 캐시도 같은 상태를 보여주도록 동기화
+      updateRecordingListCaches(queryClient, vodId, () => nextState);
+
+      return { previous, previousRecordingLists };
     },
     onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
       toast.error("좋아요 처리에 실패했습니다.");
       queryClient.setQueryData(queryKey, context?.previous);
+      restoreRecordingListSnapshots(queryClient, context?.previousRecordingLists);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
+      invalidateRecordingListCaches(queryClient);
     },
   });
 

@@ -23,6 +23,7 @@
  * 2026.03.26  임도헌   Modified  quick-remove 버튼의 모바일 라벨/톤을 줄여 제목 공간과 액션 위계를 보정
  * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 quick-remove 초소형 라벨을 text-xs/font-medium 기준으로 통일
  * 2026.05.16  임도헌   Modified  제품 목록/찜 목록 캐시 갱신 shape 타입 정리
+ * 2026.05.18  임도헌   Modified  목록 카드 하트 색상 보정을 위해 낙관 업데이트에 isLiked 상태 반영
  */
 "use client";
 
@@ -52,6 +53,8 @@ interface ProductLikeButtonProps {
 
 type ProductLikeCacheItem = {
   id: number;
+  isLiked?: boolean;
+  liked_at?: string;
   _count: {
     product_likes: number;
   };
@@ -63,6 +66,7 @@ type ProductLikeCacheItem = {
  * [상태 주입 및 캐시 제어 로직]
  * - 부모로부터 주입된 초기값(`initialIsLiked`, `initialLikeCount`)을 `useQuery`의 `initialData`로 설정하여 서버 상태 동기화(Hydration) 구성
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 상태 반전 및 피드백 제공
+ * - 목록 카드 하트 색상이 현재 사용자 좋아요 여부를 의미하도록 list cache의 `isLiked`를 함께 갱신
  * - 좋아요 취소 시 찜한 목록(`LIKED` scope) 쿼리 캐시에 접근하여 해당 아이템을 목록에서 즉각 제거 처리
  * - API 요청 에러 발생 시 `onError`에서 캡처된 이전 상태 스냅샷(`previous`)으로 안전한 롤백(Rollback) 처리
  * - `onSettled` 시점 관련 쿼리 무효화(invalidateQueries)를 통한 서버 데이터와의 최종 정합성 보장
@@ -111,7 +115,7 @@ export default function ProductLikeButton({
         likeCount: nextLikeCount,
       });
 
-      // 2) /products 목록 캐시 즉시 반영 (_count.product_likes)
+      // 2) /products 목록 캐시 즉시 반영: 좋아요 수와 하트 강조 기준(isLiked)을 같이 갱신
       queryClient.setQueriesData(
         { queryKey: queryKeys.products.lists() },
         (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
@@ -124,6 +128,7 @@ export default function ProductLikeButton({
                 product.id === productId
                   ? {
                       ...product,
+                      isLiked: !data.isLiked,
                       _count: {
                         ...product._count,
                         product_likes: nextLikeCount,
@@ -178,7 +183,14 @@ export default function ProductLikeButton({
                 pages: [
                   {
                     ...firstPage,
-                    products: [snapshot, ...firstPage.products],
+                    products: [
+                      {
+                        ...snapshot,
+                        isLiked: true,
+                        liked_at: new Date().toISOString(),
+                      },
+                      ...firstPage.products,
+                    ],
                   },
                   ...oldData.pages.slice(1),
                 ],

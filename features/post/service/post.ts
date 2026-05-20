@@ -40,6 +40,7 @@
  * 2026.05.12  임도헌   Modified  동영상 READY/FAILED 웹훅 선도착 상태를 게시글 연결 시 덮어쓰지 않도록 보강
  * 2026.05.13  임도헌   Modified  게시글 목록 검색을 제목/본문/태그 대소문자 무시 조건으로 통일
  * 2026.05.16  임도헌   Modified  수정 액션의 기존 첨부 동영상 확인 쿼리를 service 헬퍼로 분리
+ * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상을 현재 사용자 좋아요 여부 기준으로 표시하도록 isLiked 매핑 추가
  */
 import "server-only";
 
@@ -98,11 +99,16 @@ export async function hasOwnedAttachedPostVideo(
  * 게시글 목록 DTO에 맞게 공개 보드게임 locale만 평탄화
  *
  * @param row - POST_SELECT로 조회한 게시글 row
+ * @param likedPostIds - 현재 조회자가 좋아요한 게시글 ID 집합
  * @returns PostCard가 바로 사용할 수 있는 게시글 목록 DTO
  */
-function mapPostListRow(row: PostListRow): PostDetail {
+function mapPostListRow(
+  row: PostListRow,
+  likedPostIds: ReadonlySet<number> = new Set()
+): PostDetail {
   return {
     ...row,
+    isLiked: likedPostIds.has(row.id),
     board_games: row.board_games.flatMap(({ boardGame }) => {
       const { locales, ...linkedBoardGame } = boardGame;
       const locale = locales[0];
@@ -532,7 +538,23 @@ export async function getPostsList(
 
   const hasNextPage = rows.length > TAKE;
   const pageRows = hasNextPage ? rows.slice(0, TAKE) : rows;
-  const posts = pageRows.map(mapPostListRow);
+
+  const likedPostIds =
+    viewerId > 0 && pageRows.length > 0
+      ? new Set(
+          (
+            await db.postLike.findMany({
+              where: {
+                userId: viewerId,
+                postId: { in: pageRows.map((row) => row.id) },
+              },
+              select: { postId: true },
+            })
+          ).map((like) => like.postId)
+        )
+      : new Set<number>();
+
+  const posts = pageRows.map((row) => mapPostListRow(row, likedPostIds));
   const nextCursor = hasNextPage ? posts[posts.length - 1].id : null;
 
   return { posts, nextCursor, totalCount };

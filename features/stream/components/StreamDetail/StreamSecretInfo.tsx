@@ -15,6 +15,7 @@
  * 2026.03.20  임도헌   Modified  송출 정보 라벨과 버튼 문구를 제작자 문맥에 맞게 더 직관적으로 정리
  * 2026.03.24  임도헌   Modified  owner 관리 패널 무게를 줄이기 위해 송출 정보 버튼과 내부 패널 간격/톤을 조금 더 절제
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 송출 정보 버튼·코드·경고 문구 타이포를 정리
+ * 2026.05.19  임도헌   Modified  RTMP URL 표시 기본값을 Cloudflare 기본 ingest URL로 통일
  */
 "use client";
 
@@ -89,11 +90,9 @@ export default function StreamSecretInfo({
   const [isPending, startTransition] = useTransition();
   const panelId = useId();
 
-  // ENV 폴백은 서버 액션에서 처리하지만, 초기 렌더에서 표시용 폴백 유지
+  // 서버 액션 응답 전에도 송출 URL 형식을 안내하기 위한 표시용 기본값
   const fallbackRtmp = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_CLOUDFLARE_RTMP_URL?.trim() ||
-      "rtmps://live.cloudflare.com:443/live/",
+    () => "rtmps://live.cloudflare.com:443/live/",
     []
   );
 

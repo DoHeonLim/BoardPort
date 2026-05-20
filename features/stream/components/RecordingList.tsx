@@ -9,6 +9,7 @@
  * 2026.04.16  임도헌   Modified  첫 다시보기 카드 썸네일을 우선 로드해 LCP 후보를 더 빠르게 노출
  * 2026.04.17  임도헌   Modified  다시보기 무한 스크롤과 첫 카드 우선 로드 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.05.03  임도헌   Modified  다시보기 카드에 연결 보드게임 요약 배지 표시
+ * 2026.05.18  임도헌   Modified  다시보기 카드에 좋아요/댓글 메타 전달
  */
 "use client";
 
@@ -97,6 +98,9 @@ export default function RecordingList({
             boardGames={rec.board_games}
             duration={rec.duration}
             viewCount={rec.viewCount}
+            likeCount={rec.likeCount}
+            commentCount={rec.commentCount}
+            isLiked={rec.isLiked}
             href={rec.href}
             requiresPassword={rec.requiresPassword}
             isFollowersOnly={rec.visibility === "FOLLOWERS"}
