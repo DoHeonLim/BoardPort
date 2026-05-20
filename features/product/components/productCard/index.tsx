@@ -51,13 +51,15 @@
  * 2026.05.04  임도헌   Modified  모바일 카드에서는 연결 보드게임명 pill을 생략해 하단 거래 메타 영역 확보
  * 2026.05.15  임도헌   Modified  찜한 내역 리스트 카드의 빠른 해제 버튼/보드게임 배지/활동 시점 정렬 충돌 해소
  * 2026.05.15  임도헌   Modified  리스트 카드 하단 메타 여백을 확보하도록 카드 높이와 세로 패딩 미세 조정
+ * 2026.05.18  임도헌   Modified  카드 메타 하트 색상을 현재 유저 좋아요 여부 기준으로 전달
+ * 2026.05.20  임도헌   Modified  끌어올린 상품은 등록일 대신 refreshed_at 기준 노출 시점을 표시
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
  * - ProductCardHeader.tsx    : 게임 타입 및 카테고리 경로 표시
  * - ProductCardTitle.tsx     : 제품 제목 표시
  * - ProductCardPrice.tsx     : 가격 및 판매/예약 상태 뱃지
- * - ProductCardMeta.tsx      : 조회수, 좋아요 수, 작성 시간
+ * - ProductCardMeta.tsx      : 조회수, 좋아요 수, 위치, 기준 시점
  * - ProductCardTags.tsx      : 제품 관련 태그 목록
  * - ProductCardThumbnail.tsx : 대표 이미지 및 오버레이 렌더링
  * - index.tsx                : 위 컴포넌트들을 조합한 최종 ProductCard
@@ -97,6 +99,7 @@ export default function ProductCard({
     title,
     price,
     created_at,
+    refreshed_at,
     images,
     id,
     reservation_userId,
@@ -109,10 +112,12 @@ export default function ProductCard({
     bump_count,
     region2,
     region3,
+    isLiked,
     board_games,
   } = product;
 
   const href = `/products/view/${id}?returnTo=${encodeURIComponent(returnTo)}`;
+  const exposureAt = bump_count > 0 ? refreshed_at : undefined;
 
   const isGrid = viewMode === "grid";
   const showInlineQuickUnlike = showQuickUnlike && !isGrid;
@@ -217,8 +222,9 @@ export default function ProductCard({
       <ProductCardMeta
         views={views}
         likes={_count.product_likes}
+        isLiked={Boolean(isLiked || likedAt)}
         createdAt={created_at}
-        activityAt={likedAt}
+        activityAt={likedAt ?? exposureAt}
         activityLabel={likedAt ? "찜" : undefined}
         bumpCount={bump_count}
         region2={region2}

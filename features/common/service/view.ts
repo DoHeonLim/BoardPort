@@ -15,10 +15,12 @@
  * 2026.03.28  임도헌   Modified   공략(MAP) 조회수 누적 뱃지가 상세 진입 증가에도 반응하도록 후처리 추가
  * 2026.05.08  임도헌   Modified   외부 사용이 없는 조회 대상 내부 타입 export 제거
  * 2026.05.16  임도헌   Modified   캐시 재검증 제거 이후 흐름에 맞게 주석 정리 및 공용 타입/상수 분리
+ * 2026.05.19  임도헌   Modified   조회수 DB write service가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  */
 
 "use server";
 
+import "server-only";
 import db from "@/lib/db";
 import { checkRuleSageBadge } from "@/features/user/service/badge";
 import { isUniqueConstraintError } from "@/lib/errors";

@@ -23,6 +23,7 @@
  * 2026.03.28  임도헌   Modified  프로필/카드 hover transform 내부에서도 모달이 뷰포트 기준으로 고정되도록 body portal 렌더링 적용
  * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 비밀번호 입력과 키보드 겹침을 완화
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.05.19  임도헌   Modified  비공개 방송 입장 비밀번호 입력에 current-password autocomplete를 명시해 브라우저 폼 경고 완화
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -205,6 +206,7 @@ export default function PrivateAccessModal({
             setError("");
           }}
           placeholder="비밀번호 입력"
+          autoComplete="current-password"
           className={cn(
             "input-primary h-12 rounded-2xl bg-surface-dim px-4",
             error && "ring-2 ring-danger/50"

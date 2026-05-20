@@ -19,6 +19,8 @@
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상품(hidden_at)은 공개 제품 목록과 검색 결과에서 제외
  * 2026.05.03  임도헌   Modified  상품 카드 표시용 연결 보드게임 locale 매핑 추가
  * 2026.05.12  임도헌   Modified  제품 검색의 제목/본문/태그 조건을 대소문자 무시 기준으로 통일
+ * 2026.05.18  임도헌   Modified  목록 카드 하트 색상용 현재 유저 좋아요 여부를 DTO에 포함
+ * 2026.05.20  임도헌   Modified  refreshed_at 정렬 주석의 2차 기준을 실제 id 기준으로 정정
  */
 import "server-only";
 import db from "@/lib/db";
@@ -45,9 +47,13 @@ type ProductListRow = Prisma.ProductGetPayload<{
  * @param row - PRODUCT_SELECT로 조회한 제품 row
  * @returns ProductCard가 바로 사용할 수 있는 제품 목록 DTO
  */
-function mapProductListRow(row: ProductListRow): ProductType {
+function mapProductListRow(
+  row: ProductListRow,
+  likedProductIds: Set<number>
+): ProductType {
   return {
     ...row,
+    isLiked: likedProductIds.has(row.id),
     board_games: row.board_games.flatMap(({ boardGame }) => {
       const { locales, ...linkedBoardGame } = boardGame;
       const locale = locales[0];
@@ -165,7 +171,7 @@ async function buildSearchWhere(
  * [데이터 페칭 및 가공 전략]
  * - 검색 쿼리 빌더(`buildSearchWhere`) 적용 및 커서 기반 데이터 추출
  * - 조회자(`viewerId`) 기준 차단된 유저의 상품 은닉 처리
- * - 끌어올리기(`refreshed_at`)를 반영한 내림차순 1차 정렬 및 생성일 기준 2차 정렬 적용
+ * - 끌어올리기(`refreshed_at`)를 반영한 내림차순 1차 정렬 및 id 기준 2차 정렬 적용
  * - 다음 페이지 존재 유무 판별을 위한 LIMIT + 1 레코드 조회 로직 포함
  *
  * @param {ProductSearchParams} params - 검색 조건
@@ -207,7 +213,18 @@ export async function getProductsList(
   // LIMIT + 1 기준의 다음 페이지 존재 판별
   const hasNext = rows.length > (params.take ?? TAKE);
   const pageRows = hasNext ? rows.slice(0, params.take ?? TAKE) : rows;
-  const products = pageRows.map(mapProductListRow);
+  const likedRows =
+    viewerId > 0 && pageRows.length > 0
+      ? await db.productLike.findMany({
+          where: {
+            userId: viewerId,
+            productId: { in: pageRows.map((row) => row.id) },
+          },
+          select: { productId: true },
+        })
+      : [];
+  const likedProductIds = new Set(likedRows.map((row) => row.productId));
+  const products = pageRows.map((row) => mapProductListRow(row, likedProductIds));
   const nextCursor = hasNext ? products[products.length - 1].id : null;
 
   return { products, nextCursor, totalCount };

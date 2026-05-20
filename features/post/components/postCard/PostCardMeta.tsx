@@ -16,6 +16,7 @@
  * 2026.03.06  임도헌   Modified  모바일 그리드 메타를 하단 정렬로 재배치하고 통계/시간을 한 줄로 정리
  * 2026.03.26  임도헌   Modified  리스트 카드 모바일에서는 위치 정보를 분리 노출해 시간 표시와의 충돌을 완화
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 카드 메타 숫자/위치/시간 라벨을 text-xs 기준으로 통일
+ * 2026.05.18  임도헌   Modified  좋아요 하트 강조 색상을 총 좋아요 수가 아닌 현재 사용자 좋아요 여부 기준으로 보정
  */
 "use client";
 
@@ -32,6 +33,7 @@ import type { ViewMode } from "@/features/product/types";
 interface PostCardMetaProps {
   views: number;
   likes: number;
+  isLiked?: boolean;
   comments: number;
   createdAt: string;
   region2?: string | null;
@@ -50,6 +52,7 @@ interface PostCardMetaProps {
 export default function PostCardMeta({
   views,
   likes,
+  isLiked = false,
   comments,
   createdAt,
   region2,
@@ -67,7 +70,7 @@ export default function PostCardMeta({
         <HeartIcon
           className={cn(
             "size-3 sm:size-3.5",
-            likes > 0 ? "text-rose-500" : "text-muted/70"
+            isLiked ? "text-rose-500" : "text-muted/70"
           )}
         />
         <span className="text-xs">{likes}</span>

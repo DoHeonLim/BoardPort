@@ -33,6 +33,7 @@
  * 2026.04.24  임도헌   Modified  detail-edit 링크에도 항상 내부 returnTo를 실어 저장 back 안전 조건과 정합성을 맞춤
  * 2026.05.03  임도헌   Modified  게시글 상세에 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.04  임도헌   Modified  게시글 상세의 연결 보드게임을 도감 이동 카드로 강조
+ * 2026.05.18  임도헌   Modified  상세 메타에 댓글 수를 표시하도록 PostDetailMeta에 commentCount 전달
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
@@ -162,6 +163,7 @@ export default function PostDetail({
             isLiked={isLiked}
             likeCount={likeCount}
             views={views}
+            commentCount={post._count.comments}
             createdAt={post.created_at?.toString() ?? ""}
           />
         </div>

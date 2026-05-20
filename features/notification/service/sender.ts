@@ -16,8 +16,11 @@
  * 2026.03.07  임도헌   Modified  SYSTEM 기본 tag가 KEYWORD로 폴스루되지 않도록 분기 수정
  * 2026.04.02  임도헌   Modified  푸시 결과 타입과 알림 타입을 notification/types 공용 정의로 분리
  * 2026.05.16  임도헌   Modified  푸시 payload 타입을 명시해 any 제거
+ * 2026.05.18  임도헌   Modified  만료/해지된 Push 구독 정리는 expected cleanup으로 로깅 레벨 조정
+ * 2026.05.19  임도헌   Modified  Web Push/DB 접근 service가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  */
 
+import "server-only";
 import webPush from "web-push";
 import db from "@/lib/db";
 import type { NotificationType, SendPushResult } from "@/features/notification/types";
@@ -327,19 +330,23 @@ export async function sendPushNotification({
             // 410 Gone, 404 Not Found -> 구독 만료
             if (err.statusCode === 410 || err.statusCode === 404) {
               results.removed += 1;
-              await db.pushSubscription.delete({ where: { id: sub.id } });
+              await db.pushSubscription.deleteMany({ where: { id: sub.id } });
+              console.info("WebPush subscription expired and removed:", {
+                status: err.statusCode,
+                endpoint: sub.endpoint,
+              });
             } else {
               // 그 외 에러 (403, 429, 500 등) -> 일시 비활성
               results.disabled += 1;
               await db.pushSubscription
                 .update({ where: { id: sub.id }, data: { isActive: false } })
                 .catch(() => {});
+              console.error("WebPush error:", {
+                status: err.statusCode,
+                body: err.body,
+                endpoint: sub.endpoint,
+              });
             }
-            console.error("WebPush error:", {
-              status: err.statusCode,
-              body: err.body,
-              endpoint: sub.endpoint,
-            });
           } else {
             // 알 수 없는 에러
             console.error("Unknown Push error:", err);

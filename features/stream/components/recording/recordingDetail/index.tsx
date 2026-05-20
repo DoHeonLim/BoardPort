@@ -17,6 +17,7 @@
  * 2026.05.03  임도헌   Modified  녹화 상세에 부모 방송과 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.05  임도헌   Modified  방송 상세과 같은 보드게임 카드형 표시로 통일
  * 2026.05.12  임도헌   Modified  녹화 상세 본문에 방송 카테고리/태그 노출 추가
+ * 2026.05.18  임도헌   Modified  RecordingMeta가 VodAsset 기준 댓글 수 캐시를 갱신할 수 있도록 vodId 전달
  * ===============================================================================================
  * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
@@ -96,6 +97,7 @@ export default function RecordingDetail({
       </div>
       <div className="rounded-2xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5">
         <RecordingMeta
+          vodId={vodId}
           title={broadcast.title}
           created={created}
           duration={duration}

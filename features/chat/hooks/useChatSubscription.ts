@@ -27,9 +27,11 @@
  * 2026.04.01  임도헌   Modified  message_deleted 이벤트 수신 및 로컬 메시지 교체 콜백 추가
  * 2026.04.02  임도헌   Modified  구독 훅 JSDoc 반환 설명 보강
  * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.05.18  임도헌   Modified  채팅방 내부 읽음 처리 후 TabBar 미읽음 query를 즉시 동기화
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import {
   ChatMessage,
@@ -40,6 +42,7 @@ import { readMessageUpdateAction } from "@/features/chat/actions/messages";
 import type { AppointmentStatus } from "@/generated/prisma/enums";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { CHAT_EVENT } from "@/features/chat/constants";
+import { queryKeys } from "@/lib/queryKeys";
 
 interface UseChatSubscriptionOptions {
   chatRoomId: string; // Supabase 채널 식별용 채팅방 ID
@@ -81,6 +84,8 @@ export default function useChatSubscription({
   onAppointmentUpdate,
   throttleReadUpdate = true,
 }: UseChatSubscriptionOptions) {
+  const queryClient = useQueryClient();
+
   // 상위 컴포넌트의 리렌더링으로 인해 콜백 참조값이 변경되더라도
   // 불필요한 재구독이 발생하지 않도록 useRef를 사용하여 최신 콜백을 유지
   const onNewMessageRef = useRef(onNewMessage);
@@ -91,6 +96,28 @@ export default function useChatSubscription({
 
   // Zustand 액션 가져오기 (이전의 window.dispatchEvent 대체)
   const decrement = useNotificationStore((state) => state.decrement);
+
+  const syncUnreadChatQueries = useCallback(
+    (readCount: number) => {
+      if (readCount > 0) {
+        queryClient.setQueryData<number>(
+          queryKeys.chats.unreadCount(currentUserId),
+          (current) => Math.max((current ?? 0) - readCount, 0)
+        );
+      }
+
+      // Realtime 이벤트 도착 전에도 상세 화면의 읽음 결과를 관련 query에 즉시 반영
+      void queryClient.refetchQueries({
+        queryKey: queryKeys.chats.unreadCount(currentUserId),
+        type: "all",
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chats.list(currentUserId),
+        refetchType: "active",
+      });
+    },
+    [currentUserId, queryClient]
+  );
 
   useEffect(() => {
     onNewMessageRef.current = onNewMessage;
@@ -160,6 +187,9 @@ export default function useChatSubscription({
               if (res.success && res.readIds.length > 0) {
                 decrement(res.readIds.length);
               }
+              if (res.success) {
+                syncUnreadChatQueries(res.readIds.length);
+              }
               return;
             }
 
@@ -174,6 +204,9 @@ export default function useChatSubscription({
             // 쓰로틀링 모드에서도 동일하게 스토어 상태를 차감함
             if (res.success && res.readIds.length > 0) {
               decrement(res.readIds.length);
+            }
+            if (res.success) {
+              syncUnreadChatQueries(res.readIds.length);
             }
           } finally {
             // 다음 메시지 수신 시 다시 호출 가능하도록 락 해제
@@ -253,5 +286,11 @@ export default function useChatSubscription({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatRoomId, currentUserId, throttleReadUpdate, decrement]);
+  }, [
+    chatRoomId,
+    currentUserId,
+    throttleReadUpdate,
+    decrement,
+    syncUnreadChatQueries,
+  ]);
 }

@@ -10,6 +10,7 @@
  * 2026.04.03  임도헌   Modified  댓글 작성 성공 토스트를 게시글 댓글과 같은 문법으로 통일
  * 2026.04.09  임도헌   Modified  성공 결과가 화면에 바로 드러나는 댓글 작성은 실패 토스트만 남기도록 정리
  * 2026.05.16  임도헌   Modified  Mutation 에러 메시지 추출을 unknown-safe 방식으로 정리
+ * 2026.05.18  임도헌   Modified  댓글 작성 시 다시보기 목록 카드 commentCount 캐시 동기화 추가
  */
 "use client";
 
@@ -17,6 +18,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createRecordingComment } from "@/features/stream/actions/comments";
 import { queryKeys } from "@/lib/queryKeys";
+import {
+  cancelRecordingListQueries,
+  getRecordingListSnapshots,
+  invalidateRecordingListCaches,
+  restoreRecordingListSnapshots,
+  updateRecordingListCaches,
+} from "@/features/stream/utils/recordingListCache";
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "";
@@ -27,6 +35,7 @@ const getErrorMessage = (error: unknown) =>
  * [기능]
  * - `createRecordingComment` 서버 액션을 호출해 댓글 생성을 처리
  * - 성공 시 녹화본 댓글 목록 쿼리를 무효화해 최신 목록을 다시 읽음
+ * - 상세에서 댓글을 작성한 뒤 뒤로갈 때 다시보기 카드 댓글 수가 즉시 맞도록 목록 캐시를 함께 갱신
  * - 실패 시 상태 코드별 토스트 알림으로 사용자 피드백을 제공
  *
  * @param {number} vodId - 대상 녹화본(VOD) ID
@@ -34,6 +43,7 @@ const getErrorMessage = (error: unknown) =>
 export function useCreateRecordingCommentMutation(vodId: number) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.streams.vodComments(vodId);
+  const statsQueryKey = queryKeys.streams.recordingStats(vodId);
 
   return useMutation({
     mutationFn: async (formData: FormData) => {
@@ -41,17 +51,40 @@ export function useCreateRecordingCommentMutation(vodId: number) {
       if (!res.success) throw new Error(res.error);
       return res;
     },
+    onMutate: async () => {
+      await cancelRecordingListQueries(queryClient);
+      const previousRecordingLists = getRecordingListSnapshots(queryClient);
+      const previousStats = queryClient.getQueryData(statsQueryKey);
+
+      // 카드의 댓글 수는 녹화본 상세 댓글 생성 성공을 기대해 먼저 1 증가
+      updateRecordingListCaches(queryClient, vodId, (recording) => ({
+        commentCount: (recording.commentCount ?? 0) + 1,
+      }));
+      queryClient.setQueryData(
+        statsQueryKey,
+        (oldData: { commentCount: number } | undefined) => ({
+          commentCount: (oldData?.commentCount ?? 0) + 1,
+        })
+      );
+
+      return { previousRecordingLists, previousStats };
+    },
     onSuccess: () => {
       // 등록 직후 최신 댓글 목록 재조회
       queryClient.invalidateQueries({ queryKey });
     },
-    onError: (err: unknown) => {
+    onError: (err: unknown, _variables, context) => {
       console.error(err);
+      restoreRecordingListSnapshots(queryClient, context?.previousRecordingLists);
+      queryClient.setQueryData(statsQueryKey, context?.previousStats);
       const msg = getErrorMessage(err);
       if (msg === "NOT_LOGGED_IN") toast.error("로그인이 필요합니다.");
       else if (msg === "VALIDATION_FAILED")
         toast.error("입력값을 확인해 주세요.");
       else toast.error("댓글 작성에 실패했습니다.");
+    },
+    onSettled: () => {
+      invalidateRecordingListCaches(queryClient);
     },
   });
 }

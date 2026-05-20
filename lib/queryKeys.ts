@@ -68,6 +68,8 @@ export const queryKeys = {
     detail: (id: number) => [...queryKeys.posts.details(), id] as const,
     comments: (postId: number) =>
       [...queryKeys.posts.all, "comments", postId] as const,
+    stats: (postId: number) =>
+      [...queryKeys.posts.detail(postId), "stats"] as const,
     likeStatus: (postId: number) =>
       [...queryKeys.posts.detail(postId), "likeStatus"] as const,
   },
@@ -103,6 +105,8 @@ export const queryKeys = {
       [...queryKeys.streams.all, "channelRecordings", ownerId] as const,
     vodComments: (vodId: number) =>
       [...queryKeys.streams.all, "vodComments", vodId] as const,
+    recordingStats: (vodId: number) =>
+      [...queryKeys.streams.all, "vod", vodId, "stats"] as const,
     likeStatus: (vodId: number) =>
       [...queryKeys.streams.all, "vod", vodId, "likeStatus"] as const,
   },

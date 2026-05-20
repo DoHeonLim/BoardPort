@@ -25,6 +25,7 @@
  * 2026.04.13  임도헌   Modified  ProductCard returnTo를 상위 리스트에서 주입할 수 있도록 prop 확장
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 DTO 및 상세 타입 추가
  * 2026.05.03  임도헌   Modified  상품 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 목록 타입 확장
+ * 2026.05.18  임도헌   Modified  상품 목록 카드 하트 색상 기준 분리를 위한 isLiked 필드 추가
  * 2026.05.08  임도헌   Modified  프로필/마이페이지 제품 목록 조회 범위 타입을 product types로 이동
  */
 
@@ -294,6 +295,7 @@ export interface ProductType extends BaseProduct {
   _count: {
     product_likes: number;
   };
+  isLiked?: boolean;
   board_games?: Array<{
     boardGame: BoardGameRelationOption;
   }>;

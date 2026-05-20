@@ -27,6 +27,7 @@
  * 2026.05.03  임도헌   Modified  프로필 판매/구매/찜 목록의 보드게임 relation을 카드 DTO에 맞게 평탄화
  * 2026.05.08  임도헌   Modified  UserProductsScope를 features/product/types.ts 공용 타입으로 이동
  * 2026.05.16  임도헌   Modified  커서 옵션 타입을 Prisma findMany 인자 기준으로 정리
+ * 2026.05.18  임도헌   Modified  예약/판매 완료/구매 내역 목록 정렬을 등록일이 아닌 상태 전환 시각 기준으로 보정
  */
 
 import "server-only";
@@ -183,6 +184,7 @@ export async function getUserProductsList<
     const pageRows = hasNext ? likedRows.slice(0, TAKE) : likedRows;
     const products = pageRows.map((r) => ({
       ...mapProfileProductRow(r.product),
+      isLiked: true,
       liked_at: r.created_at,
     })) as unknown as T[];
     const nextCursor = hasNext
@@ -206,10 +208,19 @@ export async function getUserProductsList<
     if (exists) cursorOpt = { skip: 1, cursor: { id: cursor } };
   }
 
+  const orderBy: Prisma.ProductFindManyArgs["orderBy"] =
+    scope.type === "RESERVED"
+      ? // 예약 중 탭은 최근 예약된 상품이 먼저 보이도록 예약 시각을 정렬 기준으로 사용
+        [{ reservation_at: "desc" }, { id: "desc" }]
+      : scope.type === "SOLD" || scope.type === "PURCHASED"
+      ? // 거래 내역 성격의 탭은 등록 순서가 아니라 실제 거래 완료 시각을 최신순 기준으로 사용
+        [{ purchased_at: "desc" }, { id: "desc" }]
+      : { id: "desc" };
+
   const rows = await db.product.findMany({
     where: whereFor(scope),
     select: PROFILE_SALES_UNIFIED_SELECT,
-    orderBy: { id: "desc" },
+    orderBy,
     take: TAKE + 1,
     ...cursorOpt,
   });

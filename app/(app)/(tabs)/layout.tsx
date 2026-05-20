@@ -13,12 +13,12 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/layout.tsx 에서 app/(app)/(tabs)/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.12  임도헌   Modified  TabBar 신호 뱃지용 초기 미읽음 채팅 수 서버 주입
  * 2026.05.17  임도헌   Modified  채팅방 Realtime 구독을 탭 레이아웃 브리지 1개로 통합
+ * 2026.05.18  임도헌   Modified  채팅 Realtime 브리지를 앱 전역 레이아웃으로 이동하고 탭바 초기값 주입만 유지
  */
 
 import TabBar from "@/components/global/TabBar";
 import getSession from "@/lib/session";
 import { getUnreadChatMessageCount } from "@/features/chat/service/room";
-import ChatRoomsRealtimeBridge from "@/features/chat/components/ChatRoomsRealtimeBridge";
 
 export default async function TabLayout({
   children,
@@ -32,7 +32,6 @@ export default async function TabLayout({
 
   return (
     <>
-      {session?.id ? <ChatRoomsRealtimeBridge userId={session.id} /> : null}
       <main className="flex-1 w-full min-h-screen">{children}</main>
       <TabBar
         userId={session?.id}

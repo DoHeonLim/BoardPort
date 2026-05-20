@@ -24,6 +24,7 @@
  * 2026.04.14  임도헌   Modified  현재 목록 경로(returnTo)와 대표 카드 우선 로드 여부를 상위에서 주입받도록 정리
  * 2026.04.20  임도헌   Modified  게시글 카드 포커스가 브라우저 기본 outline 대신 keyboard-only inset 링으로 보이도록 조정
  * 2026.05.03  임도헌   Modified  게시글 목록 카드에 연결 보드게임 요약 배지 표시
+ * 2026.05.18  임도헌   Modified  게시글 카드 좋아요 하트 색상을 현재 사용자 좋아요 여부 기준으로 전달
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -128,6 +129,7 @@ export default function PostCard({
           <PostCardMeta
             views={post.views}
             likes={post._count.post_likes}
+            isLiked={Boolean(post.isLiked)}
             comments={post._count.comments}
             createdAt={post.created_at.toString()}
             region2={post.region2}

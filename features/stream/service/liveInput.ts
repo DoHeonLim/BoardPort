@@ -12,6 +12,7 @@
  * 2026.01.23  임도헌   Merged    LiveInput 관련 로직 통합 및 Session 의존성 제거
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.05.16  임도헌   Modified  Cloudflare Live Input 응답 타입을 명시해 any 캐스팅 제거
+ * 2026.05.19  임도헌   Modified  RTMP URL을 환경변수 override 없이 Cloudflare 기본 ingest URL로 통일
  */
 
 import "server-only";
@@ -26,9 +27,7 @@ const API_BASE = "https://api.cloudflare.com/client/v4";
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const AUTH = `Bearer ${CF_TOKEN}`;
-const DEFAULT_RTMPS_URL =
-  process.env.NEXT_PUBLIC_CLOUDFLARE_RTMP_URL?.trim() ||
-  "rtmps://live.cloudflare.com:443/live/";
+const DEFAULT_RTMPS_URL = "rtmps://live.cloudflare.com:443/live/";
 
 type CloudflareLiveInputResponse = {
   result?: {

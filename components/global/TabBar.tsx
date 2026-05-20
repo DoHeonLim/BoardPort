@@ -27,13 +27,15 @@
  * 2026.03.28  임도헌   Modified  AppWrapper 폭 측정 전 초기 렌더에서도 탭바가 왼쪽으로 압축되지 않도록 전체 폭 fallback을 추가
  * 2026.05.12  임도헌   Modified  신호 탭에 미읽음 채팅 뱃지와 rooms_refresh 기반 실시간 갱신 추가
  * 2026.05.17  임도헌   Modified  rooms_refresh 구독을 ChatRoomsRealtimeBridge로 이동해 탭바는 query 표시만 담당
+ * 2026.05.18  임도헌   Modified  서버 초기 미읽음 수를 query cache에 명시 동기화해 탭 전환 후 뱃지 잔상 보정
+ * 2026.05.18  임도헌   Modified  미읽음 수 클라이언트 재검증을 Server Action 대신 전용 API 조회로 전환
  */
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   NewspaperIcon as SolidNewspaperIcon,
   HomeIcon as SolidHomeIcon,
@@ -50,11 +52,28 @@ import {
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { queryKeys } from "@/lib/queryKeys";
-import { getUnreadChatMessageCountAction } from "@/features/chat/actions/room";
 
 interface TabBarProps {
   userId?: number;
   initialUnreadChatCount?: number;
+}
+
+/**
+ * TabBar 채팅 뱃지용 전체 미읽음 수 조회
+ *
+ * Client Component 초기 렌더에서 Server Action을 직접 queryFn으로 호출하면
+ * App Router fetch waterfall 오류가 발생할 수 있어 전용 Route Handler를 사용합니다.
+ */
+async function fetchUnreadChatMessageCount() {
+  const response = await fetch("/api/chats/unread-count", {
+    cache: "no-store",
+    credentials: "include",
+  });
+
+  if (!response.ok) return 0;
+
+  const data = (await response.json()) as { count?: number };
+  return typeof data.count === "number" ? data.count : 0;
 }
 
 /**
@@ -64,12 +83,14 @@ interface TabBarProps {
  * - 최상위 탭 경로 및 타 유저 프로필/채널 페이지에서 노출
  * - 현재 경로 기준 active 상태 표시
  * - 모바일 하단 고정 내비게이션 제공
+ * - 신호 탭에 전체 채팅 미읽음 수를 표시하고 query invalidation으로 최신화
  */
 export default function TabBar({
   userId,
   initialUnreadChatCount = 0,
 }: TabBarProps) {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const [shellBounds, setShellBounds] = useState<{
     left: number;
     width: number;
@@ -78,11 +99,21 @@ export default function TabBar({
   // 서버에서 받은 초기값으로 첫 렌더 뱃지를 채우고, 이후에는 query invalidation으로 최신화
   const unreadChatCountQuery = useQuery({
     queryKey: queryKeys.chats.unreadCount(userId ?? 0),
-    queryFn: getUnreadChatMessageCountAction,
+    queryFn: fetchUnreadChatMessageCount,
     enabled: Boolean(userId),
     initialData: initialUnreadChatCount,
     staleTime: 60 * 1000,
   });
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // 라우트 전환 시 서버 레이아웃이 계산한 최신 미읽음 수를 기존 클라이언트 캐시에 반영
+    queryClient.setQueryData(
+      queryKeys.chats.unreadCount(userId),
+      initialUnreadChatCount
+    );
+  }, [initialUnreadChatCount, queryClient, userId]);
 
   const tabs = [
     {
@@ -158,7 +189,8 @@ export default function TabBar({
 
   if (!shouldShowTabBar) return null;
 
-  const unreadChatCount = unreadChatCountQuery.data ?? initialUnreadChatCount;
+  const unreadChatCount =
+    unreadChatCountQuery.data ?? initialUnreadChatCount;
   const unreadChatBadgeText =
     unreadChatCount > 99 ? "99+" : String(unreadChatCount);
 

@@ -9,6 +9,7 @@
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
  * 2026.01.08  임도헌   Modified  대량 유저 처리 시 타임아웃 방지를 위해 Rolling Batch(take:50) 전략 적용
  * 2026.01.09  임도헌   Modified  Vercel Hobby 플랜 제한(1일 1회) 대응으로 배지 점검 배치 크기 정책을 재조정
+ * 2026.05.19  임도헌   Modified  Vercel Cron 자동 Authorization 헤더와 맞추기 위해 CRON_SECRET 기준으로 변경
  */
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
@@ -32,8 +33,8 @@ const RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
  * - 타임아웃 방지를 위해 'Rolling Batch' 전략을 사용하여 일정 수의 유저만 처리
  */
 export async function GET(req: NextRequest) {
-  // 1. 보안 체크: Vercel Cron 인증 헤더 검증
-  const cronSecret = process.env.CRON_SECRET_CHECK_BADGE;
+  // 1. 보안 체크: Vercel Cron은 CRON_SECRET 값을 Authorization: Bearer 헤더로 전달
+  const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = req.headers.get("authorization");
     const querySecret = req.nextUrl.searchParams.get("secret"); // 로컬 테스트용

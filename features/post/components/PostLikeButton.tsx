@@ -23,16 +23,23 @@
  * 2026.04.14  임도헌   Modified  게시글 상세 기준으로 좋아요 시각 텍스트를 명시해 Lighthouse 레이블 불일치 가능성을 낮춤
  * 2026.04.14  임도헌   Modified  별도 aria-labelledby 없이 버튼 본문 텍스트를 그대로 이름으로 사용하도록 단순화
  * 2026.05.12  임도헌   Modified  다른 상세 화면과 맞춰 시각 레이블은 하트와 숫자만 남기고 접근성 이름은 aria-label로 분리
+ * 2026.05.18  임도헌   Modified  상세 좋아요 변경 시 게시글 목록 캐시의 isLiked와 좋아요 수를 함께 낙관 업데이트
  */
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import { dislikePost, likePost } from "@/features/post/actions/likes";
 import { queryKeys } from "@/lib/queryKeys";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { PostsPage } from "@/features/post/types";
 
 interface PostLikeButtonProps {
   postId: number;
@@ -46,6 +53,7 @@ interface PostLikeButtonProps {
  * [상태 주입 및 캐시 제어 로직]
  * - `initialData`를 통한 초기 렌더링 깜빡임 방지 및 상태 하이드레이션 적용
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 피드백 제공
+ * - 상세 좋아요 변경 시 목록 카드의 좋아요 수와 isLiked도 함께 갱신해 뒤로가기 후 하트 색상 정합성 유지
  * - `onError` 발생 시 `previous` 스냅샷을 활용한 이전 상태 복구(Rollback) 로직 포함
  * - `onSettled` 단계에서 `invalidateQueries` 호출로 서버/클라이언트 데이터 최종 동기화 처리
  */
@@ -73,28 +81,66 @@ export default function PostLikeButton({
     // Mutate 발생 직후 실행 (낙관적 업데이트)
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey });
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.lists() });
       // 롤백을 위한 이전 상태 스냅샷 저장
       const previous = queryClient.getQueryData(queryKey);
+      const previousLists =
+        queryClient.getQueriesData<InfiniteData<PostsPage>>({
+          queryKey: queryKeys.posts.lists(),
+        });
+
+      const nextIsLiked = !data.isLiked;
+      const nextLikeCount = data.isLiked
+        ? Math.max(0, data.likeCount - 1)
+        : data.likeCount + 1;
 
       // 캐시 강제 업데이트
       queryClient.setQueryData(queryKey, {
-        isLiked: !data.isLiked,
-        likeCount: data.isLiked
-          ? Math.max(0, data.likeCount - 1)
-          : data.likeCount + 1,
+        isLiked: nextIsLiked,
+        likeCount: nextLikeCount,
       });
 
-      return { previous };
+      // 목록 카드는 별도 좋아요 버튼이 없지만 하트 색상은 isLiked 기준이므로 상세 변경을 즉시 반영
+      queryClient.setQueriesData<InfiniteData<PostsPage>>(
+        { queryKey: queryKeys.posts.lists() },
+        (old) =>
+          old
+            ? {
+                ...old,
+                pages: old.pages.map((page) => ({
+                  ...page,
+                  posts: page.posts.map((post) =>
+                    post.id === postId
+                      ? {
+                          ...post,
+                          isLiked: nextIsLiked,
+                          _count: {
+                            ...post._count,
+                            post_likes: nextLikeCount,
+                          },
+                        }
+                      : post
+                  ),
+                })),
+              }
+            : old
+      );
+
+      return { previous, previousLists };
     },
     // 에러 발생 시 이전 상태로 복구
     onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
       toast.error("게시글 좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
       queryClient.setQueryData(queryKey, context?.previous);
+      context?.previousLists.forEach(([listQueryKey, listData]) => {
+        queryClient.setQueryData(listQueryKey, listData);
+      });
     },
     // 성공/실패 무관하게 백그라운드 데이터 최신화
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.lists() });
     },
   });
   const likeButtonLabel = data.isLiked

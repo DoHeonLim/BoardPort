@@ -168,7 +168,7 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
 }
 
 /**
- * 게시글 상세 공유용 OG 이미지 엔트리
+ * 게시글 상세 공유 미리보기 이미지 생성 엔트리
  */
 export default async function Image({ params }: { params: { id: string } }) {
   const id = Number(params.id);

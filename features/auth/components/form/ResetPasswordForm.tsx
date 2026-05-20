@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.14  임도헌   Created   재설정 토큰 기반 새 비밀번호 설정 폼 추가
  * 2026.03.18  임도헌   Modified  비밀번호 재설정 후 로그인 화면으로 복귀할 때 callbackUrl을 유지
+ * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  */
 "use client";
 
@@ -56,31 +57,33 @@ export default function ResetPasswordForm({
 
   const onSubmit = (data: PasswordResetFormSchema) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append("token", token);
-      formData.append("password", data.password);
-      formData.append("confirmPassword", data.confirmPassword);
+      try {
+        const formData = new FormData();
+        formData.append("token", token);
+        formData.append("password", data.password);
+        formData.append("confirmPassword", data.confirmPassword);
 
-      const result = await resetPasswordAction(undefined, formData);
+        const result = await resetPasswordAction(undefined, formData);
 
-      if (!result.success) {
-        if (result.fieldErrors) {
-          applyFieldErrors<PasswordResetFormSchema>(
-            setError,
-            result.fieldErrors,
-            { setFocus }
-          );
+        if (!result.success) {
+          if (result.fieldErrors) {
+            applyFieldErrors<PasswordResetFormSchema>(
+              setError,
+              result.fieldErrors,
+              { setFocus }
+            );
+          }
+          if (result.error) {
+            toast.error(result.error);
+          }
+          return;
         }
-        if (result.error) {
-          toast.error(result.error);
-        }
-        return;
+
+        toast.success("비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요.");
+        router.replace(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+      } catch {
+        toast.error("비밀번호 재설정 중 일시적인 오류가 발생했습니다.");
       }
-
-      toast.success("비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요.");
-      router.replace(
-        `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-      );
     });
   };
 

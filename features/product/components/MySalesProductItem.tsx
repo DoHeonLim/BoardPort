@@ -50,6 +50,7 @@
  * 2026.04.20  임도헌   Modified  썸네일/제목 링크가 기본 outline 대신 공용 포커스 톤을 따르도록 정리
  * 2026.05.03  임도헌   Modified  프로필 판매 카드에 연결 보드게임 배지 표시 추가
  * 2026.05.05  임도헌   Modified  판매 내역 카드 helper와 상태/리뷰 핸들러 JSDoc 보강
+ * 2026.05.18  임도헌   Modified  판매 완료 탭의 시간 표기를 등록일이 아닌 판매 완료 시점 기준으로 보정
  */
 
 "use client";
@@ -260,6 +261,10 @@ export default function MySalesProductItem({
   const buyerReviews = reviews.filter(
     (r) => r.userId === (product.purchase_userId ?? -1)
   );
+  const displayDate =
+    type === "sold"
+      ? product.purchased_at ?? product.created_at
+      : product.created_at;
 
   // 리뷰 작성 훅
   const { isLoading: reviewLoading, submitReview } = useReview({
@@ -641,7 +646,7 @@ export default function MySalesProductItem({
                   {product.views ?? 0}
                 </Metric>
               </div>
-              <TimeAgo date={product.created_at?.toString() ?? ""} />
+              <TimeAgo date={displayDate?.toString() ?? ""} />
             </div>
           </div>
         </div>

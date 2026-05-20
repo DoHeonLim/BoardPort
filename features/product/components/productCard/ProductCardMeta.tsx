@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/components/productCard/ProductCardMeta.tsx
- * Description : 조회수, 좋아요, 생성일 등 제품 메타 정보 표시 컴포넌트
+ * Description : 조회수, 좋아요, 위치, 기준 시점 등 제품 메타 정보 표시 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -22,6 +22,8 @@
  * 2026.04.17  임도헌   Modified  찜한 내역에서도 활동 시점(activityLabel + TimeAgo)이 장소 유무와 무관하게 우측 끝에 고정되도록 정렬 규칙 정리
  * 2026.05.04  임도헌   Modified  그리드 카드의 위치/시간/반응 메타를 한 줄로 압축
  * 2026.05.04  임도헌   Modified  그리드 카드 작성 시간을 우측 끝에 고정해 장소 유무와 무관한 정렬 유지
+ * 2026.05.18  임도헌   Modified  좋아요 수가 아닌 현재 유저 좋아요 여부 기준으로 하트 색상 표시
+ * 2026.05.20  임도헌   Modified  작성 시간 외 찜/끌어올림 기준 활동 시점 표시 의미를 주석에 반영
  */
 
 "use client";
@@ -39,6 +41,7 @@ import type { ISODate, ViewMode } from "@/features/product/types";
 interface ProductCardMetaProps {
   views: number;
   likes: number;
+  isLiked?: boolean;
   createdAt: ISODate;
   activityAt?: ISODate;
   activityLabel?: string;
@@ -49,17 +52,18 @@ interface ProductCardMetaProps {
 }
 
 /**
- * 하단 메타 정보(좋아요 수, 조회수, 작성 시간, 위치)를 표시하는 컴포넌트
+ * 하단 메타 정보(좋아요 수, 조회수, 위치, 기준 시점)를 표시하는 컴포넌트
  *
  * [레이아웃 최적화]
- * 1. 통계(좋아요/조회수)와 시간 정보는 형태를 유지하도록 고정(shrink-0)
+ * 1. 통계(좋아요/조회수)와 기준 시점은 형태를 유지하도록 고정(shrink-0)
  * 2. 위치 정보는 공간이 부족할 경우 말줄임(...) 처리하여 줄바꿈 방지(flex-1 min-w-0)
  * 3. 다크모드 가시성을 위해 구분선 및 아이콘 색상 보정
- * 4. 리스트 카드에서는 위치 유무와 관계없이 작성 시간을 우측 끝에 정렬
+ * 4. 리스트 카드에서는 위치 유무와 관계없이 기준 시점을 우측 끝에 정렬
  */
 export default function ProductCardMeta({
   views,
   likes,
+  isLiked = false,
   createdAt,
   activityAt,
   activityLabel,
@@ -115,7 +119,7 @@ export default function ProductCardMeta({
               <HeartIcon
                 className={cn(
                   "size-3",
-                  likes > 0 ? "text-rose-500" : "text-muted/70"
+                  isLiked ? "text-rose-500" : "text-muted/70"
                 )}
               />
               <span>{likes}</span>
@@ -157,7 +161,7 @@ export default function ProductCardMeta({
             <HeartIcon
               className={cn(
                 "size-3",
-                likes > 0 ? "text-rose-500" : "text-muted/70"
+                isLiked ? "text-rose-500" : "text-muted/70"
               )}
             />
             <span>{likes}</span>
@@ -190,7 +194,7 @@ export default function ProductCardMeta({
                 <span className="shrink-0 text-border-subtle dark:text-neutral-700/80">
                   |
                 </span>
-                {/* 4. 작성/활동 시간 */}
+                {/* 작성일, 찜한 시점, 끌어올림 시점처럼 카드 맥락에 맞는 기준 시점 */}
                 {timeMeta}
               </div>
             )}

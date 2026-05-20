@@ -16,19 +16,69 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.31  임도헌   Modified  커서 조회와 평탄화 반환 역할이 보이도록 설명 톤 통일
  * 2026.05.13  임도헌   Modified  댓글 페이징 응답의 nextCursor를 사용해 불필요한 빈 추가 요청을 방지
+ * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  */
 "use client";
 
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
-import { getRecordingCommentsListAction } from "@/features/stream/actions/comments";
 import { queryKeys } from "@/lib/queryKeys";
+import type { StreamComment } from "@/features/stream/types";
+
+interface RecordingCommentsPage {
+  comments: StreamComment[];
+  nextCursor?: number;
+}
+
+/**
+ * 녹화본 댓글 Route Handler 요청 URL 생성
+ *
+ * @param vodId - 대상 녹화본 ID
+ * @param cursor - 다음 페이지 커서
+ * @param limit - 페이지당 로드할 댓글 수
+ * @returns 녹화본 댓글 API URL
+ */
+function buildRecordingCommentsApiUrl(
+  vodId: number,
+  cursor: number | undefined,
+  limit: number
+) {
+  const params = new URLSearchParams({ limit: String(limit) });
+
+  if (cursor !== undefined) {
+    params.set("cursor", String(cursor));
+  }
+
+  return `/api/streams/recordings/${vodId}/comments?${params.toString()}`;
+}
+
+/**
+ * 녹화본 댓글 Route Handler 응답 조회
+ * Client Component queryFn에서는 Server Action 직접 호출 대신 HTTP fetch를 사용해 초기 렌더 fetch waterfall 오류를 방지
+ *
+ * @param url - 요청 URL
+ * @returns 녹화본 댓글 목록 페이지
+ */
+async function fetchRecordingCommentsPage(
+  url: string
+): Promise<RecordingCommentsPage> {
+  const response = await fetch(url, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw new Error("녹화본 댓글을 불러오지 못했습니다.");
+  }
+
+  return response.json();
+}
 
 /**
  * 녹화본 댓글 조회 전용 Suspense Query 훅
  *
  * [기능]
  * - `useSuspenseInfiniteQuery`로 녹화본 댓글 목록을 커서 기반으로 조회
- * - 서버 액션(`getRecordingCommentsListAction`)을 호출해 다음 페이지를 이어서 읽음
+ * - Route Handler fetch로 Server Action 직접 호출을 피하고 다음 페이지를 이어서 읽음
  * - 평탄화된 comments 배열과 페이지네이션 상태를 함께 반환
  *
  * @param {number} vodId - 대상 녹화본(VOD) ID
@@ -39,10 +89,13 @@ export function useRecordingCommentsQuery(vodId: number, pageSize = 10) {
     useSuspenseInfiniteQuery({
       queryKey: queryKeys.streams.vodComments(vodId),
       queryFn: async ({ pageParam }) => {
-        return await getRecordingCommentsListAction(
-          vodId,
-          pageParam as number | undefined,
-          pageSize
+        // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
+        return fetchRecordingCommentsPage(
+          buildRecordingCommentsApiUrl(
+            vodId,
+            pageParam as number | undefined,
+            pageSize
+          )
         );
       },
       initialPageParam: undefined as number | undefined,

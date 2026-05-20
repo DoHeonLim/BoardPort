@@ -10,6 +10,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 안내 문구와 복귀 링크 타이포 계층을 정리
  * 2026.04.20  임도헌   Modified  계정 노출 방지 정책을 유지하면서도 비밀번호 재설정 요청 성공 문구를 더 자연스럽게 정리
  * 2026.05.12  임도헌   Modified  로그인 복귀 링크 클릭 시 blur 검증으로 이동이 지연되지 않도록 처리
+ * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  */
 "use client";
 
@@ -58,31 +59,35 @@ export default function ForgotPasswordForm({
 
   const onSubmit = (data: PasswordResetRequestSchema) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append("email", data.email);
-      // 재설정 완료 후 다시 로그인할 때 원래 목적지 복귀 문맥 유지
-      formData.append("callbackUrl", callbackUrl);
+      try {
+        const formData = new FormData();
+        formData.append("email", data.email);
+        // 재설정 완료 후 다시 로그인할 때 원래 목적지 복귀 문맥 유지
+        formData.append("callbackUrl", callbackUrl);
 
-      const result = await requestPasswordResetAction(undefined, formData);
+        const result = await requestPasswordResetAction(undefined, formData);
 
-      if (!result.success) {
-        if (result.fieldErrors) {
-          applyFieldErrors<PasswordResetRequestSchema>(
-            setError,
-            result.fieldErrors,
-            { setFocus }
-          );
+        if (!result.success) {
+          if (result.fieldErrors) {
+            applyFieldErrors<PasswordResetRequestSchema>(
+              setError,
+              result.fieldErrors,
+              { setFocus }
+            );
+          }
+          if (result.error) {
+            toast.error(result.error);
+          }
+          return;
         }
-        if (result.error) {
-          toast.error(result.error);
-        }
-        return;
+
+        setSubmitted(true);
+        toast.success(
+          "입력하신 이메일을 확인해 주세요. 재설정 안내가 가능한 계정이면 메일을 보냈습니다."
+        );
+      } catch {
+        toast.error("재설정 메일 요청 중 일시적인 오류가 발생했습니다.");
       }
-
-      setSubmitted(true);
-      toast.success(
-        "입력하신 이메일을 확인해 주세요. 재설정 안내가 가능한 계정이면 메일을 보냈습니다."
-      );
     });
   };
 

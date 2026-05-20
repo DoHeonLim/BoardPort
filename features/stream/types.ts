@@ -27,6 +27,7 @@
  * 2026.05.16  임도헌   Modified  접근/상태 헬퍼를 utils/access.ts로 분리해 타입 파일 역할 정리
  * 2026.05.16  임도헌   Modified  live-status Realtime payload 공용 타입 추가
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 추가
+ * 2026.05.18  임도헌   Modified  다시보기 카드 통계 메타 표시를 위한 likeCount/commentCount/isLiked 필드 추가
  */
 
 import type { StreamChatMessage } from "@/features/chat/types";
@@ -136,6 +137,9 @@ export interface VodForGrid {
   readyAt: Date | null;
   duration?: number;
   viewCount?: number;
+  likeCount?: number; // 카드 메타용 녹화본 좋아요 수
+  commentCount?: number; // 카드 메타용 녹화본 댓글 수
+  isLiked?: boolean; // 현재 조회자의 녹화본 좋아요 여부
   category?: StreamCategory | null;
   tags?: StreamTag[];
   board_games?: Array<{

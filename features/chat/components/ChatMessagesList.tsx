@@ -56,10 +56,11 @@
  * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 검색 상태 문구 강조 weight를 500 기준으로 정리
  * 2026.04.21  임도헌   Modified  검색/뷰포트 상태를 전용 훅으로 분리하고 함수 설명 주석을 정리
  * 2026.04.22  임도헌   Modified  메시지 삭제 확인을 브라우저 confirm 대신 공용 ConfirmDialog로 통일
+ * 2026.05.18  임도헌   Modified  채팅방 진입 직후 목록/TabBar 미읽음 캐시를 읽음 상태와 즉시 동기화
  */
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -203,6 +204,24 @@ export default function ChatMessagesList({
     isMobile,
     isKeyboardOpen,
   });
+
+  useEffect(() => {
+    // 서버 컴포넌트에서 이미 읽음 처리한 결과를 클라이언트 Query Cache에도 즉시 반영
+    queryClient.setQueryData(
+      queryKeys.chats.list(user.id),
+      (oldRooms: ChatRoom[] | undefined) => {
+        if (!oldRooms) return oldRooms;
+
+        return oldRooms.map((room) =>
+          room.id === productChatRoomId ? { ...room, unreadCount: 0 } : room
+        );
+      }
+    );
+    void queryClient.refetchQueries({
+      queryKey: queryKeys.chats.unreadCount(user.id),
+      type: "all",
+    });
+  }, [productChatRoomId, queryClient, user.id]);
 
   /**
    * 채팅방 목록 마지막 메시지 미리보기 동기화
