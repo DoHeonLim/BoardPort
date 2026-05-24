@@ -30,6 +30,8 @@
  * 2026.04.26  임도헌   Modified  좁은 화면에서도 링크형 알림의 보기 버튼이 제목 행 오른쪽에 유지되도록 2열 배치로 정리
  * 2026.04.26  임도헌   Modified  개별 읽음 처리를 "읽음으로 표시" 보조 버튼으로 정리해 보기 액션과 구분
  * 2026.04.26  임도헌   Modified  읽음 액션 토스트 문구를 화면 버튼 라벨과 같은 표현으로 통일
+ * 2026.05.23  임도헌   Modified  삭제된 콘텐츠의 오래된 알림 이미지가 깨질 때 타입 아이콘으로 fallback 처리
+ * 2026.05.24  임도헌   Modified  삭제된 콘텐츠 알림의 이동 불가 보조 문구 추가
  */
 "use client";
 
@@ -84,6 +86,13 @@ const KeywordAlertModal = dynamic(
   { ssr: false }
 );
 
+const CONTENT_LINKED_NOTIFICATION_TYPES = new Set([
+  "TRADE",
+  "CHAT",
+  "STREAM",
+  "KEYWORD",
+]);
+
 /**
  * 알림함 목록 및 읽음 처리 컨테이너 컴포넌트
  *
@@ -104,6 +113,9 @@ export default function NotificationListContainer({
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     data.items
   );
+  const [failedImageIds, setFailedImageIds] = useState<Set<number>>(
+    () => new Set()
+  );
   const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false);
   const [isMarkingAll, startMarkingAll] = useTransition();
   const router = useRouter();
@@ -119,6 +131,7 @@ export default function NotificationListContainer({
   useEffect(() => {
     // 서버 응답 기준 로컬 목록 재동기화
     setNotifications(data.items);
+    setFailedImageIds(new Set());
   }, [data.items]);
 
   // Zustand 액션 가져오기
@@ -203,6 +216,11 @@ export default function NotificationListContainer({
     "KEYWORD",
     "SYSTEM",
   ];
+  const shouldShowUnavailableCopy = (notification: NotificationItem) =>
+    !notification.link && CONTENT_LINKED_NOTIFICATION_TYPES.has(notification.type);
+
+  // 링크가 제거된 콘텐츠형 알림에만 이동 불가 안내를 보여준다.
+  // 시스템/배지 알림은 원래 링크가 없을 수 있어 안내 대상에서 제외한다.
   /**
    * 선택한 알림 필터로 이동하며 page 쿼리는 1페이지 기준으로 초기화
    * - 알림 센터 내부 상태 전환이므로 히스토리를 남기지 않도록 replace 사용
@@ -310,40 +328,50 @@ export default function NotificationListContainer({
           </div>
         ) : (
           <ul className="divide-y divide-border-subtle">
-            {notifications.map((notification) => (
-              <li
-                key={notification.id}
-                style={{
-                  contentVisibility: "auto",
-                  containIntrinsicSize: "136px",
-                }}
-                className={cn(
-                  "flex items-start gap-4 px-5 py-4 transition-colors sm:items-center",
-                  notification.isRead
-                    ? "bg-surface"
-                    : "bg-surface hover:bg-surface-dim/50"
-                )}
-              >
-                <div className="relative size-11 shrink-0 flex items-center justify-center rounded-xl bg-surface-dim border border-border-subtle text-brand dark:text-brand-light">
-                  {notification.image ? (
-                    <Image
-                      src={notification.image}
-                      alt=""
-                      fill
-                      sizes="44px"
-                      className="object-cover rounded-xl"
-                    />
-                  ) : (
-                    <span className="drop-shadow-sm">
-                      {typeIcons[notification.type] || (
-                        <BellAlertIcon className="size-5" />
-                      )}
-                    </span>
+            {notifications.map((notification) => {
+              const icon = typeIcons[notification.type] || (
+                <BellAlertIcon className="size-5" />
+              );
+              const canRenderImage =
+                !!notification.image && !failedImageIds.has(notification.id);
+
+              return (
+                <li
+                  key={notification.id}
+                  style={{
+                    contentVisibility: "auto",
+                    containIntrinsicSize: "136px",
+                  }}
+                  className={cn(
+                    "flex items-start gap-4 px-5 py-4 transition-colors sm:items-center",
+                    notification.isRead
+                      ? "bg-surface"
+                      : "bg-surface hover:bg-surface-dim/50"
                   )}
-                  {!notification.isRead && (
-                    <span className="absolute -top-1 -right-1 size-3 bg-danger rounded-full border-2 border-surface animate-pulse" />
-                  )}
-                </div>
+                >
+                  <div className="relative size-11 shrink-0 flex items-center justify-center rounded-xl bg-surface-dim border border-border-subtle text-brand dark:text-brand-light">
+                    {canRenderImage ? (
+                      <Image
+                        src={notification.image!}
+                        alt=""
+                        fill
+                        sizes="44px"
+                        className="object-cover rounded-xl"
+                        onError={() => {
+                          setFailedImageIds((prev) => {
+                            const next = new Set(prev);
+                            next.add(notification.id);
+                            return next;
+                          });
+                        }}
+                      />
+                    ) : (
+                      <span className="drop-shadow-sm">{icon}</span>
+                    )}
+                    {!notification.isRead && (
+                      <span className="absolute -top-1 -right-1 size-3 bg-danger rounded-full border-2 border-surface animate-pulse" />
+                    )}
+                  </div>
 
                 <div className="flex-1 min-w-0">
                   {notification.link ? (
@@ -389,6 +417,11 @@ export default function NotificationListContainer({
                   <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-slate-600 dark:text-slate-300">
                     {notification.body}
                   </p>
+                  {shouldShowUnavailableCopy(notification) && (
+                    <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
+                      연결된 콘텐츠가 삭제되어 이동할 수 없습니다.
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                     <TimeAgo
                       date={notification.created_at}
@@ -407,8 +440,9 @@ export default function NotificationListContainer({
                     )}
                   </div>
                 </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

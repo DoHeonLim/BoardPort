@@ -11,11 +11,13 @@
  * 2026.04.24  임도헌   Modified  내 판매 목록 삭제 복귀는 replace+refresh를 우선 적용하고 일반 back 분기와 주석을 현재 정책 기준으로 정리
  * 2026.04.24  임도헌   Modified  내 판매 목록도 전용 refresh relay를 통해 back + 1회 refresh 복귀를 사용하도록 조정
  * 2026.04.24  임도헌   Modified  returnTo 문맥 분류와 navigation refresh helper로 삭제/숨김 복귀 분기 중복을 정리
+ * 2026.05.23  임도헌   Modified  삭제 성공 시 제품 infinite query 캐시와 stale cursor를 즉시 정리
  */
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   EllipsisVerticalIcon,
@@ -36,6 +38,11 @@ import {
   NAVIGATION_REFRESH_ROOT_ID,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
+import { queryKeys } from "@/lib/queryKeys";
+import {
+  removeProductFromInfiniteCache,
+  type ProductInfiniteCache,
+} from "@/features/product/utils/productQueryCache";
 
 interface ProductOwnerMenuProps {
   productId: number;
@@ -71,6 +78,7 @@ export default function ProductOwnerMenu({
   isHidden = false,
 }: ProductOwnerMenuProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -203,6 +211,24 @@ export default function ProductOwnerMenu({
       setConfirmOpen(false);
       setIsOpen(false);
       removeRecentViewedProduct(productId);
+      queryClient.setQueriesData(
+        {
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[0] === "products" &&
+            (query.queryKey[1] === "list" ||
+              query.queryKey[1] === "userScope"),
+        },
+        (oldData: ProductInfiniteCache<{ id: number }> | undefined) =>
+          removeProductFromInfiniteCache(oldData, productId)
+      );
+      queryClient.removeQueries({
+        queryKey: queryKeys.products.detail(productId),
+      });
+      queryClient.removeQueries({
+        queryKey: queryKeys.products.likeStatus(productId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
 
       if (returnContext === "products") {
         // 제품 목록에서 진입한 상세 삭제는 모바일 back UX를 우선 유지

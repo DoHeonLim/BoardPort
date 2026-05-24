@@ -8,6 +8,7 @@
  * 2026.02.23  임도헌   Created   회원 탈퇴 로직 추가
  * 2026.03.07  임도헌   Modified  탈퇴 실패 문구를 구체화(v1.2)
  * 2026.03.31  임도헌   Modified  도메인별 cleanup helper를 거쳐 외부 자산과 태그 정산까지 반영하도록 보강
+ * 2026.05.24  임도헌   Modified  회원 탈퇴 시 상품 채팅방 알림 링크 cleanup 메타 포함
  */
 
 import "server-only";
@@ -46,6 +47,7 @@ export async function withdrawUser(userId: number): Promise<ServiceResult> {
             id: true,
             search_tags: { select: { name: true } },
             images: { select: { url: true } },
+            chat_rooms: { select: { id: true } },
           },
         },
         post_videos: {
@@ -83,6 +85,7 @@ export async function withdrawUser(userId: number): Promise<ServiceResult> {
         id: product.id,
         search_tags: product.search_tags,
         images: product.images,
+        chat_rooms: product.chat_rooms,
       });
     }
 

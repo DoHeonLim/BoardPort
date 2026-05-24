@@ -14,6 +14,7 @@
  * 2026.04.02  임도헌   Modified  공용 알림 타입과 필터 상수를 types/constants 파일로 분리
  * 2026.04.26  임도헌   Modified  읽음 처리 실패 문구를 알림 센터 UI 액션 라벨과 같은 표현으로 정리
  * 2026.05.16  임도헌   Modified  미읽음 알림 카운트 조회를 service 계층으로 분리
+ * 2026.05.24  임도헌   Modified  삭제된 콘텐츠를 가리키는 오래된 알림 링크/이미지 응답 정규화 추가
  */
 
 import "server-only";
@@ -34,6 +35,105 @@ import type {
   NotificationListResponse,
 } from "@/features/notification/types";
 import type { ServiceResult } from "@/lib/types";
+
+type NotificationListRow = NotificationListResponse["items"][number];
+
+function extractIdFromPath(link: string | null, pattern: RegExp) {
+  if (!link) return null;
+  const match = link.match(pattern);
+  if (!match?.[1]) return null;
+  const id = Number(match[1]);
+  return Number.isInteger(id) ? id : null;
+}
+
+function extractChatRoomId(link: string | null) {
+  if (!link) return null;
+  const match = link.match(/^\/chats\/([^/?#]+)/);
+  return match?.[1] ?? null;
+}
+
+async function normalizeDeletedContentNotifications(
+  items: NotificationListRow[]
+): Promise<NotificationListRow[]> {
+  if (items.length === 0) return items;
+
+  // 기존 DB에 남은 오래된 알림도 응답 단계에서 안전하게 정규화한다.
+  // hard delete 이후 원본 콘텐츠가 없으면 링크/이미지를 제거해 404 이동과 깨진 썸네일을 막는다.
+  const productIds = new Set<number>();
+  const postIds = new Set<number>();
+  const streamIds = new Set<number>();
+  const chatRoomIds = new Set<string>();
+
+  for (const item of items) {
+    const productId = extractIdFromPath(item.link, /^\/products\/view\/(\d+)/);
+    if (productId) productIds.add(productId);
+
+    const postId = extractIdFromPath(item.link, /^\/posts\/(\d+)/);
+    if (postId) postIds.add(postId);
+
+    const streamId = extractIdFromPath(item.link, /^\/streams\/(\d+)/);
+    if (streamId) streamIds.add(streamId);
+
+    const chatRoomId = extractChatRoomId(item.link);
+    if (chatRoomId) chatRoomIds.add(chatRoomId);
+  }
+
+  const [products, posts, streams, chatRooms] = await Promise.all([
+    productIds.size
+      ? db.product.findMany({
+          where: { id: { in: [...productIds] } },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+    postIds.size
+      ? db.post.findMany({
+          where: { id: { in: [...postIds] } },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+    streamIds.size
+      ? db.broadcast.findMany({
+          where: { id: { in: [...streamIds] } },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+    chatRoomIds.size
+      ? db.productChatRoom.findMany({
+          where: { id: { in: [...chatRoomIds] } },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const existingProductIds = new Set(products.map((item) => item.id));
+  const existingPostIds = new Set(posts.map((item) => item.id));
+  const existingStreamIds = new Set(streams.map((item) => item.id));
+  const existingChatRoomIds = new Set(chatRooms.map((item) => item.id));
+
+  return items.map((item) => {
+    const productId = extractIdFromPath(item.link, /^\/products\/view\/(\d+)/);
+    if (productId && !existingProductIds.has(productId)) {
+      return { ...item, link: null, image: null };
+    }
+
+    const postId = extractIdFromPath(item.link, /^\/posts\/(\d+)/);
+    if (postId && !existingPostIds.has(postId)) {
+      return { ...item, link: null, image: null };
+    }
+
+    const streamId = extractIdFromPath(item.link, /^\/streams\/(\d+)/);
+    if (streamId && !existingStreamIds.has(streamId)) {
+      return { ...item, link: null, image: null };
+    }
+
+    const chatRoomId = extractChatRoomId(item.link);
+    if (chatRoomId && !existingChatRoomIds.has(chatRoomId)) {
+      return { ...item, link: null, image: null };
+    }
+
+    return item;
+  });
+}
 
 /**
  * DB 알림 타입을 알림 센터 필터 그룹으로 정규화
@@ -293,11 +393,12 @@ export async function getNotifications(
       skip,
       take: limit,
     });
+    const normalizedItems = await normalizeDeletedContentNotifications(items);
 
     return {
       success: true,
       data: {
-        items,
+        items: normalizedItems,
         total,
         totalPages,
         currentPage,

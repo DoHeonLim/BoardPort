@@ -112,8 +112,8 @@ BoardPort에서는 `목록 -> 상세 -> 수정 -> 저장/취소/삭제` 흐름�
 ### 4. 풀페이지 상세 삭제
 
 - 게시글 / 제품 일반 상세 / 녹화 상세 삭제는 목록 또는 채널 문맥으로 진입했으면 `history back`을 우선 사용
-- 게시글 목록과 녹화 목록/채널은 기존 refresh 플래그를 1회 소비하고 `router.refresh()`로 stale 화면만 보정
-- 제품 목록(`/products`)과 내 판매 목록(`/profile/my-sales`)은 App Router back 복귀 시 상세 트리가 함께 복원되는 예외가 있어 `window.location.reload()`로 현재 엔트리를 다시 로드
+- 게시글 목록(`/posts`), 제품 목록(`/products`), 내 판매 목록(`/profile/my-sales`)은 App Router back 복귀 시 상세 트리가 함께 복원되는 예외가 있어 `window.location.reload()`로 현재 엔트리를 다시 로드
+- 녹화 목록/채널은 기존 refresh 플래그를 1회 소비하고 `router.refresh()`로 stale 화면만 보정
 - 직접 진입처럼 안전한 `back` 대상이 없을 때만 `router.replace(returnTo)` fallback 사용
 - 제품 모달 상세 삭제는 기존처럼 `back` 우선 정책 유지
 
@@ -124,6 +124,49 @@ BoardPort에서는 `목록 -> 상세 -> 수정 -> 저장/취소/삭제` 흐름�
 - `router.replace(returnTo)`만 사용하면 현재 상세 엔트리는 목록으로 바뀌지만, 이전 목록 엔트리가 그대로 남아서 뒤로가기에 같은 목록이 한 번 더 나타납니다.
 - 모바일 퍼스트 기준에서는 뒤로가기 UX가 앞으로가기 UX보다 중요하므로, forward history에 삭제된 상세가 남는 trade-off를 수용하고 `back`을 기본 정책으로 유지합니다.
 - `router.refresh()`는 브라우저 히스토리를 정리하지는 않지만, back 복귀 직후 stale list를 보정하는 수준에서는 충분합니다.
+
+#### 4.1 게시글 삭제 후 mixed tree 사례
+
+게시글 상세에서 삭제 후 `/posts` 목록으로 복귀하는 과정에서 App Router mixed tree 문제가 확인됐습니다.
+
+증상:
+
+- URL은 `/posts`로 바뀌었지만 화면 상단에 삭제된 게시글 상세 segment가 그대로 남음
+- 스크롤을 내리면 그 아래에 게시글 목록이 함께 렌더링됨
+- 새로고침해야 정상적인 `/posts` 목록 화면으로 돌아옴
+- 다른 페이지로 이동해도 삭제된 상세 UI가 상단에 남는 경우 발생
+
+원인:
+
+`router.refresh()`는 서버 데이터를 다시 가져오지만, 메모리상의 라우터 트리 구조 자체를 재구성하지는 않습니다. `router.back()`으로 `/posts`로 복귀해도 App Router가 이전 상세 segment를 트리에서 제거하지 않은 채 목록을 함께 렌더링하면서 mixed tree 상태가 발생했습니다.
+
+즉 이 문제는 단순 데이터 stale 문제가 아니라 **라우터 트리 자체가 꼬인 mixed tree 상태**였습니다.
+
+해결:
+
+- `PostListRefreshRelay`에서 `router.refresh()` 대신 `window.location.reload()`를 사용해 전체 문서를 재요청하고 라우터 트리를 초기화
+- TanStack Query의 게시글 목록 infinite cache에서 삭제된 post id를 즉시 제거
+- 삭제된 post id가 `nextCursor`로 남아 있으면 다음 페이지 요청이 깨질 수 있으므로 cursor도 함께 보정
+- 삭제된 게시글 상세/좋아요 query cache를 제거하고 posts query를 invalidate
+
+`window.location.reload()`를 선택한 이유:
+
+`router.refresh()`는 SPA 방식으로 서버 데이터만 갱신합니다. 반면 `window.location.reload()`는 브라우저가 전체 문서를 새로 요청하면서 메모리의 라우터 트리를 처음부터 다시 구성합니다. mixed tree 잔상을 제거하는 데 가장 확실한 방법이지만, SPA 상태 전체가 초기화되는 비용도 있습니다. 삭제 직후 목록 복귀라는 문맥에서는 이 비용이 허용 가능하다고 판단했습니다.
+
+cursor 보정이 필요했던 이유:
+
+무한스크롤은 이전 페이지의 마지막 항목 id를 `nextCursor`로 사용합니다. 삭제된 post id가 cursor로 남아 있으면 다음 페이지 요청에서 존재하지 않는 기준점을 참조하게 됩니다. 그래서 cache에서 항목 제거와 동시에 cursor도 보정했습니다.
+
+이 문제의 범위:
+
+녹화 목록/채널은 `router.refresh()`로 stale 보정만 해도 충분했습니다. 반면 게시글 목록(`/posts`), 제품 목록(`/products`), 내 판매 목록(`/profile/my-sales`)은 mixed tree 잔상이 재현되어 `window.location.reload()`를 사용합니다.
+
+관련 파일:
+
+- `PostOwnerMenu.tsx`
+- `PostListRefreshRelay.tsx`
+- `features/post/service/post.ts`
+- `lib/queryKeys.ts`
 
 ### 5. 삭제된 상세 재진입 방어
 
@@ -225,7 +268,7 @@ BoardPort에서 `router.back()`은 단순히 `window.history.length > 1`만으�
 
 역할:
 
-- 복귀 직후 대상 화면에서 `router.refresh()`를 1회 호출하도록 만드는 단발성 신호 전달
+- 복귀 직후 대상 화면을 1회 재동기화하도록 만드는 단발성 신호 전달
 - 현재 refresh flag는 `sessionStorage` 기반이며, 같은 탭의 navigation 복귀 보정만 목적으로 합니다.
 - `returnTo`를 대체하지 않음
 - 히스토리 정책을 결정하지 않음
@@ -233,7 +276,7 @@ BoardPort에서 `router.back()`은 단순히 `window.history.length > 1`만으�
 즉 이 유틸은:
 
 > “어디로 돌아갈지”를 정하는 도구가 아니라
-> “돌아간 화면에서 서버 컴포넌트 payload를 다시 요청하고, 이미 revalidate된 데이터를 한 번 반영할지”를 정하는 도구
+> “돌아간 화면에서 서버 컴포넌트 payload를 다시 요청하거나, 도메인별 예외에서는 현재 문서를 다시 로드해 라우터 트리를 초기화할지”를 정하는 도구
 
 입니다.
 
@@ -279,8 +322,8 @@ BoardPort에서 `router.back()`은 단순히 `window.history.length > 1`만으�
 
 1. 수정 저장은 기존 상세/모달 문맥을 재사용한다.
 2. 삭제는 목록/채널 문맥으로 복귀한다.
-3. `returnTo`는 복귀 목적지, `navigationRefreshFlag`는 복귀 후 1회 `router.refresh()` 신호다.
-   단, `/products`와 `/profile/my-sales`는 mixed tree 예외 때문에 현재 엔트리 `window.location.reload()`를 사용한다.
+3. `returnTo`는 복귀 목적지, `navigationRefreshFlag`는 복귀 후 1회 재동기화 신호다.
+   단, `/posts`, `/products`, `/profile/my-sales`는 mixed tree 예외 때문에 현재 엔트리 `window.location.reload()`를 사용한다.
 4. `back`을 쓰는 경우 삭제된 forward 엔트리 재진입은 서버에서 방어한다.
 5. fallback은 도메인별 라우터 트리 위험에 맞춘다. 제품 일반 상세 편집 fallback은 `window.location.replace()`, 그 외 단순 명시 복귀는 `router.replace()`를 사용한다.
 
@@ -290,6 +333,7 @@ BoardPort에서 `router.back()`은 단순히 `window.history.length > 1`만으�
 2. 제품 `detail-edit`는 `push + back + detail refresh`, 취소도 안전한 내부 문맥이면 `back` 우선
 3. 제품 `modal-edit`는 `push + back`이 기본이고, `ProductModalReopenRelay`는 모달 재오픈 fallback만 담당한다.
 4. 풀페이지 상세 삭제는 모바일 퍼스트 기준으로 `back + refresh flag`가 기본
-5. 제품 목록 mixed tree 정리는 `ProductListRefreshRelay`, 내 판매 mixed tree 정리는 `MySalesRefreshRelay`가 담당한다.
+5. 게시글 목록 mixed tree 정리는 `PostListRefreshRelay`가 담당한다.
+6. 제품 목록 mixed tree 정리는 `ProductListRefreshRelay`, 내 판매 mixed tree 정리는 `MySalesRefreshRelay`가 담당한다.
 
 수정 복귀 정책은 공통 규칙 하나로 통일하기보다, **도메인/진입 방식별 요구사항에 맞춰 분리한 상태**로 보는 편이 맞습니다.

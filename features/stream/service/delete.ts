@@ -12,6 +12,7 @@
  * 2026.03.31  임도헌   Modified  일반 삭제/관리자 삭제 공통 cleanup helper와 Cloudflare VOD/썸네일 자산 정리 추가
  * 2026.04.02  임도헌   Modified  Cloudflare 이미지 ID 파싱을 stream image utils로 분리하고 삭제 helper 설명 보강
  * 2026.05.16  임도헌   Modified  방송 삭제 액션의 사전 조회용 메타 헬퍼 추가
+ * 2026.05.24  임도헌   Modified  삭제된 방송을 가리키는 알림 링크/이미지 정리 추가
  */
 
 import "server-only";
@@ -114,6 +115,23 @@ async function deleteCloudflareThumbnailAsset(
   }
 }
 
+function buildBroadcastNotificationCleanupWhere(
+  broadcastId: number,
+  thumbnailUrl: string | null
+) {
+  const imageUrls = thumbnailUrl
+    ? [thumbnailUrl, `${thumbnailUrl}/public`]
+    : [];
+
+  return {
+    OR: [
+      { link: `/streams/${broadcastId}` },
+      { link: { startsWith: `/streams/${broadcastId}?` } },
+      ...(imageUrls.length > 0 ? [{ image: { in: imageUrls } }] : []),
+    ],
+  };
+}
+
 /**
  * 방송 하드 삭제 공통 cleanup
  *
@@ -131,6 +149,13 @@ export async function hardDeleteBroadcastWithCleanup(
   const vodAssetIds = target.vodAssets.map((item) => item.provider_asset_id);
 
   await db.$transaction(async (tx) => {
+    await tx.notification.updateMany({
+      where: buildBroadcastNotificationCleanupWhere(
+        target.id,
+        target.thumbnail
+      ),
+      data: { link: null, image: null },
+    });
     await tx.vodAsset.deleteMany({ where: { broadcastId: target.id } });
     await tx.broadcast.delete({ where: { id: target.id } });
   });
@@ -172,6 +197,13 @@ export async function deleteBroadcastTx(
       return { success: false, error: "이미 삭제된 방송입니다." };
     }
 
+    await tx.notification.updateMany({
+      where: buildBroadcastNotificationCleanupWhere(
+        broadcastId,
+        broadcast.thumbnail
+      ),
+      data: { link: null, image: null },
+    });
     await tx.vodAsset.deleteMany({ where: { broadcastId } });
     await tx.broadcast.delete({ where: { id: broadcastId } });
 
