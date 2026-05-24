@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.06  임도헌   Created   LIKED 스코프 판별 및 목록 캐시 스냅샷 추출 유틸 분리
  * 2026.05.16  임도헌   Modified  무한스크롤 캐시 shape 타입을 명시해 캐시 조작부 any 의존 완화
+ * 2026.05.23  임도헌   Modified  삭제된 상품을 infinite cache와 nextCursor에서 제거하는 유틸 추가
  */
 
 import type { Paginated } from "@/features/product/types";
@@ -57,4 +58,43 @@ export function pickProductFromLists<T extends { id: number }>(
     }
   }
   return null;
+}
+
+/**
+ * infinite query 캐시에서 삭제된 상품과 해당 상품을 가리키는 nextCursor를 함께 제거
+ *
+ * - 삭제된 상품이 페이지 마지막 아이템이면 기존 nextCursor가 삭제된 id로 남을 수 있음
+ * - 그 상태에서 다음 페이지를 요청하면 Prisma cursor가 존재하지 않아 무한스크롤이 실패할 수 있음
+ */
+export function removeProductFromInfiniteCache<T extends { id: number }>(
+  oldData: ProductInfiniteCache<T> | undefined,
+  productId: number
+): ProductInfiniteCache<T> | undefined {
+  if (!oldData?.pages) return oldData;
+
+  return {
+    ...oldData,
+    pages: oldData.pages.map((page) => {
+      const products = page.products.filter(
+        (product) => product.id !== productId
+      );
+      const removedFromPage = products.length !== page.products.length;
+      // 삭제된 상품이 다음 페이지 cursor였으면 남은 마지막 항목으로 되돌려
+      // 존재하지 않는 Prisma cursor 요청을 막는다.
+      const nextCursor =
+        page.nextCursor === productId
+          ? (products[products.length - 1]?.id ?? null)
+          : page.nextCursor;
+
+      return {
+        ...page,
+        products,
+        nextCursor,
+        totalCount:
+          removedFromPage && typeof page.totalCount === "number"
+            ? Math.max(0, page.totalCount - 1)
+            : page.totalCount,
+      };
+    }),
+  };
 }

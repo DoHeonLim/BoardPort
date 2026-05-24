@@ -17,6 +17,8 @@
  * 2026.03.31  임도헌   Modified  일반 삭제/관리자 삭제 공통 cleanup helper와 Cloudflare 이미지 자산 정리 추가
  * 2026.04.02  임도헌   Modified  Cloudflare imageId 추출 유틸 분리 및 보조 함수 JSDoc 보강
  * 2026.04.04  임도헌   Modified  삭제 대상 조회/cleanup/메타 반환 단계의 인라인 주석 보강
+ * 2026.05.23  임도헌   Modified  삭제된 상품을 가리키는 알림 이미지/링크 정리와 리뷰 FK cleanup 추가
+ * 2026.05.24  임도헌   Modified  상품 삭제로 함께 제거되는 채팅방 알림 링크 정리 추가
  */
 import "server-only";
 
@@ -71,6 +73,7 @@ type HardDeleteProductTarget = {
   id: number;
   search_tags: { name: string }[];
   images: { url: string }[];
+  chat_rooms: { id: string }[];
 };
 
 /**
@@ -87,6 +90,11 @@ export async function hardDeleteProductWithCleanup(
   // 태그/이미지 cleanup용 원시 목록 추출
   const tagNames = target.search_tags.map((tag) => tag.name);
   const imageUrls = target.images.map((image) => image.url);
+  const chatRoomIds = target.chat_rooms.map((room) => room.id);
+  const notificationImageUrls = imageUrls.flatMap((url) => [
+    url,
+    `${url}/public`,
+  ]);
 
   await db.$transaction(async (tx) => {
     // 연결된 태그 count 감소
@@ -100,6 +108,38 @@ export async function hardDeleteProductWithCleanup(
         )
       );
     }
+
+    // 삭제된 상품을 가리키는 오래된 알림은 깨진 이미지/상세 링크를 남기지 않음
+    await tx.notification.updateMany({
+      where: {
+        OR: [
+          { link: `/products/view/${target.id}` },
+          { link: { startsWith: `/products/view/${target.id}?` } },
+          ...(notificationImageUrls.length
+            ? [{ image: { in: notificationImageUrls } }]
+            : []),
+        ],
+      },
+      data: {
+        image: null,
+        link: null,
+      },
+    });
+
+    if (chatRoomIds.length > 0) {
+      await tx.notification.updateMany({
+        where: {
+          OR: chatRoomIds.flatMap((roomId) => [
+            { link: `/chats/${roomId}` },
+            { link: { startsWith: `/chats/${roomId}?` } },
+          ]),
+        },
+        data: { link: null },
+      });
+    }
+
+    // Review는 Product FK가 필수 관계이므로 하드 삭제 전에 함께 정리
+    await tx.review.deleteMany({ where: { productId: target.id } });
 
     // 상품 본문 하드 삭제
     await tx.product.delete({ where: { id: target.id } });
@@ -148,7 +188,7 @@ export async function deleteProduct(
         search_tags: { select: { name: true } },
         images: { select: { url: true } },
         chat_rooms: {
-          select: { users: { select: { id: true } } },
+          select: { id: true, users: { select: { id: true } } },
         },
       },
     });
@@ -171,6 +211,7 @@ export async function deleteProduct(
       id: productId,
       search_tags: product.search_tags,
       images: product.images,
+      chat_rooms: product.chat_rooms,
     });
 
     // 후속 캐시 무효화용 메타데이터 반환

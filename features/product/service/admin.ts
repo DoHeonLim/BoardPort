@@ -13,6 +13,7 @@
  * 2026.04.02  임도헌   Modified  관리자 서비스 JSDoc 태그 형식 정리
  * 2026.05.15  임도헌   Modified  관리자 상품 검색 범위에 검색 태그명 포함
  * 2026.05.16  임도헌   Modified  관리자 검색 where 조건 타입 명시
+ * 2026.05.24  임도헌   Modified  관리자 상품 삭제 시 채팅방 알림 링크 cleanup 대상 포함
  */
 
 import "server-only";
@@ -132,7 +133,9 @@ export async function deleteProductByAdmin(
         reservation_userId: true,
         search_tags: { select: { name: true } },
         images: { select: { url: true } },
-        chat_rooms: { select: { users: { select: { id: true } } } },
+        chat_rooms: {
+          select: { id: true, users: { select: { id: true } } },
+        },
       },
     });
 
@@ -148,6 +151,7 @@ export async function deleteProductByAdmin(
       id: productId,
       search_tags: product.search_tags,
       images: product.images,
+      chat_rooms: product.chat_rooms,
     });
 
     // 감사 로그 기록

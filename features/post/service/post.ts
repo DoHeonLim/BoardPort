@@ -41,6 +41,7 @@
  * 2026.05.13  임도헌   Modified  게시글 목록 검색을 제목/본문/태그 대소문자 무시 조건으로 통일
  * 2026.05.16  임도헌   Modified  수정 액션의 기존 첨부 동영상 확인 쿼리를 service 헬퍼로 분리
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상을 현재 사용자 좋아요 여부 기준으로 표시하도록 isLiked 매핑 추가
+ * 2026.05.23  임도헌   Modified  삭제된 게시글 알림 링크/이미지 정리 및 삭제 cursor 목록 페이지네이션 실패 방어
  */
 import "server-only";
 
@@ -258,6 +259,20 @@ export async function hardDeletePostWithCleanup(
         },
       });
     }
+
+    // 삭제된 게시글을 가리키는 알림은 더 이상 상세 이동/썸네일을 노출하지 않음
+    await tx.notification.updateMany({
+      where: {
+        OR: [
+          { link: `/posts/${target.id}` },
+          { link: { startsWith: `/posts/${target.id}?` } },
+        ],
+      },
+      data: {
+        image: null,
+        link: null,
+      },
+    });
 
     // 게시글 첨부 동영상은 부모 콘텐츠와 함께 정리해 orphan record를 남기지 않음
     await tx.postVideo.deleteMany({ where: { postId: target.id } });
@@ -523,6 +538,17 @@ export async function getPostsList(
   const blockedIds = await getBlockedUserIds(viewerId);
   if (blockedIds.length > 0) {
     where.userId = { notIn: blockedIds };
+  }
+
+  if (cursor) {
+    const cursorExists = await db.post.findUnique({
+      where: { id: cursor },
+      select: { id: true },
+    });
+    if (!cursorExists) {
+      const totalCount = await db.post.count({ where });
+      return { posts: [], nextCursor: null, totalCount };
+    }
   }
 
   const [rows, totalCount] = await Promise.all([

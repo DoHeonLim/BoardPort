@@ -21,6 +21,7 @@
  * 2026.05.12  임도헌   Modified  제품 검색의 제목/본문/태그 조건을 대소문자 무시 기준으로 통일
  * 2026.05.18  임도헌   Modified  목록 카드 하트 색상용 현재 유저 좋아요 여부를 DTO에 포함
  * 2026.05.20  임도헌   Modified  refreshed_at 정렬 주석의 2차 기준을 실제 id 기준으로 정정
+ * 2026.05.24  임도헌   Modified  삭제된 상품 cursor로 인한 목록 페이지네이션 실패 방어
  */
 import "server-only";
 import db from "@/lib/db";
@@ -191,6 +192,17 @@ export async function getProductsList(
   const blockedIds = await getBlockedUserIds(viewerId);
   if (blockedIds.length > 0) {
     where.userId = { notIn: blockedIds };
+  }
+
+  if (cursor) {
+    const cursorExists = await db.product.findUnique({
+      where: { id: cursor },
+      select: { id: true },
+    });
+    if (!cursorExists) {
+      const totalCount = await db.product.count({ where });
+      return { products: [], nextCursor: null, totalCount };
+    }
   }
 
   // 커서 기반 페이지네이션용 cursor 객체 구성

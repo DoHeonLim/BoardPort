@@ -8,12 +8,15 @@
  * 2026.04.06  임도헌   Created   게시글 상세의 수정/삭제 액션을 상단 관리 메뉴로 통합
  * 2026.04.08  임도헌   Modified  삭제 후 목록 진입 문맥이면 back + posts 목록 refresh로 복귀하도록 보강
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 삭제 후 back 복귀 플래그 기록 중복을 정리
+ * 2026.05.23  임도헌   Modified  게시글 삭제 후 /posts 목록 문맥에서만 history back을 사용하도록 복귀 기준 보강
+ * 2026.05.23  임도헌   Modified  삭제 성공 시 게시글 infinite query 캐시와 stale cursor를 즉시 정리
  */
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   EllipsisVerticalIcon,
@@ -30,6 +33,8 @@ import {
   NAVIGATION_REFRESH_ROOT_ID,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
+import { queryKeys } from "@/lib/queryKeys";
+import type { PostsPage } from "@/features/post/types";
 
 interface PostOwnerMenuProps {
   postId: number;
@@ -55,6 +60,7 @@ export default function PostOwnerMenu({
   preferHistoryBack = false,
 }: PostOwnerMenuProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
@@ -88,21 +94,59 @@ export default function PostOwnerMenu({
         toast.success("게시글이 삭제되었습니다.");
         setConfirmOpen(false);
         setIsOpen(false);
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.posts.lists() },
+          (oldData:
+            | { pages: PostsPage[]; pageParams?: unknown[] }
+            | undefined) => {
+            if (!oldData?.pages) return oldData;
 
-        if (preferHistoryBack && canUseBrowserBack()) {
-          // 게시글 목록 문맥은 back 전에 flag를 남겨 복귀 후 stale list 보정
-          if (nextAfterDelete.startsWith("/posts")) {
-            markNavigationRefresh(
-              NAVIGATION_REFRESH_SCOPES.POSTS_LIST,
-              NAVIGATION_REFRESH_ROOT_ID
-            );
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page) => {
+                const posts = page.posts.filter((post) => post.id !== postId);
+                const removedFromPage = posts.length !== page.posts.length;
+                const nextCursor =
+                  page.nextCursor === postId
+                    ? (posts[posts.length - 1]?.id ?? null)
+                    : page.nextCursor;
+
+                return {
+                  ...page,
+                  posts,
+                  nextCursor,
+                  totalCount:
+                    removedFromPage && typeof page.totalCount === "number"
+                      ? Math.max(0, page.totalCount - 1)
+                      : page.totalCount,
+                };
+              }),
+            };
           }
+        );
+        queryClient.removeQueries({ queryKey: queryKeys.posts.detail(postId) });
+        queryClient.removeQueries({
+          queryKey: queryKeys.posts.likeStatus(postId),
+        });
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+
+        const isPostsListReturn = nextAfterDelete.startsWith("/posts");
+
+        // 게시글 목록 문맥에서만 back 복귀를 허용한다.
+        // 다른 returnTo에서 back을 쓰면 삭제된 상세 tree가 남을 수 있다.
+        if (isPostsListReturn) {
+          markNavigationRefresh(
+            NAVIGATION_REFRESH_SCOPES.POSTS_LIST,
+            NAVIGATION_REFRESH_ROOT_ID
+          );
+        }
+
+        if (preferHistoryBack && isPostsListReturn && canUseBrowserBack()) {
           router.back();
           return;
         }
 
         router.replace(nextAfterDelete);
-        router.refresh();
       } catch (error) {
         console.error(error);
         toast.error("게시글 삭제 중 오류가 발생했습니다.");
