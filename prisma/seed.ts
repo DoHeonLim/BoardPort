@@ -14,6 +14,7 @@ Date        Author   Status    Description
 2026.03.09  임도헌   Modified  제품 카테고리를 메커니즘 중심 개편안으로 교체
 2026.03.09  임도헌   Modified  제품 데이터 보존을 위해 참조 데이터 비파괴 시드 방식으로 전환
 2026.03.28  임도헌   Modified  뱃지 설명 문구를 실제 획득 조건과 사용자 친화 용어로 정리
+2026.05.26  임도헌   Modified  EARLY_SAILOR 기준일 설명을 2027년 1월 1일 이전 가입으로 조정
 */
 
 // prisma db seed 사용해서 데이터 추가
@@ -365,7 +366,7 @@ async function main() {
       name: "EARLY_SAILOR",
       icon: `https://imagedelivery.net/${CF_HASH}/63d81c0f-250a-4a87-ffea-142726992f00`,
       description:
-        "2025년 1월 1일 이전에 가입하고 활동한 첫 항해 선원입니다. 새벽 항구에서 첫 닻을 올린 선구자예요!",
+        "2027년 1월 1일 이전에 가입하고 활동한 첫 항해 선원입니다. 새벽 항구에서 첫 닻을 올린 선구자예요!",
     },
     {
       name: "PORT_FESTIVAL",
