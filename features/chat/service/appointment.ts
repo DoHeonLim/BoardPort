@@ -13,6 +13,8 @@
  * 2026.03.07  임도헌   Modified  약속 관련 실패 문구를 구체화(v1.2)
  * 2026.04.02  임도헌   Modified  약속 서비스 JSDoc 태그 형식 정리
  * 2026.05.16  임도헌   Modified  약속 처리 에러 분기를 unknown-safe 방식으로 정리
+ * 2026.05.25  임도헌   Modified  약속 수락 가드/거래 참여자 산정 규칙을 테스트 가능한 유틸로 분리
+ * 2026.05.25  임도헌   Modified  약속 제안 시간/거래 가능 상태/상대방 식별 규칙을 테스트 가능한 유틸로 분리
  */
 
 import "server-only";
@@ -21,6 +23,13 @@ import { supabase } from "@/lib/supabase";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
+import {
+  getAppointmentAcceptanceGuardError,
+  getAppointmentProposalTimeError,
+  getProductTradeAvailabilityError,
+  resolveAppointmentReceiverId,
+  resolveAppointmentTradeParties,
+} from "@/features/chat/utils/appointmentTrade";
 import {
   canSendPushForType,
   isNotificationTypeEnabled,
@@ -59,19 +68,10 @@ export async function proposeAppointment(
   if (!status.success) return status;
 
   // 2. 날짜 유효성 및 과거 시간 검증
-  const meetTime = new Date(data.meetDate).getTime();
-  if (isNaN(meetTime)) {
-    return { success: false, error: "유효하지 않은 날짜 형식입니다." };
-  }
-
-  // 네트워크 지연 등을 고려하여 5분의 유예 시간(Grace Period) 부여
-  const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
-  if (meetTime < fiveMinsAgo) {
-    return {
-      success: false,
-      error: "과거 시간으로는 약속을 제안할 수 없습니다.",
-    };
-  }
+  const proposalTimeError = getAppointmentProposalTimeError({
+    meetDate: data.meetDate,
+  });
+  if (proposalTimeError) return { success: false, error: proposalTimeError };
 
   // 3. 채팅방 및 상품 상태 조회
   const room = await db.productChatRoom.findUnique({
@@ -93,17 +93,23 @@ export async function proposeAppointment(
   }
 
   // 상품이 이미 거래 중(예약/판매완료)인지 확인 (Fail-Early)
-  if (room.product.purchase_userId || room.product.reservation_userId) {
-    return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
-  }
+  const tradeAvailabilityError = getProductTradeAvailabilityError({
+    purchaseUserId: room.product.purchase_userId,
+    reservationUserId: room.product.reservation_userId,
+  });
+  if (tradeAvailabilityError)
+    return { success: false, error: tradeAvailabilityError };
 
   // 수신자 식별 및 차단 관계 확인
-  const receiver = room.users.find((u) => u.id !== userId);
-  if (!receiver) {
+  const receiverId = resolveAppointmentReceiverId(
+    room.users.map((user) => user.id),
+    userId
+  );
+  if (!receiverId) {
     return { success: false, error: "대화 상대를 찾을 수 없습니다." };
   }
 
-  const isBlocked = await checkBlockRelation(userId, receiver.id);
+  const isBlocked = await checkBlockRelation(userId, receiverId);
   if (isBlocked) {
     return {
       success: false,
@@ -148,7 +154,7 @@ export async function proposeAppointment(
           longitude: data.location.longitude,
           chatRoomId,
           proposerId: userId,
-          receiverId: receiver.id,
+          receiverId,
           status: "PENDING",
         },
       });
@@ -245,23 +251,17 @@ export async function acceptAppointment(
   });
 
   if (!apt) return { success: false, error: "약속 정보를 찾을 수 없습니다." };
-  if (apt.receiverId !== userId)
-    return { success: false, error: "수락 권한이 없습니다." };
-  if (apt.status !== "PENDING")
-    return { success: false, error: "이미 처리된 약속입니다." };
 
   // 2. Ghost User & 차단 가드
-  const isProposerInRoom = apt.chatRoom.users.some(
-    (u) => u.id === apt.proposerId
-  );
-  const isReceiverInRoom = apt.chatRoom.users.some((u) => u.id === userId);
-
-  if (!isProposerInRoom || !isReceiverInRoom) {
-    return {
-      success: false,
-      error: "대화 참여자 중 일부가 채팅방을 나가 약속을 진행할 수 없습니다.",
-    };
-  }
+  const guardError = getAppointmentAcceptanceGuardError({
+    requesterId: userId,
+    proposerId: apt.proposerId,
+    receiverId: apt.receiverId,
+    roomUserIds: apt.chatRoom.users.map((user) => user.id),
+    status: apt.status,
+    meetDate: apt.meetDate,
+  });
+  if (guardError) return { success: false, error: guardError };
 
   const isBlocked = await checkBlockRelation(userId, apt.proposerId);
   if (isBlocked) {
@@ -269,10 +269,6 @@ export async function acceptAppointment(
       success: false,
       error: "차단된 사용자와는 약속을 진행할 수 없습니다.",
     };
-  }
-
-  if (new Date(apt.meetDate) < new Date()) {
-    return { success: false, error: "약속 시간이 이미 지났습니다." };
   }
 
   // 3. 상품 정보 조회 (판매자 식별용)
@@ -289,16 +285,20 @@ export async function acceptAppointment(
   if (!product)
     return { success: false, error: "상품 정보를 찾을 수 없습니다." };
 
-  const sellerId = product.userId;
-  const buyerId = apt.proposerId === sellerId ? apt.receiverId : apt.proposerId;
+  const tradeParties = resolveAppointmentTradeParties({
+    sellerId: product.userId,
+    proposerId: apt.proposerId,
+    receiverId: apt.receiverId,
+  });
 
   // 본인 거래 방지
-  if (buyerId === sellerId) {
+  if (!tradeParties) {
     return {
       success: false,
       error: "비정상적인 거래 대상입니다.",
     };
   }
+  const { sellerId, buyerId } = tradeParties;
 
   try {
     // 4. 통합 트랜잭션 (Atomic Operation)

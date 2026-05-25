@@ -34,6 +34,7 @@
  * 2026.05.24  임도헌   Modified  삭제된 콘텐츠 알림의 이동 불가 보조 문구 추가
  * 2026.05.25  임도헌   Modified  허용된 이미지 출처만 렌더링해 오래된 알림 이미지 URL 예외 방어
  * 2026.05.25  임도헌   Modified  알림 상세 이동을 먼저 수행하고 읽음 처리는 후속 동기화로 분리
+ * 2026.05.25  임도헌   Modified  알림 이미지/삭제 콘텐츠 렌더링 판단을 테스트 가능한 유틸로 분리
  */
 "use client";
 
@@ -71,6 +72,10 @@ import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import type { RegionRange } from "@/generated/prisma/enums";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import {
+  isRenderableNotificationImage,
+  shouldShowUnavailableNotificationCopy,
+} from "@/features/notification/utils/rendering";
 
 interface Props {
   data: NotificationListResponse;
@@ -87,37 +92,6 @@ const KeywordAlertModal = dynamic(
   () => import("@/features/notification/components/KeywordAlertModal"),
   { ssr: false }
 );
-
-const CONTENT_LINKED_NOTIFICATION_TYPES = new Set([
-  "TRADE",
-  "CHAT",
-  "STREAM",
-  "KEYWORD",
-]);
-const NOTIFICATION_IMAGE_HOSTS = new Set([
-  "avatars.githubusercontent.com",
-  "cf.geekdo-images.com",
-  "imagedelivery.net",
-  "w7.pngwing.com",
-  "i.ytimg.com",
-  "customer-fllme7un34f7981k.cloudflarestream.com",
-  "videodelivery.net",
-]);
-
-function isRenderableNotificationImage(src?: string | null) {
-  if (!src) return false;
-  if (src.startsWith("/") || src.startsWith("data:")) return true;
-
-  try {
-    const parsed = new URL(src);
-    return (
-      parsed.protocol === "https:" &&
-      NOTIFICATION_IMAGE_HOSTS.has(parsed.hostname)
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * 알림함 목록 및 읽음 처리 컨테이너 컴포넌트
@@ -248,7 +222,7 @@ export default function NotificationListContainer({
     "SYSTEM",
   ];
   const shouldShowUnavailableCopy = (notification: NotificationItem) =>
-    !notification.link && CONTENT_LINKED_NOTIFICATION_TYPES.has(notification.type);
+    shouldShowUnavailableNotificationCopy(notification);
 
   // 링크가 제거된 콘텐츠형 알림에만 이동 불가 안내를 보여준다.
   // 시스템/배지 알림은 원래 링크가 없을 수 있어 안내 대상에서 제외한다.

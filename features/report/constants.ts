@@ -9,6 +9,7 @@
  * 2026.02.06  임도헌   Modified  ReportTargetType에 'REVIEW' 추가
  * 2026.03.09  임도헌   Modified  신고 승인 후 제재 정책 상수 및 액션 정의 추가
  * 2026.04.03  임도헌   Modified  신고 공용 타입을 report/types로 이동하고 상수 설명을 보강
+ * 2026.05.25  임도헌   Modified  제재 추천 기간이 사유별 기본 정지 기간보다 낮아지지 않도록 보정
  */
 
 import { ReportReason } from "@/generated/prisma/client";
@@ -100,6 +101,20 @@ export const REPORT_REASON_DEFAULT_ACTION: Record<
   },
 };
 
+/**
+ * 누적 strike 정책이 사유별 기본 정지 기간보다 약한 권장을 만들지 않도록 보정
+ */
+function resolveRecommendedBanDuration(
+  baseDurationDays: number | undefined,
+  policyDurationDays: number
+) {
+  if (baseDurationDays === REPORT_BAN_DURATIONS.PERMANENT) {
+    return REPORT_BAN_DURATIONS.PERMANENT;
+  }
+
+  return Math.max(baseDurationDays ?? 0, policyDurationDays);
+}
+
 /** 현재 strike 누적을 고려해 신고 사유별 권장 조치를 계산 */
 export function getRecommendedResolution(
   reason: ReportReason,
@@ -112,7 +127,10 @@ export function getRecommendedResolution(
     return {
       action: REPORT_RESOLUTION_ACTIONS.TEMP_BAN,
       strike: base.strike,
-      durationDays: REPORT_BAN_DURATIONS.THIRTY_DAYS,
+      durationDays: resolveRecommendedBanDuration(
+        base.durationDays,
+        REPORT_BAN_DURATIONS.THIRTY_DAYS
+      ),
       deleteContent:
         base.action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT ||
         reason === "INAPPROPRIATE",
@@ -123,7 +141,10 @@ export function getRecommendedResolution(
     return {
       action: REPORT_RESOLUTION_ACTIONS.TEMP_BAN,
       strike: base.strike,
-      durationDays: REPORT_BAN_DURATIONS.SEVEN_DAYS,
+      durationDays: resolveRecommendedBanDuration(
+        base.durationDays,
+        REPORT_BAN_DURATIONS.SEVEN_DAYS
+      ),
       deleteContent:
         base.action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT ||
         reason === "INAPPROPRIATE",
@@ -134,7 +155,10 @@ export function getRecommendedResolution(
     return {
       action: REPORT_RESOLUTION_ACTIONS.TEMP_BAN,
       strike: base.strike,
-      durationDays: REPORT_BAN_DURATIONS.THREE_DAYS,
+      durationDays: resolveRecommendedBanDuration(
+        base.durationDays,
+        REPORT_BAN_DURATIONS.THREE_DAYS
+      ),
       deleteContent:
         base.action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT ||
         reason === "INAPPROPRIATE",

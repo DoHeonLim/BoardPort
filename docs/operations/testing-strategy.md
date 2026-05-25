@@ -37,9 +37,15 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 
 - Vitest 설정과 npm script 추가
 - `sanitizeCallbackUrl()` 회귀 테스트
+- 로그인/회원가입/온보딩/SMS/비밀번호 재설정 폼 스키마 회귀 테스트
 - 상품/게시글 폼 스키마 회귀 테스트
 - 상품/게시글 infinite cache의 삭제 항목과 stale cursor 보정 테스트
+- 채팅 약속 제안/수락 전 상태 가드와 거래 참여자 산정 회귀 테스트
 - 알림 타입/Push 정책 테스트
+- 알림/상품 이미지 fallback 렌더링 규칙 테스트
+- 방송/VOD 접근 플래그, 썸네일 URL, 카드 직렬화 회귀 테스트
+- 보드게임 도감 필터 정규화와 목록 URL 생성 회귀 테스트
+- 신고 제재 추천 정책, 관리자 차트 집계, 신고/감사 로그 추적 URL 회귀 테스트
 - Playwright 의존성과 script 준비
 - 로그인 전 메인, 로그인, 오프라인 공개 페이지 smoke 테스트
 - 비로그인 보호 경로의 로그인 redirect와 `callbackUrl` 보존 smoke 테스트
