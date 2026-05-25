@@ -32,6 +32,8 @@
  * 2026.04.26  임도헌   Modified  읽음 액션 토스트 문구를 화면 버튼 라벨과 같은 표현으로 통일
  * 2026.05.23  임도헌   Modified  삭제된 콘텐츠의 오래된 알림 이미지가 깨질 때 타입 아이콘으로 fallback 처리
  * 2026.05.24  임도헌   Modified  삭제된 콘텐츠 알림의 이동 불가 보조 문구 추가
+ * 2026.05.25  임도헌   Modified  허용된 이미지 출처만 렌더링해 오래된 알림 이미지 URL 예외 방어
+ * 2026.05.25  임도헌   Modified  알림 상세 이동을 먼저 수행하고 읽음 처리는 후속 동기화로 분리
  */
 "use client";
 
@@ -92,6 +94,30 @@ const CONTENT_LINKED_NOTIFICATION_TYPES = new Set([
   "STREAM",
   "KEYWORD",
 ]);
+const NOTIFICATION_IMAGE_HOSTS = new Set([
+  "avatars.githubusercontent.com",
+  "cf.geekdo-images.com",
+  "imagedelivery.net",
+  "w7.pngwing.com",
+  "i.ytimg.com",
+  "customer-fllme7un34f7981k.cloudflarestream.com",
+  "videodelivery.net",
+]);
+
+function isRenderableNotificationImage(src?: string | null) {
+  if (!src) return false;
+  if (src.startsWith("/") || src.startsWith("data:")) return true;
+
+  try {
+    const parsed = new URL(src);
+    return (
+      parsed.protocol === "https:" &&
+      NOTIFICATION_IMAGE_HOSTS.has(parsed.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 알림함 목록 및 읽음 처리 컨테이너 컴포넌트
@@ -179,17 +205,22 @@ export default function NotificationListContainer({
   const handleOpenNotification = async (notification: NotificationItem) => {
     const href = buildNotificationHref(notification.link);
     if (!notification.isRead) {
-      const res = await markNotificationAsReadAction(notification.id);
-      if (res.success) {
-        setNotifications((prev) =>
-          prev.map((noti) =>
-            noti.id === notification.id ? { ...noti, isRead: true } : noti
-          )
-        );
-        decrement(1);
-      } else {
-        toast.error(res.error ?? "알림을 읽음으로 표시하지 못했어요.");
-      }
+      void markNotificationAsReadAction(notification.id)
+        .then((res) => {
+          if (res.success) {
+            setNotifications((prev) =>
+              prev.map((noti) =>
+                noti.id === notification.id ? { ...noti, isRead: true } : noti
+              )
+            );
+            decrement(1);
+          } else {
+            toast.error(res.error ?? "알림을 읽음으로 표시하지 못했어요.");
+          }
+        })
+        .catch(() => {
+          toast.error("알림을 읽음으로 표시하지 못했어요.");
+        });
     }
     router.push(href);
   };
@@ -333,7 +364,8 @@ export default function NotificationListContainer({
                 <BellAlertIcon className="size-5" />
               );
               const canRenderImage =
-                !!notification.image && !failedImageIds.has(notification.id);
+                isRenderableNotificationImage(notification.image) &&
+                !failedImageIds.has(notification.id);
 
               return (
                 <li

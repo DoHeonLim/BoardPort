@@ -40,6 +40,7 @@
 - [보안 헤더 / CSP 운영 정책](./operations/security-headers-csp-policy.md)
 - [보드게임 데이터 import 운영 기준](./operations/boardgame-data-import-runbook.md)
 - [신고 처리와 제재 운영 정책](./operations/report-moderation-policy.md)
+- [테스트 전략](./operations/testing-strategy.md)
 
 ### Troubleshooting
 

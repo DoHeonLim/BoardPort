@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.02  임도헌   Created   제품 이미지 public variant 처리 및 Cloudflare imageId 추출 유틸 분리
+ * 2026.05.25  임도헌   Modified  Cloudflare Images가 아닌 URL은 썸네일 렌더링 대상에서 제외
  */
 
 const PRODUCT_IMAGE_PUBLIC_VARIANT = "/public";
@@ -20,6 +21,13 @@ export function toProductImagePublicUrl(
   url?: string | null
 ): string | undefined {
   if (!url) return undefined;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "imagedelivery.net") return undefined;
+  } catch {
+    return undefined;
+  }
 
   return url.endsWith(PRODUCT_IMAGE_PUBLIC_VARIANT)
     ? url
