@@ -37,7 +37,7 @@ describe("isNotificationTypeEnabled", () => {
       pushEnabled: false,
     };
 
-    // pushEnabled는 브라우저 Push 전송만 막고, DB/In-App 알림 생성 정책은 타입 토글로 판단한다.
+    // pushEnabled는 브라우저 Push 전송만 차단, DB/In-App 알림 생성은 타입 토글 기준
     expect(isNotificationTypeEnabled(prefs, "CHAT")).toBe(true);
   });
 });

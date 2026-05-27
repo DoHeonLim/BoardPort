@@ -56,7 +56,7 @@ describe("removePostFromInfiniteCache", () => {
   it("삭제된 게시글이 nextCursor였으면 남은 마지막 게시글 id로 보정한다", () => {
     const result = removePostFromInfiniteCache(createCache(), 20);
 
-    // 삭제된 id가 cursor로 남으면 다음 페이지 요청에서 존재하지 않는 Prisma cursor를 참조할 수 있다.
+    // 삭제된 id가 cursor로 남을 때 다음 페이지 요청의 존재하지 않는 Prisma cursor 참조 방지
     expect(result?.pages[0].nextCursor).toBe(10);
   });
 

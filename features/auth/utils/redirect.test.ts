@@ -33,7 +33,7 @@ describe("sanitizeCallbackUrl", () => {
   });
 
   it("디코딩 후 외부 네트워크 경로가 되는 값도 차단한다", () => {
-    // returnTo는 query string을 거치며 인코딩될 수 있으므로 디코딩 후에도 외부 경로 여부를 다시 확인한다.
+    // returnTo는 query string을 거치며 인코딩될 수 있으므로 디코딩 후에도 외부 경로 여부를 다시 확인
     expect(sanitizeCallbackUrl("/%2F%2Fexample.com/posts")).toBe("/");
   });
 

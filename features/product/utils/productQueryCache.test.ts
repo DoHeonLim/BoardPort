@@ -56,7 +56,7 @@ describe("removeProductFromInfiniteCache", () => {
   it("삭제된 상품이 nextCursor였으면 남은 마지막 상품 id로 보정한다", () => {
     const result = removeProductFromInfiniteCache(createCache(), 2);
 
-    // 삭제된 id가 cursor로 남으면 다음 페이지 요청에서 존재하지 않는 Prisma cursor를 참조할 수 있다.
+    // 삭제된 id가 cursor로 남을 때 다음 페이지 요청의 존재하지 않는 Prisma cursor 참조 방지
     expect(result?.pages[0].nextCursor).toBe(1);
   });
 

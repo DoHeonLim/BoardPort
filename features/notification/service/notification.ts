@@ -57,8 +57,7 @@ async function normalizeDeletedContentNotifications(
 ): Promise<NotificationListRow[]> {
   if (items.length === 0) return items;
 
-  // 기존 DB에 남은 오래된 알림도 응답 단계에서 안전하게 정규화한다.
-  // hard delete 이후 원본 콘텐츠가 없으면 링크/이미지를 제거해 404 이동과 깨진 썸네일을 막는다.
+  // hard delete 이후 원본 콘텐츠가 없으면 응답 단계에서 링크/이미지를 제거해 404 이동과 깨진 썸네일을 방지
   const productIds = new Set<number>();
   const postIds = new Set<number>();
   const streamIds = new Set<number>();

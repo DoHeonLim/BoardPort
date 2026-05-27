@@ -44,9 +44,7 @@ interface ProductTradeAvailabilityInput {
 
 const DEFAULT_PROPOSAL_GRACE_MS = 5 * 60 * 1000;
 
-/**
- * 약속 제안 시간이 유효한지 검사합니다.
- */
+/** 약속 제안 시간 유효성 검사 */
 export function getAppointmentProposalTimeError({
   meetDate,
   now = new Date(),
@@ -63,9 +61,7 @@ export function getAppointmentProposalTimeError({
   return null;
 }
 
-/**
- * 상품이 약속 제안을 받을 수 있는 거래 상태인지 검사합니다.
- */
+/** 상품의 약속 제안 가능 거래 상태 검사 */
 export function getProductTradeAvailabilityError({
   purchaseUserId,
   reservationUserId,
@@ -77,9 +73,7 @@ export function getProductTradeAvailabilityError({
   return null;
 }
 
-/**
- * 채팅방 참여자 목록에서 제안자 반대편 사용자를 찾습니다.
- */
+/** 채팅방 참여자 목록에서 제안자 반대편 사용자 조회 */
 export function resolveAppointmentReceiverId(
   roomUserIds: number[],
   proposerId: number
@@ -87,9 +81,7 @@ export function resolveAppointmentReceiverId(
   return roomUserIds.find((id) => id !== proposerId) ?? null;
 }
 
-/**
- * 약속 수락 전에 DB 변경 없이 판단할 수 있는 상태/권한 조건을 검사합니다.
- */
+/** 약속 수락 전 DB 변경 없이 판단 가능한 상태/권한 조건 검사 */
 export function getAppointmentAcceptanceGuardError({
   requesterId,
   proposerId,
@@ -115,9 +107,7 @@ export function getAppointmentAcceptanceGuardError({
   return null;
 }
 
-/**
- * 상품 판매자와 약속 제안/수신자를 기준으로 실제 구매자를 산정합니다.
- */
+/** 상품 판매자와 약속 제안/수신자 기준 실제 거래 참여자 산정 */
 export function resolveAppointmentTradeParties({
   sellerId,
   proposerId,

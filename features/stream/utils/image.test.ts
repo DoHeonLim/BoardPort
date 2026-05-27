@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.25  임도헌   Created   방송 썸네일 public variant와 이미지 ID 추출 테스트 추가
+ * 2026.05.26  임도헌   Modified  이미 public variant가 붙은 썸네일 URL 중복 방지 테스트 추가
  */
 
 import { describe, expect, it } from "vitest";
@@ -26,6 +27,12 @@ describe("stream image utils", () => {
 
   it("Cloudflare Images 썸네일에 public variant를 붙인다", () => {
     expect(toStreamThumbnailPublicUrl(baseUrl)).toBe(`${baseUrl}/public`);
+  });
+
+  it("이미 public variant가 붙은 썸네일 URL은 중복 처리하지 않는다", () => {
+    expect(toStreamThumbnailPublicUrl(`${baseUrl}/public`)).toBe(
+      `${baseUrl}/public`
+    );
   });
 
   it("비 Cloudflare 썸네일 URL은 그대로 유지한다", () => {

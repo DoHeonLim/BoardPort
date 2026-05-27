@@ -37,7 +37,7 @@ test.describe("public smoke", () => {
     await expect(page.getByPlaceholder("이메일 주소")).toBeVisible();
     await expect(page.getByPlaceholder("비밀번호")).toBeVisible();
 
-    // 외부 callbackUrl은 로그인 페이지에서 내부 fallback으로 정규화된 뒤 보조 링크에 반영된다.
+    // 외부 callbackUrl은 로그인 페이지에서 내부 fallback으로 정규화 후 보조 링크에 반영
     await expect(
       page.getByRole("link", { name: "회원가입 하기" })
     ).toHaveAttribute("href", "/create-account?callbackUrl=%2F");

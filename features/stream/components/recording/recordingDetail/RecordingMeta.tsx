@@ -13,6 +13,7 @@
  * 2026.03.21  임도헌   Modified  녹화 메타 하단 구분선을 제거해 통계 행과 댓글 섹션 사이 시각적 중복을 정리
  * 2026.05.18  임도헌   Modified  댓글 작성/삭제 후 상세 메타 댓글 수가 즉시 반영되도록 recordingStats 캐시 연동
  * 2026.05.18  임도헌   Modified  상세 통계 아이콘을 다시보기 카드와 같은 solid 문법으로 통일
+ * 2026.05.26  임도헌   Modified  initialData 기반 recordingStats query에 local queryFn을 부여해 refetch 경고 방지
  */
 
 "use client";
@@ -24,7 +25,7 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/solid";
 import { formatDuration, handleShare } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 
 interface RecordingMetaProps {
@@ -52,9 +53,15 @@ export default function RecordingMeta({
   commentCount = 0,
   LikeButtonComponent,
 }: RecordingMetaProps) {
+  const queryClient = useQueryClient();
+  const statsQueryKey = queryKeys.streams.recordingStats(vodId);
+  const initialStats = { commentCount };
   const { data: stats } = useQuery({
-    queryKey: queryKeys.streams.recordingStats(vodId),
-    initialData: { commentCount },
+    queryKey: statsQueryKey,
+    queryFn: async () =>
+      queryClient.getQueryData<typeof initialStats>(statsQueryKey) ??
+      initialStats,
+    initialData: initialStats,
     staleTime: Infinity,
     enabled: false,
   });

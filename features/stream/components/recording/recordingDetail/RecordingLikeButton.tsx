@@ -14,6 +14,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.17  임도헌   Modified  녹화본 상세 좋아요 버튼의 낙관 업데이트와 접근성 이름 책임 설명 보강
  * 2026.05.18  임도헌   Modified  녹화본 상세 좋아요 변경 시 메인/채널 다시보기 목록 캐시 동기화 추가
+ * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여하고 목록 캐시만 재검증
  */
 
 "use client";
@@ -64,12 +65,20 @@ export default function RecordingLikeButton({
 }: RecordingLikeButtonProps) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.streams.likeStatus(vodId);
+  const initialLikeStatus = {
+    isLiked: initialIsLiked,
+    likeCount: initialLikeCount,
+  };
 
   // 1. 상태 하이드레이션
   const { data } = useQuery({
     queryKey,
-    initialData: { isLiked: initialIsLiked, likeCount: initialLikeCount },
+    queryFn: async () =>
+      queryClient.getQueryData<typeof initialLikeStatus>(queryKey) ??
+      initialLikeStatus,
+    initialData: initialLikeStatus,
     staleTime: Infinity,
+    enabled: false,
   });
 
   // 2. 상태 변경 (Mutation)
@@ -110,7 +119,6 @@ export default function RecordingLikeButton({
       restoreRecordingListSnapshots(queryClient, context?.previousRecordingLists);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
       invalidateRecordingListCaches(queryClient);
     },
   });

@@ -14,6 +14,12 @@
  * 2026.05.25  임도헌   Modified  E2E seed 조회/생성은 앱 런타임과 같은 DATABASE_URL 우선으로 복원
  * 2026.05.25  임도헌   Modified  PrismaPg 어댑터용 DB URL에서 Prisma 전용 query param 제거
  * 2026.05.25  임도헌   Modified  Cloudflare Images 테스트 썸네일을 살아 있는 seed 상품에만 연결
+ * 2026.05.26  임도헌   Modified  E2E 이미지 seed는 Cloudflare variant 없는 원본 URL로 저장하도록 정리
+ * 2026.05.26  임도헌   Modified  채팅 목록/상세 E2E 검증용 상품 채팅방 seed 추가
+ * 2026.05.26  임도헌   Modified  보드게임 도감 목록/상세 E2E 검증용 공개 locale seed 추가
+ * 2026.05.26  임도헌   Modified  다시보기 목록/상세 E2E 검증용 ready VOD seed 추가
+ * 2026.05.26  임도헌   Modified  상품 삭제/약속 수락/신고 처리 E2E 전용 seed 데이터 추가
+ * 2026.05.26  임도헌   Modified  알림 설정 저장 E2E 반복 실행을 위해 seed 계정 preference 기본값 리셋
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -21,11 +27,22 @@ import { resolve } from "node:path";
 import bcrypt from "bcrypt";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role } from "../generated/prisma/client";
+import {
+  BoardGameLocaleSource,
+  BoardGameLocaleStatus,
+} from "../generated/prisma/enums";
 
 const E2E_PREFIX = "[E2E]";
 const E2E_PASSWORD = "BoardPort!234";
 const E2E_PRODUCT_IMAGE_URL =
-  "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/55cfdd12-033e-4c98-973d-aea323285d00/public";
+  "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/55cfdd12-033e-4c98-973d-aea323285d00";
+const E2E_CHAT_MESSAGE = `${E2E_PREFIX} 채팅 목록 회귀 메시지`;
+const E2E_APPOINTMENT_PRODUCT_TITLE = `${E2E_PREFIX} 약속 수락 상품`;
+const E2E_APPOINTMENT_MESSAGE = `${E2E_PREFIX} 약속 수락 회귀 제안`;
+const E2E_DELETE_PRODUCT_TITLE = `${E2E_PREFIX} 상품 삭제 복귀 테스트`;
+const E2E_REPORT_DESCRIPTION = `${E2E_PREFIX} 관리자 신고 처리 회귀 대상`;
+const E2E_BOARDGAME_TITLE = `${E2E_PREFIX} 항해자의 도감`;
+const E2E_VOD_TITLE = `${E2E_PREFIX} 다시보기 회귀 방송`;
 
 const E2E_USERS = {
   seller: {
@@ -46,9 +63,9 @@ const E2E_USERS = {
 } as const;
 
 /**
- * 터미널에서 직접 실행할 때 필요한 `.env` 값을 process.env에 채운다.
+ * 터미널 직접 실행 시 `.env` 값을 process.env에 주입
  *
- * 이미 터미널에서 지정한 환경 변수는 `.env` 값으로 덮어쓰지 않는다.
+ * 이미 터미널에서 지정한 환경 변수는 `.env` 값으로 덮어쓰지 않고 유지
  */
 function loadEnvFile() {
   const envPath = resolve(process.cwd(), ".env");
@@ -79,19 +96,20 @@ function loadEnvFile() {
 /**
  * PrismaPg가 사용할 DB client 생성
  *
- * Prisma Client용 URL 옵션은 PrismaPg 연결 문자열에서 제거한다.
+ * Prisma Client용 URL 옵션은 PrismaPg 연결 문자열에서 제거
  */
 function createDb() {
   loadEnvFile();
 
-  const rawConnectionString = process.env.DATABASE_URL ?? process.env.DIRECT_URL;
+  const rawConnectionString =
+    process.env.DATABASE_URL ?? process.env.DIRECT_URL;
 
   if (!rawConnectionString) {
     throw new Error("DIRECT_URL or DATABASE_URL is required to seed E2E data.");
   }
 
   const connectionUrl = new URL(rawConnectionString);
-  // PrismaPg는 아래 옵션을 직접 해석하지 않으므로 연결 전에 제거한다.
+  // PrismaPg가 직접 해석하지 않는 Prisma 전용 옵션은 연결 전 제거
   connectionUrl.searchParams.delete("pgbouncer");
   connectionUrl.searchParams.delete("connection_limit");
 
@@ -105,7 +123,7 @@ function createDb() {
 /**
  * E2E 로그인에 사용할 판매자/구매자/관리자 계정 준비
  *
- * 계정은 cleanup에서 삭제하지 않고 재사용하므로, 없을 때만 새로 만든다.
+ * cleanup에서 계정을 삭제하지 않으므로, 없을 때만 생성
  */
 async function createE2EUsers(db: PrismaClient) {
   const password = await bcrypt.hash(E2E_PASSWORD, 12);
@@ -140,10 +158,34 @@ async function createE2EUsers(db: PrismaClient) {
       const existing = await db.notificationPreferences.findUnique({
         where: { userId: user.id },
       });
-      if (existing) return existing;
+      if (existing) {
+        return db.notificationPreferences.update({
+          where: { userId: user.id },
+          data: {
+            chat: true,
+            trade: true,
+            review: true,
+            badge: true,
+            stream: true,
+            keyword: true,
+            system: true,
+            quietHoursStart: null,
+            quietHoursEnd: null,
+          },
+        });
+      }
 
       return db.notificationPreferences.create({
-        data: { userId: user.id },
+        data: {
+          userId: user.id,
+          chat: true,
+          trade: true,
+          review: true,
+          badge: true,
+          stream: true,
+          keyword: true,
+          system: true,
+        },
       });
     })
   );
@@ -174,7 +216,7 @@ async function createE2ECategory(db: PrismaClient) {
 /**
  * E2E 목록/알림 테스트용 살아 있는 상품 준비
  *
- * 기존 상품에 이미지가 없으면 Cloudflare Images 테스트 썸네일만 보강한다.
+ * 기존 상품에 이미지가 없으면 Cloudflare Images 테스트 썸네일만 보강
  */
 async function createProduct(
   db: PrismaClient,
@@ -183,26 +225,51 @@ async function createProduct(
     sellerId: number;
     categoryId: number;
     imageUrl?: string;
+    resetTradeState?: boolean;
   }
 ) {
   const existing = await db.product.findFirst({
     where: { title: input.title, userId: input.sellerId },
     include: {
       images: {
-        select: { id: true },
+        select: { id: true, url: true },
+        orderBy: { order: "asc" },
         take: 1,
       },
     },
   });
 
   if (existing) {
-    if (input.imageUrl && existing.images.length === 0) {
+    if (input.resetTradeState) {
+      await db.product.update({
+        where: { id: existing.id },
+        data: {
+          reservation_at: null,
+          reservation_userId: null,
+          purchased_at: null,
+          purchase_userId: null,
+          hidden_at: null,
+        },
+      });
+    }
+
+    if (!input.imageUrl) return existing;
+
+    const firstImage = existing.images[0];
+    if (!firstImage) {
       await db.productImage.create({
         data: {
           productId: existing.id,
           url: input.imageUrl,
           order: 0,
         },
+      });
+    }
+
+    if (firstImage && firstImage.url !== input.imageUrl) {
+      await db.productImage.update({
+        where: { id: firstImage.id },
+        data: { url: input.imageUrl },
       });
     }
 
@@ -276,9 +343,252 @@ async function createPost(
 }
 
 /**
+ * E2E 채팅 목록/상세 진입 테스트용 상품 채팅방 준비
+ *
+ * 채팅방 목록은 메시지가 없는 방을 제외하므로, 최소 1개의 읽음 텍스트 메시지 보장
+ */
+async function createChatRoomSeed(
+  db: PrismaClient,
+  input: {
+    productId: number;
+    sellerId: number;
+    buyerId: number;
+  }
+) {
+  const existingRoom = await db.productChatRoom.findFirst({
+    where: {
+      productId: input.productId,
+      AND: [
+        { users: { some: { id: input.sellerId } } },
+        { users: { some: { id: input.buyerId } } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  const room =
+    existingRoom ??
+    (await db.productChatRoom.create({
+      data: {
+        productId: input.productId,
+        users: {
+          connect: [{ id: input.sellerId }, { id: input.buyerId }],
+        },
+      },
+      select: { id: true },
+    }));
+
+  const existingMessage = await db.productMessage.findFirst({
+    where: {
+      productChatRoomId: room.id,
+      payload: E2E_CHAT_MESSAGE,
+    },
+  });
+
+  if (existingMessage) return room;
+
+  await db.productMessage.create({
+    data: {
+      productChatRoomId: room.id,
+      userId: input.buyerId,
+      payload: E2E_CHAT_MESSAGE,
+      type: "TEXT",
+      isRead: true,
+    },
+  });
+
+  return room;
+}
+
+/**
+ * E2E 약속 수락 테스트용 PENDING 약속 준비
+ *
+ * 이전 실행의 수락/예약 상태가 남아도 seed 단계에서 판매중 + PENDING 제안으로 복원
+ */
+async function createAppointmentAcceptanceSeed(
+  db: PrismaClient,
+  input: {
+    productId: number;
+    sellerId: number;
+    buyerId: number;
+  }
+) {
+  const room = await createChatRoomSeed(db, input);
+
+  await db.productMessage.deleteMany({
+    where: {
+      productChatRoomId: room.id,
+      OR: [{ type: "APPOINTMENT" }, { payload: E2E_APPOINTMENT_MESSAGE }],
+    },
+  });
+  await db.appointment.deleteMany({
+    where: { chatRoomId: room.id },
+  });
+
+  const appointment = await db.appointment.create({
+    data: {
+      chatRoomId: room.id,
+      proposerId: input.buyerId,
+      receiverId: input.sellerId,
+      meetDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      location: "E2E 테스트 항구 약속 장소",
+      latitude: 37.549,
+      longitude: 126.913,
+    },
+  });
+
+  await db.productMessage.create({
+    data: {
+      productChatRoomId: room.id,
+      userId: input.buyerId,
+      payload: E2E_APPOINTMENT_MESSAGE,
+      type: "APPOINTMENT",
+      appointmentId: appointment.id,
+      isRead: false,
+    },
+  });
+
+  await db.productChatRoom.update({
+    where: { id: room.id },
+    data: { updated_at: new Date() },
+  });
+}
+
+/**
+ * E2E 보드게임 도감 목록/상세 테스트용 공개 항목 준비
+ *
+ * 공개 도감 노출에 필요한 PUBLISHED locale, 짧은 설명, 검수 시각 보장
+ */
+async function createBoardGameSeed(db: PrismaClient, reviewerId: number) {
+  const boardGame = await db.boardGame.upsert({
+    where: { bggId: 990001 },
+    update: {},
+    create: {
+      bggId: 990001,
+      primaryName: "E2E Navigator Catalog",
+      bggUrl: "https://boardgamegeek.com/boardgame/990001/e2e-navigator",
+      yearPublished: 2026,
+      minPlayers: 2,
+      maxPlayers: 4,
+      minPlayTime: 30,
+      maxPlayTime: 45,
+      playingTime: 45,
+      minAge: 10,
+      weightAverage: 2.2,
+      bggRating: 7.1,
+      bayesRating: 6.9,
+      bggRank: 990001,
+      userRatings: 120,
+      bestPlayers: "3",
+      goodPlayers: ["2", "3", "4"],
+      family: "E2E Regression",
+      kickstarted: false,
+    },
+  });
+
+  await db.boardGameLocale.upsert({
+    where: {
+      boardGameId_locale: {
+        boardGameId: boardGame.id,
+        locale: "ko",
+      },
+    },
+    update: {
+      title: E2E_BOARDGAME_TITLE,
+      aliases: ["E2E 도감 테스트"],
+      shortDescription:
+        "E2E 회귀 테스트에서 공개 도감 노출을 확인하는 항목입니다.",
+      searchKeywords: ["e2e", "도감", "회귀"],
+      status: BoardGameLocaleStatus.PUBLISHED,
+      sourceType: BoardGameLocaleSource.ADMIN,
+      reviewedById: reviewerId,
+      reviewedAt: new Date(),
+    },
+    create: {
+      boardGameId: boardGame.id,
+      locale: "ko",
+      title: E2E_BOARDGAME_TITLE,
+      aliases: ["E2E 도감 테스트"],
+      shortDescription:
+        "E2E 회귀 테스트에서 공개 도감 노출을 확인하는 항목입니다.",
+      searchKeywords: ["e2e", "도감", "회귀"],
+      status: BoardGameLocaleStatus.PUBLISHED,
+      sourceType: BoardGameLocaleSource.ADMIN,
+      reviewedById: reviewerId,
+      reviewedAt: new Date(),
+    },
+  });
+
+  return boardGame;
+}
+
+/**
+ * E2E 다시보기 목록/상세 진입 테스트용 ready VOD 준비
+ *
+ * 외부 Cloudflare 웹훅 없이 앱이 이미 처리 완료된 VOD를 읽는 경로만 검증
+ */
+async function createVodSeed(db: PrismaClient, ownerId: number) {
+  const liveInput = await db.liveInput.upsert({
+    where: { userId: ownerId },
+    update: {
+      provider_uid: "e2e-live-input-990001",
+      stream_key: "e2e-stream-key",
+      name: `${E2E_PREFIX} 테스트 방송국`,
+      status: "DISCONNECTED",
+    },
+    create: {
+      userId: ownerId,
+      provider_uid: "e2e-live-input-990001",
+      stream_key: "e2e-stream-key",
+      name: `${E2E_PREFIX} 테스트 방송국`,
+      status: "DISCONNECTED",
+    },
+  });
+
+  const existingBroadcast = await db.broadcast.findFirst({
+    where: { liveInputId: liveInput.id, title: E2E_VOD_TITLE },
+    select: { id: true },
+  });
+
+  const broadcast =
+    existingBroadcast ??
+    (await db.broadcast.create({
+      data: {
+        liveInputId: liveInput.id,
+        title: E2E_VOD_TITLE,
+        description:
+          "E2E 회귀 테스트에서 다시보기 목록/상세 진입을 확인하는 방송입니다.",
+        thumbnail: E2E_PRODUCT_IMAGE_URL,
+        visibility: "PUBLIC",
+        status: "ENDED",
+        started_at: new Date(Date.now() - 60 * 60 * 1000),
+        ended_at: new Date(Date.now() - 30 * 60 * 1000),
+      },
+      select: { id: true },
+    }));
+
+  await db.vodAsset.upsert({
+    where: { provider_asset_id: "e2e-vod-asset-990001" },
+    update: {
+      broadcastId: broadcast.id,
+      thumbnail_url: E2E_PRODUCT_IMAGE_URL,
+      duration_sec: 900,
+      ready_at: new Date(),
+    },
+    create: {
+      broadcastId: broadcast.id,
+      provider_asset_id: "e2e-vod-asset-990001",
+      thumbnail_url: E2E_PRODUCT_IMAGE_URL,
+      duration_sec: 900,
+      ready_at: new Date(),
+    },
+  });
+}
+
+/**
  * E2E 알림 준비
  *
- * 같은 사용자/제목 알림이 이미 있으면 반복 실행 시 중복 생성하지 않는다.
+ * 같은 사용자/제목 알림이 이미 있으면 반복 실행 시 중복 생성 방지
  */
 async function upsertNotification(
   db: PrismaClient,
@@ -311,9 +621,52 @@ async function upsertNotification(
 }
 
 /**
+ * E2E 관리자 신고 처리 테스트용 PENDING 신고 준비
+ *
+ * 이전 실행에서 기각/처리된 신고가 남으면 PENDING으로 복원해 같은 시나리오 반복 검증
+ */
+async function createReportSeed(
+  db: PrismaClient,
+  input: {
+    reporterId: number;
+    targetProductId: number;
+  }
+) {
+  const existing = await db.report.findFirst({
+    where: {
+      reporterId: input.reporterId,
+      description: E2E_REPORT_DESCRIPTION,
+    },
+  });
+
+  if (existing) {
+    await db.report.update({
+      where: { id: existing.id },
+      data: {
+        status: "PENDING",
+        adminComment: null,
+        targetProductId: input.targetProductId,
+        reason: "ABUSIVE",
+      },
+    });
+    return;
+  }
+
+  await db.report.create({
+    data: {
+      reporterId: input.reporterId,
+      targetProductId: input.targetProductId,
+      reason: "ABUSIVE",
+      description: E2E_REPORT_DESCRIPTION,
+      status: "PENDING",
+    },
+  });
+}
+
+/**
  * E2E 테스트에 필요한 계정, 콘텐츠, 알림을 생성 또는 재사용
  *
- * 삭제된 콘텐츠 알림은 실제 데이터를 만들고 지우지 않고, 존재하지 않는 id 링크로 재현한다.
+ * 삭제된 콘텐츠 알림은 실제 생성/삭제 대신 존재하지 않는 id 링크로 재현
  */
 async function seedE2EData() {
   const db = createDb();
@@ -332,6 +685,35 @@ async function seedE2EData() {
       title: `${E2E_PREFIX} 삭제 복귀 게시글`,
       authorId: seller.id,
     });
+    const deleteProduct = await createProduct(db, {
+      title: E2E_DELETE_PRODUCT_TITLE,
+      sellerId: seller.id,
+      categoryId: category.id,
+      imageUrl: E2E_PRODUCT_IMAGE_URL,
+    });
+    const appointmentProduct = await createProduct(db, {
+      title: E2E_APPOINTMENT_PRODUCT_TITLE,
+      sellerId: seller.id,
+      categoryId: category.id,
+      imageUrl: E2E_PRODUCT_IMAGE_URL,
+      resetTradeState: true,
+    });
+    await createChatRoomSeed(db, {
+      productId: product.id,
+      sellerId: seller.id,
+      buyerId: buyer.id,
+    });
+    await createAppointmentAcceptanceSeed(db, {
+      productId: appointmentProduct.id,
+      sellerId: seller.id,
+      buyerId: buyer.id,
+    });
+    await createReportSeed(db, {
+      reporterId: buyer.id,
+      targetProductId: deleteProduct.id,
+    });
+    await createBoardGameSeed(db, admin.id);
+    await createVodSeed(db, seller.id);
 
     const [{ _max: maxProductId }, { _max: maxPostId }] = await Promise.all([
       db.product.aggregate({ _max: { id: true } }),

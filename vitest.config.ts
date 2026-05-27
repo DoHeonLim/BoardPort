@@ -18,17 +18,17 @@ const __dirname = dirname(__filename);
 export default defineConfig({
   resolve: {
     alias: {
-      // 앱 코드와 같은 @ alias를 테스트에서도 사용한다.
+      // 앱 코드와 같은 @ alias를 테스트에서도 사용
       "@": resolve(__dirname, "."),
     },
   },
   test: {
-    // 현재 단위 테스트는 DOM 없이 순수 유틸/스키마/cache 변환만 검증한다.
+    // DOM 없이 순수 유틸/스키마/cache 변환만 검증
     environment: "node",
     globals: false,
-    // 기존 소스 옆에 둔 *.test.ts 파일을 테스트 대상으로 삼는다.
+    // 기존 소스 옆의 *.test.ts 파일을 테스트 대상으로 지정
     include: ["**/*.test.ts"],
-    // 생성물과 migration은 테스트 탐색 대상에서 제외한다.
+    // 생성물과 migration은 테스트 탐색 대상에서 제외
     exclude: ["node_modules", ".next", "generated", "prisma/migrations"],
   },
 });

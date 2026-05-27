@@ -24,6 +24,7 @@
  * 2026.04.14  임도헌   Modified  별도 aria-labelledby 없이 버튼 본문 텍스트를 그대로 이름으로 사용하도록 단순화
  * 2026.05.12  임도헌   Modified  다른 상세 화면과 맞춰 시각 레이블은 하트와 숫자만 남기고 접근성 이름은 aria-label로 분리
  * 2026.05.18  임도헌   Modified  상세 좋아요 변경 시 게시글 목록 캐시의 isLiked와 좋아요 수를 함께 낙관 업데이트
+ * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여해 refetch 경고 방지
  */
 "use client";
 
@@ -55,7 +56,7 @@ interface PostLikeButtonProps {
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 피드백 제공
  * - 상세 좋아요 변경 시 목록 카드의 좋아요 수와 isLiked도 함께 갱신해 뒤로가기 후 하트 색상 정합성 유지
  * - `onError` 발생 시 `previous` 스냅샷을 활용한 이전 상태 복구(Rollback) 로직 포함
- * - `onSettled` 단계에서 `invalidateQueries` 호출로 서버/클라이언트 데이터 최종 동기화 처리
+ * - `onSettled` 단계에서는 실제 queryFn이 있는 목록 쿼리만 무효화해 상세 initialData 캐시 refetch 경고를 방지
  */
 export default function PostLikeButton({
   postId,
@@ -64,12 +65,20 @@ export default function PostLikeButton({
 }: PostLikeButtonProps) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.posts.likeStatus(postId);
+  const initialLikeStatus = {
+    isLiked: initialIsLiked,
+    likeCount: initialLikeCount,
+  };
 
   // 1. 상태 조회 (초기값 하이드레이션)
   const { data } = useQuery({
     queryKey,
-    initialData: { isLiked: initialIsLiked, likeCount: initialLikeCount },
+    queryFn: async () =>
+      queryClient.getQueryData<typeof initialLikeStatus>(queryKey) ??
+      initialLikeStatus,
+    initialData: initialLikeStatus,
     staleTime: Infinity, // Mutation이 일어나기 전까지 캐시 유지
+    enabled: false,
   });
 
   // 2. 상태 변경 (Mutation)
@@ -139,7 +148,6 @@ export default function PostLikeButton({
     },
     // 성공/실패 무관하게 백그라운드 데이터 최신화
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.lists() });
     },
   });
