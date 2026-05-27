@@ -32,6 +32,9 @@
  * 2026.04.26  임도헌   Modified  읽음 액션 토스트 문구를 화면 버튼 라벨과 같은 표현으로 통일
  * 2026.05.23  임도헌   Modified  삭제된 콘텐츠의 오래된 알림 이미지가 깨질 때 타입 아이콘으로 fallback 처리
  * 2026.05.24  임도헌   Modified  삭제된 콘텐츠 알림의 이동 불가 보조 문구 추가
+ * 2026.05.25  임도헌   Modified  허용된 이미지 출처만 렌더링해 오래된 알림 이미지 URL 예외 방어
+ * 2026.05.25  임도헌   Modified  알림 상세 이동을 먼저 수행하고 읽음 처리는 후속 동기화로 분리
+ * 2026.05.25  임도헌   Modified  알림 이미지/삭제 콘텐츠 렌더링 판단을 테스트 가능한 유틸로 분리
  */
 "use client";
 
@@ -69,6 +72,10 @@ import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import type { RegionRange } from "@/generated/prisma/enums";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import {
+  isRenderableNotificationImage,
+  shouldShowUnavailableNotificationCopy,
+} from "@/features/notification/utils/rendering";
 
 interface Props {
   data: NotificationListResponse;
@@ -85,13 +92,6 @@ const KeywordAlertModal = dynamic(
   () => import("@/features/notification/components/KeywordAlertModal"),
   { ssr: false }
 );
-
-const CONTENT_LINKED_NOTIFICATION_TYPES = new Set([
-  "TRADE",
-  "CHAT",
-  "STREAM",
-  "KEYWORD",
-]);
 
 /**
  * 알림함 목록 및 읽음 처리 컨테이너 컴포넌트
@@ -179,17 +179,22 @@ export default function NotificationListContainer({
   const handleOpenNotification = async (notification: NotificationItem) => {
     const href = buildNotificationHref(notification.link);
     if (!notification.isRead) {
-      const res = await markNotificationAsReadAction(notification.id);
-      if (res.success) {
-        setNotifications((prev) =>
-          prev.map((noti) =>
-            noti.id === notification.id ? { ...noti, isRead: true } : noti
-          )
-        );
-        decrement(1);
-      } else {
-        toast.error(res.error ?? "알림을 읽음으로 표시하지 못했어요.");
-      }
+      void markNotificationAsReadAction(notification.id)
+        .then((res) => {
+          if (res.success) {
+            setNotifications((prev) =>
+              prev.map((noti) =>
+                noti.id === notification.id ? { ...noti, isRead: true } : noti
+              )
+            );
+            decrement(1);
+          } else {
+            toast.error(res.error ?? "알림을 읽음으로 표시하지 못했어요.");
+          }
+        })
+        .catch(() => {
+          toast.error("알림을 읽음으로 표시하지 못했어요.");
+        });
     }
     router.push(href);
   };
@@ -217,10 +222,10 @@ export default function NotificationListContainer({
     "SYSTEM",
   ];
   const shouldShowUnavailableCopy = (notification: NotificationItem) =>
-    !notification.link && CONTENT_LINKED_NOTIFICATION_TYPES.has(notification.type);
+    shouldShowUnavailableNotificationCopy(notification);
 
   // 링크가 제거된 콘텐츠형 알림에만 이동 불가 안내를 보여준다.
-  // 시스템/배지 알림은 원래 링크가 없을 수 있어 안내 대상에서 제외한다.
+  // 시스템/배지 알림은 원래 링크가 없을 수 있어 안내 대상에서 제외
   /**
    * 선택한 알림 필터로 이동하며 page 쿼리는 1페이지 기준으로 초기화
    * - 알림 센터 내부 상태 전환이므로 히스토리를 남기지 않도록 replace 사용
@@ -333,7 +338,8 @@ export default function NotificationListContainer({
                 <BellAlertIcon className="size-5" />
               );
               const canRenderImage =
-                !!notification.image && !failedImageIds.has(notification.id);
+                isRenderableNotificationImage(notification.image) &&
+                !failedImageIds.has(notification.id);
 
               return (
                 <li
@@ -373,14 +379,39 @@ export default function NotificationListContainer({
                     )}
                   </div>
 
-                <div className="flex-1 min-w-0">
-                  {notification.link ? (
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
+                  <div className="flex-1 min-w-0">
+                    {notification.link ? (
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenNotification(notification)}
+                          className={cn(
+                            "focus-ring-soft min-w-0 flex-1 rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
+                            notification.isRead
+                              ? "text-slate-600 dark:text-slate-300"
+                              : "text-primary hover:text-brand dark:hover:text-brand-light"
+                          )}
+                        >
+                          {notification.title}
+                        </button>
+                        {/* 링크형 알림은 별도 CTA를 노출해 이동 동작 인지성 보강 */}
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenNotification(notification)}
+                            className="focus-ring-soft inline-flex shrink-0 items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-border-strong hover:bg-surface-dim hover:text-primary dark:text-slate-200"
+                          >
+                            보기
+                            <ArrowUpRightIcon className="size-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => handleOpenNotification(notification)}
+                        onClick={() => handleMarkAsRead(notification.id)}
                         className={cn(
-                          "focus-ring-soft min-w-0 flex-1 rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
+                          "focus-ring-soft rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
                           notification.isRead
                             ? "text-slate-600 dark:text-slate-300"
                             : "text-primary hover:text-brand dark:hover:text-brand-light"
@@ -388,58 +419,33 @@ export default function NotificationListContainer({
                       >
                         {notification.title}
                       </button>
-                      {/* 링크형 알림은 별도 CTA를 노출해 이동 동작 인지성 보강 */}
-                      <div className="flex justify-end">
+                    )}
+                    <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-slate-600 dark:text-slate-300">
+                      {notification.body}
+                    </p>
+                    {shouldShowUnavailableCopy(notification) && (
+                      <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
+                        연결된 콘텐츠가 삭제되어 이동할 수 없습니다.
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <TimeAgo
+                        date={notification.created_at}
+                        className="text-xs text-slate-500 dark:text-slate-300"
+                      />
+                      {!notification.isRead && (
                         <button
                           type="button"
-                          onClick={() => handleOpenNotification(notification)}
-                          className="focus-ring-soft inline-flex shrink-0 items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-border-strong hover:bg-surface-dim hover:text-primary dark:text-slate-200"
+                          onClick={() => handleMarkAsRead(notification.id)}
+                          aria-label={`${notification.title} 알림을 읽음으로 표시`}
+                          title="읽음으로 표시"
+                          className="focus-ring-soft inline-flex min-h-[24px] items-center rounded-full border border-brand/35 bg-brand/12 px-2.5 py-0.5 text-xs font-semibold text-brand shadow-[0_0_0_1px_rgba(59,130,246,0.04)] transition-colors hover:border-brand/50 hover:bg-brand/18 dark:border-brand-light/35 dark:bg-brand-light/12 dark:text-brand-light dark:hover:bg-brand-light/18"
                         >
-                          보기
-                          <ArrowUpRightIcon className="size-3.5" />
+                          읽음으로 표시
                         </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleMarkAsRead(notification.id)}
-                      className={cn(
-                        "focus-ring-soft rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
-                        notification.isRead
-                          ? "text-slate-600 dark:text-slate-300"
-                          : "text-primary hover:text-brand dark:hover:text-brand-light"
                       )}
-                    >
-                      {notification.title}
-                    </button>
-                  )}
-                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-slate-600 dark:text-slate-300">
-                    {notification.body}
-                  </p>
-                  {shouldShowUnavailableCopy(notification) && (
-                    <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
-                      연결된 콘텐츠가 삭제되어 이동할 수 없습니다.
-                    </p>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <TimeAgo
-                      date={notification.created_at}
-                      className="text-xs text-slate-500 dark:text-slate-300"
-                    />
-                    {!notification.isRead && (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkAsRead(notification.id)}
-                        aria-label={`${notification.title} 알림을 읽음으로 표시`}
-                        title="읽음으로 표시"
-                        className="focus-ring-soft inline-flex min-h-[24px] items-center rounded-full border border-brand/35 bg-brand/12 px-2.5 py-0.5 text-xs font-semibold text-brand shadow-[0_0_0_1px_rgba(59,130,246,0.04)] transition-colors hover:border-brand/50 hover:bg-brand/18 dark:border-brand-light/35 dark:bg-brand-light/12 dark:text-brand-light dark:hover:bg-brand-light/18"
-                      >
-                        읽음으로 표시
-                      </button>
-                    )}
+                    </div>
                   </div>
-                </div>
                 </li>
               );
             })}

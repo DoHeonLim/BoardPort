@@ -36,6 +36,7 @@
  * 2026.05.03  임도헌   Modified  게시글 작성/수정 폼에 보드게임 카탈로그 연결 필드 추가
  * 2026.05.04  임도헌   Modified  보드게임 연결 필드를 카테고리 다음으로 올려 게시글 주제 맥락을 먼저 선택하도록 정리
  * 2026.05.05  임도헌   Modified  게시글 편집기/위치/검증 핸들러 JSDoc 보강
+ * 2026.05.26  임도헌   Modified  저장 성공 후 queryFn 없는 상세 하위 query를 건드리지 않도록 목록 query만 무효화
  */
 "use client";
 
@@ -716,7 +717,7 @@ export default function PostForm({
       if (result.success) {
         // 저장 성공 후 캐시 무효화
         // 목록/상세 재방문 시 최신 게시글 노출을 위한 posts 캐시 정리
-        queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.lists() });
         toast.success(
           isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
         );

@@ -10,6 +10,8 @@
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 삭제 후 back 복귀 플래그 기록 중복을 정리
  * 2026.05.23  임도헌   Modified  게시글 삭제 후 /posts 목록 문맥에서만 history back을 사용하도록 복귀 기준 보강
  * 2026.05.23  임도헌   Modified  삭제 성공 시 게시글 infinite query 캐시와 stale cursor를 즉시 정리
+ * 2026.05.24  임도헌   Modified  게시글 삭제 cache/cursor 정리 로직을 테스트 가능한 유틸로 분리
+ * 2026.05.26  임도헌   Modified  initialData 전용 상세 하위 query가 refetch되지 않도록 삭제 후 무효화 범위를 목록으로 축소
  */
 "use client";
 
@@ -26,6 +28,10 @@ import {
 import BottomSheet from "@/components/global/BottomSheet";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { deletePostAction } from "@/features/post/actions/delete";
+import {
+  removePostFromInfiniteCache,
+  type PostInfiniteCache,
+} from "@/features/post/utils/postQueryCache";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   canUseBrowserBack,
@@ -34,7 +40,6 @@ import {
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 import { queryKeys } from "@/lib/queryKeys";
-import type { PostsPage } from "@/features/post/types";
 
 interface PostOwnerMenuProps {
   postId: number;
@@ -97,43 +102,20 @@ export default function PostOwnerMenu({
         queryClient.setQueriesData(
           { queryKey: queryKeys.posts.lists() },
           (oldData:
-            | { pages: PostsPage[]; pageParams?: unknown[] }
-            | undefined) => {
-            if (!oldData?.pages) return oldData;
-
-            return {
-              ...oldData,
-              pages: oldData.pages.map((page) => {
-                const posts = page.posts.filter((post) => post.id !== postId);
-                const removedFromPage = posts.length !== page.posts.length;
-                const nextCursor =
-                  page.nextCursor === postId
-                    ? (posts[posts.length - 1]?.id ?? null)
-                    : page.nextCursor;
-
-                return {
-                  ...page,
-                  posts,
-                  nextCursor,
-                  totalCount:
-                    removedFromPage && typeof page.totalCount === "number"
-                      ? Math.max(0, page.totalCount - 1)
-                      : page.totalCount,
-                };
-              }),
-            };
-          }
+            | PostInfiniteCache<{ id: number }>
+            | undefined) => removePostFromInfiniteCache(oldData, postId)
         );
         queryClient.removeQueries({ queryKey: queryKeys.posts.detail(postId) });
         queryClient.removeQueries({
           queryKey: queryKeys.posts.likeStatus(postId),
         });
-        queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+        queryClient.removeQueries({ queryKey: queryKeys.posts.stats(postId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.lists() });
 
         const isPostsListReturn = nextAfterDelete.startsWith("/posts");
 
-        // 게시글 목록 문맥에서만 back 복귀를 허용한다.
-        // 다른 returnTo에서 back을 쓰면 삭제된 상세 tree가 남을 수 있다.
+        // 게시글 목록 문맥에서만 back 복귀 허용
+        // 다른 returnTo에서 back 사용 시 삭제된 상세 tree 잔상 가능성
         if (isPostsListReturn) {
           markNavigationRefresh(
             NAVIGATION_REFRESH_SCOPES.POSTS_LIST,

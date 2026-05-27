@@ -38,7 +38,7 @@ export default function PostListRefreshRelay() {
       return;
     }
     // router.refresh()는 URL이 /posts여도 삭제된 상세 segment가 남는
-    // mixed tree를 지우지 못해 문서 reload를 사용한다.
+    // mixed tree를 지우지 못해 문서 reload를 사용하여 완전히 새로고침
     window.location.reload();
   }, []);
 

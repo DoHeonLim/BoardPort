@@ -10,13 +10,14 @@
  * 2026.01.17  임도헌   Moved     components/post -> features/post/components
  * 2026.05.18  임도헌   Modified  상세 메타에 댓글 수 표시 및 post stats 캐시 연동
  * 2026.05.18  임도헌   Modified  상세 통계 아이콘을 목록 카드와 같은 solid 문법으로 통일
+ * 2026.05.26  임도헌   Modified  initialData 기반 stats query에 local queryFn을 부여해 refetch 경고 방지
  */
 "use client";
 
 import PostLikeButton from "@/features/post/components/PostLikeButton";
 import { ChatBubbleLeftIcon, EyeIcon } from "@heroicons/react/24/solid";
 import TimeAgo from "@/components/ui/TimeAgo";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 
 interface PostDetailMetaProps {
@@ -42,9 +43,15 @@ export default function PostDetailMeta({
   commentCount,
   createdAt,
 }: PostDetailMetaProps) {
+  const queryClient = useQueryClient();
+  const statsQueryKey = queryKeys.posts.stats(postId);
+  const initialStats = { commentCount };
   const { data: stats } = useQuery({
-    queryKey: queryKeys.posts.stats(postId),
-    initialData: { commentCount },
+    queryKey: statsQueryKey,
+    queryFn: async () =>
+      queryClient.getQueryData<typeof initialStats>(statsQueryKey) ??
+      initialStats,
+    initialData: initialStats,
     staleTime: Infinity,
     enabled: false,
   });
