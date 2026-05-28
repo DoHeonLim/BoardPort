@@ -14,15 +14,18 @@
  * 2026.04.08  임도헌   Modified  방송 제목/설명 수정 결과와 실시간 메타 동기화를 상세 로컬 상태에 즉시 반영
  * 2026.04.16  임도헌   Modified  상세 전용 실시간 구독과 main landmark 위치를 셸에 고정해 상태/시맨틱 진입점을 일원화
  * 2026.05.17  임도헌   Modified  live-status 상태 반영을 셸 단일 구독으로 모아 상세 하위 컴포넌트 중복 구독 제거
+ * 2026.05.28  임도헌   Modified  모바일 채팅 입력 중 상세 영역을 접는 입력 집중 모드 레이아웃 추가
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StreamChatMessage } from "@/features/chat/types";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import StreamDetail from "@/features/stream/components/StreamDetail";
 import StreamChatRoom from "@/features/stream/components/StreamChatRoom";
 import StreamDetailLayout from "@/features/stream/components/StreamDetailLayout";
 import StreamTopbar from "@/features/stream/components/StreamTopBar";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import useVisualViewportHeightCssVar from "@/hooks/useVisualViewportHeightCssVar";
 import type { StreamDetailDTO } from "@/features/stream/types";
 import type { UserProfile } from "@/features/user/types";
 
@@ -52,6 +55,7 @@ interface StreamDetailClientShellProps {
  * - 방송 제목/설명 변경과 실시간 메타 업데이트를 로컬 stream state에 합쳐 상세 UI에 즉시 반영
  * - 상단바, 상세 레이아웃, 데스크톱/모바일 채팅 컴포넌트에 동일 상태를 props로 전달
  * - 상세 전용 실시간 상태 구독과 `main` 랜드마크를 이 셸에 모아 페이지 진입 구조를 단순하게 유지
+ * - 모바일 키보드 오픈 시 상세 영역을 접고 채팅 레일 중심의 입력 레이아웃으로 전환
  * - 전역 Provider 없이도 스트림 상세 한 화면 안에서 채팅 열림/닫힘 흐름을 유지
  */
 export default function StreamDetailClientShell({
@@ -69,7 +73,13 @@ export default function StreamDetailClientShell({
   mutedUserIds,
   initiallyMuted,
 }: StreamDetailClientShellProps) {
+  useVisualViewportHeightCssVar("--stream-visual-viewport-height");
+
+  const isMobile = useIsMobile();
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatComposerFocused, setIsChatComposerFocused] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const maxVisualViewportHeightRef = useRef(0); // 키보드 감지를 위한 최대 visual viewport 높이 기준값
   const [streamState, setStreamState] = useState(stream);
 
   useEffect(() => {
@@ -78,6 +88,7 @@ export default function StreamDetailClientShell({
 
   const openChat = () => setIsChatOpen(true);
   const closeChat = () => setIsChatOpen(false);
+  const isChatFocusMode = isMobile && isChatComposerFocused && isKeyboardOpen;
   const handleRealtimeStatus = useCallback((payload: { status?: string }) => {
     if (!payload.status) return;
 
@@ -88,8 +99,37 @@ export default function StreamDetailClientShell({
     }));
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) {
+      setIsKeyboardOpen(false);
+      return;
+    }
+
+    const viewport = window.visualViewport;
+
+    const syncKeyboardState = () => {
+      maxVisualViewportHeightRef.current = Math.max(
+        maxVisualViewportHeightRef.current,
+        viewport.height
+      );
+
+      setIsKeyboardOpen(
+        maxVisualViewportHeightRef.current - viewport.height > 120
+      );
+    };
+
+    syncKeyboardState();
+    viewport.addEventListener("resize", syncKeyboardState);
+    viewport.addEventListener("scroll", syncKeyboardState);
+
+    return () => {
+      viewport.removeEventListener("resize", syncKeyboardState);
+      viewport.removeEventListener("scroll", syncKeyboardState);
+    };
+  }, []);
+
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
+    <div className="flex h-[var(--stream-visual-viewport-height,100dvh)] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
       {/* 상세 전체가 공유하는 live-status 구독 지점을 셸 레벨에 고정 */}
       <LiveStatusRealtimeSubscriber
         streamId={stream.stream_id}
@@ -120,6 +160,7 @@ export default function StreamDetailClientShell({
       <main className="flex min-h-0 flex-1 flex-col" role="main">
         <StreamDetailLayout
           isChatOpen={isChatOpen}
+          isChatFocusMode={isChatFocusMode}
           detail={
             <StreamDetail
               stream={streamState}
@@ -143,6 +184,7 @@ export default function StreamDetailClientShell({
               fillParent
               isOpen={isChatOpen}
               onCloseChat={closeChat}
+              onComposerFocusChange={setIsChatComposerFocused}
               onStreamMetaUpdated={(next) =>
                 setStreamState((prev) => ({
                   ...prev,

@@ -5,6 +5,7 @@
  *
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 입력/전송 영역을 분리
+ * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드와 IME 정책 전달용 textarea 이벤트 props 추가
  */
 
 import type { RefObject } from "react";
@@ -16,6 +17,10 @@ interface StreamChatComposerProps {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   onChange: (value: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onCompositionStart?: () => void;
+  onCompositionEnd?: () => void;
   onSubmit: () => void;
   preventFocusSteal: (
     event:
@@ -35,6 +40,10 @@ export default function StreamChatComposer({
   textareaRef,
   onChange,
   onKeyDown,
+  onFocus,
+  onBlur,
+  onCompositionStart,
+  onCompositionEnd,
   onSubmit,
   preventFocusSteal,
   isSubmitDisabled,
@@ -54,6 +63,10 @@ export default function StreamChatComposer({
             value={message}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={onKeyDown}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            onCompositionStart={onCompositionStart}
+            onCompositionEnd={onCompositionEnd}
             placeholder={
               isMuted
                 ? "현재 방송에서 채팅이 제한되었습니다"

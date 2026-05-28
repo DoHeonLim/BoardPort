@@ -65,6 +65,7 @@
  * 2026.04.21  임도헌   Modified  고정 공지 편집 패널과 읽기 배너를 분리해 공지 흐름을 단순화
  * 2026.04.21  임도헌   Modified  채팅 금지 실시간 수신 및 전송 거부 시 입력 draft 즉시 정리
  * 2026.04.22  임도헌   Modified  개인 알림 채널 중복 구독 대신 전역 sys_event 브리지로 채팅 금지 상태를 실시간 동기화
+ * 2026.05.28  임도헌   Modified  모바일 채팅 입력 집중 모드와 데스크톱 Enter 전송 정책 적용
  */
 "use client";
 
@@ -126,6 +127,7 @@ interface Props {
   containerClassName?: string; // 외부 주입 스타일
   isOpen?: boolean; // 채팅 노출 여부
   onCloseChat?: () => void; // 채팅 닫기 핸들러
+  onComposerFocusChange?: (focused: boolean) => void; // 모바일 입력 집중 모드 전환용 포커스 상태 전달
   onStreamMetaUpdated?: (payload: StreamMetaUpdatePayload) => void; // 방송 제목/설명 실시간 동기화
 }
 
@@ -155,6 +157,7 @@ export default function StreamChatRoom({
   containerClassName = "",
   isOpen = true,
   onCloseChat,
+  onComposerFocusChange,
   onStreamMetaUpdated,
 }: Props) {
   const isMobile = useIsMobile();
@@ -181,6 +184,7 @@ export default function StreamChatRoom({
   const [messages, setMessages] =
     useState<StreamChatMessage[]>(initialStreamMessage);
   const [message, setMessage] = useState(""); // 입력 필드 텍스트
+  const [isComposing, setIsComposing] = useState(false); // IME 조합 상태
   const [cooldownUntil, setCooldownUntil] = useState<number>(0); // 쿨다운 만료 시각
 
   const [selectedUser, setSelectedUser] = useState<{
@@ -533,7 +537,11 @@ export default function StreamChatRoom({
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    const isDesktopInput =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    if (e.key === "Enter" && !e.shiftKey && !isComposing && isDesktopInput) {
       e.preventDefault();
       onSubmit();
     }
@@ -971,6 +979,10 @@ export default function StreamChatRoom({
         textareaRef={textareaRef}
         onChange={setMessage}
         onKeyDown={onKeyDown}
+        onFocus={() => onComposerFocusChange?.(true)}
+        onBlur={() => onComposerFocusChange?.(false)}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
         onSubmit={onSubmit}
         preventFocusSteal={preventFocusSteal}
         isSubmitDisabled={
