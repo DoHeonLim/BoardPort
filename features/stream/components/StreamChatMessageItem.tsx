@@ -5,6 +5,7 @@
  *
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 개별 메시지 렌더와 옵션 버튼 분기를 분리
+ * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드용 라이브 피드 메시지 렌더 추가
  */
 
 import TimeAgo from "@/components/ui/TimeAgo";
@@ -30,10 +31,12 @@ interface StreamChatMessageItemProps {
     message: StreamChatMessage,
     isMine: boolean
   ) => void;
+  isFocusMode?: boolean;
 }
 
 /**
- * 스트림 채팅의 단일 메시지 아이템.
+ * 스트림 채팅 단일 메시지 아이템
+ *
  * 메시지 정렬, 호스트 배지, 옵션 버튼, 모바일 롱프레스 진입점을 한 덩어리로 캡슐화
  */
 export default function StreamChatMessageItem({
@@ -46,6 +49,7 @@ export default function StreamChatMessageItem({
   onLongPressStart,
   onLongPressEnd,
   onOptionButtonClick,
+  isFocusMode = false,
 }: StreamChatMessageItemProps) {
   const normalizedMessageUserId = Number(message.userId);
   const safeMessageUserId = Number.isFinite(normalizedMessageUserId)
@@ -56,6 +60,61 @@ export default function StreamChatMessageItem({
   const isDeleted = !!message.deleted_at;
   const username =
     message.user?.username ?? (isMine ? currentUsername : "선원");
+
+  if (isFocusMode) {
+    return (
+      <div
+        className="group flex w-full items-start gap-2 text-sm leading-6"
+        onPointerDown={() => onLongPressStart(message)}
+        onContextMenu={(event) => {
+          if (isDeleted) {
+            event.preventDefault();
+          }
+        }}
+        onPointerUp={onLongPressEnd}
+        onPointerLeave={onLongPressEnd}
+        onPointerCancel={onLongPressEnd}
+        onPointerMove={onLongPressEnd}
+      >
+        <TimeAgo
+          date={message.created_at.toString()}
+          className="mt-0.5 min-w-[3.25rem] shrink-0 whitespace-nowrap text-xs font-medium text-muted"
+        />
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectUser({
+                id: safeMessageUserId,
+                username,
+                avatar: message.user?.avatar ?? null,
+              });
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            aria-label={`${username} 사용자 메뉴 열기`}
+            className="focus-ring-soft mr-1 inline-flex max-w-[9rem] align-baseline text-xs font-semibold text-brand transition-colors hover:text-brand-hover dark:text-brand-light"
+          >
+            <span className="truncate">{username}</span>
+            {isHost && (
+              <span className="ml-1 rounded bg-accent/20 px-1 py-0.5 text-xs font-bold leading-none text-accent-dark">
+                HOST
+              </span>
+            )}
+          </button>
+          <span className="break-words text-primary">
+            {isDeleted ? (
+              <span className="italic text-muted">
+                호스트에 의해 삭제된 메시지입니다.
+              </span>
+            ) : (
+              message.payload
+            )}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

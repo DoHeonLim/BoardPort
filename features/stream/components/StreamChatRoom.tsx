@@ -66,6 +66,7 @@
  * 2026.04.21  임도헌   Modified  채팅 금지 실시간 수신 및 전송 거부 시 입력 draft 즉시 정리
  * 2026.04.22  임도헌   Modified  개인 알림 채널 중복 구독 대신 전역 sys_event 브리지로 채팅 금지 상태를 실시간 동기화
  * 2026.05.28  임도헌   Modified  모바일 채팅 입력 집중 모드와 데스크톱 Enter 전송 정책 적용
+ * 2026.05.28  임도헌   Modified  입력 집중 모드에서 카드형 채팅을 라이브 피드형 레이아웃으로 전환
  */
 "use client";
 
@@ -128,6 +129,7 @@ interface Props {
   isOpen?: boolean; // 채팅 노출 여부
   onCloseChat?: () => void; // 채팅 닫기 핸들러
   onComposerFocusChange?: (focused: boolean) => void; // 모바일 입력 집중 모드 전환용 포커스 상태 전달
+  isFocusMode?: boolean; // 모바일 키보드 오픈 중 라이브 채팅형 레이아웃 여부
   onStreamMetaUpdated?: (payload: StreamMetaUpdatePayload) => void; // 방송 제목/설명 실시간 동기화
 }
 
@@ -158,6 +160,7 @@ export default function StreamChatRoom({
   isOpen = true,
   onCloseChat,
   onComposerFocusChange,
+  isFocusMode = false,
   onStreamMetaUpdated,
 }: Props) {
   const isMobile = useIsMobile();
@@ -799,12 +802,19 @@ export default function StreamChatRoom({
         "flex flex-col min-h-0 overflow-hidden border transition-colors",
         "border-border-subtle bg-surface",
         "rounded-2xl shadow-lg lg:shadow-[0_16px_36px_rgba(15,23,42,0.08)] lg:ring-1 lg:ring-black/[0.045] dark:lg:ring-white/[0.04]",
+        "max-lg:rounded-none max-lg:border-x-0 max-lg:border-b-0 max-lg:bg-background max-lg:shadow-none",
         fillParent ? "h-full flex-1" : "sm:min-h-[40vh]",
         containerClassName
       )}
     >
       {/* 헤더 */}
-      <div className="shrink-0 flex items-center justify-between border-b border-border-subtle bg-surface px-3 py-2.5 sm:px-4 sm:py-3">
+      <div
+        className={cn(
+          "shrink-0 flex items-center justify-between border-b border-border-subtle bg-surface px-3 py-2.5 sm:px-4 sm:py-3",
+          isFocusMode && "max-lg:hidden",
+          !isFocusMode && "max-lg:bg-background"
+        )}
+      >
         <div className="min-w-0">
           <span className="text-sm font-medium text-primary">채팅</span>
         </div>
@@ -909,7 +919,12 @@ export default function StreamChatRoom({
       {/* 메시지 로그 */}
       <div
         ref={chatRef}
-        className="flex-1 min-h-0 overflow-y-auto bg-surface p-3 pb-4 space-y-3 scrollbar-hide sm:p-4 sm:pb-5"
+        className={cn(
+          "flex-1 min-h-0 overflow-y-auto bg-surface p-3 pb-4 space-y-3 scrollbar-hide sm:p-4 sm:pb-5",
+          "max-lg:bg-background",
+          isFocusMode &&
+            "max-lg:px-4 max-lg:pt-3 max-lg:pb-3 max-lg:space-y-2"
+        )}
         role="log"
         aria-live="polite"
         onClick={(e) => {
@@ -968,6 +983,7 @@ export default function StreamChatRoom({
                     !isMine
                   );
                 }}
+                isFocusMode={isFocusMode}
               />
             ))
         )}
@@ -985,6 +1001,7 @@ export default function StreamChatRoom({
         onCompositionEnd={() => setIsComposing(false)}
         onSubmit={onSubmit}
         preventFocusSteal={preventFocusSteal}
+        isFocusMode={isFocusMode}
         isSubmitDisabled={
           isMuted || Date.now() < cooldownUntil || !message.trim()
         }

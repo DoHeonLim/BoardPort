@@ -40,6 +40,8 @@
  * 2026.05.04  임도헌   Modified  방송에서 다루는 보드게임을 상세 공통 카드 스타일로 표시
  * 2026.05.05  임도헌   Modified  방송 상태 정규화와 반응형 패널 동기화 JSDoc 보강
  * 2026.05.17  임도헌   Modified  live-status 직접 구독 제거 후 셸에서 내려온 상태 props 기준으로 렌더링
+ * 2026.05.28  임도헌   Modified  모바일 플레이어와 정보 패널을 full-bleed 스트림 레이아웃에 맞춰 정리
+ * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 상단바 제어 상태로 분리
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -76,6 +78,8 @@ interface StreamDetailProps {
     UserProfile,
     "id" | "username" | "isFollowing" | "isBlocked" | "viewerId" | "_count"
   >;
+  /** 모바일 상단바에서 제어하는 방송 정보 패널 열림 상태 */
+  mobileInfoOpen?: boolean;
 }
 
 /**
@@ -93,10 +97,10 @@ function normalizeStreamStatus(status?: StreamStatus | string | null) {
  *
  * [상태 주입 및 레이아웃 제어 로직]
  * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
- * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`를 배치하고, 모바일 정보 토글은 플레이어 우상단 칩으로 제어
+ * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`만 배치하고, 모바일 정보 토글은 상단바 상태로 제어
  * - 셸에서 동기화한 `live-status` 상태를 props로 받아 새로고침 없이 iframe 렌더 조건을 갱신
  * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용 완화
- * - 모바일은 cross-origin iframe 제약 때문에 플레이어 자체 클릭 대신 플레이어 안 우상단 정보 토글 버튼으로 상세 정보 제어
+ * - 모바일은 cross-origin iframe 터치 레이어와 충돌하지 않도록 상단바에서 상세 정보 패널을 제어
  * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
  * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키 확인 가능
  */
@@ -105,22 +109,22 @@ export default function StreamDetail({
   me,
   streamId,
   ownerProfile,
+  mobileInfoOpen = false,
 }: StreamDetailProps) {
   const isOwner = !!me && stream.user.id === me;
   const currentStatus = normalizeStreamStatus(stream.status);
 
-  // 모바일은 기본 숨김, 데스크톱은 기본 펼침으로 시작
-  const [opened, setOpened] = useState(false);
+  // 데스크톱 정보 패널은 화면 폭에 맞춰 기본 열림 상태를 유지
+  const [desktopInfoOpen, setDesktopInfoOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");
-    /**
-     * 현재 viewport 기준 정보 패널 기본 열림 상태 동기화
-     */
+
     const apply = () => {
       setIsDesktop(mql.matches);
-      setOpened(mql.matches);
+      setDesktopInfoOpen(mql.matches);
     };
+
     apply();
     mql.addEventListener?.("change", apply);
     return () => mql.removeEventListener?.("change", apply);
@@ -138,13 +142,12 @@ export default function StreamDetail({
     initialFollowingCount: ownerProfile._count.following ?? 0,
     viewerId: ownerProfile.viewerId ?? undefined,
   });
-  const showInfoSection = isDesktop || opened;
-  const hasStatusOverlay = currentStatus !== "CONNECTED";
+  const showInfoSection = isDesktop ? desktopInfoOpen : mobileInfoOpen;
   const shouldRenderLivePlayer = currentStatus === "CONNECTED";
 
   return (
-    <div className="relative space-y-2">
-      <div className="relative aspect-video overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10 sm:mb-0">
+    <div className="relative lg:space-y-2">
+      <div className="relative aspect-video overflow-hidden bg-black shadow-sm lg:rounded-2xl lg:border lg:border-black/10 dark:lg:border-white/10">
         {/* CONNECTED일 때만 실제 플레이어를 붙이고, 나머지는 fallback 썸네일/배경으로 유지 */}
         {(() => {
           if (!shouldRenderLivePlayer) {
@@ -191,28 +194,12 @@ export default function StreamDetail({
           status={currentStatus}
           isOwner={isOwner}
         />
-        <button
-          type="button"
-          className={cn(
-            "focus-ring-soft absolute right-3 top-3 z-50 inline-flex min-h-[30px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-medium shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors lg:hidden",
-            opened
-              ? "border-black/8 bg-surface-dim text-primary dark:border-white/10 dark:bg-surface-dim dark:text-white"
-              : hasStatusOverlay
-                ? "border-black/10 bg-white text-primary dark:border-white/10 dark:bg-black/45 dark:text-white/90"
-                : "border-border-subtle bg-surface text-muted hover:text-primary"
-          )}
-          aria-pressed={opened}
-          aria-label={opened ? "방송 정보 숨기기" : "방송 정보 보기"}
-          onClick={() => setOpened((prev) => !prev)}
-        >
-          {opened ? "정보 숨기기" : "방송 정보"}
-        </button>
       </div>
 
       {/* 정보 패널 (아코디언) */}
       <section
         className={cn(
-          "overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-[0_10px_28px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03] transition-colors lg:shadow-[0_16px_36px_rgba(15,23,42,0.07)] lg:ring-black/[0.045] dark:shadow-sm dark:ring-white/[0.03]",
+          "overflow-hidden border-y border-border-subtle bg-surface transition-colors lg:rounded-2xl lg:border lg:shadow-[0_16px_36px_rgba(15,23,42,0.07)] lg:ring-1 lg:ring-black/[0.045] dark:shadow-sm dark:lg:ring-white/[0.03]",
           !showInfoSection && "hidden"
         )}
       >
@@ -224,24 +211,24 @@ export default function StreamDetail({
           <button
             type="button"
             className="focus-ring-soft inline-flex min-h-[28px] shrink-0 items-center justify-end rounded px-1 text-muted/90 transition-colors hover:text-primary"
-            aria-expanded={opened}
-            aria-label={opened ? "방송 정보 숨기기" : "방송 정보 보기"}
-            onClick={() => setOpened((v) => !v)}
+            aria-expanded={desktopInfoOpen}
+            aria-label={desktopInfoOpen ? "방송 정보 숨기기" : "방송 정보 보기"}
+            onClick={() => setDesktopInfoOpen((v) => !v)}
           >
             <span className="mr-1 whitespace-nowrap text-xs">
-              {opened ? "정보 숨기기" : "정보 보기"}
+              {desktopInfoOpen ? "정보 숨기기" : "정보 보기"}
             </span>
             <ChevronDownIcon
               className={cn(
                 "size-4 transition-transform",
-                opened && "rotate-180"
+                desktopInfoOpen && "rotate-180"
               )}
               aria-hidden="true"
             />
           </button>
         </div>
 
-        {opened && (
+        {showInfoSection && (
           <div className="px-3 pb-3.5 pt-2.5 sm:px-4 sm:pb-5 sm:pt-4 lg:max-h-none lg:overflow-visible lg:border-t lg:border-border-subtle max-lg:max-h-[32dvh] max-lg:overflow-y-auto max-lg:overscroll-contain">
             <div className="min-w-0">
               <StreamTitle
