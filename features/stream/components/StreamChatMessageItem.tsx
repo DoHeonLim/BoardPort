@@ -27,7 +27,11 @@ interface StreamChatMessageItemProps {
     username: string;
     avatar: string | null;
   }) => void;
-  onLongPressStart: (message: StreamChatMessage) => void;
+  onLongPressStart: (
+    event: React.PointerEvent<HTMLDivElement>,
+    message: StreamChatMessage
+  ) => void;
+  onLongPressMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onLongPressEnd: () => void;
   onOptionButtonClick: (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -51,6 +55,7 @@ export default function StreamChatMessageItem({
   activeMenuMessageId,
   onSelectUser,
   onLongPressStart,
+  onLongPressMove,
   onLongPressEnd,
   onOptionButtonClick,
   isFocusMode = false,
@@ -72,9 +77,10 @@ export default function StreamChatMessageItem({
         className={cn(
           "group flex w-full text-sm leading-6",
           isMine ? "justify-end" : "justify-start",
-          useLongPressMenu && "select-none touch-manipulation"
+          useLongPressMenu &&
+            "select-none touch-manipulation [-webkit-touch-callout:none]"
         )}
-        onPointerDown={() => onLongPressStart(message)}
+        onPointerDown={(event) => onLongPressStart(event, message)}
         onContextMenu={(event) => {
           if (useLongPressMenu || isDeleted) {
             event.preventDefault();
@@ -83,7 +89,7 @@ export default function StreamChatMessageItem({
         onPointerUp={onLongPressEnd}
         onPointerLeave={onLongPressEnd}
         onPointerCancel={onLongPressEnd}
-        onPointerMove={onLongPressEnd}
+        onPointerMove={onLongPressMove}
       >
         <div
           className={cn(
@@ -157,10 +163,11 @@ export default function StreamChatMessageItem({
       className={cn(
         "group flex w-full",
         isMine ? "justify-end" : "justify-start",
-        useLongPressMenu && "select-none touch-manipulation"
+        useLongPressMenu &&
+          "select-none touch-manipulation [-webkit-touch-callout:none]"
       )}
       // 모바일의 메시지 길게 누르기 시점 한정 액션 시트 열기, 일반 탭과 액션 진입 분리
-      onPointerDown={() => onLongPressStart(message)}
+      onPointerDown={(event) => onLongPressStart(event, message)}
       onContextMenu={(event) => {
         if (useLongPressMenu || isDeleted) {
           event.preventDefault();
@@ -169,7 +176,7 @@ export default function StreamChatMessageItem({
       onPointerUp={onLongPressEnd}
       onPointerLeave={onLongPressEnd}
       onPointerCancel={onLongPressEnd}
-      onPointerMove={onLongPressEnd}
+      onPointerMove={onLongPressMove}
     >
       <div
         className={cn(

@@ -73,6 +73,7 @@
  * 2026.05.28  임도헌   Modified  채팅 로그 scroll anchoring 비활성화로 새 메시지 수신 중 위치 보존
  * 2026.05.28  임도헌   Modified  새 채팅 이동 버튼을 중앙 아이콘형 플로팅 버튼으로 정리
  * 2026.05.29  임도헌   Modified  max-lg 채팅 레이아웃과 모바일 상호작용 판정 기준을 1024px로 일치
+ * 2026.05.29  임도헌   Modified  모바일 롱프레스 이동 허용 범위를 두어 메뉴 진입 안정화
  */
 "use client";
 
@@ -140,6 +141,7 @@ interface Props {
 }
 
 const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 유지 한도
+const LONG_PRESS_MOVE_TOLERANCE = 12; // 손가락 미세 흔들림으로 롱프레스가 취소되지 않는 허용 거리
 
 /**
  * 스트리밍 실시간 채팅방 컴포넌트
@@ -243,6 +245,7 @@ export default function StreamChatRoom({
   const seenIdsRef = useRef<Set<string | number>>(new Set()); // 중복 메시지 방지용
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPressRef = useRef(false);
+  const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // 내가 호스트(방장)인지 판단 (차단 안내 문구 분기용)
   const isViewerHost = userId === streamChatRoomhost;
@@ -447,6 +450,7 @@ export default function StreamChatRoom({
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    longPressStartPointRef.current = null;
   };
 
   useEffect(() => clearLongPressTimer, []);
@@ -742,13 +746,20 @@ export default function StreamChatRoom({
 
   /**
    * 모바일 롱프레스 시작점
-   * 미세한 탭과의 구분을 위한 짧은 지연 뒤 BottomSheet 열기 예약
+   * 미세한 탭과 스크롤 이동을 구분하기 위한 시작 좌표 저장 및 BottomSheet 열기 예약
    */
-  const handleLongPressStart = (msg: StreamChatMessage) => {
+  const handleLongPressStart = (
+    event: React.PointerEvent<HTMLDivElement>,
+    msg: StreamChatMessage
+  ) => {
     if (!isMobile || msg.deleted_at) return;
 
     clearLongPressTimer();
     didLongPressRef.current = false;
+    longPressStartPointRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
 
     longPressTimerRef.current = setTimeout(() => {
       didLongPressRef.current = true;
@@ -756,7 +767,21 @@ export default function StreamChatRoom({
     }, 420);
   };
 
-  // 롱프레스 종료/이동/취소 시 타이머 정리 및 일반 탭과의 충돌 방지
+  const handleLongPressMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const startPoint = longPressStartPointRef.current;
+    if (!startPoint) return;
+
+    const distance = Math.hypot(
+      event.clientX - startPoint.x,
+      event.clientY - startPoint.y
+    );
+
+    if (distance > LONG_PRESS_MOVE_TOLERANCE) {
+      clearLongPressTimer();
+    }
+  };
+
+  // 롱프레스 종료/취소 시 타이머 정리 및 일반 탭과의 충돌 방지
   const handleLongPressEnd = () => {
     clearLongPressTimer();
   };
@@ -1000,6 +1025,7 @@ export default function StreamChatRoom({
                 activeMenuMessageId={menuMessageId}
                 onSelectUser={setSelectedUser}
                 onLongPressStart={handleLongPressStart}
+                onLongPressMove={handleLongPressMove}
                 onLongPressEnd={handleLongPressEnd}
                 onOptionButtonClick={(event, activeMessage, isMine) => {
                   event.stopPropagation();
