@@ -7,6 +7,7 @@
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 개별 메시지 렌더와 옵션 버튼 분기를 분리
  * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드용 라이브 피드 메시지 렌더 추가
  * 2026.05.28  임도헌   Modified  입력 집중 모드에서도 내 메시지/상대 메시지 좌우 정렬 유지
+ * 2026.05.29  임도헌   Modified  태블릿 컴팩트 레이아웃에서는 롱프레스 메뉴 기준으로 통일
  */
 
 import TimeAgo from "@/components/ui/TimeAgo";
@@ -250,9 +251,9 @@ export default function StreamChatMessageItem({
             aria-expanded={activeMenuMessageId === Number(message.id)}
             aria-haspopup="menu"
             className={cn(
-              "focus-ring-soft absolute top-7 hidden min-h-[32px] min-w-[32px] items-center justify-center rounded-lg text-muted/60 transition-colors hover:bg-surface-dim hover:text-primary md:inline-flex",
+              "focus-ring-soft absolute top-7 hidden min-h-[32px] min-w-[32px] items-center justify-center rounded-lg text-muted/60 transition-colors hover:bg-surface-dim hover:text-primary lg:inline-flex",
               isMine ? "-left-10" : "-right-10",
-              "md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100",
+              "lg:pointer-events-none lg:opacity-0 lg:group-hover:pointer-events-auto lg:group-hover:opacity-100",
               activeMenuMessageId === Number(message.id) &&
                 "pointer-events-auto bg-surface-dim text-primary opacity-100"
             )}
