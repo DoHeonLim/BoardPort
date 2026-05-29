@@ -42,6 +42,8 @@
  * 2026.05.17  임도헌   Modified  live-status 직접 구독 제거 후 셸에서 내려온 상태 props 기준으로 렌더링
  * 2026.05.28  임도헌   Modified  모바일 플레이어와 정보 패널을 full-bleed 스트림 레이아웃에 맞춰 정리
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 상단바 제어 상태로 분리
+ * 2026.05.28  임도헌   Modified  모바일 방송 정보 노출을 상단바/채팅 닫힘 상태 기준으로 정리
+ * 2026.05.28  임도헌   Modified  모바일 상단바 토글을 플레이어 클릭으로 제한해 정보 패널 조작 보존
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -55,7 +57,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import StreamStatusOverlay from "@/features/stream/components/StreamDetail/StreamStatusOverlay";
@@ -78,8 +80,12 @@ interface StreamDetailProps {
     UserProfile,
     "id" | "username" | "isFollowing" | "isBlocked" | "viewerId" | "_count"
   >;
-  /** 모바일 상단바에서 제어하는 방송 정보 패널 열림 상태 */
+  /** 모바일 상단바 노출 또는 채팅 닫힘 상태에 따른 방송 정보 패널 노출 여부 */
   mobileInfoOpen?: boolean;
+  /** 모바일 플레이어 클릭으로 상단바를 보이거나 숨길지 여부 */
+  shouldCaptureTopbarToggle?: boolean;
+  /** 모바일 상단바 토글 핸들러 */
+  onToggleMobileTopbar?: () => void;
 }
 
 /**
@@ -97,10 +103,10 @@ function normalizeStreamStatus(status?: StreamStatus | string | null) {
  *
  * [상태 주입 및 레이아웃 제어 로직]
  * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
- * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`만 배치하고, 모바일 정보 토글은 상단바 상태로 제어
+ * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`만 배치하고, 모바일 정보 노출은 셸 상태로 제어
  * - 셸에서 동기화한 `live-status` 상태를 props로 받아 새로고침 없이 iframe 렌더 조건을 갱신
  * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용 완화
- * - 모바일은 cross-origin iframe 터치 레이어와 충돌하지 않도록 상단바에서 상세 정보 패널을 제어
+ * - 모바일은 cross-origin iframe 터치 레이어와 충돌하지 않도록 별도 플레이어 버튼 없이 상세 정보 패널을 제어
  * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
  * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키 확인 가능
  */
@@ -110,6 +116,8 @@ export default function StreamDetail({
   streamId,
   ownerProfile,
   mobileInfoOpen = false,
+  shouldCaptureTopbarToggle = false,
+  onToggleMobileTopbar,
 }: StreamDetailProps) {
   const isOwner = !!me && stream.user.id === me;
   const currentStatus = normalizeStreamStatus(stream.status);
@@ -144,10 +152,32 @@ export default function StreamDetail({
   });
   const showInfoSection = isDesktop ? desktopInfoOpen : mobileInfoOpen;
   const shouldRenderLivePlayer = currentStatus === "CONNECTED";
+  const handlePlayerClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!shouldCaptureTopbarToggle) return;
+
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("a,button,[role='button'],input,textarea,select")) {
+      return;
+    }
+
+    onToggleMobileTopbar?.();
+  };
+  const handlePlayerToggleButtonClick = (
+    event: MouseEvent<HTMLButtonElement>
+  ) => {
+    event.stopPropagation();
+    onToggleMobileTopbar?.();
+  };
 
   return (
     <div className="relative lg:space-y-2">
-      <div className="relative aspect-video overflow-hidden bg-black shadow-sm lg:rounded-2xl lg:border lg:border-black/10 dark:lg:border-white/10">
+      <div
+        className={cn(
+          "relative aspect-video overflow-hidden bg-black shadow-sm lg:rounded-2xl lg:border lg:border-black/10 dark:lg:border-white/10",
+          shouldCaptureTopbarToggle && "cursor-pointer"
+        )}
+        onClick={handlePlayerClick}
+      >
         {/* CONNECTED일 때만 실제 플레이어를 붙이고, 나머지는 fallback 썸네일/배경으로 유지 */}
         {(() => {
           if (!shouldRenderLivePlayer) {
@@ -189,6 +219,14 @@ export default function StreamDetail({
             />
           );
         })()}
+        {shouldCaptureTopbarToggle && (
+          <button
+            type="button"
+            aria-label="방송 상단 메뉴 토글"
+            className="absolute inset-0 z-20 cursor-default bg-transparent lg:hidden"
+            onClick={handlePlayerToggleButtonClick}
+          />
+        )}
         <StreamStatusOverlay
           username={stream.user.username}
           status={currentStatus}

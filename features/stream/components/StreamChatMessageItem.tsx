@@ -6,6 +6,7 @@
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 개별 메시지 렌더와 옵션 버튼 분기를 분리
  * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드용 라이브 피드 메시지 렌더 추가
+ * 2026.05.28  임도헌   Modified  입력 집중 모드에서도 내 메시지/상대 메시지 좌우 정렬 유지
  */
 
 import TimeAgo from "@/components/ui/TimeAgo";
@@ -64,7 +65,10 @@ export default function StreamChatMessageItem({
   if (isFocusMode) {
     return (
       <div
-        className="group flex w-full items-start gap-2 text-sm leading-6"
+        className={cn(
+          "group flex w-full text-sm leading-6",
+          isMine ? "justify-end" : "justify-start"
+        )}
         onPointerDown={() => onLongPressStart(message)}
         onContextMenu={(event) => {
           if (isDeleted) {
@@ -76,41 +80,68 @@ export default function StreamChatMessageItem({
         onPointerCancel={onLongPressEnd}
         onPointerMove={onLongPressEnd}
       >
-        <TimeAgo
-          date={message.created_at.toString()}
-          className="mt-0.5 min-w-[3.25rem] shrink-0 whitespace-nowrap text-xs font-medium text-muted"
-        />
-        <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelectUser({
-                id: safeMessageUserId,
-                username,
-                avatar: message.user?.avatar ?? null,
-              });
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-            aria-label={`${username} 사용자 메뉴 열기`}
-            className="focus-ring-soft mr-1 inline-flex max-w-[9rem] align-baseline text-xs font-semibold text-brand transition-colors hover:text-brand-hover dark:text-brand-light"
+        <div
+          className={cn(
+            "flex max-w-[88%] items-end gap-2",
+            isMine ? "flex-row-reverse" : "flex-row"
+          )}
+        >
+          <div
+            className={cn(
+              "flex min-w-0 flex-col",
+              isMine ? "items-end" : "items-start"
+            )}
           >
-            <span className="truncate">{username}</span>
-            {isHost && (
-              <span className="ml-1 rounded bg-accent/20 px-1 py-0.5 text-xs font-bold leading-none text-accent-dark">
-                HOST
-              </span>
-            )}
-          </button>
-          <span className="break-words text-primary">
-            {isDeleted ? (
-              <span className="italic text-muted">
-                호스트에 의해 삭제된 메시지입니다.
-              </span>
-            ) : (
-              message.payload
-            )}
-          </span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectUser({
+                  id: safeMessageUserId,
+                  username,
+                  avatar: message.user?.avatar ?? null,
+                });
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              aria-label={`${username} 사용자 메뉴 열기`}
+              className={cn(
+                "focus-ring-soft mb-0.5 inline-flex max-w-[9rem] items-center gap-1 rounded px-1 text-xs font-semibold transition-colors hover:bg-surface-dim",
+                isMine
+                  ? "-mr-1 text-brand dark:text-brand-light"
+                  : "-ml-1 text-muted",
+                isHost && "text-accent-dark"
+              )}
+            >
+              <span className="truncate">{username}</span>
+              {isHost && (
+                <span className="rounded bg-accent/20 px-1 py-0.5 text-xs font-bold leading-none text-accent-dark">
+                  HOST
+                </span>
+              )}
+            </button>
+            <div
+              className={cn(
+                "max-w-full break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed",
+                isMine
+                  ? "rounded-br-none bg-brand text-white"
+                  : "rounded-bl-none bg-surface-dim text-primary"
+              )}
+            >
+              {isDeleted ? (
+                <span
+                  className={cn("italic", isMine ? "text-white/85" : "text-muted")}
+                >
+                  호스트에 의해 삭제된 메시지입니다.
+                </span>
+              ) : (
+                message.payload
+              )}
+            </div>
+          </div>
+          <TimeAgo
+            date={message.created_at.toString()}
+            className="mb-1 shrink-0 whitespace-nowrap text-xs font-medium text-muted"
+          />
         </div>
       </div>
     );

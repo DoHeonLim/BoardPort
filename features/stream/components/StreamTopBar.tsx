@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/StreamTopbar.tsx
- * Description : 스트리밍 상세 상단바(뒤로가기 + 방송 정보 + 가시성 칩 + 공유 + 채팅 토글 버튼)
+ * Description : 스트리밍 상세 상단바(뒤로가기 + 가시성 칩 + 공유 + 채팅 토글 버튼)
  * Author : 임도헌
  *
  * History
@@ -24,7 +24,8 @@
  * 2026.04.08  임도헌   Modified  방송 정보 수정 결과를 로컬 상태와 실시간 브로드캐스트 흐름에 맞춰 즉시 반영하도록 보강
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.20  임도헌   Modified  스트림 상세 상단바 배경을 surface 톤으로 맞춰 플레이어 위에서도 더 단단한 표면으로 읽히게 정리
- * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 플레이어 위 버튼에서 상단바 액션으로 이관
+ * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 플레이어 위 버튼에서 상단바 표시 상태로 이관
+ * 2026.05.28  임도헌   Modified  모바일 방송 정보 버튼 제거와 상단 액션 밀도 축소
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
@@ -79,10 +80,6 @@ type Props = {
   isChatOpen: boolean;
   /** 채팅 열기 핸들러 */
   onOpenChat: () => void;
-  /** 모바일 방송 정보 패널 열림 상태 */
-  isStreamInfoOpen?: boolean;
-  /** 모바일 방송 정보 패널 토글 핸들러 */
-  onToggleStreamInfo?: () => void;
   /** 방송 메타 수정 직후 로컬 상태 반영 */
   onStreamMetaUpdated?: (next: {
     title: string;
@@ -96,7 +93,6 @@ type Props = {
  * [상태 주입 및 상호작용 제어 로직]
  * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 기반으로 상단바 채팅 열기 버튼 노출 여부를 제어
  * - 방송 권한(Public/Private/Followers) 속성에 따른 동적 뱃지 렌더링 적용
- * - 모바일에서는 방송 정보 패널 토글을 상단바 액션으로 제공해 플레이어 탭 레이어와 충돌하지 않게 분리
  * - 스트리머 차단(`toggleBlockAction`) 및 방송 신고 모달(`ReportModal`) 연동
  * - 호스트는 상단 메뉴에서 방송 제목/설명을 수정할 수 있고 저장 직후 로컬 상세 상태를 즉시 갱신
  * - 뒤로가기 버튼(`BackButton`) 및 고유 URL 복사를 위한 공유하기(`handleShare`) 기능 포함
@@ -113,8 +109,6 @@ export default function StreamTopbar({
   className = "",
   isChatOpen,
   onOpenChat,
-  isStreamInfoOpen = false,
-  onToggleStreamInfo,
   onStreamMetaUpdated,
 }: Props) {
   const router = useRouter();
@@ -193,59 +187,35 @@ export default function StreamTopbar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-surface transition-colors",
+        "sticky top-0 z-40 h-12 w-full border-b border-border-subtle bg-surface transition-colors lg:h-14",
         className
       )}
       role="banner"
     >
-      <div className="flex h-full w-full items-center justify-between px-3 sm:px-4 lg:px-6">
+      <div className="flex h-full w-full items-center justify-between px-2.5 sm:px-4 lg:px-6">
         <div className="flex items-center gap-2">
           <BackButton
             fallbackHref={backFallbackHref}
             variant="appbar"
-            className="px-0"
+            className="h-10 w-10 rounded-lg px-0 lg:h-11 lg:w-11 lg:rounded-xl"
           />
           {!isChatOpen && (
             <button
               type="button"
               onClick={openChatFromTopbar}
-              className="focus-ring-soft inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3.5 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+              className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border-subtle bg-surface text-muted transition-colors hover:bg-surface-dim hover:text-primary lg:px-3.5"
               aria-label="채팅 열기"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" />
-              <span>채팅</span>
+              <span className="hidden lg:inline">채팅</span>
             </button>
           )}
         </div>
 
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          {onToggleStreamInfo && (
-            <button
-              type="button"
-              onClick={onToggleStreamInfo}
-              aria-pressed={isStreamInfoOpen}
-              aria-label={
-                isStreamInfoOpen ? "방송 정보 숨기기" : "방송 정보 보기"
-              }
-              className={cn(
-                "focus-ring-soft inline-flex min-h-[36px] shrink-0 items-center justify-center rounded-full px-3 text-sm font-medium transition-colors lg:hidden",
-                isStreamInfoOpen
-                  ? "bg-surface-dim text-primary"
-                  : "bg-surface-dim/70 text-muted hover:text-primary"
-              )}
-            >
-              <span className="hidden min-[380px]:inline">
-                {isStreamInfoOpen ? "정보 숨기기" : "방송 정보"}
-              </span>
-              <span className="min-[380px]:hidden">
-                {isStreamInfoOpen ? "숨김" : "정보"}
-              </span>
-            </button>
-          )}
-
           <span
             className={cn(
-              "inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium sm:px-3.5",
+              "inline-flex min-h-[34px] shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium sm:px-3.5 lg:min-h-[36px]",
               visChip.className
             )}
           >
@@ -256,7 +226,7 @@ export default function StreamTopbar({
           <button
             type="button"
             onClick={() => handleShare(`${ownerUsername}님의 방송: ${title}`)}
-            className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted/80 transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[38px] min-w-[38px] items-center justify-center rounded-full text-muted/80 transition-colors hover:bg-surface-dim hover:text-primary lg:min-h-[40px] lg:min-w-[40px]"
             aria-label="공유하기"
           >
             <ShareIcon className="h-5 w-5" />
@@ -270,7 +240,7 @@ export default function StreamTopbar({
                 aria-label="방송 관리 메뉴 열기"
                 aria-expanded={menuOpen}
                 aria-haspopup={isMobile ? "dialog" : "menu"}
-                className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+                className="focus-ring-soft inline-flex min-h-[38px] min-w-[38px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary lg:min-h-[40px] lg:min-w-[40px]"
               >
                 <EllipsisVerticalIcon className="size-5" />
               </button>
@@ -298,7 +268,7 @@ export default function StreamTopbar({
                 aria-label="방송 옵션 열기"
                 aria-expanded={menuOpen}
                 aria-haspopup={isMobile ? "dialog" : "menu"}
-                className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+                className="focus-ring-soft inline-flex min-h-[38px] min-w-[38px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary lg:min-h-[40px] lg:min-w-[40px]"
               >
                 <EllipsisVerticalIcon className="size-5" />
               </button>

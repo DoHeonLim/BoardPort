@@ -7,6 +7,7 @@
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 입력/전송 영역을 분리
  * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드와 IME 정책 전달용 textarea 이벤트 props 추가
  * 2026.05.28  임도헌   Modified  입력 집중 모드에서 라이브 채팅형 입력 영역으로 밀도 조정
+ * 2026.05.28  임도헌   Modified  모바일 입력바 높이와 safe-area 여백 압축
  */
 
 import type { RefObject } from "react";
@@ -56,9 +57,9 @@ export default function StreamChatComposer({
   return (
     <div
       className={cn(
-        "shrink-0 border-t border-black/[0.05] bg-surface px-3 pt-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] dark:border-border-subtle",
+        "shrink-0 border-t border-black/[0.05] bg-surface px-2.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] dark:border-border-subtle lg:px-3 lg:pt-3 lg:pb-[calc(0.875rem+env(safe-area-inset-bottom))]",
         isFocusMode &&
-          "max-lg:border-border-subtle/70 max-lg:bg-background max-lg:px-3 max-lg:pt-2 max-lg:pb-[calc(0.625rem+env(safe-area-inset-bottom))]"
+          "max-lg:border-border-subtle/70 max-lg:bg-background max-lg:pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
       )}
     >
       {isMuted && (
@@ -70,9 +71,9 @@ export default function StreamChatComposer({
       <div className="flex items-center gap-2">
         <div
           className={cn(
-            "flex min-h-[48px] flex-1 items-center rounded-[22px] border border-black/[0.08] bg-neutral-100 px-4 transition-colors focus-within:border-brand/50 focus-within:bg-surface dark:border-white/10 dark:bg-surface-dim dark:focus-within:border-brand-light/40 dark:focus-within:bg-surface dark:focus-within:ring-1 dark:focus-within:ring-brand-light/15",
+            "flex min-h-[44px] flex-1 items-center rounded-full border border-black/[0.08] bg-neutral-100 px-3.5 transition-colors focus-within:border-brand/50 focus-within:bg-surface dark:border-white/10 dark:bg-surface-dim dark:focus-within:border-brand-light/40 dark:focus-within:bg-surface dark:focus-within:ring-1 dark:focus-within:ring-brand-light/15 lg:min-h-[48px] lg:rounded-[22px] lg:px-4",
             isFocusMode &&
-              "max-lg:min-h-[44px] max-lg:rounded-full max-lg:bg-surface-dim/80 max-lg:px-4"
+              "max-lg:min-h-[42px] max-lg:bg-surface-dim/80 max-lg:px-3.5"
           )}
         >
           <textarea
@@ -101,8 +102,8 @@ export default function StreamChatComposer({
           disabled={isSubmitDisabled}
           aria-label="메시지 전송"
           className={cn(
-            "btn-primary-quiet-dark-icon flex size-11 shrink-0 items-center justify-center rounded-full shadow-sm transition-[background-color,color,border-color,box-shadow] active:scale-95 disabled:cursor-not-allowed disabled:border disabled:border-black/8 disabled:bg-neutral-100 disabled:text-muted dark:disabled:border-white/10 dark:disabled:bg-neutral-700",
-            isFocusMode && "max-lg:size-11 max-lg:shadow-none"
+            "btn-primary-quiet-dark-icon flex size-10 shrink-0 items-center justify-center rounded-full shadow-sm transition-[background-color,color,border-color,box-shadow] active:scale-95 disabled:cursor-not-allowed disabled:border disabled:border-black/8 disabled:bg-neutral-100 disabled:text-muted dark:disabled:border-white/10 dark:disabled:bg-neutral-700 lg:size-11",
+            isFocusMode && "max-lg:shadow-none"
           )}
         >
           <PaperAirplaneIcon className="size-5 pl-0.5" />

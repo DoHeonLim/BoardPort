@@ -16,6 +16,7 @@
  * 2026.04.03  임도헌   Modified  모바일 채팅 레일이 작은 기기 고정 높이 대신 남는 뷰포트 높이를 반응형으로 채우도록 조정
  * 2026.05.28  임도헌   Modified  모바일 full-bleed 스트림 상세와 입력 집중 모드 채팅 레일 확장
  * 2026.05.28  임도헌   Modified  모바일 상세 터치 레이어를 상단바 보이기/숨기기 토글로 정리
+ * 2026.05.28  임도헌   Modified  상단바 토글 책임을 플레이어 영역으로 이동해 정보 패널 상호작용 보존
  */
 
 import type { ReactNode } from "react";
@@ -24,8 +25,6 @@ import { cn } from "@/lib/utils";
 interface StreamDetailLayoutProps {
   isChatOpen: boolean;
   isChatFocusMode?: boolean;
-  shouldCaptureTopbarToggle?: boolean;
-  onToggleMobileTopbar?: () => void;
   detail: ReactNode;
   chat: ReactNode;
 }
@@ -42,8 +41,6 @@ interface StreamDetailLayoutProps {
 export default function StreamDetailLayout({
   isChatOpen,
   isChatFocusMode = false,
-  shouldCaptureTopbarToggle = false,
-  onToggleMobileTopbar,
   detail,
   chat,
 }: StreamDetailLayoutProps) {
@@ -65,14 +62,6 @@ export default function StreamDetailLayout({
         )}
       >
         {detail}
-        {shouldCaptureTopbarToggle && (
-          <button
-            type="button"
-            aria-label="방송 상단 메뉴 토글"
-            className="absolute inset-0 z-[55] cursor-default bg-transparent lg:hidden"
-            onClick={onToggleMobileTopbar}
-          />
-        )}
       </div>
 
       {isChatOpen && (
