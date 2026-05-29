@@ -44,6 +44,7 @@
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 상단바 제어 상태로 분리
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 노출을 상단바/채팅 닫힘 상태 기준으로 정리
  * 2026.05.28  임도헌   Modified  모바일 상단바 토글을 플레이어 클릭으로 제한해 정보 패널 조작 보존
+ * 2026.05.29  임도헌   Modified  모바일 방송 정보 높이 제한을 채팅 열림 상태에만 적용
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -82,6 +83,8 @@ interface StreamDetailProps {
   >;
   /** 모바일 상단바 노출 또는 채팅 닫힘 상태에 따른 방송 정보 패널 노출 여부 */
   mobileInfoOpen?: boolean;
+  /** 모바일 채팅 열림 중 방송 정보가 채팅 영역을 밀어내지 않도록 높이 제한 */
+  limitMobileInfoHeight?: boolean;
   /** 모바일 플레이어 클릭으로 상단바를 보이거나 숨길지 여부 */
   shouldCaptureTopbarToggle?: boolean;
   /** 모바일 상단바 토글 핸들러 */
@@ -116,6 +119,7 @@ export default function StreamDetail({
   streamId,
   ownerProfile,
   mobileInfoOpen = false,
+  limitMobileInfoHeight = false,
   shouldCaptureTopbarToggle = false,
   onToggleMobileTopbar,
 }: StreamDetailProps) {
@@ -267,7 +271,13 @@ export default function StreamDetail({
         </div>
 
         {showInfoSection && (
-          <div className="px-3 pb-3.5 pt-2.5 sm:px-4 sm:pb-5 sm:pt-4 lg:max-h-none lg:overflow-visible lg:border-t lg:border-border-subtle max-lg:max-h-[32dvh] max-lg:overflow-y-auto max-lg:overscroll-contain">
+          <div
+            className={cn(
+              "px-3 pb-3.5 pt-2.5 sm:px-4 sm:pb-5 sm:pt-4 lg:max-h-none lg:overflow-visible lg:border-t lg:border-border-subtle",
+              limitMobileInfoHeight &&
+                "max-lg:max-h-[32dvh] max-lg:overflow-y-auto max-lg:overscroll-contain"
+            )}
+          >
             <div className="min-w-0">
               <StreamTitle
                 title={stream.title}

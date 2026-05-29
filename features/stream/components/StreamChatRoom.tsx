@@ -74,6 +74,8 @@
  * 2026.05.28  임도헌   Modified  새 채팅 이동 버튼을 중앙 아이콘형 플로팅 버튼으로 정리
  * 2026.05.29  임도헌   Modified  max-lg 채팅 레이아웃과 모바일 상호작용 판정 기준을 1024px로 일치
  * 2026.05.29  임도헌   Modified  모바일 롱프레스 이동 허용 범위를 두어 메뉴 진입 안정화
+ * 2026.05.29  임도헌   Modified  모바일 채팅 헤더를 바텀시트 핸들형 닫기 동선으로 압축
+ * 2026.05.29  임도헌   Modified  모바일 호스트 공지/관리 진입점을 핸들 행에 유지
  */
 "use client";
 
@@ -142,6 +144,7 @@ interface Props {
 
 const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 유지 한도
 const LONG_PRESS_MOVE_TOLERANCE = 12; // 손가락 미세 흔들림으로 롱프레스가 취소되지 않는 허용 거리
+const CHAT_HANDLE_CLOSE_THRESHOLD = 18; // 핸들 드래그 닫기 판정을 위한 최소 이동 거리
 
 /**
  * 스트리밍 실시간 채팅방 컴포넌트
@@ -246,6 +249,7 @@ export default function StreamChatRoom({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPressRef = useRef(false);
   const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null);
+  const chatHandleStartYRef = useRef<number | null>(null);
 
   // 내가 호스트(방장)인지 판단 (차단 안내 문구 분기용)
   const isViewerHost = userId === streamChatRoomhost;
@@ -786,6 +790,34 @@ export default function StreamChatRoom({
     clearLongPressTimer();
   };
 
+  /** 모바일 채팅 핸들 터치 시작 좌표 저장 */
+  const handleChatHandlePointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    chatHandleStartYRef.current = event.clientY;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  /** 모바일 채팅 핸들의 아래 방향 드래그 닫기 판정 */
+  const handleChatHandlePointerMove = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    if (chatHandleStartYRef.current === null) return;
+
+    if (event.clientY - chatHandleStartYRef.current > CHAT_HANDLE_CLOSE_THRESHOLD) {
+      chatHandleStartYRef.current = null;
+      closeChat();
+    }
+  };
+
+  /** 모바일 채팅 핸들 탭 닫기 처리 */
+  const handleChatHandlePointerUp = () => {
+    if (chatHandleStartYRef.current === null) return;
+
+    chatHandleStartYRef.current = null;
+    closeChat();
+  };
+
   /**
    * 데스크톱 포털 메뉴 위치 계산
    * 화면 경계와 헤더 높이를 고려한 위/아래 방향 결정 및 좌우 안전 여백 내부 clamp
@@ -873,12 +905,77 @@ export default function StreamChatRoom({
         containerClassName
       )}
     >
-      {/* 헤더 */}
+      {/* 모바일에서는 바텀시트 핸들로 닫기 동선을 압축 */}
+      {!isFocusMode && (
+        <div
+          className={cn(
+            "relative flex shrink-0 items-center justify-center border-b border-border-subtle bg-background lg:hidden",
+            isViewerHost ? "h-9" : "h-6"
+          )}
+        >
+          {isViewerHost && (
+            <div className="absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setPinnedNoticeDraft(pinnedNotice ?? "");
+                  setShowPinnedNoticeEditor((prev) => !prev);
+                }}
+                aria-label={pinnedNotice ? "공지 수정" : "공지 등록"}
+                className={cn(
+                  "focus-ring-soft inline-flex size-8 items-center justify-center rounded-full border text-muted transition-colors",
+                  showPinnedNoticeEditor
+                    ? "border-brand/40 bg-brand/10 text-brand dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
+                    : "border-border-subtle bg-surface/70 hover:bg-surface-dim hover:text-primary"
+                )}
+              >
+                <MegaphoneIcon className="size-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showMutedViewerPanel;
+                  setShowMutedViewerPanel(next);
+                  if (next) loadMutedViewers();
+                }}
+                aria-label={
+                  showMutedViewerPanel ? "채팅 관리 닫기" : "채팅 관리 열기"
+                }
+                className={cn(
+                  "focus-ring-soft inline-flex size-8 items-center justify-center rounded-full border text-muted transition-colors",
+                  showMutedViewerPanel
+                    ? "border-brand/40 bg-brand/10 text-brand dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
+                    : "border-border-subtle bg-surface/70 hover:bg-surface-dim hover:text-primary"
+                )}
+              >
+                {showMutedViewerPanel ? (
+                  <ChevronUpIcon className="size-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDownIcon className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label="채팅 닫기"
+            className="focus-ring-soft flex h-full min-w-[56px] items-center justify-center rounded-full text-muted transition-colors active:text-primary"
+            onPointerDown={handleChatHandlePointerDown}
+            onPointerMove={handleChatHandlePointerMove}
+            onPointerUp={handleChatHandlePointerUp}
+            onPointerCancel={() => {
+              chatHandleStartYRef.current = null;
+            }}
+          >
+            <span className="h-1 w-9 rounded-full bg-border-strong" />
+          </button>
+        </div>
+      )}
+
+      {/* 데스크톱 헤더 */}
       <div
         className={cn(
-          "shrink-0 flex items-center justify-between border-b border-border-subtle bg-surface px-3 py-2 sm:px-4 sm:py-3",
-          isFocusMode && "max-lg:hidden",
-          !isFocusMode && "max-lg:bg-background"
+          "hidden shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-3 py-2 sm:px-4 sm:py-3 lg:flex"
         )}
       >
         <div className="min-w-0">

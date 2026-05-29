@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/StreamTopBar.tsx
- * Description : 스트리밍 상세 상단바(뒤로가기 + 가시성 칩 + 공유 + 채팅/옵션 액션)
+ * Description : 스트리밍 상세 상단바(뒤로가기 + 가시성 칩 + 공유 + 데스크톱 채팅/옵션 액션)
  * Author : 임도헌
  *
  * History
@@ -29,6 +29,7 @@
  * 2026.05.29  임도헌   Modified  상단 메뉴/모달 열림 상태를 셸에 전달해 모바일 자동 숨김과 충돌하지 않도록 보정
  * 2026.05.29  임도헌   Modified  상단 옵션 메뉴에 방송국 이동 액션 추가
  * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 모바일 옵션 메뉴 판정 기준을 1024px로 일치
+ * 2026.05.29  임도헌   Modified  모바일 채팅 재진입을 플로팅 버튼으로 일원화
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
@@ -97,7 +98,7 @@ type Props = {
  * 스트리밍 상세 상단바(Topbar) 컴포넌트
  *
  * [상태 주입 및 상호작용 제어 로직]
- * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 기반으로 상단바 채팅 열기 버튼 노출 여부를 제어
+ * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 기반으로 데스크톱 상단바 채팅 열기 버튼 노출 여부를 제어
  * - 방송 권한(Public/Private/Followers) 속성에 따른 동적 뱃지 렌더링 적용
  * - 방송국 이동, 스트리머 차단(`toggleBlockAction`), 방송 신고 모달(`ReportModal`) 연동
  * - 호스트는 상단 메뉴에서 방송국 이동과 방송 제목/설명 수정을 수행하고 저장 직후 로컬 상세 상태를 즉시 갱신
@@ -224,7 +225,7 @@ export default function StreamTopbar({
             <button
               type="button"
               onClick={openChatFromTopbar}
-              className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border-subtle bg-surface text-muted transition-colors hover:bg-surface-dim hover:text-primary lg:px-3.5"
+              className="focus-ring-soft hidden min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-border-subtle bg-surface text-muted transition-colors hover:bg-surface-dim hover:text-primary lg:inline-flex lg:px-3.5"
               aria-label="채팅 열기"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" />

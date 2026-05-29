@@ -23,6 +23,8 @@
  * 2026.05.29  임도헌   Modified  모바일 상단바를 자동 숨김 대신 사용자 탭 제어 기준으로 정리
  * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 JS 모바일 판정 기준을 1024px로 일치
  * 2026.05.29  임도헌   Modified  채팅 닫힘 상태에서 모바일 재진입 플로팅 버튼 추가
+ * 2026.05.29  임도헌   Modified  채팅 닫힘 상태의 재진입 버튼을 상단바 표시 여부와 분리
+ * 2026.05.29  임도헌   Modified  채팅 열림 여부를 방송 정보 높이 제한 기준으로 전달
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -203,6 +205,7 @@ export default function StreamDetailClientShell({
               streamId={streamId}
               ownerProfile={ownerProfile}
               mobileInfoOpen={shouldShowMobileInfo}
+              limitMobileInfoHeight={isChatOpen}
               shouldCaptureTopbarToggle={isMobile && !isChatFocusMode}
               onToggleMobileTopbar={() => {
                 if (isMobile && !isChatFocusMode) {
@@ -240,7 +243,7 @@ export default function StreamDetailClientShell({
           }
         />
 
-        {isMobile && !isChatOpen && !isChatFocusMode && !isMobileTopbarVisible && (
+        {isMobile && !isChatOpen && !isChatFocusMode && (
           <button
             type="button"
             onClick={openChat}
