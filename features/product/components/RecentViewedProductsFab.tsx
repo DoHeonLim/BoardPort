@@ -16,6 +16,7 @@
  * 2026.04.13  임도헌   Modified  FAB 접근성 이름이 보이는 라벨(최근/개수)과 일치하도록 조정
  * 2026.04.13  임도헌   Modified  썸네일을 장식 요소로 처리하고 자식 텍스트 기반 접근성 이름으로 정리
  * 2026.04.20  임도헌   Modified  최근 본 상품 FAB 포커스 강도를 높여 썸네일 위에서도 상태가 더 또렷하게 보이도록 조정
+ * 2026.05.29  임도헌   Modified  최근 본 상품 삭제 버튼이 카드 선닫힘 이벤트를 타지 않도록 전파 기준 보정
  */
 "use client";
 
@@ -124,6 +125,17 @@ export default function RecentViewedProductsFab() {
     toast.success("최근 본 상품에서 제거했습니다.");
   };
 
+  /**
+   * 최근 본 상품 삭제 버튼의 pointer 이벤트 전파 차단
+   *
+   * - 모바일 BottomSheet와 카드 클릭 닫힘 흐름으로 이어지지 않도록 분리
+   */
+  const handleRemovePointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    event.stopPropagation();
+  };
+
   const handleOpenProduct = () => {
     setIsOpen(false);
   };
@@ -183,10 +195,11 @@ export default function RecentViewedProductsFab() {
               <div
                 key={product.id}
                 className="relative"
-                onClickCapture={handleOpenProduct}
+                onClick={handleOpenProduct}
               >
                 <button
                   type="button"
+                  onPointerDown={handleRemovePointerDown}
                   onClick={(event) => handleRemoveProduct(event, product.id)}
                   className="focus-ring-soft absolute right-2 top-2 z-10 inline-flex min-h-[34px] min-w-[34px] items-center justify-center rounded-full border border-background/80 bg-black/65 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-black/80"
                   aria-label={`${product.title} 최근 본 상품에서 제거`}
@@ -249,10 +262,11 @@ export default function RecentViewedProductsFab() {
                   <div
                     key={product.id}
                     className="relative"
-                    onClickCapture={handleOpenProduct}
+                    onClick={handleOpenProduct}
                   >
                     <button
                       type="button"
+                      onPointerDown={handleRemovePointerDown}
                       onClick={(event) =>
                         handleRemoveProduct(event, product.id)
                       }

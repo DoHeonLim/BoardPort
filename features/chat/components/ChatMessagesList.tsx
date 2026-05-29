@@ -57,6 +57,7 @@
  * 2026.04.21  임도헌   Modified  검색/뷰포트 상태를 전용 훅으로 분리하고 함수 설명 주석을 정리
  * 2026.04.22  임도헌   Modified  메시지 삭제 확인을 브라우저 confirm 대신 공용 ConfirmDialog로 통일
  * 2026.05.18  임도헌   Modified  채팅방 진입 직후 목록/TabBar 미읽음 캐시를 읽음 상태와 즉시 동기화
+ * 2026.05.28  임도헌   Modified  입력바와 메시지 리스트 사이의 불필요한 하단 여백 제거
  */
 "use client";
 
@@ -448,7 +449,7 @@ export default function ChatMessagesList({
       {/* 메시지 스크롤 영역 */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 overflow-y-auto px-3 pt-4 pb-4 space-y-2 scrollbar"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pt-4 space-y-2 scrollbar"
       >
         <div ref={sentinelRef} />
 

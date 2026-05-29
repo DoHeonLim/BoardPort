@@ -32,6 +32,7 @@
  * 2026.03.27  임도헌   Modified  채팅 배경 일러스트 대비를 한 단계 눌러 메시지/입력 UI가 먼저 읽히도록 조정
  * 2026.04.12  임도헌   Moved     파일 경로를 app/chats/[id]/page.tsx 에서 app/(app)/chats/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 배경 장식을 제거하고 앱 셸을 단순화
+ * 2026.05.28  임도헌   Modified  모바일 키보드 오픈 시 visualViewport 높이를 기준으로 채팅 셸 보정
 */
 
 import { Suspense } from "react";
@@ -131,7 +132,7 @@ export default async function ChatRoom({
   return (
     <main
       className={cn(
-        "relative isolate flex h-[100dvh] flex-col overflow-hidden",
+        "relative isolate flex h-[var(--chat-visual-viewport-height,100dvh)] flex-col overflow-hidden",
         "bg-background"
       )}
     >

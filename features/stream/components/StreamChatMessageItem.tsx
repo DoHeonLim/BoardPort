@@ -5,6 +5,8 @@
  *
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 개별 메시지 렌더와 옵션 버튼 분기를 분리
+ * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드 메시지 렌더와 내/상대 좌우 정렬 기준 추가
+ * 2026.05.29  임도헌   Modified  max-lg 롱프레스 메뉴와 텍스트 선택 충돌 방지 기준 정리
  */
 
 import TimeAgo from "@/components/ui/TimeAgo";
@@ -23,17 +25,24 @@ interface StreamChatMessageItemProps {
     username: string;
     avatar: string | null;
   }) => void;
-  onLongPressStart: (message: StreamChatMessage) => void;
+  onLongPressStart: (
+    event: React.PointerEvent<HTMLDivElement>,
+    message: StreamChatMessage
+  ) => void;
+  onLongPressMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onLongPressEnd: () => void;
   onOptionButtonClick: (
     event: React.MouseEvent<HTMLButtonElement>,
     message: StreamChatMessage,
     isMine: boolean
   ) => void;
+  isFocusMode?: boolean;
+  useLongPressMenu?: boolean;
 }
 
 /**
- * 스트림 채팅의 단일 메시지 아이템.
+ * 스트림 채팅 단일 메시지 아이템
+ *
  * 메시지 정렬, 호스트 배지, 옵션 버튼, 모바일 롱프레스 진입점을 한 덩어리로 캡슐화
  */
 export default function StreamChatMessageItem({
@@ -44,8 +53,11 @@ export default function StreamChatMessageItem({
   activeMenuMessageId,
   onSelectUser,
   onLongPressStart,
+  onLongPressMove,
   onLongPressEnd,
   onOptionButtonClick,
+  isFocusMode = false,
+  useLongPressMenu = false,
 }: StreamChatMessageItemProps) {
   const normalizedMessageUserId = Number(message.userId);
   const safeMessageUserId = Number.isFinite(normalizedMessageUserId)
@@ -57,23 +69,112 @@ export default function StreamChatMessageItem({
   const username =
     message.user?.username ?? (isMine ? currentUsername : "선원");
 
+  if (isFocusMode) {
+    return (
+      <div
+        className={cn(
+          "group flex w-full text-sm leading-6",
+          isMine ? "justify-end" : "justify-start",
+          useLongPressMenu &&
+            "select-none touch-manipulation [-webkit-touch-callout:none]"
+        )}
+        onPointerDown={(event) => onLongPressStart(event, message)}
+        onContextMenu={(event) => {
+          if (useLongPressMenu || isDeleted) {
+            event.preventDefault();
+          }
+        }}
+        onPointerUp={onLongPressEnd}
+        onPointerLeave={onLongPressEnd}
+        onPointerCancel={onLongPressEnd}
+        onPointerMove={onLongPressMove}
+      >
+        <div
+          className={cn(
+            "flex max-w-[88%] items-end gap-2",
+            isMine ? "flex-row-reverse" : "flex-row"
+          )}
+        >
+          <div
+            className={cn(
+              "flex min-w-0 flex-col",
+              isMine ? "items-end" : "items-start"
+            )}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectUser({
+                  id: safeMessageUserId,
+                  username,
+                  avatar: message.user?.avatar ?? null,
+                });
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              aria-label={`${username} 사용자 메뉴 열기`}
+              className={cn(
+                "focus-ring-soft mb-0.5 inline-flex max-w-[9rem] items-center gap-1 rounded px-1 text-xs font-semibold transition-colors hover:bg-surface-dim",
+                isMine
+                  ? "-mr-1 text-brand dark:text-brand-light"
+                  : "-ml-1 text-muted",
+                isHost && "text-accent-dark"
+              )}
+            >
+              <span className="truncate">{username}</span>
+              {isHost && (
+                <span className="rounded bg-accent/20 px-1 py-0.5 text-xs font-bold leading-none text-accent-dark">
+                  HOST
+                </span>
+              )}
+            </button>
+            <div
+              className={cn(
+                "max-w-full break-words whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed",
+                isMine
+                  ? "rounded-br-none bg-brand text-white"
+                  : "rounded-bl-none bg-surface-dim text-primary"
+              )}
+            >
+              {isDeleted ? (
+                <span
+                  className={cn("italic", isMine ? "text-white/85" : "text-muted")}
+                >
+                  호스트에 의해 삭제된 메시지입니다.
+                </span>
+              ) : (
+                message.payload
+              )}
+            </div>
+          </div>
+          <TimeAgo
+            date={message.created_at.toString()}
+            className="mb-1 shrink-0 whitespace-nowrap text-xs font-medium text-muted"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
         "group flex w-full",
-        isMine ? "justify-end" : "justify-start"
+        isMine ? "justify-end" : "justify-start",
+        useLongPressMenu &&
+          "select-none touch-manipulation [-webkit-touch-callout:none]"
       )}
       // 모바일의 메시지 길게 누르기 시점 한정 액션 시트 열기, 일반 탭과 액션 진입 분리
-      onPointerDown={() => onLongPressStart(message)}
+      onPointerDown={(event) => onLongPressStart(event, message)}
       onContextMenu={(event) => {
-        if (isDeleted) {
+        if (useLongPressMenu || isDeleted) {
           event.preventDefault();
         }
       }}
       onPointerUp={onLongPressEnd}
       onPointerLeave={onLongPressEnd}
       onPointerCancel={onLongPressEnd}
-      onPointerMove={onLongPressEnd}
+      onPointerMove={onLongPressMove}
     >
       <div
         className={cn(
@@ -160,9 +261,9 @@ export default function StreamChatMessageItem({
             aria-expanded={activeMenuMessageId === Number(message.id)}
             aria-haspopup="menu"
             className={cn(
-              "focus-ring-soft absolute top-7 hidden min-h-[32px] min-w-[32px] items-center justify-center rounded-lg text-muted/60 transition-colors hover:bg-surface-dim hover:text-primary md:inline-flex",
+              "focus-ring-soft absolute top-7 hidden min-h-[32px] min-w-[32px] items-center justify-center rounded-lg text-muted/60 transition-colors hover:bg-surface-dim hover:text-primary lg:inline-flex",
               isMine ? "-left-10" : "-right-10",
-              "md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100",
+              "lg:pointer-events-none lg:opacity-0 lg:group-hover:pointer-events-auto lg:group-hover:opacity-100",
               activeMenuMessageId === Number(message.id) &&
                 "pointer-events-auto bg-surface-dim text-primary opacity-100"
             )}

@@ -4,8 +4,8 @@
  * Author : 임도헌
  *
  * Key Points
- * - textarea 기반: Enter=전송, Shift+Enter=줄바꿈
- * - IME(한글/일본어 등) 조합 중 Enter 전송 방지
+ * - textarea 기반: 모바일은 버튼 전송, 데스크톱은 Enter=전송/Shift+Enter=줄바꿈
+ * - IME(한글/일본어 등) 조합 중 Enter 전송 방지, 명시 버튼 전송 허용
  * - 초단간 중복 제출 방지(lastSubmitAtRef)
  * - 전송 중에도 입력은 가능(버튼만 disabled) → UX 끊김 방지
  * - 전송 실패 시 입력값 복원(사용자 작성 내용 보호)
@@ -39,6 +39,7 @@
  * 2026.04.10  임도헌   Modified  ChatMessagesList 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.14  임도헌   Modified  채팅 입력 textarea 포커스 시 브라우저 기본 사각형 outline이 노출되지 않도록 정리
  * 2026.04.14  임도헌   Modified  데스크톱에서 이미지 첨부 후 Enter 전송이 자연스럽도록 업로드 완료 뒤 textarea 포커스 복구
+ * 2026.05.28  임도헌   Modified  모바일은 버튼 전송, 데스크톱은 Enter 전송 기준으로 IME 정책 정리
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -72,8 +73,8 @@ interface ChatInputBarProps {
  *
  * [기능]
  * - Textarea 자동 높이 조절
- * - Enter 키 전송 (Shift+Enter 줄바꿈)
- * - IME 입력 중(한글 조합 등) 전송 방지
+ * - 모바일 버튼 전송, 데스크톱 Enter 전송, Shift+Enter 줄바꿈
+ * - IME 입력 중(한글 조합 등) Enter 전송 방지와 명시 버튼 전송 허용
  * - Optimistic UI 패턴: 전송 시도 시 입력창 즉시 비움 (실패 시 복원 로직은 상위에서 처리)
  */
 export default function ChatInputBar({
@@ -242,8 +243,9 @@ export default function ChatInputBar({
   };
 
   // 2. 메시지 제출
-  const submit = async () => {
-    if (isComposing || isSubmitting || isUploading) return;
+  const submit = async (options?: { allowComposing?: boolean }) => {
+    if ((!options?.allowComposing && isComposing) || isSubmitting || isUploading)
+      return;
     const trimmed = text.trim();
     if (!trimmed && !uploadedUrl) return;
     const currentUrl = uploadedUrl;
@@ -282,7 +284,11 @@ export default function ChatInputBar({
   }, []);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isComposing) {
+    const isDesktopInput =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    if (e.key === "Enter" && !e.shiftKey && !isComposing && isDesktopInput) {
       e.preventDefault();
       submit();
     }
@@ -409,7 +415,7 @@ export default function ChatInputBar({
 
         {/* 전송 */}
         <button
-          onClick={submit}
+          onClick={() => submit({ allowComposing: true })}
           onMouseDown={preventFocusSteal}
           onPointerDown={preventFocusSteal}
           disabled={

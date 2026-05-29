@@ -65,10 +65,14 @@
  * 2026.04.21  임도헌   Modified  고정 공지 편집 패널과 읽기 배너를 분리해 공지 흐름을 단순화
  * 2026.04.21  임도헌   Modified  채팅 금지 실시간 수신 및 전송 거부 시 입력 draft 즉시 정리
  * 2026.04.22  임도헌   Modified  개인 알림 채널 중복 구독 대신 전역 sys_event 브리지로 채팅 금지 상태를 실시간 동기화
+ * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드, IME/Enter 정책, 라이브 피드형 메시지 레이아웃 적용
+ * 2026.05.28  임도헌   Modified  스크롤 이탈 중 새 메시지 하단 이동 버튼과 자동 스크롤 기준 정리
+ * 2026.05.29  임도헌   Modified  max-lg 채팅 레이아웃, 롱프레스 메뉴, 바텀시트 핸들 닫기 기준 정리
+ * 2026.05.29  임도헌   Modified  모바일 호스트 공지/관리 진입점을 압축 채팅 헤더에 유지
  */
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import BottomSheet from "@/components/global/BottomSheet";
@@ -126,10 +130,14 @@ interface Props {
   containerClassName?: string; // 외부 주입 스타일
   isOpen?: boolean; // 채팅 노출 여부
   onCloseChat?: () => void; // 채팅 닫기 핸들러
+  onComposerFocusChange?: (focused: boolean) => void; // 모바일 입력 집중 모드 전환용 포커스 상태 전달
+  isFocusMode?: boolean; // 모바일 키보드 오픈 중 라이브 채팅형 레이아웃 여부
   onStreamMetaUpdated?: (payload: StreamMetaUpdatePayload) => void; // 방송 제목/설명 실시간 동기화
 }
 
 const MAX_ITEMS = 300; // 메모리 보호를 위한 클라이언트 메시지 유지 한도
+const LONG_PRESS_MOVE_TOLERANCE = 12; // 손가락 미세 흔들림으로 롱프레스가 취소되지 않는 허용 거리
+const CHAT_HANDLE_CLOSE_THRESHOLD = 18; // 핸들 드래그 닫기 판정을 위한 최소 이동 거리
 
 /**
  * 스트리밍 실시간 채팅방 컴포넌트
@@ -155,9 +163,11 @@ export default function StreamChatRoom({
   containerClassName = "",
   isOpen = true,
   onCloseChat,
+  onComposerFocusChange,
+  isFocusMode = false,
   onStreamMetaUpdated,
 }: Props) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   /**
    * 숫자/문자열 혼용으로 내려오는 userId를 안전하게 비교
@@ -181,6 +191,7 @@ export default function StreamChatRoom({
   const [messages, setMessages] =
     useState<StreamChatMessage[]>(initialStreamMessage);
   const [message, setMessage] = useState(""); // 입력 필드 텍스트
+  const [isComposing, setIsComposing] = useState(false); // IME 조합 상태
   const [cooldownUntil, setCooldownUntil] = useState<number>(0); // 쿨다운 만료 시각
 
   const [selectedUser, setSelectedUser] = useState<{
@@ -218,19 +229,41 @@ export default function StreamChatRoom({
   const [isSavingPinnedNotice, setIsSavingPinnedNotice] = useState(false); // 고정 공지 저장/해제 로딩 상태
   const [isRefreshingMutedViewers, setIsRefreshingMutedViewers] =
     useState(false); // 채팅 금지 대상 목록 조회/해제 로딩 상태
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false); // 새 채팅 하단 이동 버튼 노출 여부
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0); // 스크롤 이탈 중 수신한 새 메시지 수
 
   // --- Refs ---
   const chatRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const activeMenuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const atBottomRef = useRef<boolean>(true); // 스크롤 바닥 여부 추적
+  const pendingAutoScrollRef = useRef(false); // 메시지 반영 직후 하단 이동이 필요한지 추적
   const seenIdsRef = useRef<Set<string | number>>(new Set()); // 중복 메시지 방지용
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPressRef = useRef(false);
+  const longPressStartPointRef = useRef<{ x: number; y: number } | null>(null);
+  const chatHandleStartYRef = useRef<number | null>(null);
 
   // 내가 호스트(방장)인지 판단 (차단 안내 문구 분기용)
   const isViewerHost = userId === streamChatRoomhost;
+
+  const isChatAtBottom = useCallback((threshold = 50) => {
+    const el = chatRef.current;
+    if (!el) return true;
+
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+  }, []);
+
+  const scrollChatToBottom = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (!chatRef.current) return;
+
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      pendingAutoScrollRef.current = false;
+      setShowJumpToLatest(false);
+      setUnreadMessageCount(0);
+    });
+  }, []);
 
   // 모바일 전송 탭 시 버튼으로 포커스가 이동하며 키보드가 닫히는 현상 방지
   const preventFocusSteal = (
@@ -278,33 +311,30 @@ export default function StreamChatRoom({
     setShowPinnedNoticeEditor(false);
     setShowMutedViewerPanel(false);
     setMutedViewers([]);
+    setShowJumpToLatest(false);
+    setUnreadMessageCount(0);
     const s = new Set<string | number>();
     initialStreamMessage.forEach((m) => s.add(m.id));
     seenIdsRef.current = s;
 
     // 방 진입 시 즉시 하단 스크롤
-    atBottomRef.current = true;
-    requestAnimationFrame(() => {
-      if (chatRef.current)
-        chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    });
+    pendingAutoScrollRef.current = true;
+    scrollChatToBottom();
   }, [
     streamChatRoomId,
     initialStreamMessage,
     initialMutedUserIds,
     initiallyMuted,
     initialPinnedChatNotice,
+    scrollChatToBottom,
   ]);
 
   // --- 2. 새 메시지 수신 시 스크롤 제어 ---
   useEffect(() => {
-    if (chatRef.current && atBottomRef.current) {
-      requestAnimationFrame(() => {
-        if (chatRef.current)
-          chatRef.current.scrollTop = chatRef.current.scrollHeight;
-      });
+    if (chatRef.current && pendingAutoScrollRef.current) {
+      scrollChatToBottom();
     }
-  }, [messages]);
+  }, [messages, scrollChatToBottom]);
 
   // --- 3. 스크롤 위치 감지 로직 ---
   useEffect(() => {
@@ -312,12 +342,16 @@ export default function StreamChatRoom({
     if (!el) return;
     const onScroll = () => {
       // 바닥에서 50px 이내인 경우 자동 스크롤 허용 상태로 간주
-      atBottomRef.current =
-        el.scrollHeight - el.scrollTop - el.clientHeight <= 50;
+      const isAtBottom = isChatAtBottom();
+      if (isAtBottom) {
+        pendingAutoScrollRef.current = false;
+        setShowJumpToLatest(false);
+        setUnreadMessageCount(0);
+      }
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [isChatAtBottom]);
 
   // --- 4. 쿨다운 타이머 관리 ---
   useEffect(() => {
@@ -339,6 +373,19 @@ export default function StreamChatRoom({
     onReceive: (msg) => {
       if (seenIdsRef.current.has(msg.id)) return;
       seenIdsRef.current.add(msg.id);
+
+      const shouldStickToBottom =
+        isChatAtBottom() || Number(msg.userId) === userId;
+
+      if (shouldStickToBottom) {
+        pendingAutoScrollRef.current = true;
+        setShowJumpToLatest(false);
+        setUnreadMessageCount(0);
+      } else {
+        pendingAutoScrollRef.current = false;
+        setShowJumpToLatest(true);
+        setUnreadMessageCount((prev) => prev + 1);
+      }
 
       setMessages((prev) => {
         const next = [...prev, msg];
@@ -400,6 +447,7 @@ export default function StreamChatRoom({
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+    longPressStartPointRef.current = null;
   };
 
   useEffect(() => clearLongPressTimer, []);
@@ -517,6 +565,7 @@ export default function StreamChatRoom({
 
       const sent = res.message;
       // 내 화면에 즉시 반영
+      pendingAutoScrollRef.current = true;
       setMessages((prev) => {
         if (seenIdsRef.current.has(sent.id)) return prev;
         seenIdsRef.current.add(sent.id);
@@ -533,7 +582,11 @@ export default function StreamChatRoom({
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    const isDesktopInput =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    if (e.key === "Enter" && !e.shiftKey && !isComposing && isDesktopInput) {
       e.preventDefault();
       onSubmit();
     }
@@ -690,13 +743,20 @@ export default function StreamChatRoom({
 
   /**
    * 모바일 롱프레스 시작점
-   * 미세한 탭과의 구분을 위한 짧은 지연 뒤 BottomSheet 열기 예약
+   * 미세한 탭과 스크롤 이동을 구분하기 위한 시작 좌표 저장 및 BottomSheet 열기 예약
    */
-  const handleLongPressStart = (msg: StreamChatMessage) => {
+  const handleLongPressStart = (
+    event: React.PointerEvent<HTMLDivElement>,
+    msg: StreamChatMessage
+  ) => {
     if (!isMobile || msg.deleted_at) return;
 
     clearLongPressTimer();
     didLongPressRef.current = false;
+    longPressStartPointRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
 
     longPressTimerRef.current = setTimeout(() => {
       didLongPressRef.current = true;
@@ -704,9 +764,51 @@ export default function StreamChatRoom({
     }, 420);
   };
 
-  // 롱프레스 종료/이동/취소 시 타이머 정리 및 일반 탭과의 충돌 방지
+  const handleLongPressMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const startPoint = longPressStartPointRef.current;
+    if (!startPoint) return;
+
+    const distance = Math.hypot(
+      event.clientX - startPoint.x,
+      event.clientY - startPoint.y
+    );
+
+    if (distance > LONG_PRESS_MOVE_TOLERANCE) {
+      clearLongPressTimer();
+    }
+  };
+
+  // 롱프레스 종료/취소 시 타이머 정리 및 일반 탭과의 충돌 방지
   const handleLongPressEnd = () => {
     clearLongPressTimer();
+  };
+
+  /** 모바일 채팅 핸들 터치 시작 좌표 저장 */
+  const handleChatHandlePointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    chatHandleStartYRef.current = event.clientY;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  /** 모바일 채팅 핸들의 아래 방향 드래그 닫기 판정 */
+  const handleChatHandlePointerMove = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    if (chatHandleStartYRef.current === null) return;
+
+    if (event.clientY - chatHandleStartYRef.current > CHAT_HANDLE_CLOSE_THRESHOLD) {
+      chatHandleStartYRef.current = null;
+      closeChat();
+    }
+  };
+
+  /** 모바일 채팅 핸들 탭 닫기 처리 */
+  const handleChatHandlePointerUp = () => {
+    if (chatHandleStartYRef.current === null) return;
+
+    chatHandleStartYRef.current = null;
+    closeChat();
   };
 
   /**
@@ -788,15 +890,87 @@ export default function StreamChatRoom({
   return (
     <div
       className={cn(
-        "flex flex-col min-h-0 overflow-hidden border transition-colors",
+        "relative flex flex-col min-h-0 overflow-hidden border transition-colors",
         "border-border-subtle bg-surface",
         "rounded-2xl shadow-lg lg:shadow-[0_16px_36px_rgba(15,23,42,0.08)] lg:ring-1 lg:ring-black/[0.045] dark:lg:ring-white/[0.04]",
+        "max-lg:rounded-none max-lg:border-x-0 max-lg:border-b-0 max-lg:bg-background max-lg:shadow-none",
         fillParent ? "h-full flex-1" : "sm:min-h-[40vh]",
         containerClassName
       )}
     >
-      {/* 헤더 */}
-      <div className="shrink-0 flex items-center justify-between border-b border-border-subtle bg-surface px-3 py-2.5 sm:px-4 sm:py-3">
+      {/* 모바일에서는 바텀시트 핸들로 닫기 동선을 압축 */}
+      {!isFocusMode && (
+        <div
+          className={cn(
+            "relative flex shrink-0 items-center justify-center border-b border-border-subtle bg-background lg:hidden",
+            isViewerHost ? "h-9" : "h-6"
+          )}
+        >
+          {isViewerHost && (
+            <div className="absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setPinnedNoticeDraft(pinnedNotice ?? "");
+                  setShowPinnedNoticeEditor((prev) => !prev);
+                }}
+                aria-label={pinnedNotice ? "공지 수정" : "공지 등록"}
+                className={cn(
+                  "focus-ring-soft inline-flex size-8 items-center justify-center rounded-full border text-muted transition-colors",
+                  showPinnedNoticeEditor
+                    ? "border-brand/40 bg-brand/10 text-brand dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
+                    : "border-border-subtle bg-surface/70 hover:bg-surface-dim hover:text-primary"
+                )}
+              >
+                <MegaphoneIcon className="size-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showMutedViewerPanel;
+                  setShowMutedViewerPanel(next);
+                  if (next) loadMutedViewers();
+                }}
+                aria-label={
+                  showMutedViewerPanel ? "채팅 관리 닫기" : "채팅 관리 열기"
+                }
+                className={cn(
+                  "focus-ring-soft inline-flex size-8 items-center justify-center rounded-full border text-muted transition-colors",
+                  showMutedViewerPanel
+                    ? "border-brand/40 bg-brand/10 text-brand dark:border-brand-light/35 dark:bg-brand-light/10 dark:text-brand-light"
+                    : "border-border-subtle bg-surface/70 hover:bg-surface-dim hover:text-primary"
+                )}
+              >
+                {showMutedViewerPanel ? (
+                  <ChevronUpIcon className="size-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDownIcon className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label="채팅 닫기"
+            className="focus-ring-soft flex h-full min-w-[56px] items-center justify-center rounded-full text-muted transition-colors active:text-primary"
+            onPointerDown={handleChatHandlePointerDown}
+            onPointerMove={handleChatHandlePointerMove}
+            onPointerUp={handleChatHandlePointerUp}
+            onPointerCancel={() => {
+              chatHandleStartYRef.current = null;
+            }}
+          >
+            <span className="h-1 w-9 rounded-full bg-border-strong" />
+          </button>
+        </div>
+      )}
+
+      {/* 데스크톱 헤더 */}
+      <div
+        className={cn(
+          "hidden shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-3 py-2 sm:px-4 sm:py-3 lg:flex"
+        )}
+      >
         <div className="min-w-0">
           <span className="text-sm font-medium text-primary">채팅</span>
         </div>
@@ -849,7 +1023,7 @@ export default function StreamChatRoom({
           <button
             onClick={closeChat}
             aria-label="채팅 닫기"
-            className="focus-ring-soft inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-5" />
           </button>
@@ -901,7 +1075,12 @@ export default function StreamChatRoom({
       {/* 메시지 로그 */}
       <div
         ref={chatRef}
-        className="flex-1 min-h-0 overflow-y-auto bg-surface p-3 pb-4 space-y-3 scrollbar-hide sm:p-4 sm:pb-5"
+        className={cn(
+          "flex-1 min-h-0 overflow-y-auto bg-surface p-3 pb-3 space-y-3 scrollbar-hide [overflow-anchor:none] sm:p-4 sm:pb-5",
+          "max-lg:bg-background",
+          isFocusMode &&
+            "max-lg:px-3 max-lg:pt-2.5 max-lg:pb-2 max-lg:space-y-2"
+        )}
         role="log"
         aria-live="polite"
         onClick={(e) => {
@@ -936,6 +1115,7 @@ export default function StreamChatRoom({
                 activeMenuMessageId={menuMessageId}
                 onSelectUser={setSelectedUser}
                 onLongPressStart={handleLongPressStart}
+                onLongPressMove={handleLongPressMove}
                 onLongPressEnd={handleLongPressEnd}
                 onOptionButtonClick={(event, activeMessage, isMine) => {
                   event.stopPropagation();
@@ -960,10 +1140,32 @@ export default function StreamChatRoom({
                     !isMine
                   );
                 }}
+                isFocusMode={isFocusMode}
+                useLongPressMenu={isMobile}
               />
             ))
         )}
       </div>
+
+      {showJumpToLatest && (
+        <button
+          type="button"
+          onClick={scrollChatToBottom}
+          className={cn(
+            "focus-ring-strong absolute left-1/2 z-20 inline-flex size-9 -translate-x-1/2 items-center justify-center rounded-full border border-brand/30 bg-brand text-white shadow-lg transition-colors hover:bg-brand-dark",
+            "bottom-[4.5rem]",
+            isFocusMode && "max-lg:bottom-[3.75rem]"
+          )}
+          aria-label="새 채팅으로 이동"
+        >
+          <ChevronDownIcon className="size-[18px]" aria-hidden="true" />
+          {unreadMessageCount > 1 && (
+            <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-accent-foreground shadow-sm">
+              {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+            </span>
+          )}
+        </button>
+      )}
 
       <StreamChatComposer
         isMuted={isMuted}
@@ -971,8 +1173,13 @@ export default function StreamChatRoom({
         textareaRef={textareaRef}
         onChange={setMessage}
         onKeyDown={onKeyDown}
+        onFocus={() => onComposerFocusChange?.(true)}
+        onBlur={() => onComposerFocusChange?.(false)}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
         onSubmit={onSubmit}
         preventFocusSteal={preventFocusSteal}
+        isFocusMode={isFocusMode}
         isSubmitDisabled={
           isMuted || Date.now() < cooldownUntil || !message.trim()
         }

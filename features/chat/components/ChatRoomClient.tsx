@@ -8,12 +8,14 @@
  * 2026.03.12  임도헌   Created   채팅방 검색 상태를 헤더와 메시지 리스트 사이에서 공유하는 래퍼 추가
  * 2026.03.28  임도헌   Modified  현재 대화 검색 메타에 이동 가능 방향 상태를 포함해 헤더/모바일 검색 내비게이션과 동기화
  * 2026.04.02  임도헌   Modified  채팅 헤더 공용 제품 요약 타입을 재사용하도록 정리
+ * 2026.05.28  임도헌   Modified  모바일 visualViewport 높이 CSS 변수 동기화 추가
  */
 "use client";
 
 import { useState } from "react";
 import ChatHeader from "@/features/chat/components/ChatHeader";
 import ChatMessagesList from "@/features/chat/components/ChatMessagesList";
+import useVisualViewportHeightCssVar from "@/hooks/useVisualViewportHeightCssVar";
 import type { ChatHeaderProduct, ChatUser } from "@/features/chat/types";
 
 interface ChatRoomClientProps {
@@ -45,6 +47,8 @@ export default function ChatRoomClient({
   isCounterpartyLeft = false,
   returnTo,
 }: ChatRoomClientProps) {
+  useVisualViewportHeightCssVar("--chat-visual-viewport-height");
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMeta, setSearchMeta] = useState({
