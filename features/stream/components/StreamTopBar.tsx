@@ -24,12 +24,9 @@
  * 2026.04.08  임도헌   Modified  방송 정보 수정 결과를 로컬 상태와 실시간 브로드캐스트 흐름에 맞춰 즉시 반영하도록 보강
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.20  임도헌   Modified  스트림 상세 상단바 배경을 surface 톤으로 맞춰 플레이어 위에서도 더 단단한 표면으로 읽히게 정리
- * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 플레이어 위 버튼에서 상단바 표시 상태로 이관
- * 2026.05.28  임도헌   Modified  모바일 방송 정보 버튼 제거와 상단 액션 밀도 축소
- * 2026.05.29  임도헌   Modified  상단 메뉴/모달 열림 상태를 셸에 전달해 모바일 자동 숨김과 충돌하지 않도록 보정
+ * 2026.05.28  임도헌   Modified  모바일 방송 정보 진입을 상단바 상태로 이관하고 상단 액션 밀도 축소
  * 2026.05.29  임도헌   Modified  상단 옵션 메뉴에 방송국 이동 액션 추가
- * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 모바일 옵션 메뉴 판정 기준을 1024px로 일치
- * 2026.05.29  임도헌   Modified  모바일 채팅 재진입을 플로팅 버튼으로 일원화
+ * 2026.05.29  임도헌   Modified  max-lg 옵션 메뉴 판정과 모바일/데스크톱 채팅 진입점 분리
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
@@ -90,8 +87,6 @@ type Props = {
     title: string;
     description: string | null;
   }) => void;
-  /** 상단바 내부 메뉴/모달 열림 상태 변경 핸들러 */
-  onOverlayOpenChange?: (open: boolean) => void;
 };
 
 /**
@@ -117,7 +112,6 @@ export default function StreamTopbar({
   isChatOpen,
   onOpenChat,
   onStreamMetaUpdated,
-  onOverlayOpenChange,
 }: Props) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -127,8 +121,6 @@ export default function StreamTopbar({
   const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile(1024);
-  const isOverlayOpen = menuOpen || reportOpen || blockConfirmOpen || editOpen;
-
   const openChatFromTopbar = () => {
     onOpenChat();
   };
@@ -145,14 +137,6 @@ export default function StreamTopbar({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isMobile, menuOpen]);
-
-  useEffect(() => {
-    onOverlayOpenChange?.(isOverlayOpen);
-  }, [isOverlayOpen, onOverlayOpenChange]);
-
-  useEffect(() => {
-    return () => onOverlayOpenChange?.(false);
-  }, [onOverlayOpenChange]);
 
   // --- 가시성 라벨(타입 안전) ---
   const visLabel =

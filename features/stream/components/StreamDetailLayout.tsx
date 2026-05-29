@@ -14,9 +14,8 @@
  * 2026.03.24  임도헌   Modified  모바일 채팅 카드 높이를 고정 범위로 정리해 빈 상태에서 과하게 커 보이지 않도록 보정
  * 2026.04.03  임도헌   Modified  모바일/데스크톱이 단일 채팅 인스턴스를 공유하도록 레이아웃 슬롯을 통합
  * 2026.04.03  임도헌   Modified  모바일 채팅 레일이 작은 기기 고정 높이 대신 남는 뷰포트 높이를 반응형으로 채우도록 조정
- * 2026.05.28  임도헌   Modified  모바일 full-bleed 스트림 상세와 입력 집중 모드 채팅 레일 확장
- * 2026.05.28  임도헌   Modified  모바일 상세 터치 레이어를 상단바 보이기/숨기기 토글로 정리
- * 2026.05.28  임도헌   Modified  상단바 토글 책임을 플레이어 영역으로 이동해 정보 패널 상호작용 보존
+ * 2026.05.28  임도헌   Modified  모바일 full-bleed 상세, 입력 집중 모드, 플레이어 터치 토글 기준 정리
+ * 2026.05.29  임도헌   Modified  모바일 채팅 닫힘 상태에서 긴 방송 정보가 잘리지 않도록 상세 슬롯 스크롤 보정
  */
 
 import type { ReactNode } from "react";
@@ -57,6 +56,7 @@ export default function StreamDetailLayout({
         className={cn(
           "relative min-w-0 shrink-0 transition-[height,opacity,padding] duration-200 lg:pt-2.5",
           isChatOpen && "lg:w-full",
+          !isChatOpen && "max-lg:flex-1 max-lg:overflow-y-auto max-lg:overscroll-contain",
           isChatFocusMode &&
             "max-lg:h-0 max-lg:overflow-hidden max-lg:pt-0 max-lg:opacity-0 max-lg:pointer-events-none"
         )}

@@ -14,17 +14,9 @@
  * 2026.04.08  임도헌   Modified  방송 제목/설명 수정 결과와 실시간 메타 동기화를 상세 로컬 상태에 즉시 반영
  * 2026.04.16  임도헌   Modified  상세 전용 실시간 구독과 main landmark 위치를 셸에 고정해 상태/시맨틱 진입점을 일원화
  * 2026.05.17  임도헌   Modified  live-status 상태 반영을 셸 단일 구독으로 모아 상세 하위 컴포넌트 중복 구독 제거
- * 2026.05.28  임도헌   Modified  모바일 visual viewport 기반 입력 집중 모드와 상단바 토글 상태 추가
- * 2026.05.28  임도헌   Modified  모바일 방송 정보 패널을 상단바 표시 상태와 채팅 열림 상태로 제어
- * 2026.05.28  임도헌   Modified  모바일 상단바 자동 숨김과 입력 집중 모드 예외 처리
- * 2026.05.28  임도헌   Modified  모바일 상단바 토글을 플레이어 클릭 이벤트로 제한
- * 2026.05.28  임도헌   Modified  모바일 방송 정보는 상단바 노출/채팅 닫힘 상태에 맞춰 자동 표시
- * 2026.05.28  임도헌   Modified  모바일 상단바 노출 시 본문 상단 겹침 방지 여백 추가
- * 2026.05.29  임도헌   Modified  모바일 상단바를 자동 숨김 대신 사용자 탭 제어 기준으로 정리
- * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 JS 모바일 판정 기준을 1024px로 일치
- * 2026.05.29  임도헌   Modified  채팅 닫힘 상태에서 모바일 재진입 플로팅 버튼 추가
- * 2026.05.29  임도헌   Modified  채팅 닫힘 상태의 재진입 버튼을 상단바 표시 여부와 분리
- * 2026.05.29  임도헌   Modified  채팅 열림 여부를 방송 정보 높이 제한 기준으로 전달
+ * 2026.05.28  임도헌   Modified  모바일 visual viewport 기반 입력 집중 모드와 상단바/방송 정보 상태 제어 추가
+ * 2026.05.29  임도헌   Modified  max-lg 모바일 판정, 수동 상단바 토글, 채팅 플로팅 재진입 기준 정리
+ * 2026.05.29  임도헌   Modified  채팅 열림 상태에 따라 방송 정보 높이 제한과 스크롤 기준 적용
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -94,7 +86,6 @@ export default function StreamDetailClientShell({
   const [isChatComposerFocused, setIsChatComposerFocused] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [isMobileTopbarVisible, setIsMobileTopbarVisible] = useState(false);
-  const [isTopbarOverlayOpen, setIsTopbarOverlayOpen] = useState(false);
   // 키보드 열림 감지를 위한 최대 visual viewport 높이 기준값
   const maxVisualViewportHeightRef = useRef(0);
   const [streamState, setStreamState] = useState(stream);
@@ -175,7 +166,6 @@ export default function StreamDetailClientShell({
           backFallbackHref={returnTo}
           isChatOpen={isChatOpen}
           onOpenChat={openChat}
-          onOverlayOpenChange={setIsTopbarOverlayOpen}
           className="max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:top-0 max-lg:z-[60] max-lg:bg-surface/95 max-lg:shadow-lg max-lg:backdrop-blur"
           onStreamMetaUpdated={(next) =>
             setStreamState((prev) => ({

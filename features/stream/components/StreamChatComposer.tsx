@@ -5,9 +5,7 @@
  *
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 입력/전송 영역을 분리
- * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드와 IME 정책 전달용 textarea 이벤트 props 추가
- * 2026.05.28  임도헌   Modified  입력 집중 모드에서 라이브 채팅형 입력 영역으로 밀도 조정
- * 2026.05.28  임도헌   Modified  모바일 입력바 높이와 safe-area 여백 압축
+ * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드, IME 정책 전달, safe-area 입력바 밀도 정리
  */
 
 import type { RefObject } from "react";
