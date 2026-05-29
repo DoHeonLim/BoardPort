@@ -1,6 +1,6 @@
 /**
- * File Name : features/stream/components/StreamTopbar.tsx
- * Description : 스트리밍 상세 상단바(뒤로가기 + 가시성 칩 + 공유 + 채팅 토글 버튼)
+ * File Name : features/stream/components/StreamTopBar.tsx
+ * Description : 스트리밍 상세 상단바(뒤로가기 + 가시성 칩 + 공유 + 채팅/옵션 액션)
  * Author : 임도헌
  *
  * History
@@ -26,6 +26,9 @@
  * 2026.04.20  임도헌   Modified  스트림 상세 상단바 배경을 surface 톤으로 맞춰 플레이어 위에서도 더 단단한 표면으로 읽히게 정리
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 토글을 플레이어 위 버튼에서 상단바 표시 상태로 이관
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 버튼 제거와 상단 액션 밀도 축소
+ * 2026.05.29  임도헌   Modified  상단 메뉴/모달 열림 상태를 셸에 전달해 모바일 자동 숨김과 충돌하지 않도록 보정
+ * 2026.05.29  임도헌   Modified  상단 옵션 메뉴에 방송국 이동 액션 추가
+ * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 모바일 옵션 메뉴 판정 기준을 1024px로 일치
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
@@ -43,6 +46,7 @@ import {
   UserGroupIcon,
   GlobeAltIcon,
   ChatBubbleLeftRightIcon,
+  HomeIcon,
 } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import BackButton from "@/components/global/BackButton";
@@ -85,6 +89,8 @@ type Props = {
     title: string;
     description: string | null;
   }) => void;
+  /** 상단바 내부 메뉴/모달 열림 상태 변경 핸들러 */
+  onOverlayOpenChange?: (open: boolean) => void;
 };
 
 /**
@@ -93,8 +99,8 @@ type Props = {
  * [상태 주입 및 상호작용 제어 로직]
  * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 기반으로 상단바 채팅 열기 버튼 노출 여부를 제어
  * - 방송 권한(Public/Private/Followers) 속성에 따른 동적 뱃지 렌더링 적용
- * - 스트리머 차단(`toggleBlockAction`) 및 방송 신고 모달(`ReportModal`) 연동
- * - 호스트는 상단 메뉴에서 방송 제목/설명을 수정할 수 있고 저장 직후 로컬 상세 상태를 즉시 갱신
+ * - 방송국 이동, 스트리머 차단(`toggleBlockAction`), 방송 신고 모달(`ReportModal`) 연동
+ * - 호스트는 상단 메뉴에서 방송국 이동과 방송 제목/설명 수정을 수행하고 저장 직후 로컬 상세 상태를 즉시 갱신
  * - 뒤로가기 버튼(`BackButton`) 및 고유 URL 복사를 위한 공유하기(`handleShare`) 기능 포함
  */
 export default function StreamTopbar({
@@ -110,6 +116,7 @@ export default function StreamTopbar({
   isChatOpen,
   onOpenChat,
   onStreamMetaUpdated,
+  onOverlayOpenChange,
 }: Props) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -118,7 +125,8 @@ export default function StreamTopbar({
   const [editOpen, setEditOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
+  const isOverlayOpen = menuOpen || reportOpen || blockConfirmOpen || editOpen;
 
   const openChatFromTopbar = () => {
     onOpenChat();
@@ -136,6 +144,14 @@ export default function StreamTopbar({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isMobile, menuOpen]);
+
+  useEffect(() => {
+    onOverlayOpenChange?.(isOverlayOpen);
+  }, [isOverlayOpen, onOverlayOpenChange]);
+
+  useEffect(() => {
+    return () => onOverlayOpenChange?.(false);
+  }, [onOverlayOpenChange]);
 
   // --- 가시성 라벨(타입 안전) ---
   const visLabel =
@@ -182,6 +198,11 @@ export default function StreamTopbar({
   const handleOpenEdit = () => {
     setMenuOpen(false);
     setEditOpen(true);
+  };
+
+  const handleGoToChannel = () => {
+    setMenuOpen(false);
+    router.push(`/profile/${encodeURIComponent(ownerUsername)}/channel`);
   };
 
   return (
@@ -251,9 +272,18 @@ export default function StreamTopbar({
                 >
                   <button
                     type="button"
-                    onClick={handleOpenEdit}
+                    onClick={handleGoToChannel}
                     role="menuitem"
                     className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
+                  >
+                    <HomeIcon className="size-4" />
+                    방송국으로 이동
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenEdit}
+                    role="menuitem"
+                    className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
                   >
                     <PencilSquareIcon className="size-4" />
                     방송 정보 수정
@@ -278,12 +308,21 @@ export default function StreamTopbar({
                   className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-border-subtle bg-background shadow-xl z-50"
                 >
                   <button
+                    type="button"
+                    onClick={handleGoToChannel}
+                    role="menuitem"
+                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
+                  >
+                    <HomeIcon className="size-4" />
+                    방송국으로 이동
+                  </button>
+                  <button
                     onClick={() => {
                       setMenuOpen(false);
                       setBlockConfirmOpen(true);
                     }}
                     role="menuitem"
-                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
+                    className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
                   >
                     <UserMinusIcon className="size-4" /> 스트리머 차단하기
                   </button>
@@ -308,10 +347,18 @@ export default function StreamTopbar({
         <BottomSheet
           open={isMobile && menuOpen}
           title="방송 관리"
-          description="라이브 중에도 방송 제목과 설명을 수정할 수 있습니다."
+          description="방송국으로 이동하거나 라이브 중 제목과 설명을 수정할 수 있습니다."
           onClose={() => setMenuOpen(false)}
         >
           <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={handleGoToChannel}
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            >
+              <HomeIcon className="size-5 shrink-0" />
+              방송국으로 이동
+            </button>
             <button
               type="button"
               onClick={handleOpenEdit}
@@ -326,10 +373,18 @@ export default function StreamTopbar({
         <BottomSheet
           open={isMobile && menuOpen}
           title="방송 옵션"
-          description="스트리머 차단 또는 방송 신고를 진행할 수 있습니다."
+          description="방송국으로 이동하거나 스트리머 차단, 방송 신고를 진행할 수 있습니다."
           onClose={() => setMenuOpen(false)}
         >
           <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={handleGoToChannel}
+              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+            >
+              <HomeIcon className="size-5 shrink-0" />
+              방송국으로 이동
+            </button>
             <button
               type="button"
               onClick={() => {

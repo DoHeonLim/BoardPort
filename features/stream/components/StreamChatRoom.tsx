@@ -72,6 +72,7 @@
  * 2026.05.28  임도헌   Modified  새 메시지 수신 시 실제 DOM 스크롤 위치 기준으로 자동 하단 이동 여부 판별
  * 2026.05.28  임도헌   Modified  채팅 로그 scroll anchoring 비활성화로 새 메시지 수신 중 위치 보존
  * 2026.05.28  임도헌   Modified  새 채팅 이동 버튼을 중앙 아이콘형 플로팅 버튼으로 정리
+ * 2026.05.29  임도헌   Modified  max-lg 채팅 레이아웃과 모바일 상호작용 판정 기준을 1024px로 일치
  */
 "use client";
 
@@ -168,7 +169,7 @@ export default function StreamChatRoom({
   isFocusMode = false,
   onStreamMetaUpdated,
 }: Props) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   /**
    * 숫자/문자열 혼용으로 내려오는 userId를 안전하게 비교

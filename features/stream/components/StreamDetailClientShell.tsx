@@ -20,6 +20,8 @@
  * 2026.05.28  임도헌   Modified  모바일 상단바 토글을 플레이어 클릭 이벤트로 제한
  * 2026.05.28  임도헌   Modified  모바일 방송 정보는 상단바 노출/채팅 닫힘 상태에 맞춰 자동 표시
  * 2026.05.28  임도헌   Modified  모바일 상단바 노출 시 본문 상단 겹침 방지 여백 추가
+ * 2026.05.29  임도헌   Modified  상단바 내부 메뉴/모달이 열린 동안 모바일 자동 숨김을 보류
+ * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 JS 모바일 판정 기준을 1024px로 일치
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -82,12 +84,13 @@ export default function StreamDetailClientShell({
 }: StreamDetailClientShellProps) {
   useVisualViewportHeightCssVar("--stream-visual-viewport-height");
 
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
   const [isViewportReady, setIsViewportReady] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [isChatComposerFocused, setIsChatComposerFocused] = useState(false);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [isMobileTopbarVisible, setIsMobileTopbarVisible] = useState(false);
+  const [isTopbarOverlayOpen, setIsTopbarOverlayOpen] = useState(false);
   // 키보드 열림 감지를 위한 최대 visual viewport 높이 기준값
   const maxVisualViewportHeightRef = useRef(0);
   const [streamState, setStreamState] = useState(stream);
@@ -145,7 +148,12 @@ export default function StreamDetailClientShell({
   }, []);
 
   useEffect(() => {
-    if (!isMobile || !isMobileTopbarVisible || isChatFocusMode) {
+    if (
+      !isMobile ||
+      !isMobileTopbarVisible ||
+      isChatFocusMode ||
+      isTopbarOverlayOpen
+    ) {
       return;
     }
 
@@ -154,7 +162,12 @@ export default function StreamDetailClientShell({
     }, 3000);
 
     return () => window.clearTimeout(timerId);
-  }, [isChatFocusMode, isMobile, isMobileTopbarVisible]);
+  }, [
+    isChatFocusMode,
+    isMobile,
+    isMobileTopbarVisible,
+    isTopbarOverlayOpen,
+  ]);
 
   return (
     <div className="flex h-[var(--stream-visual-viewport-height,100dvh)] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
@@ -176,6 +189,7 @@ export default function StreamDetailClientShell({
           backFallbackHref={returnTo}
           isChatOpen={isChatOpen}
           onOpenChat={openChat}
+          onOverlayOpenChange={setIsTopbarOverlayOpen}
           className="max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:top-0 max-lg:z-[60] max-lg:bg-surface/95 max-lg:shadow-lg max-lg:backdrop-blur"
           onStreamMetaUpdated={(next) =>
             setStreamState((prev) => ({
