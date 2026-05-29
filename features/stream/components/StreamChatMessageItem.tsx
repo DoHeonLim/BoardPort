@@ -8,6 +8,7 @@
  * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드용 라이브 피드 메시지 렌더 추가
  * 2026.05.28  임도헌   Modified  입력 집중 모드에서도 내 메시지/상대 메시지 좌우 정렬 유지
  * 2026.05.29  임도헌   Modified  태블릿 컴팩트 레이아웃에서는 롱프레스 메뉴 기준으로 통일
+ * 2026.05.29  임도헌   Modified  모바일 롱프레스 메뉴와 텍스트 선택 충돌 방지
  */
 
 import TimeAgo from "@/components/ui/TimeAgo";
@@ -34,6 +35,7 @@ interface StreamChatMessageItemProps {
     isMine: boolean
   ) => void;
   isFocusMode?: boolean;
+  useLongPressMenu?: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export default function StreamChatMessageItem({
   onLongPressEnd,
   onOptionButtonClick,
   isFocusMode = false,
+  useLongPressMenu = false,
 }: StreamChatMessageItemProps) {
   const normalizedMessageUserId = Number(message.userId);
   const safeMessageUserId = Number.isFinite(normalizedMessageUserId)
@@ -68,11 +71,12 @@ export default function StreamChatMessageItem({
       <div
         className={cn(
           "group flex w-full text-sm leading-6",
-          isMine ? "justify-end" : "justify-start"
+          isMine ? "justify-end" : "justify-start",
+          useLongPressMenu && "select-none touch-manipulation"
         )}
         onPointerDown={() => onLongPressStart(message)}
         onContextMenu={(event) => {
-          if (isDeleted) {
+          if (useLongPressMenu || isDeleted) {
             event.preventDefault();
           }
         }}
@@ -152,12 +156,13 @@ export default function StreamChatMessageItem({
     <div
       className={cn(
         "group flex w-full",
-        isMine ? "justify-end" : "justify-start"
+        isMine ? "justify-end" : "justify-start",
+        useLongPressMenu && "select-none touch-manipulation"
       )}
       // 모바일의 메시지 길게 누르기 시점 한정 액션 시트 열기, 일반 탭과 액션 진입 분리
       onPointerDown={() => onLongPressStart(message)}
       onContextMenu={(event) => {
-        if (isDeleted) {
+        if (useLongPressMenu || isDeleted) {
           event.preventDefault();
         }
       }}

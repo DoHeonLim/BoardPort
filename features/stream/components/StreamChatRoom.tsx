@@ -1025,6 +1025,7 @@ export default function StreamChatRoom({
                   );
                 }}
                 isFocusMode={isFocusMode}
+                useLongPressMenu={isMobile}
               />
             ))
         )}

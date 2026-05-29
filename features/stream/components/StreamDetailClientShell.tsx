@@ -20,11 +20,13 @@
  * 2026.05.28  임도헌   Modified  모바일 상단바 토글을 플레이어 클릭 이벤트로 제한
  * 2026.05.28  임도헌   Modified  모바일 방송 정보는 상단바 노출/채팅 닫힘 상태에 맞춰 자동 표시
  * 2026.05.28  임도헌   Modified  모바일 상단바 노출 시 본문 상단 겹침 방지 여백 추가
- * 2026.05.29  임도헌   Modified  상단바 내부 메뉴/모달이 열린 동안 모바일 자동 숨김을 보류
+ * 2026.05.29  임도헌   Modified  모바일 상단바를 자동 숨김 대신 사용자 탭 제어 기준으로 정리
  * 2026.05.29  임도헌   Modified  max-lg 레이아웃과 JS 모바일 판정 기준을 1024px로 일치
+ * 2026.05.29  임도헌   Modified  채팅 닫힘 상태에서 모바일 재진입 플로팅 버튼 추가
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import type { StreamChatMessage } from "@/features/chat/types";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import StreamDetail from "@/features/stream/components/StreamDetail";
@@ -101,7 +103,11 @@ export default function StreamDetailClientShell({
   }, [stream]);
 
   const openChat = () => setIsChatOpen(true);
-  const closeChat = () => setIsChatOpen(false);
+  const closeChat = () => {
+    setIsChatOpen(false);
+    setIsChatComposerFocused(false);
+    setIsKeyboardOpen(false);
+  };
   const isChatFocusMode = isMobile && isChatComposerFocused && isKeyboardOpen;
   const shouldShowMobileInfo =
     isMobile && !isChatFocusMode && (!isChatOpen || isMobileTopbarVisible);
@@ -146,28 +152,6 @@ export default function StreamDetailClientShell({
       viewport.removeEventListener("scroll", syncKeyboardState);
     };
   }, []);
-
-  useEffect(() => {
-    if (
-      !isMobile ||
-      !isMobileTopbarVisible ||
-      isChatFocusMode ||
-      isTopbarOverlayOpen
-    ) {
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      setIsMobileTopbarVisible(false);
-    }, 3000);
-
-    return () => window.clearTimeout(timerId);
-  }, [
-    isChatFocusMode,
-    isMobile,
-    isMobileTopbarVisible,
-    isTopbarOverlayOpen,
-  ]);
 
   return (
     <div className="flex h-[var(--stream-visual-viewport-height,100dvh)] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
@@ -255,6 +239,18 @@ export default function StreamDetailClientShell({
             />
           }
         />
+
+        {isMobile && !isChatOpen && !isChatFocusMode && !isMobileTopbarVisible && (
+          <button
+            type="button"
+            onClick={openChat}
+            className="focus-ring-strong fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-brand/25 bg-brand px-4 text-sm font-bold text-white shadow-lg shadow-brand/20 transition-colors hover:bg-brand-dark lg:hidden"
+            aria-label="채팅 다시 열기"
+          >
+            <ChatBubbleLeftRightIcon className="size-4" aria-hidden="true" />
+            채팅
+          </button>
+        )}
       </main>
     </div>
   );
