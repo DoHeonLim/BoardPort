@@ -19,6 +19,7 @@
  * 2026.03.25  임도헌   Modified  라이트 모드 댓글 입력창 대비를 소폭 올려 첫인상 가시성을 보강
  * 2026.03.27  임도헌   Modified  녹화 댓글 전송 버튼에 다크 밀집 화면용 아이콘 전용 quiet-dark 버튼 변형 적용
  * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
+ * 2026.05.30  임도헌   Modified  모바일 버튼 전송, 데스크톱 Enter 전송 기준으로 녹화 댓글 입력 정책 정리
  */
 "use client";
 
@@ -33,7 +34,8 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
  * [상호작용 및 상태 제어 로직]
  * - `useCreateRecordingCommentMutation` 훅을 활용한 댓글 데이터 서버 전송 및 캐시 갱신 유도
  * - `textarea` 입력 텍스트 길이에 따른 자동 높이 조절 로직 적용
- * - IME(한글 등) 조합 중 중복 전송 방지(`isComposing`) 및 단축키(Enter 전송, Shift+Enter 개행) 지원
+ * - 모바일 버튼 전송, 데스크톱 Enter 전송, Shift+Enter 개행 처리
+ * - IME(한글 등) 조합 중 Enter 전송 방지와 명시 버튼 전송 허용
  * - 작성 시도 즉시 입력창 비움 처리(Optimistic Clear) 후, 실패 시 입력값 복원(Rollback) 수행
  */
 export default function RecordingCommentForm({ vodId }: { vodId: number }) {
@@ -51,8 +53,8 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [text]);
 
-  const submit = async () => {
-    if (isLoading || isComposing) return;
+  const submit = async (options?: { allowComposing?: boolean }) => {
+    if (isLoading || (!options?.allowComposing && isComposing)) return;
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -73,7 +75,11 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isComposing) {
+    const isDesktopInput =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    if (e.key === "Enter" && !e.shiftKey && !isComposing && isDesktopInput) {
       e.preventDefault();
       submit();
     }
@@ -96,7 +102,7 @@ export default function RecordingCommentForm({ vodId }: { vodId: number }) {
       </div>
 
       <button
-        onClick={submit}
+        onClick={() => submit({ allowComposing: true })}
         disabled={isLoading || !text.trim()}
         className={cn(
           "btn-primary-quiet-dark-icon flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] transition-[background-color,color,border-color,box-shadow] shadow-sm dark:border-border-subtle",

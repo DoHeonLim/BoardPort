@@ -23,6 +23,7 @@
  * 2026.03.30  임도헌   Modified  게시글 카테고리 plain 라벨 정리에 맞춰 댓글 플레이스홀더를 일반 문맥으로 조정
  * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
  * 2026.04.26  임도헌   Modified  댓글 등록 버튼의 다크모드 hover 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.05.30  임도헌   Modified  모바일 버튼 전송, 데스크톱 Enter 전송 기준으로 댓글 입력 정책 정리
  */
 "use client";
 
@@ -38,7 +39,8 @@ import { toast } from "sonner";
  * [상호작용 및 상태 제어 로직]
  * - `useCreatePostCommentMutation` 훅을 활용한 댓글 데이터 서버 전송 및 캐시 무효화 유도
  * - `textarea` 입력 내용 기반 자동 높이 조절 로직 적용
- * - IME(한글 등) 조합 중 중복 전송 방지(`isComposing`) 및 단축키(Enter 전송, Shift+Enter 개행) 처리
+ * - 모바일 버튼 전송, 데스크톱 Enter 전송, Shift+Enter 개행 처리
+ * - IME(한글 등) 조합 중 Enter 전송 방지와 명시 버튼 전송 허용
  * - 작성 시도 즉시 입력창 초기화 후, 실패 시 입력값 복원(Rollback) 적용
  */
 export default function PostCommentForm({ postId }: { postId: number }) {
@@ -56,8 +58,8 @@ export default function PostCommentForm({ postId }: { postId: number }) {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [text]);
 
-  const submit = async () => {
-    if (isPending || isComposing) return;
+  const submit = async (options?: { allowComposing?: boolean }) => {
+    if (isPending || (!options?.allowComposing && isComposing)) return;
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -83,7 +85,11 @@ export default function PostCommentForm({ postId }: { postId: number }) {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isComposing) {
+    const isDesktopInput =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    if (e.key === "Enter" && !e.shiftKey && !isComposing && isDesktopInput) {
       e.preventDefault();
       submit();
     }
@@ -111,7 +117,7 @@ export default function PostCommentForm({ postId }: { postId: number }) {
       </div>
 
       <button
-        onClick={submit}
+        onClick={() => submit({ allowComposing: true })}
         disabled={isPending || !text.trim()}
         className={cn(
           "focus-ring-soft shrink-0 size-10 rounded-full flex items-center justify-center transition-[background-color,color,border-color,box-shadow] shadow-sm",
