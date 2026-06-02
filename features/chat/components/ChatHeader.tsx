@@ -33,6 +33,7 @@
  * 2026.04.16  임도헌   Modified  채팅 헤더 높이와 안쪽 여백을 공통 상세 appbar 패턴과 같은 56px 기준으로 통일
  * 2026.04.17  임도헌   Modified  채팅방 상단 검색창 스타일을 정리
  * 2026.04.21  임도헌   Modified  데스크톱/모바일 액션 메뉴 항목을 공통 컴포넌트로 분리하고 주석 정합을 보강
+ * 2026.05.30  임도헌   Modified  채팅 상세 헤더 높이를 모바일 서브 헤더 기준으로 정리
  */
 
 import Image from "next/image";
@@ -349,7 +350,7 @@ export default function ChatHeader({
     "hover:bg-surface hover:text-primary"
   );
   return (
-    <header className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
+    <header className="sticky top-0 z-40 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
       {searchOpen ? (
         <div className="mx-auto flex h-full w-full items-center gap-2 px-3 sm:px-4">
           <button
@@ -431,7 +432,7 @@ export default function ChatHeader({
           <Link
             href={productHref}
             prefetch={false}
-            className="focus-ring-soft flex min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-border bg-surface-dim/60 px-2.5 py-1.5 transition-colors hover:bg-surface-dim/85 dark:border-border-strong/80"
+            className="focus-ring-soft flex min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-border bg-surface-dim/60 px-2.5 py-1.5 transition-colors hover:bg-surface-dim/85"
           >
             <div className="relative hidden size-7 shrink-0 overflow-hidden rounded-xl border border-border bg-surface min-[400px]:block">
               {img ? (

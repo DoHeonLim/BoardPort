@@ -27,6 +27,7 @@
  * 2026.03.22  임도헌   Modified  프로필 유틸 모달 모션 규칙 통일을 위해 진입 transform 애니메이션 제거
  * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 비밀번호 변경 흐름을 하단 시트로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.06.01  임도헌   Modified  비밀번호 변경 모달 입력 높이를 모바일 작성형 폼 기준으로 정리
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -198,6 +199,7 @@ export default function PasswordChangeModal({
         {...register("currentPassword")}
         errors={[errors.currentPassword?.message ?? ""]}
         icon={<LockClosedIcon className="size-5" />}
+        density="compact"
       />
 
       <div className="space-y-1.5">
@@ -212,6 +214,7 @@ export default function PasswordChangeModal({
           {...register("password")}
           errors={[errors.password?.message ?? ""]}
           icon={<KeyIcon className="size-5" />}
+          density="compact"
         />
         <p className="pl-1 text-xs text-muted">
           {PASSWORD_MIN_LENGTH}자 이상, 소문자/숫자/특수문자를 포함해주세요.
@@ -229,6 +232,7 @@ export default function PasswordChangeModal({
         {...register("confirmPassword")}
         errors={[errors.confirmPassword?.message ?? ""]}
         icon={<KeyIcon className="size-5" />}
+        density="compact"
       />
     </form>
   );

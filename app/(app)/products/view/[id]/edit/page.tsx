@@ -16,7 +16,7 @@
  * 2025.07.06  임도헌   Modified  getIsOwner함수 lib로 이동
  * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
  * 2026.01.11  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 레이아웃 적용
- * 2026.01.22  임도헌   Modified  Service 직접 호출로 최적화
+ * 2026.01.22  임도헌   Modified  Service 직접 호출 기준으로 정리
  * 2026.01.26  임도헌   Modified  주석 설명 보강
  * 2026.03.05  임도헌   Modified  getProductDetail함수로 변경 및 주석 최신화
  * 2026.03.09  임도헌   Modified  삭제 실패 시 편집 페이지에 잔류하며 에러 배너 표시
@@ -28,12 +28,13 @@
  * 2026.03.17  임도헌   Modified  상세에서 진입한 편집 흐름은 삭제 후 목록 refresh 플래그를 함께 사용하도록 조정
  * 2026.03.18  임도헌   Modified  detail-edit/modal-edit의 비채팅 returnTo 복귀를 정규화된 안전 경로 기준으로 통일해 stale history와 목록 중복을 함께 방지
  * 2026.03.23  임도헌   Modified  제품 수정 페이지 id 가드를 상세 본문과 같은 유효 숫자/양수 기준으로 통일
- * 2026.03.26  임도헌   Modified  수정 CTA와 삭제 CTA 사이에 구분 여백을 둬 긴 폼의 종료 지점을 더 명확하게 정리
+ * 2026.03.26  임도헌   Modified  수정 CTA와 삭제 CTA 사이에 구분 여백을 추가해 긴 폼의 종료 지점 분리
  * 2026.04.06  임도헌   Modified  제품 삭제를 상세 owner 액션으로 이동해 수정 페이지는 편집 전용으로 단순화
  * 2026.04.10  임도헌   Modified  app 타이포 정책에 맞춰 제품 수정 상단 제목 weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/edit/page.tsx 에서 app/(app)/products/view/[id]/edit/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  ProductForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
+ * 2026.05.30  임도헌   Modified  제품 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -94,7 +95,7 @@ export default async function EditPage({
   return (
     <div className="min-h-screen bg-background text-primary transition-colors">
       <header
-        className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
+        className="sticky top-0 z-40 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
         role="banner"
       >
         <div className="mx-auto max-w-mobile h-full flex items-center gap-3 px-4">

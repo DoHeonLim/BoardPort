@@ -5,8 +5,8 @@
  *
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 개별 메시지 렌더와 옵션 버튼 분기를 분리
- * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드 메시지 렌더와 내/상대 좌우 정렬 기준 추가
- * 2026.05.29  임도헌   Modified  max-lg 롱프레스 메뉴와 텍스트 선택 충돌 방지 기준 정리
+ * 2026.05.28  임도헌   Modified  모바일 채팅 입력 중 메시지 표시와 내/상대 좌우 정렬 기준 추가
+ * 2026.05.29  임도헌   Modified  모바일 롱프레스 메뉴와 텍스트 선택 충돌 방지 기준 정리
  */
 
 import TimeAgo from "@/components/ui/TimeAgo";

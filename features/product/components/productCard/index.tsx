@@ -35,14 +35,14 @@
  * 2026.03.16  임도헌   Modified  iPhone SE 폭에서 리스트 카드 메타가 잘리지 않도록 모바일 높이와 하단 간격 보정
  * 2026.03.16  임도헌   Modified  모바일 리스트 카드에서는 태그 노출 수를 더 줄여 메타 가시성을 확보
  * 2026.03.19  임도헌   Modified  제품 카드의 현재 목록 경로도 내부 경로 기준으로 정규화해 raw returnTo 재전파를 방지
- * 2026.03.25  임도헌   Modified  제품 리스트 최종 polish 과정에서 정보 영역 정렬과 가독성을 정리하고 주석 최신화
+ * 2026.03.25  임도헌   Modified  제품 리스트 정보 영역 정렬과 가독성 정리
  * 2026.03.26  임도헌   Modified  찜 목록에서는 liked_at 기준 메타 시점을 노출할 수 있도록 activityAt 전달
  * 2026.03.26  임도헌   Modified  찜한 내역 카드 우상단 빠른 액션을 '찜 해제' pill 버튼으로 정리
  * 2026.04.20  임도헌   Modified  찜 목록 리스트 카드는 주 링크를 하나로 줄여 카드 포커스와 내부 포커스가 과하게 겹치지 않도록 정리
  * 2026.04.20  임도헌   Modified  카드 셸 포커스는 주 링크에만 반응하도록 범위를 좁혀 빠른 찜 해제 버튼과 동시 선택되지 않게 정리
  * 2026.04.11  임도헌   Modified  리스트 카드 하단 메타가 덜 눌려 보이도록 높이와 세로 간격을 소폭 확장
  * 2026.04.13  임도헌   Modified  현재 목록 경로(returnTo) 계산을 상위 리스트에서 주입받도록 변경해 카드 훅 비용을 축소
- * 2026.04.17  임도헌   Modified  찜 목록 리스트 카드에서는 빠른 해제 액션을 상단 정보 행 안으로 흡수해 본문 폭을 자연스럽게 유지
+ * 2026.04.17  임도헌   Modified  찜 목록 리스트 카드의 빠른 해제 액션을 상단 정보 행으로 이동
  * 2026.04.20  임도헌   Modified  카드 링크 포커스가 묻히지 않도록 카드 컨테이너에 keyboard-only inset 링을 추가
  * 2026.05.03  임도헌   Modified  상품 목록 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.04  임도헌   Modified  보드게임 메타 배치를 뷰포트별로 분리해 위치/제품 태그 가시성 복구
@@ -53,6 +53,7 @@
  * 2026.05.15  임도헌   Modified  리스트 카드 하단 메타 여백을 확보하도록 카드 높이와 세로 패딩 미세 조정
  * 2026.05.18  임도헌   Modified  카드 메타 하트 색상을 현재 유저 좋아요 여부 기준으로 전달
  * 2026.05.20  임도헌   Modified  끌어올린 상품은 등록일 대신 refreshed_at 기준 노출 시점을 표시
+ * 2026.06.01  임도헌   Modified  그리드 카드의 태그/메타 묶음을 하단 정렬해 카드별 공백 차이 완화
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -216,7 +217,7 @@ export default function ProductCard({
   );
 
   const tagsMetaNode = (
-    <div className={cn("flex flex-col", isGrid ? "gap-1.5" : "mt-auto gap-2")}>
+    <div className={cn("mt-auto flex flex-col", isGrid ? "gap-1.5" : "gap-2")}>
       {boardGameTagsNode}
 
       <ProductCardMeta
@@ -308,7 +309,7 @@ export default function ProductCard({
               "flex min-w-0 flex-1 px-2.5 py-2.5 sm:px-3.5 sm:py-3.5",
               showQuickUnlike && isGrid && "pr-14 sm:pr-24",
               isGrid
-                ? "flex-col justify-start gap-1.5 sm:gap-2"
+                ? "flex-col justify-between gap-1.5 sm:gap-2"
                 : "flex-col justify-between gap-1.5"
             )}
           >

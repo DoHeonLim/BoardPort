@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   ProductForm의 이미지 업로드 블록을 분리해 섹션 역할을 명확화
+ * 2026.05.30  임도헌   Modified  모바일 상품 폼 밀도에 맞춰 이미지 안내 문구 행간 조정
+ * 2026.05.30  임도헌   Modified  제품 폼에서는 compact 이미지 업로더를 사용해 열린 상태 높이 압축
  */
 
 import ImageUploader from "@/components/global/ImageUploader";
@@ -58,8 +60,9 @@ export default function ProductImageSection({
         onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
         isUploading={isUploading}
         optional={false}
+        compact
       />
-      <p className="pl-1 text-xs leading-relaxed text-muted/80">
+      <p className="pl-1 text-xs leading-snug text-muted/80 sm:leading-relaxed">
         최대 {maxImages}장까지 업로드할 수 있으며, 각 이미지는 10MB까지 첨부할
         수 있습니다. 첫 번째 이미지가 대표 이미지로 표시됩니다.
       </p>

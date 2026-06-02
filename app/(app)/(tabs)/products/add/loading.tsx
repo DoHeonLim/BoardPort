@@ -9,6 +9,7 @@
  * 2026.03.12  임도헌   Modified  flat 헤더와 현재 제품 등록 폼 필드 밀도에 맞춰 스켈레톤 구조 정리
  * 2026.03.29  임도헌   Modified  add layout 헤더 중복을 제거하고 현재 ProductForm 섹션 구조 기준으로 재정렬
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/add/loading.tsx 에서 app/(app)/(tabs)/products/add/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.06.01  임도헌   Modified  모바일 제품 등록 폼 compact 밀도에 맞춰 스켈레톤 높이 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -16,11 +17,12 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <div className="flex min-h-screen flex-col bg-background transition-colors">
-      <div className="mx-auto flex w-full max-w-mobile flex-col gap-form-gap px-page-x py-page-y">
-        {/* Image Uploader */}
+      <div className="mx-auto flex w-full max-w-mobile flex-col gap-5 px-page-x py-page-y">
+        {/* 이미지 업로더 */}
         <div className="space-y-2">
           <Skeleton className="h-4 w-16 rounded" />
-          <Skeleton className="h-32 w-full rounded-xl border border-border-subtle" />
+          <Skeleton className="h-11 w-full rounded-xl border border-border-subtle" />
+          <Skeleton className="h-28 w-full rounded-xl border border-border-subtle" />
           <Skeleton className="h-3 w-48 rounded" />
         </div>
 
@@ -32,11 +34,11 @@ export default function Loading() {
         <div className="grid grid-cols-1 gap-form-gap md:grid-cols-3">
           <div className="space-y-2 md:col-span-2">
             <Skeleton className="h-4 w-12 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-10 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
             <Skeleton className="h-3 w-32 rounded" />
           </div>
         </div>
@@ -44,21 +46,21 @@ export default function Loading() {
         <div className="grid grid-cols-1 gap-form-gap md:grid-cols-3">
           <div className="space-y-2">
             <Skeleton className="h-4 w-16 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-16 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-16 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
         </div>
 
         <div className="space-y-2">
           <Skeleton className="h-4 w-16 rounded" />
-          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-28 w-full rounded-xl" />
         </div>
 
         <div className="flex flex-col gap-1 pt-1">
@@ -69,26 +71,26 @@ export default function Loading() {
         <div className="grid grid-cols-1 gap-form-gap md:grid-cols-3">
           <div className="space-y-2">
             <Skeleton className="h-4 w-16 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-16 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-20 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-form-gap md:grid-cols-2">
           <div className="space-y-2">
             <Skeleton className="h-4 w-16 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
           <div className="space-y-2">
             <Skeleton className="h-4 w-20 rounded" />
-            <Skeleton className="h-12 w-full rounded-xl" />
+            <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           </div>
         </div>
 
@@ -103,7 +105,7 @@ export default function Loading() {
         </div>
 
         <div className="space-y-2">
-          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
           <div className="flex gap-2">
             <Skeleton className="h-6 w-14 rounded-full" />
             <Skeleton className="h-6 w-16 rounded-full" />
@@ -112,7 +114,7 @@ export default function Loading() {
 
         <div className="space-y-2 pt-2">
           <Skeleton className="h-4 w-28 rounded" />
-          <Skeleton className="h-14 w-full rounded-xl border border-border-subtle" />
+          <Skeleton className="h-12 w-full rounded-xl border border-border-subtle" />
         </div>
 
         <div className="pt-4">

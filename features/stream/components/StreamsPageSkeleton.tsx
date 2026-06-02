@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.20  임도헌   Created   route loading.tsx와 페이지 구조가 동일한 헤더/breakpoint 문법을 공유하도록 스트림 탭 스켈레톤을 공용 컴포넌트로 분리
+ * 2026.05.30  임도헌   Modified  모바일 스트림 헤더 압축에 맞춰 스켈레톤 행 간격과 높이 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -22,16 +23,16 @@ export default function StreamsPageSkeleton() {
   return (
     <div className="flex min-h-screen flex-col bg-background pb-24">
       <div className="sm:hidden">
-        <header className="border-b border-border-subtle bg-background px-3 pt-1.5 pb-1.5 shadow-sm">
-          <div className="flex items-center gap-2 py-1">
+        <header className="border-b border-border-subtle bg-background px-3 pt-1.5 pb-1 shadow-sm">
+          <div className="flex items-center gap-2">
             <div className="flex w-full rounded-xl border border-border-subtle bg-background p-0.5">
-              <Skeleton className="h-8 flex-1 rounded-lg" />
-              <Skeleton className="h-8 flex-1 rounded-lg" />
+              <Skeleton className="h-7 flex-1 rounded-lg" />
+              <Skeleton className="h-7 flex-1 rounded-lg" />
             </div>
           </div>
-          <div className="mt-1 flex items-center gap-2 py-1">
+          <div className="mt-1 flex items-center gap-2">
             <Skeleton className="h-10 flex-1 rounded-xl" />
-            <Skeleton className="size-11 rounded-full" />
+            <Skeleton className="size-10 rounded-xl" />
           </div>
           <div className="mt-1 flex items-center gap-1.5">
             <div className="flex flex-1 rounded-xl border border-border-subtle bg-background p-0.5">

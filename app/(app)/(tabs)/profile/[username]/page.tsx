@@ -34,6 +34,7 @@
  * 2026.03.22  임도헌   Modified  generateMetadata 설명을 현재 프로필 문맥(방송/판매/활동)에 맞게 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/page.tsx 에서 app/(app)/(tabs)/profile/[username]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.17  임도헌   Modified  prefetch 커서 타입을 명시
+ * 2026.05.30  임도헌   Modified  타인 프로필 상단 액션바 높이와 좌우 여백을 압축
 */
 
 import { Metadata } from "next";
@@ -80,7 +81,7 @@ export async function generateMetadata({
  *
  * [기능]
  * - URL의 username을 활용한 대상 사용자 ID 식별 및 정보 로드
- * - returnTo 쿼리를 안전하게 정규화해 상단 뒤로가기 폴백 경로로 사용
+ * - returnTo 쿼리를 내부 경로로 정규화해 상단 뒤로가기 폴백 경로로 사용
  * - 본인 프로필 접근 시 내 프로필 페이지(`/profile`)로 강제 리다이렉트 처리
  * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록의 서버 사이드 병렬 로드 적용
  * - TanStack Query를 활용한 대상 유저의 리뷰, 판매 중/판매 완료 상품 목록 서버 프리패치(Prefetch) 적용
@@ -158,7 +159,7 @@ export default async function UserProfilePage({
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* 상단 액션바: 뒤로가기 + 옵션 메뉴 */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border-subtle bg-background px-4 py-3 shadow-sm sm:border-none">
+      <div className="sticky top-0 z-30 flex h-[52px] items-center justify-between border-b border-border-subtle bg-background px-3 shadow-sm sm:border-none">
         <BackButton
           fallbackHref={returnTo}
           variant="appbar"

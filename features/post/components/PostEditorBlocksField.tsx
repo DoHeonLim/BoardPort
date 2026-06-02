@@ -11,6 +11,7 @@
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 블록 배지/보조 라벨을 text-xs·500 체계로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.14  임도헌   Modified  블록 유형 배지의 명도 대비를 높여 작성 페이지 접근성을 보강
+ * 2026.05.30  임도헌   Modified  이미지/동영상 블록 드롭존에 제품 업로더와 같은 드래그 피드백 추가
  */
 
 import Image from "next/image";
@@ -31,7 +32,7 @@ import {
   LinkIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, MutableRefObject } from "react";
 import type { PostEditorBlock, PostVideo } from "@/features/post/types";
 import type { ImageBlockAsset } from "@/features/post/utils/editor";
@@ -75,8 +76,8 @@ interface PostEditorBlocksFieldProps {
 }
 
 /**
- * 게시글 본문 블록 목록을 렌더링합니다.
- * 버튼 정렬과 드래그 정렬을 동시에 제공해 모바일/데스크톱 모두에서 안전하게 사용할 수 있습니다.
+ * 게시글 본문 블록 목록 렌더링
+ * 버튼 정렬과 드래그 정렬을 모두 제공해 모바일/데스크톱 정렬 경로를 분리
  */
 export default function PostEditorBlocksField({
   editorBlocks,
@@ -108,6 +109,7 @@ export default function PostEditorBlocksField({
   onRemoveImageBlockAsset,
 }: PostEditorBlocksFieldProps) {
   const textAreaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
 
   const resizeTextBlockTextarea = (element: HTMLTextAreaElement | null) => {
     if (!element) return;
@@ -122,6 +124,23 @@ export default function PostEditorBlocksField({
       resizeTextBlockTextarea(textAreaRefs.current[block.id] ?? null);
     });
   }, [editorBlocks]);
+
+  /**
+   * 미디어 블록 드롭 가능 상태 표시
+   */
+  const markBlockDragOver = (event: DragEvent<HTMLElement>, blockId: string) => {
+    event.preventDefault();
+    if (isEditorLocked || isUploading || isVideoUploading) return;
+    setDragOverBlockId(blockId);
+  };
+
+  /**
+   * 미디어 블록 드래그 상태 초기화
+   */
+  const clearBlockDragOver = (event?: DragEvent<HTMLElement>) => {
+    event?.preventDefault();
+    setDragOverBlockId(null);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -316,23 +335,34 @@ export default function PostEditorBlocksField({
                           </div>
                         ) : (
                           <div
-                            onDragOver={(event) => {
-                              // 제출 중에도 브라우저 기본 파일 열기 방지
-                              event.preventDefault();
-                              if (isUploading || isVideoUploading) return;
-                            }}
+                            onDragOver={(event) =>
+                              markBlockDragOver(event, block.id)
+                            }
+                            onDragLeave={clearBlockDragOver}
                             onDrop={(event) => {
                               event.preventDefault();
-                              if (isEditorLocked) return;
+                              if (
+                                isEditorLocked ||
+                                isUploading ||
+                                isVideoUploading
+                              )
+                                return;
+                              clearBlockDragOver();
                               onVideoDrop(event);
                             }}
-                            className="rounded-xl border border-dashed border-border bg-surface-dim/30"
+                            className={`rounded-xl border border-dashed bg-surface-dim/30 transition-all ${
+                              dragOverBlockId === block.id
+                                ? "scale-[1.01] border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10"
+                                : "border-border"
+                            }`}
                           >
-                            <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px]">
+                            <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:bg-surface-dim sm:min-h-[180px]">
                               <FilmIcon className="size-6 text-brand" />
                               <div className="space-y-1">
                                 <p className="text-sm font-medium text-primary">
-                                  이 위치에 동영상 첨부
+                                  {dragOverBlockId === block.id
+                                    ? "여기에 동영상을 놓으세요"
+                                    : "이 위치에 동영상 첨부"}
                                 </p>
                                 <p className="text-xs text-muted">
                                   mp4, mov, webm / 최대 80MB / 최대 60초
@@ -379,15 +409,24 @@ export default function PostEditorBlocksField({
                         <div className="space-y-3">
                           {imageBlockAssets[block.id] ? (
                             <div
-                              className="overflow-hidden rounded-xl border border-border bg-background"
-                              onDragOver={(event) => {
-                                // 제출 중에도 브라우저 기본 파일 열기 방지
-                                event.preventDefault();
-                                if (isEditorLocked) return;
-                              }}
+                              className={`overflow-hidden rounded-xl border bg-background transition-all ${
+                                dragOverBlockId === block.id
+                                  ? "scale-[1.01] border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10"
+                                  : "border-border"
+                              }`}
+                              onDragOver={(event) =>
+                                markBlockDragOver(event, block.id)
+                              }
+                              onDragLeave={clearBlockDragOver}
                               onDrop={(event) => {
                                 event.preventDefault();
-                                if (isEditorLocked) return;
+                                if (
+                                  isEditorLocked ||
+                                  isUploading ||
+                                  isVideoUploading
+                                )
+                                  return;
+                                clearBlockDragOver();
                                 onImageBlockDrop(block.id, event);
                               }}
                             >
@@ -440,21 +479,32 @@ export default function PostEditorBlocksField({
                                 imageInputRefs.current[block.id]?.click()
                               }
                               onDragOver={(event) => {
-                                // 제출 중에도 브라우저 기본 파일 열기 방지
-                                event.preventDefault();
-                                if (isEditorLocked) return;
+                                markBlockDragOver(event, block.id);
                               }}
+                              onDragLeave={clearBlockDragOver}
                               onDrop={(event) => {
                                 event.preventDefault();
-                                if (isEditorLocked) return;
+                                if (
+                                  isEditorLocked ||
+                                  isUploading ||
+                                  isVideoUploading
+                                )
+                                  return;
+                                clearBlockDragOver();
                                 onImageBlockDrop(block.id, event);
                               }}
-                              className="flex min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 px-4 text-center transition-colors hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px]"
+                              className={`flex min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-center transition-all hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px] ${
+                                dragOverBlockId === block.id
+                                  ? "scale-[1.01] border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10"
+                                  : "border-border bg-surface-dim/30"
+                              }`}
                             >
                               <PhotoIcon className="size-6 text-brand" />
                               <div className="space-y-1">
                                 <p className="text-sm font-medium text-primary">
-                                  이 위치에 이미지 첨부
+                                  {dragOverBlockId === block.id
+                                    ? "여기에 이미지를 놓으세요"
+                                    : "이 위치에 이미지 첨부"}
                                 </p>
                                 <p className="text-xs text-muted">
                                   jpg, png, webp, gif / 최대 10MB / 게시글당{" "}

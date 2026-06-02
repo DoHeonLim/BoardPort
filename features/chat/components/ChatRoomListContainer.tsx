@@ -25,6 +25,7 @@
  * 2026.03.12  임도헌   Modified  검색어 기준 클라이언트 필터링과 빈 검색 결과 상태 추가
  * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 검색 초기화 버튼 weight를 500 기준으로 정리
  * 2026.04.17  임도헌   Modified  채팅 목록 상단 검색창 스타일을 정리
+ * 2026.05.30  임도헌   Modified  채팅 목록 헤더 높이를 모바일 서브 헤더 기준으로 정리
  */
 
 "use client";
@@ -80,8 +81,8 @@ export default function ChatRoomListContainer({
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-30 h-16 border-b border-border-subtle bg-background shadow-sm transition-colors">
-        <div className="flex items-center justify-between px-page-x h-full max-w-mobile mx-auto">
+      <header className="sticky top-0 z-30 h-[52px] border-b border-border-subtle bg-background shadow-sm transition-colors">
+        <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-page-x">
           <div className="flex items-center gap-1.5">
             <h1 className="text-lg font-bold text-primary">신호</h1>
             <span className="rounded-full border border-border-subtle bg-surface-dim px-2 py-0.5 text-xs font-bold text-primary">

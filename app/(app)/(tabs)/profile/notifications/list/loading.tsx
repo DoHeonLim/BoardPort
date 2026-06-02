@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.09  임도헌   Created   알림 센터 리스트 구조에 맞는 전용 스켈레톤 추가
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/list/loading.tsx 에서 app/(app)/(tabs)/profile/notifications/list/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  알림 센터 실제 헤더 높이에 맞춰 로딩 헤더 밀도 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -14,7 +15,7 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <div className="min-h-screen bg-background pb-24 transition-colors">
-      <header className="sticky top-0 z-30 h-14 w-full border-b border-border-subtle bg-background shadow-sm">
+      <header className="sticky top-0 z-30 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm">
         <div className="mx-auto flex h-full max-w-mobile items-center gap-3 px-4">
           <Skeleton className="size-10 rounded-xl" />
           <Skeleton className="h-6 w-24 rounded" />

@@ -50,6 +50,7 @@
  * 2026.05.03  임도헌   Modified  보드게임 기반 제품명/태그/게임 정보 보조 액션 주석 보강
  * 2026.05.05  임도헌   Modified  상품 폼 복귀/위치/검증 핸들러 JSDoc 보강
  * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
+ * 2026.05.30  임도헌   Modified  모바일 상품 폼의 필드 높이와 섹션 간격을 압축해 작성 밀도 조정
  */
 
 /**
@@ -788,7 +789,7 @@ export default function ProductForm({
   return (
     <form
       onSubmit={handleSubmit(onValid, onInvalid)}
-      className="flex flex-col gap-form-gap px-page-x py-page-y"
+      className="flex flex-col gap-4 px-5 py-7 sm:gap-form-gap sm:px-page-x sm:py-page-y"
       noValidate
     >
       <FormErrorSummary errors={errors} />
@@ -812,7 +813,7 @@ export default function ProductForm({
 
       <div className="flex flex-col gap-1 pt-1">
         <h2 className="text-sm font-medium text-primary">기본 정보</h2>
-        <p className="text-xs leading-relaxed text-muted">
+        <p className="text-xs leading-snug text-muted sm:leading-relaxed">
           상품을 빠르게 이해할 수 있도록 핵심 정보를 먼저 입력해주세요.
         </p>
       </div>
@@ -871,6 +872,7 @@ export default function ProductForm({
             type="text"
             required
             placeholder="제품명을 입력해주세요"
+            density="compact"
             {...register("title")}
             errors={[errors.title?.message ?? ""]}
           />
@@ -881,10 +883,11 @@ export default function ProductForm({
             type="number"
             required
             placeholder="가격을 입력해주세요"
+            density="compact"
             {...register("price")}
             errors={[errors.price?.message ?? ""]}
           />
-          <p className="max-w-64 pl-1 pt-1.5 text-xs leading-relaxed text-muted">
+          <p className="max-w-64 pl-1 pt-1 text-xs leading-snug text-muted sm:pt-1.5 sm:leading-relaxed">
             숫자만 입력하면 원 단위 가격으로 자동 저장됩니다.
           </p>
         </div>
@@ -913,6 +916,7 @@ export default function ProductForm({
         type="textarea"
         required
         placeholder="제품의 상태, 특이사항 등을 자세히 적어주세요."
+        density="compact"
         {...register("description")}
         errors={[errors.description?.message ?? ""]}
       />
@@ -920,7 +924,7 @@ export default function ProductForm({
       <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-medium text-primary">게임 정보</h2>
-          <p className="text-xs leading-relaxed text-muted">
+          <p className="text-xs leading-snug text-muted sm:leading-relaxed">
             플레이 조건과 제품 상태를 함께 정리해 구매 판단을 돕습니다.
           </p>
         </div>
@@ -942,6 +946,7 @@ export default function ProductForm({
           type="number"
           required
           placeholder="2"
+          density="compact"
           {...register("min_players")}
           errors={[errors.min_players?.message ?? ""]}
         />
@@ -950,6 +955,7 @@ export default function ProductForm({
           type="number"
           required
           placeholder="4"
+          density="compact"
           {...register("max_players")}
           errors={[errors.max_players?.message ?? ""]}
         />
@@ -958,6 +964,7 @@ export default function ProductForm({
           type="text"
           required
           placeholder="예: 30-60분"
+          density="compact"
           {...register("play_time")}
           errors={[errors.play_time?.message ?? ""]}
         />
@@ -966,6 +973,7 @@ export default function ProductForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-form-gap">
         <Select
           label="제품 상태"
+          density="compact"
           {...register("condition")}
           errors={[errors.condition?.message ?? ""]}
         >
@@ -978,6 +986,7 @@ export default function ProductForm({
 
         <Select
           label="구성품 상태"
+          density="compact"
           {...register("completeness")}
           errors={[errors.completeness?.message ?? ""]}
         >
@@ -1006,7 +1015,7 @@ export default function ProductForm({
 
       <div className="flex flex-col gap-1 pt-1">
         <h2 className="text-sm font-medium text-primary">거래 정보</h2>
-        <p className="text-xs leading-relaxed text-muted">
+        <p className="text-xs leading-snug text-muted sm:leading-relaxed">
           검색과 직거래에 필요한 마무리 정보를 입력해주세요.
         </p>
       </div>

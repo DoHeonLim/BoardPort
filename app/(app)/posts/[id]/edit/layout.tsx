@@ -11,6 +11,7 @@
  * 2026.03.13  임도헌   Modified  상단 뒤로가기 버튼을 게시글 상세 복귀 기준으로 유지
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 수정 헤더 타이틀 weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/edit/layout.tsx 에서 app/(app)/posts/[id]/edit/layout.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  게시글 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
 */
 
 import type { ReactNode } from "react";
@@ -30,7 +31,7 @@ export default function EditPostLayout({
     <div className="min-h-screen bg-background transition-colors">
       <header
         className={cn(
-          "sticky top-0 z-40 h-14 w-full",
+          "sticky top-0 z-40 h-[52px] w-full",
           "border-b border-border-subtle bg-background shadow-sm",
           "transition-colors"
         )}

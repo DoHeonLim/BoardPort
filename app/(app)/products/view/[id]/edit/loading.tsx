@@ -9,13 +9,14 @@
  * 2026.03.12  임도헌   Modified  flat 헤더와 현재 제품 수정 폼 필드 밀도에 맞춰 스켈레톤 정리
  * 2026.03.29  임도헌   Modified  현재 ProductForm 섹션 리듬과 삭제 CTA 종료 지점에 맞춰 수정 스켈레톤 재정렬
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/edit/loading.tsx 에서 app/(app)/products/view/[id]/edit/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  제품 수정 실제 헤더 높이에 맞춰 로딩 헤더 밀도 정리
 */
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
   return (
     <div className="min-h-screen bg-background transition-colors">
-      <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border-subtle bg-background px-4 shadow-sm">
+      <div className="sticky top-0 z-40 flex h-[52px] items-center gap-3 border-b border-border-subtle bg-background px-4 shadow-sm">
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="h-5 w-24 rounded-md" />
       </div>

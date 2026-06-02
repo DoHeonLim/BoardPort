@@ -26,7 +26,7 @@
  * 2026.04.20  임도헌   Modified  스트림 상세 상단바 배경을 surface 톤으로 맞춰 플레이어 위에서도 더 단단한 표면으로 읽히게 정리
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 진입을 상단바 상태로 이관하고 상단 액션 밀도 축소
  * 2026.05.29  임도헌   Modified  상단 옵션 메뉴에 방송국 이동 액션 추가
- * 2026.05.29  임도헌   Modified  max-lg 옵션 메뉴 판정과 모바일/데스크톱 채팅 진입점 분리
+ * 2026.05.29  임도헌   Modified  모바일 옵션 메뉴 판정과 모바일/데스크톱 채팅 진입점 분리
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";

@@ -18,6 +18,7 @@
  * 2026.03.16  임도헌   Modified  알림 센터 키워드 버튼에서 전용 모달을 열 수 있도록 키워드/지역 데이터 주입 추가
  * 2026.03.18  임도헌   Modified  로그인 가드 callbackUrl에 포함하는 returnTo도 먼저 정규화해 중첩 복귀 경로를 안정화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/list/page.tsx 에서 app/(app)/(tabs)/profile/notifications/list/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  알림 센터 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  */
 
 import { redirect } from "next/navigation";
@@ -91,7 +92,7 @@ export default async function NotificationListPage({
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
-      <header className="sticky top-0 z-30 h-14 w-full border-b border-border-subtle bg-background shadow-sm">
+      <header className="sticky top-0 z-30 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm">
         <div className="mx-auto flex h-full max-w-mobile items-center gap-3 px-4">
           <BackButton fallbackHref={returnTo} variant="appbar" />
           <h1 className="text-lg font-bold text-primary">알림 센터</h1>

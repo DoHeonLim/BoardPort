@@ -25,6 +25,7 @@
  * 2026.04.14  임도헌   Modified  현재 목록 경로(returnTo) 계산을 상위 리스트로 승격해 카드별 훅 비용을 줄임
  * 2026.04.14  임도헌   Modified  상단 3개 게시글 카드까지 우선 로드해 실제 LCP 후보를 lazy 대상에서 제외
  * 2026.04.14  임도헌   Modified  LCP 우선 로드 카드 수 상수를 모듈 상단으로 분리하고 파생값 구간을 역할별로 정리
+ * 2026.05.30  임도헌   Modified  게시글 뷰 토글을 제품 목록 토글 톤과 통일
  */
 
 "use client";
@@ -102,16 +103,16 @@ export default function PostList({
         </span>
 
         {/* 뷰 모드 전환 버튼 영역 */}
-        <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
+        <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
           <button
             onClick={() => setViewMode("list")}
             className={cn(
               "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "list"
-                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                : "text-muted hover:bg-background/70 hover:text-primary"
+                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                : "text-muted hover:bg-surface-dim hover:text-primary"
             )}
-            aria-label="리스트 뷰"
+            aria-label="리스트 보기"
           >
             <ListBulletIcon className="size-5" />
           </button>
@@ -120,10 +121,10 @@ export default function PostList({
             className={cn(
               "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "grid"
-                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                : "text-muted hover:bg-background/70 hover:text-primary"
+                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                : "text-muted hover:bg-surface-dim hover:text-primary"
             )}
-            aria-label="그리드 뷰"
+            aria-label="그리드 보기"
           >
             <Squares2X2Icon className="size-5" />
           </button>

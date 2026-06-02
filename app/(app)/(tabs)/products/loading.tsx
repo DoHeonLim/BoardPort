@@ -17,6 +17,7 @@
  * 2026.04.17  임도헌   Modified  라우트 로딩이 모바일/데스크톱 헤더와 본문 스켈레톤을 어떻게 나누는지 설명 주석 보강
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 스켈레톤 분기 기준을 일치시켜 640~767px 구간 mismatch 정리
  * 2026.05.09  임도헌   Modified  보드게임 도감/키워드 알림 액션이 포함된 상품 목록 헤더 구조 반영
+ * 2026.06.01  임도헌   Modified  모바일 상품 목록 헤더와 뷰 토글 압축 밀도에 맞춘 스켈레톤 조정
  */
 
 import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
@@ -32,16 +33,16 @@ export default function Loading() {
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
       <div className="sm:hidden">
-        <header className="border-b border-border-subtle bg-background px-3 pt-2 pb-2 shadow-sm">
-          <div className="flex items-center gap-2 py-1">
-            <Skeleton className="h-10 w-20 rounded-xl" />
-            <Skeleton className="h-10 flex-1 rounded-xl" />
-            <Skeleton className="size-11 rounded-full" />
+        <header className="border-b border-border-subtle bg-background px-3 pt-1.5 pb-1.5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-20 rounded-xl" />
+            <Skeleton className="h-9 flex-1 rounded-xl" />
+            <Skeleton className="size-10 rounded-xl" />
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <Skeleton className="h-10 w-14 rounded-xl" />
-            <Skeleton className="h-10 flex-1 rounded-xl" />
-            <Skeleton className="h-10 w-11 rounded-xl" />
+          <div className="mt-1.5 flex items-center gap-2">
+            <Skeleton className="h-9 w-14 rounded-xl" />
+            <Skeleton className="h-9 flex-1 rounded-xl" />
+            <Skeleton className="size-10 rounded-xl" />
           </div>
         </header>
       </div>
@@ -68,9 +69,9 @@ export default function Loading() {
             <Skeleton className="h-8 w-24 rounded-full" />
             <Skeleton className="h-8 w-9 rounded-full sm:w-28" />
           </div>
-          <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
-            <Skeleton className="size-11 rounded-lg" />
-            <Skeleton className="size-11 rounded-lg" />
+          <div className="flex rounded-2xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
+            <Skeleton className="size-10 rounded-xl" />
+            <Skeleton className="size-10 rounded-xl" />
           </div>
         </div>
         <ProductListSkeleton viewMode="list" showToolbar={false} />

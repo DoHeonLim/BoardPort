@@ -13,13 +13,14 @@
  * 2026.03.14  임도헌   Modified  필터만 즉시 초기화할 수 있는 헤더 액션을 추가하고 검색어는 유지하도록 보강
  * 2026.03.14  임도헌   Modified  필터 요약 박스 내 X 버튼으로 초기화 통합, 별도 refresh 버튼 제거
  * 2026.03.19  임도헌   Modified  2행 필터 요약 박스의 배경/텍스트 대비를 한 단계 낮춰 작은 화면에서 존재감을 완화
- * 2026.03.25  임도헌   Modified  모바일 헤더 2행의 요약 박스와 초기화 액션 톤을 한 단계 낮춰 출시 직전 polish 반영
+ * 2026.03.25  임도헌   Modified  모바일 헤더 2행의 요약 박스와 초기화 액션 톤 정리
  * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입 import를 search 도메인 공용 타입 기준으로 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 모바일 제품 헤더 요약 타이포를 정리
  * 2026.04.13  임도헌   Modified  검색 모달을 동적 로딩으로 전환해 초기 products 헤더 번들을 경량화
  * 2026.04.13  임도헌   Modified  헤더 spacer의 grid-template-rows 전환 애니메이션을 제거해 모바일 레이아웃 비용을 완화
  * 2026.04.13  임도헌   Modified  모바일/데스크톱 헤더와 중복되던 검색/필터 상태 로직을 공통 훅으로 정리
  * 2026.04.17  임도헌   Modified  모바일 제품 헤더의 상품 검색 버튼 스타일을 정리
+ * 2026.05.30  임도헌   Modified  모바일 제품 필터 헤더의 상하 여백을 압축해 목록 가시 영역 확보
  */
 "use client";
 
@@ -41,7 +42,7 @@ import type { FilterState } from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_MOBILE_HEADER_HEIGHT = 104;
+const DEFAULT_MOBILE_HEADER_HEIGHT = 96;
 
 const SearchModal = dynamic(
   () => import("@/features/search/components/SearchModal"),
@@ -110,7 +111,7 @@ export default function ProductMobileHeader({
       <header
         ref={headerRef}
         className={cn(
-          "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-2 pb-2 transition-transform duration-300 ease-out"
+          "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-1.5 pb-1.5 transition-transform duration-300 ease-out"
         )}
         style={{
           transform: isVisible
@@ -118,7 +119,7 @@ export default function ProductMobileHeader({
             : "translateY(calc(-100% - 8px))",
         }}
       >
-        <div className="flex items-center gap-2 py-1">
+        <div className="flex items-center gap-2">
           <div className="shrink-0">
             {userRegion1 ? (
               <RegionFilterToggle
@@ -146,7 +147,7 @@ export default function ProductMobileHeader({
           </div>
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-1.5 flex items-center gap-2">
           <div className="shrink-0">
             <ProductCategoryDropdown
               categories={categories}
@@ -156,7 +157,7 @@ export default function ProductMobileHeader({
           </div>
 
           <div className="relative min-w-0 flex-1">
-            <div className="flex items-center rounded-xl border border-border-subtle bg-background px-3 py-2">
+            <div className="flex items-center rounded-xl border border-border-subtle bg-background px-3 py-1.5">
               <p className="min-w-0 flex-1 truncate text-xs font-medium text-muted/90">
                 {filterSummary}
               </p>

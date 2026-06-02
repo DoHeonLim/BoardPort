@@ -12,6 +12,7 @@
  * 2026.04.04  임도헌   Modified  forwardRef export 주석을 보강해 공용 select 역할을 더 명확히 정리
  * 2026.04.14  임도헌   Modified  select 내부 좌측 여백과 label htmlFor/id 연결을 보강해 모바일 폼 가독성과 접근성을 개선
  * 2026.04.14  임도헌   Modified  공용 select 주석을 현재 여백/접근성 정책 기준으로 간결하게 정리
+ * 2026.05.30  임도헌   Modified  작성형 폼 compact 밀도를 위한 density 옵션 추가
  */
 import { forwardRef, useId } from "react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   errors?: string[];
+  density?: "default" | "compact";
 }
 
 /**
@@ -33,7 +35,19 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
  * @returns {JSX.Element} 공용 select 필드
  */
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, errors = [], children, className, id, name, ...rest }, ref) => {
+  (
+    {
+      label,
+      errors = [],
+      children,
+      className,
+      id,
+      name,
+      density = "default",
+      ...rest
+    },
+    ref
+  ) => {
     const autoId = useId();
     const selectId = id ?? (name ? `${name}-${autoId}` : `select-${autoId}`);
     const filteredErrors = errors.filter(Boolean);
@@ -53,7 +67,8 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             id={selectId}
             ref={ref}
             className={cn(
-              "input-primary h-input-md w-full bg-surface cursor-pointer pl-4 pr-10 text-base md:text-sm",
+              "input-primary w-full bg-surface cursor-pointer pl-4 pr-10 text-base md:text-sm",
+              density === "compact" ? "h-11 sm:h-input-md" : "h-input-md",
               filteredErrors.length > 0 && "ring-2 ring-danger/50",
               className
             )}

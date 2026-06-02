@@ -25,6 +25,8 @@
  * 2026.04.06  임도헌   Modified  모달 owner 액션도 상단 관리 메뉴로 통일
  * 2026.04.09  임도헌   Modified  모달 owner 메뉴에도 판매완료 숨김 상태를 전달해 상세/모달 관리 정책을 통일
  * 2026.04.24  임도헌   Modified  navigation refresh helper로 모달 refresh flag 소비와 back 가능 여부 판별을 정리
+ * 2026.05.30  임도헌   Modified  모달 상세 상단 닫기/액션바 높이를 모바일 서브 헤더 기준으로 정리
+ * 2026.06.01  임도헌   Modified  제품 모달 닫기 버튼의 배경과 hover 톤 조정
  */
 "use client";
 
@@ -117,18 +119,19 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
         tabIndex={-1}
         className={cn(
           "bg-surface shadow-xl flex flex-col overflow-hidden outline-none text-primary",
-          // [Mobile] 부모의 inset-0에 완벽하게 맞추어 짤림 원천 차단
+          // [Mobile] 부모 영역을 채워 이미지/본문 잘림 방지
           "w-full h-full rounded-none",
           // [Desktop] 중앙 모달 형태
           "sm:h-auto sm:max-h-[80dvh] sm:min-h-[500px] sm:max-w-screen-sm sm:rounded-2xl sm:border sm:border-border-subtle"
         )}
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border-subtle bg-surface px-3 py-2 shrink-0">
+        <div className="flex h-[52px] shrink-0 items-center justify-between gap-2.5 border-b border-border-subtle bg-surface px-3">
           <CloseButton
             fallbackHref="/products"
             returnTo={returnTo}
             preferHistoryBack
+            className="bg-surface-dim/45 text-muted/80 hover:bg-surface-dim hover:text-primary active:bg-border/50 dark:bg-surface-dim/35 dark:hover:bg-surface-dim/70"
           />
           <div className="flex items-center gap-1">
             <ProductShareButton title={props.product.title} />
