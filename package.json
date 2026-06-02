@@ -11,6 +11,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "install:e2e": "playwright install chromium",
+    "install:e2e:deps": "playwright install-deps chromium",
     "test:e2e": "node scripts/ensure-e2e-server.mjs && playwright test",
     "cleanup:e2e": "tsx scripts/cleanup-e2e.ts",
     "seed:e2e": "tsx scripts/seed-e2e.ts",

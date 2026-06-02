@@ -66,6 +66,19 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 - seed 관리자 계정 기반 대기 신고 기각 처리 회귀 테스트
 - seed 일반 계정의 관리자 화면 접근 차단 smoke 테스트
 
+새 로컬 환경에서 처음 E2E를 실행하기 전에는 Playwright 브라우저를 설치합니다. `npm install`은 `@playwright/test` 패키지를 설치하지만, Chromium 실행 파일은 별도 캐시에 내려받습니다.
+
+```powershell
+npm run install:e2e
+```
+
+Linux/WSL 환경에서 Chromium 실행 시 `libnspr4.so` 같은 shared library 오류가 나면 Playwright 시스템 의존성도 설치합니다.
+
+```powershell
+npm run install:e2e:deps
+npm run install:e2e
+```
+
 로컬에서 Playwright 테스트를 실행할 때는 별도 터미널에서 `npm run dev:e2e`를 먼저 실행한 뒤 `npm run test:e2e`를 실행합니다. 개발 서버 lifecycle은 테스트 러너가 자동으로 관리하지 않고, 테스트 자체는 이미 떠 있는 `http://127.0.0.1:3000`을 대상으로 검증합니다.
 
 `npm run test:e2e`는 실행 전 로컬 서버 연결을 확인합니다. 서버가 켜져 있지 않으면 Playwright 테스트를 시작하기 전에 실행 순서를 안내하고 종료합니다.
