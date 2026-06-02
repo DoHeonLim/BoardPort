@@ -54,11 +54,11 @@ jobs:
     steps:
       # GitHub runner에 저장소 코드를 내려받음
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # package-lock.json 기준 npm cache를 사용해 설치 시간 단축
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
