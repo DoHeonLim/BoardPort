@@ -46,16 +46,16 @@ jobs:
       CLOUDFLARE_API_TOKEN: ci-cloudflare-api-token
       CLOUDFLARE_WEBHOOK_SECRET: ci-cloudflare-webhook-secret
       CLOUDFLARE_STREAM_WEBHOOK_SECRET: ci-cloudflare-stream-webhook-secret
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ci-vapid-public-key
-      VAPID_PRIVATE_KEY: ci-vapid-private-key
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BDQxa9WYcbzWsT2ehj226zkdh9l4lOFuMIQIGalUmPoZVOdvQIV9-bDDHbxPeO5mdi681SSOLtj-jFUZwju9e-s
+      VAPID_PRIVATE_KEY: 5PzSaFz9DSLMyg1yptrbwN6gzpYv3zmukFvvrU-hJ9g
       NEXT_PUBLIC_KAKAO_MAP_API_KEY: ci-kakao-map-api-key
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # package-lock.json 기준 npm cache를 사용해 설치 시간 단축
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -115,7 +115,7 @@ jobs:
       # 실패 시 Playwright error context와 trace를 GitHub artifact로 보관
       - name: Upload Playwright results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-results
           path: test-results
