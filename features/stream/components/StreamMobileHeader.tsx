@@ -21,6 +21,7 @@
  * 2026.04.20  임도헌   Modified  모바일 카테고리 시트 포커스를 공용 링 톤으로 통일하고 다시보기 팔로잉 필터 active 대비를 보강
  * 2026.04.20  임도헌   Modified  좁은 모바일 폭에서도 다시보기 제어줄이 깨지지 않도록 필터 버튼 최소 너비와 패딩을 압축
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
+ * 2026.05.30  임도헌   Modified  모바일 스트림 3행 필터 헤더의 행 간격과 spacer 기준 높이 압축
  */
 "use client";
 
@@ -40,7 +41,7 @@ import type {
   StreamScope,
 } from "@/features/stream/types";
 
-const DEFAULT_MOBILE_HEADER_HEIGHT = 132;
+const DEFAULT_MOBILE_HEADER_HEIGHT = 120;
 
 interface StreamMobileHeaderProps {
   viewerId: number;
@@ -56,8 +57,9 @@ interface StreamMobileHeaderProps {
  * 스트림 탭 모바일 전용 헤더
  *
  * [구성]
- * - 1열: 검색 진입 + 알림
- * - 2열: 전체/팔로잉 스코프 전환 + 카테고리 선택 버튼
+ * - 1행: 라이브/다시보기 모드 전환
+ * - 2행: 검색 진입 + 알림
+ * - 3행: 스코프/정렬 + 카테고리 선택 버튼
  *
  * [동작]
  * - 공용 `useHideableHeader` 훅으로 스크롤 시 숨김/재노출 처리
@@ -162,7 +164,7 @@ export default function StreamMobileHeader({
       <header
         ref={headerRef}
         className={cn(
-          "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-1.5 pb-1.5 shadow-sm transition-transform duration-300 ease-out"
+          "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-1.5 pb-1 shadow-sm transition-transform duration-300 ease-out"
         )}
         style={{
           transform: isVisible
@@ -170,21 +172,21 @@ export default function StreamMobileHeader({
             : "translateY(calc(-100% - 8px))",
         }}
       >
-        <div className="flex items-center gap-2 py-0.5">
-            <StreamModeTabs
-              mode={mode}
-              liveHref={buildModeHref("live")}
-              recordingsHref={buildModeHref("recordings")}
-              compact
-            />
+        <div className="flex items-center gap-2">
+          <StreamModeTabs
+            mode={mode}
+            liveHref={buildModeHref("live")}
+            recordingsHref={buildModeHref("recordings")}
+            compact
+          />
         </div>
 
-        <div className="mt-1 flex items-center gap-2 py-0.5">
-            <StreamSearchBarWrapper
-              className="flex-1"
-              compact
-              placeholder={mode === "recordings" ? "다시보기 검색" : "방송 검색"}
-            />
+        <div className="mt-1 flex items-center gap-2">
+          <StreamSearchBarWrapper
+            className="flex-1"
+            compact
+            placeholder={mode === "recordings" ? "다시보기 검색" : "방송 검색"}
+          />
 
           <div className="shrink-0">
             <NotificationBell userId={viewerId} initialCount={unreadCount} />

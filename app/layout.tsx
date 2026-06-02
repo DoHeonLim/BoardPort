@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.12  임도헌   Created   라우트 그룹 개편에 맞춰 공통 루트 레이아웃만 유지하도록 구조 분리
+ * 2026.05.30  임도헌   Modified  PWA 상태표시줄 색상을 라이트/다크 테마 기준으로 분리
  */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
@@ -32,7 +33,10 @@ const pretendardSubset = localFont({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1E40AF",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+  ],
   colorScheme: "light dark",
 };
 

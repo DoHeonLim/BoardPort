@@ -13,6 +13,7 @@
  * 2026.02.22  임도헌   Modified  Native Drag & Drop 시각적 피드백 구현
  * 2026.02.26  임도헌   Modified  드래그 시 다크모드 가시성 개선
  * 2026.03.08  임도헌   Modified  장식성 bounce 애니메이션 제거
+ * 2026.05.30  임도헌   Modified  모바일 폼 밀도 조정을 위한 compact 표시 옵션 추가
  */
 
 import { useState } from "react";
@@ -37,6 +38,7 @@ interface ImageUploaderProps {
   maxImages?: number;
   isUploading?: boolean;
   optional?: boolean;
+  compact?: boolean;
 }
 
 /**
@@ -59,6 +61,7 @@ export default function ImageUploader({
   maxImages = 5,
   isUploading = false,
   optional = true,
+  compact = false,
 }: ImageUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -96,14 +99,17 @@ export default function ImageUploader({
   };
 
   return (
-    <div className="flex flex-col gap-2 border border-border rounded-xl overflow-hidden bg-surface transition-colors">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-colors">
       <button
         type="button"
         onClick={onToggle}
-        className="focus-ring-soft flex items-center justify-between p-4 w-full hover:bg-surface-dim transition-colors"
+        className={cn(
+          "focus-ring-soft flex w-full items-center justify-between transition-colors hover:bg-surface-dim",
+          compact ? "p-3.5 sm:p-4" : "p-4"
+        )}
       >
         <div className="flex items-center gap-2">
-          <PhotoIcon className="w-6 h-6 text-muted" />
+          <PhotoIcon className="h-6 w-6 text-muted" />
           <span className="text-sm font-medium text-primary">
             이미지 추가{" "}
             {optional && (
@@ -117,15 +123,20 @@ export default function ImageUploader({
           </span>
         </div>
         {isOpen ? (
-          <ChevronUpIcon className="w-5 h-5 text-muted" />
+          <ChevronUpIcon className="h-5 w-5 text-muted" />
         ) : (
-          <ChevronDownIcon className="w-5 h-5 text-muted" />
+          <ChevronDownIcon className="h-5 w-5 text-muted" />
         )}
       </button>
 
       {isOpen && (
-        <div className="p-4 border-t border-border bg-surface-dim/30">
-          <div className="flex flex-col gap-4">
+        <div
+          className={cn(
+            "border-t border-border bg-surface-dim/30",
+            compact ? "p-3 sm:p-4" : "p-4"
+          )}
+        >
+          <div className={cn("flex flex-col", compact ? "gap-3" : "gap-4")}>
             <label
               htmlFor={previews.length >= maxImages ? undefined : "photo"}
               onClick={handleImageClick}
@@ -133,7 +144,8 @@ export default function ImageUploader({
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={cn(
-                "flex flex-col items-center justify-center h-32 rounded-xl border-2 border-dashed transition-all",
+                "flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all",
+                compact ? "h-28 sm:h-32" : "h-32",
                 isDragOver
                   ? "border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10 scale-[1.01]"
                   : "bg-surface hover:bg-surface-dim border-muted/40 dark:border-neutral-600 hover:border-brand/50 dark:hover:border-brand-light/50 hover:text-brand dark:hover:text-brand-light",
@@ -144,7 +156,7 @@ export default function ImageUploader({
             >
               {isUploading ? (
                 <div className="flex flex-col items-center gap-2">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent"></div>
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent"></div>
                   <div className="text-sm text-muted">이미지 업로드 중...</div>
                 </div>
               ) : (
@@ -152,7 +164,7 @@ export default function ImageUploader({
                   <PhotoIcon
                     aria-label="photo_input"
                     className={cn(
-                      "w-8 h-8",
+                      compact ? "h-7 w-7 sm:h-8 sm:w-8" : "h-8 w-8",
                       isDragOver && "text-brand dark:text-brand-light"
                     )}
                   />

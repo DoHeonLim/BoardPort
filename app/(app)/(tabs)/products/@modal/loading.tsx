@@ -10,6 +10,7 @@
  * 2025.06.08  임도헌   Created   모달 로딩 시 기본 백드롭 적용
  * 2026.03.17  임도헌   Modified  단순 스피너를 현재 제품 모달 톤과 맞는 셸 스켈레톤 구조로 교체
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/loading.tsx 에서 app/(app)/(tabs)/products/@modal/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  제품 모달 공통 로딩 셸 상단 액션바 높이를 실제 모달 기준으로 정리
  */
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -17,7 +18,7 @@ export default function Loading() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="flex h-full w-full flex-col overflow-hidden bg-background sm:h-auto sm:max-h-[85vh] sm:max-w-screen-sm sm:rounded-2xl sm:border sm:border-border-subtle sm:shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-3 py-2">
+        <div className="flex h-[52px] items-center justify-between border-b border-border-subtle bg-surface px-3">
           <Skeleton className="size-10 rounded-xl" />
           <div className="flex items-center gap-1">
             <Skeleton className="size-10 rounded-xl" />

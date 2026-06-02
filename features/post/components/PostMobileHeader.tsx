@@ -9,6 +9,7 @@
  * 2026.03.11  임도헌   Modified  공용 useHideableHeader 훅을 적용해 스크롤 숨김/재노출 동작을 제품 탭과 통일
  * 2026.03.12  임도헌   Modified  지역/검색/알림 1행과 카테고리 2행의 모바일 헤더 구조 명확화
  * 2026.04.14  임도헌   Modified  spacer의 height 전환 애니메이션을 제거하고 기본 높이를 예약해 CLS/메인스레드 부담 완화
+ * 2026.05.30  임도헌   Modified  모바일 게시글 필터 헤더의 상하 여백을 제품 헤더 밀도와 맞춰 압축
  */
 "use client";
 
@@ -21,7 +22,7 @@ import { useHideableHeader } from "@/hooks/useHideableHeader";
 import type { RegionRange } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_MOBILE_HEADER_HEIGHT = 104;
+const DEFAULT_MOBILE_HEADER_HEIGHT = 96;
 
 interface PostMobileHeaderProps {
   userId: number;
@@ -60,13 +61,13 @@ export default function PostMobileHeader({
       <header
         ref={headerRef}
         className={cn(
-          "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-2 pb-2 shadow-sm transition-transform duration-300 ease-out"
+          "fixed inset-x-0 top-0 z-30 border-b border-border-subtle bg-background px-3 pt-1.5 pb-1.5 shadow-sm transition-transform duration-300 ease-out"
         )}
         style={{
           transform: isVisible ? "translateY(0)" : "translateY(calc(-100% - 8px))",
         }}
       >
-        <div className="flex items-center gap-2 py-1">
+        <div className="flex items-center gap-2">
           <div className="shrink-0">
             {userRegion1 ? (
               <RegionFilterToggle
@@ -92,7 +93,7 @@ export default function PostMobileHeader({
           </div>
         </div>
 
-        <div className="mt-2 rounded-xl border border-border-subtle bg-background">
+        <div className="mt-1.5 rounded-xl border border-border-subtle bg-background">
           <PostCategoryTabs
             currentCategory={currentCategory}
             compact

@@ -37,6 +37,7 @@
  * 2026.05.04  임도헌   Modified  보드게임 연결 필드를 카테고리 다음으로 올려 게시글 주제 맥락을 먼저 선택하도록 정리
  * 2026.05.05  임도헌   Modified  게시글 편집기/위치/검증 핸들러 JSDoc 보강
  * 2026.05.26  임도헌   Modified  저장 성공 후 queryFn 없는 상세 하위 query를 건드리지 않도록 목록 query만 무효화
+ * 2026.05.30  임도헌   Modified  모바일 게시글 폼의 섹션 간격을 작성형 compact 밀도 기준으로 조정
  */
 "use client";
 
@@ -774,7 +775,7 @@ export default function PostForm({
     <div className="bg-background">
       <form
         onSubmit={handleSubmit(onValid, onInvalid)}
-        className="flex flex-col gap-form-gap px-page-x py-page-y"
+        className="flex flex-col gap-4 px-5 py-7 sm:gap-form-gap sm:px-page-x sm:py-page-y"
         noValidate
       >
         <FormErrorSummary errors={errors} />

@@ -23,6 +23,7 @@
    2026.04.20  임도헌 - 라이트모드 보조 액션 포커스 가시성을 위해 focus-ring-soft 강도를 한 단계 보강
    2026.04.20  임도헌 - 라이트모드 primary CTA 포커스가 배경과 겹치지 않도록 btn-primary 계열을 inset white ring 중심으로 보강
    2026.04.29  임도헌 - 네이티브 select option 색을 시맨틱 토큰으로 고정해 다크모드 드롭다운 가독성 보강
+   2026.05.30  임도헌 - 다크모드 border 토큰 대비를 낮춰 모바일 밀집 화면 경계선 톤 정리
  */
 
 @tailwind base;
@@ -108,9 +109,9 @@
     --text-primary: #f8fafc; /* slate-50 */
     --text-muted: #94a3b8; /* slate-400 */
 
-    --border-subtle: #1e293b; /* slate-800 */
-    --border: #334155; /* slate-700 */
-    --border-strong: #475569; /* slate-600 */
+    --border-subtle: #172033;
+    --border: #263449;
+    --border-strong: #3a4a63;
 
     /* 다크 패널 보조 변수 */
     --panel: #0b0f14;

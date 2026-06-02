@@ -10,6 +10,7 @@
  * 2026.03.12  임도헌   Modified  제품 등록 헤더를 flat 톤과 border-border-subtle 기준으로 통일
  * 2026.04.10  임도헌   Modified  app 타이포 정책에 맞춰 제품 등록 상단 제목 weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/add/layout.tsx 에서 app/(app)/(tabs)/products/add/layout.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  모바일 작성 헤더 높이와 좌우 여백을 압축
  */
 
 import type { ReactNode } from "react";
@@ -26,13 +27,13 @@ export default function AddProductLayout({
       {/* 상단바 */}
       <header
         className={cn(
-          "sticky top-0 z-40 h-14 w-full",
+          "sticky top-0 z-40 h-[52px] w-full",
           "border-b border-border-subtle bg-background shadow-sm",
           "transition-colors"
         )}
         role="banner"
       >
-        <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
+        <div className="mx-auto flex h-full max-w-mobile items-center gap-2.5 px-3">
           <BackButton fallbackHref="/products" variant="appbar" />
           <h1 className="text-base font-medium text-primary">제품 등록</h1>
         </div>

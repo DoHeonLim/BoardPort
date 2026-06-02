@@ -10,6 +10,7 @@
  * 2026.03.12  임도헌   Modified  flat 헤더 톤과 현재 상세 본문 밀도에 맞춰 스켈레톤 구조 정리
  * 2026.03.29  임도헌   Modified  최신 상세의 상단 액션 수와 태그/지도/메타 흐름에 맞춰 2차 보정
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/loading.tsx 에서 app/(app)/posts/[id]/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  게시글 상세 실제 헤더 높이에 맞춰 로딩 헤더 밀도 정리
 */
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -17,7 +18,7 @@ export default function Loading() {
   return (
     <div className="relative min-h-screen bg-background pb-20 transition-colors">
       {/* 상단바 스켈레톤 */}
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border-subtle bg-background px-3 shadow-sm sm:px-4">
+      <div className="sticky top-0 z-40 flex h-[52px] items-center justify-between border-b border-border-subtle bg-background px-3 shadow-sm sm:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Skeleton className="size-10 rounded-xl" /> {/* 뒤로가기 */}
           <div className="flex items-center gap-2">

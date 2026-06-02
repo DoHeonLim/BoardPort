@@ -28,7 +28,7 @@
  * 2026.02.05  임도헌   Modified  유저 클릭 시 StreamChatUserModal(dynamic) 오픈 로직 및 방장 권한 처리 추가
  * 2026.02.06  임도헌   Modified  메시지 호버 시 신고 아이콘(!) 노출 및 ReportModal 연동
  * 2026.02.06  임도헌   Modified  차단 시 메시지 즉시 숨김(Local Filtering) 로직 추가
- * 2026.02.22  임도헌   Modified  initialBlockedUserIds 프롭을 받아 기존 차단 유저 채팅 완벽 은닉
+ * 2026.02.22  임도헌   Modified  initialBlockedUserIds 기반 초기 차단 메시지 숨김 처리
  * 2026.03.04  임도헌   Modified  stream:chat:state 이벤트 리스너 제거 및 closeChat 액션 기반 Zustand 상태 제어로 전환
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  채팅 제어/신고 버튼 aria-label 및 hover 가시성 보강
@@ -65,9 +65,9 @@
  * 2026.04.21  임도헌   Modified  고정 공지 편집 패널과 읽기 배너를 분리해 공지 흐름을 단순화
  * 2026.04.21  임도헌   Modified  채팅 금지 실시간 수신 및 전송 거부 시 입력 draft 즉시 정리
  * 2026.04.22  임도헌   Modified  개인 알림 채널 중복 구독 대신 전역 sys_event 브리지로 채팅 금지 상태를 실시간 동기화
- * 2026.05.28  임도헌   Modified  모바일 입력 집중 모드, IME/Enter 정책, 라이브 피드형 메시지 레이아웃 적용
+ * 2026.05.28  임도헌   Modified  모바일 채팅 입력, IME/Enter 정책, 메시지 정렬 기준 적용
  * 2026.05.28  임도헌   Modified  스크롤 이탈 중 새 메시지 하단 이동 버튼과 자동 스크롤 기준 정리
- * 2026.05.29  임도헌   Modified  max-lg 채팅 레이아웃, 롱프레스 메뉴, 바텀시트 핸들 닫기 기준 정리
+ * 2026.05.29  임도헌   Modified  모바일 채팅 레이아웃, 롱프레스 메뉴, 바텀시트 핸들 닫기 기준 정리
  * 2026.05.29  임도헌   Modified  모바일 호스트 공지/관리 진입점을 압축 채팅 헤더에 유지
  */
 "use client";
@@ -170,8 +170,8 @@ export default function StreamChatRoom({
   const isMobile = useIsMobile(1024);
 
   /**
-   * 숫자/문자열 혼용으로 내려오는 userId를 안전하게 비교
-   * 스트림 액션 권한 분기에서 1과 "1"을 같은 사용자로 취급하기 위한 정규화 유틸
+   * userId 비교 전 문자열 정규화
+   * 스트림 액션 권한 분기에서 1과 "1"을 같은 사용자로 취급
    */
   const isSameUser = (
     left: number | string | null | undefined,

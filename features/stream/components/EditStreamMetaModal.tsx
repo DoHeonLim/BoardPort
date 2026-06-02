@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.07  임도헌   Created   방송 상세 상단 메뉴에서 여는 제목/설명 수정 모달 추가
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.06.01  임도헌   Modified  방송 정보 수정 입력 높이를 모바일 작성형 폼 기준으로 정리
  */
 
 import { useEffect, useState, useTransition } from "react";
@@ -102,6 +103,7 @@ export default function EditStreamMetaModal({
         placeholder="방송 제목을 입력하세요"
         errors={fieldErrors.title ?? []}
         disabled={isPending}
+        density="compact"
       />
       <Input
         type="textarea"
@@ -112,6 +114,7 @@ export default function EditStreamMetaModal({
         errors={fieldErrors.description ?? []}
         disabled={isPending}
         className="min-h-[120px]"
+        density="compact"
       />
     </div>
   );

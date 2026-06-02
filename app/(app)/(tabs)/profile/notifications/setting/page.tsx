@@ -17,9 +17,10 @@
  * 2026.03.15  임도헌   Modified  키워드 알림 관리를 목록 페이지에서 설정 페이지로 통합
  * 2026.03.16  임도헌   Modified  알림 센터 키워드 바로가기 연결을 위한 섹션 앵커 추가
  * 2026.03.17  임도헌   Modified  키워드 알림 중복 관리 방지를 위해 설정 페이지는 요약/진입점 중심으로 축약
- * 2026.03.18  임도헌   Modified  세션이 null인 경우에도 로그인 가드가 안전하게 동작하도록 optional chaining 보강
+ * 2026.03.18  임도헌   Modified  세션 null 케이스의 로그인 가드 optional chaining 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/setting/page.tsx 에서 app/(app)/(tabs)/profile/notifications/setting/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.18  임도헌   Modified  푸시 토글을 지연 로딩하고 설정 폼은 서버 렌더링으로 분리해 초기 렌더 비용 완화
+ * 2026.05.30  임도헌   Modified  알림 설정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  */
 
 import Link from "next/link";
@@ -106,7 +107,7 @@ export default async function NotificationSettingsPage({
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* 헤더 */}
-      <header className="sticky top-0 z-30 h-14 w-full border-b border-border-subtle bg-background shadow-sm">
+      <header className="sticky top-0 z-30 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm">
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
           <BackButton fallbackHref={returnTo} variant="appbar" />
           <h1 className="text-lg font-bold text-primary">알림 설정</h1>

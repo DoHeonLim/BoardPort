@@ -8,6 +8,7 @@
  * 2026.01.15  임도헌   Created   알림 설정 폼 구조 반영
  * 2026.03.12  임도헌   Modified  flat 헤더 톤과 현재 알림 설정 카드 밀도에 맞춰 스켈레톤 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/setting/loading.tsx 에서 app/(app)/(tabs)/profile/notifications/setting/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  알림 설정 실제 헤더 높이에 맞춰 로딩 헤더 밀도 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -16,7 +17,7 @@ export default function Loading() {
   return (
     <div className="min-h-screen bg-background transition-colors">
       {/* 헤더 스켈레톤 */}
-      <div className="flex h-14 items-center gap-3 border-b border-border-subtle bg-background px-4 shadow-sm">
+      <div className="flex h-[52px] items-center gap-3 border-b border-border-subtle bg-background px-4 shadow-sm">
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="h-6 w-24 rounded" />
       </div>

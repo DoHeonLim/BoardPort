@@ -14,6 +14,7 @@
  * 2026.03.17  임도헌   Modified   축소된 방송국 StreamCard 폭에 맞춰 rail 스켈레톤 너비 조정
  * 2026.03.28  임도헌   Modified   내 동네 설정 섹션을 포함해 현재 내 프로필 IA와 동일한 순서로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/loading.tsx 에서 app/(app)/(tabs)/profile/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified   내 프로필 실제 액션바 높이에 맞춰 로딩 헤더 밀도 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -22,7 +23,7 @@ export default function Loading() {
   return (
     <div className="min-h-screen bg-background pb-24 transition-colors">
       {/* 상단 액션 자리 표시자 */}
-      <div className="sticky top-0 z-30 flex justify-end gap-2 border-b border-border-subtle bg-background px-page-x py-3 shadow-sm">
+      <div className="sticky top-0 z-30 flex h-[52px] items-center justify-end gap-2 border-b border-border-subtle bg-background px-page-x shadow-sm">
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="size-10 rounded-xl" />
         <Skeleton className="size-10 rounded-xl" />

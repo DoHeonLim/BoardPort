@@ -8,6 +8,7 @@
  * 2026.05.03  임도헌   Created   보드게임 카탈로그 연결 선택 컴포넌트 추가
  * 2026.05.03  임도헌   Modified  검색 결과에 썸네일과 인원/시간 메타데이터 노출
  * 2026.05.03  임도헌   Modified  보드게임 연결 표시 helper 주석 보강
+ * 2026.05.30  임도헌   Modified  모바일 폼에서 보드게임 연결 영역의 색 신호와 밀도 조정
  */
 
 import Image from "next/image";
@@ -96,15 +97,17 @@ export default function BoardGameRelationField({
   };
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-dim/30 p-4">
+    <section className="flex flex-col gap-3 rounded-xl border border-brand/15 bg-brand/5 p-3.5 shadow-sm shadow-brand/5 dark:border-brand-light/15 dark:bg-brand-light/[0.06] sm:p-4">
       <div className="flex flex-col gap-1">
         <label
-          className="text-sm font-medium text-primary"
+          className="text-sm font-bold text-primary"
           htmlFor="boardGameSearch"
         >
           {label}
         </label>
-        <p className="text-xs leading-relaxed text-muted">{description}</p>
+        <p className="text-xs leading-snug text-muted sm:leading-relaxed">
+          {description}
+        </p>
       </div>
 
       {selectedOptions.length > 0 && (
@@ -144,7 +147,7 @@ export default function BoardGameRelationField({
               : `최대 ${max}개까지 연결할 수 있습니다`
           }
           className={cn(
-            "h-12 w-full rounded-xl border border-border bg-surface px-4 text-sm text-primary outline-none transition-colors placeholder:text-muted",
+            "h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm text-primary outline-none transition-colors placeholder:text-muted sm:h-12",
             "focus:border-brand focus:ring-2 focus:ring-brand/20",
             "disabled:cursor-not-allowed disabled:opacity-60"
           )}

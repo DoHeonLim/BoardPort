@@ -17,6 +17,7 @@
  * 2026.03.19  임도헌   Modified  실제 제품 모달과 동일하게 헤더 분리선도 border-border-subtle 기준으로 통일
  * 2026.03.29  임도헌   Modified  실제 모달 상세의 거래 장소/태그 섹션까지 반영해 스크롤 구조 정합성 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/(..)products/view/[id]/loading.tsx 에서 app/(app)/(tabs)/products/@modal/(..)products/view/[id]/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  모달 상세 실제 상단 액션바 높이에 맞춰 로딩 헤더 밀도 정리
  */
 
 import CloseButton from "@/components/global/CloseButton";
@@ -35,7 +36,7 @@ export default function Loading() {
         )}
       >
         {/* Header (Action Bar) */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-surface px-3 py-2">
+        <div className="flex h-[52px] shrink-0 items-center justify-between gap-2.5 border-b border-border-subtle bg-surface px-3">
           <CloseButton className="pointer-events-none opacity-50" />
           <div className="flex items-center gap-1">
             <button

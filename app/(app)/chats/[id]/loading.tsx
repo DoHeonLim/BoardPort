@@ -11,6 +11,7 @@
  * 2026.03.28  임도헌   Modified  실제 채팅 헤더/입력바 밀도에 맞춰 로딩 스켈레톤 문법 재정렬
  * 2026.04.12  임도헌   Moved     파일 경로를 app/chats/[id]/loading.tsx 에서 app/(app)/chats/[id]/loading.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 실제 페이지와 맞춘 플랫한 스켈레톤 셸로 정리
+ * 2026.05.30  임도헌   Modified  채팅 상세 실제 헤더 높이에 맞춰 로딩 헤더 밀도 정리
 */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -19,7 +20,7 @@ export default function Loading() {
   return (
     <div className="relative isolate flex h-[100dvh] flex-col overflow-hidden bg-background">
       <div className="relative z-10 mx-auto flex h-full w-full max-w-5xl flex-col">
-        <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border-subtle bg-background shadow-sm">
+        <header className="sticky top-0 z-40 h-[52px] shrink-0 border-b border-border-subtle bg-background shadow-sm">
           <div className="mx-auto flex h-full w-full items-center justify-between gap-2 px-2">
             <div className="flex min-w-0 shrink-0 items-center gap-2">
               <Skeleton className="size-10 rounded-xl" />

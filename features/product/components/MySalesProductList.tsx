@@ -20,7 +20,7 @@
  * 2026.01.26  임도헌   Modified  주석 및 로직 설명 보강
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.03.01  임도헌   Modified  상태 변경(Optimistic Move) 로직을 QueryClient.setQueryData로 리팩토링 및 로딩 상태 세분화
- * 2026.03.03  임도헌   Modified  initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent)를 분리하여 Suspense 최적화
+ * 2026.03.03  임도헌   Modified  initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent) 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  탭/뷰 토글 active 상태와 다크모드 대비 정리
  * 2026.03.26  임도헌   Modified  초소형 모바일 폭에서 그리드 1열 적응을 추가해 제목 잘림을 완화
@@ -29,6 +29,7 @@
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 탭 카운트 대비 보정 및 첫 카드 LCP 이미지 우선 로드
  * 2026.04.19  임도헌   Modified  판매 탭 active 대비와 라이트/다크 선택 상태를 현재 UI 기준으로 재정리
  * 2026.05.16  임도헌   Modified  판매 탭 캐시 이동 payload와 무한스크롤 캐시 shape 타입 정리
+ * 2026.05.30  임도헌   Modified  판매 내역 뷰 토글을 제품 목록 토글 톤과 통일
  */
 
 "use client";
@@ -249,15 +250,15 @@ export default function MySalesProductList({
       </div>
 
       <div className="flex justify-end gap-2 mb-3">
-        <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
+        <div className="flex rounded-xl border border-border-subtle bg-surface p-1">
           <button
             onClick={() => setViewMode("list")}
             aria-label="리스트 보기"
             className={cn(
               "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "list"
-                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                : "text-muted hover:bg-background/70 hover:text-primary"
+                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                : "text-muted hover:bg-surface-dim hover:text-primary"
             )}
           >
             <ListBulletIcon className="size-5" />
@@ -268,8 +269,8 @@ export default function MySalesProductList({
             className={cn(
               "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "grid"
-                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                : "text-muted hover:bg-background/70 hover:text-primary"
+                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                : "text-muted hover:bg-surface-dim hover:text-primary"
             )}
           >
             <Squares2X2Icon className="size-5" />
@@ -277,7 +278,7 @@ export default function MySalesProductList({
         </div>
       </div>
 
-      {/* 선택된 탭만 마운트시켜 훅 렌더링 최적화 */}
+      {/* 선택 탭 전용 Suspense 경계 */}
       <Suspense
         fallback={
           <div className="flex flex-col gap-4">

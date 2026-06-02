@@ -1,5 +1,15 @@
 import { MetadataRoute } from "next";
 
+/**
+ * File Name : app/manifest.ts
+ * Description : BoardPort PWA manifest metadata
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2026.05.30  임도헌   Modified  설치형 PWA 기본 배경과 theme color를 다크 앱 배경 기준으로 정리
+ */
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "보드포트",
@@ -7,8 +17,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "보드게임과 TRPG 중고거래 및 커뮤니티 플랫폼",
     start_url: "/",
     display: "standalone",
-    background_color: "#FFFFFF",
-    theme_color: "#1E40AF",
+    background_color: "#020617",
+    theme_color: "#020617",
     orientation: "portrait",
     id: "/",
     scope: "/",

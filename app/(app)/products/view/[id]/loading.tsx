@@ -13,6 +13,7 @@
  * 2026.03.12  임도헌   Modified  flat 하단 액션바 톤과 현재 제품 상세 정보 카드 밀도에 맞춰 스켈레톤 정리
  * 2026.03.29  임도헌   Modified  실제 상세 헤더와 거래 장소 섹션 순서에 맞춰 제품 상세 스켈레톤 정합성 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/loading.tsx 에서 app/(app)/products/view/[id]/loading.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.05.30  임도헌   Modified  제품 상세 실제 헤더 높이에 맞춰 로딩 헤더 밀도 정리
 */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -20,7 +21,7 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function Loading() {
   return (
     <div className="relative flex min-h-full flex-col bg-background transition-colors">
-      <header className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
+      <header className="sticky top-0 z-40 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
         <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-4">
           <Skeleton className="size-9 rounded-full" />
 

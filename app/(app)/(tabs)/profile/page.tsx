@@ -36,6 +36,8 @@
  * 2026.04.17  임도헌   Modified   헤더 보조 주석을 현재 역할 기준으로 다듬어 unreadCount 선로딩 의도를 명확화
  * 2026.04.24  임도헌   Modified   녹화 상세 삭제 후 내 프로필로 back 복귀할 때 방송국 섹션을 1회 refresh하도록 relay 추가
  * 2026.05.17  임도헌   Modified   리뷰 prefetch 커서 타입을 명시
+ * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이와 버튼 간격을 압축
+ * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이를 모바일 서브 헤더 기준으로 재정렬
  */
 
 import { redirect } from "next/navigation";
@@ -84,7 +86,7 @@ export default async function ProfilePage() {
 
   const queryClient = getQueryClient();
 
-  // 2. 대량 데이터 병렬 로딩 (성능 최적화)
+  // 2. 프로필 첫 화면에 필요한 데이터 병렬 로딩
   const [averageRating, badgesPair, streams, unreadCount, previewReviews] =
     await Promise.all([
       getUserAverageRating(user.id),
@@ -109,8 +111,8 @@ export default async function ProfilePage() {
     <div className="min-h-screen bg-background transition-colors pb-24">
       {/* 녹화 상세 삭제 후 /profile로 back 복귀하면 내 방송국 목록만 1회 서버 payload 재요청으로 보정 */}
       <RecordingListRefreshRelay />
-      <header className="sticky top-0 z-30 h-16 border-b border-border-subtle bg-background shadow-sm">
-        <div className="flex h-full items-center justify-end gap-2 px-page-x">
+      <header className="sticky top-0 z-30 h-[52px] border-b border-border-subtle bg-background shadow-sm">
+        <div className="flex h-full items-center justify-end gap-1.5 px-page-x">
           {/* 헤더에서 바로 필요한 unread count의 서버 동시 준비 및 첫 렌더 즉시 노출 */}
           <NotificationBell userId={userId} initialCount={unreadCount} />
 

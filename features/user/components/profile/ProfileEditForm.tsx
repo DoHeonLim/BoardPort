@@ -37,13 +37,14 @@
  * 2026.04.25  임도헌   Modified  서버 액션 prop 전달을 제거하고 소셜 유저 설정 안내의 다크모드 대비를 개선
  * 2026.04.26  임도헌   Modified  전화번호 인증 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  * 2026.05.15  임도헌   Modified  이메일/비밀번호 설정 안내 박스의 다크모드 텍스트 대비 보강
+ * 2026.06.01  임도헌   Modified  프로필 수정 폼 간격을 작성형 폼 기준으로 정리
+ * 2026.06.01  임도헌   Modified  취소 시 내부 히스토리는 back으로 복귀하고 직접 진입은 replace fallback 처리
  */
 "use client";
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { MAX_PHOTO_SIZE, PASSWORD_MIN_LENGTH } from "@/lib/constants";
@@ -73,6 +74,7 @@ import { cn } from "@/lib/utils";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { editProfileAction } from "@/features/user/actions/profile";
+import { canUseBrowserBack } from "@/lib/navigationRefreshFlag";
 
 const ConfirmDialog = dynamic(() => import("@/components/global/ConfirmDialog"), {
   loading: () => null,
@@ -508,6 +510,26 @@ export default function ProfileEditForm({
     }
   };
 
+  const handleCancel = () => {
+    let hasExternalReferrer = false;
+
+    if (document.referrer) {
+      try {
+        hasExternalReferrer =
+          new URL(document.referrer).origin !== window.location.origin;
+      } catch {
+        hasExternalReferrer = false;
+      }
+    }
+
+    if (canUseBrowserBack() && !hasExternalReferrer) {
+      router.back();
+      return;
+    }
+
+    router.replace(returnTo);
+  };
+
   const onInvalid = (formErrors: typeof errors) => {
     focusFirstFieldError<ProfileEditDTO>(formErrors, setFocus);
   };
@@ -517,17 +539,17 @@ export default function ProfileEditForm({
 
   return (
     <div className="layout-container pt-page-y pb-24 px-page-x bg-background">
-      <h1 className="text-2xl font-bold text-center mb-8 text-primary">
+      <h1 className="mb-6 text-center text-2xl font-bold text-primary">
         프로필 수정
       </h1>
 
       {/* 아바타 업로드 영역 */}
-      <div className="flex flex-col items-center mb-8">
+      <div className="mb-6 flex flex-col items-center">
         <div className="relative group cursor-pointer">
           <label
             htmlFor="photo"
             className={cn(
-              "relative flex flex-col items-center justify-center size-28 rounded-full overflow-hidden border-2 border-border bg-surface-dim",
+              "relative flex size-24 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-border bg-surface-dim sm:size-28",
               "hover:border-brand/50 transition-colors",
               !preview && "text-muted"
             )}
@@ -574,7 +596,7 @@ export default function ProfileEditForm({
       {/* 폼 영역 */}
       <form
         onSubmit={handleSubmit(onValid, onInvalid)}
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4"
         noValidate
       >
         <FormErrorSummary errors={errors} />
@@ -586,6 +608,7 @@ export default function ProfileEditForm({
           type="text"
           required
           placeholder="닉네임 (3~10자)"
+          density="compact"
           {...register("username")}
           errors={[errors.username?.message ?? ""]}
           minLength={3}
@@ -608,12 +631,13 @@ export default function ProfileEditForm({
               id="email"
               type="email"
               placeholder="이메일 주소"
+              density="compact"
               {...register("email")}
               errors={[errors.email?.message ?? ""]}
               icon={<EnvelopeIcon className="size-5" />}
             />
           ) : (
-            <div className="input-primary h-input-md px-4 flex items-center bg-surface-dim text-muted cursor-not-allowed border border-border">
+            <div className="input-primary flex h-11 cursor-not-allowed items-center border border-border bg-surface-dim px-4 text-muted sm:h-input-md">
               <EnvelopeIcon className="size-5 mr-2" />
               {user.email ?? "미설정"}
               <span className="ml-auto text-xs">(변경 불가)</span>
@@ -629,13 +653,14 @@ export default function ProfileEditForm({
 
         {/* 비밀번호 설정 */}
         {user.needsPasswordSetup && (
-          <div className="space-y-4 pt-2 border-t border-border-subtle mt-2">
+          <div className="mt-2 space-y-3 border-t border-border-subtle pt-2">
             <Input
               label="비밀번호 설정"
               type="password"
               passwordToggle
               placeholder="비밀번호"
               minLength={PASSWORD_MIN_LENGTH}
+              density="compact"
               {...register("password")}
               errors={[errors.password?.message ?? ""]}
               icon={<LockClosedIcon className="size-5" />}
@@ -645,6 +670,7 @@ export default function ProfileEditForm({
               passwordToggle
               placeholder="비밀번호 확인"
               minLength={PASSWORD_MIN_LENGTH}
+              density="compact"
               {...register("confirmPassword")}
               errors={[errors.confirmPassword?.message ?? ""]}
               icon={<KeyIcon className="size-5" />}
@@ -653,12 +679,12 @@ export default function ProfileEditForm({
         )}
 
         {/* 전화번호 인증 */}
-        <div className="space-y-3 pt-4 border-t border-border-subtle">
+        <div className="space-y-3 border-t border-border-subtle pt-3">
           <label className="text-sm font-medium text-primary">
             전화번호 (선택)
           </label>
 
-          <div className="p-4 rounded-xl border border-border-subtle bg-surface shadow-sm space-y-4">
+          <div className="space-y-3 rounded-xl border border-border-subtle bg-surface p-3.5 shadow-sm sm:p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
               <div className="flex-1">
                 <Input
@@ -667,6 +693,7 @@ export default function ProfileEditForm({
                   inputMode="numeric"
                   placeholder="01012345678"
                   className="bg-transparent"
+                  density="compact"
                   {...phoneReg}
                   errors={[errors.phone?.message ?? ""]}
                   icon={<PhoneIcon className="size-5" />}
@@ -691,7 +718,7 @@ export default function ProfileEditForm({
                     type="button"
                     onClick={handleSendVerification}
                     disabled={submitting}
-                    className="focus-ring-strong h-input-md w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50 sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
+                    className="focus-ring-strong h-11 w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50 sm:h-input-md sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
                   >
                     인증 요청
                   </button>
@@ -708,12 +735,13 @@ export default function ProfileEditForm({
                   inputMode="numeric"
                   maxLength={6}
                   className="text-center tracking-widest"
+                  density="compact"
                 />
                 <button
                   type="button"
                   onClick={handleVerifyToken}
                   disabled={submitting}
-                  className="focus-ring-strong h-input-md w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
+                  className="focus-ring-strong h-11 w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark sm:h-input-md sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
                 >
                   확인
                 </button>
@@ -734,7 +762,7 @@ export default function ProfileEditForm({
         </div>
 
         {/* 액션 버튼 */}
-        <div className="flex flex-col gap-3 mt-4">
+        <div className="mt-2 flex flex-col gap-3">
           <Button
             text={submitting ? "저장 중..." : "수정 완료"}
             disabled={submitting}
@@ -744,17 +772,18 @@ export default function ProfileEditForm({
               type="button"
               onClick={resetForm}
               disabled={submitting}
-              className="btn-secondary-page h-12 text-sm font-medium"
+              className="btn-secondary-page h-11 text-sm font-medium sm:h-12"
             >
               초기화
             </button>
-            <Link
-              href={returnTo}
-              prefetch={false}
-              className="btn-secondary-page flex h-12 items-center justify-center text-sm font-medium"
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={submitting}
+              className="btn-secondary-page flex h-11 items-center justify-center text-sm font-medium sm:h-12"
             >
               취소
-            </Link>
+            </button>
           </div>
         </div>
       </form>

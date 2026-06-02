@@ -48,6 +48,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/page.tsx 에서 app/(app)/products/view/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  상세/모달 공통 상세 로더를 적용하고 조회수 반영 시점을 가드 이후로 조정
  * 2026.05.15  임도헌   Modified  제품 공유 미리보기용 OG 이미지 메타와 소셜 크롤러 접근 분기 추가
+ * 2026.05.30  임도헌   Modified  제품 상세 상단 액션바 높이와 좌우 여백을 압축
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -142,7 +143,7 @@ export default async function ProductDetailPage({
 }) {
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
-  // 상세 직접 진입 시에도 제품 목록으로 자연스럽게 복귀하도록 기본 경로 고정
+  // 상세 직접 진입 시 기본 복귀 경로를 제품 목록으로 고정
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/products");
   const detailHref = `/products/view/${id}?returnTo=${encodeURIComponent(
     returnTo
@@ -189,10 +190,10 @@ export default async function ProductDetailPage({
   return (
     <div className="min-h-screen bg-background text-primary transition-colors">
       <header
-        className="sticky top-0 z-40 h-14 w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
+        className="sticky top-0 z-40 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
         role="banner"
       >
-        <div className="mx-auto max-w-mobile h-full flex items-center justify-between px-4">
+        <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-3">
           <div className="flex items-center gap-2">
             <BackButton fallbackHref={returnTo} variant="appbar" />
           </div>

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.20  임도헌   Created   route loading.tsx와 page Suspense fallback이 동일한 모바일 채팅 목록 스켈레톤을 재사용하도록 공용 컴포넌트로 분리
+ * 2026.05.30  임도헌   Modified  채팅 목록 실제 헤더 높이에 맞춰 스켈레톤 헤더 밀도 정리
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -20,7 +21,7 @@ import Skeleton from "@/components/ui/Skeleton";
 export default function ChatListSkeleton() {
   return (
     <div className="flex min-h-screen flex-col bg-background pb-24">
-      <header className="sticky top-0 z-30 h-16 border-b border-border-subtle bg-background shadow-sm transition-colors">
+      <header className="sticky top-0 z-30 h-[52px] border-b border-border-subtle bg-background shadow-sm transition-colors">
         <div className="mx-auto flex h-full max-w-mobile items-center justify-between gap-3 px-page-x">
           <div className="flex items-center gap-2">
             <Skeleton className="h-7 w-10 rounded-md" />

@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   PostForm의 카테고리/제목 입력 UI를 별도 섹션으로 분리
  * 2026.05.04  임도헌   Modified  카테고리와 제목 사이에 주제 메타 필드를 배치할 수 있도록 children 슬롯 추가
+ * 2026.05.30  임도헌   Modified  작성형 폼 compact 밀도 기준 적용
  */
 
 import type { ReactNode } from "react";
@@ -45,6 +46,7 @@ export default function PostMetaSection({
     <>
       <Select
         label="카테고리"
+        density="compact"
         disabled={isUploading}
         {...categoryRegister}
         errors={categoryErrorMessage ? [categoryErrorMessage] : []}
@@ -64,6 +66,7 @@ export default function PostMetaSection({
       <Input
         label="제목"
         type="text"
+        density="compact"
         placeholder="제목을 입력해주세요"
         disabled={isUploading}
         {...titleRegister}

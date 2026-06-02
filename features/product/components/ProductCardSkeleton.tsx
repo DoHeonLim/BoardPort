@@ -10,6 +10,7 @@
  * 2026.03.19  임도헌   Modified  모바일 리스트 높이를 실제 ProductCard(h-32)와 맞춰 전환 시 밀도 점프를 완화
  * 2026.04.17  임도헌   Modified  list/grid 카드 골격을 실제 카드와 어떻게 맞추는지 설명 주석 보강
  * 2026.05.09  임도헌   Modified  보드게임 배지와 taxonomy가 추가된 상품 카드 정보 구조 반영
+ * 2026.06.01  임도헌   Modified  상품 카드 하단 메타 정렬 변경에 맞춰 grid 스켈레톤 여백 정리
  */
 "use client";
 
@@ -58,7 +59,7 @@ export default function ProductCardSkeleton({
         className={cn(
           "flex min-w-0 flex-1",
           isGrid
-            ? "flex-col justify-start gap-2 p-2 sm:p-3"
+            ? "flex-col gap-2 p-2 sm:p-3"
             : "flex-col justify-between gap-2 p-3 sm:pr-[46%]"
         )}
       >
@@ -71,7 +72,12 @@ export default function ProductCardSkeleton({
           <Skeleton className="h-5 w-20 rounded" />
         </div>
 
-        <div className={cn("flex flex-col", isGrid ? "gap-1.5" : "gap-2")}>
+        <div
+          className={cn(
+            "flex flex-col",
+            isGrid ? "mt-auto gap-1.5" : "gap-2"
+          )}
+        >
           <div className="flex min-w-0 items-center gap-1.5">
             <Skeleton className="h-6 w-20 rounded-full" />
             <Skeleton className="h-6 w-20 rounded" />

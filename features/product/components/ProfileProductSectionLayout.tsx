@@ -11,6 +11,7 @@
  * 2026.04.09  임도헌   Modified  App Router soft navigation에서 형제 경로 진입 시 스크롤 문맥이 남지 않도록 pathname 기준 상단 초기화 추가
  * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 섹션 앱바 타이틀 weight를 500 기준으로 정리
  * 2026.04.18  임도헌   Modified  프로필 상품 하위 페이지 헤더를 고정 + 높이 스페이서 구조로 정리하고 스크롤 초기화 책임을 template로 분리
+ * 2026.05.30  임도헌   Modified  모바일 상품 하위 페이지 앱바 높이와 간격을 압축
  */
 
 import { usePathname } from "next/navigation";
@@ -25,7 +26,7 @@ function resolveTitle(pathname: string) {
   return "상품 내역";
 }
 
-const SECTION_HEADER_HEIGHT = 56;
+const SECTION_HEADER_HEIGHT = 52;
 
 /**
  * 프로필 > 제품 하위 섹션의 공통 프레임
@@ -53,7 +54,7 @@ export default function ProfileProductSectionLayout({
         )}
       >
         <div
-          className="mx-auto flex max-w-mobile items-center gap-3 px-4"
+          className="mx-auto flex max-w-mobile items-center gap-2.5 px-3"
           style={{ height: `${SECTION_HEADER_HEIGHT}px` }}
         >
           <BackButton

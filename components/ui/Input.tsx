@@ -24,6 +24,7 @@
  * 2026.04.06  임도헌   Modified  textarea 높이를 입력 내용에 맞춰 자동 조절해 페이지형 설명 입력 UX 보강
  * 2026.04.13  임도헌   Modified  비밀번호 토글 아이콘은 유지하면서 터치 영역만 44px로 확장해 모바일 접근성을 보강
  * 2026.04.18  임도헌   Modified  textarea는 자동 높이 조절을 기본 동작으로 삼고 커스텀 resize affordance를 제거해 표현과 동작을 일치시킴
+ * 2026.05.30  임도헌   Modified  작성형 폼 compact 밀도를 위한 density 옵션 추가
  */
 "use client";
 
@@ -46,6 +47,7 @@ interface IInputProps
   icon?: React.ReactNode;
   passwordToggle?: boolean;
   passwordToggleLabels?: { show?: string; hide?: string };
+  density?: "default" | "compact";
 }
 
 /**
@@ -69,6 +71,7 @@ const Input = (
     passwordToggle = false,
     passwordToggleLabels,
     id,
+    density = "default",
     ...rest
   }: IInputProps,
   ref: ForwardedRef<HTMLInputElement | HTMLTextAreaElement>
@@ -127,7 +130,10 @@ const Input = (
             ref={setTextareaRefs}
             name={name}
             className={cn(
-              "input-primary min-h-[120px] resize-none p-3",
+              "input-primary resize-none p-3",
+              density === "compact"
+                ? "min-h-28 sm:min-h-[120px]"
+                : "min-h-[120px]",
               filteredErrors.length > 0 && "ring-2 ring-danger/50",
               className
             )}
@@ -178,7 +184,8 @@ const Input = (
           name={name}
           aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
           className={cn(
-            "input-primary h-input-md w-full",
+            "input-primary w-full",
+            density === "compact" ? "h-11 sm:h-input-md" : "h-input-md",
             icon ? "pl-11" : "pl-4",
             canToggle ? "pr-12" : "pr-4",
             filteredErrors.length > 0 && "ring-2 ring-danger/50",

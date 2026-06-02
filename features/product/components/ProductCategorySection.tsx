@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   ProductForm의 카테고리/게임 종류 선택 UI를 별도 섹션으로 분리
+ * 2026.05.30  임도헌   Modified  모바일 상품 폼 밀도에 맞춰 선택 필드 높이 조정
  */
 
 import Select from "@/components/ui/Select";
@@ -52,6 +53,7 @@ export default function ProductCategorySection({
         label="대분류"
         value={selectedMainCategory?.toString() || ""}
         onChange={(event) => onMainCategoryChange(event.target.value)}
+        density="compact"
         errors={mainCategoryErrors}
       >
         <option value="">대분류 선택</option>
@@ -70,6 +72,7 @@ export default function ProductCategorySection({
       >
         <Select
           label="소분류"
+          density="compact"
           {...subCategoryRegister}
           disabled={subDisabled}
           errors={subCategoryErrors}
@@ -89,6 +92,7 @@ export default function ProductCategorySection({
 
       <Select
         label="게임 종류"
+        density="compact"
         {...gameTypeRegister}
         errors={[gameTypeErrorMessage ?? ""]}
       >

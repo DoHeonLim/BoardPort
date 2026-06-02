@@ -23,6 +23,7 @@
  * 2026.03.27  임도헌   Modified  작성자용 수정 버튼의 경계 대비와 크기를 조정해 라이트/다크 헤더 균형을 보강
  * 2026.04.03  임도헌   Modified  작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.06  임도헌   Modified  작성자용 수정/삭제를 상단 owner 관리 메뉴로 통합
+ * 2026.05.30  임도헌   Modified  게시글 상세 상단바 높이와 좌우 여백을 압축
  */
 "use client";
 
@@ -124,9 +125,9 @@ export default function PostDetailTopbar({
     backHref && !backHref.startsWith("/chats/") ? backHref : "/posts";
 
   return (
-    <header className="sticky top-0 z-40 w-full h-14 border-b border-border-subtle bg-background shadow-sm transition-colors">
-      <div className="mx-auto w-full max-w-mobile h-full flex items-center justify-between px-3 sm:px-4">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+    <header className="sticky top-0 z-40 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm transition-colors">
+      <div className="mx-auto flex h-full w-full max-w-mobile items-center justify-between px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <BackButton
             fallbackHref={backHref ?? "/posts"}
             variant="appbar"

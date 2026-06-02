@@ -31,6 +31,7 @@
  * 2026.05.05  임도헌   Modified   방송 생성/카테고리/검증 핸들러 JSDoc 보강
  * 2026.05.15  임도헌   Modified   비공개 방송 입장 비밀번호 필드의 브라우저 자동완성 경고를 줄이기 위해 new-password 힌트 추가
  * 2026.05.16  임도헌   Modified   방송 카테고리 parentId 타입을 StreamCategory에 반영해 any 의존 제거
+ * 2026.05.30  임도헌   Modified   모바일 방송 생성 폼의 입력 밀도 조정
  */
 "use client";
 
@@ -298,16 +299,17 @@ export default function StreamForm({
   };
 
   return (
-    <div className="bg-background px-4 py-6">
+    <div className="bg-background px-5 py-7 sm:px-4 sm:py-6">
       <form
         onSubmit={handleSubmit(onSubmit, onInvalid)}
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4 sm:gap-6"
         noValidate
       >
         <FormErrorSummary errors={errors} />
 
         <Input
           label="방송 제목"
+          density="compact"
           placeholder="방송 제목을 입력하세요 (5자 이상)"
           errors={errors.title?.message ? [errors.title.message] : []}
           {...register("title")}
@@ -336,7 +338,7 @@ export default function StreamForm({
             errors.description?.message ? [errors.description.message] : []
           }
           {...register("description")}
-          className="min-h-[120px]"
+          density="compact"
         />
 
         <div className="flex flex-col gap-2">
@@ -350,6 +352,7 @@ export default function StreamForm({
             isOpen={isImageFormOpen}
             onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
             maxImages={1}
+            compact
             optional
           />
           <p className="text-xs text-muted pl-1">
@@ -361,6 +364,7 @@ export default function StreamForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
             label="대분류"
+            density="compact"
             value={selectedMainCategory?.toString() || ""}
             onChange={(e) => handleMainCategoryChange(e.target.value)}
             errors={mainCategoryErrors}
@@ -375,6 +379,7 @@ export default function StreamForm({
 
           <Select
             label="소분류"
+            density="compact"
             {...register("streamCategoryId")}
             disabled={!selectedMainCategory}
             errors={subCategoryErrors}
@@ -399,6 +404,7 @@ export default function StreamForm({
           <div className="flex flex-col gap-2">
             <Select
               label="공개 설정"
+              density="compact"
               {...register("visibility", {
                 onChange: (e) =>
                   setValue(
@@ -430,6 +436,7 @@ export default function StreamForm({
             <Input
               label="비밀번호"
               type="password"
+              density="compact"
               placeholder="비밀번호 입력"
               autoComplete="new-password"
               {...register("password")}
