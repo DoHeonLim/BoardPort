@@ -94,6 +94,7 @@ BoardPort는 보드게임 거래, 커뮤니티, 채팅 약속, 라이브 방송,
 - [Project Overview](./docs/architecture/boardport-project-overview.md)
 - [State Management Modernization](./docs/architecture/case-study-state-management-modernization.md)
 - [UI/UX Design Standard](./docs/design/boardport-uiux-design-standard.md)
+- [CI/CD Workflows](./docs/operations/ci-cd-workflows.md)
 - [Product Modal Routing Troubleshooting](./docs/troubleshooting/troubleshooting-product-modal-routing.md)
 - [Appointment Atomic Transition Troubleshooting](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)
 - [PWA Web Push Routing Troubleshooting](./docs/troubleshooting/troubleshooting-pwa-web-push-routing.md)
