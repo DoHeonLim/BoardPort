@@ -54,6 +54,7 @@
  * 2026.05.18  임도헌   Modified  카드 메타 하트 색상을 현재 유저 좋아요 여부 기준으로 전달
  * 2026.05.20  임도헌   Modified  끌어올린 상품은 등록일 대신 refreshed_at 기준 노출 시점을 표시
  * 2026.06.01  임도헌   Modified  그리드 카드의 태그/메타 묶음을 하단 정렬해 카드별 공백 차이 완화
+ * 2026.06.04  임도헌   Modified  데모 상품 밀도 대응을 위해 리스트 카드 높이와 썸네일 정렬 보정
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -133,7 +134,7 @@ export default function ProductCard({
         "relative shrink-0 overflow-hidden bg-surface-dim",
         isGrid
           ? "aspect-[3/2] w-full border-b border-border sm:aspect-[4/3]"
-          : "h-full w-24 sm:w-36"
+          : "w-24 self-stretch sm:w-36"
       )}
     >
       <ProductCardThumbnail
@@ -241,7 +242,9 @@ export default function ProductCard({
         "group relative flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand-light/50 dark:hover:border-brand-light/50",
         "has-[a[data-card-link]:focus-visible]:ring-2 has-[a[data-card-link]:focus-visible]:ring-brand has-[a[data-card-link]:focus-visible]:ring-inset has-[a[data-card-link]:focus-visible]:ring-offset-0 dark:has-[a[data-card-link]:focus-visible]:ring-brand-light",
-        isGrid ? "flex-col h-full" : "flex-row min-h-[9rem] sm:h-[10rem] w-full"
+        isGrid
+          ? "h-full flex-col"
+          : "w-full flex-row min-h-[9rem] sm:min-h-[10.75rem]"
       )}
     >
       {/* 데스크톱 리스트에서는 연결 보드게임명을 우측 상단 보조 정보로 분리 */}
@@ -280,7 +283,7 @@ export default function ProductCard({
             href={href}
             prefetch={false}
             data-card-link
-            className="flex min-w-0 flex-1 flex-row"
+            className="flex min-w-0 flex-1 flex-row self-stretch"
           >
             {thumbnailNode}
 

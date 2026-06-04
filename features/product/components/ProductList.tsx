@@ -35,6 +35,7 @@
  * 2026.04.13  임도헌   Modified  카드별 현재 경로 계산을 상위로 승격해 목록 hydration 비용을 완화
  * 2026.04.13  임도헌   Modified  첫 화면 대표 카드 1장만 priority를 사용하도록 이미지 우선순위를 조정
  * 2026.05.09  임도헌   Modified  좁은 폭에서 헤더 액션과 뷰 토글이 겹치지 않도록 줄바꿈 허용
+ * 2026.06.04  임도헌   Modified  모바일 하단 고정 UI와 마지막 상품 카드가 겹치지 않도록 목록 여백 보강
  */
 
 "use client";
@@ -184,7 +185,7 @@ export default function ProductList({
         </div>
       )}
 
-      <div className="py-8 min-h-[40px]">
+      <div className="min-h-[40px] pb-32 pt-8 sm:pb-8">
         {hasMore && (
           <div ref={triggerRef} className="h-1 w-full" aria-hidden="true" />
         )}

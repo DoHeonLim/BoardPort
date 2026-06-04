@@ -39,6 +39,7 @@
  * 2026.05.15  임도헌   Modified  이메일/비밀번호 설정 안내 박스의 다크모드 텍스트 대비 보강
  * 2026.06.01  임도헌   Modified  프로필 수정 폼 간격을 작성형 폼 기준으로 정리
  * 2026.06.01  임도헌   Modified  취소 시 내부 히스토리는 back으로 복귀하고 직접 진입은 replace fallback 처리
+ * 2026.06.04  임도헌   Modified  프로필 유저명 입력 길이 안내를 공용 상수 기준으로 정리
  */
 "use client";
 
@@ -47,7 +48,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { MAX_PHOTO_SIZE, PASSWORD_MIN_LENGTH } from "@/lib/constants";
+import {
+  MAX_PHOTO_SIZE,
+  PASSWORD_MIN_LENGTH,
+  USERNAME_MAX_LENGTH,
+} from "@/lib/constants";
 import {
   sendProfilePhoneTokenAction,
   verifyProfilePhoneTokenAction,
@@ -607,12 +612,12 @@ export default function ProfileEditForm({
           label="선원 닉네임"
           type="text"
           required
-          placeholder="닉네임 (3~10자)"
+          placeholder={`닉네임 (3~${USERNAME_MAX_LENGTH}자)`}
           density="compact"
           {...register("username")}
           errors={[errors.username?.message ?? ""]}
           minLength={3}
-          maxLength={10}
+          maxLength={USERNAME_MAX_LENGTH}
           aria-invalid={!!errors.username}
           icon={<UserIcon className="size-5" />}
         />

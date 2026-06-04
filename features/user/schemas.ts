@@ -9,6 +9,7 @@
  * 2026.03.08  임도헌   Modified  normalizeNullableString/requiredTrimmedString 공통 유틸 적용으로 선택 입력과 필수값 처리 통일
  * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타 저장용 avatarAnimated 필드 추가
  * 2026.03.21  임도헌   Modified  방송국 소개 전용 channelDescriptionSchema 추가
+ * 2026.06.04  임도헌   Modified  프로필 유저명 최대 길이를 인증 스키마와 공용 상수로 통일
  */
 
 import { z } from "zod";
@@ -21,7 +22,8 @@ import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REGEX,
   PASSWORD_REGEX_ERROR,
-} from "@/lib/constants"; // Global constants (Auth와 공유)
+  USERNAME_MAX_LENGTH,
+} from "@/lib/constants";
 
 // =============================================================================
 // 1. Profile Edit Schema
@@ -48,7 +50,10 @@ export const profileEditSchema = ({
       username: requiredTrimmedString("유저명을 입력해주세요.")
         .toLowerCase()
         .min(3, "유저명은 최소 3자 이상이어야 합니다.")
-        .max(10, "유저명은 최대 10자까지 가능합니다."),
+        .max(
+          USERNAME_MAX_LENGTH,
+          `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
+        ),
 
       email: normalizeNullableString(
         z.string().trim().max(255, "이메일은 255자 이하만 가능합니다.")

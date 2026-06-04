@@ -13,6 +13,7 @@
  * 2026.01.19  임도헌   Moved     lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved     lib/createAccountSchema -> schemas/register
  * 2026.03.08  임도헌   Modified  requiredTrimmedString 공통 유틸 적용으로 공백 입력 검증 통일
+ * 2026.06.04  임도헌   Modified  회원가입 유저명 최대 길이를 공용 상수 기준으로 통일
  */
 
 import { z } from "zod";
@@ -21,6 +22,7 @@ import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REGEX,
   PASSWORD_REGEX_ERROR,
+  USERNAME_MAX_LENGTH,
 } from "@/lib/constants";
 
 /**
@@ -42,7 +44,9 @@ export const createAccountSchema = z
   .object({
     username: requiredTrimmedString("유저명을 입력해주세요.")
       .min(3, { message: "유저명은 최소 3자 이상이어야 합니다." })
-      .max(10, { message: "유저명은 최대 10자까지 입력할 수 있습니다." })
+      .max(USERNAME_MAX_LENGTH, {
+        message: `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 입력할 수 있습니다.`,
+      })
       .toLowerCase(),
 
     email: requiredTrimmedString("이메일을 입력해주세요.")

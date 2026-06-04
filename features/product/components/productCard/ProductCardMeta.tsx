@@ -27,6 +27,7 @@
  * 2026.06.01  임도헌   Modified  모바일 리스트 카드의 장소/시간 메타를 통계 줄과 분리해 지역 가시성 보강
  * 2026.06.01  임도헌   Modified  그리드 카드 메타는 반응 지표와 시간 중심으로 압축해 탐색 밀도 정리
  * 2026.06.01  임도헌   Modified  리스트 카드 장소 유무에 따라 1줄/2줄 메타를 분기하고 공백 지역값을 정규화
+ * 2026.06.04  임도헌   Modified  데모 상품 리스트에서 하단 메타가 잘리지 않도록 최소 높이 보강
  */
 
 "use client";
@@ -177,7 +178,7 @@ export default function ProductCardMeta({
   }
 
   return (
-    <div className="flex min-h-[2.25rem] w-full min-w-0 flex-col justify-end gap-1 overflow-hidden text-xs text-muted">
+    <div className="flex min-h-[2.75rem] w-full min-w-0 flex-col justify-end gap-1 overflow-hidden text-xs text-muted">
       <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
         {statsMeta}
       </div>

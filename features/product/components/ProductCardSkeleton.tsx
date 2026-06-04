@@ -11,6 +11,7 @@
  * 2026.04.17  임도헌   Modified  list/grid 카드 골격을 실제 카드와 어떻게 맞추는지 설명 주석 보강
  * 2026.05.09  임도헌   Modified  보드게임 배지와 taxonomy가 추가된 상품 카드 정보 구조 반영
  * 2026.06.01  임도헌   Modified  상품 카드 하단 메타 정렬 변경에 맞춰 grid 스켈레톤 여백 정리
+ * 2026.06.04  임도헌   Modified  데모 상품 리스트 카드 높이에 맞춰 스켈레톤 밀도 보정
  */
 "use client";
 
@@ -37,7 +38,9 @@ export default function ProductCardSkeleton({
     <div
       className={cn(
         "relative flex overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-sm",
-        isGrid ? "h-full flex-col" : "min-h-[8.5rem] w-full flex-row sm:h-[9.5rem]"
+        isGrid
+          ? "h-full flex-col"
+          : "w-full flex-row min-h-[9rem] sm:min-h-[10.75rem]"
       )}
     >
       {!isGrid && (
@@ -49,7 +52,9 @@ export default function ProductCardSkeleton({
       <div
         className={cn(
           "shrink-0 overflow-hidden bg-surface-dim",
-          isGrid ? "aspect-[3/2] w-full sm:aspect-[4/3]" : "h-full w-24 sm:w-36"
+          isGrid
+            ? "aspect-[3/2] w-full sm:aspect-[4/3]"
+            : "w-24 self-stretch sm:w-36"
         )}
       >
         <Skeleton className="h-full w-full" />
