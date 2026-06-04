@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.25  임도헌   Created   로그인/회원가입/온보딩/SMS/비밀번호 재설정 입력 검증 회귀 테스트 추가
+ * 2026.06.04  임도헌   Modified  확장된 온보딩 유저명 길이 검증 회귀 테스트 추가
  */
 
 import { describe, expect, test } from "vitest";
@@ -91,6 +92,18 @@ describe("auth schemas", () => {
         ])
       );
     }
+  });
+
+  test("온보딩은 확장된 길이의 유저명 보완 입력을 허용한다", () => {
+    const result = onboardingSchema({
+      needsUsernameSetup: true,
+      needsLocationSetup: false,
+    }).safeParse({
+      username: "afterwork_jin",
+      email: "",
+    });
+
+    expect(result.success).toBe(true);
   });
 
   test("SMS 전화번호와 인증번호 형식을 검증한다", () => {

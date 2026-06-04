@@ -7,11 +7,13 @@
  * Date        Author   Status    Description
  * 2026.03.14  임도헌   Created   닉네임/이메일/지역 최소 설정용 동적 Zod 스키마 추가
  * 2026.04.02  임도헌   Modified  온보딩 스키마 JSDoc 보강
+ * 2026.06.04  임도헌   Modified  온보딩 유저명 최대 길이를 공용 상수 기준으로 통일
  */
 
 import { z } from "zod";
 import validator from "validator";
 import { requiredTrimmedString } from "@/lib/zod-helpers";
+import { USERNAME_MAX_LENGTH } from "@/lib/constants";
 
 type OnboardingSchemaOptions = {
   needsUsernameSetup: boolean;
@@ -60,7 +62,10 @@ export const onboardingSchema = ({
         const username = requiredTrimmedString("유저명을 입력해주세요.")
           .toLowerCase()
           .min(3, "유저명은 최소 3자 이상이어야 합니다.")
-          .max(10, "유저명은 최대 10자까지 가능합니다.")
+          .max(
+            USERNAME_MAX_LENGTH,
+            `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
+          )
           .safeParse(data.username);
 
         if (!username.success) {
