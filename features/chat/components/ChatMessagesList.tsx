@@ -58,6 +58,7 @@
  * 2026.04.22  임도헌   Modified  메시지 삭제 확인을 브라우저 confirm 대신 공용 ConfirmDialog로 통일
  * 2026.05.18  임도헌   Modified  채팅방 진입 직후 목록/TabBar 미읽음 캐시를 읽음 상태와 즉시 동기화
  * 2026.05.28  임도헌   Modified  입력바와 메시지 리스트 사이의 불필요한 하단 여백 제거
+ * 2026.06.07  임도헌   Modified  채팅방 확인만으로도 TabBar 미읽음 수가 즉시 차감되도록 보강
  */
 "use client";
 
@@ -208,16 +209,32 @@ export default function ChatMessagesList({
 
   useEffect(() => {
     // 서버 컴포넌트에서 이미 읽음 처리한 결과를 클라이언트 Query Cache에도 즉시 반영
+    let clearedUnreadCount = 0;
+
     queryClient.setQueryData(
       queryKeys.chats.list(user.id),
       (oldRooms: ChatRoom[] | undefined) => {
         if (!oldRooms) return oldRooms;
 
+        clearedUnreadCount =
+          oldRooms.find((room) => room.id === productChatRoomId)
+            ?.unreadCount ?? 0;
+
         return oldRooms.map((room) =>
-          room.id === productChatRoomId ? { ...room, unreadCount: 0 } : room
+          room.id === productChatRoomId
+            ? { ...room, unreadCount: 0 }
+            : room
         );
       }
     );
+
+    if (clearedUnreadCount > 0) {
+      queryClient.setQueryData<number>(
+        queryKeys.chats.unreadCount(user.id),
+        (current) => Math.max((current ?? 0) - clearedUnreadCount, 0)
+      );
+    }
+
     void queryClient.refetchQueries({
       queryKey: queryKeys.chats.unreadCount(user.id),
       type: "all",

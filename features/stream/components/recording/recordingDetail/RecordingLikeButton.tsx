@@ -15,6 +15,7 @@
  * 2026.04.17  임도헌   Modified  녹화본 상세 좋아요 버튼의 낙관 업데이트와 접근성 이름 책임 설명 보강
  * 2026.05.18  임도헌   Modified  녹화본 상세 좋아요 변경 시 메인/채널 다시보기 목록 캐시 동기화 추가
  * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여하고 목록 캐시만 재검증
+ * 2026.06.07  임도헌   Modified  계정 전환 시 이전 사용자의 VOD 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  */
 
 "use client";
@@ -45,6 +46,7 @@ interface RecordingLikeButtonProps {
   isLiked: boolean;
   likeCount: number;
   vodId: number;
+  viewerId: number;
 }
 
 /**
@@ -62,9 +64,10 @@ export default function RecordingLikeButton({
   isLiked: initialIsLiked,
   likeCount: initialLikeCount,
   vodId,
+  viewerId,
 }: RecordingLikeButtonProps) {
   const queryClient = useQueryClient();
-  const queryKey = queryKeys.streams.likeStatus(vodId);
+  const queryKey = queryKeys.streams.likeStatus(vodId, viewerId);
   const initialLikeStatus = {
     isLiked: initialIsLiked,
     likeCount: initialLikeCount,

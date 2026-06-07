@@ -30,6 +30,7 @@
  * 2026.05.12  임도헌   Modified  채팅 미읽음 수 뱃지용 query key 추가
  * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤용 query key 추가
  * 2026.05.17  임도헌   Modified  query key 필터 객체 타입을 QueryKeyParams로 명시
+ * 2026.06.07  임도헌   Modified  VOD 좋아요 상태 query key를 시청자별로 분리
  */
 
 import type { QueryKeyParams } from "@/lib/types";
@@ -107,8 +108,14 @@ export const queryKeys = {
       [...queryKeys.streams.all, "vodComments", vodId] as const,
     recordingStats: (vodId: number) =>
       [...queryKeys.streams.all, "vod", vodId, "stats"] as const,
-    likeStatus: (vodId: number) =>
-      [...queryKeys.streams.all, "vod", vodId, "likeStatus"] as const,
+    likeStatus: (vodId: number, viewerId?: number | null) =>
+      [
+        ...queryKeys.streams.all,
+        "vod",
+        vodId,
+        "likeStatus",
+        viewerId ?? "guest",
+      ] as const,
   },
 
   // 6. 유저(User) 도메인
