@@ -29,6 +29,7 @@
  * 2026.05.17  임도헌   Modified  rooms_refresh 구독을 ChatRoomsRealtimeBridge로 이동해 탭바는 query 표시만 담당
  * 2026.05.18  임도헌   Modified  서버 초기 미읽음 수를 query cache에 명시 동기화해 탭 전환 후 뱃지 잔상 보정
  * 2026.05.18  임도헌   Modified  미읽음 수 클라이언트 재검증을 Server Action 대신 전용 API 조회로 전환
+ * 2026.06.07  임도헌   Modified  오래된 서버 초기값이 클라이언트 미읽음 차감을 되돌리지 않도록 보정
  */
 "use client";
 
@@ -108,11 +109,17 @@ export default function TabBar({
   useEffect(() => {
     if (!userId) return;
 
-    // 라우트 전환 시 서버 레이아웃이 계산한 최신 미읽음 수를 기존 클라이언트 캐시에 반영
-    queryClient.setQueryData(
-      queryKeys.chats.unreadCount(userId),
-      initialUnreadChatCount
-    );
+    const unreadQueryKey = queryKeys.chats.unreadCount(userId);
+    const cachedUnreadCount =
+      queryClient.getQueryData<number>(unreadQueryKey);
+
+    // 채팅방 진입 후 클라이언트가 줄인 미읽음 수를 오래된 서버 초기값으로 되살리지 않음
+    if (
+      cachedUnreadCount === undefined ||
+      initialUnreadChatCount < cachedUnreadCount
+    ) {
+      queryClient.setQueryData(unreadQueryKey, initialUnreadChatCount);
+    }
   }, [initialUnreadChatCount, queryClient, userId]);
 
   const tabs = [

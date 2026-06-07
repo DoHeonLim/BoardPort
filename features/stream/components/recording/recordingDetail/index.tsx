@@ -18,6 +18,7 @@
  * 2026.05.05  임도헌   Modified  방송 상세과 같은 보드게임 카드형 표시로 통일
  * 2026.05.12  임도헌   Modified  녹화 상세 본문에 방송 카테고리/태그 노출 추가
  * 2026.05.18  임도헌   Modified  RecordingMeta가 VodAsset 기준 댓글 수 캐시를 갱신할 수 있도록 vodId 전달
+ * 2026.06.07  임도헌   Modified  녹화본 좋아요 상태를 시청자별 캐시로 분리하기 위해 viewerId 전달
  * ===============================================================================================
  * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
@@ -51,6 +52,7 @@ interface RecordingDetailProps {
 
   /** VodAsset 식별/표시용 */
   vodId: number; // 좋아요/댓글/조회수는 VodAsset 기준
+  viewerId: number;
   uid: string; // VodAsset.provider_asset_id
   duration: number;
   created: Date;
@@ -75,6 +77,7 @@ interface RecordingDetailProps {
 export default function RecordingDetail({
   broadcast,
   vodId,
+  viewerId,
   uid,
   duration,
   created,
@@ -106,6 +109,7 @@ export default function RecordingDetail({
           LikeButtonComponent={
             <RecordingLikeButton
               vodId={vodId} // streamId → vodId 로 전환
+              viewerId={viewerId}
               isLiked={isLiked}
               likeCount={likeCount}
             />

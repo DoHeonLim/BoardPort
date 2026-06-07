@@ -35,6 +35,7 @@
  * 2026.03.22  임도헌   Modified  녹화본 댓글 섹션 상단 절개선을 제거해 메타 정보 아래 흐름을 단순화
  * 2026.03.25  임도헌   Modified  owner 삭제 액션을 본문 버튼 대신 상단 관리 메뉴로 이동해 시청 흐름 우선순위 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/recording/page.tsx 에서 app/(app)/streams/[id]/recording/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.06.07  임도헌   Modified  녹화본 좋아요 캐시를 시청자별로 분리하기 위해 viewerId 전달
 */
 export const dynamic = "force-dynamic";
 
@@ -178,6 +179,7 @@ export default async function RecordingVodPage({
         <RecordingDetail
           broadcast={base.broadcast}
           vodId={vodId}
+          viewerId={viewerId}
           uid={base.uid}
           duration={durationSec}
           created={created}
@@ -202,4 +204,3 @@ export default async function RecordingVodPage({
     </div>
   );
 }
-
