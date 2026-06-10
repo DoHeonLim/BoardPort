@@ -14,12 +14,17 @@
  * 2026.05.18  임도헌   Modified  댓글 작성/삭제 후 상세 메타 댓글 수가 즉시 반영되도록 recordingStats 캐시 연동
  * 2026.05.18  임도헌   Modified  상세 통계 아이콘을 다시보기 카드와 같은 solid 문법으로 통일
  * 2026.05.26  임도헌   Modified  initialData 기반 recordingStats query에 local queryFn을 부여해 refetch 경고 방지
+ * 2026.06.07  임도헌   Modified  녹화 메타 정보 영역에 라이브 기록 보기 버튼 추가, viewerId 전달 준비
  */
 
 "use client";
 
+import Link from "next/link";
 import TimeAgo from "@/components/ui/TimeAgo";
-import { ShareIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowTopRightOnSquareIcon,
+  ShareIcon,
+} from "@heroicons/react/24/outline";
 import {
   ChatBubbleBottomCenterTextIcon,
   EyeIcon,
@@ -30,6 +35,7 @@ import { queryKeys } from "@/lib/queryKeys";
 
 interface RecordingMetaProps {
   vodId: number;
+  broadcastId: number;
   title: string;
   created: Date;
   duration: number;
@@ -46,6 +52,7 @@ interface RecordingMetaProps {
  */
 export default function RecordingMeta({
   vodId,
+  broadcastId,
   title,
   created,
   duration,
@@ -86,11 +93,23 @@ export default function RecordingMeta({
         </button>
       </div>
 
-      {/* 2. 통계 및 좋아요 */}
-      <div className="flex items-center justify-between">
-        {LikeButtonComponent}
+      {/* 2. 라이브 기록, 통계 및 좋아요 */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          {LikeButtonComponent}
+          <Link
+            href={`/streams/${broadcastId}?returnTo=${encodeURIComponent(
+              `/streams/${vodId}/recording`
+            )}`}
+            className="focus-ring-soft inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            aria-label="방송 정보와 당시 채팅이 있는 라이브 기록 보기"
+          >
+            <ArrowTopRightOnSquareIcon className="size-4" />
+            <span>라이브 기록 보기</span>
+          </Link>
+        </div>
 
-        <div className="flex items-center gap-4 text-xs text-muted">
+        <div className="flex items-center justify-end gap-4 text-xs text-muted">
           <div className="flex items-center gap-1">
             <EyeIcon className="size-4" />
             <span>{viewCount.toLocaleString()}</span>

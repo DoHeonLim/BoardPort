@@ -44,6 +44,7 @@ import type { StreamCategory, StreamTag } from "@/features/stream/types";
 interface RecordingDetailProps {
   /** 방송 메타: 제목 + 소유자 */
   broadcast: {
+    id: number;
     title: string;
     category?: StreamCategory | null;
     tags?: StreamTag[] | null;
@@ -101,6 +102,7 @@ export default function RecordingDetail({
       <div className="rounded-2xl border border-border-subtle bg-surface px-4 py-4 shadow-sm sm:px-5">
         <RecordingMeta
           vodId={vodId}
+          broadcastId={broadcast.id}
           title={broadcast.title}
           created={created}
           duration={duration}
