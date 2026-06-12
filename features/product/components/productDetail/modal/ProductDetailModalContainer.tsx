@@ -27,6 +27,7 @@
  * 2026.04.24  임도헌   Modified  navigation refresh helper로 모달 refresh flag 소비와 back 가능 여부 판별을 정리
  * 2026.05.30  임도헌   Modified  모달 상세 상단 닫기/액션바 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.06.01  임도헌   Modified  제품 모달 닫기 버튼의 배경과 hover 톤 조정
+ * 2026.06.12  임도헌   Modified  채팅 왕복 후 모달 닫기 시 returnTo replace로 이전 히스토리 재진입 방지
  */
 "use client";
 
@@ -41,7 +42,6 @@ import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import type { ProductDetailType } from "@/features/product/types";
 import { cn } from "@/lib/utils";
 import {
-  canUseBrowserBack,
   consumeNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
@@ -58,7 +58,7 @@ interface ProductDetailProps {
  * - 배경 스크롤 잠금, 포커스 트랩, ESC 닫기 등 모달 필수 기능을 제공
  * - 닫기 시 `returnTo` 쿼리 파라미터를 사용하여 이전 목록 상태를 유지하며 복귀
  * - 모달 편집은 `flow=modal-edit`로 진입하고 저장 후 기존 모달 히스토리로 back 복귀를 우선 사용
- * - history back 대상이 없을 때만 ProductModalReopenRelay fallback으로 같은 모달 상세를 다시 연다
+ * - 닫기는 히스토리 상태 대신 returnTo replace로 처리해 채팅 왕복 후 이전 히스토리 재진입을 방지한다
  */
 export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
@@ -95,14 +95,9 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     router.refresh();
   }, [props.product.id, router]);
 
-  // 모달 닫기와 편집 진입에 재사용하는 복귀 경로 정제
+  // 모달 닫기 시 히스토리 상태 대신 사용할 안전한 목록 복귀 경로
   const returnTo = sanitizeCallbackUrl(sp.get("returnTo") ?? "/products");
   const handleOverlayClick = () => {
-    if (canUseBrowserBack()) {
-      router.back();
-      return;
-    }
-
     router.replace(returnTo);
   };
 
@@ -130,7 +125,6 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
           <CloseButton
             fallbackHref="/products"
             returnTo={returnTo}
-            preferHistoryBack
             className="bg-surface-dim/45 text-muted/80 hover:bg-surface-dim hover:text-primary active:bg-border/50 dark:bg-surface-dim/35 dark:hover:bg-surface-dim/70"
           />
           <div className="flex items-center gap-1">

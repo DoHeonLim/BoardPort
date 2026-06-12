@@ -93,6 +93,7 @@ BoardPort에서는 `목록 -> 상세 -> 수정 -> 저장/취소/삭제` 흐름�
 - `history back` 대상이 없는 직접 진입/새로고침 문맥만 `/products?openProductId={id}&returnTo=...` fallback 릴레이 사용
 - 모달 상세는 `product-modal-refresh:{id}` 플래그를 1회 소비하고 `router.refresh()`
 - 목록 릴레이는 필요할 때만 중간 URL을 `returnTo`로 먼저 정리한 뒤 인터셉트 상세를 다시 `push`
+- X/배경/ESC 닫기는 편집 복귀와 분리해 `returnTo` 기반 `router.replace()`로 처리
 
 이유:
 
@@ -100,6 +101,7 @@ BoardPort에서는 `목록 -> 상세 -> 수정 -> 저장/취소/삭제` 흐름�
 - 초기에 `replace + reopen relay`를 기본 전략으로 사용했지만, 이 방식은 목록/상세 엔트리 중복을 만들기 쉬웠습니다.
 - 현재는 `back` 기반 복귀를 기본 정책으로 두고, 브라우저 히스토리가 없는 경우만 릴레이를 fallback으로 사용합니다.
 - 모달 수정의 취소는 풀페이지 상세 취소와 달리 수정 화면 엔트리를 상세 모달 엔트리로 되돌리는 동작이므로 `back`이 더 자연스럽습니다.
+- 반면 단순 닫기는 채팅 왕복 후 이전 채팅 히스토리를 다시 탈 수 있어 명시적인 `returnTo` 복귀가 더 안전합니다.
 
 관련 파일:
 
