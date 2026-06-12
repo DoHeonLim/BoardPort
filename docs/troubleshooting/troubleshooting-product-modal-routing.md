@@ -11,7 +11,7 @@ BoardPort의 제품 상세는 동일한 URL(`/products/view/[id]`)을 두 가지
 
 **Before:** 모달에서 수정 후 저장하면 404가 발생하거나, 뒤로가기에서 목록/상세 히스토리가 중복되는 문제가 반복됐습니다.
 
-**After:** `back 우선 + relay fallback` 정책으로 기본 흐름의 히스토리 중복을 줄이고, 모달/상세 문맥별 복귀 기준을 분리했습니다.
+**After:** 수정 복귀는 `back 우선 + relay fallback`으로 유지하고, 모달 닫기는 `returnTo replace`로 분리해 채팅 왕복 후 이전 히스토리를 다시 타는 문제를 줄였습니다.
 
 이 구조에서 `상세 -> 수정 -> 저장/취소/삭제 -> 복귀` 흐름을 처리하는 과정에서 다음 문제가 반복됐습니다.
 
@@ -36,6 +36,7 @@ BoardPort의 제품 상세는 동일한 URL(`/products/view/[id]`)을 두 가지
 - 모달이 닫히지 않음
 - 뒤로가기를 여러 번 해야 목록으로 복귀
 - 수정 후 복귀 위치가 모달/페이지 문맥에 따라 섞임
+- 상품 모달에서 채팅으로 이동한 뒤 브라우저 뒤로가기로 돌아오고, 다시 X로 닫으면 제품 목록이 스켈레톤 로딩 상태로 남음
 
 ### 1.3 히스토리 중복
 
@@ -104,7 +105,17 @@ App Router는 soft navigation 상태를 메모리에 유지합니다.
 
 으로 정리했습니다.
 
-### 전략 3. `navigationRefreshFlag`는 복귀 후 1회 최신화만 담당
+### 전략 3. 모달 닫기는 `returnTo replace`로 고정
+
+모달 수정 복귀와 달리 X/배경/ESC 닫기는 `router.back()`을 사용하지 않습니다.
+
+- 상품 모달에서 채팅으로 이동하면 채팅 상세가 히스토리에 추가됨
+- 채팅에서 브라우저 뒤로가기로 모달에 복귀한 뒤 X를 누르면, 단순 목록 닫기가 아니라 채팅/모달 히스토리를 다시 건드릴 수 있음
+- 이 흐름에서 제품 목록이 스켈레톤 로딩 상태로 남는 문제가 재현됨
+
+따라서 닫기는 카드가 넘긴 `returnTo`를 정규화한 뒤 `router.replace(returnTo)`로 처리합니다.
+
+### 전략 4. `navigationRefreshFlag`는 복귀 후 1회 최신화만 담당
 
 `product-modal-refresh:{id}`는:
 
@@ -124,13 +135,14 @@ App Router는 soft navigation 상태를 메모리에 유지합니다.
 
 현재 정책:
 
-- 닫기 시 기존 목록/모달 히스토리 문맥이 확인되면 `router.back()` 우선
-- back 대상이 없을 때만 `router.replace(returnTo)`
+- X/배경/ESC 닫기는 모두 정규화된 `returnTo`로 `router.replace(returnTo)`
+- 공통 `CloseButton`의 `preferHistoryBack`은 상품 모달 닫기에서 사용하지 않음
 
 의미:
 
-- 기존 목록/모달 문맥이 있으면 재사용
-- 직접 진입/새로고침 같은 경우만 안전 경로 fallback
+- 상품 목록의 필터/검색/스크롤 문맥은 `returnTo`로 유지
+- 채팅 왕복 후 X 닫기가 이전 채팅 히스토리를 다시 타지 않도록 차단
+- 모달 편집 저장/취소의 `back` 우선 정책과 닫기 정책을 분리
 
 ### 4.2 컨텍스트 명시화
 
@@ -212,6 +224,7 @@ App Router는 soft navigation 상태를 메모리에 유지합니다.
 | --- | --- |
 | 저장 후 404 | 라우터 트리 불일치 원인 파악 후 복귀 경로 정리 |
 | 히스토리 중복 순환 | `back 우선` 정책으로 기본 목록/모달 엔트리 중복 완화 |
+| 채팅 왕복 후 목록 무한 로딩 | 모달 닫기를 `returnTo replace`로 고정해 이전 채팅 히스토리 재진입 차단 |
 | stale 데이터 복귀 | `navigationRefreshFlag` 1회 소비로 복귀 직후 최신화 |
 | 모달 직접 진입/새로고침 문맥 | `ProductModalReopenRelay`가 fallback 재오픈만 담당 |
 
