@@ -71,7 +71,7 @@ export default function RecordingList({
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible,
-    rootMargin: "1200px 0px 0px 0px",
+    rootMargin: "0px 0px 1200px 0px",
     threshold: 0.01,
   });
 

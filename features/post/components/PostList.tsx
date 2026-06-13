@@ -90,7 +90,7 @@ export default function PostList({
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible, // 탭이 백그라운드면 로딩 중단
-    rootMargin: "1000px 0px 0px 0px", // 조기 프리패치 여유
+    rootMargin: "0px 0px 1000px 0px", // 하단 조기 프리패치 여유
     threshold: 0.01,
   });
 

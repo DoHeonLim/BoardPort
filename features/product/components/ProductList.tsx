@@ -110,7 +110,7 @@ export default function ProductList({
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible,
-    rootMargin: "1400px 0px 0px 0px", // 조기 프리패치 여유 마진
+    rootMargin: "0px 0px 1400px 0px", // 하단 조기 프리패치 여유 마진
     threshold: 0.01,
   });
 

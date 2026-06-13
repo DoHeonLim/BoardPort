@@ -12,6 +12,7 @@
  * 2026.02.02  임도헌   Modified  주석 보강
  * 2026.02.28  임도헌   Modified  TanStack Query(fetchNextPage) 연동을 위해 onLoadMore 반환 타입(unknown) 확장
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.06.13  임도헌   Modified  hasMore/isLoading 변경 시 sentinel 재관찰되도록 effect 의존성 보강
  */
 
 "use client";
@@ -39,7 +40,7 @@ interface UseInfiniteScrollProps {
   rootRef?: React.RefObject<Element | null>;
   /**
    * 관찰 영역 확장 범위 (미리 로딩하기 위함)
-   * @default "1200px 0px 0px 0px"
+   * @default "0px 0px 1200px 0px"
    */
   rootMargin?: string;
   /**
@@ -66,7 +67,7 @@ export function useInfiniteScroll({
   onLoadMore,
   enabled = true,
   rootRef,
-  rootMargin = "1200px 0px 0px 0px",
+  rootMargin = "0px 0px 1200px 0px",
   threshold = 0.01,
 }: UseInfiniteScrollProps): void {
   const hasMoreRef = useRef(hasMore);
@@ -88,7 +89,7 @@ export function useInfiniteScroll({
   }, [onLoadMore]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !hasMore || isLoading) return;
 
     const el = triggerRef.current;
     if (!el) return;
@@ -118,7 +119,15 @@ export function useInfiniteScroll({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [enabled, triggerRef, rootRef, rootMargin, threshold]);
+  }, [
+    enabled,
+    hasMore,
+    isLoading,
+    triggerRef,
+    rootRef,
+    rootMargin,
+    threshold,
+  ]);
 }
 
 export default useInfiniteScroll;

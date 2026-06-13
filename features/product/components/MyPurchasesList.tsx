@@ -66,7 +66,7 @@ export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
     isLoading: purchased.isFetchingNextPage, // 하단 스크롤 중복 로드 방지
     onLoadMore: purchased.loadMore,
     enabled: isVisible,
-    rootMargin: "600px", // 사용자 경험 향상을 위한 조기 로딩 여유 영역
+    rootMargin: "0px 0px 600px 0px", // 하단 조기 로딩 여유 영역
     threshold: 0.1,
   });
 

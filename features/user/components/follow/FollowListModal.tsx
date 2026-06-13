@@ -143,7 +143,7 @@ export default function FollowListModal({
     onLoadMore: onLoadMore,
     enabled: isOpen && hasMore && !isMoreError,
     rootRef: scrollAreaRef,
-    rootMargin: "400px 0px 0px 0px",
+    rootMargin: "0px 0px 400px 0px",
     threshold: 0.1,
   });
 
