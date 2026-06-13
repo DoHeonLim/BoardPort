@@ -59,7 +59,7 @@ export default function ReviewsList({
     enabled: isVisible,
     rootRef: scrollParentRef, // 모달 등 특정 스크롤 컨테이너를 기준으로 동작하도록 설정
     threshold: 0.1,
-    rootMargin: "200px", // 조기 로딩을 위한 여유 마진 확보
+    rootMargin: "0px 0px 200px 0px", // 하단 조기 로딩 여유 마진
   });
 
   // 데이터가 없을 경우 표시되는 Empty State

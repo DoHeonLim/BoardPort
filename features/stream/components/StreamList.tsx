@@ -81,7 +81,7 @@ export default function StreamList({
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible,
-    rootMargin: "1200px 0px 0px 0px", // 사용자 경험 향상을 위한 조기 프리패치 여유 공간
+    rootMargin: "0px 0px 1200px 0px", // 하단 조기 프리패치 여유 공간
     threshold: 0.01,
   });
 

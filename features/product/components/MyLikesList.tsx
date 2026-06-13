@@ -60,7 +60,7 @@ export default function MyLikesList({ userId }: { userId: number }) {
     isLoading: liked.isFetchingNextPage,
     onLoadMore: liked.loadMore,
     enabled: isVisible,
-    rootMargin: "600px",
+    rootMargin: "0px 0px 600px 0px",
     threshold: 0.1,
   });
 
