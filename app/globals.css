@@ -24,6 +24,8 @@
    2026.04.20  임도헌 - 라이트모드 primary CTA 포커스가 배경과 겹치지 않도록 btn-primary 계열을 inset white ring 중심으로 보강
    2026.04.29  임도헌 - 네이티브 select option 색을 시맨틱 토큰으로 고정해 다크모드 드롭다운 가독성 보강
    2026.05.30  임도헌 - 다크모드 border 토큰 대비를 낮춰 모바일 밀집 화면 경계선 톤 정리
+   2026.06.19  임도헌 - 모달 보조 버튼 공통 클래스에 inline-flex 정렬을 추가해 버튼 크기/정렬 기준 통일
+   2026.06.19  임도헌 - 모바일 Empty State 상단 여백을 줄여 필터 직후 빈 상태 피드백이 더 빨리 보이도록 조정
  */
 
 @tailwind base;
@@ -192,7 +194,7 @@
   }
 
   .btn-secondary-modal {
-    @apply rounded-xl border border-border bg-surface-dim px-4 py-2 text-muted transition-colors
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl border border-border bg-surface-dim px-4 py-2 text-muted transition-colors
     hover:border-border-strong hover:bg-surface hover:text-primary
     focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40 dark:focus-visible:ring-brand-light/40
     disabled:opacity-50 disabled:cursor-not-allowed
@@ -222,7 +224,7 @@
   }
 
   .state-screen {
-    @apply flex flex-col items-center justify-center px-6 py-20 text-center;
+    @apply flex flex-col items-center justify-center px-6 pt-8 pb-20 text-center sm:py-20;
   }
 
   .state-card {

@@ -13,6 +13,8 @@
  * 2026.04.26  임도헌   Modified  약속 설정 모달에 dialog 의미와 날짜/시간 입력 라벨 연결, ESC 닫기 흐름을 보강
  * 2026.04.26  임도헌   Modified  약속 입력 오류 문구를 사용자가 수정할 항목 기준으로 구체화
  * 2026.05.12  임도헌   Modified  약속 모달을 닫은 뒤 다음 제안이 빈 입력값으로 시작되도록 드래프트 초기화
+ * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 약속 제안 CTA 중심으로 정리
+ * 2026.06.19  임도헌   Modified  모바일 약속 입력 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -22,8 +24,10 @@ import {
   CalendarIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import BottomSheet from "@/components/global/BottomSheet";
 import LocationPicker from "@/features/map/components/LocationPicker";
 import type { LocationData } from "@/features/map/types";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -44,6 +48,7 @@ export default function ScheduleModal({
   onClose,
   onConfirm,
 }: ScheduleModalProps) {
+  const isMobile = useIsMobile();
   const [dateStr, setDateStr] = useState("");
   const [timeStr, setTimeStr] = useState("");
   const [location, setLocation] = useState<LocationData | null>(null);
@@ -72,6 +77,7 @@ export default function ScheduleModal({
 
   useEffect(() => {
     if (!isOpen || showMap) return;
+    if (isMobile) return;
 
     const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -83,7 +89,7 @@ export default function ScheduleModal({
       window.clearTimeout(timer);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleClose, isOpen, isPending, showMap]);
+  }, [handleClose, isMobile, isOpen, isPending, showMap]);
 
   if (!isOpen) return null;
 
@@ -104,6 +110,119 @@ export default function ScheduleModal({
       handleClose();
     });
   };
+
+  const bodyContent = (
+    <div className="space-y-5">
+      {/* 날짜/시간 선택 */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label
+            htmlFor="schedule-date"
+            className="text-xs font-bold text-muted"
+          >
+            날짜
+          </label>
+          <input
+            id="schedule-date"
+            type="date"
+            value={dateStr}
+            onChange={(e) => setDateStr(e.target.value)}
+            className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="schedule-time"
+            className="text-xs font-bold text-muted"
+          >
+            시간
+          </label>
+          <input
+            id="schedule-time"
+            type="time"
+            value={timeStr}
+            onChange={(e) => setTimeStr(e.target.value)}
+            className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
+          />
+        </div>
+      </div>
+
+      {/* 장소 선택 */}
+      <div className="space-y-2">
+        <span className="text-xs font-bold text-muted">만날 장소</span>
+        {location ? (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 dark:border-brand-light/30 shadow-sm group">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
+                <MapPinIcon className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-primary truncate">
+                  {location.locationName}
+                </p>
+                <p className="text-xs text-muted truncate">
+                  {location.region2} {location.region3}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowMap(true)}
+              className="focus-ring-soft rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            >
+              변경
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowMap(true)}
+            className="focus-ring-soft w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-colors"
+          >
+            <MapPinIcon className="size-5" />
+            <span className="text-sm font-medium">지도에서 장소 선택</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <button
+      onClick={handleSubmit}
+      disabled={!location || !dateStr || !timeStr || isPending}
+      className="btn-primary h-10 w-full px-6 text-sm sm:w-auto"
+    >
+      {isPending ? "전송 중..." : "약속 제안하기"}
+    </button>
+  );
+
+  const locationPicker = showMap ? (
+    <LocationPicker
+      onClose={() => setShowMap(false)}
+      onSelect={(loc) => {
+        setLocation(loc);
+        setShowMap(false);
+      }}
+      initialData={location ?? undefined}
+    />
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <>
+        <BottomSheet
+          open={isOpen}
+          title="약속 잡기"
+          description="거래 약속 날짜, 시간, 장소를 선택합니다."
+          onClose={handleClose}
+          contentClassName="pt-4"
+          footer={footer}
+        >
+          {bodyContent}
+        </BottomSheet>
+        {locationPicker}
+      </>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
@@ -134,108 +253,16 @@ export default function ScheduleModal({
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-5">
-          {/* 날짜/시간 선택 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="schedule-date"
-                className="text-xs font-bold text-muted"
-              >
-                날짜
-              </label>
-              <input
-                id="schedule-date"
-                type="date"
-                value={dateStr}
-                onChange={(e) => setDateStr(e.target.value)}
-                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label
-                htmlFor="schedule-time"
-                className="text-xs font-bold text-muted"
-              >
-                시간
-              </label>
-              <input
-                id="schedule-time"
-                type="time"
-                value={timeStr}
-                onChange={(e) => setTimeStr(e.target.value)}
-                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
-              />
-            </div>
-          </div>
-
-          {/* 장소 선택 */}
-          <div className="space-y-2">
-            <span className="text-xs font-bold text-muted">만날 장소</span>
-            {location ? (
-              <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 dark:border-brand-light/30 shadow-sm group">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
-                    <MapPinIcon className="size-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-primary truncate">
-                      {location.locationName}
-                    </p>
-                    <p className="text-xs text-muted truncate">
-                      {location.region2} {location.region3}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowMap(true)}
-                  className="focus-ring-soft rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-                >
-                  변경
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowMap(true)}
-                className="focus-ring-soft w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-colors"
-              >
-                <MapPinIcon className="size-5" />
-                <span className="text-sm font-medium">지도에서 장소 선택</span>
-              </button>
-            )}
-          </div>
-        </div>
+        <div className="p-5">{bodyContent}</div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end gap-2">
-          <button
-            onClick={handleClose}
-            className="btn-secondary-modal h-10 px-4 text-sm font-medium"
-            disabled={isPending}
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!location || !dateStr || !timeStr || isPending}
-            className="btn-primary h-10 text-sm px-6"
-          >
-            {isPending ? "전송 중..." : "약속 제안하기"}
-          </button>
+        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end">
+          {footer}
         </div>
       </div>
 
       {/* LocationPicker Modal */}
-      {showMap && (
-        <LocationPicker
-          onClose={() => setShowMap(false)}
-          onSelect={(loc) => {
-            setLocation(loc);
-            setShowMap(false);
-          }}
-          initialData={location ?? undefined}
-        />
-      )}
+      {locationPicker}
     </div>
   );
 }

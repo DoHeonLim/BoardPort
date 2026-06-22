@@ -22,6 +22,7 @@
  * 2026.03.12  임도헌   Modified  이미지 애니메이션 메타 저장용 photosAnimated 필드 추가
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 검증 필드 추가
  * 2026.05.16  임도헌   Modified  폼 값 타입명을 PascalCase 기준으로 정리
+ * 2026.06.18  임도헌   Modified  상품 노출/거래 기준 지역으로 location 선택을 필수화
  */
 
 import { z } from "zod";
@@ -92,7 +93,7 @@ export const productFormSchema = z.object({
     .array(z.string())
     .max(5, "태그는 최대 5개까지 입력 가능합니다.")
     .default([]),
-  // 위치 정보는 선택 사항이며, 수정 시 삭제(null)될 수 있으므로 nullable() 처리 필수
+  // 상품은 거래 지역이 핵심 정보라 location을 제출 시 필수로 검증한다.
   location: z
     .object({
       latitude: z.number(),
@@ -102,8 +103,15 @@ export const productFormSchema = z.object({
       region2: z.string(),
       region3: z.string(),
     })
-    .optional()
-    .nullable(),
+    .nullable()
+    .superRefine((location, ctx) => {
+      if (location !== null) return;
+
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "거래 기준 지역을 선택해주세요.",
+      });
+    }),
 }).refine((data) => data.max_players >= data.min_players, {
   message: "최대 인원은 최소 인원 이상이어야 합니다.",
   path: ["max_players"],

@@ -17,6 +17,7 @@
  * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입을 user types로 이동
  * 2026.05.16  임도헌   Modified  팔로우 캐시 동기화용 페이지/통계 타입 추가
  * 2026.05.17  임도헌   Modified  차단 관리 모달용 차단 유저 요약 타입 추가
+ * 2026.06.18  임도헌   Modified  지역 정규화 정책에 맞춰 UserProfile 지역 필드 설명 최신화
  */
 
 import type { Role } from "@/generated/prisma/enums";
@@ -46,8 +47,8 @@ export interface UserProfile {
   created_at: Date;
   emailVerified: boolean;
   locationName?: string | null;
-  region1?: string | null; // 시/도
-  region2?: string | null; // 구/군
+  region1?: string | null; // 지역 필터 1차 단위(카카오 1depth 또는 도 단위의 시/군)
+  region2?: string | null; // 지역 필터 2차 단위(구/군, 없으면 region1)
   region3?: string | null; // 동/읍/면
   _count: {
     followers: number;

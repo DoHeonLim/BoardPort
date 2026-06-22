@@ -15,6 +15,7 @@
  * 2026.04.26  임도헌   Modified  읽음 처리 실패 문구를 알림 센터 UI 액션 라벨과 같은 표현으로 정리
  * 2026.05.16  임도헌   Modified  미읽음 알림 카운트 조회를 service 계층으로 분리
  * 2026.05.24  임도헌   Modified  삭제된 콘텐츠를 가리키는 오래된 알림 링크/이미지 응답 정규화 추가
+ * 2026.06.19  임도헌   Modified  관리자 조치 인앱 알림은 명시 링크가 있을 때만 보기 링크를 저장하도록 정리
  */
 
 import "server-only";
@@ -268,7 +269,7 @@ export async function sendAdminActionNotification({
         title: notiTitle,
         body: notiBody,
         type: "SYSTEM",
-        link: link ?? "/profile/notifications/list",
+        link: link ?? null,
         isPushSent: false,
       },
     });

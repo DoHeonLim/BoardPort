@@ -109,7 +109,7 @@ const config: Config = {
       },
       // [Rule 5.1] 간격(Spacing)에 대한 Semantic Token (선택 사항이나 권장)
       spacing: {
-        "page-x": "1.5rem", // px-6 (Page horizontal padding)
+        "page-x": "1rem", // px-4 (Page horizontal padding)
         "page-y": "2.5rem", // py-10 (Page vertical padding)
         "form-gap": "1.25rem", // gap-5 (Between form fields)
       },

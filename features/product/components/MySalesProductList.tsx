@@ -30,6 +30,7 @@
  * 2026.04.19  임도헌   Modified  판매 탭 active 대비와 라이트/다크 선택 상태를 현재 UI 기준으로 재정리
  * 2026.05.16  임도헌   Modified  판매 탭 캐시 이동 payload와 무한스크롤 캐시 shape 타입 정리
  * 2026.05.30  임도헌   Modified  판매 내역 뷰 토글을 제품 목록 토글 톤과 통일
+ * 2026.06.21  임도헌   Modified  판매 내역 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
  */
 
 "use client";
@@ -255,7 +256,7 @@ export default function MySalesProductList({
             onClick={() => setViewMode("list")}
             aria-label="리스트 보기"
             className={cn(
-              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
               viewMode === "list"
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"
@@ -267,7 +268,7 @@ export default function MySalesProductList({
             onClick={() => setViewMode("grid")}
             aria-label="그리드 보기"
             className={cn(
-              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
               viewMode === "grid"
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"

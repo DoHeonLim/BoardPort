@@ -11,7 +11,8 @@
  * 2026.03.17  임도헌   Modified  방송국 rail 카드 폭과 판매 패널 외곽선을 현재 프로필 톤에 맞춰 정리
  * 2026.03.28  임도헌   Modified  타인 프로필 sticky 액션 헤더와 현재 판매 패널 문법에 맞춰 로딩 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/loading.tsx 에서 app/(app)/(tabs)/profile/[username]/loading.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.06.21  임도헌   Modified  판매 목록 뷰 토글 스켈레톤을 실제 모바일 36px 기준과 맞춤
+ */
 
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -110,8 +111,8 @@ export default function Loading() {
 
             {/* 보기 전환 */}
             <div className="flex justify-end gap-1 mb-3">
-              <Skeleton className="size-11 rounded-lg" />
-              <Skeleton className="size-11 rounded-lg" />
+              <Skeleton className="size-9 rounded-lg sm:size-11" />
+              <Skeleton className="size-9 rounded-lg sm:size-11" />
             </div>
 
             {/* 목록 아이템 */}
@@ -139,4 +140,3 @@ export default function Loading() {
     </div>
   );
 }
-

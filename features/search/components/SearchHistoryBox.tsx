@@ -14,6 +14,7 @@
  * 2026.04.02  임도헌   Modified  검색 기록 타입 import를 search 도메인 공용 타입 기준으로 정리
  * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 섹션 헤더 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.06.14  임도헌   Modified  모바일 최근 검색어 삭제 후 터치 잔상과 삭제 버튼 hover 배경을 정리
  */
 
 import Link from "next/link";
@@ -78,14 +79,17 @@ export default function SearchHistoryBox({
               : "flex-wrap"
           )}
         >
-          {history.map((item, index) => (
+          {history.map((item) => (
             <div
-              key={index}
+              key={item.keyword}
               className="group relative flex items-center shrink-0"
             >
               <Link
                 href={`${basePath}?keyword=${encodeURIComponent(item.keyword)}`}
-                onClick={() => onSearch(item.keyword)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSearch(item.keyword);
+                }}
                 className={cn(
                   "focus-ring-soft border border-transparent bg-surface-dim px-3 py-1.5 pr-7 text-sm text-primary transition-colors hover:bg-border rounded-lg",
                   "whitespace-nowrap"
@@ -94,11 +98,13 @@ export default function SearchHistoryBox({
                 {item.keyword}
               </Link>
               <button
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   onRemove(item.keyword);
                 }}
-                className="focus-ring-soft absolute right-1 inline-flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-danger"
+                className="focus-ring-soft absolute right-1 inline-flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-muted transition-colors hover:text-danger"
                 aria-label={`${item.keyword} 삭제`}
               >
                 <XMarkIcon className="size-3.5" />

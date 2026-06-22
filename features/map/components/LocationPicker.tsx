@@ -21,6 +21,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.10  임도헌   Modified  map 타이포 정책에 맞춰 안내 힌트와 선택 위치 라벨 크기/weight를 400·500·700 기준으로 정리
  * 2026.05.16  임도헌   Modified  카카오 장소 검색 결과 타입을 명시해 any 제거
+ * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
  */
 
 import { useState, useEffect } from "react";
@@ -38,6 +39,10 @@ import type {
   KakaoPlaceSearchResult,
   LocationData,
 } from "@/features/map/types";
+import {
+  formatNormalizedRegion,
+  normalizeKakaoRegion,
+} from "@/features/map/utils/normalizeRegion";
 
 interface LocationPickerProps {
   onSelect: (data: LocationData) => void;
@@ -100,17 +105,20 @@ export default function LocationPicker({
       if (status === window.kakao.maps.services.Status.OK) {
         const addr = result[0].address;
 
-        // 세종시 등 region2 부재 케이스 보정
-        const region2Safe = addr.region_2depth_name || addr.region_1depth_name;
+        const region = normalizeKakaoRegion({
+          region1: addr.region_1depth_name,
+          region2: addr.region_2depth_name,
+          region3: addr.region_3depth_name,
+        });
 
         const info: LocationData = {
           latitude: coords.lat,
           longitude: coords.lng,
           locationName:
             placeName || addr.region_3depth_name || addr.address_name,
-          region1: addr.region_1depth_name,
-          region2: region2Safe,
-          region3: addr.region_3depth_name,
+          region1: region.region1,
+          region2: region.region2,
+          region3: region.region3,
         };
         setMarker(coords);
         setSelectedInfo(info);
@@ -286,8 +294,7 @@ export default function LocationPicker({
                       {selectedInfo.locationName}
                     </p>
                     <p className="mt-0 text-xs text-muted dark:text-slate-300/90">
-                      {selectedInfo.region1} {selectedInfo.region2}{" "}
-                      {selectedInfo.region3}
+                      {formatNormalizedRegion(selectedInfo)}
                     </p>
                   </div>
                 </div>

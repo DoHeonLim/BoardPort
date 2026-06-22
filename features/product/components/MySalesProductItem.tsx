@@ -51,6 +51,9 @@
  * 2026.05.03  임도헌   Modified  프로필 판매 카드에 연결 보드게임 배지 표시 추가
  * 2026.05.05  임도헌   Modified  판매 내역 카드 helper와 상태/리뷰 핸들러 JSDoc 보강
  * 2026.05.18  임도헌   Modified  판매 완료 탭의 시간 표기를 등록일이 아닌 판매 완료 시점 기준으로 보정
+ * 2026.06.18  임도헌   Modified  공용 거래 상태 배지로 예약/판매완료 색상 기준 통일
+ * 2026.06.18  임도헌   Modified  판매 내역 하단 액션의 주요/일반/위험 톤 분리
+ * 2026.06.21  임도헌   Modified  판매 내역 위험 액션을 공용 danger 토큰 기준으로 통일해 다크모드 대비 보정
  */
 
 "use client";
@@ -90,6 +93,7 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import { removeRecentViewedProduct } from "@/features/product/utils/recentViewed";
 import ProductCardBoardGameBadge from "@/features/product/components/productCard/ProductCardBoardGameBadge";
+import ProductTradeStatusBadge from "@/features/product/components/ProductTradeStatusBadge";
 import type {
   MySalesListItem,
   ProductStatus,
@@ -143,24 +147,19 @@ type ProductStatusActionResult = {
 
 /**
  * 판매 탭 상태의 카드 상단 pill 표시
+ * 예약/판매완료는 공개 상품 카드와 같은 공용 거래 상태 배지를 사용한다.
  *
  * @param props - 현재 판매 상태 tab
  * @returns 상태 pill 또는 null
  */
 function StatusPill({ tab }: { tab?: ProductStatus }) {
   if (!tab) return null;
-  const styles = {
-    selling: "bg-brand text-white",
-    reserved: "bg-accent text-accent-foreground",
-    sold: "bg-neutral-500 text-white",
-  };
+  if (tab !== "selling") {
+    return <ProductTradeStatusBadge status={tab} className="px-2" />;
+  }
+
   return (
-    <span
-      className={cn(
-        "rounded px-2 py-0.5 text-xs font-bold shadow-sm",
-        styles[tab]
-      )}
-    >
+    <span className="rounded bg-brand px-2 py-0.5 text-xs font-bold text-white shadow-sm">
       {PRODUCT_STATUS_LABEL[tab]}
     </span>
   );
@@ -177,6 +176,29 @@ function Chip({ children }: { children: React.ReactNode }) {
     <span className="inline-flex items-center rounded-lg border border-border bg-surface-dim px-2.5 py-1 text-xs font-medium leading-none text-primary shadow-sm">
       {children}
     </span>
+  );
+}
+
+type SalesActionTone = "primary" | "neutral" | "danger";
+
+const salesActionToneClass: Record<SalesActionTone, string> = {
+  primary:
+    "text-brand hover:bg-brand/5 dark:text-primary dark:hover:bg-brand-light/10",
+  neutral: "text-muted hover:bg-surface-dim hover:text-primary",
+  danger:
+    "text-danger hover:bg-danger/5 hover:text-danger dark:hover:bg-danger/10",
+};
+
+function getSalesActionClass(
+  tone: SalesActionTone,
+  isGrid: boolean,
+  extraClass?: string
+) {
+  return cn(
+    "focus-ring-strong-inset font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+    salesActionToneClass[tone],
+    isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm",
+    extraClass
   );
 }
 
@@ -701,10 +723,7 @@ export default function MySalesProductItem({
             <button
               onClick={() => toggleModal("reservation", true)}
               disabled={opLoading}
-              className={cn(
-                "focus-ring-strong-inset font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
-                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
-              )}
+              className={getSalesActionClass("primary", isGrid)}
             >
               예약자 선택
             </button>
@@ -715,20 +734,14 @@ export default function MySalesProductItem({
             <button
               onClick={handleUpdateToSelling}
               disabled={opLoading}
-              className={cn(
-                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
-                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
-              )}
+              className={getSalesActionClass("danger", isGrid)}
             >
               예약 취소
             </button>
             <button
               onClick={handleUpdateToSold}
               disabled={opLoading}
-              className={cn(
-                "focus-ring-strong-inset font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors",
-                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
-              )}
+              className={getSalesActionClass("primary", isGrid)}
             >
               판매 완료
             </button>
@@ -739,10 +752,7 @@ export default function MySalesProductItem({
             {sellerReviews.length > 0 ? (
               <button
                 onClick={() => toggleModal("reviewSeller", true)}
-                className={cn(
-                  "focus-ring-strong-inset font-medium text-primary hover:bg-surface-dim transition-colors",
-                  isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
-                )}
+                className={getSalesActionClass("neutral", isGrid)}
               >
                 내 리뷰 보기
               </button>
@@ -750,10 +760,7 @@ export default function MySalesProductItem({
               <button
                 onClick={() => toggleModal("reviewCreate", true)}
                 disabled={reviewLoading}
-                className={cn(
-                  "focus-ring-strong-inset font-medium text-brand dark:text-brand-light hover:bg-brand/5 dark:hover:bg-brand-light/10 transition-colors disabled:opacity-50",
-                  isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
-                )}
+                className={getSalesActionClass("primary", isGrid)}
               >
                 {reviewLoading ? "처리 중..." : "리뷰 작성"}
               </button>
@@ -761,32 +768,26 @@ export default function MySalesProductItem({
             <button
               onClick={handleUpdateToSelling}
               disabled={opLoading}
-              className={cn(
-                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
-                isSoldGrid
-                  ? "border-r border-border-subtle py-2.5 text-xs"
-                  : isGrid
-                    ? "py-2.5 text-xs"
-                    : "py-3 text-xs sm:text-sm"
+              className={getSalesActionClass(
+                "danger",
+                isGrid,
+                isSoldGrid ? "border-r border-border-subtle" : undefined
               )}
             >
               {isGrid ? "판매 중으로" : "판매 중으로 변경"}
             </button>
             <button
               onClick={() => toggleModal("reviewBuyer", true)}
-              className={cn(
-                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors",
-                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
-              )}
+              className={getSalesActionClass("neutral", isGrid)}
             >
               구매자 리뷰
             </button>
             <button
               onClick={handleToggleHidden}
               disabled={opLoading}
-              className={cn(
-                "focus-ring-strong-inset font-medium text-muted hover:text-primary hover:bg-surface-dim transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                isGrid ? "py-2.5 text-xs" : "py-3 text-xs sm:text-sm"
+              className={getSalesActionClass(
+                product.hidden_at ? "neutral" : "danger",
+                isGrid
               )}
             >
               {product.hidden_at ? "숨김 해제" : "숨기기"}

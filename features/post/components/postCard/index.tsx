@@ -25,6 +25,8 @@
  * 2026.04.20  임도헌   Modified  게시글 카드 포커스가 브라우저 기본 outline 대신 keyboard-only inset 링으로 보이도록 조정
  * 2026.05.03  임도헌   Modified  게시글 목록 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.18  임도헌   Modified  게시글 카드 좋아요 하트 색상을 현재 사용자 좋아요 여부 기준으로 전달
+ * 2026.06.18  임도헌   Modified  명시 장소가 있는 게시글만 카드 위치를 표시하도록 locationName 전달
+ * 2026.06.21  임도헌   Modified  장소 미지정 게시글도 feedRegion 작성 동네를 목록 메타에 노출
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -132,8 +134,13 @@ export default function PostCard({
             isLiked={Boolean(post.isLiked)}
             comments={post._count.comments}
             createdAt={post.created_at.toString()}
+            locationName={post.locationName}
+            region1={post.region1}
             region2={post.region2}
             region3={post.region3}
+            feedRegion1={post.feedRegion1}
+            feedRegion2={post.feedRegion2}
+            feedRegion3={post.feedRegion3}
             viewMode={viewMode}
           />
         </div>

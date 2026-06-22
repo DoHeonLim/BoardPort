@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.18  임도헌   Created   녹화본 좋아요/댓글 변경 시 메인/채널 다시보기 목록 캐시 갱신 유틸 추가
+ * 2026.06.22  임도헌   Modified  녹화 삭제 후 메인/채널 다시보기 목록에서 항목을 즉시 제거하는 유틸 추가
  */
 
 import type { InfiniteData, QueryClient, QueryKey } from "@tanstack/react-query";
@@ -133,6 +134,50 @@ export function updateRecordingListCaches(
   queryClient.setQueriesData<RecordingInfiniteCache>(
     { predicate: (query) => isChannelRecordingsKey(query.queryKey) },
     (oldData) => patchRecordingListCache(oldData, vodId, patcher)
+  );
+}
+
+/**
+ * 다시보기 목록의 특정 녹화본 항목 제거
+ *
+ * @param oldData - 기존 infinite query 캐시
+ * @param vodId - 제거 대상 VOD ID
+ * @returns 제거된 infinite query 캐시
+ */
+function removeRecordingFromListCache(
+  oldData: RecordingInfiniteCache | undefined,
+  vodId: number
+) {
+  if (!oldData?.pages) return oldData;
+
+  return {
+    ...oldData,
+    pages: oldData.pages.map((page) => ({
+      ...page,
+      recordings: page.recordings.filter(
+        (recording) => recording.vodId !== vodId
+      ),
+    })),
+  };
+}
+
+/**
+ * 다시보기 메인/채널 목록 캐시에서 삭제된 녹화본을 즉시 제거
+ *
+ * @param queryClient - TanStack Query Client
+ * @param vodId - 제거 대상 VOD ID
+ */
+export function removeRecordingFromListCaches(
+  queryClient: QueryClient,
+  vodId: number
+) {
+  queryClient.setQueriesData<RecordingInfiniteCache>(
+    { queryKey: queryKeys.streams.recordingLists() },
+    (oldData) => removeRecordingFromListCache(oldData, vodId)
+  );
+  queryClient.setQueriesData<RecordingInfiniteCache>(
+    { predicate: (query) => isChannelRecordingsKey(query.queryKey) },
+    (oldData) => removeRecordingFromListCache(oldData, vodId)
   );
 }
 

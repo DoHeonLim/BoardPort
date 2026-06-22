@@ -24,6 +24,7 @@
  * 2026.03.07  임도헌   Modified  push 성공 판정 기준을 result.data.sent로 정정
  * 2026.03.07  임도헌   Modified  차단 관계에서는 리뷰 작성 불가하도록 가드 추가
  * 2026.04.03  임도헌   Modified  리뷰 생성 helper 주석 보강
+ * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 리뷰 알림 본문 사전 축약 제거
  */
 
 import "server-only";
@@ -80,12 +81,8 @@ async function sendPush(params: {
   }
 }
 
-/**
- * 긴 리뷰 본문을 알림용 짧은 미리보기 문자열로 정규화
- */
-function buildPreview(text: string, max = 30) {
-  const plain = text.replace(/\s+/g, " ").trim();
-  return plain.length <= max ? plain : `${plain.slice(0, max)}...`;
+function normalizeNotificationText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -200,7 +197,7 @@ export async function createReviewService(
           const title = "새로운 리뷰가 작성되었습니다";
           const body = `${review.user.username}님이 ${
             prod.title
-          }에 리뷰를 작성했습니다: "${buildPreview(data.payload)}"`;
+          }에 리뷰를 작성했습니다: "${normalizeNotificationText(data.payload)}"`;
 
           // DB 알림 저장
           const notification = await db.notification.create({

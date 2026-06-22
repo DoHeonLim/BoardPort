@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.05  임도헌   Created   상품/게시글/방송 관련 콘텐츠 UI 분리
+ * 2026.06.19  임도헌   Modified  관련 방송 링크를 라이브/종료 상태에 따라 방송 상세 또는 VOD 상세로 분기
  */
 
 import Image from "next/image";
@@ -170,7 +171,7 @@ function RelatedBroadcastList({
       {broadcasts.map((broadcast) => (
         <Link
           key={broadcast.id}
-          href={`/streams/${broadcast.id}`}
+          href={getBroadcastHref(broadcast)}
           className="focus-ring-soft block rounded-xl border border-border-subtle bg-surface-dim p-3 transition hover:border-brand/50 hover:bg-surface"
         >
           <p className="truncate text-sm font-bold text-primary">
@@ -209,6 +210,23 @@ function RelatedContentGroup({
       <div className="mt-2 space-y-2">{children}</div>
     </div>
   );
+}
+
+/**
+ * 관련 방송 이동 경로 결정
+ * 진행 중인 방송은 라이브 상세, 종료 방송은 처리 완료된 VOD가 있으면 녹화본 상세로 이동
+ *
+ * @param broadcast - 관련 방송 요약
+ * @returns 방송 상태에 맞는 상세 경로
+ */
+function getBroadcastHref(
+  broadcast: BoardGameRelatedContent["broadcasts"][number]
+): string {
+  if (broadcast.status === "CONNECTED") return `/streams/${broadcast.id}`;
+  if (broadcast.vodIdForRecording) {
+    return `/streams/${broadcast.vodIdForRecording}/recording`;
+  }
+  return `/streams/${broadcast.id}`;
 }
 
 /**

@@ -25,10 +25,12 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 래퍼 아래에서만 사용되도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.17  임도헌   Modified  탭 상단 검색바에 공통 입력 스타일 클래스를 적용
  * 2026.05.16  임도헌   Modified  검색 제출 로딩 표시 시간을 search 상수로 분리
+ * 2026.06.15  임도헌   Modified  검색어가 있을 때 즉시 초기화할 수 있는 clear 버튼 추가
  */
 
 import { useEffect, useState } from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { SEARCH_SUBMIT_PENDING_MS } from "@/features/search/constants";
 
@@ -58,6 +60,7 @@ export default function SearchBar({
 }: SearchBarProps) {
   const [keyword, setKeyword] = useState(value);
   const [isPending, setIsPending] = useState(false);
+  const hasKeyword = keyword.trim().length > 0;
 
   useEffect(() => {
     setKeyword(value);
@@ -68,6 +71,13 @@ export default function SearchBar({
     const trimmed = keyword.trim();
     setIsPending(true);
     onSearch(trimmed);
+    setTimeout(() => setIsPending(false), SEARCH_SUBMIT_PENDING_MS);
+  };
+
+  const handleClear = () => {
+    setKeyword("");
+    setIsPending(true);
+    onSearch("");
     setTimeout(() => setIsPending(false), SEARCH_SUBMIT_PENDING_MS);
   };
 
@@ -90,6 +100,17 @@ export default function SearchBar({
         )}
       />
       <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-[18px] text-muted pointer-events-none" />
+
+      {hasKeyword && !isPending && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="focus-ring-soft absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:text-danger"
+          aria-label="검색어 지우기"
+        >
+          <XMarkIcon className="size-4" />
+        </button>
+      )}
 
       {isPending && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">

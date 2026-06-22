@@ -40,12 +40,7 @@
 
 "use client";
 
-import {
-  ReactNode,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { ReactNode, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
@@ -135,7 +130,7 @@ export default function ProductList({
             onClick={() => setViewMode("list")}
             aria-label="리스트 보기"
             className={cn(
-              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "list"
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"
@@ -147,7 +142,7 @@ export default function ProductList({
             onClick={() => setViewMode("grid")}
             aria-label="그리드 보기"
             className={cn(
-              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "grid"
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"

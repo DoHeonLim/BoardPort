@@ -11,6 +11,8 @@
  * 2026.04.14  임도헌   Modified  자동 로드 정책에 맞춰 미리보기 카드를 정보 중심의 간소한 로딩 셸로 정리
  * 2026.04.26  임도헌   Modified  지도 열기 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  * 2026.04.26  임도헌   Modified  위치 섹션 제목 아이콘을 위치 카드 아이콘과 같은 다크모드 톤으로 정리
+ * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
+ * 2026.06.18  임도헌   Modified  게시글 관련 장소 문구로 도메인 표현 정리
  */
 "use client";
 
@@ -20,6 +22,7 @@ import {
   ArrowTopRightOnSquareIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 
 const loadStaticMap = () => import("@/features/map/components/StaticMap");
 
@@ -148,7 +151,7 @@ export default function PostDetailLocationSection({
 
   if (!hasLocationData) return null;
 
-  const regionString = [region1, region2, region3].filter(Boolean).join(" ");
+  const regionString = formatNormalizedRegion({ region1, region2, region3 });
   const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(
     locationName
   )},${latitude},${longitude}`;
@@ -160,7 +163,7 @@ export default function PostDetailLocationSection({
     >
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-primary">
         <MapPinIcon className="size-4 text-brand dark:text-brand-light" />
-        모임 및 거래 희망 장소
+        게시글 관련 장소
       </h2>
 
       {shouldLoadMap ? (

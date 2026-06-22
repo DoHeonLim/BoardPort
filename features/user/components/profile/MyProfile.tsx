@@ -53,6 +53,7 @@
  * 2026.04.10  임도헌   Modified   profile 타이포 정책에 맞춰 주요 CTA/상태 카드/거래 카드 라벨을 400·500·700 체계로 정리
  * 2026.04.16  임도헌   Modified   profile Lighthouse 대응으로 하단 섹션 지연 로드 분리 및 진입 라벨/a11y 주석 정리
  * 2026.05.17  임도헌   Modified   차단 유저 목록 상태 타입을 BlockedUserSummary로 명시
+ * 2026.06.18  임도헌   Modified   정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  */
 "use client";
 
@@ -65,6 +66,7 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 import {
   ArrowPathIcon,
   BellAlertIcon,
@@ -160,9 +162,7 @@ export default function MyProfile({
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(false);
   const [pushStatus, setPushStatus] =
     useState<PushNotificationStatus>("disabled");
-  const fullLocation = [user.region1, user.region2, user.region3]
-    .filter(Boolean)
-    .join(" ");
+  const fullLocation = formatNormalizedRegion(user);
 
   // Zustand 모달 스토어 구독
   const modals = useModalStore((state) => state.modals);

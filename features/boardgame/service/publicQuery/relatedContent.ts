@@ -8,6 +8,7 @@
  * 2026.05.03  임도헌   Created   보드게임 상세에서 연결된 상품/게시글/방송을 역방향 조회하도록 추가
  * 2026.05.03  임도헌   Modified  관련 상품 썸네일에 Cloudflare Images public variant 정규화 적용
  * 2026.05.05  임도헌   Modified  상품/게시글/방송 역방향 연결 콘텐츠 조회 분리
+ * 2026.06.19  임도헌   Modified  종료 방송 관련 콘텐츠가 ready VOD 상세로 이동하도록 최신 VOD id 포함
  */
 
 import "server-only";
@@ -82,6 +83,12 @@ export async function getBoardGameRelatedContent(
               status: true,
               thumbnail: true,
               started_at: true,
+              vodAssets: {
+                where: { ready_at: { not: null } },
+                select: { id: true, thumbnail_url: true },
+                orderBy: { ready_at: "desc" },
+                take: 1,
+              },
             },
           },
         },
@@ -109,7 +116,8 @@ export async function getBoardGameRelatedContent(
           id: broadcast.id,
           title: broadcast.title,
           status: broadcast.status,
-          thumbnail: broadcast.thumbnail,
+          vodIdForRecording: broadcast.vodAssets[0]?.id ?? null,
+          thumbnail: broadcast.vodAssets[0]?.thumbnail_url ?? broadcast.thumbnail,
           startedAt: broadcast.started_at,
         })),
       },

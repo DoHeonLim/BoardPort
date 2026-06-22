@@ -19,6 +19,7 @@
  * 2026.03.29  임도헌   Modified  행 레이아웃을 리스트 문법으로 되돌려 아바타/닉네임을 좌정렬하고 과한 보더를 제거
  * 2026.03.29  임도헌   Modified  팔로우 CTA를 outline 대신 채움형으로 조정해 모달 내 가시성 보강
  * 2026.04.26  임도헌   Modified  팔로우 목록 CTA와 맞팔로잉 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.06.17  임도헌   Modified  row 팔로우 버튼도 pending 동안 선반영 상태로 표시
  */
 
 "use client";
@@ -57,6 +58,7 @@ export default function FollowListItem({
 }: FollowListItemProps) {
   const isMe = viewerId != null && user.id === viewerId;
   const following = !!user.isFollowedByViewer;
+  const displayFollowing = pending ? !following : following;
 
   const handleClick = async () => {
     if (!onToggle || pending) return;
@@ -80,17 +82,19 @@ export default function FollowListItem({
           type="button"
           onClick={handleClick}
           disabled={pending}
+          aria-busy={pending}
+          aria-pressed={displayFollowing}
           className={cn(
             "focus-ring-soft inline-flex h-8 min-w-[86px] items-center justify-center px-3 text-xs font-medium rounded-lg transition-colors border shrink-0",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            following
+            "disabled:cursor-not-allowed",
+            displayFollowing
               ? "bg-surface text-muted border-border-subtle hover:bg-surface-dim hover:border-border dark:bg-surface-dim dark:text-primary dark:border-border dark:hover:bg-border/40" // Unfollow
               : buttonVariant === "primary"
                 ? "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark" // Primary Follow
                 : "bg-brand text-white border-transparent hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
           )}
         >
-          {pending ? "..." : following ? "팔로우 취소" : "팔로우"}
+          {displayFollowing ? "팔로우 취소" : "팔로우"}
         </button>
       ) : isMe ? (
         <span className="inline-flex h-8 min-w-[44px] items-center justify-center rounded-lg border border-border-subtle bg-surface-dim px-2.5 text-xs font-medium text-muted">

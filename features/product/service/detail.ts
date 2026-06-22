@@ -24,6 +24,7 @@
  * 2026.04.14  임도헌   Modified  상세/모달 공통 서버 로더를 추가해 좋아요/차단 상태 조회 중복을 통합
  * 2026.05.03  임도헌   Modified  제품 상세에 연결된 보드게임 카탈로그 정보 포함
  * 2026.05.08  임도헌   Modified  제품 상세 보드게임 relation select를 공용 상수로 교체
+ * 2026.06.18  임도헌   Modified  상세 캐시와 별도로 거래/숨김 상태를 최신 조회하도록 보강
  */
 import "server-only";
 
@@ -106,19 +107,28 @@ export const getCachedProduct = (id: number) => {
 
 /**
  * 상세 페이지/모달에서 공통으로 쓰는 상세 조회 모델.
- * 공통 본문은 캐시된 상세 데이터를 재사용하고, 개인화된 좋아요/차단 상태만 별도 조회
+ * 공통 본문은 캐시된 상세 데이터를 재사용하고, 자주 바뀌는 거래/숨김 상태와
+ * 개인화된 좋아요/차단 상태만 별도 조회
  */
 export async function getProductDetailViewData(
   id: number,
   userId: number | null
 ) {
-  // 공통 본문 캐시 재사용, 사용자별 상태만 개별 조회
-  const [product, likeStatus] = await Promise.all([
+  // 공통 본문 캐시는 유지하되, 채팅 약속 수락처럼 상태만 바뀌는 경로는 최신 DB 값을 덮어쓴다.
+  const [product, likeStatus, liveState] = await Promise.all([
     getCachedProduct(id),
     getProductLikeStatus(id, userId),
+    db.product.findUnique({
+      where: { id },
+      select: {
+        reservation_userId: true,
+        purchase_userId: true,
+        hidden_at: true,
+      },
+    }),
   ]);
 
-  if (!product) {
+  if (!product || !liveState) {
     return {
       product: null,
       likeStatus,
@@ -127,14 +137,21 @@ export async function getProductDetailViewData(
     };
   }
 
-  const isOwner = userId === product.userId;
+  const productWithLiveState = {
+    ...product,
+    reservation_userId: liveState.reservation_userId,
+    purchase_userId: liveState.purchase_userId,
+    hidden_at: liveState.hidden_at,
+  };
+
+  const isOwner = userId === productWithLiveState.userId;
   // 상품 소유자 확인 이후에만 차단 관계 계산, 불필요한 조회 감소
   const isBlocked = userId
-    ? await checkBlockRelation(userId, product.userId)
+    ? await checkBlockRelation(userId, productWithLiveState.userId)
     : false;
 
   return {
-    product,
+    product: productWithLiveState,
     likeStatus,
     isOwner,
     isBlocked,

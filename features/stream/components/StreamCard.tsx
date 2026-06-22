@@ -52,6 +52,7 @@
  * 2026.05.15  임도헌   Modified  레일 카드 카테고리 배지가 남는 가로폭을 우선 사용하고 부족할 때만 말줄임되도록 조정
  * 2026.05.15  임도헌   Modified  모바일 터치 환경에서 썸네일 미리보기 버튼으로 라이브 프리뷰를 켤 수 있도록 보강
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타를 좋아요/댓글/조회수 Heroicons 통계 문법으로 통일
+ * 2026.06.22  임도헌   Modified  레일 카드 카테고리 배지가 남은 줄 전체를 차지하지 않도록 폭 계산 조정
  */
 
 "use client";
@@ -483,8 +484,8 @@ export default function StreamCard(props: StreamCardProps) {
             {category && (
               <span
                 className={cn(
-                  "ml-auto flex min-w-0 items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]",
-                  isGridLayout ? "max-w-[46%]" : "flex-1"
+                  "ml-auto inline-flex min-w-0 shrink items-center gap-1 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]",
+                  isGridLayout ? "max-w-[46%]" : "max-w-[62%]"
                 )}
               >
                 {category.icon && (

@@ -30,6 +30,7 @@
  * 2026.05.18  임도헌   Modified  서버 초기 미읽음 수를 query cache에 명시 동기화해 탭 전환 후 뱃지 잔상 보정
  * 2026.05.18  임도헌   Modified  미읽음 수 클라이언트 재검증을 Server Action 대신 전용 API 조회로 전환
  * 2026.06.07  임도헌   Modified  오래된 서버 초기값이 클라이언트 미읽음 차감을 되돌리지 않도록 보정
+ * 2026.06.21  임도헌   Modified  하단 신호 탭 미읽음 뱃지가 탭바 상단에서 잘려 보이지 않도록 위치 조정
  */
 "use client";
 
@@ -271,7 +272,7 @@ export default function TabBar({
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "absolute -right-2.5 -top-2 inline-flex h-4 min-w-4 items-center justify-center rounded-full",
+                        "absolute -right-2.5 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full",
                         "bg-danger px-1 text-[10px] font-bold leading-none text-white shadow-sm"
                       )}
                     >

@@ -50,6 +50,7 @@
  * 2026.04.26  임도헌   Modified   차단 해제 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  * 2026.05.12  임도헌   Modified   타인 프로필 방송국 StreamCard에 연결 보드게임 메타 전달
  * 2026.05.16  임도헌   Modified   판매 탭 제품 scope 매핑을 명시해 any 캐스팅 제거
+ * 2026.06.21  임도헌   Modified   타인 프로필 판매 목록 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
  */
 
 "use client";
@@ -399,7 +400,7 @@ export default function UserProfile({
                     onClick={() => setViewMode("list")}
                     aria-label="리스트 보기"
                     className={cn(
-                      "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+                      "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
                       viewMode === "list"
                         ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                         : "text-muted hover:bg-background/70 hover:text-primary"
@@ -411,11 +412,11 @@ export default function UserProfile({
                     onClick={() => setViewMode("grid")}
                     aria-label="그리드 보기"
                     className={cn(
-                      "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+                      "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
                       viewMode === "grid"
                         ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                         : "text-muted hover:bg-background/70 hover:text-primary"
-            )}
+                    )}
                   >
                     <Squares2X2Icon className="size-4" />
                   </button>

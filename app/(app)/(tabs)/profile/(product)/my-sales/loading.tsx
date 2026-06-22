@@ -12,6 +12,7 @@
  * 2026.03.17  임도헌   Modified  현재 판매 카드 하단 액션 밀도에 맞춰 액션 영역 두께와 대비 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/(product)/my-sales/loading.tsx 에서 app/(app)/(tabs)/profile/(product)/my-sales/loading.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.17  임도헌   Modified  실카드와 맞춰 태그-메타 사이 구분선을 제거하고 간격만 유지하도록 스켈레톤 리듬 정리
+ * 2026.06.21  임도헌   Modified  실제 뷰 토글 버튼 크기(모바일 36px, sm 이상 44px)에 맞춰 로딩 스켈레톤 정렬
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -29,8 +30,8 @@ export default function Loading() {
 
         {/* View Toggle */}
         <div className="flex justify-end gap-2 mb-3">
-          <Skeleton className="size-9 rounded-lg" />
-          <Skeleton className="size-9 rounded-lg" />
+          <Skeleton className="size-9 rounded-lg sm:size-11" />
+          <Skeleton className="size-9 rounded-lg sm:size-11" />
         </div>
 
         {/* List Skeleton */}
@@ -81,5 +82,4 @@ export default function Loading() {
     </div>
   );
 }
-
 

@@ -19,6 +19,7 @@
  * 2026.04.14  임도헌   Modified  서버 컨테이너 책임과 섹션 조합 흐름이 드러나도록 함수 상단 JSDoc 설명을 보강
  * 2026.05.03  임도헌   Modified  상품 상세에 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.06  임도헌   Modified  게시글/방송 상세와 동일한 도감 이동 카드 표시로 통일
+ * 2026.06.18  임도헌   Modified  예약/판매완료 거래 상태를 상세 헤더에 전달
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
@@ -51,6 +52,7 @@ interface ProductDetailProps {
   isOwner: boolean;
   likeCount: number;
   isLiked: boolean;
+  viewerId?: number | null;
   isModalContext?: boolean;
 }
 
@@ -66,6 +68,7 @@ export default function ProductDetailContainer({
   isOwner,
   likeCount,
   isLiked,
+  viewerId = null,
   isModalContext = false,
 }: ProductDetailProps) {
   return (
@@ -93,6 +96,8 @@ export default function ProductDetailContainer({
             game_type={product.game_type}
             bumpCount={product.bump_count}
             showHiddenBadge={isOwner && !!product.hidden_at}
+            reservationUserId={product.reservation_userId}
+            purchaseUserId={product.purchase_userId}
           />
 
           <p className="text-base text-primary whitespace-pre-wrap leading-relaxed">
@@ -134,6 +139,7 @@ export default function ProductDetailContainer({
           isLiked={isLiked}
           likeCount={likeCount}
           isOwner={isOwner}
+          viewerId={viewerId}
           bumpCount={product.bump_count}
         />
       </div>

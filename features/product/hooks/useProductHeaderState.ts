@@ -9,6 +9,8 @@
  * Date        Author   Status    Description
  * 2026.04.13  임도헌   Created   모바일/데스크톱 제품 헤더에서 중복되던 검색/필터 상태 로직을 공통 훅으로 분리
  * 2026.04.17  임도헌   Modified  공통 헤더 훅의 검색/필터/최근 검색어 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.06.15  임도헌   Modified  검색어 초기화 시 빈 키워드가 최근 검색어에 저장되지 않도록 방어
+ * 2026.06.15  임도헌   Modified  제품 요약 영역에서 검색어만 남은 상태도 즉시 초기화할 수 있게 핸들러 제공
  */
 
 import { useState } from "react";
@@ -60,8 +62,16 @@ export function useProductHeaderState({
 
   // 검색 확정 시 최근 검색어 저장, URL keyword 갱신 후 모달 닫기
   const handleSearch = (nextKeyword: string) => {
-    addHistory(nextKeyword);
-    updateKeyword(nextKeyword);
+    const trimmed = nextKeyword.trim();
+    if (trimmed) {
+      addHistory(trimmed);
+    }
+    updateKeyword(trimmed);
+    setIsSearchOpen(false);
+  };
+
+  const clearKeyword = () => {
+    updateKeyword("");
     setIsSearchOpen(false);
   };
 
@@ -70,8 +80,10 @@ export function useProductHeaderState({
     setIsSearchOpen,
     handleSearch,
     filterSummary,
+    hasActiveKeyword: Boolean(keyword?.trim()),
     hasActiveFilters: activeFilterCount > 0,
     resetFilterParams,
+    clearKeyword,
     localSearchHistory,
     removeHistory,
     clearHistory,

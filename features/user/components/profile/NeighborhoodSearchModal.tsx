@@ -16,6 +16,7 @@
  * 2026.04.26  임도헌   Modified  데스크톱 동네 검색 모달의 dialog 의미와 검색 입력/닫기 버튼 라벨을 보강
  * 2026.04.26  임도헌   Modified  동네 검색 로딩/오류/빈 결과 문구를 사용자 행동 기준으로 정리
  * 2026.05.16  임도헌   Modified  카카오 주소 검색 응답 타입을 명시해 any 제거
+ * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
  */
 
 import { useState } from "react";
@@ -29,6 +30,10 @@ import {
 import { toast } from "sonner";
 import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
 import type { LocationData } from "@/features/map/types";
+import {
+  formatNormalizedRegion,
+  normalizeKakaoRegion,
+} from "@/features/map/utils/normalizeRegion";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface Props {
@@ -77,15 +82,21 @@ function normalizeResults(
     const r1 = addr.region_1depth_name;
     const r2 = addr.region_2depth_name;
     const r3 = addr.region_3depth_h_name || addr.region_3depth_name;
-    const fullName = [r1, r2, r3].filter(Boolean).join(" ");
-
-    if (!r1 || !r2 || !r3 || !fullName || uniqueRegions.has(fullName)) return;
-
-    uniqueRegions.set(fullName, {
-      address_name: fullName,
+    const region = normalizeKakaoRegion({
       region1: r1,
       region2: r2,
       region3: r3,
+    });
+    const fullName = formatNormalizedRegion(region);
+
+    if (!region.region1 || !region.region2 || !fullName) return;
+    if (uniqueRegions.has(fullName)) return;
+
+    uniqueRegions.set(fullName, {
+      address_name: fullName,
+      region1: region.region1,
+      region2: region.region2,
+      region3: region.region3,
       x: item.x,
       y: item.y,
     });

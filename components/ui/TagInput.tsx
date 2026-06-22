@@ -14,6 +14,7 @@
  * 2026.02.26  임도헌   Modified  다크모드 개선
  * 2026.04.04  임도헌   Modified  export 주석을 보강해 react-hook-form 기반 태그 입력 역할을 더 명확히 정리
  * 2026.05.17  임도헌   Modified  control/name props를 react-hook-form 제네릭 타입으로 구체화
+ * 2026.06.18  임도헌   Modified  모바일 키보드 Enter/blur 시 태그 확정 흐름 보강
  */
 "use client";
 
@@ -64,15 +65,21 @@ export default function TagInput<TFieldValues extends FieldValues>({
     setTagInput("");
   }, [resetSignal]);
 
+  const commitTag = (rawTag: string) => {
+    if (disabled) return;
+    const newTag = rawTag.trim().replace(/,+$/g, "").trim();
+    if (newTag && !tags.includes(newTag) && tags.length < maxTags) {
+      onChange([...tags, newTag]);
+    }
+    setTagInput("");
+  };
+
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (disabled) return;
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      const newTag = tagInput.trim();
-      if (newTag && !tags.includes(newTag) && tags.length < maxTags) {
-        onChange([...tags, newTag]);
-        setTagInput("");
-      }
+      commitTag(tagInput);
     }
   };
 
@@ -115,6 +122,11 @@ export default function TagInput<TFieldValues extends FieldValues>({
         value={tagInput}
         onChange={(e) => setTagInput(e.target.value)}
         onKeyDown={handleAddTag}
+        onBlur={() => {
+          if (tagInput.trim()) commitTag(tagInput);
+        }}
+        enterKeyHint="done"
+        autoComplete="off"
         placeholder={
           tags.length >= maxTags ? "태그가 꽉 찼습니다" : "태그 입력 (Enter)"
         }

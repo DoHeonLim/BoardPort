@@ -18,6 +18,7 @@
  * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 범위 라벨/드롭다운 헤더 weight를 500 기준으로 정리
  * 2026.04.20  임도헌   Modified  제품 헤더 범위 토글과 드롭다운 항목에 공용 포커스 링을 적용해 헤더 포커스 문법을 통일
  * 2026.04.20  임도헌   Modified  모바일에서는 지역 범위 선택을 BottomSheet로 제공해 제품/게시글 헤더의 조작 밀도와 모달 패턴을 통일
+ * 2026.06.18  임도헌   Modified  도 단위 주소 정규화 정책에 맞춰 시/군 단위 표현과 주석 정리
  */
 "use client";
 
@@ -51,15 +52,15 @@ interface Props {
 /**
  * 리스트 페이지용 지역 필터 토글
  *
- * - "내 동네 / 구 단위 / 시 단위 / 전국" 범위를 선택하는 UI를 제공
+ * - "내 동네 / 구 단위 / 시/군 단위 / 전국" 범위를 선택하는 UI를 제공
  * - [Change] URL Query(`?region=...`)를 변경하지 않고, `updateUserLocationAction`을 호출하여
  *   DB의 `User.regionRange` 필드를 직접 업데이트 (SSOT: DB).
  * - 세종시 등 '구/군'이 없는 특수 행정구역의 경우 '구 단위' 옵션을 자동으로 숨김 처리
  * - 낙관적 업데이트(Optimistic UI)를 적용하여 클릭 즉시 UI를 변경하고 백그라운드에서 저장
  * - 저장 성공 시 toast와 `router.refresh()`로 서버 상태 재동기화
  *
- * @param userRegion1 - 시/도
- * @param userRegion2 - 구/군
+ * @param userRegion1 - 지역 필터 1차 단위(카카오 1depth 또는 도 단위의 시/군)
+ * @param userRegion2 - 지역 필터 2차 단위(구/군, 없으면 userRegion1)
  * @param userRegion3 - 동/읍/면
  * @param currentRange - 현재 설정된 범위 (Server Component에서 주입)
  */
@@ -77,7 +78,7 @@ export default function RegionFilterToggle({
   const menuRef = useRef<HTMLDivElement>(null);
 
   // '구' 단위가 유의미한 지역인지 판별
-  // region2가 없거나, region1(시/도)과 region2(구/군)가 같다면 '구 단위' 필터는 불필요함 (예: 세종시)
+  // region2가 없거나 region1과 같다면 '구 단위' 필터는 불필요함 (예: 세종시, 구가 없는 시/군)
   const hasDistinctGu = !!userRegion2 && userRegion2 !== userRegion1;
   const activeItemClass =
     "bg-brand/5 font-medium text-brand dark:bg-brand-light/15 dark:text-brand-light";

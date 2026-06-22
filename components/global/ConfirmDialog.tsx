@@ -18,10 +18,14 @@
  * 2026.04.21  임도헌   Modified  중첩 모달 위에서도 확인 다이얼로그가 안정적으로 보이도록 포털 레이어 우선순위를 10단위 규칙으로 정리
  * 2026.04.29  임도헌   Modified  비파괴 확인 액션에서도 사용할 수 있도록 confirm 버튼 primary 톤 옵션 추가
  * 2026.05.05  임도헌   Modified  키보드/배경 클릭 처리 helper JSDoc 보강
+ * 2026.06.19  임도헌   Modified  모바일 확인 다이얼로그를 공용 BottomSheet로 분기해 차단/신고 계열 문법 통일
+ * 2026.06.19  임도헌   Modified  모바일 BottomSheet에서는 X 닫기와 중복되는 취소 버튼을 제거해 확인 CTA만 남김
  */
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import BottomSheet from "@/components/global/BottomSheet";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +59,7 @@ export default function ConfirmDialog({
   onCancel,
   loading = false,
 }: ConfirmDialogProps) {
+  const isMobile = useIsMobile();
   const firstRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const prevFocusedRef = useRef<HTMLElement | null>(null);
@@ -70,6 +75,8 @@ export default function ConfirmDialog({
   // 포커스 진입/복원 + 바디 스크롤 잠금
   useEffect(() => {
     if (!open) return;
+    if (isMobile) return;
+
     prevFocusedRef.current = document.activeElement as HTMLElement | null;
 
     const t = setTimeout(() => firstRef.current?.focus(), 0);
@@ -81,11 +88,12 @@ export default function ConfirmDialog({
       // 닫히면 이전 포커스로 복귀
       prevFocusedRef.current?.focus?.();
     };
-  }, [open]);
+  }, [isMobile, open]);
 
   // ESC + 포커스 트랩(Tab 순환)
   useEffect(() => {
     if (!open) return;
+    if (isMobile) return;
 
     /**
      * ESC 닫기와 Tab 포커스 순환을 처리
@@ -122,14 +130,16 @@ export default function ConfirmDialog({
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, loading, onCancel]);
+  }, [isMobile, open, loading, onCancel]);
 
   // open이 false거나 마운트 전이면 렌더링 안 함
   if (!open || !mounted) return null;
 
-  const onBackdropClick = () => {
+  const onCancelIfIdle = () => {
     if (!loading) onCancel();
   };
+
+  const onBackdropClick = onCancelIfIdle;
 
   /**
    * 패널 내부 클릭이 backdrop close로 전파되지 않도록 차단
@@ -137,6 +147,68 @@ export default function ConfirmDialog({
    * @param e - 패널 클릭 이벤트
    */
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+  const actionButtons = (
+    <div className="flex justify-end gap-3">
+      <button
+        ref={firstRef}
+        type="button"
+        onClick={onCancel}
+        disabled={loading}
+        className="focus-ring-soft inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
+      >
+        {cancelLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={loading}
+        className={cn(
+          "focus-ring-strong inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50",
+          confirmVariant === "primary"
+            ? "bg-brand hover:bg-brand-dark"
+            : "bg-danger hover:bg-red-600"
+        )}
+      >
+        {loading ? "처리 중..." : confirmLabel}
+      </button>
+    </div>
+  );
+
+  const mobileConfirmButton = (
+    <div className="flex justify-end">
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={loading}
+        className={cn(
+          "focus-ring-strong inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50",
+          confirmVariant === "primary"
+            ? "bg-brand hover:bg-brand-dark"
+            : "bg-danger hover:bg-red-600"
+        )}
+      >
+        {loading ? "처리 중..." : confirmLabel}
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open
+        title={title}
+        onClose={onCancelIfIdle}
+        footer={mobileConfirmButton}
+      >
+        {description && (
+          <div className="pt-4 text-sm leading-relaxed text-muted">
+            {description}
+          </div>
+        )}
+      </BottomSheet>
+    );
+  }
 
   return createPortal(
     <div
@@ -175,29 +247,8 @@ export default function ConfirmDialog({
           )}
         </div>
 
-        <div className="mt-6 flex shrink-0 justify-end gap-3 border-t border-border-subtle pt-4">
-          <button
-            ref={firstRef}
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="focus-ring-soft rounded-lg px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={loading}
-            className={cn(
-              "focus-ring-strong rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50",
-              confirmVariant === "primary"
-                ? "bg-brand hover:bg-brand-dark"
-                : "bg-danger hover:bg-red-600"
-            )}
-          >
-            {loading ? "처리 중..." : confirmLabel}
-          </button>
+        <div className="mt-6 shrink-0 border-t border-border-subtle pt-4">
+          {actionButtons}
         </div>
       </div>
     </div>,

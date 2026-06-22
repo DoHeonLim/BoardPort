@@ -11,6 +11,7 @@
  * 2026.04.14  임도헌   Modified  지도 섹션의 지연 준비 전략과 사용자 흐름이 드러나도록 함수 상단 JSDoc 설명을 보강
  * 2026.04.14  임도헌   Modified  자동 로드 정책에 맞춰 미리보기 카드를 정보 중심의 간소한 로딩 셸로 정리
  * 2026.04.26  임도헌   Modified  지도 열기 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  */
 
 "use client";
@@ -21,6 +22,7 @@ import {
   ArrowTopRightOnSquareIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 
 const loadStaticMap = () => import("@/features/map/components/StaticMap");
 
@@ -153,7 +155,7 @@ export default function ProductDetailLocationSection({
     return null;
   }
 
-  const regionString = [region1, region2, region3].filter(Boolean).join(" ");
+  const regionString = formatNormalizedRegion({ region1, region2, region3 });
   const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(
     locationName
   )},${latitude},${longitude}`;

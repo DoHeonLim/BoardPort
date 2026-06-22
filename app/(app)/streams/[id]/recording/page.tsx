@@ -36,7 +36,8 @@
  * 2026.03.25  임도헌   Modified  owner 삭제 액션을 본문 버튼 대신 상단 관리 메뉴로 이동해 시청 흐름 우선순위 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/recording/page.tsx 에서 app/(app)/streams/[id]/recording/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.06.07  임도헌   Modified  녹화본 좋아요 캐시를 시청자별로 분리하기 위해 viewerId 전달
-*/
+ * 2026.06.22  임도헌   Modified  녹화 삭제 후 목록/채널 캐시에서 현재 VOD를 즉시 제거할 수 있도록 vodId 전달
+ */
 export const dynamic = "force-dynamic";
 
 import { notFound, redirect } from "next/navigation";
@@ -162,6 +163,7 @@ export default async function RecordingVodPage({
     <div className="flex min-h-screen flex-col bg-background transition-colors">
       {/* 상단바: 뒤로가기 및 작성자 정보 */}
       <RecordingTopbar
+        vodId={vodId}
         broadcastId={base.broadcast.id}
         ownerId={owner.id}
         username={owner.username}

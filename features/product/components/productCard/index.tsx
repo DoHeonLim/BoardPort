@@ -55,6 +55,7 @@
  * 2026.05.20  임도헌   Modified  끌어올린 상품은 등록일 대신 refreshed_at 기준 노출 시점을 표시
  * 2026.06.01  임도헌   Modified  그리드 카드의 태그/메타 묶음을 하단 정렬해 카드별 공백 차이 완화
  * 2026.06.04  임도헌   Modified  데모 상품 밀도 대응을 위해 리스트 카드 높이와 썸네일 정렬 보정
+ * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제 버튼에 viewerId 전달
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -95,6 +96,7 @@ export default function ProductCard({
   isPriority,
   returnTo = "/products",
   showQuickUnlike = false,
+  viewerId = null,
 }: ProductCardProps) {
   const likedAt = "liked_at" in product ? product.liked_at : undefined;
   const {
@@ -134,7 +136,7 @@ export default function ProductCard({
         "relative shrink-0 overflow-hidden bg-surface-dim",
         isGrid
           ? "aspect-[3/2] w-full border-b border-border sm:aspect-[4/3]"
-          : "w-24 self-stretch sm:w-36"
+          : "w-28 self-stretch sm:w-36"
       )}
     >
       <ProductCardThumbnail
@@ -263,6 +265,7 @@ export default function ProductCard({
             productId={id}
             isLiked={true}
             likeCount={_count.product_likes}
+            viewerId={viewerId}
             variant="quick-remove"
           />
         </div>
@@ -275,6 +278,7 @@ export default function ProductCard({
               productId={id}
               isLiked={true}
               likeCount={_count.product_likes}
+              viewerId={viewerId}
               variant="quick-remove"
             />
           </div>

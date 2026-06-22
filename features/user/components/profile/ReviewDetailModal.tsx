@@ -18,12 +18,17 @@
  * 2026.03.23  임도헌   Modified  데스크톱에서 텍스트형 모달이 세로로만 길어지지 않도록 폭을 한 단계 확장
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  리뷰 상세 별점 aria-label을 sr-only 텍스트와 장식용 아이콘 구조로 정리
+ * 2026.06.18  임도헌   Modified  닫기 버튼을 공통 secondary modal 스타일로 통일
+ * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 닫기 버튼을 제거해 신고/삭제 액션만 남김
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { StarIcon } from "@heroicons/react/24/solid";
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import {
+  ExclamationTriangleIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import type { ProfileReview } from "@/features/user/types";
 
@@ -88,6 +93,8 @@ export default function ReviewDetailModal({
 
   if (!isOpen) return null;
 
+  const hasFooterActions = Boolean(review && (!isOwnReview || onDelete));
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -119,23 +126,33 @@ export default function ReviewDetailModal({
             >
               {title}
             </h3>
-            {review && (
-              <div className="flex gap-0.5">
-                <span className="sr-only">별점 {review.rate}점</span>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <StarIcon
-                    key={star}
-                    aria-hidden="true"
-                    className={cn(
-                      "w-4 h-4",
-                      star <= review.rate
-                        ? "text-yellow-400"
-                        : "text-neutral-300 dark:text-neutral-700"
-                    )}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {review && (
+                <div className="flex gap-0.5">
+                  <span className="sr-only">별점 {review.rate}점</span>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <StarIcon
+                      key={star}
+                      aria-hidden="true"
+                      className={cn(
+                        "w-4 h-4",
+                        star <= review.rate
+                          ? "text-yellow-400"
+                          : "text-neutral-300 dark:text-neutral-700"
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="리뷰 상세 모달 닫기"
+                className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+              >
+                <XMarkIcon className="size-6" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -152,23 +169,22 @@ export default function ReviewDetailModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border-subtle bg-surface flex justify-between gap-2">
-          {/* 신고 버튼 (좌측 배치) */}
-          <div className="flex items-center">
-            {review && !isOwnReview && (
-              <button
-                onClick={() => setReportOpen(true)}
-                className="focus-ring-soft rounded-md text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
-              >
-                <ExclamationTriangleIcon className="size-4" />
-                <span className="text-xs">신고</span>
-              </button>
-            )}
-          </div>
+        {hasFooterActions && (
+          <div className="px-6 py-4 border-t border-border-subtle bg-surface flex justify-between gap-2">
+            {/* 신고 버튼 (좌측 배치) */}
+            <div className="flex items-center">
+              {review && !isOwnReview && (
+                <button
+                  onClick={() => setReportOpen(true)}
+                  className="focus-ring-soft rounded-md text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
+                >
+                  <ExclamationTriangleIcon className="size-4" />
+                  <span className="text-xs">신고</span>
+                </button>
+              )}
+            </div>
 
-          <div className="flex gap-2">
-            {review && onDelete && (
+            {review && onDelete ? (
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
@@ -176,15 +192,11 @@ export default function ReviewDetailModal({
               >
                 {isDeleting ? "삭제 중..." : "삭제"}
               </button>
+            ) : (
+              <div />
             )}
-            <button
-              onClick={onClose}
-              className="focus-ring-soft px-4 py-2 text-sm font-medium text-primary bg-surface hover:bg-surface-dim border border-border-subtle rounded-xl transition-colors"
-            >
-              닫기
-            </button>
           </div>
-        </div>
+        )}
       </div>
       {/* 신고 모달 */}
       {review && (

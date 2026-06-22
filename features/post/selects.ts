@@ -8,6 +8,7 @@
  * 2026.04.02  임도헌   Created   constants.ts에서 게시글 목록/상세 조회용 Prisma select 분리
  * 2026.05.03  임도헌   Modified  게시글 목록 카드에 연결 보드게임 칩을 표시할 수 있도록 보드게임 locale select 추가
  * 2026.05.08  임도헌   Modified  보드게임 relation select를 features/boardgame/selects.ts 공용 상수로 교체
+ * 2026.06.18  임도헌   Modified  동네 피드 노출 기준 feedRegion 필드 조회 추가
  */
 
 import { Prisma } from "@/generated/prisma/client";
@@ -67,6 +68,9 @@ export const POST_SELECT = {
   region1: true,
   region2: true,
   region3: true,
+  feedRegion1: true,
+  feedRegion2: true,
+  feedRegion3: true,
   _count: {
     select: {
       comments: true,

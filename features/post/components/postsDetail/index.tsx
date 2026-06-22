@@ -34,6 +34,8 @@
  * 2026.05.03  임도헌   Modified  게시글 상세에 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.04  임도헌   Modified  게시글 상세의 연결 보드게임을 도감 이동 카드로 강조
  * 2026.05.18  임도헌   Modified  상세 메타에 댓글 수를 표시하도록 PostDetailMeta에 commentCount 전달
+ * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시 분리를 위해 viewerId를 메타로 전달
+ * 2026.06.21  임도헌   Modified  상세 메타에 관련 장소 또는 작성 동네 정보를 전달
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
@@ -71,6 +73,7 @@ interface PostDetailProps {
   views: number;
   likeCount: number;
   isLiked: boolean;
+  viewerId?: number | null;
   returnTo?: string;
   hasExplicitReturnTo?: boolean;
 }
@@ -92,6 +95,7 @@ export default function PostDetail({
   views,
   likeCount,
   isLiked,
+  viewerId = null,
   returnTo,
   hasExplicitReturnTo = false,
 }: PostDetailProps) {
@@ -165,6 +169,14 @@ export default function PostDetail({
             views={views}
             commentCount={post._count.comments}
             createdAt={post.created_at?.toString() ?? ""}
+            viewerId={viewerId}
+            locationName={post.locationName ?? null}
+            region1={post.region1 ?? null}
+            region2={post.region2 ?? null}
+            region3={post.region3 ?? null}
+            feedRegion1={post.feedRegion1 ?? null}
+            feedRegion2={post.feedRegion2 ?? null}
+            feedRegion3={post.feedRegion3 ?? null}
           />
         </div>
 

@@ -13,16 +13,111 @@
  * 2026.03.07  임도헌   Modified  댓글 목록의 정지 유저 은닉 및 삭제 액션 정지 유저 가드 적용
  * 2026.05.13  임도헌   Modified  댓글 목록 페이징에서 마지막 페이지 이후 빈 추가 요청이 생기지 않도록 nextCursor 응답으로 보정
  * 2026.05.16  임도헌   Modified  댓글 목록 where 조건 타입 명시
+ * 2026.06.21  임도헌   Modified  녹화본 댓글 작성 시 방송 주인에게 인앱/푸시 알림 전송 추가
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   checkBlockRelation,
   getBlockedUserIds,
 } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
+import {
+  canSendPushForType,
+  isNotificationTypeEnabled,
+} from "@/features/notification/utils/policy";
+import { sendPushNotification } from "@/features/notification/service/sender";
+
+function normalizeNotificationText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+async function notifyStreamerOnRecordingComment({
+  vodId,
+  recordingTitle,
+  ownerId,
+  commenterId,
+  commenterName,
+  commenterAvatar,
+  payload,
+}: {
+  vodId: number;
+  recordingTitle: string;
+  ownerId: number;
+  commenterId: number;
+  commenterName: string;
+  commenterAvatar: string | null;
+  payload: string;
+}) {
+  if (ownerId === commenterId) return;
+
+  try {
+    const prefs = await db.notificationPreferences.findUnique({
+      where: { userId: ownerId },
+    });
+
+    if (!isNotificationTypeEnabled(prefs, "STREAM")) return;
+
+    const title = "다시보기에 새 댓글이 달렸습니다";
+    const body = `${commenterName}님이 '${recordingTitle}' 다시보기에 댓글을 남겼습니다: ${normalizeNotificationText(
+      payload
+    )}`;
+    const link = `/streams/${vodId}/recording`;
+    const image = commenterAvatar ? `${commenterAvatar}/avatar` : undefined;
+
+    const notification = await db.notification.create({
+      data: {
+        userId: ownerId,
+        title,
+        body,
+        type: "STREAM",
+        link,
+        image,
+        isPushSent: false,
+      },
+    });
+
+    await supabase.channel(`user-${ownerId}-notifications`).send({
+      type: "broadcast",
+      event: "notification",
+      payload: {
+        id: notification.id,
+        userId: ownerId,
+        title: notification.title,
+        body: notification.body,
+        link: notification.link,
+        type: notification.type,
+        image: notification.image,
+        created_at: notification.created_at,
+      },
+    });
+
+    if (canSendPushForType(prefs, "STREAM")) {
+      const pushRes = await sendPushNotification({
+        targetUserId: ownerId,
+        title,
+        message: body,
+        url: link,
+        type: "STREAM",
+        image,
+        tag: `recording-comment-${vodId}`,
+        renotify: true,
+      });
+
+      if (pushRes.success && (pushRes.data?.sent ?? 0) > 0) {
+        await db.notification.update({
+          where: { id: notification.id },
+          data: { isPushSent: true, sentAt: new Date() },
+        });
+      }
+    }
+  } catch (error) {
+    console.warn("[RecordingComment] Notification failed:", error);
+  }
+}
 
 /**
  * 녹화본 댓글 목록 조회 로직
@@ -104,7 +199,12 @@ export const createRecordingComment = async (
   const vod = await db.vodAsset.findUnique({
     where: { id: vodId },
     select: {
-      broadcast: { select: { liveInput: { select: { userId: true } } } },
+      broadcast: {
+        select: {
+          title: true,
+          liveInput: { select: { userId: true } },
+        },
+      },
     },
   });
 
@@ -116,13 +216,30 @@ export const createRecordingComment = async (
     if (isBlocked) throw new Error("FORBIDDEN");
   }
 
-  await db.recordingComment.create({
+  const comment = await db.recordingComment.create({
     data: {
       payload,
       vodId,
       userId,
     },
+    select: {
+      id: true,
+      payload: true,
+      user: { select: { username: true, avatar: true } },
+    },
   });
+
+  if (vod?.broadcast.liveInput.userId) {
+    await notifyStreamerOnRecordingComment({
+      vodId,
+      recordingTitle: vod.broadcast.title,
+      ownerId: vod.broadcast.liveInput.userId,
+      commenterId: userId,
+      commenterName: comment.user.username,
+      commenterAvatar: comment.user.avatar,
+      payload: comment.payload,
+    });
+  }
 };
 
 /**

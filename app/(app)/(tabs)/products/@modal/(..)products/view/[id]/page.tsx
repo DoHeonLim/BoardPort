@@ -35,6 +35,7 @@
  * 2026.03.23  임도헌   Modified  인터셉트 모달도 일반 상세와 같은 양수 ID 가드로 정리해 잘못된 경로의 조회수/서비스 호출을 방지
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/(..)products/view/[id]/page.tsx 에서 app/(app)/(tabs)/products/@modal/(..)products/view/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  일반 상세와 동일한 공통 상세 로더/조회수 보정 흐름을 적용하고 서버 본문을 children으로 재사용
+ * 2026.06.17  임도헌   Modified  제품 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -113,12 +114,11 @@ export default async function ProductDetailModal({
         isOwner={isOwner}
         likeCount={likeStatus.likeCount}
         isLiked={likeStatus.isLiked}
+        viewerId={userId}
         isModalContext
       />
     </ProductDetailModalContainer>
   );
 }
-
-
 
 

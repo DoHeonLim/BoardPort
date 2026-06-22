@@ -13,6 +13,7 @@
  * 2026.04.17  임도헌   Modified  찜 목록의 무한 스크롤/빠른 해제/상단 카드 우선 로드 책임 설명 보강
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 카드만 priority 적용하고 빈 상태 heading/order 정리
  * 2026.04.24  임도헌   Modified  찜 목록 제품 상세 진입 시 현재 목록 경로를 returnTo로 전달
+ * 2026.06.17  임도헌   Modified  빠른 찜 해제 버튼의 좋아요 캐시 분리를 위해 viewerId 전달
  */
 "use client";
 
@@ -100,6 +101,7 @@ export default function MyLikesList({ userId }: { userId: number }) {
             isPriority={index === 0}
             showQuickUnlike
             returnTo={returnTo}
+            viewerId={userId}
           />
         ))}
       </div>

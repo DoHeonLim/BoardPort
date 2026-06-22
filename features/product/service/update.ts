@@ -24,6 +24,7 @@
  * 2026.04.04  임도헌   Modified  제품 수정 트랜잭션/가격 인하 후처리 단계의 인라인 주석 보강
  * 2026.05.03  임도헌   Modified  상품 수정 시 보드게임 카탈로그 연결 교체 저장 추가
  * 2026.05.03  임도헌   Modified  상품-보드게임 연결 교체 정책 주석 보강
+ * 2026.06.18  임도헌   Modified  거래 기준 지역 필수 정책에 맞춰 위치 삭제 저장 경로 제거
  */
 import "server-only";
 
@@ -219,24 +220,22 @@ export async function updateProduct(
       return { success: false, error: "수정 권한이 없습니다." };
     }
 
-    // 위치 삭제까지 포함한 위치 필드 payload 구성
-    const locationUpdate = data.location
-      ? {
-          latitude: data.location.latitude,
-          longitude: data.location.longitude,
-          locationName: data.location.locationName,
-          region1: data.location.region1,
-          region2: data.location.region2,
-          region3: data.location.region3,
-        }
-      : {
-          latitude: null,
-          longitude: null,
-          locationName: null,
-          region1: null,
-          region2: null,
-          region3: null,
-        };
+    if (!data.location) {
+      return {
+        success: false,
+        error: "거래 기준 지역을 선택해주세요.",
+      };
+    }
+
+    // 거래 기준 지역은 상품 노출/거래 문맥의 필수값이므로 항상 현재 선택값으로 갱신
+    const locationUpdate = {
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+      locationName: data.location.locationName,
+      region1: data.location.region1,
+      region2: data.location.region2,
+      region3: data.location.region3,
+    };
 
     // 가격/태그 변경 diff 계산
     const isPriceDropped = data.price < existing.price;
