@@ -29,6 +29,8 @@
  * 2026.04.03  임도헌   Modified  채팅방 조회 실패 문구를 찾을 수 없음과 권한 없음 문법으로 분리
  * 2026.04.04  임도헌   Modified  첫 메시지 전송 시 사용자 채널 rooms_refresh로 채팅방 목록 실시간 반영 지원
  * 2026.04.14  임도헌   Modified  채팅 목록 성능 점검 대응으로 메시지/읽음/삭제 변화마다 사용자 목록 refresh 브로드캐스트를 보강
+ * 2026.06.17  임도헌   Modified  삭제된 채팅 메시지의 기존 알림 preview를 placeholder로 정리
+ * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 새 메시지 알림 본문 사전 축약 제거
  */
 
 import "server-only";
@@ -95,6 +97,84 @@ async function broadcastChatRoomListRefreshByRoomId(chatRoomId: string) {
   if (!room) return;
 
   await broadcastChatRoomListRefresh(room.users.map((user) => user.id));
+}
+
+function buildChatNotificationBody({
+  username,
+  payload,
+  image,
+}: {
+  username: string;
+  payload: string | null;
+  image: string | null;
+}) {
+  if (image && !payload) {
+    return `${username}님이 사진을 보냈습니다.`;
+  }
+
+  const messageText = (payload ?? "").trim();
+
+  if (!messageText) {
+    return `${username}님이 메시지를 보냈습니다.`;
+  }
+
+  return `${username}님이 메시지를 보냈습니다: ${messageText}`;
+}
+
+async function redactDeletedMessageNotification({
+  chatRoomId,
+  senderId,
+  senderName,
+  payload,
+  image,
+  messageCreatedAt,
+}: {
+  chatRoomId: string;
+  senderId: number;
+  senderName: string;
+  payload: string | null;
+  image: string | null;
+  messageCreatedAt: Date;
+}) {
+  try {
+    const room = await db.productChatRoom.findUnique({
+      where: { id: chatRoomId },
+      select: {
+        users: {
+          where: { id: { not: senderId } },
+          select: { id: true },
+        },
+      },
+    });
+
+    const receiverIds = room?.users.map((user) => user.id) ?? [];
+    if (receiverIds.length === 0) return;
+
+    const originalBody = buildChatNotificationBody({
+      username: senderName,
+      payload,
+      image,
+    });
+
+    await db.notification.updateMany({
+      where: {
+        userId: { in: receiverIds },
+        type: "CHAT",
+        link: `/chats/${chatRoomId}`,
+        body: originalBody,
+        created_at: {
+          gte: new Date(messageCreatedAt.getTime() - 5_000),
+          lte: new Date(messageCreatedAt.getTime() + 2 * 60_000),
+        },
+      },
+      data: {
+        title: "삭제된 메시지",
+        body: `${senderName}님이 보낸 메시지가 삭제되었습니다.`,
+      },
+    });
+  } catch (error) {
+    console.error("[redactDeletedMessageNotification] Error:", error);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -304,14 +384,11 @@ export async function createMessage(
 
       // 알림 전송 조건 체크
       if (isNotificationTypeEnabled(prefs, "CHAT")) {
-        // 알림 메시지 구성
-        let bodyText = "";
-        if (image && !payload) {
-          bodyText = `${message.user.username}님이 사진을 보냈습니다.`;
-        } else {
-          const preview = (payload ?? "").trim().slice(0, 20) + "...";
-          bodyText = `${message.user.username}님이 메시지를 보냈습니다: ${preview}`;
-        }
+        const bodyText = buildChatNotificationBody({
+          username: message.user.username,
+          payload: payload ?? null,
+          image: image ?? null,
+        });
 
         const senderAvatarUrl = message.user.avatar
           ? `${message.user.avatar}/avatar`
@@ -515,6 +592,15 @@ export async function deleteMessage(
     const chatMessage = mapToChatMessage(deletedMessage);
     const wasUnread = !existing.isRead;
 
+    await redactDeletedMessageNotification({
+      chatRoomId: roomId,
+      senderId: userId,
+      senderName: existing.user.username,
+      payload: existing.payload,
+      image: existing.image,
+      messageCreatedAt: existing.created_at,
+    });
+
     await supabase.channel(`room-${roomId}`).send({
       type: "broadcast",
       event: CHAT_EVENT.MESSAGE_DELETED,
@@ -647,4 +733,3 @@ export async function toggleMessageReaction(
     return { success: false, error: "메시지 반응 처리에 실패했습니다." };
   }
 }
-

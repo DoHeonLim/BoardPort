@@ -42,6 +42,7 @@
  * 2026.05.16  임도헌   Modified  수정 액션의 기존 첨부 동영상 확인 쿼리를 service 헬퍼로 분리
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상을 현재 사용자 좋아요 여부 기준으로 표시하도록 isLiked 매핑 추가
  * 2026.05.23  임도헌   Modified  삭제된 게시글 알림 링크/이미지 정리 및 삭제 cursor 목록 페이지네이션 실패 방어
+ * 2026.06.18  임도헌   Modified  게시글 장소 지역과 동네 피드 노출 지역(feedRegion)을 분리
  */
 import "server-only";
 
@@ -72,6 +73,36 @@ const TAKE = POSTS_PAGE_TAKE;
 type PostListRow = Prisma.PostGetPayload<{
   select: typeof POST_SELECT;
 }>;
+
+type RegionSource = {
+  region1?: string | null;
+  region2?: string | null;
+  region3?: string | null;
+};
+
+type FeedRegionWhere = Partial<
+  Record<"feedRegion1" | "feedRegion2" | "feedRegion3", string>
+>;
+
+function toFeedRegionPayload(source: RegionSource | null | undefined) {
+  return {
+    feedRegion1: source?.region1 ?? null,
+    feedRegion2: source?.region2 ?? null,
+    feedRegion3: source?.region3 ?? null,
+  };
+}
+
+function buildPostFeedRegionWhere(user: RegionSource & {
+  regionRange: Parameters<typeof buildRegionWhere>[0]["regionRange"];
+}): FeedRegionWhere {
+  const regionWhere = buildRegionWhere(user);
+
+  return {
+    ...(regionWhere.region1 ? { feedRegion1: regionWhere.region1 } : {}),
+    ...(regionWhere.region2 ? { feedRegion2: regionWhere.region2 } : {}),
+    ...(regionWhere.region3 ? { feedRegion3: regionWhere.region3 } : {}),
+  };
+}
 
 /**
  * 사용자가 소유한 게시글에 연결된 동영상 존재 여부 확인
@@ -401,8 +432,8 @@ async function syncPostBlocksFromDraft(
  *
  * [데이터 가공 전략]
  * - 커뮤니티 특성에 따라 지역 필터 적용 여부가 달라짐
- * - 지역성 카테고리 (CREW, FREE) : 유저의 DB 설정(RegionRange)에 따라 지역 필터를 적용
- * - 정보성 카테고리 (LOG, MAP, RECOMMEND, COMPASS) : 지역 필터 없이 전국(ALL) 단위로 조회
+ * - 사용자의 DB 설정(RegionRange)에 따라 feedRegion 기준 지역 필터 적용
+ * - feedRegion은 명시 장소가 있으면 해당 장소, 없으면 작성자 동네를 기준으로 저장
  *  - 정지 유저(bannedAt) 콘텐츠 은닉 필터 포함
  *
  * @param {PostSearchParams | undefined} params - 검색 조건
@@ -422,7 +453,7 @@ async function buildWhere(
     select: { region1: true, region2: true, region3: true, regionRange: true },
   });
 
-  const regionCondition = user ? buildRegionWhere(user) : {};
+  const regionCondition = user ? buildPostFeedRegionWhere(user) : {};
 
   return {
     AND: [
@@ -611,6 +642,11 @@ export async function createPost(
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
+    const authorRegion = await db.user.findUnique({
+      where: { id: userId },
+      select: { region1: true, region2: true, region3: true },
+    });
+    const feedRegion = toFeedRegionPayload(data.location ?? authorRegion);
     const nextTags = Array.from(new Set(data.tags));
     // 보드게임 연결은 게시글 분류/태그와 독립적인 선택 관계라 join table에만 저장
     const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
@@ -631,6 +667,7 @@ export async function createPost(
             region2: data.location.region2,
             region3: data.location.region3,
           }),
+          ...feedRegion,
         },
       });
 
@@ -743,6 +780,10 @@ export async function updatePost(
     if (existing.userId !== userId)
       return { success: false, error: "권한이 없습니다." };
 
+    const authorRegion = await db.user.findUnique({
+      where: { id: userId },
+      select: { region1: true, region2: true, region3: true },
+    });
     const prevTags = new Set(existing.tags.map((tag) => tag.name));
     const nextTags = Array.from(new Set(data.tags));
     // 수정 폼의 현재 보드게임 선택값을 전체 교체 기준으로 정규화
@@ -760,6 +801,7 @@ export async function updatePost(
           region1: data.location.region1,
           region2: data.location.region2,
           region3: data.location.region3,
+          ...toFeedRegionPayload(data.location),
         }
       : {
           latitude: null,
@@ -768,6 +810,7 @@ export async function updatePost(
           region1: null,
           region2: null,
           region3: null,
+          ...toFeedRegionPayload(authorRegion),
         };
 
     // 수정 트랜잭션 실행

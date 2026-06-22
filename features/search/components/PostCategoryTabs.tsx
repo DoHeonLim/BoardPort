@@ -30,6 +30,7 @@
  * 2026.04.20  임도헌   Modified  키보드 포커스가 브라우저 기본 outline으로 보이지 않도록 공용 soft 포커스 규칙을 적용
  * 2026.05.03  임도헌   Modified  카테고리 툴팁이 뒤 콘텐츠와 섞이지 않도록 불투명 surface 톤으로 보정
  * 2026.05.05  임도헌   Modified  카테고리 탭 상호작용 핸들러 JSDoc 보강
+ * 2026.06.15  임도헌   Modified  게시글 카테고리 변경 시 검색어를 유지하도록 검색 조합 정책 통일
  */
 
 import { useRef, useState } from "react";
@@ -71,21 +72,42 @@ export default function PostCategoryTabs({
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   /**
-   * 게시글 카테고리 변경 시 검색어 초기화와 목록 URL 갱신
+   * 게시글 카테고리 변경 시 기존 검색어를 유지한 채 목록 URL 갱신
    *
    * @param category - 선택한 게시글 카테고리 key, 없으면 전체
    */
   const handleCategoryClick = (category?: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete("keyword"); // 검색어 초기화
 
     if (category) {
       params.set("category", category);
     } else {
-      params.delete("category"); // 전체 보기
+      params.delete("category"); // 전체 카테고리 보기
     }
 
-    router.push(`/posts?${params.toString()}`);
+    const query = params.toString();
+    router.push(query ? `/posts?${query}` : "/posts");
+  };
+
+  /**
+   * 탭 링크 href 생성
+   *
+   * - 실제 클릭은 handleCategoryClick이 처리하지만, 새 탭 열기/주소 미리보기에서도
+   *   검색어 유지 정책이 드러나도록 현재 쿼리를 반영한다.
+   *
+   * @param category - 선택한 게시글 카테고리 key, 없으면 전체
+   */
+  const createCategoryHref = (category?: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (category) {
+      params.set("category", category);
+    } else {
+      params.delete("category");
+    }
+
+    const query = params.toString();
+    return query ? `/posts?${query}` : "/posts";
   };
 
   const isTouchDevice =
@@ -214,7 +236,7 @@ export default function PostCategoryTabs({
             onTouchEnd={handleTouchEnd}
           >
             <Link
-              href="/posts"
+              href={createCategoryHref()}
               prefetch={false}
               onClick={(e) => {
                 e.preventDefault();
@@ -279,7 +301,7 @@ export default function PostCategoryTabs({
               onTouchEnd={handleTouchEnd} // 모바일 long press 종료
             >
               <Link
-                href={`/posts?category=${key}`}
+                href={createCategoryHref(key)}
                 prefetch={false}
                 onClick={(e) => {
                   e.preventDefault();

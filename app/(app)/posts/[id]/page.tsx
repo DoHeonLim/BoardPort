@@ -36,6 +36,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/page.tsx 에서 app/(app)/posts/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  제품 상세와 동일하게 가드 후 조회수 반영/화면 보정 순서로 조정
  * 2026.05.15  임도헌   Modified  게시글 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
+ * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
  */
 
 export const dynamic = "force-dynamic";
@@ -193,6 +194,7 @@ export default async function PostDetailPage({
         views={currentViews}
         likeCount={likeStatus.likeCount}
         isLiked={likeStatus.isLiked}
+        viewerId={userId}
         returnTo={returnTo}
         hasExplicitReturnTo={!!rawReturnTo}
       />

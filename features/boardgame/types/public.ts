@@ -94,6 +94,7 @@ export interface BoardGameRelatedContent {
     id: number;
     title: string;
     status: string;
+    vodIdForRecording: number | null;
     thumbnail: string | null;
     startedAt: Date | null;
   }>;

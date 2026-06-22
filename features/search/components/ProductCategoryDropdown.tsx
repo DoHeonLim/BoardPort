@@ -27,13 +27,13 @@
  * 2026.04.02  임도헌   Modified  카테고리 옵션/빠른 분류 키 타입을 search 도메인 공용 타입 기준으로 정리
  * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 분류 라벨 및 섹션 헤더 weight를 500 기준으로 정리
  * 2026.05.16  임도헌   Modified  빠른 분류 선택 시 초기화할 쿼리 키를 search 상수로 분리
+ * 2026.06.14  임도헌   Modified  분류 선택이 기존 검색어/상세 필터를 유지하도록 검색 정책 통일
  */
 "use client";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GAME_TYPE_DISPLAY, GAME_TYPES } from "@/features/product/constants";
-import { SEARCH_QUICK_CATEGORY_RESET_KEYS } from "@/features/search/constants";
 import BottomSheet from "@/components/global/BottomSheet";
 import type {
   ProductQuickCategoryParamKey,
@@ -54,7 +54,7 @@ interface CategoryDropdownProps {
  * 검색바 좌측의 카테고리 빠른 선택 드롭다운
  * - 게임 타입(보드게임/TRPG/카드) 및 대분류 카테고리를 바로 선택하여 이동
  * - `compact`, `tone` props로 헤더 버튼 밀도와 flat 톤을 분기
- * - 빠른 분류 선택 시 기존 검색어/가격/상태 조건은 비우고 분류 축만 남김
+ * - 분류 선택 시 기존 검색어/가격/상태 조건을 유지해 현재 결과를 좁힘
  */
 export default function ProductCategoryDropdown({
   categories,
@@ -68,17 +68,15 @@ export default function ProductCategoryDropdown({
   const isMobile = useIsMobile();
 
   /**
-   * 빠른 분류 전용 쿼리 재구성
-   * - 기존 검색어/가격/상태 조건 초기화
-   * - 선택한 분류 축만 유지
+   * 분류 전용 쿼리 갱신
+   * - keyword와 상세 필터는 유지
+   * - 선택한 분류 파라미터만 교체
    */
   const createQuickCategoryQuery = (
     name: ProductQuickCategoryParamKey,
     value: string
   ) => {
     const params = new URLSearchParams(searchParams.toString());
-    // 세부 검색 조건 초기화
-    SEARCH_QUICK_CATEGORY_RESET_KEYS.forEach((key) => params.delete(key));
     params.set(name, value);
 
     return params.toString();
@@ -194,7 +192,7 @@ export default function ProductCategoryDropdown({
         <BottomSheet
           open={isOpen}
           title="카테고리 선택"
-          description="게임 타입과 장르를 빠르게 선택해 새 탐색을 시작합니다."
+          description="게임 타입과 장르를 현재 검색 조건에 추가합니다."
           onClose={() => setIsOpen(false)}
           contentClassName="pt-4"
         >

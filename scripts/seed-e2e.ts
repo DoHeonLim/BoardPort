@@ -20,13 +20,14 @@
  * 2026.05.26  임도헌   Modified  다시보기 목록/상세 E2E 검증용 ready VOD seed 추가
  * 2026.05.26  임도헌   Modified  상품 삭제/약속 수락/신고 처리 E2E 전용 seed 데이터 추가
  * 2026.05.26  임도헌   Modified  알림 설정 저장 E2E 반복 실행을 위해 seed 계정 preference 기본값 리셋
+ * 2026.06.22  임도헌   Modified  지역 노출 정책 변경에 맞춰 E2E 계정/콘텐츠 지역 seed 보정
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import bcrypt from "bcrypt";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, Role } from "../generated/prisma/client";
+import { PrismaClient, RegionRange, Role } from "../generated/prisma/client";
 import {
   BoardGameLocaleSource,
   BoardGameLocaleStatus,
@@ -60,6 +61,15 @@ const E2E_USERS = {
     email: "e2e.admin@boardport.test",
     role: Role.ADMIN,
   },
+} as const;
+
+const E2E_LOCATION = {
+  locationName: "E2E 테스트 항구",
+  region1: "서울특별시",
+  region2: "마포구",
+  region3: "합정동",
+  latitude: 37.549,
+  longitude: 126.913,
 } as const;
 
 /**
@@ -133,7 +143,18 @@ async function createE2EUsers(db: PrismaClient) {
       const existing = await db.user.findUnique({
         where: { email: user.email },
       });
-      if (existing) return existing;
+      if (existing) {
+        return db.user.update({
+          where: { id: existing.id },
+          data: {
+            username: user.username,
+            role: user.role,
+            bannedAt: null,
+            regionRange: RegionRange.ALL,
+            ...E2E_LOCATION,
+          },
+        });
+      }
 
       return db.user.create({
         data: {
@@ -142,12 +163,8 @@ async function createE2EUsers(db: PrismaClient) {
           emailVerified: true,
           password,
           role: user.role,
-          locationName: "E2E 테스트 항구",
-          region1: "서울특별시",
-          region2: "마포구",
-          region3: "합정동",
-          latitude: 37.549,
-          longitude: 126.913,
+          regionRange: RegionRange.ALL,
+          ...E2E_LOCATION,
         },
       });
     })
@@ -240,18 +257,21 @@ async function createProduct(
   });
 
   if (existing) {
-    if (input.resetTradeState) {
-      await db.product.update({
-        where: { id: existing.id },
-        data: {
-          reservation_at: null,
-          reservation_userId: null,
-          purchased_at: null,
-          purchase_userId: null,
-          hidden_at: null,
-        },
-      });
-    }
+    await db.product.update({
+      where: { id: existing.id },
+      data: {
+        ...(input.resetTradeState
+          ? {
+              reservation_at: null,
+              reservation_userId: null,
+              purchased_at: null,
+              purchase_userId: null,
+            }
+          : {}),
+        hidden_at: null,
+        ...E2E_LOCATION,
+      },
+    });
 
     if (!input.imageUrl) return existing;
 
@@ -290,12 +310,7 @@ async function createProduct(
       condition: "GOOD",
       completeness: "COMPLETE",
       has_manual: true,
-      locationName: "E2E 테스트 항구",
-      region1: "서울특별시",
-      region2: "마포구",
-      region3: "합정동",
-      latitude: 37.549,
-      longitude: 126.913,
+      ...E2E_LOCATION,
       images: input.imageUrl
         ? {
             create: [
@@ -323,7 +338,15 @@ async function createPost(
   });
 
   if (existing) {
-    return existing;
+    return db.post.update({
+      where: { id: existing.id },
+      data: {
+        ...E2E_LOCATION,
+        feedRegion1: E2E_LOCATION.region1,
+        feedRegion2: E2E_LOCATION.region2,
+        feedRegion3: E2E_LOCATION.region3,
+      },
+    });
   }
 
   return db.post.create({
@@ -332,12 +355,10 @@ async function createPost(
       description: `${input.title} 본문입니다.`,
       category: "FREE",
       userId: input.authorId,
-      locationName: "E2E 테스트 항구",
-      region1: "서울특별시",
-      region2: "마포구",
-      region3: "합정동",
-      latitude: 37.549,
-      longitude: 126.913,
+      ...E2E_LOCATION,
+      feedRegion1: E2E_LOCATION.region1,
+      feedRegion2: E2E_LOCATION.region2,
+      feedRegion3: E2E_LOCATION.region3,
     },
   });
 }

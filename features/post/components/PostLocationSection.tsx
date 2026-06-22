@@ -6,10 +6,13 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   PostForm의 위치 선택/변경 UI를 별도 섹션으로 분리
+ * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
+ * 2026.06.18  임도헌   Modified  게시글 관련 장소 문구로 도메인 표현 정리
  */
 
 import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { LocationData } from "@/features/map/types";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 
 interface PostLocationSectionProps {
   location: LocationData | null;
@@ -22,7 +25,7 @@ interface PostLocationSectionProps {
  * 게시글 위치 태그 섹션
  *
  * [역할]
- * - 모임 장소/후기 위치처럼 게시글에 연결되는 보조 위치 정보를 표시하고 수정/삭제 액션을 제공
+ * - 모임 장소/후기 위치처럼 게시글에 연결되는 선택 장소 정보를 표시하고 수정/삭제 액션을 제공
  * - 선택된 위치가 있을 때와 없을 때의 UI를 한곳에서 관리해 `PostForm` 본문 길이를 줄인다
  */
 export default function PostLocationSection({
@@ -35,9 +38,9 @@ export default function PostLocationSection({
     <div className="flex flex-col gap-2 pt-2">
       <label className="flex items-center gap-1 text-sm font-medium text-primary">
         <MapPinIcon className="size-4" />
-        장소 태그{" "}
+        게시글 관련 장소{" "}
         <span className="font-normal text-muted">
-          (모임 장소, 후기 위치 등)
+          (선택)
         </span>
       </label>
 
@@ -52,7 +55,7 @@ export default function PostLocationSection({
                 {location.locationName}
               </p>
               <p className="text-xs text-muted">
-                {location.region1} {location.region2} {location.region3}
+                {formatNormalizedRegion(location)}
               </p>
             </div>
           </div>
@@ -83,7 +86,7 @@ export default function PostLocationSection({
           disabled={isUploading}
         >
           <MapPinIcon className="size-5" />
-          <span className="text-sm">지도에서 위치 찾기</span>
+          <span className="text-sm">관련 장소 추가하기</span>
         </button>
       )}
     </div>

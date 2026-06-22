@@ -15,15 +15,19 @@
  * 2026.04.22  임도헌   Modified  차단 해제 액션을 텍스트 링크 대신 명확한 보조 버튼으로 정리
  * 2026.04.26  임도헌   Modified  차단 관리 모달에 dialog 의미와 제목 연결, ESC 닫기 포커스 흐름을 보강
  * 2026.05.17  임도헌   Modified  차단 유저 아이템 타입을 user types 공용 타입으로 이동
+ * 2026.06.18  임도헌   Modified  모바일 차단 관리 흐름을 BottomSheet로 분리하고 닫기 버튼 크기 기준 통일
+ * 2026.06.19  임도헌   Modified  X 닫기로 모달 종료 동작을 통일하고 푸터 닫기 버튼 제거
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toggleBlockAction } from "@/features/user/actions/block";
 import UserAvatar from "@/components/global/UserAvatar";
+import BottomSheet from "@/components/global/BottomSheet";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { BlockedUserSummary } from "@/features/user/types";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * 차단한 선원(유저) 관리 모달
@@ -46,6 +50,7 @@ export default function BlockedUsersModal({
   loading?: boolean;
   onUsersChange?: (users: BlockedUserSummary[]) => void;
 }) {
+  const isMobile = useIsMobile();
   const [users, setUsers] = useState(initialBlockedUsers);
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,6 +77,11 @@ export default function BlockedUsersModal({
 
   if (!isOpen) return null;
 
+  const handleClose = () => {
+    if (isPending) return;
+    onClose();
+  };
+
   const handleUnblock = (targetId: number, username: string) => {
     startTransition(async () => {
       const res = await toggleBlockAction(targetId, "unblock");
@@ -85,6 +95,61 @@ export default function BlockedUsersModal({
       }
     });
   };
+
+  const bodyContent = (
+    <div className="space-y-4">
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="size-6 animate-spin rounded-full border-2 border-brand/25 border-t-brand dark:border-brand-light/25 dark:border-t-brand-light" />
+          <p className="mt-3 text-sm text-muted">
+            차단한 선원 목록을 불러오는 중...
+          </p>
+        </div>
+      ) : users.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="text-muted text-sm">차단한 선원이 없습니다.</p>
+        </div>
+      ) : (
+        users.map((u) => (
+          <div
+            key={u.blocked.id}
+            className="flex items-center justify-between p-2 rounded-xl hover:bg-surface-dim transition-colors"
+          >
+            <UserAvatar
+              username={u.blocked.username}
+              avatar={u.blocked.avatar}
+              size="sm"
+            />
+            <button
+              onClick={() => handleUnblock(u.blocked.id, u.blocked.username)}
+              disabled={isPending}
+              className={cn(
+                "focus-ring-soft inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 text-xs font-medium transition-colors",
+                "border-border-subtle bg-surface text-brand hover:bg-surface-dim hover:text-brand-dark",
+                "dark:text-brand-light dark:hover:text-white disabled:opacity-50"
+              )}
+            >
+              차단 해제
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={isOpen}
+        title="차단한 선원 관리"
+        description="차단한 선원 목록을 확인하고 필요하면 차단을 해제합니다."
+        onClose={handleClose}
+        contentClassName="pt-4"
+      >
+        {bodyContent}
+      </BottomSheet>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -101,64 +166,20 @@ export default function BlockedUsersModal({
             차단한 선원 관리
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             type="button"
             aria-label="차단한 선원 관리 모달 닫기"
+            disabled={isPending}
             className={cn(
               "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors",
-              "text-muted hover:bg-surface-dim hover:text-primary"
+              "text-muted hover:bg-surface-dim hover:text-primary disabled:opacity-50"
             )}
           >
             <XMarkIcon className="size-6 text-muted" />
           </button>
         </div>
         <div className="p-4 max-h-[60vh] overflow-y-auto space-y-4">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="size-6 animate-spin rounded-full border-2 border-brand/25 border-t-brand dark:border-brand-light/25 dark:border-t-brand-light" />
-              <p className="mt-3 text-sm text-muted">
-                차단한 선원 목록을 불러오는 중...
-              </p>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-muted text-sm">차단한 선원이 없습니다.</p>
-            </div>
-          ) : (
-            users.map((u) => (
-              <div
-                key={u.blocked.id}
-                className="flex items-center justify-between p-2 rounded-xl hover:bg-surface-dim transition-colors"
-              >
-                <UserAvatar
-                  username={u.blocked.username}
-                  avatar={u.blocked.avatar}
-                  size="sm"
-                />
-                <button
-                  onClick={() =>
-                    handleUnblock(u.blocked.id, u.blocked.username)
-                  }
-                  disabled={isPending}
-                  className={cn(
-                    "focus-ring-soft inline-flex min-h-[36px] items-center justify-center rounded-full border px-3 text-xs font-medium transition-colors",
-                    "border-border-subtle bg-surface text-brand hover:bg-surface-dim hover:text-brand-dark",
-                    "dark:text-brand-light dark:hover:text-white disabled:opacity-50"
-                  )}
-                >
-                  차단 해제
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end">
-          <button
-            onClick={onClose}
-            className="btn-secondary-modal h-10 px-6 text-sm font-medium"
-          >
-            닫기
-          </button>
+          {bodyContent}
         </div>
       </div>
     </div>

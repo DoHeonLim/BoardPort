@@ -10,6 +10,7 @@
  * 2026.03.22  임도헌   Modified  최근 모달 셸 기준에 맞춰 높이 단위와 외곽선/헤더/푸터 보더 강도 정리
  * 2026.04.02  임도헌   Modified  약속 지도 모달 컴포넌트 JSDoc 보강
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 하단 닫기 버튼을 제거해 길찾기 CTA 중심으로 정리
  */
 
 import { useEffect, useRef } from "react";
@@ -124,18 +125,12 @@ export default function AppointmentMapModal({
           <p className="text-base font-bold text-primary mb-4 leading-snug">
             {locationName}
           </p>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 btn-secondary h-12 text-sm"
-            >
-              닫기
-            </button>
+          <div>
             <a
               href={mapLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 btn-primary h-12 text-sm flex items-center justify-center gap-2"
+              className="btn-primary flex h-12 w-full items-center justify-center gap-2 text-sm"
             >
               <span>길찾기</span>
               <ArrowTopRightOnSquareIcon className="size-4" />

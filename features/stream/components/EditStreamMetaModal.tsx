@@ -8,6 +8,8 @@
  * 2026.04.07  임도헌   Created   방송 상세 상단 메뉴에서 여는 제목/설명 수정 모달 추가
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.01  임도헌   Modified  방송 정보 수정 입력 높이를 모바일 작성형 폼 기준으로 정리
+ * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 저장 CTA 중심으로 정리
+ * 2026.06.19  임도헌   Modified  모바일 방송 정보 수정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  */
 
 import { useEffect, useState, useTransition } from "react";
@@ -15,9 +17,11 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import BottomSheet from "@/components/global/BottomSheet";
 import Input from "@/components/ui/Input";
 import { updateBroadcastMetaAction } from "@/features/stream/actions/update";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface EditStreamMetaModalProps {
   open: boolean;
@@ -42,6 +46,7 @@ export default function EditStreamMetaModal({
   onClose,
   onSaved,
 }: EditStreamMetaModalProps) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState(initialTitle);
@@ -119,6 +124,34 @@ export default function EditStreamMetaModal({
     </div>
   );
 
+  const footer = (
+    <div className="flex justify-end">
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={isPending}
+        className="btn-primary h-10 w-full px-5 text-sm sm:w-auto"
+      >
+        {isPending ? "저장 중..." : "저장"}
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={open}
+        title="방송 정보 수정"
+        description="라이브 중에도 제목과 설명을 바로 업데이트할 수 있습니다."
+        onClose={() => !isPending && onClose()}
+        contentClassName="pt-4"
+        footer={footer}
+      >
+        {content}
+      </BottomSheet>
+    );
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/60 px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-4">
       <div
@@ -163,24 +196,7 @@ export default function EditStreamMetaModal({
         <div className="flex-1 overflow-y-auto px-6 py-5">{content}</div>
 
         <div className="shrink-0 border-t border-border-subtle bg-surface px-6 py-4">
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isPending}
-              className="btn-secondary-modal h-10 px-4 text-sm font-medium"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isPending}
-              className="btn-primary h-10 px-5 text-sm"
-            >
-              {isPending ? "저장 중..." : "저장"}
-            </button>
-          </div>
+          {footer}
         </div>
       </div>
     </div>,

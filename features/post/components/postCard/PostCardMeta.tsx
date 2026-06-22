@@ -17,6 +17,8 @@
  * 2026.03.26  임도헌   Modified  리스트 카드 모바일에서는 위치 정보를 분리 노출해 시간 표시와의 충돌을 완화
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 카드 메타 숫자/위치/시간 라벨을 text-xs 기준으로 통일
  * 2026.05.18  임도헌   Modified  좋아요 하트 강조 색상을 총 좋아요 수가 아닌 현재 사용자 좋아요 여부 기준으로 보정
+ * 2026.06.18  임도헌   Modified  명시 장소가 있는 게시글만 카드 위치 정보를 표시
+ * 2026.06.21  임도헌   Modified  명시 장소가 없으면 feedRegion 기준 작성 동네를 카드 메타에 표시
  */
 "use client";
 
@@ -29,6 +31,7 @@ import {
 import TimeAgo from "@/components/ui/TimeAgo";
 import { cn } from "@/lib/utils";
 import type { ViewMode } from "@/features/product/types";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 
 interface PostCardMetaProps {
   views: number;
@@ -36,18 +39,24 @@ interface PostCardMetaProps {
   isLiked?: boolean;
   comments: number;
   createdAt: string;
+  locationName?: string | null;
+  region1?: string | null;
   region2?: string | null;
   region3?: string | null;
+  feedRegion1?: string | null;
+  feedRegion2?: string | null;
+  feedRegion3?: string | null;
   viewMode?: ViewMode;
 }
 
 /**
- * 게시글의 통계 정보(좋아요, 댓글, 조회수, 장소)와 작성 시간을 표시
+ * 게시글의 통계 정보(좋아요, 댓글, 조회수, 관련 장소/작성 동네)와 작성 시간을 표시
  *
  * [레이아웃 최적화]
  * 1. 좌측 통계와 우측 시간/장소를 양 끝으로 배치 (justify-between)
  * 2. 그리드 모드에서는 공간 확보를 위해 장소 정보 숨김
  * 3. 위치 텍스트가 길어질 경우 말줄임(...) 처리 (min-w-0 flex-1)
+ * 4. 명시 장소가 없으면 feedRegion을 작성 동네 메타로 사용
  */
 export default function PostCardMeta({
   views,
@@ -55,13 +64,31 @@ export default function PostCardMeta({
   isLiked = false,
   comments,
   createdAt,
+  locationName,
+  region1,
   region2,
   region3,
+  feedRegion1,
+  feedRegion2,
+  feedRegion3,
   viewMode = "list",
 }: PostCardMetaProps) {
   const isGrid = viewMode === "grid";
-  // 동 단위까지만 표시 (예: "서초구 방배동")
-  const locationText = [region2, region3].filter(Boolean).join(" ");
+  // 명시 장소는 관련 장소로, 없을 때의 feedRegion은 전국 피드에서 출처를 보여주는 작성 동네로 표시한다.
+  const explicitLocationText = locationName
+    ? formatNormalizedRegion({ region1, region2, region3 })
+    : "";
+  const feedRegionText = formatNormalizedRegion({
+    region1: feedRegion1,
+    region2: feedRegion2,
+    region3: feedRegion3,
+  });
+  const locationText = explicitLocationText || feedRegionText;
+  const locationTitle = explicitLocationText
+    ? `관련 장소: ${explicitLocationText}`
+    : feedRegionText
+      ? `작성 동네: ${feedRegionText}`
+      : undefined;
   const showLocationInGrid = isGrid && !!locationText;
 
   const stats = (
@@ -92,7 +119,7 @@ export default function PostCardMeta({
         {showLocationInGrid && (
           <div
             className="flex min-w-0 items-center gap-1 text-xs"
-            title={locationText}
+            title={locationTitle}
           >
             <MapPinIcon className="size-3 shrink-0" />
             <span className="truncate">{locationText}</span>
@@ -115,7 +142,7 @@ export default function PostCardMeta({
       {locationText && (
         <div
           className="flex min-w-0 items-center gap-1 text-xs text-muted sm:hidden"
-          title={locationText}
+          title={locationTitle}
         >
           <MapPinIcon className="size-3 shrink-0" />
           <span className="truncate">{locationText}</span>
@@ -130,7 +157,7 @@ export default function PostCardMeta({
             <>
               <div
                 className="hidden min-w-0 items-center gap-0.5 sm:flex"
-                title={locationText}
+                title={locationTitle}
               >
                 <MapPinIcon className="size-3 shrink-0" />
                 <span className="truncate max-w-[120px] md:max-w-[180px]">

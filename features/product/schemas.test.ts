@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.25  임도헌   Created   상품 등록/수정 입력 검증 회귀 테스트 추가
+ * 2026.06.18  임도헌   Modified  거래 기준 지역 필수화 검증 추가
  */
 
 import { describe, expect, test } from "vitest";
@@ -27,7 +28,14 @@ const validProductInput = {
   categoryId: 1,
   boardGameIds: [],
   tags: [],
-  location: null,
+  location: {
+    latitude: 37.5665,
+    longitude: 126.978,
+    locationName: "서울시청",
+    region1: "서울",
+    region2: "중구",
+    region3: "태평로1가",
+  },
 };
 
 describe("productFormSchema", () => {
@@ -62,6 +70,20 @@ describe("productFormSchema", () => {
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.max_players).toContain(
         "최대 인원은 최소 인원 이상이어야 합니다."
+      );
+    }
+  });
+
+  test("거래 기준 지역이 없으면 실패한다", () => {
+    const result = productFormSchema.safeParse({
+      ...validProductInput,
+      location: null,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.location).toContain(
+        "거래 기준 지역을 선택해주세요."
       );
     }
   });

@@ -10,6 +10,7 @@
  * 2026.04.17  임도헌   Modified  목록/라우트 로딩에서 재사용되는 스켈레톤 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.05.09  임도헌   Modified  보드게임 도감/알림 액션이 포함된 상품 목록 헤더 구조 반영
  * 2026.06.01  임도헌   Modified  모바일 목록 툴바 압축 밀도에 맞춰 뷰 토글 스켈레톤 크기 조정
+ * 2026.06.21  임도헌   Modified  실제 뷰 토글 버튼 크기(모바일 36px, sm 이상 44px)에 맞춰 스켈레톤 정렬
  */
 "use client";
 
@@ -44,9 +45,9 @@ export default function ProductListSkeleton({
             <div className="h-8 w-24 rounded-full bg-surface-dim" />
             <div className="h-8 w-9 rounded-full bg-surface-dim sm:w-28" />
           </div>
-          <div className="flex rounded-2xl border border-border-subtle bg-surface p-1">
-            <div className="size-10 rounded-xl bg-surface-dim" />
-            <div className="size-10 rounded-xl bg-surface-dim" />
+          <div className="flex rounded-xl border border-border-subtle bg-surface p-1">
+            <div className="size-9 rounded-lg bg-surface-dim sm:size-11" />
+            <div className="size-9 rounded-lg bg-surface-dim sm:size-11" />
           </div>
         </div>
       ) : null}

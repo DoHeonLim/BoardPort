@@ -16,6 +16,7 @@
  * 2026.04.09  임도헌   Modified  판매완료 숨김 상태를 owner 전용 배지로 표시
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상세 헤더 배지 타이포를 정리
  * 2026.04.14  임도헌   Modified  서버 컨테이너 전환에 맞춰 무상태 헤더 컴포넌트로 정리
+ * 2026.06.18  임도헌   Modified  예약/판매완료 거래 상태 배지를 상세 헤더에 표시
  */
 
 import { formatToWon } from "@/lib/utils";
@@ -26,6 +27,7 @@ import {
   ArrowUpIcon,
   PuzzlePieceIcon,
 } from "@heroicons/react/24/outline";
+import ProductTradeStatusBadge from "@/features/product/components/ProductTradeStatusBadge";
 
 interface ProductDetailHeaderProps {
   title: string;
@@ -33,10 +35,12 @@ interface ProductDetailHeaderProps {
   game_type: string;
   bumpCount?: number;
   showHiddenBadge?: boolean;
+  reservationUserId?: number | null;
+  purchaseUserId?: number | null;
 }
 
 /**
- * 제품의 핵심 정보(타입, 제목, 가격)를 표시
+ * 제품의 핵심 정보(타입, 거래 상태, 제목, 가격)를 표시
  * 게임 타입 배지를 클릭하면 해당 타입 필터 검색으로 이동
  */
 export default function ProductDetailHeader({
@@ -45,7 +49,15 @@ export default function ProductDetailHeader({
   game_type,
   bumpCount = 0,
   showHiddenBadge = false,
+  reservationUserId = null,
+  purchaseUserId = null,
 }: ProductDetailHeaderProps) {
+  const tradeStatus = purchaseUserId
+    ? "sold"
+    : reservationUserId
+      ? "reserved"
+      : null;
+
   return (
     <div className="flex flex-col gap-3">
       {/* 게임 타입 뱃지 */}
@@ -68,6 +80,13 @@ export default function ProductDetailHeader({
           <span className="inline-flex items-center rounded-full border border-border bg-surface-dim px-2 py-1 text-xs font-medium text-muted shadow-sm sm:px-2.5">
             숨김
           </span>
+        )}
+        {/* 판매 중은 기본 상태라 생략하고, 예약/판매완료만 명시한다. */}
+        {tradeStatus && (
+          <ProductTradeStatusBadge
+            status={tradeStatus}
+            className="rounded-full px-2 py-1 sm:px-2.5"
+          />
         )}
       </div>
 

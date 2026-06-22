@@ -23,6 +23,7 @@
  * 2026.03.31  임도헌   Modified  헤더 통계와 모달 페이징 제어 목적이 보이도록 설명 톤 통일
  * 2026.04.08  임도헌   Modified  프로필/채널 헤더 팔로우 성공 시 맥락형 토스트를 노출해 상태 전환 체감 보강
  * 2026.05.16  임도헌   Modified  팔로우 모달 캐시 조회 타입을 명시해 any 캐스팅 제거
+ * 2026.06.17  임도헌   Modified  팔로우 버튼/카운트 표시만 선반영하고 팔로워 전용 접근 상태는 서버 성공 후 동기화
  */
 "use client";
 
@@ -52,9 +53,10 @@ type ControllerParams = {
  * 팔로우 기능 통합 상태 관리 및 컨트롤러 훅
  *
  * [기능]
- * - 프로필 상단 팔로우 통계와 버튼 상태를 전역 캐시 기준으로 관리
+ * - 프로필 상단 팔로우 통계와 버튼 상태를 전역 캐시 기준으로 관리하되, 버튼/카운트 표시는 pending 동안 선반영
  * - 팔로워/팔로잉 모달은 열릴 때만 지연 로딩으로 조회
  * - 리스트 내부 토글도 같은 `useFollowToggle` 경로를 재사용해 상태를 맞춤
+ * - 팔로워 전용 방송 잠금처럼 팔로우 성공 여부에 따라 바뀌는 접근 상태는 서버 성공 후 캐시 동기화 결과만 외부로 전달
  *
  * @param {ControllerParams} params - 소유자 정보, 초기 카운트, 뷰어 정보 및 로그인 콜백
  */
@@ -81,6 +83,10 @@ export function useFollowController({
     },
     staleTime: Infinity, // Mutation 발생 시 덮어쓰기 전까지 유지
   });
+  const [optimisticOwnerState, setOptimisticOwnerState] = useState<{
+    isFollowing: boolean;
+    followerCount: number;
+  } | null>(null);
 
   // 모달 활성화 플래그
   // 열릴 때만 목록 쿼리를 켜서 초기 렌더링 비용을 줄임
@@ -102,6 +108,11 @@ export function useFollowController({
     enabled: followingOpen,
   });
 
+  const ownerPending = isPending(ownerId);
+  const displayIsFollowing =
+    optimisticOwnerState?.isFollowing ?? followStats.isFollowing;
+  const displayFollowerCount =
+    optimisticOwnerState?.followerCount ?? followStats.followerCount;
   const isPendingById = useCallback((id: number) => isPending(id), [isPending]);
 
   /**
@@ -111,10 +122,23 @@ export function useFollowController({
   const onToggleFollow = useCallback(async () => {
     if (!viewerId) return onRequireLogin?.();
     const wasFollowing = followStats.isFollowing;
+    const nextIsFollowing = !wasFollowing;
+    const nextFollowerCount = Math.max(
+      0,
+      followStats.followerCount + (wasFollowing ? -1 : 1)
+    );
+
+    setOptimisticOwnerState({
+      isFollowing: nextIsFollowing,
+      followerCount: nextFollowerCount,
+    });
+
     const res = await toggle(ownerId, wasFollowing, {
       viewerId,
       onRequireLogin,
     });
+
+    setOptimisticOwnerState(null);
 
     if (!wasFollowing && res?.success && res.isFollowing) {
       toast.success(`${ownerUsername}님을 팔로우했습니다.`);
@@ -123,6 +147,7 @@ export function useFollowController({
     viewerId,
     onRequireLogin,
     followStats.isFollowing,
+    followStats.followerCount,
     toggle,
     ownerId,
     ownerUsername,
@@ -161,10 +186,11 @@ export function useFollowController({
   );
 
   return {
-    isFollowing: followStats.isFollowing,
-    followerCount: followStats.followerCount,
+    isFollowing: displayIsFollowing,
+    confirmedIsFollowing: followStats.isFollowing,
+    followerCount: displayFollowerCount,
     followingCount: followStats.followingCount,
-    isPending: isPending(ownerId),
+    isPending: ownerPending,
     onToggleFollow,
     openFollowers: () => setFollowersOpen(true),
     openFollowing: () => setFollowingOpen(true),

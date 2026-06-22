@@ -35,11 +35,13 @@
  * 2026.05.25  임도헌   Modified  허용된 이미지 출처만 렌더링해 오래된 알림 이미지 URL 예외 방어
  * 2026.05.25  임도헌   Modified  알림 상세 이동을 먼저 수행하고 읽음 처리는 후속 동기화로 분리
  * 2026.05.25  임도헌   Modified  알림 이미지/삭제 콘텐츠 렌더링 판단을 테스트 가능한 유틸로 분리
+ * 2026.06.19  임도헌   Modified  모바일 긴 알림 본문 더보기와 알림센터 자기 링크 버튼 숨김 처리 추가
+ * 2026.06.21  임도헌   Modified  모바일 알림 제목/본문 펼침 기준을 실제 clamp overflow 측정으로 보정
  */
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -93,6 +95,133 @@ const KeywordAlertModal = dynamic(
   { ssr: false }
 );
 
+interface NotificationTextBlockProps {
+  notification: NotificationItem;
+  isLinkedNotification: boolean;
+  isExpanded: boolean;
+  onOpen: (notification: NotificationItem) => void;
+  onMarkAsRead: (id: number) => void;
+  onToggleExpanded: (id: number) => void;
+}
+
+function NotificationTextBlock({
+  notification,
+  isLinkedNotification,
+  isExpanded,
+  onOpen,
+  onMarkAsRead,
+  onToggleExpanded,
+}: NotificationTextBlockProps) {
+  const titleRef = useRef<HTMLButtonElement>(null);
+  const bodyRef = useRef<HTMLParagraphElement>(null);
+  const [canExpand, setCanExpand] = useState(false);
+
+  useEffect(() => {
+    if (isExpanded) return;
+
+    const measureOverflow = () => {
+      const title = titleRef.current;
+      const body = bodyRef.current;
+      const titleOverflow =
+        title !== null && title.scrollHeight > title.clientHeight + 1;
+      const bodyOverflow =
+        body !== null && body.scrollHeight > body.clientHeight + 1;
+      setCanExpand(titleOverflow || bodyOverflow);
+    };
+
+    measureOverflow();
+    const rafId = window.requestAnimationFrame(measureOverflow);
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureOverflow);
+      return () => {
+        window.cancelAnimationFrame(rafId);
+        window.removeEventListener("resize", measureOverflow);
+      };
+    }
+
+    const observer = new ResizeObserver(measureOverflow);
+    if (titleRef.current) observer.observe(titleRef.current);
+    if (bodyRef.current) observer.observe(bodyRef.current);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  }, [isExpanded, notification.body, notification.title]);
+
+  return (
+    <>
+      {isLinkedNotification ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
+          <button
+            ref={titleRef}
+            type="button"
+            onClick={() => onOpen(notification)}
+            className={cn(
+              "focus-ring-soft min-w-0 flex-1 rounded-md px-1 py-0.5 text-left text-[15px] font-bold leading-snug transition-colors sm:text-base",
+              isExpanded
+                ? "line-clamp-none sm:line-clamp-1"
+                : "line-clamp-2 sm:line-clamp-1",
+              notification.isRead
+                ? "text-slate-600 dark:text-slate-300"
+                : "text-primary hover:text-brand dark:hover:text-brand-light"
+            )}
+          >
+            {notification.title}
+          </button>
+          {/* 링크형 알림은 별도 CTA를 노출해 이동 동작 인지성 보강 */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onOpen(notification)}
+              className="focus-ring-soft inline-flex shrink-0 items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-border-strong hover:bg-surface-dim hover:text-primary dark:text-slate-200"
+            >
+              보기
+              <ArrowUpRightIcon className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          ref={titleRef}
+          type="button"
+          onClick={() => onMarkAsRead(notification.id)}
+          className={cn(
+            "focus-ring-soft rounded-md px-1 py-0.5 text-left text-[15px] font-bold leading-snug transition-colors sm:text-base",
+            isExpanded
+              ? "line-clamp-none sm:line-clamp-1"
+              : "line-clamp-2 sm:line-clamp-1",
+            notification.isRead
+              ? "text-slate-600 dark:text-slate-300"
+              : "text-primary hover:text-brand dark:hover:text-brand-light"
+          )}
+        >
+          {notification.title}
+        </button>
+      )}
+      <p
+        ref={bodyRef}
+        className={cn(
+          "mt-0.5 text-sm leading-snug text-slate-600 dark:text-slate-300",
+          isExpanded ? "line-clamp-none sm:line-clamp-2" : "line-clamp-2"
+        )}
+      >
+        {notification.body}
+      </p>
+      {canExpand && (
+        <button
+          type="button"
+          onClick={() => onToggleExpanded(notification.id)}
+          className="focus-ring-soft mt-1 inline-flex rounded px-1 py-0.5 text-xs font-bold text-brand transition-colors hover:text-brand-dark sm:hidden dark:text-brand-light"
+        >
+          {isExpanded ? "접기" : "더보기"}
+        </button>
+      )}
+    </>
+  );
+}
+
 /**
  * 알림함 목록 및 읽음 처리 컨테이너 컴포넌트
  *
@@ -116,6 +245,9 @@ export default function NotificationListContainer({
   const [failedImageIds, setFailedImageIds] = useState<Set<number>>(
     () => new Set()
   );
+  const [expandedNotificationIds, setExpandedNotificationIds] = useState<
+    Set<number>
+  >(() => new Set());
   const [isKeywordModalOpen, setIsKeywordModalOpen] = useState(false);
   const [isMarkingAll, startMarkingAll] = useTransition();
   const router = useRouter();
@@ -132,6 +264,7 @@ export default function NotificationListContainer({
     // 서버 응답 기준 로컬 목록 재동기화
     setNotifications(data.items);
     setFailedImageIds(new Set());
+    setExpandedNotificationIds(new Set());
   }, [data.items]);
 
   // Zustand 액션 가져오기
@@ -257,6 +390,27 @@ export default function NotificationListContainer({
     const separator = safeHref.includes("?") ? "&" : "?";
     return `${safeHref}${separator}returnTo=${encodeURIComponent(currentHref)}`;
   };
+  const isNotificationCenterLink = (href?: string | null) => {
+    if (!href) return false;
+    const safeHref = sanitizeCallbackUrl(href);
+    return (
+      safeHref === "/profile/notifications/list" ||
+      safeHref.startsWith("/profile/notifications/list?")
+    );
+  };
+  const hasActionableLink = (notification: NotificationItem) =>
+    !!notification.link && !isNotificationCenterLink(notification.link);
+  const toggleBodyExpanded = (id: number) => {
+    setExpandedNotificationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
   const settingsHref = `/profile/notifications/setting?returnTo=${encodeURIComponent(
     currentHref
   )}`;
@@ -337,6 +491,10 @@ export default function NotificationListContainer({
               const icon = typeIcons[notification.type] || (
                 <BellAlertIcon className="size-5" />
               );
+              const isLinkedNotification = hasActionableLink(notification);
+              const isNotificationExpanded = expandedNotificationIds.has(
+                notification.id
+              );
               const canRenderImage =
                 isRenderableNotificationImage(notification.image) &&
                 !failedImageIds.has(notification.id);
@@ -380,49 +538,14 @@ export default function NotificationListContainer({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    {notification.link ? (
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenNotification(notification)}
-                          className={cn(
-                            "focus-ring-soft min-w-0 flex-1 rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
-                            notification.isRead
-                              ? "text-slate-600 dark:text-slate-300"
-                              : "text-primary hover:text-brand dark:hover:text-brand-light"
-                          )}
-                        >
-                          {notification.title}
-                        </button>
-                        {/* 링크형 알림은 별도 CTA를 노출해 이동 동작 인지성 보강 */}
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenNotification(notification)}
-                            className="focus-ring-soft inline-flex shrink-0 items-center gap-1 rounded-full border border-border-strong px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-border-strong hover:bg-surface-dim hover:text-primary dark:text-slate-200"
-                          >
-                            보기
-                            <ArrowUpRightIcon className="size-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleMarkAsRead(notification.id)}
-                        className={cn(
-                          "focus-ring-soft rounded-md px-1 py-0.5 text-left font-bold line-clamp-1 transition-colors",
-                          notification.isRead
-                            ? "text-slate-600 dark:text-slate-300"
-                            : "text-primary hover:text-brand dark:hover:text-brand-light"
-                        )}
-                      >
-                        {notification.title}
-                      </button>
-                    )}
-                    <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-slate-600 dark:text-slate-300">
-                      {notification.body}
-                    </p>
+                    <NotificationTextBlock
+                      notification={notification}
+                      isLinkedNotification={isLinkedNotification}
+                      isExpanded={isNotificationExpanded}
+                      onOpen={handleOpenNotification}
+                      onMarkAsRead={handleMarkAsRead}
+                      onToggleExpanded={toggleBodyExpanded}
+                    />
                     {shouldShowUnavailableCopy(notification) && (
                       <p className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400">
                         연결된 콘텐츠가 삭제되어 이동할 수 없습니다.

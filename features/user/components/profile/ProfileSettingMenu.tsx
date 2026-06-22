@@ -22,6 +22,7 @@
  * 2026.03.13  임도헌   Modified  프로필 수정 진입 시 현재 경로를 returnTo로 함께 전달해 복귀 맥락 유지
  * 2026.03.14  임도헌   Modified  회원 탈퇴를 드롭다운 밖 독립 위험 액션으로 분리해 설정 메뉴 혼재를 완화
  * 2026.03.18  임도헌   Modified  설정 메뉴 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
+ * 2026.06.21  임도헌   Modified  설정 메뉴 항목을 아이콘+텍스트 문법으로 통일
  */
 "use client";
 
@@ -29,8 +30,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
+  CheckBadgeIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  KeyIcon,
+  PencilSquareIcon,
+  UserMinusIcon,
 } from "@heroicons/react/24/outline";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
@@ -171,9 +178,10 @@ export default function ProfileSettingMenu({
             href={`/profile/edit?returnTo=${encodeURIComponent(returnTo)}`}
             role="menuitem"
             data-menuitem="true"
-            className="focus-ring-soft block px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft flex items-center gap-2 px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
             onClick={() => setOpen(false)}
           >
+            <PencilSquareIcon className="size-4 shrink-0" />
             프로필 수정
           </Link>
 
@@ -187,8 +195,9 @@ export default function ProfileSettingMenu({
               setOpen(false);
               openModal("password"); // Zustand 액션으로 교체
             }}
-            className="focus-ring-soft w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-primary hover:bg-surface-dim transition-colors"
           >
+            <KeyIcon className="size-4 shrink-0" />
             비밀번호 변경
           </button>
 
@@ -198,8 +207,9 @@ export default function ProfileSettingMenu({
           {emailVerified ? (
             <div
               role="menuitem"
-              className="px-4 py-3 text-xs text-muted bg-surface-dim/50 cursor-default"
+              className="flex items-center gap-2 px-4 py-3 text-xs text-muted bg-surface-dim/50 cursor-default"
             >
+              <CheckBadgeIcon className="size-4 shrink-0" />
               이메일 인증됨
             </div>
           ) : hasEmail ? (
@@ -210,8 +220,9 @@ export default function ProfileSettingMenu({
                 setOpen(false);
                 openModal("email"); // Zustand 액션으로 교체
               }}
-              className="w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+              className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-primary hover:bg-surface-dim transition-colors"
             >
+              <EnvelopeIcon className="size-4 shrink-0" />
               이메일 인증하기
             </button>
           ) : (
@@ -219,9 +230,10 @@ export default function ProfileSettingMenu({
               href={`/profile/edit?returnTo=${encodeURIComponent(returnTo)}`}
               role="menuitem"
               data-menuitem="true"
-              className="focus-ring-soft block px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors"
+              className="focus-ring-soft flex items-center gap-2 px-4 py-3 text-sm text-danger hover:bg-danger/5 transition-colors"
               onClick={() => setOpen(false)}
             >
+              <ExclamationTriangleIcon className="size-4 shrink-0" />
               이메일 설정 필요
             </Link>
           )}
@@ -236,8 +248,9 @@ export default function ProfileSettingMenu({
               setOpen(false);
               openModal("block"); // Zustand 액션으로 교체
             }}
-            className="focus-ring-soft w-full text-left px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-primary hover:bg-surface-dim transition-colors"
           >
+            <UserMinusIcon className="size-4 shrink-0" />
             차단한 선원 관리
           </button>
 

@@ -27,6 +27,8 @@
  * 2026.05.03  임도헌   Modified  상품 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 목록 타입 확장
  * 2026.05.18  임도헌   Modified  상품 목록 카드 하트 색상 기준 분리를 위한 isLiked 필드 추가
  * 2026.05.08  임도헌   Modified  프로필/마이페이지 제품 목록 조회 범위 타입을 product types로 이동
+ * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제의 좋아요 캐시 분리를 위한 ProductCard viewerId prop 추가
+ * 2026.06.18  임도헌   Modified  상품 거래 기준 지역 필수화에 맞춰 ProductDTO location을 필수값으로 정리
  */
 
 import {
@@ -81,7 +83,7 @@ export interface ProductDTO {
   completeness: (typeof COMPLETENESS_TYPES)[number];
   has_manual: boolean;
   categoryId: number;
-  location?: LocationData | null;
+  location: LocationData;
   boardGameIds?: number[];
 }
 
@@ -371,6 +373,7 @@ export interface ProductCardProps {
   isPriority: boolean;
   returnTo?: string;
   showQuickUnlike?: boolean;
+  viewerId?: number | null;
 }
 
 // =============================================================================

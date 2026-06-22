@@ -21,6 +21,8 @@
  * 2026.04.13  임도헌   Modified  모바일/데스크톱 헤더와 중복되던 검색/필터 상태 로직을 공통 훅으로 정리
  * 2026.04.17  임도헌   Modified  모바일 제품 헤더의 상품 검색 버튼 스타일을 정리
  * 2026.05.30  임도헌   Modified  모바일 제품 필터 헤더의 상하 여백을 압축해 목록 가시 영역 확보
+ * 2026.06.14  임도헌   Modified  긴 필터 요약을 말줄임 대신 가로 스크롤로 확인할 수 있게 조정
+ * 2026.06.15  임도헌   Modified  검색어만 적용된 상태도 요약 X 버튼으로 바로 해제할 수 있게 조정
  */
 "use client";
 
@@ -94,8 +96,10 @@ export default function ProductMobileHeader({
     setIsSearchOpen,
     handleSearch,
     filterSummary,
+    hasActiveKeyword,
     hasActiveFilters,
     resetFilterParams,
+    clearKeyword,
     localSearchHistory,
     removeHistory,
     clearHistory,
@@ -105,6 +109,11 @@ export default function ProductMobileHeader({
     keyword,
     searchHistory,
   });
+  const showSummaryReset = hasActiveFilters || hasActiveKeyword;
+  const handleSummaryReset = hasActiveFilters ? resetFilterParams : clearKeyword;
+  const summaryResetLabel = hasActiveFilters
+    ? "필터 초기화 (검색어 유지)"
+    : "검색어 초기화";
 
   return (
     <>
@@ -158,14 +167,16 @@ export default function ProductMobileHeader({
 
           <div className="relative min-w-0 flex-1">
             <div className="flex items-center rounded-xl border border-border-subtle bg-background px-3 py-1.5">
-              <p className="min-w-0 flex-1 truncate text-xs font-medium text-muted/90">
-                {filterSummary}
-              </p>
-              {hasActiveFilters && (
+              <div className="min-w-0 flex-1 overflow-x-auto scrollbar-hide">
+                <p className="w-max whitespace-nowrap text-xs font-medium text-muted/90">
+                  {filterSummary}
+                </p>
+              </div>
+              {showSummaryReset && (
                 <button
                   type="button"
-                  onClick={resetFilterParams}
-                  aria-label="필터 초기화 (검색어 유지)"
+                  onClick={handleSummaryReset}
+                  aria-label={summaryResetLabel}
                   className="focus-ring-soft ml-1.5 shrink-0 rounded-full p-0.5 text-muted transition-colors hover:bg-surface hover:text-primary"
                 >
                   <XMarkIcon className="size-3.5" />

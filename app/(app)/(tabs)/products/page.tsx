@@ -59,6 +59,8 @@
  * 2026.04.28  임도헌   Modified  항구 목록에서 보드게임 도감 진입 액션 추가
  * 2026.05.05  임도헌   Modified  URL 쿼리 숫자 파싱 helper JSDoc 보강
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
+ * 2026.06.15  임도헌   Modified  제품 빈 상태가 검색어와 상세 조건 0건을 구분하도록 조건 여부 전달
+ * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  */
 
 import { Suspense } from "react";
@@ -92,6 +94,7 @@ import { getProductsAction } from "@/features/product/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { getUserLocation } from "@/features/user/service/profile";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 import type { Paginated, ProductType } from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 
@@ -152,6 +155,13 @@ export default async function ProductsPage({
   const hasSearchParams = Object.keys(searchParams).length > 0;
   const minPrice = parseNumberParam(searchParams.minPrice);
   const maxPrice = parseNumberParam(searchParams.maxPrice);
+  const hasRefinementParams = [
+    searchParams.category,
+    minPrice,
+    maxPrice,
+    searchParams.game_type,
+    searchParams.condition,
+  ].some(Boolean);
 
   const queryParams = {
     keyword: searchParams.keyword,
@@ -207,9 +217,7 @@ export default async function ProductsPage({
   await prefetchProductsPromise;
 
   const fullLocation = userLocation
-    ? [userLocation.region1, userLocation.region2, userLocation.region3]
-        .filter(Boolean)
-        .join(" ")
+    ? formatNormalizedRegion(userLocation)
     : null;
 
   const currentSearchKeyword = searchParams.keyword?.trim().toLowerCase();
@@ -267,6 +275,7 @@ export default async function ProductsPage({
           {isDataEmpty ? (
             <ProductEmptyState
               hasSearchParams={hasSearchParams}
+              hasRefinementParams={hasRefinementParams}
               keyword={searchParams.keyword}
               alertId={matchedAlert?.id}
               currentRange={currentRange}

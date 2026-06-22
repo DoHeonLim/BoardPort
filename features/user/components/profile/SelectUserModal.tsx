@@ -24,11 +24,14 @@
  * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 예약자 선택 흐름을 하단 시트로 정리
  * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 예약자 선택 모달의 상태 라벨과 CTA weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.06.18  임도헌   Modified  모달 보조/닫기 버튼 톤을 공통 secondary modal 스타일로 통일
+ * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 닫기 버튼을 제거해 닫기 동작 통일
  */
 
 import { useCallback, useEffect, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import BottomSheet from "@/components/global/BottomSheet";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { getProductChatUsersAction } from "@/features/product/actions/chat";
 import { ChatUser } from "@/features/chat/types";
@@ -62,7 +65,7 @@ export default function SelectUserModal({
   const [isProcessingId, setIsProcessingId] = useState<number | null>(null); // 현재 처리 중인 유저 ID
   const [error, setError] = useState<string | null>(null);
   const quietButtonClass =
-    "inline-flex items-center justify-center rounded-xl border border-border bg-surface-dim px-4 text-sm font-medium text-primary transition-colors hover:bg-background";
+    "btn-secondary-modal inline-flex items-center justify-center text-sm font-medium";
 
   const loadChatUsers = useCallback(
     async (mounted?: { current: boolean }) => {
@@ -246,16 +249,6 @@ export default function SelectUserModal({
     </div>
   );
 
-  const footer = (
-    <button
-      type="button"
-      className={cn(quietButtonClass, "h-11 w-full sm:w-auto sm:min-w-[96px]")}
-      onClick={() => onOpenChange(false)}
-    >
-      닫기
-    </button>
-  );
-
   if (isMobile) {
     return (
       <BottomSheet
@@ -264,7 +257,6 @@ export default function SelectUserModal({
         description="이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다."
         onClose={() => onOpenChange(false)}
         contentClassName="pt-4"
-        footer={footer}
       >
         {bodyContent}
       </BottomSheet>
@@ -294,26 +286,35 @@ export default function SelectUserModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="border-b border-border-subtle bg-surface px-5 py-4 sm:px-6">
-          <h2 id="select-user-title" className="text-lg font-bold text-primary">
-            예약자 선택
-          </h2>
-          <p
-            id="select-user-description"
-            className="mt-1 text-sm leading-5 text-muted"
+        <div className="flex items-start justify-between gap-3 border-b border-border-subtle bg-surface px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            <h2
+              id="select-user-title"
+              className="text-lg font-bold text-primary"
+            >
+              예약자 선택
+            </h2>
+            <p
+              id="select-user-description"
+              className="mt-1 text-sm leading-5 text-muted"
+            >
+              이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            disabled={isProcessingId !== null}
+            aria-label="예약자 선택 모달 닫기"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
           >
-            이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
-          </p>
+            <XMarkIcon className="size-6" />
+          </button>
         </div>
 
         {/* Body (User List) */}
         <div className="flex min-h-0 flex-1 flex-col px-5 py-5 sm:px-6 sm:py-6">
           {bodyContent}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end border-t border-border-subtle bg-surface px-5 py-4 sm:px-6">
-          {footer}
         </div>
       </div>
     </div>

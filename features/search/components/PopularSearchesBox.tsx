@@ -15,6 +15,7 @@
  * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 섹션 헤더 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  * 2026.04.17  임도헌   Modified  인기 검색어 링크 렌더링과 빈 상태 처리 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.06.14  임도헌   Modified  인기 검색어 클릭 시 기존 분류/필터 조건을 유지하도록 검색 실행 경로 통일
  */
 
 import Link from "next/link";
@@ -56,9 +57,12 @@ export default function PopularSearchesBox({
         <div className="space-y-1">
           {popularSearches.map((item, index) => (
             <Link
-              key={index}
+              key={item.keyword}
               href={`${basePath}?keyword=${encodeURIComponent(item.keyword)}`}
-              onClick={() => onSearch(item.keyword)}
+              onClick={(e) => {
+                e.preventDefault();
+                onSearch(item.keyword);
+              }}
               className="focus-ring-soft group -mx-2 flex items-start gap-2 rounded-lg p-2 transition-colors hover:bg-surface-dim"
             >
               <span className="mt-0.5 w-5 shrink-0 text-center text-sm font-bold text-brand dark:text-brand-light">

@@ -19,6 +19,7 @@
  * 2026.04.04  임도헌   Modified  상품 생성 트랜잭션/후처리 단계의 인라인 주석 보강
  * 2026.05.03  임도헌   Modified  상품 생성 시 보드게임 카탈로그 연결 저장 추가
  * 2026.05.03  임도헌   Modified  상품-보드게임 연결 저장 정책 주석 보강
+ * 2026.06.18  임도헌   Modified  거래 기준 지역 필수 정책에 맞춰 위치 저장/알림 지역을 필수값으로 정리
  */
 import "server-only";
 
@@ -49,12 +50,19 @@ export const createProduct = async (
   if (!status.success) return status;
 
   try {
+    if (!data.location) {
+      return {
+        success: false,
+        error: "거래 기준 지역을 선택해주세요.",
+      };
+    }
+
     // 태그 저장/카운트 정산용 고유 태그 목록 구성
     const uniqueTags = Array.from(new Set(data.tags));
     // 선택된 보드게임은 중복 제거 후 join table 연결 대상으로만 사용
     const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
 
-    // 상품 본문/위치/카테고리/태그 연결용 create payload 구성
+    // 상품 본문/거래 기준 지역/카테고리/태그 연결용 create payload 구성
     const productData: Prisma.ProductCreateInput = {
       title: data.title,
       description: data.description,
@@ -66,15 +74,12 @@ export const createProduct = async (
       condition: data.condition,
       completeness: data.completeness,
       has_manual: data.has_manual,
-      // 위치 정보 매핑 (data.location이 있으면 분해, 없으면 undefined)
-      ...(data.location && {
-        latitude: data.location.latitude,
-        longitude: data.location.longitude,
-        locationName: data.location.locationName,
-        region1: data.location.region1,
-        region2: data.location.region2,
-        region3: data.location.region3,
-      }),
+      latitude: data.location.latitude,
+      longitude: data.location.longitude,
+      locationName: data.location.locationName,
+      region1: data.location.region1,
+      region2: data.location.region2,
+      region3: data.location.region3,
       category: { connect: { id: data.categoryId } },
       user: { connect: { id: userId } },
       search_tags: {
@@ -132,9 +137,9 @@ export const createProduct = async (
         title: product.title,
         tags: uniqueTags,
         sellerId: userId,
-        region1: data.location?.region1,
-        region2: data.location?.region2,
-        region3: data.location?.region3,
+        region1: data.location.region1,
+        region2: data.location.region2,
+        region3: data.location.region3,
       });
     } catch (err) {
       console.error("[createProduct] Keyword alert failed:", err);

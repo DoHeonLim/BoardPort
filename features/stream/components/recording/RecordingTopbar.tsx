@@ -21,6 +21,7 @@
  * 2026.04.24  임도헌   Modified  녹화 삭제의 back/replace 복귀 조건이 현재 정책 기준으로 드러나도록 주석 보강
  * 2026.04.24  임도헌   Modified  내 프로필 방송국에서 진입한 녹화 삭제도 back + refresh 복귀 대상으로 포함
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 녹화 삭제 후 back 복귀 플래그 기록 중복을 정리
+ * 2026.06.22  임도헌   Modified  녹화 삭제 후 채널/목록 React Query 캐시에서 삭제 항목을 즉시 제거
  */
 
 "use client";
@@ -28,6 +29,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { toggleBlockAction } from "@/features/user/actions/block";
 import {
@@ -48,6 +50,7 @@ import {
   markNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
+import { removeRecordingFromListCaches } from "@/features/stream/utils/recordingListCache";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -72,6 +75,7 @@ function isSafeRecordingReturnTarget(href: string) {
 }
 
 interface RecordingTopbarProps {
+  vodId: number;
   broadcastId: number;
   ownerId: number;
   username: string;
@@ -96,6 +100,7 @@ interface RecordingTopbarProps {
  * - 스크롤 중에도 상단에 고정되어 상세 액션 접근을 유지
  */
 export default function RecordingTopbar({
+  vodId,
   broadcastId,
   ownerId,
   username,
@@ -108,6 +113,7 @@ export default function RecordingTopbar({
   preferHistoryBack = false,
 }: RecordingTopbarProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
@@ -173,6 +179,7 @@ export default function RecordingTopbar({
       }
 
       toast.success("녹화를 삭제했습니다.");
+      removeRecordingFromListCaches(queryClient, vodId);
       setDeleteConfirmOpen(false);
       setMenuOpen(false);
 

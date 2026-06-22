@@ -25,6 +25,9 @@
  * 2026.05.16  임도헌   Modified  제품 목록/찜 목록 캐시 갱신 shape 타입 정리
  * 2026.05.18  임도헌   Modified  목록 카드 하트 색상 보정을 위해 낙관 업데이트에 isLiked 상태 반영
  * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여해 refetch 경고 방지
+ * 2026.06.17  임도헌   Modified  좋아요 낙관 반영 직전 목록/찜 목록 fetch 취소 및 pending opacity 제거
+ * 2026.06.17  임도헌   Modified  계정 전환 시 이전 사용자의 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
+ * 2026.06.18  임도헌   Modified  다크모드에서 빠른 찜 해제 버튼의 중립 배경/경계 대비 보강
  */
 "use client";
 
@@ -48,6 +51,7 @@ interface ProductLikeButtonProps {
   isLiked: boolean;
   likeCount: number;
   productId: number;
+  viewerId?: number | null;
   variant?: "stack" | "quick-remove";
   className?: string;
 }
@@ -69,6 +73,8 @@ type ProductLikeCacheItem = {
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 상태 반전 및 피드백 제공
  * - 목록 카드 하트 색상이 현재 사용자 좋아요 여부를 의미하도록 list cache의 `isLiked`를 함께 갱신
  * - 좋아요 취소 시 찜한 목록(`LIKED` scope) 쿼리 캐시에 접근하여 해당 아이템을 목록에서 즉각 제거 처리
+ * - 진행 중인 목록/찜 목록 fetch가 낙관 업데이트를 덮어쓰지 않도록 변경 직전 관련 쿼리 취소
+ * - 좋아요 상태 query key에 viewer scope를 포함해 계정 전환/재로그인 후 stale 상태 노출 방지
  * - API 요청 에러 발생 시 `onError`에서 캡처된 이전 상태 스냅샷(`previous`)으로 안전한 롤백(Rollback) 처리
  * - `onSettled` 시점에는 실제 queryFn이 있는 목록/찜 목록만 무효화해 상세 initialData 캐시 refetch 경고를 방지
  */
@@ -76,11 +82,12 @@ export default function ProductLikeButton({
   isLiked: initialIsLiked,
   likeCount: initialLikeCount,
   productId,
+  viewerId = null,
   variant = "stack",
   className = "",
 }: ProductLikeButtonProps) {
   const queryClient = useQueryClient();
-  const queryKey = queryKeys.products.likeStatus(productId);
+  const queryKey = queryKeys.products.likeStatus(productId, viewerId);
   const initialLikeStatus = {
     isLiked: initialIsLiked,
     likeCount: initialLikeCount,
@@ -104,7 +111,13 @@ export default function ProductLikeButton({
       else await likeProduct(productId);
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey }),
+        queryClient.cancelQueries({ queryKey: queryKeys.products.lists() }),
+        queryClient.cancelQueries({
+          predicate: (query) => isLikedScopeKey(query.queryKey),
+        }),
+      ]);
 
       const previousLikeStatus = queryClient.getQueryData(queryKey);
       const listQueries = queryClient.getQueriesData({
@@ -117,10 +130,11 @@ export default function ProductLikeButton({
       const nextLikeCount = data.isLiked
         ? Math.max(0, data.likeCount - 1)
         : data.likeCount + 1;
+      const nextIsLiked = !data.isLiked;
 
       // 1) 상세 버튼 상태 즉시 반영
       queryClient.setQueryData(queryKey, {
-        isLiked: !data.isLiked,
+        isLiked: nextIsLiked,
         likeCount: nextLikeCount,
       });
 
@@ -137,7 +151,7 @@ export default function ProductLikeButton({
                 product.id === productId
                   ? {
                       ...product,
-                      isLiked: !data.isLiked,
+                      isLiked: nextIsLiked,
                       _count: {
                         ...product._count,
                         product_likes: nextLikeCount,
@@ -243,16 +257,18 @@ export default function ProductLikeButton({
       type="button"
       onClick={() => mutate()}
       className={cn(
-            variant === "quick-remove"
+        variant === "quick-remove"
           ? [
               "inline-flex h-7 items-center justify-center gap-1 rounded-full border border-border-subtle bg-surface/92 px-2 text-muted shadow-sm transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform sm:h-8 sm:gap-1.5 sm:px-3",
+              "dark:border-border-strong dark:bg-surface-dim dark:text-primary dark:shadow-[0_0_0_1px_rgba(148,163,184,0.08)]",
               "hover:-translate-y-0.5 hover:bg-surface-dim hover:text-primary active:scale-95",
+              "dark:hover:border-border-strong dark:hover:bg-surface-hover dark:hover:text-primary",
               "focus-ring-soft",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "disabled:cursor-not-allowed",
             ]
           : [
               "flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
-              "hover:bg-surface-dim disabled:opacity-50 disabled:cursor-not-allowed",
+              "hover:bg-surface-dim disabled:cursor-not-allowed",
             ],
         variant === "quick-remove"
           ? "text-muted"
@@ -262,6 +278,8 @@ export default function ProductLikeButton({
         className
       )}
       disabled={isPending}
+      aria-busy={isPending}
+      aria-pressed={data.isLiked}
       aria-label={
         variant === "quick-remove"
           ? data.isLiked

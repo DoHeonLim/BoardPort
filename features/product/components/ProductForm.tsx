@@ -51,6 +51,7 @@
  * 2026.05.05  임도헌   Modified  상품 폼 복귀/위치/검증 핸들러 JSDoc 보강
  * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
  * 2026.05.30  임도헌   Modified  모바일 상품 폼의 필드 높이와 섹션 간격을 압축해 작성 밀도 조정
+ * 2026.06.18  임도헌   Modified  거래 기준 지역 필수화에 맞춰 위치 검증/에러 이동 UX 보강
  */
 
 /**
@@ -527,6 +528,7 @@ export default function ProductForm({
   const [isMapOpen, setIsMapOpen] = useState(false);
   const location = watch("location");
   const imageSectionRef = useRef<HTMLDivElement | null>(null);
+  const locationSectionRef = useRef<HTMLDivElement | null>(null);
 
   /**
    * 이미지 업로드 섹션 열기와 포커스/스크롤 이동
@@ -547,7 +549,8 @@ export default function ProductForm({
    * @param data - 선택한 위치 데이터
    */
   const handleLocationSelect = (data: LocationData) => {
-    setValue("location", data, { shouldDirty: true });
+    setValue("location", data, { shouldDirty: true, shouldValidate: true });
+    clearErrors("location");
     setIsMapOpen(false);
   };
 
@@ -555,7 +558,7 @@ export default function ProductForm({
    * 상품 거래 위치 초기화
    */
   const handleRemoveLocation = () => {
-    setValue("location", null, { shouldDirty: true });
+    setValue("location", null, { shouldDirty: true, shouldValidate: true });
   };
 
   /**
@@ -727,6 +730,15 @@ export default function ProductForm({
   const onInvalid = (formErrors: typeof errors) => {
     if (formErrors.photos) {
       focusImageSection();
+      return;
+    }
+
+    if (formErrors.location) {
+      locationSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
       return;
     }
     focusFirstFieldError<ProductFormValues>(formErrors, setFocus);
@@ -1027,11 +1039,14 @@ export default function ProductForm({
         resetSignal={resetSignal}
       />
 
-      <ProductLocationSection
-        location={location ?? null}
-        onOpenMap={() => setIsMapOpen(true)}
-        onRemoveLocation={handleRemoveLocation}
-      />
+      <div ref={locationSectionRef}>
+        <ProductLocationSection
+          location={location ?? null}
+          onOpenMap={() => setIsMapOpen(true)}
+          onRemoveLocation={handleRemoveLocation}
+          errorMessage={errors.location?.message}
+        />
+      </div>
 
       <ProductFormActions
         mode={mode}

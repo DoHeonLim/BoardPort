@@ -6,11 +6,20 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   ChatHeader의 데스크톱/모바일 액션 메뉴 중복 UI를 공통 컴포넌트로 분리
+ * 2026.06.18  임도헌   Modified  데스크톱 액션 메뉴의 아이콘/라벨을 한 줄 정렬로 고정
+ * 2026.06.21  임도헌   Modified  채팅 헤더 메뉴 항목을 아이콘+텍스트 문법으로 통일
  */
 
 import {
+  ArrowPathIcon,
+  ArrowRightOnRectangleIcon,
+  ArrowUturnLeftIcon,
+  CheckCircleIcon,
   ExclamationTriangleIcon,
+  ShoppingBagIcon,
+  UserCircleIcon,
   UserMinusIcon,
+  UserPlusIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +70,7 @@ export default function ChatHeaderMenuItems({
   const isDesktop = variant === "desktop";
 
   const desktopActionClass =
-    "focus-ring-soft block w-full px-4 py-2.5 text-left text-primary hover:bg-surface-dim";
+    "focus-ring-soft flex w-full items-center gap-3 px-4 py-2.5 text-left text-primary hover:bg-surface-dim";
   const mobileActionClass =
     "focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim";
 
@@ -69,6 +78,7 @@ export default function ChatHeaderMenuItems({
   const dividerClass = isDesktop
     ? "my-1 border-t border-border-subtle"
     : "my-2 border-t border-border-subtle";
+  const iconClass = isDesktop ? "size-4 shrink-0" : "size-5 shrink-0";
 
   const renderActionButton = (
     label: string,
@@ -93,15 +103,20 @@ export default function ChatHeaderMenuItems({
       )}
     >
       {options?.icon}
-      {label}
+      <span className="whitespace-nowrap">{label}</span>
     </button>
   );
 
   return (
     <>
-      {!isGhost && renderActionButton("상대 프로필", onGoToProfile)}
+      {!isGhost &&
+        renderActionButton("상대 프로필", onGoToProfile, {
+          icon: <UserCircleIcon className={iconClass} />,
+        })}
 
-      {renderActionButton("상품 상세", onGoToProduct)}
+      {renderActionButton("상품 상세", onGoToProduct, {
+        icon: <ShoppingBagIcon className={iconClass} />,
+      })}
 
       {isSeller && (
         <>
@@ -110,19 +125,26 @@ export default function ChatHeaderMenuItems({
           {/* 판매자만 현재 대화 상대를 예약자/구매자로 전환 가능 */}
           {isSelling &&
             !isGhost &&
-            renderActionButton("예약자로 지정", onReserveCounterparty)}
+            renderActionButton("예약자로 지정", onReserveCounterparty, {
+              icon: <UserPlusIcon className={iconClass} />,
+            })}
 
           {isReserved && isCurrentReservationHolder && (
             <>
-              {renderActionButton("예약 취소 (판매중)", onReservedToSelling)}
+              {renderActionButton("예약 취소 (판매중)", onReservedToSelling, {
+                icon: <ArrowUturnLeftIcon className={iconClass} />,
+              })}
               {renderActionButton("판매완료 처리", onReservedToSold, {
+                icon: <CheckCircleIcon className={iconClass} />,
                 emphasize: true,
               })}
             </>
           )}
 
           {isSold &&
-            renderActionButton("판매중으로 되돌리기", onOpenRevertDialog)}
+            renderActionButton("판매중으로 되돌리기", onOpenRevertDialog, {
+              icon: <ArrowPathIcon className={iconClass} />,
+            })}
         </>
       )}
 
@@ -130,16 +152,17 @@ export default function ChatHeaderMenuItems({
         <>
           <div className={dividerClass} />
           {renderActionButton("상대방 차단하기", onOpenBlockConfirm, {
-            icon: <UserMinusIcon className="size-5 shrink-0" />,
+            icon: <UserMinusIcon className={iconClass} />,
           })}
           {renderActionButton("사용자 신고하기", onOpenReport, {
-            icon: <ExclamationTriangleIcon className="size-5 shrink-0" />,
+            icon: <ExclamationTriangleIcon className={iconClass} />,
           })}
         </>
       )}
 
       <div className={dividerClass} />
       {renderActionButton("채팅방 나가기", onOpenLeaveDialog, {
+        icon: <ArrowRightOnRectangleIcon className={iconClass} />,
         danger: true,
       })}
     </>

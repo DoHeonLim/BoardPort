@@ -15,9 +15,13 @@
  * 2026.04.26  임도헌   Modified  관리자 액션 모달에 dialog 의미와 설명/입력 라벨 연결, ESC 닫기 흐름을 보강
  * 2026.04.26  임도헌   Modified  primary 확인 버튼의 다크모드 색조를 공용 CTA 톤과 맞춰 정리
  * 2026.04.28  임도헌   Modified  모바일 관리자 액션을 공용 BottomSheet로 분기해 작은 화면의 입력/버튼 잘림을 완화
+ * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소 버튼을 제거해 실제 관리자 액션만 남김
+ * 2026.06.19  임도헌   Modified  데스크톱 관리자 액션 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
  */
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import BottomSheet from "@/components/global/BottomSheet";
 import { cn } from "@/lib/utils";
 import Select from "@/components/ui/Select";
@@ -80,6 +84,15 @@ export default function AdminActionModal({
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [mounted, setMounted] = useState(false);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isPending) onClose();
+  }, [isPending, onClose]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 모달 종료 시 입력 상태 초기화
   // 같은 모달을 여러 대상에 재사용하므로 닫힐 때 사유와 기간을 기본값으로 초기화
@@ -95,7 +108,7 @@ export default function AdminActionModal({
 
     const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) onClose();
+      if (event.key === "Escape") handleRequestClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -103,9 +116,9 @@ export default function AdminActionModal({
       window.clearTimeout(timer);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMobile, isPending, onClose, open]);
+  }, [handleRequestClose, isMobile, open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const handleConfirm = () => {
     if (reason.trim().length < minReasonLength) return;
@@ -179,14 +192,6 @@ export default function AdminActionModal({
 
   const footer = (
     <div className="flex flex-col justify-end gap-3 sm:flex-row">
-      <button
-        onClick={onClose}
-        disabled={isPending}
-        className="btn-secondary-modal flex-1 px-4 text-sm font-medium sm:flex-none"
-      >
-        취소
-      </button>
-
       {secondaryLabel && onSecondaryAction && (
         <button
           onClick={handleSecondary}
@@ -201,7 +206,7 @@ export default function AdminActionModal({
         onClick={handleConfirm}
         disabled={isPending || reason.trim().length < minReasonLength}
         className={cn(
-          "focus-ring-strong flex items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] disabled:opacity-50",
+          "focus-ring-strong flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] disabled:opacity-50 sm:flex-none",
           variantClasses[confirmVariant]
         )}
       >
@@ -219,7 +224,7 @@ export default function AdminActionModal({
         open
         title={title}
         description={description}
-        onClose={onClose}
+        onClose={handleRequestClose}
         footer={footer}
         contentClassName="pt-4"
         panelClassName="max-h-[90dvh]"
@@ -229,7 +234,7 @@ export default function AdminActionModal({
     );
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div
         ref={dialogRef}
@@ -241,15 +246,31 @@ export default function AdminActionModal({
         className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border-subtle bg-surface shadow-2xl"
       >
         <div className="flex-1 overflow-y-auto p-6">
-          <h3 id="admin-action-title" className="text-xl font-bold text-primary">
-            {title}
-          </h3>
-          <p
-            id="admin-action-description"
-            className="text-sm text-muted mt-2 mb-6 leading-relaxed"
-          >
-            {description}
-          </p>
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3
+                id="admin-action-title"
+                className="text-xl font-bold text-primary"
+              >
+                {title}
+              </h3>
+              <p
+                id="admin-action-description"
+                className="mt-2 text-sm leading-relaxed text-muted"
+              >
+                {description}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRequestClose}
+              disabled={isPending}
+              aria-label="관리자 액션 모달 닫기"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
+            >
+              <XMarkIcon className="size-6" />
+            </button>
+          </div>
           {content}
         </div>
 
@@ -257,6 +278,7 @@ export default function AdminActionModal({
           {footer}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

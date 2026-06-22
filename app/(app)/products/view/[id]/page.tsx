@@ -49,6 +49,7 @@
  * 2026.04.14  임도헌   Modified  상세/모달 공통 상세 로더를 적용하고 조회수 반영 시점을 가드 이후로 조정
  * 2026.05.15  임도헌   Modified  제품 공유 미리보기용 OG 이미지 메타와 소셜 크롤러 접근 분기 추가
  * 2026.05.30  임도헌   Modified  제품 상세 상단 액션바 높이와 좌우 여백을 압축
+ * 2026.06.17  임도헌   Modified  제품 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -240,8 +241,8 @@ export default async function ProductDetailPage({
         isOwner={isOwner}
         likeCount={likeStatus.likeCount}
         isLiked={likeStatus.isLiked}
+        viewerId={userId}
       />
     </div>
   );
 }
-

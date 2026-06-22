@@ -15,6 +15,9 @@
  * 2026.05.16  임도헌   Modified  약속 처리 에러 분기를 unknown-safe 방식으로 정리
  * 2026.05.25  임도헌   Modified  약속 수락 가드/거래 참여자 산정 규칙을 테스트 가능한 유틸로 분리
  * 2026.05.25  임도헌   Modified  약속 제안 시간/거래 가능 상태/상대방 식별 규칙을 테스트 가능한 유틸로 분리
+ * 2026.06.21  임도헌   Modified  약속 제안 수신자에게 거래 알림 전송 추가
+ * 2026.06.21  임도헌   Modified  약속 취소/거절 결과를 상대방에게 거래 알림으로 전송
+ * 2026.06.21  임도헌   Modified  약속 수락 알림 실패가 수락 처리를 막지 않도록 정리
  */
 
 import "server-only";
@@ -41,6 +44,66 @@ import type { LocationData } from "@/features/map/types";
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "";
+
+async function sendAppointmentTradeNotification({
+  targetUserId,
+  title,
+  body,
+  link,
+  image,
+  tag,
+}: {
+  targetUserId: number;
+  title: string;
+  body: string;
+  link: string;
+  image?: string;
+  tag: string;
+}) {
+  const pref = await db.notificationPreferences.findUnique({
+    where: { userId: targetUserId },
+  });
+
+  if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
+    const notification = await db.notification.create({
+      data: {
+        userId: targetUserId,
+        title,
+        body,
+        type: "TRADE",
+        link,
+        image,
+        isPushSent: false,
+      },
+    });
+
+    await supabase.channel(`user-${targetUserId}-notifications`).send({
+      type: "broadcast",
+      event: "notification",
+      payload: { ...notification },
+    });
+
+    if (canSendPushForType(pref, "TRADE")) {
+      const pushRes = await sendPushNotification({
+        targetUserId,
+        title: notification.title,
+        message: notification.body,
+        url: notification.link ?? undefined,
+        type: "TRADE",
+        image: notification.image ?? undefined,
+        tag,
+        renotify: true,
+      });
+
+      if (pushRes.success && (pushRes.data?.sent ?? 0) > 0) {
+        await db.notification.update({
+          where: { id: notification.id },
+          data: { isPushSent: true, sentAt: new Date() },
+        });
+      }
+    }
+  }
+}
 
 /**
  * 약속 제안하기
@@ -79,7 +142,13 @@ export async function proposeAppointment(
     include: {
       users: { select: { id: true } },
       product: {
-        select: { id: true, purchase_userId: true, reservation_userId: true },
+        select: {
+          id: true,
+          title: true,
+          purchase_userId: true,
+          reservation_userId: true,
+          images: { take: 1, select: { url: true } },
+        },
       },
     },
   });
@@ -200,6 +269,24 @@ export async function proposeAppointment(
       event: "message",
       payload: chatMessage,
     });
+
+    try {
+      await sendAppointmentTradeNotification({
+        targetUserId: receiverId,
+        title: "거래 약속이 제안되었습니다",
+        body: `'${room.product.title}' 상품의 거래 약속 제안을 확인해주세요.`,
+        link: `/chats/${chatRoomId}`,
+        image: room.product.images?.[0]?.url
+          ? `${room.product.images[0].url}/public`
+          : undefined,
+        tag: `bp-trade-appointment-${chatRoomId}`,
+      });
+    } catch (notificationError) {
+      console.warn(
+        "[Appointment] Proposal notification failed:",
+        notificationError
+      );
+    }
 
     return { success: true, data: chatMessage };
   } catch (error: unknown) {
@@ -388,53 +475,22 @@ export async function acceptAppointment(
 
     // 6. 알림 전송 (상대방에게)
     const targetNotiId = userId === buyerId ? sellerId : buyerId;
-    const pref = await db.notificationPreferences.findUnique({
-      where: { userId: targetNotiId },
-    });
-
-    if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
-      const productTitle = product.title;
-      const imageUrl = product.images?.[0]?.url
-        ? `${product.images[0].url}/public`
-        : undefined;
-
-      const notification = await db.notification.create({
-        data: {
-          userId: targetNotiId,
-          title: "상품이 예약되었습니다",
-          body: `'${productTitle}' 상품의 거래 약속이 확정되었습니다.`,
-          type: "TRADE",
-          link: `/products/view/${product.id}`,
-          image: imageUrl,
-          isPushSent: false,
-        },
+    try {
+      await sendAppointmentTradeNotification({
+        targetUserId: targetNotiId,
+        title: "상품이 예약되었습니다",
+        body: `'${product.title}' 상품의 거래 약속이 확정되었습니다.`,
+        link: `/products/view/${product.id}`,
+        image: product.images?.[0]?.url
+          ? `${product.images[0].url}/public`
+          : undefined,
+        tag: `bp-trade-${product.id}`,
       });
-
-      await supabase.channel(`user-${targetNotiId}-notifications`).send({
-        type: "broadcast",
-        event: "notification",
-        payload: { ...notification },
-      });
-
-      if (canSendPushForType(pref, "TRADE")) {
-        const pushRes = await sendPushNotification({
-          targetUserId: targetNotiId,
-          title: notification.title,
-          message: notification.body,
-          url: notification.link ?? undefined,
-          type: "TRADE",
-          image: notification.image ?? undefined,
-          tag: `bp-trade-${product.id}`,
-          renotify: true,
-        });
-
-        if (pushRes.success && (pushRes.data?.sent ?? 0) > 0) {
-          await db.notification.update({
-            where: { id: notification.id },
-            data: { isPushSent: true, sentAt: new Date() },
-          });
-        }
-      }
+    } catch (notificationError) {
+      console.warn(
+        "[Appointment] Acceptance notification failed:",
+        notificationError
+      );
     }
 
     return {
@@ -474,6 +530,19 @@ export async function cancelAppointment(
 ): Promise<ServiceResult> {
   const apt = await db.appointment.findUnique({
     where: { id: appointmentId },
+    include: {
+      chatRoom: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              images: { take: 1, select: { url: true } },
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!apt) return { success: false, error: "약속 정보를 찾을 수 없습니다." };
@@ -547,6 +616,35 @@ export async function cancelAppointment(
       event: "message",
       payload: mapToChatMessage(sysMsg),
     });
+
+    try {
+      const targetUserId =
+        nextStatus === "REJECTED" ? apt.proposerId : apt.receiverId;
+      const title =
+        nextStatus === "REJECTED"
+          ? "거래 약속이 거절되었습니다"
+          : "거래 약속이 취소되었습니다";
+      const body =
+        nextStatus === "REJECTED"
+          ? `'${apt.chatRoom.product.title}' 상품의 거래 약속 제안이 거절되었습니다.`
+          : `'${apt.chatRoom.product.title}' 상품의 거래 약속 제안이 취소되었습니다.`;
+
+      await sendAppointmentTradeNotification({
+        targetUserId,
+        title,
+        body,
+        link: `/chats/${apt.chatRoomId}`,
+        image: apt.chatRoom.product.images?.[0]?.url
+          ? `${apt.chatRoom.product.images[0].url}/public`
+          : undefined,
+        tag: `bp-trade-appointment-${apt.chatRoomId}`,
+      });
+    } catch (notificationError) {
+      console.warn(
+        "[Appointment] Cancel/reject notification failed:",
+        notificationError
+      );
+    }
 
     return { success: true };
   } catch (error: unknown) {

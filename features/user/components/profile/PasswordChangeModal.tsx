@@ -28,6 +28,8 @@
  * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 비밀번호 변경 흐름을 하단 시트로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.01  임도헌   Modified  비밀번호 변경 모달 입력 높이를 모바일 작성형 폼 기준으로 정리
+ * 2026.06.19  임도헌   Modified  submit Button 패턴을 유지하면서 완료 버튼의 최소 너비와 높이 기준 보정
+ * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 비밀번호 변경 CTA 위계 정리
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -238,23 +240,13 @@ export default function PasswordChangeModal({
   );
 
   const footer = (
-    <div className="flex gap-3 justify-end">
-      <button
-        type="button"
-        onClick={doClose}
+    <div className="flex justify-end">
+      <Button
+        text={submitting ? "변경 중..." : "변경 완료"}
         disabled={submitting}
-        className="btn-secondary-modal h-10 px-4 text-sm font-medium"
-      >
-        취소
-      </button>
-      <button
-        type="submit"
+        className="!h-10 w-full min-w-[112px] px-6 text-sm sm:w-auto"
         form={formId}
-        disabled={submitting}
-        className="btn-primary h-10 px-6 text-sm"
-      >
-        {submitting ? "변경 중..." : "변경 완료"}
-      </button>
+      />
     </div>
   );
 
@@ -316,19 +308,11 @@ export default function PasswordChangeModal({
         <div className="p-6 space-y-5">
           {formContent}
 
-          <div className="pt-2 flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={doClose}
-              disabled={submitting}
-              className="btn-secondary-modal h-10 px-4 text-sm font-medium"
-            >
-              취소
-            </button>
+          <div className="pt-2 flex justify-end">
             <Button
               text={submitting ? "변경 중..." : "변경 완료"}
               disabled={submitting}
-              className="w-auto px-6 h-10 text-sm"
+              className="!h-10 w-auto min-w-[112px] px-6 text-sm"
               form={formId}
             />
           </div>

@@ -15,6 +15,7 @@
  * 2026.04.06  임도헌   Modified  수정/삭제를 상단 owner 메뉴로 이동하고 하단 액션바는 UP 중심으로 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상세 액션바 타이포 무게를 정리
  * 2026.04.20  임도헌   Modified  owner용 UP 버튼 포커스가 배경에 묻히지 않도록 inset 강조 기준으로 조정
+ * 2026.06.17  임도헌   Modified  좋아요 상태 캐시 분리를 위해 viewerId 전달
  */
 "use client";
 
@@ -32,6 +33,7 @@ interface ProductDetailActionsProps {
   isLiked: boolean;
   likeCount: number;
   isOwner: boolean;
+  viewerId?: number | null;
   bumpCount?: number;
 }
 
@@ -46,6 +48,7 @@ export default function ProductDetailActions({
   isLiked,
   likeCount,
   isOwner,
+  viewerId = null,
   bumpCount = 0,
 }: ProductDetailActionsProps) {
   const [isPending, startTransition] = useTransition();
@@ -77,6 +80,7 @@ export default function ProductDetailActions({
             productId={productId}
             isLiked={isLiked}
             likeCount={likeCount}
+            viewerId={viewerId}
           />
         </div>
 

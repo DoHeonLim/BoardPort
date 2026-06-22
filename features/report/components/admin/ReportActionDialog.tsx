@@ -21,10 +21,22 @@
  * 2026.04.27  임도헌   Modified  기각 사유 전달과 유저 단독 신고의 콘텐츠 삭제 추천 제외 흐름 보강
  * 2026.04.28  임도헌   Modified  모바일 신고 처리 UI를 공용 BottomSheet로 분기해 작은 화면의 잘림을 완화
  * 2026.04.28  임도헌   Modified  신고 처리 전 실제 조치 대상 유저를 모달에서 확인할 수 있도록 표시 보강
+ * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소/닫기 버튼을 제거해 처리 액션 중심으로 정리
+ * 2026.06.19  임도헌   Modified  신고 처리 오버레이 레이어를 상향해 관리자 상단 영역까지 안정적으로 덮도록 보강
+ * 2026.06.19  임도헌   Modified  데스크톱 신고 처리 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { createPortal } from "react-dom";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
 import BottomSheet from "@/components/global/BottomSheet";
 import { updateReportAction } from "@/features/report/actions/admin";
@@ -147,6 +159,15 @@ export default function ReportActionDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const isReadOnly = reportStatus !== "PENDING";
+  const [mounted, setMounted] = useState(false);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isPending) onClose();
+  }, [isPending, onClose]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -164,7 +185,7 @@ export default function ReportActionDialog({
 
     const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) onClose();
+      if (event.key === "Escape") handleRequestClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -172,9 +193,9 @@ export default function ReportActionDialog({
       window.clearTimeout(timer);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMobile, isPending, onClose, open]);
+  }, [handleRequestClose, isMobile, open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const handleAction = (status: "RESOLVED" | "DISMISSED") => {
     startTransition(async () => {
@@ -297,9 +318,7 @@ export default function ReportActionDialog({
             <div className="mt-3 space-y-3">
               {targetResolvedUserId ? (
                 <div className="rounded-lg border border-border-subtle bg-surface/70 px-3 py-2">
-                  <p className="text-xs font-bold text-muted">
-                    조치 대상 유저
-                  </p>
+                  <p className="text-xs font-bold text-muted">조치 대상 유저</p>
                   <p className="mt-1 text-sm font-bold text-primary">
                     {targetResolvedUsername || "이름 없음"} #
                     {targetResolvedUserId}
@@ -459,33 +478,22 @@ export default function ReportActionDialog({
     </>
   );
 
-  const footer = (
-    <div className="flex gap-3 justify-end">
+  const footer = isReadOnly ? null : (
+    <div className="flex justify-end gap-3">
       <button
-        onClick={onClose}
+        onClick={() => handleAction("DISMISSED")}
         disabled={isPending}
-        className="btn-secondary-modal h-10 px-4 text-sm font-medium"
+        className="focus-ring-soft inline-flex h-10 min-w-20 items-center justify-center rounded-xl border border-rose-300/50 bg-rose-50 px-4 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
       >
-        {isReadOnly ? "닫기" : "취소"}
+        기각
       </button>
-      {!isReadOnly && (
-        <button
-          onClick={() => handleAction("DISMISSED")}
-          disabled={isPending}
-          className="btn-secondary h-10 text-sm border-border text-primary"
-        >
-          기각
-        </button>
-      )}
-      {!isReadOnly && (
-        <button
-          onClick={() => handleAction("RESOLVED")}
-          disabled={isPending}
-          className="btn-primary h-10 text-sm"
-        >
-          {isPending ? "처리 중..." : "조치 완료"}
-        </button>
-      )}
+      <button
+        onClick={() => handleAction("RESOLVED")}
+        disabled={isPending}
+        className="btn-primary h-10 min-w-24 text-sm"
+      >
+        {isPending ? "처리 중..." : "조치 완료"}
+      </button>
     </div>
   );
 
@@ -495,7 +503,7 @@ export default function ReportActionDialog({
         open
         title="신고 처리"
         description={dialogDescription}
-        onClose={onClose}
+        onClose={handleRequestClose}
         footer={footer}
         contentClassName="pt-4"
         panelClassName="max-h-[92dvh]"
@@ -505,8 +513,8 @@ export default function ReportActionDialog({
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div
         ref={dialogRef}
         role="dialog"
@@ -517,22 +525,41 @@ export default function ReportActionDialog({
         className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border-subtle bg-surface shadow-2xl"
       >
         <div className="flex-1 overflow-y-auto p-6">
-          <h3
-            id="report-action-title"
-            className="text-lg font-bold text-primary mb-2"
-          >
-            신고 처리
-          </h3>
-          <p id="report-action-description" className="text-sm text-muted mb-4">
-            {dialogDescription}
-          </p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3
+                id="report-action-title"
+                className="text-lg font-bold text-primary"
+              >
+                신고 처리
+              </h3>
+              <p
+                id="report-action-description"
+                className="mt-2 text-sm text-muted"
+              >
+                {dialogDescription}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRequestClose}
+              disabled={isPending}
+              aria-label="신고 처리 모달 닫기"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
+            >
+              <XMarkIcon className="size-6" />
+            </button>
+          </div>
           {content}
         </div>
 
-        <div className="shrink-0 border-t border-border-subtle bg-surface px-6 py-4">
-          {footer}
-        </div>
+        {footer && (
+          <div className="shrink-0 border-t border-border-subtle bg-surface px-6 py-4">
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

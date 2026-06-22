@@ -24,6 +24,7 @@
  * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 상태 배너 강조 문구 weight를 500 기준으로 정리
  * 2026.04.18  임도헌   Modified  체크박스/시간 입력 폼을 서버 렌더링으로 분리해 초기 설정 페이지 하이드레이션 비용 축소
  * 2026.04.20  임도헌   Modified  알림 설정 체크박스와 행 포커스를 공용 문법에 맞춰 정리
+ * 2026.06.21  임도헌   Modified  댓글/약속/다시보기 알림 추가에 맞춰 알림 종류 설명 문구 보강
  */
 
 import {
@@ -92,7 +93,8 @@ export default function NotificationSettingsClient({
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-bold text-primary">알림 종류</h2>
         <p className="px-1 text-xs leading-relaxed text-muted">
-          필요한 알림만 켜 두세요. 키워드는 아래에서 관리할 수 있습니다.
+          받고 싶은 알림만 켜 두세요. 댓글·거래·방송 활동 알림은
+          종류별 설정을 따릅니다.
         </p>
         <div className="panel divide-y divide-border overflow-hidden">
           {rows.map((row) => (
@@ -179,7 +181,7 @@ const rows = [
     name: "trade",
     label: "거래 알림",
     icon: <ArrowsRightLeftIcon className="size-5" />,
-    description: "예약, 판매 완료 등 거래 상태 변경",
+    description: "약속 제안, 예약/취소, 판매 완료",
   },
   {
     name: "review",
@@ -197,7 +199,7 @@ const rows = [
     name: "stream",
     label: "방송 알림",
     icon: <PlayCircleIcon className="size-5" />,
-    description: "팔로우한 선원의 방송 시작",
+    description: "방송 시작, 다시보기 댓글",
   },
   {
     name: "keyword",
@@ -209,6 +211,6 @@ const rows = [
     name: "system",
     label: "시스템 알림",
     icon: <BellAlertIcon className="size-5" />,
-    description: "공지사항 및 서비스 안내",
+    description: "게시글 댓글, 관리자 안내, 서비스 공지",
   },
 ] as const;

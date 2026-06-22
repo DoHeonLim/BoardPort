@@ -18,6 +18,7 @@
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 스켈레톤 분기 기준을 일치시켜 640~767px 구간 mismatch 정리
  * 2026.05.09  임도헌   Modified  보드게임 도감/키워드 알림 액션이 포함된 상품 목록 헤더 구조 반영
  * 2026.06.01  임도헌   Modified  모바일 상품 목록 헤더와 뷰 토글 압축 밀도에 맞춘 스켈레톤 조정
+ * 2026.06.21  임도헌   Modified  실제 뷰 토글 버튼 크기(모바일 36px, sm 이상 44px)에 맞춰 로딩 스켈레톤 정렬
  */
 
 import ProductListSkeleton from "@/features/product/components/ProductListSkeleton";
@@ -69,9 +70,9 @@ export default function Loading() {
             <Skeleton className="h-8 w-24 rounded-full" />
             <Skeleton className="h-8 w-9 rounded-full sm:w-28" />
           </div>
-          <div className="flex rounded-2xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
-            <Skeleton className="size-10 rounded-xl" />
-            <Skeleton className="size-10 rounded-xl" />
+          <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
+            <Skeleton className="size-9 rounded-lg sm:size-11" />
+            <Skeleton className="size-9 rounded-lg sm:size-11" />
           </div>
         </div>
         <ProductListSkeleton viewMode="list" showToolbar={false} />

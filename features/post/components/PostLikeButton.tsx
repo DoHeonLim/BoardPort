@@ -25,6 +25,8 @@
  * 2026.05.12  임도헌   Modified  다른 상세 화면과 맞춰 시각 레이블은 하트와 숫자만 남기고 접근성 이름은 aria-label로 분리
  * 2026.05.18  임도헌   Modified  상세 좋아요 변경 시 게시글 목록 캐시의 isLiked와 좋아요 수를 함께 낙관 업데이트
  * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여해 refetch 경고 방지
+ * 2026.06.17  임도헌   Modified  낙관 반영 직후 좋아요 버튼이 흐려 보이지 않도록 pending opacity 제거
+ * 2026.06.17  임도헌   Modified  계정 전환 시 이전 사용자의 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  */
 "use client";
 
@@ -46,6 +48,7 @@ interface PostLikeButtonProps {
   postId: number;
   isLiked: boolean;
   likeCount: number;
+  viewerId?: number | null;
 }
 
 /**
@@ -55,6 +58,7 @@ interface PostLikeButtonProps {
  * - `initialData`를 통한 초기 렌더링 깜빡임 방지 및 상태 하이드레이션 적용
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 피드백 제공
  * - 상세 좋아요 변경 시 목록 카드의 좋아요 수와 isLiked도 함께 갱신해 뒤로가기 후 하트 색상 정합성 유지
+ * - 좋아요 상태 query key에 viewer scope를 포함해 계정 전환/재로그인 후 stale 상태 노출 방지
  * - `onError` 발생 시 `previous` 스냅샷을 활용한 이전 상태 복구(Rollback) 로직 포함
  * - `onSettled` 단계에서는 실제 queryFn이 있는 목록 쿼리만 무효화해 상세 initialData 캐시 refetch 경고를 방지
  */
@@ -62,9 +66,10 @@ export default function PostLikeButton({
   postId,
   isLiked: initialIsLiked,
   likeCount: initialLikeCount,
+  viewerId = null,
 }: PostLikeButtonProps) {
   const queryClient = useQueryClient();
-  const queryKey = queryKeys.posts.likeStatus(postId);
+  const queryKey = queryKeys.posts.likeStatus(postId, viewerId);
   const initialLikeStatus = {
     isLiked: initialIsLiked,
     likeCount: initialLikeCount,
@@ -162,9 +167,10 @@ export default function PostLikeButton({
       disabled={isPending}
       className={cn(
         "focus-ring-soft -ml-1.5 flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-surface-dim",
-        "disabled:opacity-60 disabled:cursor-not-allowed",
+        "disabled:cursor-not-allowed",
         data.isLiked ? "text-rose-500" : "text-muted hover:text-rose-500"
       )}
+      aria-busy={isPending}
       aria-pressed={data.isLiked}
       aria-label={likeButtonLabel}
     >

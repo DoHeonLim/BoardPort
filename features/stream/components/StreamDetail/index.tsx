@@ -42,6 +42,7 @@
  * 2026.05.17  임도헌   Modified  live-status 직접 구독 제거 후 셸에서 내려온 상태 props 기준으로 렌더링
  * 2026.05.28  임도헌   Modified  모바일 플레이어와 정보 패널을 화면 폭에 맞게 정리
  * 2026.05.29  임도헌   Modified  셸 상태 기준으로 모바일 방송 정보 노출, 높이 제한, 스크롤 기준 정리
+ * 2026.06.17  임도헌   Modified  팔로우 CTA가 pending 동안 선반영 상태를 유지하도록 opacity/text 처리 정리
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -317,27 +318,17 @@ export default function StreamDetail({
                       disabled={isPending}
                       aria-pressed={isFollowing}
                       aria-busy={isPending}
-                      aria-label={
-                        isPending
-                          ? "팔로우 처리 중"
-                          : isFollowing
-                            ? "팔로우 취소"
-                            : "팔로우"
-                      }
+                      aria-label={isFollowing ? "팔로우 취소" : "팔로우"}
                       className={cn(
                         "shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors lg:px-3.5",
-                        "disabled:cursor-not-allowed disabled:opacity-60",
+                        "disabled:cursor-not-allowed",
                         isFollowing ? "focus-ring-soft" : "focus-ring-strong",
                         isFollowing
                           ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger"
                           : "border-transparent bg-brand text-white hover:bg-brand-dark"
                       )}
                     >
-                      {isPending
-                        ? "처리 중..."
-                        : isFollowing
-                          ? "팔로우 취소"
-                          : "팔로우"}
+                      {isFollowing ? "팔로우 취소" : "팔로우"}
                     </button>
                   )}
                 </div>

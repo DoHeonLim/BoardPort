@@ -31,6 +31,7 @@
  * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤용 query key 추가
  * 2026.05.17  임도헌   Modified  query key 필터 객체 타입을 QueryKeyParams로 명시
  * 2026.06.07  임도헌   Modified  VOD 좋아요 상태 query key를 시청자별로 분리
+ * 2026.06.17  임도헌   Modified  상품/게시글 좋아요 상태 query key도 시청자별로 분리
  */
 
 import type { QueryKeyParams } from "@/lib/types";
@@ -52,8 +53,12 @@ export const queryKeys = {
       [...queryKeys.products.lists(), filters] as const,
     details: () => [...queryKeys.products.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.products.details(), id] as const,
-    likeStatus: (productId: number) =>
-      [...queryKeys.products.detail(productId), "likeStatus"] as const,
+    likeStatus: (productId: number, viewerId?: number | null) =>
+      [
+        ...queryKeys.products.detail(productId),
+        "likeStatus",
+        viewerId ?? "guest",
+      ] as const,
     // 유저 프로필 탭의 판매/구매/찜 목록용
     userScope: (scope: string, userId: number) =>
       [...queryKeys.products.all, "userScope", scope, userId] as const,
@@ -71,8 +76,12 @@ export const queryKeys = {
       [...queryKeys.posts.all, "comments", postId] as const,
     stats: (postId: number) =>
       [...queryKeys.posts.detail(postId), "stats"] as const,
-    likeStatus: (postId: number) =>
-      [...queryKeys.posts.detail(postId), "likeStatus"] as const,
+    likeStatus: (postId: number, viewerId?: number | null) =>
+      [
+        ...queryKeys.posts.detail(postId),
+        "likeStatus",
+        viewerId ?? "guest",
+      ] as const,
   },
 
   // 3. 리뷰(Review) 도메인

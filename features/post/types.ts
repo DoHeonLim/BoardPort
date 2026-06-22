@@ -22,6 +22,7 @@
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 DTO 및 상세 타입 추가
  * 2026.05.03  임도헌   Modified  게시글 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 타입 설명 보강
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상 기준 분리를 위한 isLiked 필드 추가
+ * 2026.06.18  임도헌   Modified  동네 피드 노출 기준 feedRegion 필드 추가
  */
 
 import { LocationData } from "@/features/map/types";
@@ -182,6 +183,9 @@ export interface PostDetail extends BasePost {
   region1?: string | null;
   region2?: string | null;
   region3?: string | null;
+  feedRegion1?: string | null;
+  feedRegion2?: string | null;
+  feedRegion3?: string | null;
   board_games?: Array<{
     boardGame: BoardGameRelationOption;
   }>;

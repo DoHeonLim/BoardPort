@@ -18,9 +18,11 @@
  * 2026.03.28  임도헌   Modified  스트림 모드(라이브/다시보기)에 따라 제목/설명/CTA를 분기하도록 확장
  * 2026.04.16  임도헌   Modified  빈 상태 CTA 링크 자동 prefetch를 끄고 실제 선택 시 이동하도록 정리
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
+ * 2026.06.16  임도헌   Modified  검색어+카테고리/팔로잉 0건 상태를 순수 검색 0건과 구분해 안내
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
+import { STREAM_CATEGORY } from "@/features/stream/constants";
 import type { StreamMode, StreamScope } from "@/features/stream/types";
 
 interface Props {
@@ -45,9 +47,30 @@ export default function StreamEmptyState({
   const hasCategory = !!category;
   const isFollowingScope = scope === "following";
   const isRecordingMode = mode === "recordings";
-  const keywordHint = hasKeyword
-    ? `'${keyword}'에 대한 ${isRecordingMode ? "다시보기" : "방송"}를 찾지 못했어요.`
+  const hasKeywordWithRefinement =
+    hasKeyword && (hasCategory || isFollowingScope);
+  const categoryLabel = category
+    ? STREAM_CATEGORY[category as keyof typeof STREAM_CATEGORY]
     : null;
+  const targetLabel = isRecordingMode ? "다시보기" : "방송";
+  const conditionLabel = [
+    categoryLabel ? "카테고리" : null,
+    isFollowingScope ? "팔로잉 범위" : null,
+  ]
+    .filter(Boolean)
+    .join("이나 ");
+  const keywordHint = hasKeyword
+    ? hasKeywordWithRefinement
+      ? `'${keyword}' 검색 결과 중 현재 조건에 맞는 ${targetLabel}를 찾지 못했어요.`
+      : `'${keyword}'에 대한 ${targetLabel}를 찾지 못했어요.`
+    : null;
+  const resetRefinementHref = (() => {
+    const params = new URLSearchParams();
+    if (isRecordingMode) params.set("mode", "recordings");
+    if (keyword) params.set("keyword", keyword);
+
+    return params.toString() ? `/streams?${params.toString()}` : "/streams";
+  })();
 
   let title = isRecordingMode
     ? "등록된 다시보기가 없습니다."
@@ -56,15 +79,20 @@ export default function StreamEmptyState({
     ? "방송이 종료되고 준비가 끝난 다시보기가 여기에 표시됩니다."
     : "새로운 신호를 시작해보세요.";
 
-  if (hasKeyword) {
+  if (hasKeywordWithRefinement) {
+    title = "조건에 맞는 결과가 없습니다.";
+    description = conditionLabel
+      ? `검색어는 유지하고 ${conditionLabel}를 넓혀보세요.`
+      : `검색어는 유지하고 ${targetLabel} 범위를 넓혀보세요.`;
+  } else if (hasKeyword) {
     title = "검색 결과가 없습니다.";
     description = isFollowingScope
-      ? `다른 키워드로 검색하거나, 전체 ${isRecordingMode ? "다시보기" : "방송"}으로 범위를 넓혀보세요.`
-      : `다른 키워드로 ${isRecordingMode ? "다시보기" : "방송"}을 검색해보세요.`;
+      ? `다른 키워드로 검색하거나, 전체 ${targetLabel}으로 범위를 넓혀보세요.`
+      : `다른 키워드로 ${targetLabel}을 검색해보세요.`;
   } else if (hasCategory) {
-    title = `이 카테고리 ${isRecordingMode ? "다시보기" : "방송"}이 없습니다.`;
+    title = `이 카테고리 ${targetLabel}이 없습니다.`;
     description = isFollowingScope
-      ? `팔로잉 중인 ${isRecordingMode ? "다시보기" : "방송"}이 없어 다른 카테고리나 전체 목록을 확인해보세요.`
+      ? `팔로잉 중인 ${targetLabel}이 없어 다른 카테고리나 전체 목록을 확인해보세요.`
       : "다른 카테고리를 확인해보세요.";
   } else if (isFollowingScope) {
     title = isRecordingMode
@@ -102,7 +130,16 @@ export default function StreamEmptyState({
               {isRecordingMode ? "라이브 보러가기" : "방송 시작하기"}
             </Link>
           )}
-          {(hasKeyword || hasCategory) && (
+          {hasKeywordWithRefinement && (
+            <Link
+              href={resetRefinementHref}
+              prefetch={false}
+              className="btn-secondary inline-flex min-h-[44px] items-center justify-center px-6 text-sm"
+            >
+              조건 풀고 보기
+            </Link>
+          )}
+          {(hasKeyword || hasCategory) && !hasKeywordWithRefinement && (
             <Link
               href={isRecordingMode ? "/streams?mode=recordings" : "/streams"}
               prefetch={false}
@@ -111,7 +148,7 @@ export default function StreamEmptyState({
               전체 목록 보기
             </Link>
           )}
-          {isFollowingScope && (
+          {isFollowingScope && !hasKeyword && !hasCategory && (
             <Link
               href={isRecordingMode ? "/streams?mode=recordings" : "/streams"}
               prefetch={false}

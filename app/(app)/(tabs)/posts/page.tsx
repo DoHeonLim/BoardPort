@@ -41,6 +41,8 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/posts/page.tsx 에서 app/(app)/(tabs)/posts/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 분기 기준을 일치시켜 640~767px 구간 헤더 레이아웃 mismatch 정리
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
+ * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
+ * 2026.06.18  임도헌   Modified  게시글 목록 쿼리 키에 실제 지역값을 포함해 동네 변경 캐시 충돌 방지
  */
 
 import { Suspense } from "react";
@@ -66,6 +68,7 @@ import PostListRefreshRelay from "@/features/post/components/PostListRefreshRela
 import { getUserLocation } from "@/features/user/service/profile";
 import { getPostsListAction } from "@/features/post/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 import type {
   PostSearchParams,
   PostsPage as PostsListPage,
@@ -124,15 +127,19 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
   const userRegion2 = userLocation?.region2;
   const userRegion3 = userLocation?.region3;
   const currentRange = (userLocation?.regionRange as RegionRange) ?? "GU";
+  const postListScope = {
+    range: currentRange,
+    region1: userRegion1 ?? "",
+    region2: userRegion2 ?? "",
+    region3: userRegion3 ?? "",
+  };
   const postListQueryKey = {
     ...params,
-    __scope: currentRange,
+    __scope: postListScope,
   };
 
   const fullLocation = userLocation
-    ? [userLocation.region1, userLocation.region2, userLocation.region3]
-        .filter(Boolean)
-        .join(" ")
+    ? formatNormalizedRegion(userLocation)
     : null;
 
   await queryClient.prefetchInfiniteQuery({
@@ -191,9 +198,9 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
             <HydrationBoundary state={dehydrate(queryClient)}>
               <Suspense fallback={<PostListSkeleton viewMode="list" />}>
                 <PostList
-                  key={`${JSON.stringify(searchParams)}-${currentRange}`}
+                  key={`${JSON.stringify(searchParams)}-${JSON.stringify(postListScope)}`}
                   searchParams={params}
-                  queryKeyExtra={currentRange}
+                  queryKeyExtra={postListScope}
                 />
               </Suspense>
             </HydrationBoundary>
@@ -205,7 +212,4 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     </div>
   );
 }
-
-
-
 

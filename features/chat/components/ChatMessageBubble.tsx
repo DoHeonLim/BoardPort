@@ -33,6 +33,7 @@
  * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 메타 타임 크기를 text-xs 기준으로 정리
  * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 이미지 확대 모달과 상대 아바타 초기 비용을 줄임
  * 2026.05.12  임도헌   Modified  이미지 캡션 구분선을 제거하고 여백으로만 말풍선 내부 흐름을 정리
+ * 2026.06.17  임도헌   Modified  삭제된 본인 메시지 placeholder에 미읽음 표시가 남지 않도록 보강
  */
 "use client";
 
@@ -115,6 +116,8 @@ export default function ChatMessageBubble({
     !!onReact;
   const canReportMessage = !isOwnMessage && !!onReport && !message.deleted_at;
   const canDeleteMessage = isOwnMessage && !!onDelete && !message.deleted_at;
+  const showUnreadMarker =
+    isOwnMessage && !message.deleted_at && !message.isRead;
   const hasMessageActions =
     canReactMessage || canCopyMessage || canReportMessage || canDeleteMessage;
   const hasDesktopQuickActions = canReactMessage || hasMessageActions;
@@ -542,7 +545,7 @@ export default function ChatMessageBubble({
               <div className="mb-0.5 flex shrink-0 flex-col text-xs font-medium text-muted">
                 {isOwnMessage && (
                   <span className="text-brand dark:text-brand-light text-right">
-                    {message.isRead ? "" : "1"}
+                    {showUnreadMarker ? "1" : ""}
                   </span>
                 )}
                 <TimeAgo

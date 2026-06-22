@@ -18,11 +18,13 @@
  * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
  * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 textarea와 하단 액션 버튼이 덜 가려지도록 시트형 배치 적용
  * 2026.04.26  임도헌   Modified  리뷰 작성 모달에 dialog 의미와 별점 radiogroup, 후기 입력 라벨을 추가해 접근성을 보강
+ * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 후기 작성 CTA 위계 정리
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import { StarIcon } from "@heroicons/react/24/solid";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
 interface CreateReviewModalProps {
@@ -124,10 +126,19 @@ export default function CreateReviewModal({
         )}
       >
         {/* 헤더 */}
-        <div className="px-6 py-4 border-b border-border-subtle bg-surface">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-border-subtle bg-surface">
           <h2 id="create-review-title" className="text-lg font-bold text-primary">
             거래 후기 작성
           </h2>
+          <button
+            type="button"
+            onClick={handleBackdrop}
+            disabled={isSubmitting}
+            aria-label="거래 후기 작성 모달 닫기"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
+          >
+            <XMarkIcon className="size-6" />
+          </button>
         </div>
 
         {/* 본문 */}
@@ -193,14 +204,7 @@ export default function CreateReviewModal({
         </div>
 
         {/* 하단 액션 */}
-        <div className="shrink-0 px-6 py-4 border-t border-border-subtle bg-surface flex justify-end gap-3">
-          <button
-            onClick={handleBackdrop}
-            disabled={isSubmitting}
-            className="btn-secondary-modal h-10 px-4 text-sm font-medium"
-          >
-            취소
-          </button>
+        <div className="shrink-0 px-6 py-4 border-t border-border-subtle bg-surface flex justify-end">
           <button
             onClick={handleSubmit}
             disabled={disabled}

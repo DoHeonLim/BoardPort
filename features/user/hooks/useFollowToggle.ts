@@ -24,6 +24,7 @@
  * 2026.03.31  임도헌   Modified  훅 역할과 캐시 동기화 맥락이 보이도록 설명 톤 통일
  * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입 import 경로를 user types로 정리
  * 2026.05.16  임도헌   Modified  팔로우/스트림 캐시 갱신 타입을 명시해 any 캐스팅 제거
+ * 2026.06.17  임도헌   Modified  서버 성공 후 팔로워 전용 접근 상태를 동기화하는 책임을 주석에 명확히 반영
  */
 
 "use client";
@@ -49,12 +50,12 @@ type FollowToggleOptions = {
 };
 
 /**
- * 팔로우/언팔로우 토글 액션 및 낙관적 상태 갱신 훅
+ * 팔로우/언팔로우 토글 액션 및 서버 확정 후 캐시 동기화 훅
  *
  * [기능]
  * - `toggleFollowAction` 서버 액션을 호출해 팔로우 상태 변경을 처리
- * - 헤더 통계, 모달 row, 스트리밍 팔로잉 목록 캐시를 함께 동기화
- * - 낙관적 갱신과 서버 확정 상태를 같은 queryClient 기준으로 맞춤
+ * - 성공 응답 기준으로 헤더 통계, 모달 row, 스트리밍 팔로잉 목록 캐시를 함께 동기화
+ * - 버튼/카운트의 표시용 선반영은 `useFollowController`에서 처리하고, 팔로워 전용 접근 상태는 서버 확정 후에만 반영
  */
 export function useFollowToggle() {
   const queryClient = useQueryClient();
