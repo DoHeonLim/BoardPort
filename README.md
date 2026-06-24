@@ -41,6 +41,9 @@ BoardPort의 주요 도메인을 빠르게 훑어보는 전체 흐름입니다.
 
 ## Feature Tour
 
+<details>
+<summary><strong>기능별 데모 영상 펼쳐보기</strong></summary>
+
 ### Auth & Onboarding
 
 회원가입 이후 온보딩과 초기 프로필 진입까지 이어지는 첫 사용 흐름입니다.
@@ -88,6 +91,8 @@ BoardPort의 주요 도메인을 빠르게 훑어보는 전체 흐름입니다.
 신고 처리, 제재, 감사 로그까지 이어지는 관리자 운영 흐름입니다.
 
 <video src="https://github.com/user-attachments/assets/06ae878a-5123-42d4-ab05-181cdfcf1971" controls muted playsinline width="100%"></video>
+
+</details>
 
 <!-- markdownlint-enable MD033 -->
 
@@ -191,10 +196,33 @@ prisma/       Prisma schema, seed, migration
 
 ## Local Development
 
+1. 의존성을 설치합니다.
+
 ```bash
 npm install
+```
+
+2. `.env.local`에 아래 필수 환경 변수를 채웁니다.
+
+3. 로컬 또는 개발 DB에 Prisma 마이그레이션을 적용합니다.
+
+```bash
+npx prisma migrate dev
+```
+
+4. 기본 데이터가 필요하면 seed를 실행합니다.
+
+```bash
+npx prisma db seed
+```
+
+5. 개발 서버를 실행합니다.
+
+```bash
 npm run dev
 ```
+
+외부 연동이 필요한 로그인, SMS, 이메일, 지도, 이미지, 방송, 푸시 알림 기능은 해당 서비스의 환경 변수가 설정되어야 정상 동작합니다.
 
 ### 필수 환경 변수
 
