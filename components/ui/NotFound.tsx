@@ -11,6 +11,7 @@
  * 2026.02.02  임도헌   Modified  주석 상세 설명 및 Props 타입 정의 보강
  * 2026.02.24  임도헌   Modified  로고 추가
  * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸을 적용해 404 톤을 전역 상태 화면과 통일
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 기본 CTA weight를 500 기준으로 정리
  */
 
 "use client";
@@ -53,14 +54,9 @@ export default function NotFound({
   action,
 }: NotFoundProps) {
   return (
-    <div
-      className={cn(
-        "state-screen min-h-[400px] px-0 py-0",
-        className
-      )}
-    >
+    <div className={cn("state-screen min-h-[400px] px-0 py-0", className)}>
       {/* 아이콘 영역 (둥둥 떠다니는 효과) */}
-      <div className="relative mb-6 animate-float">
+      <div className="relative mb-6">
         {/* 뒤쪽 은은한 광원 효과 */}
         <div className="absolute inset-0 bg-brand-light/20 blur-2xl rounded-full" />
         <Logo
@@ -73,9 +69,7 @@ export default function NotFound({
       {/* 텍스트 영역 */}
       <h1 className="state-title">{title}</h1>
 
-      <p className="state-description whitespace-pre-line">
-        {description}
-      </p>
+      <p className="state-description whitespace-pre-line">{description}</p>
 
       {/* 액션 버튼 */}
       {action ? (
@@ -83,7 +77,7 @@ export default function NotFound({
       ) : (
         <Link
           href={redirectHref}
-          className="btn-primary mt-6 inline-flex min-h-[44px] min-w-[160px] items-center justify-center font-semibold"
+          className="btn-primary mt-6 inline-flex min-h-[44px] min-w-[160px] items-center justify-center font-medium"
         >
           {redirectText}
         </Link>

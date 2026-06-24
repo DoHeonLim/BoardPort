@@ -13,11 +13,12 @@
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용, 레이아웃 그리드화, 반응형 사이즈 조정
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  메타 정보 구분선을 border-border-subtle 톤으로 정리
+ * 2026.03.14  임도헌   Modified  matchMedia 기반 크기 분기를 제거하고 공통 컴포넌트의 반응형 size 프리셋으로 단순화
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
 import TimeAgo from "@/components/ui/TimeAgo";
 import UserAvatar from "@/components/global/UserAvatar";
 import UserRating from "@/features/user/components/profile/UserRating";
@@ -67,22 +68,6 @@ export default function ProfileHeader({
   isBlocked,
   className,
 }: Props) {
-  const [isLargeScreen, setIsLargeScreen] = useState(false);
-
-  // 반응형 체크 (sm: 640px 이상)
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 640px)");
-    const apply = () => setIsLargeScreen(mq.matches);
-    apply(); // 초기값 설정
-
-    // 이벤트 리스너 등록
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-
-  const avatarSize = isLargeScreen ? "lg" : "md";
-  const ratingSize = isLargeScreen ? "md" : "sm";
-
   return (
     <div className={className}>
       <div className="flex items-start gap-4">
@@ -91,7 +76,7 @@ export default function ProfileHeader({
           <UserAvatar
             avatar={avatarUrl ?? undefined}
             username={ownerUsername}
-            size={avatarSize}
+            size="profile"
             showUsername={false}
             disabled
             className="ring-1 ring-border shadow-sm bg-surface shrink-0"
@@ -112,11 +97,11 @@ export default function ProfileHeader({
                 <span>가입일</span>
                 <TimeAgo date={createdAt} className="text-muted" />
               </div>
-              <div className="w-px h-3 bg-border" aria-hidden="true" />
+              <div className="h-3 w-px bg-border-subtle" aria-hidden="true" />
               <UserRating
                 average={averageRating?.averageRating ?? 0}
                 totalReviews={averageRating?.reviewCount ?? 0}
-                size={ratingSize}
+                size="profile"
               />
             </div>
 

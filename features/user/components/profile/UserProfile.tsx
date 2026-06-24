@@ -30,10 +30,27 @@
  * 2026.01.17  임도헌   Moved      components/profile -> features/user/components/profile
  * 2026.02.04  임도헌   Modified   차단(isBlocked) 상태에 따른 조건부 렌더링 추가
  * 2026.02.05  임도헌   Modified   차단된 유저 화면에 '차단 해제' 버튼 추가 (UX 개선)
- * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
+ * 2026.02.26  임도헌   Modified   주요 링크/버튼 hover에 다크모드 보조 색상을 적용
  * 2026.03.03  임도헌   Modified   initialProps 제거 및 탭 내부 컴포넌트(SalesTabContent) 분리를 통한 Suspense 최적화
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.06  임도헌   Modified   프로필 판매 탭 상태를 URL Query로 동기화하고 토글/탭 active 대비를 다크모드 기준으로 보강
+ * 2026.03.09  임도헌   Modified   최근 방송 카드에 실제 VOD가 있는 종료 방송만 다시보기 배지로 표시
+ * 2026.03.12  임도헌   Modified   타인 프로필의 빈 상태와 토글 카드 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.12  임도헌   Modified   차단 해제 버튼을 시맨틱 토큰 기반 CTA 톤으로 정리
+ * 2026.03.13  임도헌   Modified   방송국 전체 보기 링크에 현재 프로필 경로를 returnTo로 함께 전달
+ * 2026.03.14  임도헌   Modified   타인 프로필에서도 뱃지 전체 보기 모달로 진입할 수 있도록 연결
+ * 2026.03.15  임도헌   Modified   차단 상태 빈 화면의 시스템 이모지를 heroicons 기반 아이콘으로 교체
+ * 2026.03.17  임도헌   Modified   방송국 rail 카드 래퍼 고정폭을 제거해 축소된 StreamCard 폭을 그대로 사용
+ * 2026.03.18  임도헌   Modified   타인 프로필 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
+ * 2026.03.21  임도헌   Modified   타인 프로필 방송국 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
+ * 2026.04.08  임도헌   Modified   방송국 rail 좌우 정렬선을 다른 프로필 섹션과 같은 시작선으로 맞춤
+ * 2026.04.17  임도헌   Modified   방송국 링크/후기·뱃지/판매 목록 섹션 주석을 현재 구조 기준으로 최신화
+ * 2026.04.19  임도헌   Modified   타인 프로필 판매 목록 탭 active 톤을 판매내역과 같은 기준으로 정리
+ * 2026.04.24  임도헌   Modified   타인 프로필 제품 카드에 현재 프로필 returnTo를 전달해 상세 복귀 문맥 유지
+ * 2026.04.26  임도헌   Modified   차단 해제 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.05.12  임도헌   Modified   타인 프로필 방송국 StreamCard에 연결 보드게임 메타 전달
+ * 2026.05.16  임도헌   Modified   판매 탭 제품 scope 매핑을 명시해 any 캐스팅 제거
+ * 2026.06.21  임도헌   Modified   타인 프로필 판매 목록 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
  */
 
 "use client";
@@ -54,18 +71,25 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { useProductPagination } from "@/features/product/hooks/useProductPagination";
 import { toggleBlockAction } from "@/features/user/actions/block";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
 import UserBadges from "@/features/user/components/profile/UserBadges";
 import ProductCard from "@/features/product/components/productCard";
 import StreamCard from "@/features/stream/components/StreamCard";
 import Skeleton from "@/components/ui/Skeleton";
+import ProfileReviewPreviewList from "@/features/user/components/profile/ProfileReviewPreviewList";
 import {
+  NoSymbolIcon,
   ListBulletIcon,
   Squares2X2Icon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-import type { ProductType, ViewMode } from "@/features/product/types";
+import type {
+  ProductType,
+  UserProductsScope,
+  ViewMode,
+} from "@/features/product/types";
 import type {
   Badge,
   ProfileAverageRating,
@@ -77,13 +101,24 @@ import type { BroadcastSummary } from "@/features/stream/types";
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
 });
+const ProfileBadgesModal = dynamic(() => import("./ProfileBadgesModal"), {
+  ssr: false,
+});
 
 type ProductStatus = "selling" | "sold";
+type SalesScopeType = Extract<UserProductsScope["type"], "SELLING" | "SOLD">;
+
+const PRODUCT_STATUS_SCOPE_TYPE: Record<ProductStatus, SalesScopeType> = {
+  selling: "SELLING",
+  sold: "SOLD",
+};
 
 interface Props {
   user: UserProfileType & { isFollowing?: boolean };
   averageRating: ProfileAverageRating | null;
+  badges: Badge[];
   userBadges: Badge[];
+  previewReviews: import("@/features/user/types").ProfileReview[];
   myStreams?: BroadcastSummary[];
   viewerId?: number;
 }
@@ -93,7 +128,7 @@ interface Props {
  *
  * [주요 섹션]
  * 1. ProfileHeader: 기본 정보 및 팔로우 액션
- * 2. 방송국 (Rail): 해당 유저의 최근 방송 목록 (팔로우 상태에 따라 잠금 UI 연동)
+ * 2. 방송국 (Rail): 해당 유저의 최근 방송 목록 (팔로우 상태 잠금 UI + channel returnTo 유지)
  * 3. 받은 거래 후기 및 뱃지
  * 4. 판매 목록: 판매 중 / 판매 완료 탭과 무한 스크롤 리스트
  *
@@ -105,7 +140,9 @@ interface Props {
 export default function UserProfile({
   user,
   averageRating,
+  badges,
   userBadges,
+  previewReviews,
   myStreams,
   viewerId,
 }: Props) {
@@ -113,7 +150,10 @@ export default function UserProfile({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const qs = searchParams.toString();
-  const next = useMemo(() => pathname + (qs ? `?${qs}` : ""), [pathname, qs]);
+  const next = useMemo(
+    () => sanitizeCallbackUrl(pathname + (qs ? `?${qs}` : "")),
+    [pathname, qs]
+  );
   const activeTab = useMemo<ProductStatus>(() => {
     const tab = searchParams.get("tab");
     return tab === "sold" ? "sold" : "selling";
@@ -125,6 +165,7 @@ export default function UserProfile({
   // 2. 뷰 및 탭 상태
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
 
   // 차단 해제 Transition
   const [isUnblocking, startUnblock] = useTransition();
@@ -206,9 +247,9 @@ export default function UserProfile({
 
       {/* 2. 조건부 렌더링 (차단 여부) */}
       {user.isBlocked ? (
-        <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in bg-surface-dim/50 rounded-3xl border-2 border-dashed border-border mx-auto max-w-sm w-full mt-4">
+        <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border-subtle bg-surface-dim/50 px-6 py-20 text-center">
           <div className="p-4 bg-surface rounded-full shadow-sm mb-4">
-            <span className="text-4xl">🚫</span>
+            <NoSymbolIcon className="size-10 text-danger" />
           </div>
           <h2 className="text-xl font-bold text-primary">
             차단한 사용자입니다
@@ -223,7 +264,7 @@ export default function UserProfile({
             disabled={isUnblocking}
             className={cn(
               "mt-6 h-10 px-6 text-sm font-medium rounded-xl transition-colors",
-              "bg-neutral-600 hover:bg-neutral-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-white shadow-sm",
+              "bg-brand text-white shadow-sm hover:bg-brand-dark dark:bg-brand dark:hover:bg-brand-dark",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
@@ -232,37 +273,43 @@ export default function UserProfile({
         </div>
       ) : (
         <>
-          {/* 3. 방송국 (최근 방송 Rail) */}
+          {/* 3. 방송국 레일: 현재 프로필 경로를 유지한 채 channel로 이동하고 자동 prefetch는 생략 */}
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold text-primary">방송국</h2>
               <Link
-                href={`/profile/${user.username}/channel`}
-                className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
+                href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(next)}`}
+                prefetch={false}
+                aria-label="방송국 전체 보기"
+                className="focus-ring-soft flex items-center rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
               >
-                전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
+                방송국 전체 보기
+                <ChevronRightIcon className="size-3 ml-0.5" />
               </Link>
             </div>
 
             {!myStreams || myStreams.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-border rounded-xl bg-surface-dim/30">
+              <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-6 text-center">
                 <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
               </div>
             ) : (
-              <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory">
+              <div className="flex gap-3 items-stretch overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory">
                 {myStreams.map((s) => {
                   const followersOnlyLocked =
                     s.visibility === "FOLLOWERS" && !isFollowing;
                   const requiresPassword = !!s.requiresPassword;
 
                   return (
-                    <div key={s.id} className="w-[200px] shrink-0 snap-start">
+                    <div key={s.id} className="shrink-0 snap-start">
                       <StreamCard
                         id={s.id}
                         vodIdForRecording={s.latestVodId ?? undefined}
                         title={s.title}
                         thumbnail={s.thumbnail}
                         isLive={s.status === "CONNECTED"}
+                        showReplayBadge={
+                          s.status === "ENDED" && !!s.latestVodId
+                        }
                         streamer={{
                           username: s.user.username,
                           avatar: s.user.avatar ?? undefined,
@@ -270,6 +317,7 @@ export default function UserProfile({
                         startedAt={s.started_at ?? undefined}
                         category={s.category}
                         tags={s.tags}
+                        boardGames={s.board_games}
                         followersOnlyLocked={followersOnlyLocked}
                         requiresPassword={requiresPassword}
                         visibility={s.visibility}
@@ -281,6 +329,7 @@ export default function UserProfile({
                         }
                         layout="rail"
                         shortDescription
+                        showStreamer={false}
                       />
                     </div>
                   );
@@ -289,7 +338,7 @@ export default function UserProfile({
             )}
           </section>
 
-          {/* 4. 후기 및 뱃지 섹션 */}
+          {/* 4. 사회적 신뢰 정보: 후기와 뱃지를 같은 밀도로 묶어 노출 */}
           <div className="grid grid-cols-1 gap-6">
             <section>
               <div className="flex items-center justify-between mb-2">
@@ -298,35 +347,44 @@ export default function UserProfile({
                 </h2>
                 <button
                   onClick={() => setIsReviewModalOpen(true)}
-                  className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
+                  aria-label="받은 거래 후기 전체 보기"
+                  className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
                 >
                   전체 보기
                 </button>
               </div>
+              <ProfileReviewPreviewList reviews={previewReviews} />
             </section>
 
             <section>
-              <h2 className="text-sm font-bold text-primary mb-2">
-                획득한 뱃지
-              </h2>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
+                <button
+                  onClick={() => setIsBadgeModalOpen(true)}
+                  aria-label="획득한 뱃지 전체 보기"
+                  className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                >
+                  전체 보기
+                </button>
+              </div>
               <UserBadges badges={userBadges} max={20} />
             </section>
           </div>
 
-          {/* 5. 판매 목록 (Tabs + Suspense List) */}
+          {/* 5. 판매 목록: 탭과 뷰 토글은 즉시 반응하고 실제 목록은 Suspense 경계 아래에서 교체 */}
           <section>
             <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
             <div className="panel p-4 bg-surface">
               {/* 탭 전환 버튼 */}
-              <div className="mb-4 flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
+              <div className="mb-4 flex rounded-xl border border-border bg-surface p-1 shadow-sm">
                 {(["selling", "sold"] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => handleTabChange(tab)}
                     className={cn(
-                      "flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                      "focus-ring-soft flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       activeTab === tab
-                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
+                        ? "bg-surface-dim text-primary shadow-sm dark:bg-background"
                         : "text-muted hover:bg-background/70 hover:text-primary"
                     )}
                   >
@@ -337,12 +395,12 @@ export default function UserProfile({
 
               {/* 뷰 모드 토글 */}
               <div className="flex justify-end mb-3">
-                <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
+                <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
                   <button
                     onClick={() => setViewMode("list")}
                     aria-label="리스트 보기"
                     className={cn(
-                      "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+                      "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
                       viewMode === "list"
                         ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                         : "text-muted hover:bg-background/70 hover:text-primary"
@@ -354,7 +412,7 @@ export default function UserProfile({
                     onClick={() => setViewMode("grid")}
                     aria-label="그리드 보기"
                     className={cn(
-                      "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+                      "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
                       viewMode === "grid"
                         ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
                         : "text-muted hover:bg-background/70 hover:text-primary"
@@ -379,6 +437,7 @@ export default function UserProfile({
                   type={activeTab}
                   userId={user.id}
                   viewMode={viewMode}
+                  returnTo={next}
                 />
               </Suspense>
             </div>
@@ -392,6 +451,14 @@ export default function UserProfile({
               userId={user.id}
             />
           )}
+          {isBadgeModalOpen && (
+            <ProfileBadgesModal
+              isOpen={isBadgeModalOpen}
+              closeModal={() => setIsBadgeModalOpen(false)}
+              badges={badges}
+              userBadges={userBadges}
+            />
+          )}
         </>
       )}
     </div>
@@ -399,16 +466,18 @@ export default function UserProfile({
 }
 
 // ----------------------------------------------------------------------
-// 내부 컴포넌트: 선택된 탭 전용 데이터 패칭 및 렌더링 (선언적 로딩)
+// 내부 컴포넌트: 선택된 판매 탭 전용 데이터만 불러와 리스트 교체
 // ----------------------------------------------------------------------
 function SalesTabContent({
   type,
   userId,
   viewMode,
+  returnTo,
 }: {
   type: ProductStatus;
   userId: number;
   viewMode: ViewMode;
+  returnTo: string;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
@@ -416,10 +485,10 @@ function SalesTabContent({
   // Suspense에 의해 data가 보장됨 (isLoading 분기 필요 없음)
   const current = useProductPagination<ProductType>({
     mode: "profile",
-    scope: { type: type.toUpperCase() as any, userId },
+    scope: { type: PRODUCT_STATUS_SCOPE_TYPE[type], userId },
   });
 
-  const products = current.products as ProductType[];
+  const products = current.products;
 
   useInfiniteScroll({
     triggerRef,
@@ -427,13 +496,13 @@ function SalesTabContent({
     isLoading: current.isFetchingNextPage,
     onLoadMore: current.loadMore,
     enabled: isVisible,
-    rootMargin: "1000px 0px 0px 0px",
+    rootMargin: "0px 0px 1000px 0px",
     threshold: 0.01,
   });
 
   if (products.length === 0) {
     return (
-      <div className="py-12 text-center text-muted text-sm border border-dashed border-border rounded-xl bg-surface-dim/30">
+      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-12 text-center text-sm text-muted">
         {type === "selling"
           ? "판매 중인 제품이 없습니다."
           : "판매 완료한 제품이 없습니다."}
@@ -455,6 +524,7 @@ function SalesTabContent({
             product={product}
             viewMode={viewMode}
             isPriority={i < 4}
+            returnTo={returnTo}
           />
         ))}
       </div>

@@ -10,6 +10,12 @@
  * 2026.02.20  임도헌   Modified  지도 클릭 시 확대되는 지도 모달 추가
  * 2026.02.22  임도헌   Modified  Ghost User(나간 유저)일 경우 액션 버튼 비활성화 처리
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.03.12  임도헌   Modified  약속 상태 배지와 액션 버튼을 시맨틱 토큰 기반 톤으로 통일
+ * 2026.03.27  임도헌   Modified  약속 카드 상태 표현과 액션 위계를 재정리해 라이트/다크 가독성을 개선
+ * 2026.03.27  임도헌   Modified  수락 버튼에 다크 밀집 화면용 primary 버튼 톤을 적용
+ * 2026.03.28  임도헌   Modified  현재 대화 검색 하이라이트를 카드 표면에 적용할 수 있도록 searchHighlight 톤 지원 추가
+ * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 약속 카드 배지/라벨/버튼 weight와 크기를 400/500/700 기준으로 정리
+ * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 약속 카드의 지도 마운트 비용과 상호작용을 함께 경량화
  */
 
 "use client";
@@ -20,9 +26,9 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { toast } from "sonner";
 import { CalendarDaysIcon, MapPinIcon } from "@heroicons/react/24/solid";
-import { MagnifyingGlassPlusIcon } from "@heroicons/react/24/outline";
-import { Map, MapMarker } from "react-kakao-maps-sdk";
-import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
+import {
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import {
   acceptAppointmentAction,
@@ -40,6 +46,7 @@ interface Props {
   isOwnMessage: boolean;
   currentUserId: number;
   isCounterpartyLeft?: boolean;
+  searchHighlight?: "active" | "hit" | null;
 }
 
 /**
@@ -48,17 +55,17 @@ interface Props {
  * [상태별 UI]
  * - PENDING: 제안자에게는 '취소', 수신자에게는 '수락/거절' 버튼 노출
  * - ACCEPTED: 초록색 '확정됨' 뱃지 표시
- * - CANCELED/REJECTED: 불투명 처리 및 상태 뱃지 표시
+ * - CANCELED/REJECTED/EXPIRED: 카드 가독성은 유지하고 상태 배지로 결과를 안내
  */
 export default function AppointmentBubble({
   message,
   isOwnMessage,
   currentUserId,
   isCounterpartyLeft = false,
+  searchHighlight = null,
 }: Props) {
   const apt = message.appointment;
   const [isPending, startTransition] = useTransition();
-  const { loading, error } = useKakaoLoader();
 
   // 로컬 낙관적 상태 추가
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
@@ -118,164 +125,141 @@ export default function AppointmentBubble({
   };
 
   const isAccepted = status === "ACCEPTED";
-  const isDead =
-    status === "REJECTED" ||
-    status === "CANCELED" ||
-    (status === "PENDING" && isExpired);
+  const isRejected = status === "REJECTED";
+  const isCanceled = status === "CANCELED";
+  const isExpiredPending = status === "PENDING" && isExpired;
+  const isDead = isRejected || isCanceled || isExpiredPending;
   const actionName = isProposer ? "취소" : "거절";
+  const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(
+    apt.location
+  )},${apt.latitude},${apt.longitude}`;
+  const cardHighlightClass = cn(
+    searchHighlight === "active" &&
+      "ring-2 ring-brand/55 ring-offset-2 ring-offset-background dark:ring-brand-light/60 shadow-lg",
+    searchHighlight === "hit" &&
+      "ring-1 ring-brand/35 ring-offset-1 ring-offset-background dark:ring-brand-light/40 shadow-md"
+  );
 
   return (
     <>
       <div
         className={cn(
-          "w-[260px] sm:w-[300px] rounded-2xl overflow-hidden border shadow-sm transition-all bg-surface",
-          isOwnMessage
-            ? "border-brand-light/20 dark:border-brand-light/40"
-            : "border-border",
-          isDead && "opacity-60 grayscale"
+          "w-[258px] overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-all sm:w-[292px]",
+          isOwnMessage && "dark:border-border",
+          cardHighlightClass
         )}
       >
-        {/* Header */}
+        {/* 헤더 */}
         <div
           className={cn(
-            "px-4 py-3 flex items-center gap-2 border-b",
-            isOwnMessage
-              ? "border-brand-light/10 bg-brand/5 dark:bg-brand-light/10 text-primary"
-              : "border-border bg-surface-dim/50 text-primary"
+            "flex items-center gap-2 border-b border-border-subtle px-4 py-3 text-primary",
+            isDead && "bg-surface-dim/55"
           )}
         >
-          <CalendarDaysIcon className="size-5 text-brand dark:text-brand-light" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light">
+            <CalendarDaysIcon className="size-[18px]" />
+          </div>
           <span className="font-bold text-sm">
-            {status === "PENDING" && isExpired ? "만료된 제안" : "약속 제안"}
+            {isExpiredPending ? "만료된 제안" : "약속 제안"}
           </span>
 
-          {status === "PENDING" && isExpired && (
-            <span className="ml-auto text-[10px] font-bold bg-neutral-400 text-white px-2 py-0.5 rounded-full">
+          {isExpiredPending && (
+            <span className="ml-auto rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-bold text-primary">
               기간만료
             </span>
           )}
           {isAccepted && (
-            <span className="ml-auto text-[10px] font-bold bg-green-500 text-white px-2 py-0.5 rounded-full">
+            <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-accent-foreground shadow-sm">
               확정됨
             </span>
           )}
-          {status === "CANCELED" && (
-            <span className="ml-auto text-[10px] font-bold bg-neutral-500 text-white px-2 py-0.5 rounded-full">
+          {isCanceled && (
+            <span className="ml-auto rounded-full border border-border bg-surface px-2 py-0.5 text-xs font-bold text-muted">
               취소됨
             </span>
           )}
-          {status === "REJECTED" && (
-            <span className="ml-auto text-[10px] font-bold bg-red-500 text-white px-2 py-0.5 rounded-full">
+          {isRejected && (
+            <span className="ml-auto rounded-full bg-danger/10 px-2 py-0.5 text-xs font-bold text-danger">
               거절됨
             </span>
           )}
         </div>
 
-        {/* Body: Map & Info */}
-        <div className="flex flex-col">
-          {/* 순수 지도 영역 (클릭 및 호버 효과 추가) */}
-          <div
-            className="relative h-32 w-full border-b border-border/50 bg-surface-dim cursor-pointer group"
-            onClick={() => setIsMapZoomed(true)} // 클릭 시 확대 모달 오픈
-            role="button"
-            aria-label="지도 크게 보기"
-          >
-            {loading ? (
-              <div className="flex h-full items-center justify-center text-xs text-muted">
-                지도 로딩 중...
-              </div>
-            ) : error ? (
-              <div className="flex h-full items-center justify-center text-xs text-danger">
-                지도 오류
-              </div>
-            ) : (
-              <>
-                {/* 
-                  내부 지도 컴포넌트 클릭 이벤트 방지를 위해 
-                  pointer-events-none을 wrapper에 적용 
-                */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <Map
-                    center={{ lat: apt.latitude, lng: apt.longitude }}
-                    style={{ width: "100%", height: "100%" }}
-                    level={4}
-                    draggable={false}
-                    zoomable={false}
-                    disableDoubleClickZoom={true}
-                  >
-                    <MapMarker
-                      position={{ lat: apt.latitude, lng: apt.longitude }}
-                    />
-                  </Map>
-                </div>
-                {/* Hover Overlay: 돋보기 아이콘 */}
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                  <MagnifyingGlassPlusIcon className="w-8 h-8 text-white drop-shadow-md" />
-                </div>
-              </>
-            )}
+        {/* 본문 */}
+        <div className="space-y-3 px-4 py-3.5">
+          <div className="flex items-start gap-2.5">
+            <CalendarDaysIcon className="mt-0.5 size-5 shrink-0 text-muted" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium tracking-[0.01em] text-muted">
+                일시
+              </p>
+              <p className="mt-0.5 text-sm font-bold text-primary">
+                {dateText}
+              </p>
+            </div>
           </div>
-
-          <div className="p-4 space-y-3">
-            <div className="flex items-start gap-2.5">
-              <CalendarDaysIcon className="size-5 shrink-0 mt-0.5 opacity-70 text-muted" />
-              <div>
-                <p className="text-[11px] font-medium opacity-70 text-muted">
-                  일시
-                </p>
-                <p className="text-sm font-bold text-primary">{dateText}</p>
-              </div>
+          <div className="flex items-start gap-2.5">
+            <MapPinIcon className="mt-0.5 size-5 shrink-0 text-muted" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium tracking-[0.01em] text-muted">
+                장소
+              </p>
+              <p className="mt-0.5 truncate text-sm font-bold leading-tight text-primary">
+                {apt.location}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                지도를 크게 확인하거나 카카오맵으로 바로 열 수 있어요.
+              </p>
             </div>
-            <div className="flex items-start gap-2.5">
-              <MapPinIcon className="size-5 shrink-0 mt-0.5 opacity-70 text-muted" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium opacity-70 text-muted">
-                  장소
-                </p>
-                <p className="text-sm font-bold leading-tight text-primary truncate">
-                  {apt.location}
-                </p>
-              </div>
-            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setIsMapZoomed(true)}
+              className="focus-ring-soft inline-flex h-9 items-center justify-center rounded-full border border-border-subtle bg-surface-dim px-3.5 text-xs font-medium text-primary transition-colors hover:bg-background"
+            >
+              상세 지도 보기
+            </button>
+            <a
+              href={mapLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-ring-soft inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-border-subtle bg-background px-3.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            >
+              카카오맵
+              <ArrowTopRightOnSquareIcon className="size-3.5" />
+            </a>
           </div>
         </div>
 
-        {/* Footer: Actions */}
+        {/* 하단 액션 */}
         {status === "PENDING" && !isExpired && (
-          <div
-            className={cn(
-              "flex border-t",
-              isOwnMessage
-                ? "border-brand-light/10 divide-brand-light/10"
-                : "border-border divide-border",
-              "divide-x"
-            )}
-          >
+          <div className="border-t border-border-subtle px-3 py-3">
             {isProposer ? (
               <button
                 onClick={() => setIsConfirmOpen(true)}
                 disabled={isActionDisabled}
-                className="flex-1 py-3 text-sm font-medium text-primary transition-colors hover:bg-surface-dim disabled:opacity-50"
+                className="focus-ring-soft inline-flex h-10.5 w-full items-center justify-center rounded-xl border border-border bg-surface-dim px-4 text-sm font-medium text-primary transition-colors hover:bg-background disabled:opacity-50"
               >
                 약속 취소하기
               </button>
             ) : (
-              <>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setIsConfirmOpen(true)}
                   disabled={isActionDisabled}
-                  className="flex-1 py-3 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/10 disabled:opacity-50 text-red-500 transition-colors"
+                  className="focus-ring-soft inline-flex h-10.5 items-center justify-center rounded-xl border border-danger/20 bg-danger/5 px-4 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
                 >
                   거절
                 </button>
                 <button
                   onClick={handleAccept}
                   disabled={isActionDisabled}
-                  className="flex-1 py-3 text-sm font-bold hover:bg-green-50 dark:hover:bg-green-900/10 disabled:opacity-50 text-green-600 transition-colors"
+                  className="btn-primary-quiet-dark inline-flex h-10.5 items-center justify-center rounded-xl px-4 text-sm font-bold shadow-sm disabled:opacity-50"
                 >
                   수락하기
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}

@@ -15,6 +15,7 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.01.30  임도헌   Merged    features/auth/utils/tokenGenerator.ts (SMS) 통합
  * 2026.03.07  임도헌   Modified  SMS 토큰 생성 범위를 이메일 토큰과 동일한 6자리 전체 범위로 정정
+ * 2026.04.02  임도헌   Modified  SMS 토큰 생성 함수 JSDoc 보강
  */
 
 import "server-only";
@@ -45,7 +46,9 @@ export async function handleGetToken(): Promise<string> {
 
 /**
  * 6자리 숫자 SMS 인증 토큰 생성
- * - SMSToken 테이블 중복 체크
+ * SMSToken 테이블에서 중복 여부를 확인하고, 중복 시 재귀적으로 다시 생성
+ *
+ * @returns {Promise<string>} 6자리 유니크 SMS 토큰 문자열
  */
 export async function generateUniqueSmsToken(): Promise<string> {
   const token = crypto.randomInt(100000, 1000000).toString();

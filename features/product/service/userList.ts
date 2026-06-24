@@ -1,6 +1,7 @@
 /**
- * File Name : features/product/service/UserList.ts
+ * File Name : features/product/service/userList.ts
  * Description : 프로필/마이페이지 공용 제품 목록(초기/무한스크롤)
+ * Author : 임도헌
  *
  * History
  * Date        Author   Status     Description
@@ -20,38 +21,42 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  'LIKED' 스코프 추가 및 조건 매핑 (내가 찜한 상품 조회)
  * 2026.03.06  임도헌   Modified  getUserProductsList 제네릭 기본 타입에 ProductType 추가(LIKED 스코프 타입 정합성 강화)
+ * 2026.03.26  임도헌   Modified  LIKED 목록에 productLike.created_at 기반 liked_at을 함께 매핑
+ * 2026.04.02  임도헌   Modified  scope where helper JSDoc 보강
+ * 2026.04.09  임도헌   Modified  숨김 상품은 찜 목록에서 제외하고 내 판매/구매 내역에서는 계속 관리할 수 있도록 조회 범위 분리
+ * 2026.05.03  임도헌   Modified  프로필 판매/구매/찜 목록의 보드게임 relation을 카드 DTO에 맞게 평탄화
+ * 2026.05.08  임도헌   Modified  UserProductsScope를 features/product/types.ts 공용 타입으로 이동
+ * 2026.05.16  임도헌   Modified  커서 옵션 타입을 Prisma findMany 인자 기준으로 정리
+ * 2026.05.18  임도헌   Modified  예약/판매 완료/구매 내역 목록 정렬을 등록일이 아닌 상태 전환 시각 기준으로 보정
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import { PRODUCTS_PAGE_TAKE } from "@/lib/constants";
-import { PROFILE_SALES_UNIFIED_SELECT } from "@/features/product/constants";
+import { PROFILE_SALES_UNIFIED_SELECT } from "@/features/product/selects";
 import type {
   Paginated,
   TabCounts,
   MySalesListItem,
   MyPurchasedListItem,
   ProductType,
+  LikedProductListItem,
+  UserProductsScope,
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
 
-/**
- * 유저 제품 목록 조회 범위 (Scope) 정의
- * - SELLING: 판매 중
- * - RESERVED: 예약 중
- * - SOLD: 판매 완료
- * - PURCHASED: 구매 내역
- * - LIKED: 좋아요 내역
- */
-export type UserProductsScope =
-  | { type: "SELLING"; userId: number }
-  | { type: "RESERVED"; userId: number }
-  | { type: "SOLD"; userId: number }
-  | { type: "PURCHASED"; userId: number }
-  | { type: "LIKED"; userId: number };
+type ProfileProductListRow = Prisma.ProductGetPayload<{
+  select: typeof PROFILE_SALES_UNIFIED_SELECT;
+}>;
 
-/** Prisma Where Input 생성 헬퍼 */
+/**
+ * Scope별 Prisma where 조건 생성
+ *
+ * @param {UserProductsScope} scope - 조회할 프로필 탭 범위와 대상 유저 ID
+ * @returns 객체 리터럴 기반 Prisma where 조건
+ */
 function whereFor(scope: UserProductsScope) {
   switch (scope.type) {
     case "SELLING":
@@ -77,9 +82,29 @@ function whereFor(scope: UserProductsScope) {
       };
     case "LIKED":
       return {
+        hidden_at: null,
         product_likes: { some: { userId: scope.userId } },
       };
   }
+}
+
+/**
+ * 프로필/찜 목록 카드 DTO에 맞춘 공개 보드게임 locale 평탄화
+ *
+ * @param row - PROFILE_SALES_UNIFIED_SELECT로 조회한 제품 row
+ * @returns ProductCard가 바로 사용할 수 있는 제품 목록 DTO
+ */
+function mapProfileProductRow(row: ProfileProductListRow): ProductType {
+  return {
+    ...row,
+    board_games: row.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 관리자 공개 전 locale은 프로필/찜 목록 카드에서 제외
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  };
 }
 
 /**
@@ -99,7 +124,11 @@ function whereFor(scope: UserProductsScope) {
  * @returns {Promise<Paginated<T>>} 페이징된 목록 및 커서 반환
  */
 export async function getUserProductsList<
-  T = MySalesListItem | MyPurchasedListItem | ProductType,
+  T =
+    | MySalesListItem
+    | MyPurchasedListItem
+    | LikedProductListItem
+    | ProductType,
 >(scope: UserProductsScope, cursor?: number | null): Promise<Paginated<T>> {
   // LIKED는 ProductLike.created_at 기준(최근 찜한 순)으로 별도 처리
   if (scope.type === "LIKED") {
@@ -125,6 +154,7 @@ export async function getUserProductsList<
     const likedRows = await db.productLike.findMany({
       where: {
         userId: scope.userId,
+        product: { hidden_at: null },
         ...(cursorLike
           ? {
               OR: [
@@ -152,7 +182,11 @@ export async function getUserProductsList<
 
     const hasNext = likedRows.length > TAKE;
     const pageRows = hasNext ? likedRows.slice(0, TAKE) : likedRows;
-    const products = pageRows.map((r) => r.product) as unknown as T[];
+    const products = pageRows.map((r) => ({
+      ...mapProfileProductRow(r.product),
+      isLiked: true,
+      liked_at: r.created_at,
+    })) as unknown as T[];
     const nextCursor = hasNext
       ? (pageRows[pageRows.length - 1]?.productId ?? null)
       : null;
@@ -163,7 +197,7 @@ export async function getUserProductsList<
   /**======================================================================
    *               기존 SELLING/RESERVED/SOLD/PURCHASED 로직
    * ====================================================================== */
-  let cursorOpt: Record<string, any> = {};
+  let cursorOpt: Pick<Prisma.ProductFindManyArgs, "skip" | "cursor"> = {};
 
   // 커서 유효성 검사 (삭제된 제품일 수 있으므로 확인)
   if (cursor) {
@@ -174,18 +208,28 @@ export async function getUserProductsList<
     if (exists) cursorOpt = { skip: 1, cursor: { id: cursor } };
   }
 
+  const orderBy: Prisma.ProductFindManyArgs["orderBy"] =
+    scope.type === "RESERVED"
+      ? // 예약 중 탭은 최근 예약된 상품이 먼저 보이도록 예약 시각을 정렬 기준으로 사용
+        [{ reservation_at: "desc" }, { id: "desc" }]
+      : scope.type === "SOLD" || scope.type === "PURCHASED"
+      ? // 거래 내역 성격의 탭은 등록 순서가 아니라 실제 거래 완료 시각을 최신순 기준으로 사용
+        [{ purchased_at: "desc" }, { id: "desc" }]
+      : { id: "desc" };
+
   const rows = await db.product.findMany({
     where: whereFor(scope),
     select: PROFILE_SALES_UNIFIED_SELECT,
-    orderBy: { id: "desc" },
+    orderBy,
     take: TAKE + 1,
     ...cursorOpt,
   });
 
   const hasNext = rows.length > TAKE;
-  const products = (hasNext ? rows.slice(0, TAKE) : rows) as unknown as T[];
+  const pageRows = hasNext ? rows.slice(0, TAKE) : rows;
+  const products = pageRows.map(mapProfileProductRow) as unknown as T[];
   const nextCursor = hasNext
-    ? (products[products.length - 1] as any)!.id
+    ? (pageRows[pageRows.length - 1]?.id ?? null)
     : null;
 
   return { products, nextCursor };

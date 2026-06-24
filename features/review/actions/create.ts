@@ -1,12 +1,13 @@
 /**
  * File Name : features/review/actions/create.ts
- * Description : 리뷰 생성 Controller
+ * Description : 리뷰 생성 서버 액션
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.01.30  임도헌   Moved     features/review/actions.ts -> features/review/actions/create.ts
  * 2026.03.05  임도헌   Modified  Action 내 `revalidateTag` 부수 효과(리뷰 목록, 평점 등) 제거 및 클라이언트 Mutation 훅으로 상태 갱신 위임
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 
@@ -36,10 +37,12 @@ export async function createReviewAction(
   rate: number,
   type: "buyer" | "seller"
 ): Promise<ReviewServiceResult> {
+  // 로그인 세션 확인
   const session = await getSession();
   if (!session?.id)
     return { success: false, error: REVIEW_ERRORS.NOT_LOGGED_IN };
 
+  // 입력 검증
   const parsed = createReviewSchema.safeParse({
     productId,
     payload,
@@ -51,11 +54,13 @@ export async function createReviewAction(
     return { success: false, error: parsed.error.errors[0].message };
   }
 
+  // 리뷰 생성 service 위임
   const result = await createReviewService(session.id, parsed.data);
 
   if (result.success && result.meta) {
     const { productId } = result.meta;
 
+    // 상품 상세 캐시 재검증
     revalidateTag(T.PRODUCT_DETAIL(productId));
   }
 

@@ -16,6 +16,8 @@
  * 2026.01.15  임도헌   Modified  [Rule 5.1] 시맨틱 토큰(bg-brand/5) 적용
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.23  임도헌   Modified  뱃지 empty state 점선 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
+ * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 보유 뱃지 라벨을 text-xs 기준으로 정리
  */
 import Image from "next/image";
 import { getBadgeKoreanName } from "@/features/user/utils/badge";
@@ -38,7 +40,7 @@ interface UserBadgesProps {
 export default function UserBadges({ badges = [], max = 5 }: UserBadgesProps) {
   if (!badges || badges.length === 0) {
     return (
-      <div className="py-4 text-center text-sm text-muted bg-surface-dim/30 rounded-xl border border-dashed border-border">
+      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-4 text-center text-sm text-muted">
         아직 획득한 뱃지가 없습니다.
       </div>
     );
@@ -61,7 +63,7 @@ export default function UserBadges({ badges = [], max = 5 }: UserBadgesProps) {
               sizes="40px"
             />
           </div>
-          <span className="text-[11px] font-medium text-center text-primary leading-tight line-clamp-2">
+          <span className="text-xs font-medium text-center text-primary leading-tight line-clamp-2">
             {getBadgeKoreanName(badge.name)}
           </span>
         </div>

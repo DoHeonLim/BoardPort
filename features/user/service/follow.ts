@@ -19,6 +19,7 @@
  * 2026.03.03  임도헌   Modified   unstable_cache 래퍼 및 1페이지 분기 로직 제거, 단일 페이징 쿼리로 통합
  * 2026.03.07  임도헌   Modified   요청자 정지 가드 및 팔로우 실패 사유 전달 정합성 보강
  * 2026.03.07  임도헌   Modified   팔로우 목록에서 정지/차단 관계 유저 숨김 처리 추가
+ * 2026.05.16  임도헌   Modified   유저 경량 정보 select를 selects.ts로 분리
  */
 import "server-only";
 import db from "@/lib/db";
@@ -30,18 +31,17 @@ import {
 } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { FollowListCursor, FollowListUser } from "@/features/user/types";
+import { USER_LITE_SELECT } from "@/features/user/selects";
 
 // --- Helper: Batch User Info ---
 /**
- * ID 목록으로 유저 정보를 한 번에 조회 (Batch Fetch)
- * - N+1 문제 방지를 위해 `WHERE id IN (...)` 쿼리를 사용
- * - 조회된 유저 정보를 Map으로 변환하여 O(1) 접근이 가능
+ * ID 목록 기반 유저 경량 정보 배치 조회
  */
 async function batchFetchUserLiteByIds(ids: number[]) {
   if (!ids.length) return new Map();
   const users = await db.user.findMany({
     where: { id: { in: ids }, bannedAt: null },
-    select: { id: true, username: true, avatar: true },
+    select: USER_LITE_SELECT,
   });
   return new Map(users.map((u) => [u.id, u]));
 }
@@ -49,10 +49,9 @@ async function batchFetchUserLiteByIds(ids: number[]) {
 /**
  * 조회자 기준으로 차단 관계에 있는 유저를 팔로우 목록에서 제외
  */
-async function filterVisibleFollowRows<T extends { followerId?: number; followingId?: number }>(
-  rows: T[],
-  viewerId: number | null
-) {
+async function filterVisibleFollowRows<
+  T extends { followerId?: number; followingId?: number },
+>(rows: T[], viewerId: number | null) {
   if (!viewerId || rows.length === 0) return rows;
 
   const blockedIds = new Set(await getBlockedUserIds(viewerId));
@@ -64,13 +63,6 @@ async function filterVisibleFollowRows<T extends { followerId?: number; followin
   });
 }
 
-/** --- Public API ---
- - 1. Username -> ID 변환
- - 2. 목록 조회 (첫 페이지는 캐시, 이후는 커서 기반 DB 조회)
- - 3. 유저 정보 조립 (Batch Fetch)
- - 4. 관계 상태 확인 (Viewer와의 관계, Owner와의 관계)
- - 5. 결과 매핑 및 반환
- */
 /**
  * 팔로워 목록 조회 (Cursor Paging)
  */
@@ -86,7 +78,7 @@ export async function getFollowersService(
   const cursorLastId = cursor?.lastId ?? null;
   const take = Math.min(limit, 50) + 1;
 
-  // 1. 목록 조회 (Cursor 기반 단일화)
+  // 팔로워 row 조회
   const rows = await db.follow.findMany({
     where: {
       followingId: ownerId,
@@ -101,11 +93,12 @@ export async function getFollowersService(
   const page = hasMore ? rows.slice(0, Math.min(limit, 50)) : rows;
   const visiblePage = await filterVisibleFollowRows(page, viewerId);
 
-  // 2. 유저 정보 조립
+  // 경량 유저 정보 조립
   const ids = visiblePage.map((r) => r.followerId);
   const liteById = await batchFetchUserLiteByIds(ids);
 
-  // 3. 관계 상태 확인 (viewer -> row / owner -> row)
+  // 관계 상태 계산
+  // viewer -> row, owner -> row 기준 맞팔/팔로우 여부 확인
   const viewerFollowsSet = new Set<number>();
   if (viewerId && ids.length) {
     const hits = await db.follow.findMany({
@@ -124,7 +117,7 @@ export async function getFollowersService(
     hits.forEach((h) => mutualSet.add(h.followingId));
   }
 
-  // 4. 결과 매핑
+  // 결과 DTO 매핑
   const users: FollowListUser[] = [];
   for (const r of visiblePage) {
     const u = liteById.get(r.followerId);
@@ -160,6 +153,7 @@ export async function getFollowingService(
   const cursorLastId = cursor?.lastId ?? null;
   const take = Math.min(limit, 50) + 1;
 
+  // 팔로잉 row 조회
   const rows = await db.follow.findMany({
     where: {
       followerId: ownerId,
@@ -174,9 +168,11 @@ export async function getFollowingService(
   const page = hasMore ? rows.slice(0, Math.min(limit, 50)) : rows;
   const visiblePage = await filterVisibleFollowRows(page, viewerId);
 
+  // 경량 유저 정보 조립
   const ids = visiblePage.map((r) => r.followingId);
   const liteById = await batchFetchUserLiteByIds(ids);
 
+  // 관계 상태 계산
   const viewerFollowsSet = new Set<number>();
   if (viewerId && ids.length) {
     const hits = await db.follow.findMany({
@@ -195,6 +191,7 @@ export async function getFollowingService(
     hits.forEach((h) => mutualSet.add(h.followerId));
   }
 
+  // 결과 DTO 매핑
   const users: FollowListUser[] = [];
   for (const r of visiblePage) {
     const u = liteById.get(r.followingId);
@@ -225,7 +222,7 @@ type ToggleFollowResult = {
 
 /**
  * 팔로우하기
- * - 중복(P2002) 시 에러 무시하고 changed=false 반환 (멱등성 보장)
+ * - 중복(P2002) 시 에러 무시를 통한 멱등성 보장
  */
 export async function followUserService(
   viewerId: number,
@@ -236,7 +233,7 @@ export async function followUserService(
     throw new Error(viewerStatus.error);
   }
 
-  // 대상 유저가 정지된 상태인지 확인하여 팔로우 차단
+  // 대상 유저 정지 상태 확인
   const targetStatus = await validateUserStatus(targetId);
   if (!targetStatus.success) {
     throw new Error(
@@ -258,7 +255,7 @@ export async function followUserService(
     if (!isUniqueConstraintError(e, ["followerId", "followingId"])) throw e;
   }
 
-  // 최신 카운트 반환 (클라이언트 보정용)
+  // 최신 카운트 반환
   const counts = await getCounts(viewerId, targetId);
   return { changed, isFollowing: true, counts };
 }

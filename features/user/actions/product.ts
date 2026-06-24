@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/actions/product.ts
- * Description : 유저 관련 제품 조회 Controller (프로필 내 제품 목록)
+ * Description : 유저 관련 제품 조회 서버 액션 (프로필 내 제품 목록)
  * Author : 임도헌
  *
  * History
@@ -10,19 +10,19 @@
  * 2026.03.04  임도헌   Modified  getUserProductsList 통합 호출 구조 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.06  임도헌   Modified  PURCHASED/LIKED/RESERVED 스코프 접근 권한 검증 추가
+ * 2026.05.08  임도헌   Modified  제품 목록 조회 범위 타입 import 경로를 product types로 정리
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 
 import getSession from "@/lib/session";
-import {
-  getUserProductsList,
-  type UserProductsScope,
-} from "@/features/product/service/userList";
+import { getUserProductsList } from "@/features/product/service/userList";
 import type {
   Paginated,
   MySalesListItem,
   MyPurchasedListItem,
   ProductType,
+  UserProductsScope,
 } from "@/features/product/types";
 import { USER_ERRORS } from "@/features/user/constants";
 

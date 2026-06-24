@@ -9,8 +9,10 @@
  * 2024.10.06  임도헌   Modified  iron-session으로 쿠키 암호화
  * 2025.08.14  임도헌   Modified  unlockedStreamIds 추가
  * 2026.02.06  임도헌   Modified  세션에 역할 추가
+ * 2026.05.19  임도헌   Modified  쿠키 기반 세션 헬퍼가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  */
 
+import "server-only";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 

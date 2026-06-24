@@ -1,5 +1,5 @@
 /**
- * File Name : components/providers/ThemeProvider
+ * File Name : components/global/providers/ThemeProvider.tsx
  * Description : 시스템 테마(다크모드) 설정 Provider
  * Author : 임도헌
  *
@@ -8,15 +8,16 @@
  * 2024.12.13  임도헌   Created
  * 2026.01.18  임도헌   Moved     components/providers -> components/global/providers
  * 2026.01.29  임도헌   Modified  주석 정리
+ * 2026.05.17  임도헌   Modified  next-themes Provider props 타입 재사용으로 any 제거
  */
 "use client";
 
-import { ThemeProvider as NextThemesProvider } from "next-themes";
+import {
+  ThemeProvider as NextThemesProvider,
+  type ThemeProviderProps as NextThemesProviderProps,
+} from "next-themes";
 
-interface ThemeProviderProps {
-  children: React.ReactNode;
-  [key: string]: any;
-}
+type ThemeProviderProps = NextThemesProviderProps;
 
 /**
  * next-themes 기반의 테마 관리 Provider

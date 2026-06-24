@@ -11,6 +11,13 @@
  * 2026.02.22  임도헌   Modified  약속 수락 트랜잭션 통합(원자성 보장) 및 알림 발송 로직 독립 구현
  * 2026.02.23  임도헌   Modified  보안 가드(과거 시간, IDOR, Ghost User) 및 동시성 제어 강화
  * 2026.03.07  임도헌   Modified  약속 관련 실패 문구를 구체화(v1.2)
+ * 2026.04.02  임도헌   Modified  약속 서비스 JSDoc 태그 형식 정리
+ * 2026.05.16  임도헌   Modified  약속 처리 에러 분기를 unknown-safe 방식으로 정리
+ * 2026.05.25  임도헌   Modified  약속 수락 가드/거래 참여자 산정 규칙을 테스트 가능한 유틸로 분리
+ * 2026.05.25  임도헌   Modified  약속 제안 시간/거래 가능 상태/상대방 식별 규칙을 테스트 가능한 유틸로 분리
+ * 2026.06.21  임도헌   Modified  약속 제안 수신자에게 거래 알림 전송 추가
+ * 2026.06.21  임도헌   Modified  약속 취소/거절 결과를 상대방에게 거래 알림으로 전송
+ * 2026.06.21  임도헌   Modified  약속 수락 알림 실패가 수락 처리를 막지 않도록 정리
  */
 
 import "server-only";
@@ -20,6 +27,13 @@ import { validateUserStatus } from "@/features/user/service/admin";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
 import {
+  getAppointmentAcceptanceGuardError,
+  getAppointmentProposalTimeError,
+  getProductTradeAvailabilityError,
+  resolveAppointmentReceiverId,
+  resolveAppointmentTradeParties,
+} from "@/features/chat/utils/appointmentTrade";
+import {
   canSendPushForType,
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
@@ -27,6 +41,69 @@ import { sendPushNotification } from "@/features/notification/service/sender";
 import type { ServiceResult } from "@/lib/types";
 import type { ChatMessage } from "@/features/chat/types";
 import type { LocationData } from "@/features/map/types";
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "";
+
+async function sendAppointmentTradeNotification({
+  targetUserId,
+  title,
+  body,
+  link,
+  image,
+  tag,
+}: {
+  targetUserId: number;
+  title: string;
+  body: string;
+  link: string;
+  image?: string;
+  tag: string;
+}) {
+  const pref = await db.notificationPreferences.findUnique({
+    where: { userId: targetUserId },
+  });
+
+  if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
+    const notification = await db.notification.create({
+      data: {
+        userId: targetUserId,
+        title,
+        body,
+        type: "TRADE",
+        link,
+        image,
+        isPushSent: false,
+      },
+    });
+
+    await supabase.channel(`user-${targetUserId}-notifications`).send({
+      type: "broadcast",
+      event: "notification",
+      payload: { ...notification },
+    });
+
+    if (canSendPushForType(pref, "TRADE")) {
+      const pushRes = await sendPushNotification({
+        targetUserId,
+        title: notification.title,
+        message: notification.body,
+        url: notification.link ?? undefined,
+        type: "TRADE",
+        image: notification.image ?? undefined,
+        tag,
+        renotify: true,
+      });
+
+      if (pushRes.success && (pushRes.data?.sent ?? 0) > 0) {
+        await db.notification.update({
+          where: { id: notification.id },
+          data: { isPushSent: true, sentAt: new Date() },
+        });
+      }
+    }
+  }
+}
 
 /**
  * 약속 제안하기
@@ -39,10 +116,10 @@ import type { LocationData } from "@/features/map/types";
  *    - 새 약속 및 제안 메시지 생성
  * 4. 실시간 브로드캐스트 (기존 약속 취소 알림 + 새 제안 메시지)
  *
- * @param userId - 제안자 ID
- * @param chatRoomId - 채팅방 ID
- * @param data - { meetDate: 약속 일시, location: 장소 정보 }
- * @returns {Promise<ServiceResult>} - 약속 정보
+ * @param {number} userId - 제안자 ID
+ * @param {string} chatRoomId - 채팅방 ID
+ * @param {{ meetDate: Date; location: LocationData }} data - 약속 일시와 장소 정보
+ * @returns {Promise<ServiceResult<ChatMessage>>} 생성된 약속 메시지 또는 실패 정보
  */
 export async function proposeAppointment(
   userId: number,
@@ -54,19 +131,10 @@ export async function proposeAppointment(
   if (!status.success) return status;
 
   // 2. 날짜 유효성 및 과거 시간 검증
-  const meetTime = new Date(data.meetDate).getTime();
-  if (isNaN(meetTime)) {
-    return { success: false, error: "유효하지 않은 날짜 형식입니다." };
-  }
-
-  // 네트워크 지연 등을 고려하여 5분의 유예 시간(Grace Period) 부여
-  const fiveMinsAgo = Date.now() - 5 * 60 * 1000;
-  if (meetTime < fiveMinsAgo) {
-    return {
-      success: false,
-      error: "과거 시간으로는 약속을 제안할 수 없습니다.",
-    };
-  }
+  const proposalTimeError = getAppointmentProposalTimeError({
+    meetDate: data.meetDate,
+  });
+  if (proposalTimeError) return { success: false, error: proposalTimeError };
 
   // 3. 채팅방 및 상품 상태 조회
   const room = await db.productChatRoom.findUnique({
@@ -74,7 +142,13 @@ export async function proposeAppointment(
     include: {
       users: { select: { id: true } },
       product: {
-        select: { id: true, purchase_userId: true, reservation_userId: true },
+        select: {
+          id: true,
+          title: true,
+          purchase_userId: true,
+          reservation_userId: true,
+          images: { take: 1, select: { url: true } },
+        },
       },
     },
   });
@@ -88,17 +162,23 @@ export async function proposeAppointment(
   }
 
   // 상품이 이미 거래 중(예약/판매완료)인지 확인 (Fail-Early)
-  if (room.product.purchase_userId || room.product.reservation_userId) {
-    return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
-  }
+  const tradeAvailabilityError = getProductTradeAvailabilityError({
+    purchaseUserId: room.product.purchase_userId,
+    reservationUserId: room.product.reservation_userId,
+  });
+  if (tradeAvailabilityError)
+    return { success: false, error: tradeAvailabilityError };
 
   // 수신자 식별 및 차단 관계 확인
-  const receiver = room.users.find((u) => u.id !== userId);
-  if (!receiver) {
+  const receiverId = resolveAppointmentReceiverId(
+    room.users.map((user) => user.id),
+    userId
+  );
+  if (!receiverId) {
     return { success: false, error: "대화 상대를 찾을 수 없습니다." };
   }
 
-  const isBlocked = await checkBlockRelation(userId, receiver.id);
+  const isBlocked = await checkBlockRelation(userId, receiverId);
   if (isBlocked) {
     return {
       success: false,
@@ -143,7 +223,7 @@ export async function proposeAppointment(
           longitude: data.location.longitude,
           chatRoomId,
           proposerId: userId,
-          receiverId: receiver.id,
+          receiverId,
           status: "PENDING",
         },
       });
@@ -190,9 +270,28 @@ export async function proposeAppointment(
       payload: chatMessage,
     });
 
+    try {
+      await sendAppointmentTradeNotification({
+        targetUserId: receiverId,
+        title: "거래 약속이 제안되었습니다",
+        body: `'${room.product.title}' 상품의 거래 약속 제안을 확인해주세요.`,
+        link: `/chats/${chatRoomId}`,
+        image: room.product.images?.[0]?.url
+          ? `${room.product.images[0].url}/public`
+          : undefined,
+        tag: `bp-trade-appointment-${chatRoomId}`,
+      });
+    } catch (notificationError) {
+      console.warn(
+        "[Appointment] Proposal notification failed:",
+        notificationError
+      );
+    }
+
     return { success: true, data: chatMessage };
-  } catch (error: any) {
-    if (error.message === "PRODUCT_ALREADY_TRADED") {
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    if (message === "PRODUCT_ALREADY_TRADED") {
       return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
     }
     console.error("proposeAppointment error:", error);
@@ -218,9 +317,9 @@ export async function proposeAppointment(
  *    - 시스템 메시지 생성 및 채팅방 최신화
  * 5. 알림 스마트 라우팅: 수락 행위자를 제외한 상대방에게만 In-App/Push 알림 전송
  *
- * @param userId - 수락 요청자 ID
- * @param appointmentId - 약속 ID
- * @returns 변경된 상품 및 거래자 정보 (캐시 무효화용)
+ * @param {number} userId - 수락 요청자 ID
+ * @param {number} appointmentId - 약속 ID
+ * @returns {Promise<ServiceResult<{ productId: number; sellerId: number; buyerId: number }>>} 변경된 상품 및 거래자 정보
  */
 export async function acceptAppointment(
   userId: number,
@@ -239,23 +338,17 @@ export async function acceptAppointment(
   });
 
   if (!apt) return { success: false, error: "약속 정보를 찾을 수 없습니다." };
-  if (apt.receiverId !== userId)
-    return { success: false, error: "수락 권한이 없습니다." };
-  if (apt.status !== "PENDING")
-    return { success: false, error: "이미 처리된 약속입니다." };
 
   // 2. Ghost User & 차단 가드
-  const isProposerInRoom = apt.chatRoom.users.some(
-    (u) => u.id === apt.proposerId
-  );
-  const isReceiverInRoom = apt.chatRoom.users.some((u) => u.id === userId);
-
-  if (!isProposerInRoom || !isReceiverInRoom) {
-    return {
-      success: false,
-      error: "대화 참여자 중 일부가 채팅방을 나가 약속을 진행할 수 없습니다.",
-    };
-  }
+  const guardError = getAppointmentAcceptanceGuardError({
+    requesterId: userId,
+    proposerId: apt.proposerId,
+    receiverId: apt.receiverId,
+    roomUserIds: apt.chatRoom.users.map((user) => user.id),
+    status: apt.status,
+    meetDate: apt.meetDate,
+  });
+  if (guardError) return { success: false, error: guardError };
 
   const isBlocked = await checkBlockRelation(userId, apt.proposerId);
   if (isBlocked) {
@@ -263,10 +356,6 @@ export async function acceptAppointment(
       success: false,
       error: "차단된 사용자와는 약속을 진행할 수 없습니다.",
     };
-  }
-
-  if (new Date(apt.meetDate) < new Date()) {
-    return { success: false, error: "약속 시간이 이미 지났습니다." };
   }
 
   // 3. 상품 정보 조회 (판매자 식별용)
@@ -283,16 +372,20 @@ export async function acceptAppointment(
   if (!product)
     return { success: false, error: "상품 정보를 찾을 수 없습니다." };
 
-  const sellerId = product.userId;
-  const buyerId = apt.proposerId === sellerId ? apt.receiverId : apt.proposerId;
+  const tradeParties = resolveAppointmentTradeParties({
+    sellerId: product.userId,
+    proposerId: apt.proposerId,
+    receiverId: apt.receiverId,
+  });
 
   // 본인 거래 방지
-  if (buyerId === sellerId) {
+  if (!tradeParties) {
     return {
       success: false,
       error: "비정상적인 거래 대상입니다.",
     };
   }
+  const { sellerId, buyerId } = tradeParties;
 
   try {
     // 4. 통합 트랜잭션 (Atomic Operation)
@@ -382,63 +475,33 @@ export async function acceptAppointment(
 
     // 6. 알림 전송 (상대방에게)
     const targetNotiId = userId === buyerId ? sellerId : buyerId;
-    const pref = await db.notificationPreferences.findUnique({
-      where: { userId: targetNotiId },
-    });
-
-    if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
-      const productTitle = product.title;
-      const imageUrl = product.images?.[0]?.url
-        ? `${product.images[0].url}/public`
-        : undefined;
-
-      const notification = await db.notification.create({
-        data: {
-          userId: targetNotiId,
-          title: "상품이 예약되었습니다",
-          body: `'${productTitle}' 상품의 거래 약속이 확정되었습니다.`,
-          type: "TRADE",
-          link: `/products/view/${product.id}`,
-          image: imageUrl,
-          isPushSent: false,
-        },
+    try {
+      await sendAppointmentTradeNotification({
+        targetUserId: targetNotiId,
+        title: "상품이 예약되었습니다",
+        body: `'${product.title}' 상품의 거래 약속이 확정되었습니다.`,
+        link: `/products/view/${product.id}`,
+        image: product.images?.[0]?.url
+          ? `${product.images[0].url}/public`
+          : undefined,
+        tag: `bp-trade-${product.id}`,
       });
-
-      await supabase.channel(`user-${targetNotiId}-notifications`).send({
-        type: "broadcast",
-        event: "notification",
-        payload: { ...notification },
-      });
-
-      if (canSendPushForType(pref, "TRADE")) {
-        const pushRes = await sendPushNotification({
-          targetUserId: targetNotiId,
-          title: notification.title,
-          message: notification.body,
-          url: notification.link ?? undefined,
-          type: "TRADE",
-          image: notification.image ?? undefined,
-          tag: `bp-trade-${product.id}`,
-          renotify: true,
-        });
-
-        if (pushRes.success && (pushRes.data?.sent ?? 0) > 0) {
-          await db.notification.update({
-            where: { id: notification.id },
-            data: { isPushSent: true, sentAt: new Date() },
-          });
-        }
-      }
+    } catch (notificationError) {
+      console.warn(
+        "[Appointment] Acceptance notification failed:",
+        notificationError
+      );
     }
 
     return {
       success: true,
       data: { productId: apt.chatRoom.productId, sellerId, buyerId },
     };
-  } catch (error: any) {
-    if (error.message === "ALREADY_PROCESSED_APT")
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    if (message === "ALREADY_PROCESSED_APT")
       return { success: false, error: "이미 처리된 약속입니다." };
-    if (error.message === "PRODUCT_ALREADY_TRADED")
+    if (message === "PRODUCT_ALREADY_TRADED")
       return { success: false, error: "이미 거래가 진행 중인 상품입니다." };
 
     console.error("acceptAppointment error:", error);
@@ -457,9 +520,9 @@ export async function acceptAppointment(
  * - 수신자(Receiver)가 호출 시: REJECTED (거절)
  * - 트랜잭션 내에서 상태 변경과 시스템 메시지 생성을 수행하여 히스토리 보존
  *
- * @param userId - 취소자
- * @param appointmentId - 해당 약속 ID
- * @returns {Promise<ServiceResult>} 처리 결과
+ * @param {number} userId - 취소/거절 요청자 ID
+ * @param {number} appointmentId - 해당 약속 ID
+ * @returns {Promise<ServiceResult>} 취소 또는 거절 처리 결과
  */
 export async function cancelAppointment(
   userId: number,
@@ -467,6 +530,19 @@ export async function cancelAppointment(
 ): Promise<ServiceResult> {
   const apt = await db.appointment.findUnique({
     where: { id: appointmentId },
+    include: {
+      chatRoom: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              images: { take: 1, select: { url: true } },
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!apt) return { success: false, error: "약속 정보를 찾을 수 없습니다." };
@@ -541,9 +617,39 @@ export async function cancelAppointment(
       payload: mapToChatMessage(sysMsg),
     });
 
+    try {
+      const targetUserId =
+        nextStatus === "REJECTED" ? apt.proposerId : apt.receiverId;
+      const title =
+        nextStatus === "REJECTED"
+          ? "거래 약속이 거절되었습니다"
+          : "거래 약속이 취소되었습니다";
+      const body =
+        nextStatus === "REJECTED"
+          ? `'${apt.chatRoom.product.title}' 상품의 거래 약속 제안이 거절되었습니다.`
+          : `'${apt.chatRoom.product.title}' 상품의 거래 약속 제안이 취소되었습니다.`;
+
+      await sendAppointmentTradeNotification({
+        targetUserId,
+        title,
+        body,
+        link: `/chats/${apt.chatRoomId}`,
+        image: apt.chatRoom.product.images?.[0]?.url
+          ? `${apt.chatRoom.product.images[0].url}/public`
+          : undefined,
+        tag: `bp-trade-appointment-${apt.chatRoomId}`,
+      });
+    } catch (notificationError) {
+      console.warn(
+        "[Appointment] Cancel/reject notification failed:",
+        notificationError
+      );
+    }
+
     return { success: true };
-  } catch (error: any) {
-    if (error.message === "ALREADY_PROCESSED") {
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    if (message === "ALREADY_PROCESSED") {
       return { success: false, error: "이미 처리된 약속입니다." };
     }
     return {

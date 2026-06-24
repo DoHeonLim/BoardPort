@@ -8,6 +8,8 @@
  * 2026.02.12  임도헌   Created   관리 목록 UI 구현
  * 2026.02.21  임도헌   Modified  regionRange 뱃지 노출 추가
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
+ * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 지역 범위 칩 weight를 500 기준으로 정리
+ * 2026.04.26  임도헌   Modified  키워드 알림 삭제/빈 상태 문구와 아이콘 버튼 라벨을 구체화
  */
 "use client";
 
@@ -45,7 +47,7 @@ export default function KeywordManagementList({ items }: Props) {
     setDeletingId(id);
     startTransition(async () => {
       const res = await removeKeywordAction(id);
-      if (res.success) toast.success(`'${word}' 알림 해제`);
+      if (res.success) toast.success(`'${word}' 키워드 알림을 삭제했어요.`);
       setDeletingId(null);
     });
   };
@@ -53,7 +55,7 @@ export default function KeywordManagementList({ items }: Props) {
   if (items.length === 0) {
     return (
       <div className="py-6 text-center">
-        <p className="text-sm text-muted">등록된 키워드가 없습니다.</p>
+        <p className="text-sm text-muted">등록한 키워드 알림이 없어요.</p>
       </div>
     );
   }
@@ -64,20 +66,20 @@ export default function KeywordManagementList({ items }: Props) {
         <div
           key={item.id}
           className={cn(
-            "inline-flex items-center gap-1.5 pl-2 pr-2 py-1.5 rounded-full shadow-sm transition-all",
+            "inline-flex items-center gap-1.5 pl-2 pr-2 py-1.5 rounded-full shadow-sm transition-[background-color,color,border-color,box-shadow]",
             "bg-surface border border-border text-primary",
             deletingId === item.id && "opacity-50 pointer-events-none"
           )}
         >
-          <span className="text-[10px] font-bold text-brand dark:text-brand-light bg-brand/10 dark:bg-brand-light/20 px-1.5 py-0.5 rounded">
+          <span className="rounded bg-brand/10 px-1.5 py-0.5 text-xs font-medium text-brand dark:bg-brand-light/20 dark:text-brand-light">
             {rangeLabels[item.regionRange]}
           </span>
           <span className="text-xs font-bold pl-0.5">{item.keyword}</span>
           <button
             onClick={() => handleDelete(item.id, item.keyword)}
             disabled={isPending}
-            className="p-0.5 hover:bg-danger/10 rounded-full text-muted hover:text-danger transition-colors"
-            aria-label="삭제"
+            className="focus-ring-soft rounded-full p-0.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+            aria-label={`${item.keyword} 키워드 알림 삭제`}
           >
             <XMarkIcon className="size-3.5" />
           </button>

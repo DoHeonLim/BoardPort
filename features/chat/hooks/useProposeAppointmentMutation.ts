@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.03  임도헌   Created   ChatMessagesList에서 약속 제안 로직 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  약속 제안 mutation 훅 JSDoc 반환 설명 보강
  */
 
 "use client";
@@ -28,6 +29,7 @@ interface ProposeAppointmentArgs {
  * 2. 성공 시 생성된 약속이 포함된 메시지 객체를 반환
  *
  * @param {string} chatRoomId - 약속을 제안할 채팅방 ID
+ * @returns {import("@tanstack/react-query").UseMutationResult<import("@/features/chat/types").ChatMessage, Error, ProposeAppointmentArgs>} 약속 제안 mutation 객체
  */
 export function useProposeAppointmentMutation(chatRoomId: string) {
   return useMutation({

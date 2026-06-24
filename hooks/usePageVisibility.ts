@@ -14,16 +14,16 @@
 import { useEffect, useState } from "react";
 
 /**
- * 현재 페이지(탭)가 사용자에게 보이는 상태인지 반환
+ * 현재 탭 가시성 감지 훅
  *
- * - `document.visibilityState` API를 사용
- * - iOS Safari의 `pagehide`/`pageshow` 이벤트도 함께 감지하여 신뢰성을 높임
- * - 무한 스크롤이나 폴링(Polling) 로직에서 탭이 백그라운드로 갔을 때 중단하는 용도로 유용
+ * - `document.visibilityState` 기반 상태 추적
+ * - iOS Safari `pagehide`/`pageshow` 보조 감지
+ * - 백그라운드 탭의 폴링/구독 제어용 상태 제공
  *
- * @returns boolean - 가시성 여부 (true: 보임, false: 숨겨짐)
+ * @returns {boolean} 현재 탭 가시성 여부
  */
 export function usePageVisibility(): boolean {
-  // 초기값: SSR 환경에서는 항상 true로 가정 (Hydration 불일치 방지)
+  // SSR hydration 불일치 방지용 초기 visible 가정
   const [visible, setVisible] = useState<boolean>(() => {
     if (typeof document === "undefined") return true;
     return !document.hidden;
@@ -33,8 +33,8 @@ export function usePageVisibility(): boolean {
     if (typeof document === "undefined") return;
 
     const onVisibilityChange = () => setVisible(!document.hidden);
-    const onPageHide = () => setVisible(false); // iOS Safari 대응
-    const onPageShow = () => setVisible(true); // iOS Safari 대응
+    const onPageHide = () => setVisible(false);
+    const onPageShow = () => setVisible(true);
 
     document.addEventListener("visibilitychange", onVisibilityChange, {
       passive: true,

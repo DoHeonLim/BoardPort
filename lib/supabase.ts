@@ -1,12 +1,12 @@
 /**
- File Name : lib/supabase.ts
- Description : supabase 클라이언트 코드
- Author : 임도헌
- 
- History
- Date        Author   Status    Description
- 2024.12.19  임도헌   Created
- 2024.12.19  임도헌   Modified  supabase 클라이언트 코드 분리
+ * File Name : lib/supabase.ts
+ * Description : supabase 클라이언트 코드
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.12.19  임도헌   Created
+ * 2024.12.19  임도헌   Modified  supabase 클라이언트 코드 분리
  */
 
 import { createClient } from "@supabase/supabase-js";

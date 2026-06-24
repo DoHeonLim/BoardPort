@@ -1,6 +1,6 @@
 /**
  * File Name : features/chat/hooks/useChatSubscription.ts
- * Description : Supabase 실시간 채팅 구독 훅 (message / message_read)
+ * Description : Supabase 실시간 채팅 구독 훅 (message / message_read / message_deleted / reaction / appointment)
  * Author : 임도헌
  *
  * Key Points
@@ -24,21 +24,33 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  onMessagesRead에 MessageReadPayload 전체 전달 및 readerId 기반 타입 정합성 보강
  * 2026.03.07  임도헌   Modified  readMessageUpdateAction 결과 타입(MessageReadUpdateResult) 반영
+ * 2026.04.01  임도헌   Modified  message_deleted 이벤트 수신 및 로컬 메시지 교체 콜백 추가
+ * 2026.04.02  임도헌   Modified  구독 훅 JSDoc 반환 설명 보강
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.05.18  임도헌   Modified  채팅방 내부 읽음 처리 후 TabBar 미읽음 query를 즉시 동기화
  */
-"use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { ChatMessage, MessageReadPayload } from "@/features/chat/types";
+import {
+  ChatMessage,
+  MessageDeletedPayload,
+  MessageReadPayload,
+} from "@/features/chat/types";
 import { readMessageUpdateAction } from "@/features/chat/actions/messages";
 import type { AppointmentStatus } from "@/generated/prisma/enums";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
+import { CHAT_EVENT } from "@/features/chat/constants";
+import { queryKeys } from "@/lib/queryKeys";
 
 interface UseChatSubscriptionOptions {
   chatRoomId: string; // Supabase 채널 식별용 채팅방 ID
   currentUserId: number; // 현재 로그인한 유저 ID
   onNewMessage: (message: ChatMessage) => void; // 메시지 수신 시 호출되는 콜백
   onMessagesRead: (payload: MessageReadPayload) => void; // 읽음 처리 시 호출되는 콜백
+  onMessageDeleted?: (payload: MessageDeletedPayload) => void; // 메시지 삭제 상태 반영 시 호출되는 콜백
+  onMessageReaction?: (message: ChatMessage) => void; // 메시지 반응 상태 반영 시 호출되는 콜백
   /**
    * (옵션) 읽음 처리 호출 폭주 방지
    * - 상대방 메시지가 연속으로 들어올 때 매번 readMessageUpdateAction을 호출하면 서버/DB 부담이 커질 수 있음
@@ -55,27 +67,57 @@ interface UseChatSubscriptionOptions {
  * [기능]
  * 1. `message` 이벤트: 새 메시지 수신 시 콜백을 호출. 내가 보낸 메시지가 아닐 경우 읽음 처리 API를 호출
  * 2. `message_read` 이벤트: 읽음 처리한 사용자(readerId)와 readIds를 함께 전달하여 UI를 갱신
- * 3. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
- * 4. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
+ * 3. `message_deleted` / `message_reaction` / `appointment_update` 이벤트를 함께 수신해 상세 화면 상태를 동기화
+ * 4. 상위 컴포넌트 렌더링 시 콜백 함수 변경으로 인한 재구독을 방지하기 위해 `useRef` 패턴을 적용
+ * 5. 읽음 처리가 완료되면 Zustand Store의 `decrement` 액션을 호출하여 전역 알림 뱃지를 갱신
  *
  * @param {UseChatSubscriptionOptions} options
+ * @returns {void} 실시간 구독과 해제를 담당하는 effect만 등록
  */
 export default function useChatSubscription({
   chatRoomId,
   currentUserId,
   onNewMessage,
   onMessagesRead,
+  onMessageDeleted,
+  onMessageReaction,
   onAppointmentUpdate,
   throttleReadUpdate = true,
 }: UseChatSubscriptionOptions) {
+  const queryClient = useQueryClient();
+
   // 상위 컴포넌트의 리렌더링으로 인해 콜백 참조값이 변경되더라도
   // 불필요한 재구독이 발생하지 않도록 useRef를 사용하여 최신 콜백을 유지
   const onNewMessageRef = useRef(onNewMessage);
   const onMessagesReadRef = useRef(onMessagesRead);
+  const onMessageDeletedRef = useRef(onMessageDeleted);
+  const onMessageReactionRef = useRef(onMessageReaction);
   const onAppointmentUpdateRef = useRef(onAppointmentUpdate);
 
   // Zustand 액션 가져오기 (이전의 window.dispatchEvent 대체)
   const decrement = useNotificationStore((state) => state.decrement);
+
+  const syncUnreadChatQueries = useCallback(
+    (readCount: number) => {
+      if (readCount > 0) {
+        queryClient.setQueryData<number>(
+          queryKeys.chats.unreadCount(currentUserId),
+          (current) => Math.max((current ?? 0) - readCount, 0)
+        );
+      }
+
+      // Realtime 이벤트 도착 전에도 상세 화면의 읽음 결과를 관련 query에 즉시 반영
+      void queryClient.refetchQueries({
+        queryKey: queryKeys.chats.unreadCount(currentUserId),
+        type: "all",
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chats.list(currentUserId),
+        refetchType: "active",
+      });
+    },
+    [currentUserId, queryClient]
+  );
 
   useEffect(() => {
     onNewMessageRef.current = onNewMessage;
@@ -84,6 +126,14 @@ export default function useChatSubscription({
   useEffect(() => {
     onMessagesReadRef.current = onMessagesRead;
   }, [onMessagesRead]);
+
+  useEffect(() => {
+    onMessageDeletedRef.current = onMessageDeleted;
+  }, [onMessageDeleted]);
+
+  useEffect(() => {
+    onMessageReactionRef.current = onMessageReaction;
+  }, [onMessageReaction]);
 
   useEffect(() => {
     onAppointmentUpdateRef.current = onAppointmentUpdate;
@@ -99,11 +149,14 @@ export default function useChatSubscription({
       /**
        * 1) 메시지 수신 브로드캐스트 핸들링
        */
-      .on("broadcast", { event: "message" }, async ({ payload }) => {
+      .on("broadcast", { event: CHAT_EVENT.MESSAGE }, async ({ payload }) => {
         const newMessage: ChatMessage = {
           id: payload.id,
           payload: payload.payload,
           image: payload.image,
+          imageIsAnimated: payload.imageIsAnimated ?? false,
+          deleted_at: payload.deleted_at ? new Date(payload.deleted_at) : null,
+          reactions: payload.reactions ?? [],
           type: payload.type,
           appointment: payload.appointment
             ? {
@@ -134,6 +187,9 @@ export default function useChatSubscription({
               if (res.success && res.readIds.length > 0) {
                 decrement(res.readIds.length);
               }
+              if (res.success) {
+                syncUnreadChatQueries(res.readIds.length);
+              }
               return;
             }
 
@@ -149,6 +205,9 @@ export default function useChatSubscription({
             if (res.success && res.readIds.length > 0) {
               decrement(res.readIds.length);
             }
+            if (res.success) {
+              syncUnreadChatQueries(res.readIds.length);
+            }
           } finally {
             // 다음 메시지 수신 시 다시 호출 가능하도록 락 해제
             readUpdateInFlightRef.current = false;
@@ -160,7 +219,7 @@ export default function useChatSubscription({
        * 2) 읽음 처리 브로드캐스트 수신
        * - 서버에서 payload: { readIds: number[]; readerId: number } 구조로 전송함
        */
-      .on("broadcast", { event: "message_read" }, ({ payload }) => {
+      .on("broadcast", { event: CHAT_EVENT.MESSAGE_READ }, ({ payload }) => {
         const readPayload = payload as MessageReadPayload;
 
         // payload 방어: readIds 배열과 readerId 숫자가 모두 유효할 때만 반영함
@@ -174,7 +233,47 @@ export default function useChatSubscription({
       })
 
       /**
-       * 3) 약속 상태 업데이트 수신
+       * 3) 메시지 삭제 상태 업데이트 수신
+       */
+      .on("broadcast", { event: CHAT_EVENT.MESSAGE_DELETED }, ({ payload }) => {
+        const deletedPayload = payload as MessageDeletedPayload;
+
+        if (!deletedPayload?.message?.id) return;
+
+        onMessageDeletedRef.current?.({
+          ...deletedPayload,
+          message: {
+            ...deletedPayload.message,
+            created_at: new Date(deletedPayload.message.created_at),
+            deleted_at: deletedPayload.message.deleted_at
+              ? new Date(deletedPayload.message.deleted_at)
+              : null,
+          },
+        });
+      })
+
+      /**
+       * 4) 메시지 반응 상태 업데이트 수신
+       */
+      .on(
+        "broadcast",
+        { event: CHAT_EVENT.MESSAGE_REACTION },
+        ({ payload }) => {
+          if (!payload?.id) return;
+
+          onMessageReactionRef.current?.({
+            ...payload,
+            created_at: new Date(payload.created_at),
+            deleted_at: payload.deleted_at
+              ? new Date(payload.deleted_at)
+              : null,
+            reactions: payload.reactions ?? [],
+          });
+        }
+      )
+
+      /**
+       * 5) 약속 상태 업데이트 수신
        */
       .on("broadcast", { event: "appointment_update" }, ({ payload }) => {
         if (payload?.id && payload?.status) {
@@ -187,5 +286,11 @@ export default function useChatSubscription({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatRoomId, currentUserId, throttleReadUpdate, decrement]);
+  }, [
+    chatRoomId,
+    currentUserId,
+    throttleReadUpdate,
+    decrement,
+    syncUnreadChatQueries,
+  ]);
 }

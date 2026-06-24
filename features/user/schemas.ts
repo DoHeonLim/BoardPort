@@ -6,15 +6,24 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   기존 lib/profile/*Schemas.ts 통합
+ * 2026.03.08  임도헌   Modified  normalizeNullableString/requiredTrimmedString 공통 유틸 적용으로 선택 입력과 필수값 처리 통일
+ * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타 저장용 avatarAnimated 필드 추가
+ * 2026.03.21  임도헌   Modified  방송국 소개 전용 channelDescriptionSchema 추가
+ * 2026.06.04  임도헌   Modified  프로필 유저명 최대 길이를 인증 스키마와 공용 상수로 통일
  */
 
 import { z } from "zod";
 import validator from "validator";
 import {
+  normalizeNullableString,
+  requiredTrimmedString,
+} from "@/lib/zod-helpers";
+import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REGEX,
   PASSWORD_REGEX_ERROR,
-} from "@/lib/constants"; // Global constants (Auth와 공유)
+  USERNAME_MAX_LENGTH,
+} from "@/lib/constants";
 
 // =============================================================================
 // 1. Profile Edit Schema
@@ -29,6 +38,7 @@ export type ProfileEditSchemaOptions = {
 /**
  * 프로필 수정 폼 스키마
  * - 상황(소셜 로그인 여부 등)에 따라 동적으로 검증 로직이 추가
+ * - 선택 입력값은 normalizeNullableString으로 null 정규화
  */
 export const profileEditSchema = ({
   needsEmailSetup,
@@ -37,36 +47,23 @@ export const profileEditSchema = ({
 }: ProfileEditSchemaOptions) =>
   z
     .object({
-      username: z
-        .string({
-          invalid_type_error: "유저명은 문자여야 합니다.",
-          required_error: "유저명을 입력해주세요.",
-        })
+      username: requiredTrimmedString("유저명을 입력해주세요.")
         .toLowerCase()
-        .trim()
         .min(3, "유저명은 최소 3자 이상이어야 합니다.")
-        .max(10, "유저명은 최대 10자까지 가능합니다."),
+        .max(
+          USERNAME_MAX_LENGTH,
+          `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
+        ),
 
-      email: z
-        .string()
-        .trim()
-        .max(255, "이메일은 255자 이하만 가능합니다.")
-        .optional()
-        .nullable()
-        .transform((val) => (val === "" || val == null ? null : val)),
+      email: normalizeNullableString(
+        z.string().trim().max(255, "이메일은 255자 이하만 가능합니다.")
+      ),
 
-      avatar: z
-        .string()
-        .optional()
-        .nullable()
-        .transform((val) => (val === "" || val == null ? null : val)),
+      avatar: normalizeNullableString(),
 
-      phone: z
-        .string()
-        .trim()
-        .optional()
-        .nullable()
-        .transform((val) => (val === "" || val == null ? null : val))
+      avatarAnimated: z.boolean().optional().default(false),
+
+      phone: normalizeNullableString()
         .refine(
           (phone) =>
             !phone ||
@@ -75,17 +72,9 @@ export const profileEditSchema = ({
           { message: "전화번호는 11자리 숫자여야 합니다." }
         ),
 
-      password: z
-        .string()
-        .optional()
-        .nullable()
-        .transform((val) => (val === "" || val == null ? null : val)),
+      password: normalizeNullableString(),
 
-      confirmPassword: z
-        .string()
-        .optional()
-        .nullable()
-        .transform((val) => (val === "" || val == null ? null : val)),
+      confirmPassword: normalizeNullableString(),
     })
     .superRefine((data, ctx) => {
       const { email, phone, password, confirmPassword } = data;
@@ -163,6 +152,14 @@ export const profileEditSchema = ({
 
 export type ProfileEditDTO = z.infer<ReturnType<typeof profileEditSchema>>;
 
+export const channelDescriptionSchema = z.object({
+  channelDescription: normalizeNullableString(
+    z.string().trim().max(160, "채널 소개는 160자 이하만 가능합니다.")
+  ),
+});
+
+export type ChannelDescriptionDTO = z.infer<typeof channelDescriptionSchema>;
+
 // =============================================================================
 // 2. Password Change Schema
 // =============================================================================
@@ -175,19 +172,20 @@ const checkPasswordsMatch = ({
   confirmPassword?: string | null;
 }) => password && confirmPassword && password === confirmPassword;
 
-/** 비밀번호 변경 폼 스키마 */
+/**
+ * 비밀번호 변경 폼 스키마
+ * - 현재 비밀번호/새 비밀번호/확인 필드 검증
+ */
 export const passwordChangeSchema = z
   .object({
-    currentPassword: z.string().min(1, "현재 비밀번호를 입력해주세요."),
-    password: z
-      .string()
+    currentPassword: requiredTrimmedString("현재 비밀번호를 입력해주세요."),
+    password: requiredTrimmedString("비밀번호를 입력해주세요.")
       .min(
         PASSWORD_MIN_LENGTH,
         `비밀번호는 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`
       )
       .regex(PASSWORD_REGEX, PASSWORD_REGEX_ERROR),
-    confirmPassword: z
-      .string()
+    confirmPassword: requiredTrimmedString("비밀번호 확인을 입력해주세요.")
       .min(
         PASSWORD_MIN_LENGTH,
         `비밀번호는 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`

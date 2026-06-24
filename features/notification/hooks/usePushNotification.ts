@@ -18,17 +18,30 @@
  *                                current.unsubscribe() best-effort 처리
  * 2026.01.16  임도헌   Moved     hooks -> hooks/notificaiton
  * 2026.01.18  임도헌   Moved     hooks/notification -> features/notification/hooks
+ * 2026.03.27  임도헌   Modified  iOS 설치 필요 상태를 포함할 수 있도록 푸시 상태 타입 확장
+ * 2026.04.02  임도헌   Modified  푸시 상태 타입을 notification/types 공용 정의로 분리
+ * 2026.04.17  임도헌   Modified  푸시 구독 훅의 초기 점검/재연결/해제 책임이 주석에서 바로 드러나도록 설명 보강
+ * 2026.04.26  임도헌   Modified  초기 자동 점검의 Service Worker ready 타임아웃을 콘솔 오류/토스트로 노출하지 않도록 완화
+ * 2026.05.16  임도헌   Modified  push 에러 처리 타입을 unknown-safe 방식으로 정리
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import type { PushNotificationStatus } from "@/features/notification/types";
+
+export type { PushNotificationStatus } from "@/features/notification/types";
 
 interface PushSubscriptionData {
   endpoint: string;
   keys: { p256dh: string; auth: string };
 }
+
+type CheckSubscriptionResponse = {
+  isValid: boolean;
+  reason?: "active" | "disabled_by_user" | "needs_reconnect";
+};
 
 /**
  * 브라우저 환경 지원 여부 확인
@@ -64,11 +77,15 @@ function checkSupport() {
  *
  * @param label - 로깅용 라벨 (check, subscribe 등)
  * @param timeoutMs - 대기 시간 (기본 10초)
+ * @param options.logError - 사용자 액션이 아닌 초기 점검에서는 콘솔 에러를 남기지 않도록 제어
  */
 async function waitForServiceWorkerReady(
   label: string,
-  timeoutMs = 10000
+  timeoutMs = 10000,
+  options: { logError?: boolean } = {}
 ): Promise<ServiceWorkerRegistration> {
+  const { logError = true } = options;
+
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     throw new Error("SERVICE_WORKER_NOT_SUPPORTED");
   }
@@ -77,15 +94,21 @@ async function waitForServiceWorkerReady(
     // 1. 현재 등록된 SW 확인
     const existing = await navigator.serviceWorker.getRegistration();
     if (!existing) {
-      console.warn(
-        `[push] no existing ServiceWorker registration detected. (${label})`
-      );
+      if (logError) {
+        console.warn(
+          `[push] no existing ServiceWorker registration detected. (${label})`
+        );
+      }
       // 2. 수동 등록 시도 (Idempotent)
       try {
         await navigator.serviceWorker.register("/sw.js");
-        console.info("[push] tried manual ServiceWorker.register('/sw.js').");
+        if (logError) {
+          console.info("[push] tried manual ServiceWorker.register('/sw.js').");
+        }
       } catch (e) {
-        console.error("[push] manual ServiceWorker register failed:", e);
+        if (logError) {
+          console.error("[push] manual ServiceWorker register failed:", e);
+        }
       }
     }
 
@@ -104,16 +127,39 @@ async function waitForServiceWorkerReady(
     ])) as ServiceWorkerRegistration;
 
     return registration;
-  } catch (e: any) {
-    console.error(`[push] service worker not ready (${label}):`, e);
+  } catch (e: unknown) {
+    if (logError) {
+      console.error(`[push] service worker not ready (${label}):`, e);
+    }
     throw e;
   }
+}
+
+function isServiceWorkerReadyTimeout(error: unknown) {
+  return (
+    error instanceof Error && error.message === "SERVICE_WORKER_READY_TIMEOUT"
+  );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "오류 발생";
 }
 
 // -----------------------------------------------------------------------------
 // Hook Implementation
 // -----------------------------------------------------------------------------
 
+/**
+ * 브라우저 푸시 알림 구독 상태를 관리하는 훅
+ *
+ * [기능]
+ * - 브라우저 지원 여부, private mode, 권한 상태를 초기 점검해 현재 푸시 상태를 분기
+ * - Service Worker 준비와 서버 `check-subscription` 검증을 통해 `active`/`needs_reconnect`/`disabled` 상태를 동기화
+ * - `subscribe`는 브라우저 구독 생성과 서버 저장을 함께 처리하고, `unsubscribe`는 서버 전역 OFF 후 로컬 구독 정리를 수행
+ * - 훅 내부에서 토스트와 로컬 상태 정리를 함께 담당해 토글 UI가 단순한 상태 표현에 집중하도록 돕는다
+ *
+ * @returns {object} 푸시 지원/구독 상태, 현재 subscription payload, subscribe/unsubscribe 제어 함수
+ */
 export function usePushNotification() {
   const [subscription, setSubscription] = useState<PushSubscriptionData | null>(
     null
@@ -121,6 +167,7 @@ export function usePushNotification() {
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
+  const [status, setStatus] = useState<PushNotificationStatus>("disabled");
 
   // 로컬 상태 초기화 헬퍼
   const clearLocalState = () => {
@@ -130,7 +177,9 @@ export function usePushNotification() {
 
   // 1. 지원 여부 체크 (Mount 시 1회)
   useEffect(() => {
-    setIsSupported(checkSupport());
+    const supported = checkSupport();
+    setIsSupported(supported);
+    if (!supported) setStatus("unsupported");
   }, []);
 
   // 2. 현재 구독 상태 확인 (초기화 로직)
@@ -151,13 +200,24 @@ export function usePushNotification() {
         } catch {
           if (mounted) {
             setIsPrivateMode(true);
+            setStatus("private_mode");
             clearLocalState(); // Private 모드면 사용 불가 처리
           }
           return;
         }
 
+        if (Notification.permission === "denied") {
+          if (mounted) {
+            setStatus("permission_denied");
+            clearLocalState();
+          }
+          return;
+        }
+
         // 2-2. Service Worker 준비
-        const registration = await waitForServiceWorkerReady("check");
+        const registration = await waitForServiceWorkerReady("check", 10000, {
+          logError: false,
+        });
         if (!mounted) return;
 
         // 2-3. 브라우저의 현재 Push 구독 정보 가져오기
@@ -165,6 +225,7 @@ export function usePushNotification() {
         if (!mounted) return;
 
         if (!current) {
+          if (mounted) setStatus("disabled");
           clearLocalState(); // 구독 정보 없으면 초기화
           return;
         }
@@ -181,37 +242,68 @@ export function usePushNotification() {
         if (!mounted) return;
 
         if (res.ok) {
-          const { isValid } = await res.json();
+          const { isValid, reason } =
+            (await res.json()) as CheckSubscriptionResponse;
           if (!mounted) return;
 
           if (isValid) {
             // 유효함: 상태 동기화
             setIsSubscribed(true);
             setSubscription(current.toJSON() as PushSubscriptionData);
+            setStatus("active");
             return;
           }
 
-          // 유효하지 않음: 브라우저 구독도 해제하여 상태 일치
-          try {
-            await current.unsubscribe();
-          } catch (unsubErr) {
-            console.warn("[push] current.unsubscribe() failed:", unsubErr);
-          } finally {
-            if (mounted) clearLocalState();
+          if (reason === "disabled_by_user") {
+            // 전역 OFF 상태 시 로컬 구독도 정리해 상태 일치 유지
+            try {
+              await current.unsubscribe();
+            } catch (unsubErr) {
+              console.warn("[push] current.unsubscribe() failed:", unsubErr);
+            } finally {
+              if (mounted) {
+                setStatus("disabled");
+                clearLocalState();
+              }
+            }
+            return;
+          }
+
+          if (reason === "needs_reconnect") {
+            // 브라우저에는 구독이 남아 있지만 서버/원격 상태와 끊어진 경우.
+            // 로컬 구독을 지우지 않고 재연결 액션을 유도
+            if (mounted) {
+              setSubscription(current.toJSON() as PushSubscriptionData);
+              setIsSubscribed(false);
+              setStatus("needs_reconnect");
+            }
+            return;
+          }
+
+          if (mounted) {
+            setStatus("disabled");
+            clearLocalState();
           }
           return;
         }
 
         // 서버 에러 시 보수적으로 로컬 상태 초기화
-        if (mounted) clearLocalState();
-      } catch (e: any) {
-        if (!mounted) return;
-        console.error("[push] check failed:", e);
-        clearLocalState();
-
-        if (e?.message === "SERVICE_WORKER_READY_TIMEOUT") {
-          toast.error("푸시 알림 초기화 지연. 새로고침 후 다시 시도해주세요.");
+        if (mounted) {
+          setStatus("disabled");
+          clearLocalState();
         }
+      } catch (e: unknown) {
+        if (!mounted) return;
+        const readyTimeout = isServiceWorkerReadyTimeout(e);
+        if (!readyTimeout) {
+          console.error("[push] check failed:", e);
+        }
+        clearLocalState();
+        setStatus(
+          Notification.permission === "denied"
+            ? "permission_denied"
+            : "disabled"
+        );
       }
     };
 
@@ -246,20 +338,26 @@ export function usePushNotification() {
         return;
       }
 
-      toast.info(
-        "푸시 알림을 활성화하면 새 메시지/거래 알림을 받을 수 있어요."
-      );
-
       // 2. 권한 요청
       if (Notification.permission === "denied") {
+        setStatus("permission_denied");
         toast.error(
           "브라우저 알림 권한이 차단되어 있습니다. 사이트 권한을 허용해주세요."
         );
         return;
       }
 
+      if (status === "needs_reconnect") {
+        toast.info("이 기기의 알림 연결을 다시 확인하고 있어요.");
+      } else {
+        toast.info(
+          "푸시 알림을 활성화하면 새 메시지/거래 알림을 받을 수 있어요."
+        );
+      }
+
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
+        setStatus(permission === "denied" ? "permission_denied" : "disabled");
         toast.error(
           "알림 권한이 거부되었습니다. 브라우저 설정에서 허용해주세요."
         );
@@ -289,7 +387,12 @@ export function usePushNotification() {
         }
         setSubscription(reused);
         setIsSubscribed(true);
-        toast.success("푸시 알림이 활성화되었습니다.");
+        setStatus("active");
+        toast.success(
+          status === "needs_reconnect"
+            ? "기기 알림 연결이 다시 설정되었습니다."
+            : "푸시 알림이 활성화되었습니다."
+        );
         return;
       }
 
@@ -316,13 +419,18 @@ export function usePushNotification() {
 
       setSubscription(payload);
       setIsSubscribed(true);
-      toast.success("푸시 알림이 활성화되었습니다.");
-    } catch (e: any) {
+      setStatus("active");
+      toast.success(
+        status === "needs_reconnect"
+          ? "기기 알림 연결이 다시 설정되었습니다."
+          : "푸시 알림이 활성화되었습니다."
+      );
+    } catch (e: unknown) {
       console.error("[push] subscribe failed:", e);
-      if (e?.message === "SERVICE_WORKER_READY_TIMEOUT") {
+      if (isServiceWorkerReadyTimeout(e)) {
         toast.error("초기화 실패. 새로고침 후 다시 시도해주세요.");
       } else {
-        toast.error(`푸시 알림 설정 실패: ${e?.message ?? "오류 발생"}`);
+        toast.error(`푸시 알림 설정 실패: ${getErrorMessage(e)}`);
       }
     }
   };
@@ -344,6 +452,7 @@ export function usePushNotification() {
       }).catch(() => {});
 
       // 2. 로컬 상태 정리 (UX 우선)
+      setStatus("disabled");
       clearLocalState();
 
       // 3. 브라우저 구독 해제
@@ -356,7 +465,7 @@ export function usePushNotification() {
       }
 
       toast.success("푸시 알림이 비활성화되었습니다.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[push] unsubscribe failed:", e);
       toast.error("푸시 알림 해제 중 오류가 발생했습니다.");
     }
@@ -366,6 +475,7 @@ export function usePushNotification() {
     isSupported,
     isSubscribed,
     isPrivateMode,
+    status,
     subscription,
     subscribe,
     unsubscribe,

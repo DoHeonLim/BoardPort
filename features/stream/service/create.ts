@@ -4,6 +4,7 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2025.07.30  임도헌   Created    streamSchema 분리 적용
  * 2025.08.10  임도헌   Modified   PRIVATE 비밀번호 bcrypt 해시 저장
  * 2025.08.21  임도헌   Modified   서버 전용 ENV 적용/응답 검증/에러 메시지 표준화/불필요 외부호출 방지
@@ -18,6 +19,9 @@
  * 2026.02.07  임도헌   Modified  정지 유저 가드(validateUserStatus) 적용
  * 2026.03.07  임도헌   Modified  생성 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  방송 태그 중복 제거 및 공백 정리
+ * 2026.03.12  임도헌   Modified  방송 썸네일 저장 시 애니메이션 메타를 함께 기록
+ * 2026.05.03  임도헌   Modified  방송 생성 시 보드게임 카탈로그 연결 저장 추가
+ * 2026.05.03  임도헌   Modified  방송-보드게임 연결 저장 정책 주석 보강
  */
 
 import "server-only";
@@ -33,11 +37,11 @@ import type { CreateBroadcastResult } from "@/features/stream/types";
 /**
  * 방송 생성 함수
  *
- * 1. 작성자의 이용 정지 여부(Ban)를 확인
- * 2. PRIVATE 모드일 경우 비밀번호를 해싱
- * 3. 유저의 LiveInput(채널)을 보장 (없으면 Cloudflare API 호출하여 생성)
- * 4. Broadcast DB 레코드를 생성
- * 5. 채팅방을 생성 (실패해도 방송은 유지)
+ * - 작성자 이용 가능 상태 확인
+ * - 비공개 비밀번호 해싱
+ * - LiveInput 보장
+ * - Broadcast 레코드 생성
+ * - 채팅방 생성 시도
  *
  * @returns {Promise<CreateBroadcastResult>} OBS 연결 정보(RTMP/Key) 및 방송 ID
  */
@@ -45,7 +49,7 @@ export const createBroadcast = async (
   userId: number,
   data: StreamFormValues
 ): Promise<CreateBroadcastResult> => {
-  // 정지 유저 체크
+  // 작성 가능 상태 확인
   const status = await validateUserStatus(userId);
   if (!status.success) {
     return { success: false, error: status.error! };
@@ -55,17 +59,21 @@ export const createBroadcast = async (
     title,
     description,
     thumbnail,
+    thumbnailAnimated,
     visibility,
     password,
     streamCategoryId,
     tags,
+    boardGameIds,
   } = data;
 
   const nextTags = Array.from(
     new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))
   );
+  // 방송과 보드게임은 선택 관계만 저장하고 카탈로그 원천 데이터는 변경하지 않음
+  const linkedBoardGameIds = Array.from(new Set(boardGameIds ?? []));
 
-  // 비밀번호 해싱 (Private일 경우 필수)
+  // 비공개 비밀번호 해싱
   let passwordHash: string | null = null;
   if (visibility === STREAM_VISIBILITY.PRIVATE) {
     const plain = (password ?? "").trim();
@@ -78,7 +86,7 @@ export const createBroadcast = async (
     passwordHash = await hash(plain, 12);
   }
 
-  // 송출 채널(LiveInput) 준비
+  // 송출 채널 준비
   let ensured;
   try {
     ensured = await ensureLiveInput(userId, title);
@@ -86,12 +94,11 @@ export const createBroadcast = async (
     console.error("[createBroadcast] ensureLiveInput failed:", e);
     return {
       success: false,
-      error:
-        "송출 채널 준비에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "송출 채널 준비에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 
-  // Broadcast 생성
+  // 방송 레코드 생성
   try {
     const broadcast = await db.broadcast.create({
       data: {
@@ -99,24 +106,32 @@ export const createBroadcast = async (
         title: title.trim(),
         description: description?.trim() || null,
         thumbnail: thumbnail || null,
+        thumbnailAnimated,
         visibility,
         password: passwordHash,
         status: "DISCONNECTED",
         streamCategoryId,
-        tags:
-          nextTags.length
-            ? {
-                connectOrCreate: nextTags.map((name) => ({
-                  where: { name },
-                  create: { name },
-                })),
-              }
-            : undefined,
+        tags: nextTags.length
+          ? {
+              connectOrCreate: nextTags.map((name) => ({
+                where: { name },
+                create: { name },
+              })),
+            }
+          : undefined,
+        // 방송-보드게임 선택 연결만 저장, 카탈로그 원천/locale 데이터 불변
+        board_games: linkedBoardGameIds.length
+          ? {
+              create: linkedBoardGameIds.map((boardGameId) => ({
+                boardGame: { connect: { id: boardGameId } },
+              })),
+            }
+          : undefined,
       },
       select: { id: true },
     });
 
-    // 채팅방 생성 (Fire & Forget, 실패해도 방송 진행 가능)
+    // 채팅방 생성 시도
     try {
       await createStreamChatRoom(broadcast.id);
     } catch (chatErr) {

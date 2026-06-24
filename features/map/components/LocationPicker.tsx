@@ -12,21 +12,37 @@
  * 2026.02.26  임도헌   Modified  다크모드 가시성 강화를 위한 brand-light 토큰 적용
  * 2026.02.26  임도헌   Modified  autoFocus 제거
  * 2026.03.07  임도헌   Modified  지도 SDK 로드 실패를 토스트/즉시 종료 대신 모달 내 상태 화면으로 전환
+ * 2026.03.12  임도헌   Modified  장소 검색 결과 패널 구분선을 border-border-subtle 기준으로 통일
+ * 2026.03.26  임도헌   Modified  선택 위치 카드 높이와 내부 여백을 조정해 모바일 지도 가시 영역을 더 넓게 확보
+ * 2026.03.29  임도헌   Modified  모바일은 풀스크린 지도 작업면으로 전환하고 검색/선택 오버레이 위계를 재정렬
+ * 2026.03.29  임도헌   Modified  하단 안내 힌트의 blur를 제거하고 확인 CTA를 검색 버튼과 동일한 bg-brand 톤으로 통일
+ * 2026.03.29  임도헌   Modified  지도 위 힌트/선택 카드 텍스트 대비를 높여 라이트·다크 가시성 정리
+ * 2026.04.02  임도헌   Modified  초기 지도 중심 좌표를 map/constants 공용 상수로 분리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.10  임도헌   Modified  map 타이포 정책에 맞춰 안내 힌트와 선택 위치 라벨 크기/weight를 400·500·700 기준으로 정리
+ * 2026.05.16  임도헌   Modified  카카오 장소 검색 결과 타입을 명시해 any 제거
+ * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
  */
-
-"use client";
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Map, MapMarker } from "react-kakao-maps-sdk";
 import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
+import { MAP_DEFAULT_CENTER } from "@/features/map/constants";
 import { toast } from "sonner";
 import {
   MagnifyingGlassIcon,
   MapPinIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import type { LocationData } from "@/features/map/types";
+import type {
+  KakaoPlaceSearchResult,
+  LocationData,
+} from "@/features/map/types";
+import {
+  formatNormalizedRegion,
+  normalizeKakaoRegion,
+} from "@/features/map/utils/normalizeRegion";
 
 interface LocationPickerProps {
   onSelect: (data: LocationData) => void;
@@ -37,11 +53,6 @@ interface LocationPickerProps {
 /**
  * 장소 선택 모달 컴포넌트
  *
- * [기능]
- * 1. Kakao Maps SDK를 로드하고 키워드 검색 및 마커 이동 기능을 제공
- * 2. 선택된 좌표(위경도)를 주소(행정구역)로 변환(역지오코딩)하여 반환
- * 3. Portal을 사용하여 상위 요소의 스타일 제약 없이 전체 화면을 덮는 모달을 렌더링
- *
  * @param onSelect - 위치 선택 완료 시 호출되는 콜백 (LocationData 반환)
  * @param onClose - 모달 닫기 콜백
  * @param initialData - 초기 위치 데이터 (수정 모드 시 사용)
@@ -51,20 +62,22 @@ export default function LocationPicker({
   onClose,
   initialData,
 }: LocationPickerProps) {
-  // 1. 카카오 맵 스크립트 로드
+  // 카카오 지도 스크립트 로드
   const { loading, error: loaderError } = useKakaoLoader();
 
   // --- States ---
   const [mounted, setMounted] = useState(false);
-  const [center, setCenter] = useState({ lat: 37.5665, lng: 126.978 });
+  const [center, setCenter] = useState(MAP_DEFAULT_CENTER);
   const [keyword, setKeyword] = useState("");
   const [marker, setMarker] = useState<{ lat: number; lng: number } | null>(
     null
   );
   const [selectedInfo, setSelectedInfo] = useState<LocationData | null>(null);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<KakaoPlaceSearchResult[]>(
+    []
+  );
 
-  // 2. 초기 데이터 연동
+  // 초기 위치 데이터 연동
   useEffect(() => {
     setMounted(true);
     if (initialData?.latitude && initialData?.longitude) {
@@ -77,7 +90,8 @@ export default function LocationPicker({
     }
   }, [initialData]);
 
-  // 3. 좌표 -> 주소 변환 (역지오코딩)
+  // 좌표 -> 주소 변환
+  // 선택 좌표를 행정구역 정보로 역지오코딩
   const updateLocationInfo = (
     coords: { lat: number; lng: number },
     placeName?: string
@@ -91,17 +105,20 @@ export default function LocationPicker({
       if (status === window.kakao.maps.services.Status.OK) {
         const addr = result[0].address;
 
-        // (예외 처리)세종시처럼 구/군(2depth)이 없는 경우 1depth(시/도)를 region2로 복제하여 필터링 오류 방지
-        const region2Safe = addr.region_2depth_name || addr.region_1depth_name;
+        const region = normalizeKakaoRegion({
+          region1: addr.region_1depth_name,
+          region2: addr.region_2depth_name,
+          region3: addr.region_3depth_name,
+        });
 
         const info: LocationData = {
           latitude: coords.lat,
           longitude: coords.lng,
           locationName:
             placeName || addr.region_3depth_name || addr.address_name,
-          region1: addr.region_1depth_name,
-          region2: region2Safe,
-          region3: addr.region_3depth_name,
+          region1: region.region1,
+          region2: region.region2,
+          region3: region.region3,
         };
         setMarker(coords);
         setSelectedInfo(info);
@@ -112,11 +129,11 @@ export default function LocationPicker({
     });
   };
 
-  // 4. 키워드 검색 실행
+  // 키워드 검색 실행
   const executeSearch = () => {
     if (!keyword.trim()) return;
 
-    // SDK 로드 여부 + services 라이브러리 로드 여부 동시 체크
+    // SDK와 services 라이브러리 로드 여부 동시 확인
     if (
       loading ||
       !window.kakao ||
@@ -131,7 +148,7 @@ export default function LocationPicker({
 
     ps.keywordSearch(keyword, (data, status) => {
       if (status === window.kakao.maps.services.Status.OK) {
-        setSearchResults(data);
+        setSearchResults(data as KakaoPlaceSearchResult[]);
         const first = data[0];
         setCenter({ lat: Number(first.y), lng: Number(first.x) });
       } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
@@ -148,7 +165,7 @@ export default function LocationPicker({
     if (e.nativeEvent.isComposing) return;
 
     if (e.key === "Enter") {
-      // 부모 Form(ProductForm, PostForm 등)이 제출되는 것을 완벽히 차단
+      // 부모 form 제출 차단
       e.preventDefault();
       e.stopPropagation();
       executeSearch();
@@ -166,7 +183,7 @@ export default function LocationPicker({
     updateLocationInfo(coords, undefined);
   };
 
-  const handleResultClick = (rs: any) => {
+  const handleResultClick = (rs: KakaoPlaceSearchResult) => {
     const pos = { lat: Number(rs.y), lng: Number(rs.x) };
     setCenter(pos);
     updateLocationInfo(pos, rs.place_name);
@@ -175,23 +192,23 @@ export default function LocationPicker({
   if (!mounted) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[85vh] animate-fade-in border border-border">
-        {/* Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between bg-surface shrink-0 z-20 relative">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+      <div className="bg-surface w-full overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:max-w-2xl sm:h-[80dvh] sm:rounded-3xl border-0 sm:border sm:border-border-subtle">
+        {/* 헤더 */}
+        <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0 z-20 relative">
           <h3 className="font-bold text-primary text-lg">거래 장소 선택</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+            className="focus-ring-soft rounded-full p-2 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
             aria-label="거래 장소 선택 모달 닫기"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="p-4 bg-surface border-b border-border shrink-0 z-20 relative">
+        {/* 검색 바 */}
+        <div className="p-4 bg-surface border-b border-border-subtle shrink-0 z-20 relative">
           <div className="relative">
             <input
               type="text"
@@ -205,7 +222,7 @@ export default function LocationPicker({
             <button
               type="button"
               onClick={executeSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-dark transition-colors"
+              className="focus-ring-strong absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-dark"
               aria-label="거래 장소 검색 실행"
             >
               검색
@@ -213,7 +230,7 @@ export default function LocationPicker({
           </div>
         </div>
 
-        {/* Main Map Container */}
+        {/* 메인 지도 영역 */}
         <div className="flex-1 relative w-full h-full min-h-0 bg-surface-dim z-0">
           <Map
             center={center}
@@ -224,47 +241,60 @@ export default function LocationPicker({
             {marker && <MapMarker position={marker} />}
           </Map>
 
-          {/* Search Results List Overlay */}
+          {/* 검색 결과 목록 오버레이 */}
           {searchResults.length > 0 && (
-            <div className="absolute top-0 left-0 right-0 z-10 bg-surface max-h-[50%] overflow-y-auto border-b border-border shadow-xl divide-y divide-border">
-              {searchResults.map((rs, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleResultClick(rs)}
-                  className="w-full text-left p-4 bg-surface hover:bg-surface-dim transition-colors flex flex-col gap-0.5 active:bg-surface-dim/80"
-                >
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">
-                    {rs.place_name}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {rs.road_address_name || rs.address_name}
-                  </span>
-                </button>
-              ))}
+            <div className="absolute inset-x-3 top-3 z-10 max-h-[50%] overflow-hidden rounded-2xl border border-border-subtle bg-surface/98 shadow-2xl backdrop-blur-sm">
+              <div className="max-h-[50dvh] divide-y divide-border-subtle overflow-y-auto">
+                {searchResults.map((rs, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleResultClick(rs)}
+                    className="focus-ring-soft flex w-full flex-col gap-0.5 bg-surface p-4 text-left transition-colors hover:bg-surface-dim active:bg-surface-dim/80"
+                  >
+                    <span className="text-sm font-bold text-gray-900 dark:text-white">
+                      {rs.place_name}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {rs.road_address_name || rs.address_name}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Selected Info & Confirm Button (Bottom Floating) */}
+          {!selectedInfo && searchResults.length === 0 && (
+            <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 sm:inset-x-auto sm:left-4 sm:bottom-4 sm:max-w-sm">
+              <div className="rounded-2xl border border-border-subtle bg-surface px-4 py-3 shadow-lg">
+                <p className="text-sm font-medium text-primary">
+                  지도를 누르거나 검색 결과를 선택하세요.
+                </p>
+                <p className="mt-1 text-xs text-muted dark:text-slate-300/90">
+                  선택한 위치는 상품, 게시글, 약속 장소에 바로 사용할 수
+                  있습니다.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 선택 정보 및 확인 버튼 (하단 고정) */}
           {selectedInfo && (
-            <div className="absolute bottom-6 inset-x-4 z-30 animate-slide-up">
-              <div className="bg-surface p-4 rounded-2xl shadow-2xl border border-border flex flex-col gap-3 ring-1 ring-black/5">
+            <div className="absolute bottom-3 inset-x-4 z-30 animate-slide-up sm:bottom-4">
+              <div className="flex flex-col gap-2 rounded-2xl border border-border-subtle bg-surface p-3 shadow-2xl ring-1 ring-black/5">
                 <div className="flex items-start gap-3">
-                  {/* [Fix] dark:bg-brand-light/10 dark:text-brand-light 적용 */}
-                  <div className="p-2.5 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
-                    <MapPinIcon className="size-6" />
+                  <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
+                    <MapPinIcon className="size-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    {/* [Fix] dark:text-brand-light 적용 */}
-                    <p className="text-xs font-bold text-brand dark:text-brand-light uppercase tracking-wider mb-0.5">
+                    <p className="mb-0.5 text-xs font-bold uppercase tracking-wider text-brand dark:text-brand-light">
                       선택된 위치
                     </p>
-                    <p className="font-bold text-primary text-lg truncate">
+                    <p className="font-bold text-primary text-base truncate">
                       {selectedInfo.locationName}
                     </p>
-                    <p className="text-sm text-muted mt-0.5">
-                      {selectedInfo.region1} {selectedInfo.region2}{" "}
-                      {selectedInfo.region3}
+                    <p className="mt-0 text-xs text-muted dark:text-slate-300/90">
+                      {formatNormalizedRegion(selectedInfo)}
                     </p>
                   </div>
                 </div>
@@ -272,7 +302,7 @@ export default function LocationPicker({
                 <button
                   type="button"
                   onClick={() => onSelect(selectedInfo)}
-                  className="btn-primary w-full h-12 text-base font-bold shadow-lg"
+                  className="focus-ring-strong h-11 w-full rounded-xl bg-brand text-sm font-bold text-white shadow-md transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-neutral-400 disabled:text-neutral-300"
                 >
                   이 위치로 설정하기
                 </button>
@@ -286,8 +316,8 @@ export default function LocationPicker({
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="bg-surface p-8 rounded-3xl flex flex-col items-center gap-4">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+        <div className="bg-surface w-full h-[100dvh] sm:h-auto sm:max-w-md sm:rounded-3xl flex flex-col items-center justify-center gap-4 border-0 sm:border sm:border-border-subtle p-8">
           <div className="size-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-medium text-primary">
             지도를 준비하고 있습니다...
@@ -298,15 +328,16 @@ export default function LocationPicker({
   }
 
   if (loaderError) {
+    // SDK 로드 실패 상태 화면 렌더링
     return createPortal(
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div className="bg-surface w-full max-w-md rounded-3xl border border-border shadow-2xl overflow-hidden">
-          <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+        <div className="bg-surface w-full h-[100dvh] sm:h-auto sm:max-w-md sm:rounded-3xl border-0 sm:border sm:border-border-subtle shadow-2xl overflow-hidden">
+          <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface">
             <h3 className="font-bold text-primary text-lg">거래 장소 선택</h3>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-muted hover:text-primary rounded-full hover:bg-surface-dim transition-colors"
+              className="focus-ring-soft rounded-full p-2 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
               aria-label="거래 장소 선택 모달 닫기"
             >
               <XMarkIcon className="size-6" />
@@ -317,7 +348,9 @@ export default function LocationPicker({
               <div className="state-icon-wrap">
                 <MapPinIcon className="size-8" />
               </div>
-              <h4 className="state-title">지도 시스템을 불러오지 못했습니다.</h4>
+              <h4 className="state-title">
+                지도 시스템을 불러오지 못했습니다.
+              </h4>
               <p className="state-description">
                 네트워크 상태를 확인한 뒤 다시 시도해주세요.
               </p>

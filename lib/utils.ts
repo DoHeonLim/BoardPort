@@ -18,6 +18,7 @@
  * 2026.02.02  임도헌   Modified   JSDoc 표준화 및 유틸 역할 명확화
  * 2026.02.13  임도헌   Modified  공유하기 공용 유틸(handleShare) 추가
  * 2026.02.26  임도헌   Modified  formatToTimeAgo 간소화
+ * 2026.03.21  임도헌   Modified  공유 링크에서 returnTo 같은 네비게이션 문맥 쿼리를 제거해 상세 URL만 공유되도록 보정
  */
 
 import { clsx, type ClassValue } from "clsx";
@@ -91,8 +92,24 @@ export const formatDuration = (seconds: number) => {
  * @param url 공유할 URL (생략 시 현재 창 주소)
  */
 export const handleShare = async (title: string, url?: string) => {
-  const shareUrl =
-    url || (typeof window !== "undefined" ? window.location.href : "");
+  const normalizeShareUrl = (rawUrl: string) => {
+    try {
+      const base =
+        typeof window !== "undefined" ? window.location.origin : undefined;
+      const parsed = new URL(rawUrl, base);
+
+      // 공유 링크에는 현재 화면 복귀용 문맥이 필요 없으므로 제거
+      parsed.searchParams.delete("returnTo");
+
+      return parsed.toString();
+    } catch {
+      return rawUrl;
+    }
+  };
+
+  const shareUrl = normalizeShareUrl(
+    url || (typeof window !== "undefined" ? window.location.href : "")
+  );
 
   try {
     if (typeof navigator !== "undefined" && navigator.share) {

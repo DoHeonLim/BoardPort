@@ -1,6 +1,6 @@
 /**
  * File Name : features/review/actions/delete.ts
- * Description : 리뷰 삭제 Controller
+ * Description : 리뷰 삭제 서버 액션
  * Author : 임도헌
  *
  * History
@@ -9,6 +9,7 @@
  * 2026.01.30  임도헌   Moved     features/review/actions.ts -> features/review/actions/delete.ts
  * 2026.03.05  임도헌   Modified  레거시 `revalidateTag` 파편화 코드 제거 및 `invalidateQueries`를 활용한 클라이언트 캐시 무효화로 대체
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

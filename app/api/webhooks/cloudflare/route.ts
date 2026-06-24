@@ -14,9 +14,13 @@
  * 2026.01.08  임도헌   Modified  방송 재접속(CONNECTED) 시 ended_at 초기화(null) 추가
  * 2026.02.23  임도헌   Modified  Webhook 재전송 시 VOD 중복 생성 방지(P2002 무시) 및 에러 로깅 강화
  * 2026.02.25  임도헌   Modified  순서 보장 가드, VOD 소유권 검증 강화
- * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 최초 등록용 테스트 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
+ * 2026.02.25  임도헌   Modified  Cloudflare 웹훅 등록 검증 메시지 서명 검증 우회 로직 추가 및 GET 엔드포인트 추가
  * 2026.03.05  임도헌   Modified  공통 데이터(상세)는 `revalidateTag` 유지, 개인화 데이터(목록/상태)는 Query Cache 기반 혼합 캐싱 정책 적용
  * 2026.03.07  임도헌   Modified  CONNECTED 재수신 시 ENDED -> CONNECTED 복구 허용, 재접속에는 시작 알림 재전송 방지
+ * 2026.03.08  임도헌   Modified  video.ready가 실제 종료된 방송에만 안전하게 VOD를 연결하도록 fallback 제거
+ * 2026.04.05  임도헌   Modified  게시글 동영상 draftKey를 READY 웹훅에서 조기 해제하지 않고 실제 게시글 연결 시점까지 유지
+ * 2026.05.12  임도헌   Modified  게시글 동영상 READY 선도착/Cloudflare error 웹훅 처리 보강
+ * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 명시
  */
 
 import "server-only";
@@ -28,6 +32,10 @@ import db from "@/lib/db";
 import { sendLiveStatusFromServer } from "@/features/stream/service/realtime";
 import { sendLiveStartNotifications } from "@/features/notification/service/live";
 import { Prisma } from "@/generated/prisma/client";
+import type {
+  CloudflareStreamAssetPayload,
+  CloudflareVideoListResponse,
+} from "@/features/stream/types";
 
 export const runtime = "nodejs";
 
@@ -201,6 +209,19 @@ function hasDestinationHeaderSecret(req: Request, expected: string) {
 
 /*                              페이로드 파싱 유틸                             */
 /**
+ * Cloudflare status 필드에서 상태 문자열 추출
+ */
+function getCloudflareStatusState(
+  status: CloudflareStreamAssetPayload["status"]
+): string | null {
+  if (typeof status === "string") return status;
+  if (status && typeof status === "object" && typeof status.state === "string") {
+    return status.state;
+  }
+  return null;
+}
+
+/**
  * 이벤트 타입 추출
  *
  * Cloudflare는 다양한 형식으로 타입을 넘길 수 있으므로
@@ -208,9 +229,9 @@ function hasDestinationHeaderSecret(req: Request, expected: string) {
  * - body.event / event_type
  * - body.result.type
  * - body.data.type / data.event_type
- * 순으로 넓게 검사한다.
+ * 순으로 넓게 검사
  */
-function getEventType(body: any): string {
+function getEventType(body: CloudflareStreamAssetPayload): string {
   return (
     body?.type ||
     body?.event ||
@@ -229,9 +250,9 @@ function getEventType(body: any): string {
  * - body.uid
  * - body.data.uid
  * - body.result.uid
- * 세 곳을 모두 검사한다.
+ * 세 곳을 모두 검사
  */
-function getAssetUid(body: any): string | null {
+function getAssetUid(body: CloudflareStreamAssetPayload): string | null {
   if (typeof body?.uid === "string") return body.uid;
   if (typeof body?.data?.uid === "string") return body.data.uid;
   if (typeof body?.result?.uid === "string") return body.result.uid;
@@ -250,7 +271,7 @@ function getAssetUid(body: any): string | null {
  *
  * 위 케이스를 모두 커버하도록 파싱.
  */
-function getLiveInputUid(body: any): string | null {
+function getLiveInputUid(body: CloudflareStreamAssetPayload): string | null {
   const li =
     body?.liveInput ??
     body?.input ??
@@ -265,6 +286,31 @@ function getLiveInputUid(body: any): string | null {
 }
 
 /**
+ * Cloudflare 비디오 에셋 메타데이터(meta) 추출
+ *
+ * @param body - webhook 페이로드
+ * @returns {Record<string, unknown>} Cloudflare meta 객체 또는 빈 객체
+ */
+function getAssetMeta(
+  body: CloudflareStreamAssetPayload
+): Record<string, unknown> {
+  const src = body?.data ?? body?.result ?? body;
+  if (src?.meta && typeof src.meta === "object") return src.meta;
+  if (body?.meta && typeof body.meta === "object") return body.meta;
+  return {};
+}
+
+/**
+ * 게시글 첨부 동영상용 ready payload인지 확인
+ *
+ * @param body - webhook 페이로드
+ * @returns {boolean} 게시글 첨부 동영상 여부
+ */
+function isPostVideoPayload(body: CloudflareStreamAssetPayload): boolean {
+  return getAssetMeta(body)?.sourceType === "POST_VIDEO";
+}
+
+/**
  * 해당 페이로드가 Cloudflare Stream의 "비디오 준비 완료(video.ready)" 형태인지 판별
  *
  * 특징:
@@ -273,15 +319,15 @@ function getLiveInputUid(body: any): string | null {
  * - uid(에셋 ID)가 존재
  *
  * Stream Webhook / Destination Webhook 모두 지원하기 위해
- * body.data 래핑이 있으면 우선 해제한 뒤 검사한다.
+ * body.data 래핑이 있으면 우선 해제한 뒤 검사
  */
-function isAssetReadyPayload(body: any): boolean {
+function isAssetReadyPayload(body: CloudflareStreamAssetPayload): boolean {
   // Destination Webhook의 경우 body.data 안에 실제 페이로드가 들어있는 경우가 많으므로 우선 언랩
   const src = body?.data ?? body;
+  const state = getCloudflareStatusState(src?.status);
   const ready =
     src?.readyToStream === true ||
-    src?.status?.state === "ready" ||
-    src?.status === "ready";
+    state === "ready";
 
   const hasPlayback =
     !!src?.playback &&
@@ -291,10 +337,24 @@ function isAssetReadyPayload(body: any): boolean {
   return Boolean(ready && hasPlayback && typeof uid === "string");
 }
 
+/**
+ * Cloudflare Stream 처리 실패 payload인지 판별
+ *
+ * Direct upload는 길이 초과/손상 파일도 webhook으로 알려주므로
+ * 실패 상태를 무시하면 게시글 동영상이 PROCESSING에 머무를 수 있음
+ */
+function isAssetErrorPayload(body: CloudflareStreamAssetPayload): boolean {
+  const src = body?.data ?? body?.result ?? body;
+  const state = getCloudflareStatusState(src?.status);
+  const uid = getAssetUid(body);
+
+  return state === "error" && typeof uid === "string";
+}
+
 /*                         Cloudflare API 연동 (썸네일)                         */
 /**
  * Live Input에 연결된 비디오 목록을 Cloudflare API로 조회 후,
- * 적절한 썸네일을 자동으로 선택하여 Broadcast.thumbnail을 채워준다.
+ * 적절한 썸네일 자동 선택 및 Broadcast.thumbnail 보강
  *
  * 우선순위:
  * 1) status.state === "live-inprogress"
@@ -302,8 +362,8 @@ function isAssetReadyPayload(body: any): boolean {
  * 3) 그 외 첫 번째 비디오
  *
  * 주의:
- * - 이미 thumbnail이 설정된 Broadcast는 덮어쓰지 않는다.
- * - 실패는 치명적이지 않으므로 콘솔 경고만 남기고 중단한다.
+ * - 이미 thumbnail이 설정된 Broadcast 덮어쓰기 방지
+ * - 실패는 치명적이지 않으므로 콘솔 경고만 남기고 중단
  */
 async function tryFillThumbnailFromCloudflare(
   liveInputUid: string,
@@ -326,18 +386,18 @@ async function tryFillThumbnailFromCloudflare(
 
     if (!resp.ok) return;
 
-    const json = await resp.json();
-    const list: any[] = Array.isArray(json?.result) ? json.result : [];
+    const json = (await resp.json()) as CloudflareVideoListResponse;
+    const list = Array.isArray(json.result) ? json.result : [];
 
     if (list.length === 0) return;
 
     // 우선순위: live-inprogress → ready → 첫 항목
     const chosen =
-      list.find((v) => v?.status?.state === "live-inprogress") ||
-      list.find((v) => v?.status?.state === "ready") ||
+      list.find((v) => getCloudflareStatusState(v.status) === "live-inprogress") ||
+      list.find((v) => getCloudflareStatusState(v.status) === "ready") ||
       list[0];
 
-    const thumbnailUrl: string | undefined = chosen?.thumbnail;
+    const thumbnailUrl = chosen?.thumbnail ?? undefined;
 
     if (thumbnailUrl && typeof thumbnailUrl === "string") {
       const broadcast = await db.broadcast.findUnique({
@@ -493,11 +553,14 @@ async function onDisconnected(liveInputUid: string) {
  *   - duration_sec
  *   - ready_at
  * - 어떤 Broadcast에 연결할지 결정:
- *   1) liveInputUid가 있으면 해당 LiveInput의 가장 최근 Broadcast
- *   2) 없으면 status가 ENDED인 Broadcast 중 가장 최근 것
+ *   1) liveInputUid와 매칭되는 Broadcast 중 실제로 시작/종료된 가장 최근 방송
+ *   2) 안전하게 매칭할 수 없는 경우 연결하지 않고 종료
  * - Broadcast와 연결된 후 방송 상세 캐시 무효화
  */
-async function onVideoReady(liveInputUid: string | null, assetBody: any) {
+async function onVideoReady(
+  liveInputUid: string | null,
+  assetBody: CloudflareStreamAssetPayload
+) {
   // 소유자 식별 불가 시 데이터 정합성을 위해 처리 중단
   if (!liveInputUid) return;
 
@@ -518,37 +581,26 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
       ? new Date(src.created)
       : null;
 
-  let broadcastIdResolved: number | null = null;
+  const matchedBroadcast = await db.broadcast.findFirst({
+    where: {
+      liveInput: { provider_uid: liveInputUid },
+      started_at: { not: null },
+      ended_at: { not: null },
+      status: "ENDED",
+    },
+    orderBy: [{ ended_at: "desc" }, { created_at: "desc" }],
+    select: { id: true },
+  });
 
-  // 1) liveInputUid로 연결된 방송 중 가장 최근 방송 찾기
-  if (liveInputUid) {
-    const li = await db.liveInput.findUnique({
-      where: { provider_uid: liveInputUid },
-      select: {
-        broadcasts: {
-          orderBy: { created_at: "desc" },
-          take: 1,
-          select: { id: true },
-        },
-      },
-    });
-    if (li?.broadcasts?.length) {
-      broadcastIdResolved = li.broadcasts[0].id;
-    }
+  // 실제 종료 방송과 안전한 매칭이 되지 않는 경우 연결 제외
+  if (!matchedBroadcast) {
+    console.warn(
+      `[onVideoReady] skipped linking asset ${assetUid}: no ended broadcast matched for liveInput ${liveInputUid}`
+    );
+    return;
   }
 
-  // 2) liveInputUid로 못 찾으면, 최근 종료된(ENDED) 방송에 연결
-  if (!broadcastIdResolved) {
-    const ended = await db.broadcast.findFirst({
-      where: { status: "ENDED" },
-      orderBy: { created_at: "desc" },
-      select: { id: true },
-    });
-    broadcastIdResolved = ended?.id ?? null;
-  }
-
-  // 연결할 방송이 없다면 VOD는 생성하되 어느 방송에도 연결하지 않음
-  if (!broadcastIdResolved) return;
+  const broadcastIdResolved = matchedBroadcast.id;
 
   try {
     // VodAsset upsert
@@ -599,6 +651,109 @@ async function onVideoReady(liveInputUid: string | null, assetBody: any) {
   }
 }
 
+/**
+ * 게시글 첨부 동영상 video.ready 이벤트 처리
+ *
+ * 역할:
+ * - Cloudflare Stream direct upload로 생성한 PostVideo 초안 레코드를 READY 상태로 갱신
+ * - thumbnail, duration 메타를 저장
+ * - draftKey는 게시글 저장 시 attachDraftVideoToPost에서 해제
+ * - 게시글과 연결된 자산이면 게시글 상세 캐시를 무효화
+ *
+ * @param assetBody - Cloudflare video.ready 페이로드
+ */
+async function onPostVideoReady(assetBody: CloudflareStreamAssetPayload) {
+  const src = assetBody?.data ?? assetBody?.result ?? assetBody;
+  const assetUid = getAssetUid(assetBody);
+  if (!assetUid) return;
+
+  const meta = getAssetMeta(assetBody);
+  const draftKey =
+    typeof meta?.draftKey === "string" ? meta.draftKey : undefined;
+
+  const thumbnailUrl: string | null = src?.thumbnail ?? null;
+  const durationSec: number | null =
+    typeof src?.duration === "number" ? Math.floor(src.duration) : null;
+
+  const draft = await db.postVideo.findFirst({
+    where: {
+      OR: [
+        { providerAssetId: assetUid },
+        { uploadUid: assetUid },
+        ...(draftKey ? [{ draftKey }] : []),
+      ],
+    },
+    select: { id: true, postId: true },
+  });
+
+  if (!draft) {
+    console.warn(
+      `[onPostVideoReady] skipped asset ${assetUid}: no post video draft matched`
+    );
+    return;
+  }
+
+  await db.postVideo.update({
+    where: { id: draft.id },
+    data: {
+      providerAssetId: assetUid,
+      uploadUid: assetUid,
+      thumbnailUrl,
+      durationSec,
+      status: "READY",
+    },
+  });
+
+  if (draft.postId) {
+    revalidateTag(T.POST_DETAIL(draft.postId));
+  }
+}
+
+/**
+ * 게시글 첨부 동영상 처리 실패 이벤트 처리
+ *
+ * 역할:
+ * - Cloudflare Stream이 duration 제한/손상 파일 등으로 error 상태를 보낸 경우
+ * - 기존 draft 또는 연결된 PostVideo를 FAILED로 갱신해 상세 화면이 처리 중에 갇히지 않게 함
+ *
+ * @param assetBody - Cloudflare error 페이로드
+ */
+async function onPostVideoFailed(assetBody: CloudflareStreamAssetPayload) {
+  const assetUid = getAssetUid(assetBody);
+  if (!assetUid) return;
+
+  const meta = getAssetMeta(assetBody);
+  const draftKey =
+    typeof meta?.draftKey === "string" ? meta.draftKey : undefined;
+
+  const draft = await db.postVideo.findFirst({
+    where: {
+      OR: [
+        { providerAssetId: assetUid },
+        { uploadUid: assetUid },
+        ...(draftKey ? [{ draftKey }] : []),
+      ],
+    },
+    select: { id: true, postId: true },
+  });
+
+  if (!draft) {
+    console.warn(
+      `[onPostVideoFailed] skipped asset ${assetUid}: no post video draft matched`
+    );
+    return;
+  }
+
+  await db.postVideo.update({
+    where: { id: draft.id },
+    data: { status: "FAILED" },
+  });
+
+  if (draft.postId) {
+    revalidateTag(T.POST_DETAIL(draft.postId));
+  }
+}
+
 /*                            메인 핸들러: GET / POST                          */
 
 /**
@@ -616,7 +771,7 @@ export async function GET() {
  *
  * 처리 순서:
  * 1. 요청 바디(raw) 읽기 및 JSON 파싱
- * 2. Cloudflare 웹훅 등록용 테스트 메시지("Hello World!...") 확인 및 우회 처리 (200 OK)
+ * 2. Cloudflare 웹훅 등록 검증 메시지("Hello World!...") 확인 및 우회 처리 (200 OK)
  * 3. 이 웹훅이 Stream Webhook 인지(Destination Webhook 인지) 판별 및 서명 검증
  * 4. 메타데이터 추출 (event type, liveInputUid, assetUid 등)
  * 5. 이벤트 타입에 따라 분기 처리 (onConnected, onDisconnected, onVideoReady)
@@ -625,13 +780,13 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const raw = await req.text();
-    // Cloudflare 웹훅 등록 테스트용 빈 바디 대응
+    // Cloudflare 웹훅 등록 검증/헬스체크용 빈 바디 대응
     if (!raw) return NextResponse.json({ ok: true });
 
     // 1) 서명 검증을 위해 바디를 먼저 파싱
-    let body: any = {};
+    let body: CloudflareStreamAssetPayload = {};
     try {
-      body = JSON.parse(raw);
+      body = JSON.parse(raw) as CloudflareStreamAssetPayload;
     } catch {
       // Cloudflare가 간혹 text-only를 보낼 경우를 대비한 방어 로직
       return NextResponse.json(
@@ -640,8 +795,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) [핵심] Cloudflare 웹훅 최초 등록용 테스트 메시지 우회 처리 (Handshake Bypass)
-    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 테스트 메시지를 보냄
+    // 2) [핵심] Cloudflare 웹훅 등록 검증 메시지 우회 처리 (Handshake Bypass)
+    // Cloudflare 시스템에서 웹훅을 활성화할 때 서명 헤더 없이 검증 메시지를 보냄
     // 이 경우 서명 검증을 건너뛰고 성공 응답을 내려주어 웹훅이 정상 등록되게 함
     if (
       body?.text &&
@@ -688,6 +843,7 @@ export async function POST(req: Request) {
 
     // video.ready 판별용 플래그 (type이 unknown이어도 ready 페이로드면 처리)
     const isReadyAsset = isAssetReadyPayload(body);
+    const isErrorAsset = isAssetErrorPayload(body);
 
     /* ------------------------------ 이벤트 분기 처리 ------------------------------ */
 
@@ -695,21 +851,33 @@ export async function POST(req: Request) {
      * Vercel Serverless 환경에서는 응답을 보내기 전에 비동기 작업이 완료되어야 하므로
      * 모든 핵심 핸들러를 await 처리하여 프로세스 조기 종료를 방지
      */
-    if (type === "unknown" && isReadyAsset) {
-      // 무타입 ready 페이로드 대응
-      if (!liveInputUid) {
-        liveInputUid = getLiveInputUid({
-          liveInput: body?.liveInput,
-          input: body?.input,
-        });
+    if (type === "unknown" && isErrorAsset && isPostVideoPayload(body)) {
+      await onPostVideoFailed(body);
+    } else if (type === "unknown" && isReadyAsset) {
+      if (isPostVideoPayload(body)) {
+        await onPostVideoReady(body);
+      } else {
+        // 무타입 ready 페이로드 대응
+        if (!liveInputUid) {
+          liveInputUid = getLiveInputUid({
+            liveInput: body?.liveInput,
+            input: body?.input,
+          });
+        }
+        await onVideoReady(liveInputUid, body);
       }
-      await onVideoReady(liveInputUid, body);
     } else if (type === "live_input.connected") {
       if (liveInputUid) await onConnected(liveInputUid);
     } else if (type === "live_input.disconnected") {
       if (liveInputUid) await onDisconnected(liveInputUid);
     } else if (type === "video.ready") {
-      await onVideoReady(liveInputUid, body);
+      if (isPostVideoPayload(body)) {
+        await onPostVideoReady(body);
+      } else {
+        await onVideoReady(liveInputUid, body);
+      }
+    } else if (isErrorAsset && isPostVideoPayload(body)) {
+      await onPostVideoFailed(body);
     }
 
     // 200 OK로 응답하여 재시도 방지
@@ -723,3 +891,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

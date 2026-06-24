@@ -14,6 +14,21 @@
  * 2026.02.14  임도헌   Modified  location 속성 추가
  * 2026.02.15  임도헌   Modified  ProductType 및 리스트 아이템에 region 정보 타입 추가
  * 2026.03.07  임도헌   Modified  타입 섹션 제목 및 히스토리 오탈자 정리
+ * 2026.03.11  임도헌   Modified  무한스크롤 목록에서도 전체 검색 결과 수를 고정 표시할 수 있도록 totalCount 필드 추가
+ * 2026.03.12  임도헌   Modified  사용자 업로드 이미지의 애니메이션 여부 저장을 위한 메타 필드 추가
+ * 2026.03.26  임도헌   Modified  찜 목록 전용 liked_at 타입과 카드 활동 시점 prop 타입 추가
+ * 2026.05.03  임도헌   Modified  프로필 구매 목록에서도 연결 보드게임 배지를 표시할 수 있도록 타입 확장
+ * 2026.03.26  임도헌   Modified  ProductCard에 찜 목록 전용 빠른 해제 UI prop 추가
+ * 2026.04.02  임도헌   Modified  ProductFormResponse union 정리와 상태 타입 일관성 보강
+ * 2026.04.02  임도헌   Modified  검색 기록/인기 검색 타입을 search 도메인 공용 타입으로 이동
+ * 2026.04.09  임도헌   Modified  판매완료 숨김 상태(hidden_at) 지원을 위해 상세/목록 타입 필드 확장
+ * 2026.04.13  임도헌   Modified  ProductCard returnTo를 상위 리스트에서 주입할 수 있도록 prop 확장
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 DTO 및 상세 타입 추가
+ * 2026.05.03  임도헌   Modified  상품 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 목록 타입 확장
+ * 2026.05.18  임도헌   Modified  상품 목록 카드 하트 색상 기준 분리를 위한 isLiked 필드 추가
+ * 2026.05.08  임도헌   Modified  프로필/마이페이지 제품 목록 조회 범위 타입을 product types로 이동
+ * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제의 좋아요 캐시 분리를 위한 ProductCard viewerId prop 추가
+ * 2026.06.18  임도헌   Modified  상품 거래 기준 지역 필수화에 맞춰 ProductDTO location을 필수값으로 정리
  */
 
 import {
@@ -23,11 +38,30 @@ import {
 } from "@/features/product/constants";
 import type { ProductReview } from "@/features/review/types";
 import { LocationData } from "@/features/map/types";
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 
 // =============================================================================
 // 1. Utility Types
 // =============================================================================
+/** 날짜 직렬화 호환 타입 */
 export type ISODate = Date | string | null;
+/** 상품 판매 상태 */
+export type ProductStatus = "selling" | "reserved" | "sold";
+
+/**
+ * 유저 제품 목록 조회 범위
+ * - SELLING: 판매 중
+ * - RESERVED: 예약 중
+ * - SOLD: 판매 완료
+ * - PURCHASED: 구매 내역
+ * - LIKED: 좋아요 내역
+ */
+export type UserProductsScope =
+  | { type: "SELLING"; userId: number }
+  | { type: "RESERVED"; userId: number }
+  | { type: "SOLD"; userId: number }
+  | { type: "PURCHASED"; userId: number }
+  | { type: "LIKED"; userId: number };
 
 // =============================================================================
 // 2. Data Transfer Objects (DTO) - 요청/응답 데이터
@@ -39,6 +73,7 @@ export interface ProductDTO {
   description: string;
   price: number;
   photos: string[]; // URLs
+  photosAnimated?: boolean[];
   tags: string[];
   game_type: (typeof GAME_TYPES)[number];
   min_players: number;
@@ -48,7 +83,8 @@ export interface ProductDTO {
   completeness: (typeof COMPLETENESS_TYPES)[number];
   has_manual: boolean;
   categoryId: number;
-  location?: LocationData | null;
+  location: LocationData;
+  boardGameIds?: number[];
 }
 
 /** 제품 검색 파라미터 */
@@ -63,6 +99,7 @@ export interface ProductSearchParams {
   skip?: number;
 }
 
+/** 상품 목록 필터 상태 */
 export type FilterState = {
   category?: string;
   minPrice?: string;
@@ -71,17 +108,33 @@ export type FilterState = {
   condition?: string;
 };
 
-/** 폼 Action 응답 */
-export interface ProductFormResponse {
-  success: boolean;
-  productId?: number;
-  error?: string;
-  fieldErrors?: {
-    [key: string]: string[];
-  };
-}
+/** 상품 폼 필드 에러 맵 */
+export type ProductFormFieldErrors<FieldKey extends string = string> = Partial<
+  Record<FieldKey, string[]>
+>;
 
-/** 제품 폼 서버 액션 타입 */
+/** 폼 Action 성공 응답 */
+export type ProductFormSuccess = {
+  success: true;
+  productId: number;
+  error?: never;
+  fieldErrors?: never;
+};
+
+/** 폼 Action 실패 응답 */
+export type ProductFormFailure<FieldKey extends string = string> = {
+  success: false;
+  productId?: never;
+  error?: string;
+  fieldErrors?: ProductFormFieldErrors<FieldKey>;
+};
+
+/** 폼 Action 응답 */
+export type ProductFormResponse<FieldKey extends string = string> =
+  | ProductFormSuccess
+  | ProductFormFailure<FieldKey>;
+
+/** 상품 폼 서버 액션 시그니처 */
 export type ProductFormAction = (
   formData: FormData
 ) => Promise<ProductFormResponse>;
@@ -104,7 +157,7 @@ export interface ProductStatusMeta {
   productId: number;
   sellerId: number;
   buyerId?: number | null; // 구매자 or 예약자
-  newStatus: "selling" | "reserved" | "sold";
+  newStatus: ProductStatus;
 }
 
 /** 좋아요 토글 결과 */
@@ -117,29 +170,36 @@ export interface ProductLikeResult {
 export interface Paginated<T> {
   products: T[];
   nextCursor: number | null;
+  totalCount?: number;
 }
 
 /** 프로필 탭별 카운트 */
-export type TabCounts = { selling: number; reserved: number; sold: number };
+export type TabCounts = Record<ProductStatus, number>;
 
 // =============================================================================
 // 4. Entity / Model Types - DB 모델 및 하위 필드
 // =============================================================================
 
-export type ProductStatus = "selling" | "reserved" | "sold";
+/** 게임 장르 타입 */
 export type GameType = (typeof GAME_TYPES)[number];
+/** 상품 상태 타입 */
 export type ConditionType = (typeof CONDITION_TYPES)[number];
+/** 구성품 상태 타입 */
 export type CompletenessType = (typeof COMPLETENESS_TYPES)[number];
 
+/** 상품 이미지 정보 */
 export interface ProductImage {
   url: string;
   order?: number;
+  isAnimated?: boolean;
 }
 
+/** 상품 검색 태그 정보 */
 export interface ProductTag {
   name: string;
 }
 
+/** 프로필 목록용 사용자 요약 정보 */
 export interface ProfileUserLite {
   username: string;
   avatar: string | null;
@@ -173,6 +233,10 @@ export interface ProductFullDetails extends BaseProduct {
   region1?: string | null;
   region2?: string | null;
   region3?: string | null;
+  hidden_at?: ISODate;
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
 }
 
 /**
@@ -203,6 +267,9 @@ export interface ProductDetailType extends ProductFullDetails {
   _count: {
     product_likes: number;
   };
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
 }
 
 /**
@@ -211,6 +278,7 @@ export interface ProductDetailType extends ProductFullDetails {
 export interface ProductType extends BaseProduct {
   created_at: ISODate;
   refreshed_at?: ISODate;
+  hidden_at?: ISODate;
   reservation_userId: number | null;
   purchase_userId: number | null;
   views: number;
@@ -229,6 +297,10 @@ export interface ProductType extends BaseProduct {
   _count: {
     product_likes: number;
   };
+  isLiked?: boolean;
+  board_games?: Array<{
+    boardGame: BoardGameRelationOption;
+  }>;
 }
 
 /**
@@ -255,29 +327,34 @@ export interface MySalesListItem extends ProductType {
  */
 export interface MyPurchasedListItem extends Pick<
   ProductType,
-  "id" | "title" | "price" | "images" | "purchase_userId"
+  | "id"
+  | "title"
+  | "price"
+  | "images"
+  | "purchase_userId"
+  | "game_type"
+  | "category"
+  | "views"
+  | "_count"
+  | "board_games"
 > {
   purchased_at: ISODate;
   user: ProfileUserLite; // 판매자 정보
   reviews: ProductReview[];
 }
 
-/** 검색 기록 아이템 */
-export interface SearchHistoryItem {
-  keyword: string;
-  created_at: Date;
-}
-
-/** 인기 검색어 아이템 */
-export interface PopularSearchItem {
-  keyword: string;
-  count: number;
+/**
+ * 프로필: '나의 찜한 제품' 리스트 아이템용
+ */
+export interface LikedProductListItem extends ProductType {
+  liked_at: ISODate;
 }
 
 // =============================================================================
 // 5. UI Component Props
 // =============================================================================
 
+/** 상품 카드 표시 방식 */
 export type ViewMode = "grid" | "list";
 
 /** 제품 상세 페이지 UI 데이터 (View Data) */
@@ -291,9 +368,12 @@ export interface ProductDetailData {
 
 /** 제품 카드 컴포넌트 Props */
 export interface ProductCardProps {
-  product: ProductType;
+  product: ProductType | LikedProductListItem;
   viewMode: ViewMode;
   isPriority: boolean;
+  returnTo?: string;
+  showQuickUnlike?: boolean;
+  viewerId?: number | null;
 }
 
 // =============================================================================

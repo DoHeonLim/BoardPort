@@ -33,6 +33,9 @@
  * 2026.03.07  임도헌   Modified  상태 변경 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  SOLD -> SELLING 복귀 시 구매자 알림 누락 보완
  * 2026.03.07  임도헌   Modified  상태 변경 전 정지 유저 가드 적용
+ * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
+ * 2026.04.02  임도헌   Modified  거래 helper JSDoc 보강
+ * 2026.04.04  임도헌   Modified  거래 상태 전이/알림/시스템 메시지 단계의 인라인 주석 보강
  */
 
 import "server-only";
@@ -50,13 +53,23 @@ import {
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
+import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import type { ServiceResult } from "@/lib/types";
 import type {
   ProductStatusMeta,
   ProductStatus,
 } from "@/features/product/types";
 
-// 내부 헬퍼: 푸시 전송 및 기록 (Best-effort)
+/**
+ * 푸시 알림 전송 후 실제 발송 성공 시 Notification 전송 상태 반영
+ *
+ * [동작]
+ * - push sender 호출 결과가 sent > 0일 때만 Notification.isPushSent / sentAt 업데이트
+ * - 푸시 실패는 경고 로그만 남기고 거래 상태 변경 본 흐름은 계속 진행
+ *
+ * @param params - 알림 ID, 수신자, 제목/본문, 링크 등 푸시 전송 정보
+ * @returns {Promise<void>} 반환값 없음
+ */
 async function sendPushAndMarkIfSent(params: {
   notificationId: number;
   targetUserId: number;
@@ -70,6 +83,7 @@ async function sendPushAndMarkIfSent(params: {
   topic?: string;
 }) {
   try {
+    // 푸시 전송 서비스 호출
     const result = (await sendPushNotification({
       targetUserId: params.targetUserId,
       title: params.title,
@@ -83,6 +97,7 @@ async function sendPushAndMarkIfSent(params: {
     })) as ServiceResult<SendPushResult>;
 
     if (result?.success && result.data.sent > 0) {
+      // 실제 발송 성공 시에만 notification 전송 상태 반영
       await db.notification.update({
         where: { id: params.notificationId },
         data: { isPushSent: true, sentAt: new Date() },
@@ -93,7 +108,20 @@ async function sendPushAndMarkIfSent(params: {
   }
 }
 
-// 내부 헬퍼: 채팅방 시스템 메시지 발송
+/**
+ * 특정 상품 채팅방에 거래 상태 관련 시스템 메시지 broadcast
+ *
+ * [동작]
+ * - 판매자와 상대방이 함께 있는 상품 채팅방 1개를 찾아 SYSTEM 메시지 생성
+ * - 채팅방이 없으면 조용히 종료
+ * - 메시지 생성 및 broadcast 실패는 로그만 남기고 메인 거래 흐름은 유지
+ *
+ * @param {number} productId - 상품 ID
+ * @param {number} sellerId - 상태를 변경한 판매자 ID
+ * @param {number} targetUserId - 상대방 유저 ID
+ * @param {string} text - 시스템 메시지 본문
+ * @returns {Promise<void>} 반환값 없음
+ */
 async function dispatchSystemMessage(
   productId: number,
   sellerId: number,
@@ -101,7 +129,7 @@ async function dispatchSystemMessage(
   text: string
 ) {
   try {
-    // 1. 두 유저가 포함된 해당 상품의 채팅방 찾기
+    // 두 유저가 함께 있는 상품 채팅방 탐색
     const room = await db.productChatRoom.findFirst({
       where: {
         productId,
@@ -113,7 +141,7 @@ async function dispatchSystemMessage(
 
     if (!room) return;
 
-    // 2. 시스템 메시지 생성
+    // 거래 상태 변경용 시스템 메시지 생성
     const sysMsg = await db.productMessage.create({
       data: {
         type: "SYSTEM",
@@ -126,7 +154,7 @@ async function dispatchSystemMessage(
       },
     });
 
-    // 3. 브로드캐스트
+    // 해당 채팅방 실시간 브로드캐스트
     await supabase.channel(`room-${room.id}`).send({
       type: "broadcast",
       event: "message",
@@ -172,9 +200,11 @@ export async function updateProductStatus(
   options?: { skipSystemMessage?: boolean; actorId?: number }
 ): Promise<ServiceResult<ProductStatusMeta>> {
   try {
+    // 정지 유저 상태 변경 차단
     const statusGuard = await validateUserStatus(userId);
     if (!statusGuard.success) return statusGuard;
 
+    // 상품 소유자 권한 확인
     const owner = await db.product.findUnique({
       where: { id: productId },
       select: { userId: true },
@@ -205,7 +235,7 @@ export async function updateProductStatus(
         };
       }
 
-      // 채팅 내역 검증 (채팅을 한 적이 있는 유저만 예약자로 지정 가능)
+      // 실제 대화 상대만 예약자로 지정 가능
       const validChat = await db.productChatRoom.findFirst({
         where: {
           productId,
@@ -221,7 +251,7 @@ export async function updateProductStatus(
         };
       }
 
-      // 트랜잭션: 원자적 업데이트 및 펜딩 약속 일괄 취소
+      // 예약 전환과 펜딩 약속 정리의 같은 트랜잭션 처리
       const { updatedProduct, affectedApts } = await db.$transaction(
         async (tx) => {
           // 동시성 제어: 현재 예약자나 구매자가 없을 때만 예약중으로 변경
@@ -265,7 +295,7 @@ export async function updateProductStatus(
         }
       );
 
-      // 브로드캐스트 (트랜잭션 외부)
+      // 약속 취소 결과의 채팅방 브로드캐스트
       for (const apt of affectedApts) {
         await supabase.channel(`room-${apt.chatRoomId}`).send({
           type: "broadcast",
@@ -274,6 +304,7 @@ export async function updateProductStatus(
         });
       }
 
+      // 상대방 채팅방 시스템 메시지 후처리
       if (!skipSystemMessage) {
         void dispatchSystemMessage(
           productId,
@@ -283,11 +314,9 @@ export async function updateProductStatus(
         );
       }
 
-      // 알림 발송 (행위자가 아닌 상대방에게만)
+      // 행위자가 아닌 상대방 대상 거래 알림
       const targetNotiId = actorId === selectUserId ? userId : selectUserId;
-      const imageUrl = updatedProduct.images?.[0]?.url
-        ? `${updatedProduct.images[0].url}/public`
-        : undefined;
+      const imageUrl = toProductImagePublicUrl(updatedProduct.images?.[0]?.url);
 
       const pref = await db.notificationPreferences.findUnique({
         where: { userId: targetNotiId },
@@ -306,7 +335,7 @@ export async function updateProductStatus(
           },
         });
 
-        const tasks: Promise<any>[] = [];
+        const tasks: Promise<unknown>[] = [];
         tasks.push(
           supabase.channel(`user-${targetNotiId}-notifications`).send({
             type: "broadcast",
@@ -356,7 +385,7 @@ export async function updateProductStatus(
     // Case 2: SOLD (예약중 -> 판매완료)
     // ----------------------------------------------------------------------
     if (status === "sold") {
-      // 판매완료 대상이 되는 예약자 정보 사전 조회
+      // 판매완료 전환 대상자와 알림용 메타 선조회
       const info = await db.product.findUnique({
         where: { id: productId },
         select: {
@@ -377,7 +406,7 @@ export async function updateProductStatus(
 
       const buyerId = info.reservation_userId;
 
-      // 트랜잭션: 원자적 업데이트 및 PENDING 상태 약속 정리
+      // 판매완료 전환과 펜딩 약속 정리의 같은 트랜잭션 처리
       const affectedApts = await db.$transaction(async (tx) => {
         // 예약 상태인 것만 판매완료로 전환
         const updatedResult = await tx.product.updateMany({
@@ -412,6 +441,7 @@ export async function updateProductStatus(
         return pendingApts;
       });
 
+      // 약속 취소 결과의 채팅방 브로드캐스트
       for (const apt of affectedApts) {
         await supabase.channel(`room-${apt.chatRoomId}`).send({
           type: "broadcast",
@@ -420,6 +450,7 @@ export async function updateProductStatus(
         });
       }
 
+      // 거래 완료 시스템 메시지 후처리
       if (!skipSystemMessage) {
         void dispatchSystemMessage(
           productId,
@@ -429,17 +460,15 @@ export async function updateProductStatus(
         );
       }
 
-      const imageUrl = info.images?.[0]?.url
-        ? `${info.images[0].url}/public`
-        : undefined;
+      const imageUrl = toProductImagePublicUrl(info.images?.[0]?.url);
 
-      // 양측 뱃지 체크
+      // 판매자/구매자 거래 완료 뱃지 후처리
       await Promise.allSettled([
         badgeChecks.onTradeComplete(userId, "seller"),
         badgeChecks.onTradeComplete(buyerId, "buyer"),
       ]);
 
-      // 양측 알림 설정 조회 및 발송
+      // 판매자/구매자 알림 설정 조회 및 전송
       const prefsList = await db.notificationPreferences.findMany({
         where: { userId: { in: [userId, buyerId] } },
       });
@@ -447,7 +476,7 @@ export async function updateProductStatus(
 
       const sellerPref = prefMap.get(userId) ?? null;
       const buyerPref = prefMap.get(buyerId) ?? null;
-      const tasks: Promise<any>[] = [];
+      const tasks: Promise<unknown>[] = [];
 
       // 판매자 알림 (본인이 누른게 아닐 때만)
       if (
@@ -552,6 +581,7 @@ export async function updateProductStatus(
     // ----------------------------------------------------------------------
     // Case 3: SELLING (예약/판매완료 -> 판매중 복귀)
     // ----------------------------------------------------------------------
+    // 판매중 복귀 전 기존 예약/구매 상태 선조회
     const prev2 = await db.product.findUnique({
       where: { id: productId },
       select: {
@@ -568,6 +598,7 @@ export async function updateProductStatus(
     const oldPurchaseUserId = prev2.purchase_userId;
     const canceledUserId = prev2.reservation_userId || prev2.purchase_userId;
 
+    // 판매중 복귀, 리뷰 정리, 확정 약속 취소의 같은 트랜잭션 처리
     const affectedApts = await db.$transaction(async (tx) => {
       // 판매중 복귀: 이미 예약중이거나 판매완료 상태인 경우만
       const updatedResult = await tx.product.updateMany({
@@ -608,6 +639,7 @@ export async function updateProductStatus(
       return apts;
     });
 
+    // 약속 취소 결과의 채팅방 브로드캐스트
     for (const apt of affectedApts) {
       await supabase.channel(`room-${apt.chatRoomId}`).send({
         type: "broadcast",
@@ -616,6 +648,7 @@ export async function updateProductStatus(
       });
     }
 
+    // 취소 대상자 기준 시스템 메시지 후처리
     if (canceledUserId && !skipSystemMessage) {
       void dispatchSystemMessage(
         productId,
@@ -634,11 +667,9 @@ export async function updateProductStatus(
       !!prev2.purchase_userId &&
       !!prev2.purchased_at;
 
-    // 취소 대상자(canceledUserId)가 행위자(actorId)가 아닐 때만 알림 전송
+    // 취소 대상자가 행위자가 아닐 때만 거래 취소 알림 전송
     if ((wasReserved || wasSold) && canceledUserId && canceledUserId !== actorId) {
-      const imageUrl = prev2.images?.[0]?.url
-        ? `${prev2.images[0].url}/public`
-        : undefined;
+      const imageUrl = toProductImagePublicUrl(prev2.images?.[0]?.url);
       const pref = await db.notificationPreferences.findUnique({
         where: { userId: canceledUserId },
       });
@@ -662,7 +693,7 @@ export async function updateProductStatus(
           },
         });
 
-        const tasks: Promise<any>[] = [];
+        const tasks: Promise<unknown>[] = [];
         tasks.push(
           supabase.channel(`user-${canceledUserId}-notifications`).send({
             type: "broadcast",
@@ -706,8 +737,8 @@ export async function updateProductStatus(
         newStatus: "selling",
       },
     };
-  } catch (err: any) {
-    if (err.message === "ALREADY_PROCESSED") {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === "ALREADY_PROCESSED") {
       return { success: false, error: "이미 상태가 변경되었습니다." };
     }
     console.error("updateProductStatus Service Error:", err);

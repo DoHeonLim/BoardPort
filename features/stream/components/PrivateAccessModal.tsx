@@ -16,15 +16,29 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.18  임도헌   Modified  PRIVATE 언락/미존재 fallback의 redirectHref를 내부 경로 기준으로 정규화하고 replace 복귀 + returnTo 복원으로 게이트 재등장과 채널 문맥 이탈을 함께 완화
+ * 2026.03.19  임도헌   Modified  AccessDenied 톤과 맞춰 비공개 방송 비밀번호 모달 카드 구조와 CTA 위계를 재정리
+ * 2026.03.23  임도헌   Modified  모바일/데스크톱 모두 카드 폭을 한 단계 더 넓혀 비밀번호 입력 모달의 답답한 밀도를 완화
+ * 2026.03.28  임도헌   Modified  프로필/카드 hover transform 내부에서도 모달이 뷰포트 기준으로 고정되도록 body portal 렌더링 적용
+ * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 비밀번호 입력과 키보드 겹침을 완화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.05.19  임도헌   Modified  비공개 방송 입장 비밀번호 입력에 current-password autocomplete를 명시해 브라우저 폼 경고 완화
+ * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소 버튼을 제거해 입장 CTA 중심으로 정리
+ * 2026.06.19  임도헌   Modified  데스크톱 비공개 방송 입력과 입장 CTA를 한 줄 배치로 정리
  */
-
-"use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { unlockPrivateBroadcastAction } from "@/features/stream/actions/access";
-import { unlockErrorMessage } from "@/features/stream/types";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { unlockErrorMessage } from "@/features/stream/utils/access";
+import BottomSheet from "@/components/global/BottomSheet";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 interface PrivateAccessModalProps {
   open: boolean;
@@ -38,8 +52,9 @@ interface PrivateAccessModalProps {
  * 비공개 방송 접근을 위한 비밀번호 입력 모달
  *
  * - 비밀번호 검증 서버 액션(`unlockPrivateBroadcastAction`) 호출
- * - 성공 시 세션에 언락 정보 저장 및 리다이렉트
+ * - 성공 시 세션에 언락 정보 저장 및 대상 경로로 replace 복귀
  * - 에러 코드별 적절한 메시지 표시 또는 로그인 페이지 이동
+ * - 403 안내 카드와 시각적 톤을 맞춰 게이트 전환 시 이질감을 줄임
  */
 export default function PrivateAccessModal({
   open,
@@ -48,6 +63,7 @@ export default function PrivateAccessModal({
   redirectHref,
   onSuccess,
 }: PrivateAccessModalProps) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -57,7 +73,12 @@ export default function PrivateAccessModal({
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const targetHref = redirectHref ?? `/streams/${streamId}`;
+  const targetHref = sanitizeCallbackUrl(redirectHref ?? `/streams/${streamId}`);
+  const contextFallbackHref = (() => {
+    const queryString = targetHref.split("?")[1] ?? "";
+    const params = new URLSearchParams(queryString);
+    return sanitizeCallbackUrl(params.get("returnTo") ?? "/streams");
+  })();
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   useEffect(() => {
@@ -67,10 +88,11 @@ export default function PrivateAccessModal({
       return;
     }
 
+    if (isMobile) return;
+
     // 열릴 때 현재 포커스 저장
     lastActiveElRef.current = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     const t = setTimeout(() => inputRef.current?.focus(), 0);
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -106,13 +128,13 @@ export default function PrivateAccessModal({
 
     return () => {
       clearTimeout(t);
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       window.removeEventListener("keydown", onKeyDown);
       // 닫을 때 포커스 복귀
       lastActiveElRef.current?.focus?.();
       lastActiveElRef.current = null;
     };
-  }, [open, isPending, close]);
+  }, [open, isMobile, isPending, close]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,7 +162,8 @@ export default function PrivateAccessModal({
           }
           case "STREAM_NOT_FOUND": {
             close();
-            router.replace("/streams");
+            // 삭제된 상세 대신 원래 목록/채널 문맥 우선 복귀
+            router.replace(contextFallbackHref);
             return;
           }
           case "NOT_PRIVATE_STREAM":
@@ -161,13 +184,100 @@ export default function PrivateAccessModal({
 
       close();
       onSuccess?.();
-      router.push(targetHref);
+      // 403/모달 게이트 화면을 히스토리에 남기지 않도록 replace 복귀
+      router.replace(targetHref);
     });
   };
 
   if (!open) return null;
 
-  return (
+  const formId = "private-access-form";
+  const passwordInput = (
+    <input
+      ref={inputRef}
+      type="password"
+      value={password}
+      onChange={(e) => {
+        setPassword(e.target.value);
+        setError("");
+      }}
+      placeholder="비밀번호 입력"
+      autoComplete="current-password"
+      className={cn(
+        "input-primary h-12 rounded-2xl bg-surface-dim px-4",
+        error && "ring-2 ring-danger/50"
+      )}
+      disabled={isPending}
+    />
+  );
+  const submitButton = (
+    <button
+      type="submit"
+      form={formId}
+      disabled={isPending}
+      className="btn-primary min-h-[48px] w-full px-6 text-sm sm:w-auto sm:min-w-[112px]"
+    >
+      {isPending ? "확인 중..." : "입장하기"}
+    </button>
+  );
+
+  const content = (
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-primary">
+          비밀번호
+        </label>
+        {passwordInput}
+        {error && <p className="mt-2 text-xs font-medium text-danger">{error}</p>}
+      </div>
+    </form>
+  );
+
+  const footer = (
+    <div className="flex justify-end">
+      {submitButton}
+    </div>
+  );
+
+  const desktopContent = (
+    <form id={formId} onSubmit={handleSubmit} className="space-y-2">
+      <label className="block text-sm font-medium text-primary">
+        비밀번호
+      </label>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">{passwordInput}</div>
+        {submitButton}
+      </div>
+      {error && <p className="text-xs font-medium text-danger">{error}</p>}
+    </form>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        open={open}
+        title="비공개 방송"
+        description="방송 입장을 위해 비밀번호를 입력해주세요."
+        onClose={() => !isPending && close()}
+        contentClassName="pt-4"
+        footer={footer}
+      >
+        <div className="mb-4 flex flex-col items-center text-center">
+          <div className="state-icon-wrap mb-4 size-[68px]">
+            <LockClosedIcon className="size-8 text-amber-500" />
+          </div>
+          <p className="text-sm leading-6 text-muted">
+            비공개 방송은 비밀번호가 확인되면 바로 입장할 수 있습니다.
+          </p>
+        </div>
+        {content}
+      </BottomSheet>
+    );
+  }
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       role="dialog"
@@ -177,57 +287,32 @@ export default function PrivateAccessModal({
       <div
         ref={modalRef}
         className={cn(
-          "w-full max-w-sm rounded-2xl p-6 shadow-xl mx-4",
-          "bg-surface border border-border"
+          "relative mx-2.5 w-full max-w-xl rounded-3xl border border-border-subtle bg-surface px-6 py-7 shadow-2xl sm:mx-4 sm:px-8 sm:py-9"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 text-lg font-bold text-primary">비공개 방송</h3>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-primary">
-              비밀번호
-            </label>
-            <input
-              ref={inputRef}
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              placeholder="비밀번호 입력"
-              className={cn(
-                "input-primary h-11 px-3 bg-surface-dim",
-                error && "ring-2 ring-danger/50"
-              )}
-              disabled={isPending}
-            />
-            {error && (
-              <p className="mt-1 text-xs text-danger font-medium">{error}</p>
-            )}
+        <button
+          type="button"
+          onClick={close}
+          disabled={isPending}
+          aria-label="비공개 방송 모달 닫기"
+          className="focus-ring-soft absolute right-4 top-4 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
+        >
+          <XMarkIcon className="size-6" />
+        </button>
+        <div className="mb-5 flex flex-col items-center text-center">
+          <div className="state-icon-wrap mb-4 size-[68px]">
+            <LockClosedIcon className="size-8 text-amber-500" />
           </div>
+          <h3 className="text-2xl font-bold text-primary">비공개 방송</h3>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            방송 입장을 위해 비밀번호를 입력해주세요.
+          </p>
+        </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={close}
-              disabled={isPending}
-              className="btn-secondary h-10 text-sm border-transparent hover:bg-surface-dim"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="btn-primary h-10 text-sm"
-            >
-              {isPending ? "확인 중..." : "입장하기"}
-            </button>
-          </div>
-        </form>
+        {desktopContent}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

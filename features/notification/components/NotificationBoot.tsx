@@ -11,21 +11,40 @@
  * 2026.01.16  임도헌   Moved     components/common -> components/notification
  * 2026.01.17  임도헌   Moved     components/notification -> features/notification/components
  * 2026.02.24  임도헌   Modified  퍼블릭 경로 가드 추가 (불필요한 /api/me 401 호출 방지)
+ * 2026.04.13  임도헌   Modified  앱 진입 후 유휴 시점에만 부트스트랩을 시작하도록 지연하여 초기 메인스레드 부담 완화
+ * 2026.04.13  임도헌   Modified  경로 변경마다 반복되던 /api/me 조회를 제거하고 1회 부팅으로 정리
+ * 2026.04.13  임도헌   Modified  NotificationListener를 동적 로딩으로 전환해 초기 공통 번들에서 실시간 구독 코드를 분리
+ * 2026.04.13  임도헌   Modified  window load 이후 idle 시점으로 부팅을 더 미뤄 초기 products 렌더 경쟁을 완화
+ * 2026.04.22  임도헌   Modified  스트림 상세에서는 운영 액션(강제 퇴장/채팅 금지/유저 차단) 실시간 반영을 위해 NotificationListener 부팅을 지연하지 않도록 보강
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import NotificationListener from "@/features/notification/components/NotificationListener";
+import dynamic from "next/dynamic";
 import type { MeResponse } from "@/app/api/me/route";
-import { PUBLIC_ONLY_URLS } from "@/lib/constants";
+
+const NotificationListener = dynamic(
+  () => import("@/features/notification/components/NotificationListener"),
+  { ssr: false, loading: () => null }
+);
+
+type IdleWindow = Window &
+  typeof globalThis & {
+    requestIdleCallback?: (
+      callback: IdleRequestCallback,
+      options?: IdleRequestOptions
+    ) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
 
 /**
  * 알림 시스템 부트스트랩 컴포넌트
  *
  * - `RootLayout`에 배치되어 앱이 로드될 때 실행
- * - `/api/me`를 호출하여 현재 로그인된 유저 ID를 확인 (캐시 방지를 위해 `no-store` 사용)
+ * - 기본 경로에서는 앱 진입 직후가 아닌 유휴 시점에 `/api/me`를 1회 호출하여 현재 로그인된 유저 ID를 확인
+ * - 스트림 상세 경로에서는 운영 액션 실시간 반영을 위해 지연 없이 즉시 부팅
  * - 유저 ID가 확인되면 `NotificationListener`를 렌더링하여 실시간 알림 구독을 시작
  * - 비로그인 상태이거나 에러 발생 시 아무것도 렌더링하지 않음
  */
@@ -34,16 +53,12 @@ export default function NotificationBoot() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // 1. 현재 경로가 퍼블릭 경로(로그인 전 페이지)라면 조회를 스킵합니다.
-    const isPublicPage = PUBLIC_ONLY_URLS.includes(pathname);
-    if (isPublicPage) {
-      setUserId(null); // 로그인 페이지로 이동 시 이전 ID 제거
-      return;
-    }
-
     let mounted = true;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+    let removeLoadListener: (() => void) | null = null;
 
-    (async () => {
+    const bootstrap = async () => {
       try {
         const res = await fetch("/api/me", {
           cache: "no-store",
@@ -75,10 +90,55 @@ export default function NotificationBoot() {
       } catch {
         // 네트워크 오류 등 발생 시 조용히 무시 (알림 시스템만 비활성)
       }
-    })();
+    };
+
+    const shouldBootstrapImmediately = pathname?.startsWith("/streams/");
+
+    if (shouldBootstrapImmediately) {
+      void bootstrap();
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const idleWindow = window as IdleWindow;
+    const scheduleBootstrap = () => {
+      if (idleWindow.requestIdleCallback) {
+        idleId = idleWindow.requestIdleCallback(
+          () => {
+            void bootstrap();
+          },
+          { timeout: 3000 }
+        );
+        return;
+      }
+
+      timeoutId = window.setTimeout(() => {
+        void bootstrap();
+      }, 1800);
+    };
+
+    if (document.readyState === "complete") {
+      scheduleBootstrap();
+    } else {
+      const handleLoad = () => {
+        scheduleBootstrap();
+      };
+      window.addEventListener("load", handleLoad, { once: true });
+      removeLoadListener = () => {
+        window.removeEventListener("load", handleLoad);
+      };
+    }
 
     return () => {
       mounted = false;
+      removeLoadListener?.();
+      if (timeoutId != null) {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleId != null && idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleId);
+      }
     };
   }, [pathname]);
 

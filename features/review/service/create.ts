@@ -23,6 +23,8 @@
  * 2026.02.20  임도헌   Modified  후기 작성 완료 시 채팅방에 시스템 메시지 발송
  * 2026.03.07  임도헌   Modified  push 성공 판정 기준을 result.data.sent로 정정
  * 2026.03.07  임도헌   Modified  차단 관계에서는 리뷰 작성 불가하도록 가드 추가
+ * 2026.04.03  임도헌   Modified  리뷰 생성 helper 주석 보강
+ * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 리뷰 알림 본문 사전 축약 제거
  */
 
 import "server-only";
@@ -43,7 +45,9 @@ import { REVIEW_ERRORS } from "@/features/review/constants";
 import { CreateReviewDTO } from "@/features/review/schemas";
 import { ReviewServiceResult } from "@/features/review/types";
 
-// 내부 유틸: 푸시 전송 (Fire-and-forget)
+/**
+ * 리뷰 알림 푸시를 전송하고 실제 발송 성공 시 notification 전송 상태를 갱신
+ */
 async function sendPush(params: {
   notificationId: number;
   targetUserId: number;
@@ -77,19 +81,12 @@ async function sendPush(params: {
   }
 }
 
-function buildPreview(text: string, max = 30) {
-  const plain = text.replace(/\s+/g, " ").trim();
-  return plain.length <= max ? plain : `${plain.slice(0, max)}...`;
+function normalizeNotificationText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 /**
  * 리뷰 생성
- *
- * [비즈니스 로직]
- * 1. 작성자의 이용 정지 여부(Ban)를 확인합
- * 2. 제품 정보를 조회하여 판매자/구매자 관계를 검증
- * 3. 중복 작성을 방지하고 리뷰를 생성
- * 4. 뱃지 획득 여부를 체크하고 알림(In-App, Push) 및 채팅방 시스템 메시지를 전송
  *
  * @param {number} userId - 작성자 ID
  * @param {CreateReviewDTO} data - 리뷰 데이터 DTO
@@ -100,11 +97,12 @@ export async function createReviewService(
   data: CreateReviewDTO
 ): Promise<ReviewServiceResult> {
   try {
-    // 1. 정지 유저 체크
+    // 작성자 상태 확인
     const status = await validateUserStatus(userId);
     if (!status.success) return { success: false, error: status.error! };
 
-    // 2. 제품 조회 (판매자/구매자 정보 확인)
+    // 제품 정보 조회
+    // 판매자/구매자 관계와 알림 메타 확인 목적
     const prod = await db.product.findUnique({
       where: { id: data.productId },
       select: {
@@ -123,13 +121,12 @@ export async function createReviewService(
     const sellerId = prod.userId;
     const buyerId = prod.purchase_userId;
 
-    // 3. 자격 검증 (Validation)
-    // 3-1. 판매 완료 상태인지 확인 (구매자가 지정되어야 함)
+    // 거래 상태 검증
     if (buyerId === null) {
       return { success: false, error: REVIEW_ERRORS.INVALID_STATUS };
     }
 
-    // 3-2. 작성자가 해당 거래의 당사자(구매자 or 판매자)인지 확인
+    // 거래 당사자 자격 검증
     if (data.type === "buyer") {
       if (buyerId !== userId)
         return { success: false, error: REVIEW_ERRORS.UNAUTHORIZED };
@@ -146,8 +143,8 @@ export async function createReviewService(
       };
     }
 
-    // 4. 리뷰 생성 (DB Insert)
-    // - @@unique([userId, productId]) 제약조건으로 중복 작성 방지
+    // 리뷰 생성
+    // @@unique([userId, productId]) 기반 중복 작성 방지
     let review;
     try {
       review = await db.review.create({
@@ -162,17 +159,17 @@ export async function createReviewService(
         },
       });
     } catch (e) {
-      // P2002 에러: 이미 리뷰가 존재함
+      // 중복 리뷰 생성 경합 처리
       if (isUniqueConstraintError(e, ["userId", "productId"])) {
         return { success: false, error: REVIEW_ERRORS.ALREADY_EXISTS };
       }
       throw e;
     }
 
-    // 5. 후처리 작업 (비동기 병렬 실행 - Fire & Forget)
-    // - 리뷰 생성이 완료된 후에는 사용자 응답을 늦추지 않기 위해 비동기로 처리
+    // 후처리 비동기 실행
+    // 사용자 응답 지연 방지를 위한 fire-and-forget 경로
     (async () => {
-      // 5-1. 뱃지 획득 조건 체크
+      // 리뷰 기반 뱃지 갱신
       const badgeTargetId = data.type === "buyer" ? sellerId : buyerId;
       const checkRole = data.type === "buyer" ? "buyer" : "seller";
 
@@ -182,7 +179,7 @@ export async function createReviewService(
         console.error("[ReviewService] Badge check failed:", e);
       }
 
-      // 5-2. 알림 전송 (상대방에게)
+      // 상대방 알림 전송
       try {
         const targetUserId = badgeTargetId; // 리뷰 받은 사람
         const link =
@@ -200,7 +197,7 @@ export async function createReviewService(
           const title = "새로운 리뷰가 작성되었습니다";
           const body = `${review.user.username}님이 ${
             prod.title
-          }에 리뷰를 작성했습니다: "${buildPreview(data.payload)}"`;
+          }에 리뷰를 작성했습니다: "${normalizeNotificationText(data.payload)}"`;
 
           // DB 알림 저장
           const notification = await db.notification.create({
@@ -215,7 +212,7 @@ export async function createReviewService(
             },
           });
 
-          // In-App Realtime 전송
+          // In-app realtime 전송
           await supabase.channel(`user-${targetUserId}-notifications`).send({
             type: "broadcast",
             event: "notification",
@@ -231,7 +228,7 @@ export async function createReviewService(
             },
           });
 
-          // Push Notification 전송
+          // Push 전송
           if (canSendPushForType(pref, "REVIEW")) {
             await sendPush({
               notificationId: notification.id,
@@ -248,8 +245,8 @@ export async function createReviewService(
         console.error("[ReviewService] Notification failed:", e);
       }
 
-      // 5-3. 채팅방 시스템 메시지 전송
-      // 거래 당사자 간의 채팅방을 찾아 리뷰 작성 완료 사실을 채팅 로그에 남김
+      // 채팅방 시스템 메시지 전송
+      // 거래 당사자 채팅방에 리뷰 작성 완료 이력 기록
       try {
         const room = await db.productChatRoom.findFirst({
           where: {
@@ -273,7 +270,7 @@ export async function createReviewService(
             },
           });
 
-          // 실시간 브로드캐스트 (해당 채팅방 유저들에게 즉시 노출)
+          // 실시간 브로드캐스트
           await supabase.channel(`room-${room.id}`).send({
             type: "broadcast",
             event: "message",

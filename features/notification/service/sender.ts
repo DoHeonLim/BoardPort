@@ -14,19 +14,19 @@
  * 2026.01.23  임도헌   Modified  lib/push-notification -> service/sender 이동 및 경로 수정
  * 2026.02.12  임도헌   Modified  KEYWORD 타입 푸시 정책(Tag, Defaults) 추가
  * 2026.03.07  임도헌   Modified  SYSTEM 기본 tag가 KEYWORD로 폴스루되지 않도록 분기 수정
+ * 2026.04.02  임도헌   Modified  푸시 결과 타입과 알림 타입을 notification/types 공용 정의로 분리
+ * 2026.05.16  임도헌   Modified  푸시 payload 타입을 명시해 any 제거
+ * 2026.05.18  임도헌   Modified  만료/해지된 Push 구독 정리는 expected cleanup으로 로깅 레벨 조정
+ * 2026.05.19  임도헌   Modified  Web Push/DB 접근 service가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  */
 
+import "server-only";
 import webPush from "web-push";
 import db from "@/lib/db";
-import type { NotificationType } from "@/features/notification/utils/policy";
+import type { NotificationType, SendPushResult } from "@/features/notification/types";
 import type { ServiceResult } from "@/lib/types";
 
-export type SendPushResult = {
-  sent: number;
-  removed: number;
-  disabled: number;
-  errors: number;
-};
+export type { SendPushResult } from "@/features/notification/types";
 
 // Web Push 에러 타입 정의 (라이브러리 응답 구조 매핑)
 interface WebPushError extends Error {
@@ -61,6 +61,21 @@ interface SendNotificationProps {
    */
   ttlSeconds?: number;
 }
+
+type WebPushPayload = {
+  title: string;
+  body: string;
+  link?: string;
+  type: NotificationType;
+  icon?: string;
+  badge?: string;
+  image?: string;
+  url?: string;
+  tag?: string;
+  renotify?: boolean;
+  timestamp?: number;
+  data?: Record<string, unknown>;
+};
 
 /* ---------- ENV & web-push 초기화 (프로세스 생애주기 1회) ---------- */
 const VAPID_PUB = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -144,7 +159,7 @@ function defaultsFor(type: NotificationType) {
 }
 
 /* ---------- 4KB payload 보호 ---------- */
-function ensureMaxPayload(json: any): string {
+function ensureMaxPayload(json: WebPushPayload): string {
   const text = JSON.stringify(json);
   // Node에서 문자열 길이는 코드 유닛 기준이라 대략 체크, 여유 버퍼를 둠(3800B)
   // 이미지 URL 등으로 4KB를 초과할 수 있어 본문을 우선 축약
@@ -172,7 +187,7 @@ function ensureMaxPayload(json: any): string {
   const final = JSON.stringify(clone);
   return final.length <= MAX_BYTES
     ? final
-    : JSON.stringify({ title: json.title, body: "…" });
+    : JSON.stringify({ title: json.title, body: "..." });
 }
 
 /**
@@ -315,19 +330,23 @@ export async function sendPushNotification({
             // 410 Gone, 404 Not Found -> 구독 만료
             if (err.statusCode === 410 || err.statusCode === 404) {
               results.removed += 1;
-              await db.pushSubscription.delete({ where: { id: sub.id } });
+              await db.pushSubscription.deleteMany({ where: { id: sub.id } });
+              console.info("WebPush subscription expired and removed:", {
+                status: err.statusCode,
+                endpoint: sub.endpoint,
+              });
             } else {
               // 그 외 에러 (403, 429, 500 등) -> 일시 비활성
               results.disabled += 1;
               await db.pushSubscription
                 .update({ where: { id: sub.id }, data: { isActive: false } })
                 .catch(() => {});
+              console.error("WebPush error:", {
+                status: err.statusCode,
+                body: err.body,
+                endpoint: sub.endpoint,
+              });
             }
-            console.error("WebPush error:", {
-              status: err.statusCode,
-              body: err.body,
-              endpoint: sub.endpoint,
-            });
           } else {
             // 알 수 없는 에러
             console.error("Unknown Push error:", err);

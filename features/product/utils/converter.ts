@@ -9,9 +9,12 @@
  * 2026.01.19  임도헌   Moved     lib/product -> features/product/lib
  * 2026.01.20  임도헌   Moved     lib/convertProductToFormValues -> utils/converter
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.03.12  임도헌   Modified  수정 폼 초기값에서 이미지 애니메이션 메타를 함께 복원하도록 확장
+ * 2026.05.03  임도헌   Modified  수정 폼 초기값에 연결 보드게임 id 목록 포함
+ * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
  */
 
-import { productFormValues } from "@/features/product/schemas";
+import type { ProductFormValues } from "@/features/product/schemas";
 import type {
   CompletenessType,
   ConditionType,
@@ -23,11 +26,11 @@ import type {
  * 제품 상세 정보를 수정 폼(react-hook-form)의 defaultValues 구조로 변환
  *
  * @param {ProductFullDetails} product - DB에서 조회한 제품 상세 정보
- * @returns {productFormValues} 폼 초기값 객체
+ * @returns {ProductFormValues} 폼 초기값 객체
  */
 export function convertProductToFormValues(
   product: ProductFullDetails
-): productFormValues {
+): ProductFormValues {
   // 위치 데이터 변환 로직
   let locationData = null;
   if (product.latitude && product.longitude && product.locationName) {
@@ -41,12 +44,17 @@ export function convertProductToFormValues(
     };
   }
 
+  // 연결 선택 필드 초기값은 BoardPort 내부 BoardGame id 목록으로 복원
+  const boardGameIds =
+    product.board_games?.map(({ boardGame }) => boardGame.id) ?? [];
+
   return {
     id: product.id,
     title: product.title,
     description: product.description,
     price: product.price,
     photos: product.images.map((img) => img.url),
+    photosAnimated: product.images.map((img) => img.isAnimated ?? false),
     game_type: product.game_type as GameType,
     min_players: product.min_players,
     max_players: product.max_players,
@@ -55,6 +63,7 @@ export function convertProductToFormValues(
     completeness: product.completeness as CompletenessType,
     has_manual: product.has_manual,
     categoryId: product.categoryId,
+    boardGameIds,
     tags: product.search_tags.map((tag) => tag.name),
     location: locationData,
   };

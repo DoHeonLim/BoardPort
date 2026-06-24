@@ -1,0 +1,64 @@
+/**
+ * File Name : app/(app)/(tabs)/products/add/page.tsx
+ * Description : 제품 업로드 페이지
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2024.10.17  임도헌   Created
+ * 2024.10.17  임도헌   Modified  제품 업로드 페이지 추가
+ * 2024.10.19  임도헌   Modified  폼 에러 추가
+ * 2024.11.11  임도헌   Modified  클라우드 플레어 이미지 연결
+ * 2024.11.11  임도헌   Modified  react hook form을 사용하는 코드로 변경
+ * 2024.12.12  임도헌   Modified  products/add 에서 add-product로 이동
+ * 2024.12.16  임도헌   Modified  제품 업로드를 보드게임 형식으로 변경
+ * 2024.12.18  임도헌   Modified  태그 입력 컴포넌트로 분리
+ * 2024.12.31  임도헌   Modified  태그 입력 컴포넌트 수정
+ * 2025.04.13  임도헌   Modified  completeness 필드를 영어로 변경
+ * 2025.04.13  임도헌   Modified  condition 필드를 영어로 변경
+ * 2025.04.13  임도헌   Modified  game_type 필드를 영어로 변경
+ * 2025.04.18  임도헌   Modified  보드게임 최대 인원수 8명으로 변경
+ * 2025.04.18  임도헌   Modified  기존 초기화 버튼은 이미지만 초기화 됬었음, 전체 초기화로 변경
+ * 2025.04.18  임도헌   Modified  업로드 버튼 위치 변경
+ * 2025.04.28  임도헌   Modified  tag 초기화 로직 변경(setvalue에서 control과 reset사용)
+ * 2025.05.23  임도헌   Modified  카테고리 필드명 변경(name->kor_name)
+ * 2025.06.12  임도헌   Modified  Form을 컴포넌트로 분리(ProductAddForm)
+ * 2025.06.15  임도헌   Modified  제품 등록 및 편집 폼 통합
+ * 2025.07.30  임도헌   Modified  fetchProductCategories로 이름 변경
+ * 2026.01.11  임도헌   Modified  프래그먼트 태그 제거
+ * 2026.01.26  임도헌   Modified  주석 설명 보강
+ * 2026.03.06  임도헌   Modified  작성 페이지 정적 프리렌더를 비활성화해 인증 기반 폼 진입 흐름을 안정화
+ * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/add/page.tsx 에서 app/(app)/(tabs)/products/add/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.04.14  임도헌   Modified  ProductForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
+ * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
+ */
+
+import ProductForm from "@/features/product/components/ProductForm";
+import { fetchProductCategories } from "@/features/product/service/category";
+import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/**
+ * 제품 등록 페이지
+ *
+ * - 카테고리 목록을 서버에서 미리 로드하여 폼에 주입
+ * - `ProductForm`을 'create' 모드로 렌더링
+ */
+export default async function AddPage() {
+  const [categories, boardGameOptionsResult] = await Promise.all([
+    fetchProductCategories(),
+    getBoardGameRelationOptions(),
+  ]);
+
+  return (
+    <ProductForm
+      mode="create"
+      categories={categories}
+      boardGameOptions={
+        boardGameOptionsResult.success ? boardGameOptionsResult.data : []
+      }
+    />
+  );
+}

@@ -6,12 +6,13 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.08  임도헌   Created   정지 사유 및 기간 조회 함수 구현
+ * 2026.05.08  임도헌   Modified  외부 사용이 없는 정지 상세 내부 타입 export 제거
  */
 
 import "server-only";
 import db from "@/lib/db";
 
-export interface BanDetails {
+interface BanDetails {
   until: Date | null;
   reason: string;
 }

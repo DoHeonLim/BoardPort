@@ -10,19 +10,32 @@
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 및 아이콘 스타일 통일
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.02.13  임도헌   Modified  handleCopyLink 제거 및 handleShare 통합
+ * 2026.03.21  임도헌   Modified  녹화 메타 하단 구분선을 제거해 통계 행과 댓글 섹션 사이 시각적 중복을 정리
+ * 2026.05.18  임도헌   Modified  댓글 작성/삭제 후 상세 메타 댓글 수가 즉시 반영되도록 recordingStats 캐시 연동
+ * 2026.05.18  임도헌   Modified  상세 통계 아이콘을 다시보기 카드와 같은 solid 문법으로 통일
+ * 2026.05.26  임도헌   Modified  initialData 기반 recordingStats query에 local queryFn을 부여해 refetch 경고 방지
+ * 2026.06.07  임도헌   Modified  녹화 메타 정보 영역에 라이브 기록 보기 버튼 추가, viewerId 전달 준비
  */
 
 "use client";
 
+import Link from "next/link";
 import TimeAgo from "@/components/ui/TimeAgo";
+import {
+  ArrowTopRightOnSquareIcon,
+  ShareIcon,
+} from "@heroicons/react/24/outline";
 import {
   ChatBubbleBottomCenterTextIcon,
   EyeIcon,
-  ShareIcon,
-} from "@heroicons/react/24/outline";
+} from "@heroicons/react/24/solid";
 import { formatDuration, handleShare } from "@/lib/utils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 
 interface RecordingMetaProps {
+  vodId: number;
+  broadcastId: number;
   title: string;
   created: Date;
   duration: number;
@@ -35,8 +48,11 @@ interface RecordingMetaProps {
  * 녹화본 메타 정보 영역
  * - 상단: 작성일, 영상 길이, 공유 버튼
  * - 하단: 좋아요 버튼(주입됨), 조회수, 댓글 수
+ * - 댓글 수는 상세 댓글 mutation에서 갱신하는 recordingStats 캐시를 기준으로 표시
  */
 export default function RecordingMeta({
+  vodId,
+  broadcastId,
   title,
   created,
   duration,
@@ -44,8 +60,21 @@ export default function RecordingMeta({
   commentCount = 0,
   LikeButtonComponent,
 }: RecordingMetaProps) {
+  const queryClient = useQueryClient();
+  const statsQueryKey = queryKeys.streams.recordingStats(vodId);
+  const initialStats = { commentCount };
+  const { data: stats } = useQuery({
+    queryKey: statsQueryKey,
+    queryFn: async () =>
+      queryClient.getQueryData<typeof initialStats>(statsQueryKey) ??
+      initialStats,
+    initialData: initialStats,
+    staleTime: Infinity,
+    enabled: false,
+  });
+
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-4">
+    <div className="flex flex-col gap-4">
       {/* 1. 시간 및 공유 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-muted">
@@ -56,7 +85,7 @@ export default function RecordingMeta({
         <button
           type="button"
           onClick={() => handleShare(`보드포트 다시보기: ${title}`)}
-          className="flex items-center gap-1.5 text-xs font-medium text-muted hover:text-primary transition-colors p-1.5 -mr-1.5 rounded-lg hover:bg-surface-dim"
+          className="focus-ring-soft -mr-1.5 flex items-center gap-1.5 rounded-lg p-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           aria-label="링크 공유"
         >
           <ShareIcon className="size-4" />
@@ -64,18 +93,30 @@ export default function RecordingMeta({
         </button>
       </div>
 
-      {/* 2. 통계 및 좋아요 */}
-      <div className="flex items-center justify-between">
-        {LikeButtonComponent}
+      {/* 2. 라이브 기록, 통계 및 좋아요 */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          {LikeButtonComponent}
+          <Link
+            href={`/streams/${broadcastId}?returnTo=${encodeURIComponent(
+              `/streams/${vodId}/recording`
+            )}`}
+            className="focus-ring-soft inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            aria-label="방송 정보와 당시 채팅이 있는 라이브 기록 보기"
+          >
+            <ArrowTopRightOnSquareIcon className="size-4" />
+            <span>라이브 기록 보기</span>
+          </Link>
+        </div>
 
-        <div className="flex items-center gap-4 text-xs text-muted">
+        <div className="flex items-center justify-end gap-4 text-xs text-muted">
           <div className="flex items-center gap-1">
             <EyeIcon className="size-4" />
             <span>{viewCount.toLocaleString()}</span>
           </div>
           <div className="flex items-center gap-1">
             <ChatBubbleBottomCenterTextIcon className="size-4" />
-            <span>{commentCount.toLocaleString()}</span>
+            <span>{stats.commentCount.toLocaleString()}</span>
           </div>
         </div>
       </div>

@@ -14,11 +14,17 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용 (bg-surface)
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  리뷰 작성 별점 색상을 채움형 노란 별 기준으로 복원
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 textarea와 하단 액션 버튼이 덜 가려지도록 시트형 배치 적용
+ * 2026.04.26  임도헌   Modified  리뷰 작성 모달에 dialog 의미와 별점 radiogroup, 후기 입력 라벨을 추가해 접근성을 보강
+ * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 후기 작성 CTA 위계 정리
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import { StarIcon } from "@heroicons/react/24/solid";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
 interface CreateReviewModalProps {
@@ -48,6 +54,7 @@ export default function CreateReviewModal({
   const [hoverRating, setHoverRating] = useState(0); // 별점 호버 효과용
   const [reviewText, setReviewText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // 모달 닫힐 때 폼 리셋
   const resetForm = useCallback(() => {
@@ -60,6 +67,21 @@ export default function CreateReviewModal({
   useEffect(() => {
     if (!isOpen) resetForm();
   }, [isOpen, resetForm]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSubmitting) onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -85,26 +107,42 @@ export default function CreateReviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4">
+      {/* 배경 오버레이 */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         onClick={handleBackdrop}
       />
 
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-review-title"
+        tabIndex={-1}
         className={cn(
-          "relative w-full max-w-md rounded-2xl shadow-xl animate-fade-in mx-4 overflow-hidden",
-          "bg-surface border border-border"
+          "relative flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-t-3xl shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
+          "bg-surface border border-border-subtle"
         )}
       >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-border bg-surface-dim/30">
-          <h2 className="text-lg font-bold text-primary">거래 후기 작성</h2>
+        {/* 헤더 */}
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-border-subtle bg-surface">
+          <h2 id="create-review-title" className="text-lg font-bold text-primary">
+            거래 후기 작성
+          </h2>
+          <button
+            type="button"
+            onClick={handleBackdrop}
+            disabled={isSubmitting}
+            aria-label="거래 후기 작성 모달 닫기"
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
+          >
+            <XMarkIcon className="size-6" />
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6">
+        {/* 본문 */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="flex justify-center">
             <UserAvatar
               avatar={userAvatar}
@@ -116,49 +154,57 @@ export default function CreateReviewModal({
             />
           </div>
 
-          {/* Star Rating */}
-          <div className="flex justify-center gap-1">
+          {/* 별점 선택 */}
+          <div
+            className="flex justify-center gap-1"
+            role="radiogroup"
+            aria-label="거래 별점"
+          >
             {[1, 2, 3, 4, 5].map((star) => (
-              <StarIcon
+              <button
                 key={star}
-                className={cn(
-                  "cursor-pointer w-10 h-10 transition-all duration-200",
-                  star <= (hoverRating || rating)
-                    ? "text-yellow-400 scale-110"
-                    : "text-neutral-200 dark:text-neutral-700",
-                  !isSubmitting && "hover:scale-125"
-                )}
+                type="button"
+                role="radio"
+                aria-checked={rating === star}
+                aria-label={`${star}점`}
+                disabled={isSubmitting}
+                className="focus-ring-soft rounded-full p-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 onMouseEnter={() => !isSubmitting && setHoverRating(star)}
                 onMouseLeave={() => !isSubmitting && setHoverRating(0)}
                 onClick={() => !isSubmitting && setRating(star)}
-              />
+              >
+                <StarIcon
+                  aria-hidden="true"
+                  className={cn(
+                    "h-10 w-10 transition-colors motion-safe:transition-transform duration-200",
+                    star <= (hoverRating || rating)
+                      ? "text-yellow-400 scale-110"
+                      : "text-neutral-300 dark:text-neutral-700",
+                    !isSubmitting && "hover:scale-125"
+                  )}
+                />
+              </button>
             ))}
           </div>
 
-          {/* Textarea */}
+          {/* 텍스트 입력 */}
           <textarea
             value={reviewText}
             onChange={(e) => setReviewText(e.target.value)}
             placeholder="솔직한 거래 경험을 남겨주세요."
+            aria-label="거래 후기 내용"
             className={cn(
               "w-full h-32 p-4 rounded-xl resize-none",
               "bg-surface-dim border-transparent focus:bg-surface focus:border-brand/50",
               "text-primary placeholder:text-muted/60 focus:ring-2 focus:ring-brand/20",
-              "transition-all"
+              "transition-[background-color,color,border-color,box-shadow]"
             )}
             disabled={isSubmitting}
           />
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border bg-surface-dim/30 flex justify-end gap-3">
-          <button
-            onClick={handleBackdrop}
-            disabled={isSubmitting}
-            className="btn-secondary h-10 text-sm border-transparent hover:bg-surface-dim"
-          >
-            취소
-          </button>
+        {/* 하단 액션 */}
+        <div className="shrink-0 px-6 py-4 border-t border-border-subtle bg-surface flex justify-end">
           <button
             onClick={handleSubmit}
             disabled={disabled}

@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/actions/status.ts
- * Description : 제품 상태 변경 Controller
+ * Description : 제품 상태 변경 서버 액션
  * Author : 임도헌
  *
  * History
@@ -9,6 +9,7 @@
  * 2026.01.27  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/products/view/[id]/actions/status.ts -> features/product/actions/status.ts
  * 2026.03.05  임도헌   Modified  상태 변경 시의 무거운 `revalidateTag` 호출 제거 및 클라이언트 Query Cache(`onOptimisticMove`)로 갱신 책임 위임
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 

@@ -18,15 +18,22 @@
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 조회 함수(getPostCommentsList)로 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  댓글 삭제에도 정지 유저 가드 적용 및 실패 문구 구체화
+ * 2026.06.21  임도헌   Modified  게시글 댓글 작성 시 작성자에게 인앱/푸시 알림 전송 추가
  */
 import "server-only";
 import db from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { badgeChecks } from "@/features/user/service/badge";
 import {
   getBlockedUserIds,
   checkBlockRelation,
 } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
+import {
+  canSendPushForType,
+  isNotificationTypeEnabled,
+} from "@/features/notification/utils/policy";
+import { sendPushNotification } from "@/features/notification/service/sender";
 import { Prisma } from "@/generated/prisma/client";
 import type { PostComment } from "@/features/post/types";
 import type { ServiceResult } from "@/lib/types";
@@ -47,6 +54,7 @@ import type { ServiceResult } from "@/lib/types";
  * @param {number | undefined} cursor - 페이징 커서 (마지막 댓글 ID)
  * @param {number} limit - 조회할 최대 개수
  * @param {number | null} viewerId - 조회자 ID
+ * @returns {Promise<PostComment[]>} 차단/정지 필터링이 적용된 댓글 목록
  */
 export async function getPostCommentsList(
   postId: number,
@@ -59,7 +67,8 @@ export async function getPostCommentsList(
     user: { bannedAt: null },
   };
 
-  //차단 유저 댓글 제외
+  // 차단 유저 댓글 제외
+  // 조회자 기준 차단 관계가 있는 작성자의 댓글은 목록에서 숨김
   if (viewerId) {
     const blockedIds = await getBlockedUserIds(viewerId);
     if (blockedIds.length > 0) {
@@ -90,6 +99,94 @@ export async function getPostCommentsList(
 /*                                Write Logic                                 */
 /* -------------------------------------------------------------------------- */
 
+function normalizeNotificationText(text: string) {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+async function notifyPostOwnerOnComment({
+  postId,
+  postTitle,
+  ownerId,
+  commenterId,
+  commenterName,
+  commenterAvatar,
+  payload,
+}: {
+  postId: number;
+  postTitle: string;
+  ownerId: number;
+  commenterId: number;
+  commenterName: string;
+  commenterAvatar: string | null;
+  payload: string;
+}) {
+  if (ownerId === commenterId) return;
+
+  try {
+    const prefs = await db.notificationPreferences.findUnique({
+      where: { userId: ownerId },
+    });
+
+    if (!isNotificationTypeEnabled(prefs, "SYSTEM")) return;
+
+    const title = "게시글에 새 댓글이 달렸습니다";
+    const body = `${commenterName}님이 '${postTitle}' 글에 댓글을 남겼습니다: ${normalizeNotificationText(
+      payload
+    )}`;
+    const link = `/posts/${postId}`;
+    const image = commenterAvatar ? `${commenterAvatar}/avatar` : undefined;
+
+    const notification = await db.notification.create({
+      data: {
+        userId: ownerId,
+        title,
+        body,
+        type: "SYSTEM",
+        link,
+        image,
+        isPushSent: false,
+      },
+    });
+
+    await supabase.channel(`user-${ownerId}-notifications`).send({
+      type: "broadcast",
+      event: "notification",
+      payload: {
+        id: notification.id,
+        userId: ownerId,
+        title: notification.title,
+        body: notification.body,
+        link: notification.link,
+        type: notification.type,
+        image: notification.image,
+        created_at: notification.created_at,
+      },
+    });
+
+    if (canSendPushForType(prefs, "SYSTEM")) {
+      const pushRes = await sendPushNotification({
+        targetUserId: ownerId,
+        title,
+        message: body,
+        url: link,
+        type: "SYSTEM",
+        image,
+        tag: `post-comment-${postId}`,
+        renotify: true,
+      });
+
+      if (pushRes.success && (pushRes.data?.sent ?? 0) > 0) {
+        await db.notification.update({
+          where: { id: notification.id },
+          data: { isPushSent: true, sentAt: new Date() },
+        });
+      }
+    }
+  } catch (error) {
+    console.warn("[PostComment] Notification failed:", error);
+  }
+}
+
 /**
  * 게시글 댓글 생성 로직
  *
@@ -101,6 +198,7 @@ export async function getPostCommentsList(
  * @param {number} userId - 작성자 ID
  * @param {number} postId - 게시글 ID
  * @param {string} payload - 댓글 내용
+ * @returns {Promise<ServiceResult<{ id: number }>>} 생성된 댓글 ID 또는 실패 정보
  */
 export async function createComment(
   userId: number,
@@ -108,14 +206,15 @@ export async function createComment(
   payload: string
 ): Promise<ServiceResult<{ id: number }>> {
   try {
-    // 정지 유저 체크
+    // 작성 가능 상태 확인
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
     // 게시글 작성자 식별 및 차단 확인
+    // 양방향 차단 관계가 있으면 댓글 상호작용 자체를 막음
     const post = await db.post.findUnique({
       where: { id: postId },
-      select: { userId: true },
+      select: { userId: true, title: true },
     });
     if (!post) return { success: false, error: "게시글을 찾을 수 없습니다." };
 
@@ -134,12 +233,26 @@ export async function createComment(
         postId,
         userId,
       },
+      select: {
+        id: true,
+        payload: true,
+        user: { select: { username: true, avatar: true } },
+      },
     });
 
-    // 뱃지 체크
+    // 댓글 작성 관련 뱃지 체크
     await Promise.allSettled([
       badgeChecks.onCommentCreate(userId),
       badgeChecks.onEventParticipation(userId),
+      notifyPostOwnerOnComment({
+        postId,
+        postTitle: post.title,
+        ownerId: post.userId,
+        commenterId: userId,
+        commenterName: comment.user.username,
+        commenterAvatar: comment.user.avatar,
+        payload: comment.payload,
+      }),
     ]);
 
     return { success: true, data: { id: comment.id } };
@@ -158,15 +271,18 @@ export async function createComment(
  *
  * @param {number} userId - 요청자 ID
  * @param {number} commentId - 삭제할 댓글 ID
+ * @returns {Promise<ServiceResult>} 댓글 삭제 처리 결과
  */
 export async function deleteComment(
   userId: number,
   commentId: number
 ): Promise<ServiceResult> {
   try {
+    // 삭제 요청 가능 상태 확인
     const status = await validateUserStatus(userId);
     if (!status.success) return status;
 
+    // 소유권 확인
     const comment = await db.comment.findUnique({
       where: { id: commentId },
       select: { userId: true },

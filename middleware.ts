@@ -10,10 +10,19 @@
  * 2025.12.23  임도헌   Modified  비로그인 리다이렉트 파라미터 통일(/login?callbackUrl=...)
  * 2026.02.06  임도헌   Modified  관리자 경로 보호 및 정지 유저 접근 제한 로직 추가
  * 2026.03.06  임도헌   Modified  /offline 등 공용 경로 허용과 게스트 전용 경로 분리를 통해 오프라인/PWA 리다이렉트 충돌을 정리
+ * 2026.04.12  임도헌   Modified  robots.txt·sitemap.xml 메타 라우트를 인증 미들웨어 예외로 처리
+ * 2026.05.15  임도헌   Modified  비관리자 admin 접근 시 홈 대신 403 안내로 이동하도록 분기
+ * 2026.05.15  임도헌   Modified  공유 미리보기 크롤러와 OG 이미지 라우트는 인증 가드 예외로 처리
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
+import {
+  isFixedOgImagePath,
+  isMetadataImagePath,
+  isSharePreviewPath,
+  isSocialCrawlerUserAgent,
+} from "@/lib/socialCrawler";
 
 interface IRoutes {
   [key: string]: boolean;
@@ -24,6 +33,8 @@ const alwaysAccessibleUrls: IRoutes = {
   "/offline": true,
   "/403": true,
   "/manifest.webmanifest": true,
+  "/robots.txt": true,
+  "/sitemap.xml": true,
 };
 
 // 비로그인 전용 경로
@@ -32,6 +43,8 @@ const authGuestOnlyUrls: IRoutes = {
   "/login": true,
   "/sms": true,
   "/create-account": true,
+  "/forgot-password": true,
+  "/reset-password": true,
   "/github/start": true,
   "/github/complete": true,
   "/kakao/start": true,
@@ -46,6 +59,7 @@ const authGuestOnlyUrls: IRoutes = {
  *    `/403?reason=BANNED` 페이지로 강제 리다이렉트
  * 3. `/admin` 경로는 `ADMIN` 역할이 아닌 경우 접근을 차단
  * 4. 비로그인 유저가 보호된 경로 접근 시 로그인 페이지로 리다이렉트 (CallbackUrl 보존)
+ * 5. 로그인 유저가 로그인/회원가입 등 게스트 전용 경로 접근 시 `/products`로 리다이렉트
  */
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -66,7 +80,18 @@ export async function middleware(request: NextRequest) {
   const isBanned = !!session.banned; // 세션에 저장된 정지 여부
   const isAlwaysAccessible = !!alwaysAccessibleUrls[pathname];
   const isGuestOnly = !!authGuestOnlyUrls[pathname];
-  const isPublicPath = isAlwaysAccessible || isGuestOnly;
+  const isMetadataImage = isMetadataImagePath(pathname);
+  const isFixedOgImage = isFixedOgImagePath(pathname);
+  const isSharePreviewCrawler =
+    isSharePreviewPath(pathname) &&
+    isSocialCrawlerUserAgent(request.headers.get("user-agent"));
+  // 공개 허용 범위: 공용/게스트 경로와 공유 미리보기용 메타 이미지·소셜 크롤러 요청
+  const isPublicPath =
+    isAlwaysAccessible ||
+    isGuestOnly ||
+    isMetadataImage ||
+    isFixedOgImage ||
+    isSharePreviewCrawler;
 
   // 2. 이용 정지(Banned) 유저 가드
   // 정지된 유저가 public 경로(로그아웃 등)가 아닌 곳을 다니려 하면 403으로 강제 이동
@@ -76,9 +101,20 @@ export async function middleware(request: NextRequest) {
 
   // 3. 관리자 페이지 보호 (/admin/*)
   if (pathname.startsWith("/admin")) {
-    if (!isLoggedIn || !isAdmin) {
-      // 권한 없으면 홈으로 튕김
-      return NextResponse.redirect(new URL("/", request.url));
+    if (!isLoggedIn) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.searchParams.set("callbackUrl", pathname + request.nextUrl.search);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (!isAdmin) {
+      const deniedUrl = request.nextUrl.clone();
+      deniedUrl.pathname = "/403";
+      deniedUrl.search = "";
+      deniedUrl.searchParams.set("reason", "ADMIN_ONLY");
+      deniedUrl.searchParams.set("callbackUrl", pathname + request.nextUrl.search);
+      return NextResponse.redirect(deniedUrl);
     }
   }
 
@@ -101,6 +137,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|manifest.webmanifest|sw.js|workbox-*.js|pwa-push.js|images).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|workbox-*.js|pwa-push.js|images).*)",
   ],
 };

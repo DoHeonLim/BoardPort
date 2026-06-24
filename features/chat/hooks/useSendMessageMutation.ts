@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.03.03  임도헌   Created   ChatMessagesList에서 메시지 전송 로직 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.12  임도헌   Modified  첨부 이미지 애니메이션 메타(imageIsAnimated) 전달 지원
+ * 2026.04.02  임도헌   Modified  메시지 전송 mutation 훅 JSDoc 반환 설명 보강
  */
 
 "use client";
@@ -17,6 +19,7 @@ import { sendMessageAction } from "@/features/chat/actions/messages";
 interface SendMessageArgs {
   text?: string | null;
   imageUrl?: string | null;
+  imageIsAnimated?: boolean;
 }
 
 /**
@@ -27,11 +30,17 @@ interface SendMessageArgs {
  * 2. 성공 시 생성된 메시지 객체 및 수신자 정보를 반환
  *
  * @param {string} chatRoomId - 메시지를 전송할 채팅방 ID
+ * @returns {import("@tanstack/react-query").UseMutationResult<{ message: import("@/features/chat/types").ChatMessage; receiverId: number }, Error, SendMessageArgs>} 메시지 전송 mutation 객체
  */
 export function useSendMessageMutation(chatRoomId: string) {
   return useMutation({
-    mutationFn: async ({ text, imageUrl }: SendMessageArgs) => {
-      const res = await sendMessageAction(chatRoomId, text, imageUrl);
+    mutationFn: async ({ text, imageUrl, imageIsAnimated }: SendMessageArgs) => {
+      const res = await sendMessageAction(
+        chatRoomId,
+        text,
+        imageUrl,
+        imageIsAnimated
+      );
       // Rate Limit(도배 방지) 또는 차단 등의 에러 처리
       if (!res || !res.success) {
         throw new Error(res?.error || "메시지를 전송할 수 없습니다.");

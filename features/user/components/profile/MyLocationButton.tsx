@@ -7,10 +7,14 @@
  * Date        Author   Status    Description
  * 2026.02.15  임도헌   Created   variant(header/profile)에 따른 조건부 렌더링 구현
  * 2026.02.26  임도헌   Modified  동네 설정 버튼 UI 개선
+ * 2026.03.12  임도헌   Modified  위치 저장 성공 후 router.refresh로 현재 화면 지역 정보 즉시 갱신
+ * 2026.03.27  임도헌   Modified  프로필 카드 우측 변경/설정 액션 텍스트의 다크모드 가시성 보강
+ * 2026.04.17  임도헌   Modified  지역 설정 버튼의 variant 분기와 NeighborhoodSearchModal 연동 책임 설명 보강
  */
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { MapPinIcon } from "@heroicons/react/24/solid";
 import { MapPinIcon as OutlineMapPin } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -30,14 +34,16 @@ interface Props {
  *
  * [기능]
  * 1. 프로필 페이지 또는 헤더에서 내 동네를 설정하는 진입점을 제공
- * 2. 클릭 시 `LocationPicker` 모달을 열어 위치 선택 프로세스를 시작
- * 3. 설정 완료 시 서버 액션을 호출하여 유저 정보를 갱신
+ * 2. 클릭 시 `NeighborhoodSearchModal`을 열어 위치 선택 프로세스를 시작
+ * 3. variant(`header`/`profile`)에 따라 밀도와 시각 강조를 다르게 렌더링
+ * 4. 설정 완료 시 서버 액션 호출 후 `router.refresh()`로 현재 화면 지역 정보를 즉시 갱신
  */
 export default function MyLocationButton({
   currentRegion,
   fullLocation,
   variant = "profile",
 }: Props) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -49,6 +55,7 @@ export default function MyLocationButton({
           `'${data.region2} ${data.region3}'(으)로 동네가 설정되었습니다.`
         );
         setIsOpen(false);
+        router.refresh();
       } else {
         toast.error(res.error);
       }
@@ -58,11 +65,11 @@ export default function MyLocationButton({
   if (variant === "header") {
     return (
       <>
-        <button
-          onClick={() => setIsOpen(true)}
-          className="flex items-center gap-1 text-sm font-bold text-primary hover:text-brand transition-colors"
-          title={fullLocation || "동네를 설정해주세요"}
-        >
+      <button
+        onClick={() => setIsOpen(true)}
+        className="focus-ring-soft flex items-center gap-1 rounded-md text-sm font-bold text-primary transition-colors hover:text-brand dark:hover:text-brand-light"
+        title={fullLocation || "동네를 설정해주세요"}
+      >
           <MapPinIcon className="size-4 text-brand" />
           <span>{currentRegion || "동네 설정"}</span>
         </button>
@@ -83,7 +90,7 @@ export default function MyLocationButton({
         onClick={() => setIsOpen(true)}
         disabled={isPending}
         className={cn(
-          "flex w-full items-center justify-between p-4 rounded-xl border transition-all",
+          "focus-ring-soft flex w-full items-center justify-between p-4 rounded-xl border transition-[background-color,color,border-color,box-shadow]",
           "bg-surface border-border hover:border-brand/50 dark:hover:border-brand-light/50 hover:shadow-sm group",
           !currentRegion && "border-dashed bg-surface-dim/30"
         )}
@@ -114,7 +121,7 @@ export default function MyLocationButton({
             </p>
           </div>
         </div>
-        <div className="text-xs font-medium text-brand">
+        <div className="text-xs font-medium text-brand transition-colors dark:text-brand-light group-hover:text-brand-dark dark:group-hover:text-brand-light/85">
           {currentRegion ? "변경" : "설정"}
         </div>
       </button>

@@ -1,5 +1,5 @@
 /**
- * File Name : features/stream/components/StreamDetaill/StreamTitle.tsx
+ * File Name : features/stream/components/StreamDetail/StreamTitle.tsx
  * Description : 스트리밍 작성자 아바타 및 제목 출력 섹션
  * Author : 임도헌
  *
@@ -10,7 +10,6 @@
  * 2025.11.16  임도헌   Modified  compact/size/className 확장, 여백 축소
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 (text-primary)
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
- * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  */
 

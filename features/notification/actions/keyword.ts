@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.02.12  임도헌   Created   키워드 등록/삭제/조회 액션 구현
  * 2026.02.21  임도헌   Modified  regionRange 파라미터 추가
+ * 2026.03.16  임도헌   Modified  알림 센터 키워드 모달에서도 즉시 반영되도록 목록 페이지 재검증 추가
  */
 "use server";
 
@@ -40,6 +41,7 @@ export async function addKeywordAction(
   if (res.success) {
     revalidatePath("/products");
     revalidatePath("/profile/notifications/setting");
+    revalidatePath("/profile/notifications/list");
   }
   return res;
 }
@@ -60,6 +62,7 @@ export async function removeKeywordAction(
   if (res.success) {
     revalidatePath("/products");
     revalidatePath("/profile/notifications/setting");
+    revalidatePath("/profile/notifications/list");
   }
   return res;
 }

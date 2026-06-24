@@ -25,13 +25,19 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.01  임도헌   Modified  로딩 상태(isFetchingNextPage) Prop 적용 및 하단 스피너 분리
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.19  임도헌   Modified  외곽선과 그림자를 한 단계 낮춰 최근 프로필/알림 모달 톤과 시각 밀도를 통일
+ * 2026.03.22  임도헌   Modified  모바일 모달 높이를 소폭 낮춰 세로가 낮은 화면에서 밀도를 완화
+ * 2026.03.28  임도헌   Modified  적은 수의 항목에서도 과하게 비지 않도록 높이를 max-height 기반으로 조정하고 섹션/빈 상태 가독성 개선
+ * 2026.03.28  임도헌   Modified  팔로워 모달의 비맞팔 섹션 라벨을 추천 대신 설명형 문구로 바꿔 기준을 명확화
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useMemo, useRef } from "react";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import FollowListItem from "@/features/user/components/follow/FollowListItem";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import type { FollowListUser } from "@/features/user/types";
 
@@ -50,7 +56,7 @@ interface FollowListModalProps {
 
   isLoading: boolean;
   hasMore: boolean;
-  // React Query의 fetchNextPage와 호환되도록 unknown 반환 타입을 허용함.
+  // React Query의 fetchNextPage와 호환되도록 unknown 반환 타입을 허용
   onLoadMore: () => Promise<unknown>;
   isFetchingNextPage: boolean;
 
@@ -58,7 +64,7 @@ interface FollowListModalProps {
   isPendingById?: (id: number) => boolean;
 
   error?: FollowListError;
-  // React Query의 refetch 함수와 호환되도록 unknown 반환 타입을 허용함.
+  // React Query의 refetch 함수와 호환되도록 unknown 반환 타입을 허용
   onRetry?: () => void | Promise<unknown>;
 }
 
@@ -69,7 +75,7 @@ interface FollowListModalProps {
  * - `useInfiniteScroll` 훅과 연동하여 모달 내 스크롤 이벤트를 감지하고 페이징 로딩 트리거 적용
  * - `isMutualWithOwner` 플래그를 활용하여 '맞팔로잉' 그룹과 일반 그룹으로 렌더링 섹션 동적 분리
  * - 에러 발생 시 상태(`isMoreError`, `isFirstError`)에 따른 재시도(Retry) UI 조건부 렌더링 제공
- * - ESC 키보드 이벤트, 포커스 트랩, 바디 스크롤 잠금 등의 웹 접근성(A11y) 표준 준수 적용
+ * - ESC 키보드 이벤트, 이전 포커스 복원, 바디 스크롤 잠금 등 모달 접근성 흐름을 적용
  */
 export default function FollowListModal({
   isOpen,
@@ -108,15 +114,14 @@ export default function FollowListModal({
   /**
    * 접근성(A11y) 및 모달 인터랙션 설정
    * - 모달 열림 시 포커스를 이동하고, 기존 페이지의 스크롤을 막음.
-   * - ESC 키를 눌렀을 때 모달을 닫고 이전 포커스를 복원함.
+   * - ESC 키를 눌렀을 때 모달을 닫고 이전 포커스를 복원
    */
   useEffect(() => {
     if (!isOpen) return;
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     setTimeout(() => dialogRef.current?.focus(), 0);
 
-    const originalStyle = window.getComputedStyle(document.body).overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -124,7 +129,7 @@ export default function FollowListModal({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalStyle;
+      unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
       previouslyFocused.current?.focus?.();
     };
@@ -138,14 +143,14 @@ export default function FollowListModal({
     onLoadMore: onLoadMore,
     enabled: isOpen && hasMore && !isMoreError,
     rootRef: scrollAreaRef,
-    rootMargin: "400px 0px 0px 0px",
+    rootMargin: "0px 0px 400px 0px",
     threshold: 0.1,
   });
 
   if (!isOpen) return null;
 
   const titleId = `followlist-title-${kind}`;
-  const restLabel = kind === "followers" ? "추천" : "팔로잉";
+  const restLabel = kind === "followers" ? "나를 팔로우하는 사용자" : "팔로잉";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -162,18 +167,18 @@ export default function FollowListModal({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "relative w-full sm:max-w-md bg-surface shadow-2xl overflow-hidden outline-none flex flex-col",
-          "h-[85vh] rounded-t-2xl animate-slide-up sm:h-[600px] sm:rounded-2xl sm:animate-fade-in",
-          "border-t sm:border border-border"
+          "relative w-full sm:max-w-md bg-surface shadow-xl overflow-hidden outline-none flex flex-col",
+          "min-h-[280px] max-h-[80dvh] rounded-t-2xl animate-slide-up sm:max-h-[600px] sm:rounded-2xl",
+          "border-t sm:border border-border-subtle"
         )}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface shrink-0">
           <h2 id={titleId} className="text-lg font-bold text-primary">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft rounded-full p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim transition-colors"
           >
             <XMarkIcon className="size-6" />
           </button>
@@ -186,7 +191,7 @@ export default function FollowListModal({
             {!!onRetry && (
               <button
                 onClick={onRetry}
-                className="ml-2 underline hover:text-red-700"
+                className="focus-ring-soft ml-2 rounded-md underline hover:text-red-700"
               >
                 다시 시도
               </button>
@@ -196,20 +201,23 @@ export default function FollowListModal({
 
         <div
           ref={scrollAreaRef}
-          className="flex-1 overflow-y-auto p-4 scrollbar-hide"
+          className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-hide"
         >
           {isLoading ? (
             <div className="py-10 flex justify-center">
               <div className="size-6 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
             </div>
           ) : users.length === 0 ? (
-            <div className="py-12 text-center text-muted text-sm">
+            <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-dim/20 py-12 px-5 text-center text-muted text-sm">
               {/* 초기 로딩 에러 시 재시도 버튼 렌더링 */}
               {isFirstError ? (
                 <div className="flex flex-col gap-2">
                   <p>{error?.message}</p>
                   {onRetry && (
-                    <button onClick={onRetry} className="underline text-brand">
+                    <button
+                      onClick={onRetry}
+                      className="focus-ring-soft rounded-md underline text-brand"
+                    >
                       다시 시도
                     </button>
                   )}

@@ -1,6 +1,6 @@
 /**
  * File Name : features/post/actions/delete.ts
- * Description : 게시글 삭제 Controller
+ * Description : 게시글 삭제 서버 액션
  * Author : 임도헌
  *
  * History
@@ -8,6 +8,8 @@
  * 2026.01.30  임도헌   created   app/posts/[id]/actions/posts.ts (deletePost) -> features/post/actions/delete.ts
  * 2026.03.05  임도헌   Modified  개인화된 게시글 목록(POST_LIST 등)의 `revalidateTag` 부수 효과 제거, 공통 데이터(상세) 태그만 유지
  * 2026.03.06  임도헌   Modified  삭제 확인 모달 연동을 위해 처리 결과를 클라이언트에서 소비 가능한 형태로 반환
+ * 2026.04.02  임도헌   Modified  삭제 액션 반환 설명 JSDoc 보강
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 
@@ -19,9 +21,14 @@ import { notFound } from "next/navigation";
 
 /**
  * 게시글 삭제 Action
- * - Service 호출 후 상세/목록 캐시 무효화 및 경로 갱신
+ *
+ * [기능]
+ * - 로그인 세션을 확인하고
+ * - 게시글 삭제를 service 계층에 위임
+ * - 성공 시 상세/목록 화면이 바로 최신화되도록 관련 경로를 무효화
  *
  * @param {number} postId - 게시글 ID
+ * @returns {Promise<ServiceResult>} 게시글 삭제 처리 결과
  */
 export async function deletePostAction(postId: number) {
   const session = await getSession();

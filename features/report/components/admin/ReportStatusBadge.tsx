@@ -5,7 +5,7 @@
  *
  * History
  * Date        Author   Status    Description
- * 2026.02.06  임도헌   Created
+ * 2026.02.06  임도헌   Created   신고 상태별 의미를 색상/라벨로 일관되게 보여주는 공통 뱃지 추가
  */
 
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  * 신고 상태 뱃지
  *
  * [기능]
- * 1. 각 신고 상태의 뱃지를 렌더링
+ * 1. PENDING / RESOLVED / DISMISSED 상태를 공통 라벨과 색상 문법으로 렌더링
  */
 export default function ReportStatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {

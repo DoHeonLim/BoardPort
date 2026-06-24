@@ -11,6 +11,8 @@
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Merged    LiveInput 관련 로직 통합 및 Session 의존성 제거
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.05.16  임도헌   Modified  Cloudflare Live Input 응답 타입을 명시해 any 캐스팅 제거
+ * 2026.05.19  임도헌   Modified  RTMP URL을 환경변수 override 없이 Cloudflare 기본 ingest URL로 통일
  */
 
 import "server-only";
@@ -25,9 +27,55 @@ const API_BASE = "https://api.cloudflare.com/client/v4";
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const AUTH = `Bearer ${CF_TOKEN}`;
-const DEFAULT_RTMPS_URL =
-  process.env.NEXT_PUBLIC_CLOUDFLARE_RTMP_URL?.trim() ||
-  "rtmps://live.cloudflare.com:443/live/";
+const DEFAULT_RTMPS_URL = "rtmps://live.cloudflare.com:443/live/";
+
+type CloudflareLiveInputResponse = {
+  result?: {
+    uid?: string;
+    rtmps?: {
+      url?: string;
+      streamKey?: string;
+    };
+  };
+};
+
+const readCloudflareLiveInputResponse = async (
+  response: Response
+): Promise<CloudflareLiveInputResponse> => {
+  try {
+    return (await response.json()) as CloudflareLiveInputResponse;
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * Cloudflare Live Input 외부 자산 삭제
+ *
+ * [기능]
+ * - 회원 탈퇴나 채널 정리처럼 DB row 외부의 송출 채널 자산도 함께 정리해야 하는 흐름에서 재사용
+ * - 404는 이미 삭제된 상태로 보고 성공처럼 취급
+ */
+export async function deleteCloudflareLiveInputAsset(
+  providerUid: string
+): Promise<void> {
+  if (!CF_ACCOUNT_ID || !CF_TOKEN || !providerUid) return;
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/accounts/${CF_ACCOUNT_ID}/stream/live_inputs/${providerUid}`,
+      { method: "DELETE", headers: { Authorization: AUTH } }
+    );
+
+    if (!response.ok && response.status !== 404) {
+      console.warn(
+        `[deleteCloudflareLiveInputAsset] unexpected status=${response.status} providerUid=${providerUid}`
+      );
+    }
+  } catch (error) {
+    console.error("[deleteCloudflareLiveInputAsset] failed:", error);
+  }
+}
 
 /**
  * 유저의 LiveInput(채널)을 보장
@@ -84,7 +132,7 @@ export async function ensureLiveInput(userId: number, nameHint: string) {
       }
     );
 
-    const data = await res.json().catch(() => ({} as any));
+    const data = await readCloudflareLiveInputResponse(res);
     if (!res.ok || !data?.result) {
       throw new Error(`Cloudflare Live Input 생성 실패 (${res.status})`);
     }
@@ -279,7 +327,7 @@ export async function rotateLiveInputKey(
     }
   );
 
-  const data = await createRes.json().catch(() => ({} as any));
+  const data = await readCloudflareLiveInputResponse(createRes);
   if (!createRes.ok || !data?.result) {
     return {
       success: false,
@@ -288,8 +336,15 @@ export async function rotateLiveInputKey(
   }
 
   const newUid = data.result.uid;
-  const newRtmpUrl = data.result.rtmps?.url;
+  const newRtmpUrl = data.result.rtmps?.url ?? DEFAULT_RTMPS_URL;
   const newStreamKey = data.result.rtmps?.streamKey;
+
+  if (!newUid || !newStreamKey) {
+    return {
+      success: false,
+      error: "새 Live Input 응답에 필요한 키 정보가 없습니다.",
+    };
+  }
 
   // 3. DB 업데이트
   await db.liveInput.update({

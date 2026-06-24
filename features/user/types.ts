@@ -11,6 +11,13 @@
  * 2026.02.15  임도헌   Modified  UserProfile에 location 관련 필드 추가
  * 2026.02.24  임도헌   Modified  CurrentUserForEdit 타입에 kakao_id를 추가
  * 2026.03.07  임도헌   Modified  섹션 제목 및 타입 설명 정리
+ * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타 저장용 avatarAnimated 필드 추가
+ * 2026.03.21  임도헌   Modified  방송국 소개 수정용 ChannelDescriptionActionState 타입 추가
+ * 2026.04.03  임도헌   Modified  관리자 필터 및 액션 상태 type alias 설명 보강
+ * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입을 user types로 이동
+ * 2026.05.16  임도헌   Modified  팔로우 캐시 동기화용 페이지/통계 타입 추가
+ * 2026.05.17  임도헌   Modified  차단 관리 모달용 차단 유저 요약 타입 추가
+ * 2026.06.18  임도헌   Modified  지역 정규화 정책에 맞춰 UserProfile 지역 필드 설명 최신화
  */
 
 import type { Role } from "@/generated/prisma/enums";
@@ -26,6 +33,11 @@ export type UserLite = {
   avatar: string | null;
 };
 
+/** 차단 관리 모달에서 사용하는 차단 대상 사용자 요약 */
+export interface BlockedUserSummary {
+  blocked: UserLite;
+}
+
 /** 프로필 조회 결과 (상세) */
 export interface UserProfile {
   id: number;
@@ -35,8 +47,8 @@ export interface UserProfile {
   created_at: Date;
   emailVerified: boolean;
   locationName?: string | null;
-  region1?: string | null; // 시/도
-  region2?: string | null; // 구/군
+  region1?: string | null; // 지역 필터 1차 단위(카카오 1depth 또는 도 단위의 시/군)
+  region2?: string | null; // 지역 필터 2차 단위(구/군, 없으면 region1)
   region3?: string | null; // 동/읍/면
   _count: {
     followers: number;
@@ -70,6 +82,30 @@ export type FollowListUser = {
 
 /** 팔로우 리스트 커서 */
 export type FollowListCursor = { lastId: number } | null;
+
+/** 팔로우/언팔로우 토글 서버 액션 결과 */
+export type FollowActionResult =
+  | {
+      success: true;
+      changed: boolean;
+      isFollowing: boolean;
+      delta: number;
+      counts: { viewerFollowing: number; targetFollowers: number };
+    }
+  | { success: false; error: string; code?: string };
+
+/** 팔로우 통계 캐시 상태 */
+export type FollowStatsCache = {
+  isFollowing: boolean;
+  followerCount: number;
+  followingCount: number;
+};
+
+/** 팔로우 목록 무한스크롤 페이지 */
+export type FollowListPage = {
+  users: FollowListUser[];
+  nextCursor: FollowListCursor;
+};
 
 /** 프로필 리뷰 아이템 */
 export interface ProfileReview {
@@ -111,6 +147,7 @@ export type CurrentUserForEdit = {
   username: string;
   email: string | null;
   avatar: string | null;
+  avatarAnimated: boolean;
   phone: string | null;
   github_id: string | null;
   kakao_id: string | null;
@@ -145,10 +182,39 @@ export type AdminUserListResponse = {
   currentPage: number;
 };
 
+/** 관리자 유저 목록 조회 입력값 */
+export type UserFilter = {
+  query?: string;
+  role?: Role | "ALL" | "BANNED";
+  page?: number;
+  limit?: number;
+};
+
+export interface AdminUserInsights {
+  labels: string[];
+  signupSeries: {
+    name: string;
+    color: string;
+    values: number[];
+  }[];
+  statusSlices: {
+    label: string;
+    value: number;
+    color: string;
+  }[];
+  summary: {
+    totalUsers: number;
+    todaySignups: number;
+    bannedUsers: number;
+    adminUsers: number;
+  };
+}
+
 // =============================================================================
 // 2. Action / Form State Types
 // =============================================================================
 
+/** 프로필 편집 액션의 폼 검증 및 제출 결과 */
 export type EditProfileActionState = {
   success: boolean;
   errors?: {
@@ -157,6 +223,14 @@ export type EditProfileActionState = {
   };
 };
 
+/** 방송국 소개 수정 액션의 단순 결과 상태 */
+export type ChannelDescriptionActionState = {
+  success: boolean;
+  error?: string;
+  value?: string | null;
+};
+
+/** 비밀번호 변경 액션의 필드별 오류 상태 */
 export type ChangePasswordActionState = {
   success: boolean;
   errors?: {

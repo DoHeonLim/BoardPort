@@ -9,8 +9,10 @@
  * 2025.11.28  임도헌   Modified  Prisma 7 + adapter-better-sqlite3 적용
  * 2025.11.29  임도헌   Modified  PrismaClient 싱글톤 + DATABASE_URL 기본값 추가
  * 2025.12.20  임도헌   Modified  PostgreSQL(Supabase)용 PrismaPg 어댑터 적용
+ * 2026.05.19  임도헌   Modified  Prisma Client가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  */
 
+import "server-only";
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 

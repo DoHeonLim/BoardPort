@@ -12,6 +12,7 @@
  * 2026.02.02  임도헌   Modified  주석 보강
  * 2026.02.28  임도헌   Modified  TanStack Query(fetchNextPage) 연동을 위해 onLoadMore 반환 타입(unknown) 확장
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.06.13  임도헌   Modified  hasMore/isLoading 변경 시 sentinel 재관찰되도록 effect 의존성 보강
  */
 
 "use client";
@@ -39,7 +40,7 @@ interface UseInfiniteScrollProps {
   rootRef?: React.RefObject<Element | null>;
   /**
    * 관찰 영역 확장 범위 (미리 로딩하기 위함)
-   * @default "1200px 0px 0px 0px"
+   * @default "0px 0px 1200px 0px"
    */
   rootMargin?: string;
   /**
@@ -50,14 +51,14 @@ interface UseInfiniteScrollProps {
 }
 
 /**
- * 공통 무한 스크롤 교차 감지 훅
+ * 공통 무한 스크롤 관찰 훅
  *
- * [상태 주입 및 상호작용 제어 로직]
- * - `IntersectionObserver`를 활용한 `triggerRef` 요소의 뷰포트 내 교차 여부 비동기 감지 적용
- * - `hasMore`, `isLoading` 상태 및 내부 가드(`runningRef`)를 통한 중복 페이징 요청 차단
- * - `enabled` 속성을 활용한 탭 비가시성(Background) 시 관찰자 해제 최적화 처리
+ * - `IntersectionObserver` 기반의 추가 페이지 진입 감지
+ * - `hasMore`/`isLoading`/`runningRef` 기반 중복 요청 차단
+ * - `enabled` 비활성화 시 관찰자 해제
  *
- * @param {UseInfiniteScrollProps} props - 관찰 요소 참조, 추가 데이터 존재 여부, 로딩 상태 및 콜백 함수 포함
+ * @param {UseInfiniteScrollProps} props - 관찰 대상, 로딩 상태, 추가 호출 콜백 설정
+ * @returns {void} 스크롤 트리거 관찰 등록
  */
 export function useInfiniteScroll({
   triggerRef,
@@ -66,15 +67,15 @@ export function useInfiniteScroll({
   onLoadMore,
   enabled = true,
   rootRef,
-  rootMargin = "1200px 0px 0px 0px",
+  rootMargin = "0px 0px 1200px 0px",
   threshold = 0.01,
 }: UseInfiniteScrollProps): void {
   const hasMoreRef = useRef(hasMore);
   const isLoadingRef = useRef(isLoading);
   const onLoadMoreRef = useRef(onLoadMore);
-  const runningRef = useRef(false); // 내부 중복 실행 가드
+  const runningRef = useRef(false);
 
-  // 최신 값으로 Ref 업데이트 (Effect 내에서 최신 값 참조 보장)
+  // 최신 조건/콜백 참조 유지
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
@@ -88,7 +89,7 @@ export function useInfiniteScroll({
   }, [onLoadMore]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !hasMore || isLoading) return;
 
     const el = triggerRef.current;
     if (!el) return;
@@ -102,7 +103,7 @@ export function useInfiniteScroll({
         const entry = entries[0];
         if (!entry?.isIntersecting) return;
 
-        // 가드 조건: 더 없거나, 로딩 중이거나, 이미 실행 중이면 스킵
+        // 추가 로드 가능 여부 가드
         if (!hasMoreRef.current || isLoadingRef.current || runningRef.current)
           return;
 
@@ -118,7 +119,15 @@ export function useInfiniteScroll({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [enabled, triggerRef, rootRef, rootMargin, threshold]);
+  }, [
+    enabled,
+    hasMore,
+    isLoading,
+    triggerRef,
+    rootRef,
+    rootMargin,
+    threshold,
+  ]);
 }
 
 export default useInfiniteScroll;

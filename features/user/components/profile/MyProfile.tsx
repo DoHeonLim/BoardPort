@@ -32,28 +32,48 @@
  * 2026.01.17  임도헌   Moved      components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified   주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.15  임도헌   Modified   내 동네 설정 버튼(MyLocationButton) 추가
- * 2026.02.26  임도헌   Modified   모든 버튼에 hover시 dark:hover:text-brand-light 추가
+ * 2026.02.26  임도헌   Modified   프로필 화면 주요 버튼/링크 hover 대비를 다크모드 기준으로 보강
  * 2026.03.01  임도헌   Modified   이벤트 리스너(window.addEventListener) 제거 및 Zustand(ModalStore) 도입
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.06  임도헌   Modified   거래 정보 섹션에 '찜한 내역' 바로가기 링크 추가
  * 2026.03.06  임도헌   Modified   공용 LogoutButton 적용으로 로그아웃 피드백 정합성 보강
+ * 2026.03.09  임도헌   Modified   최근 방송 카드에 실제 VOD가 있는 종료 방송만 다시보기 배지/경로를 표시
+ * 2026.03.12  임도헌   Modified   프로필 거래/빈 상태 카드 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.12  임도헌   Modified   프로필 거래 카드 아이콘 색을 다크모드 가시성과 판매/구매 구분 기준으로 재조정
+ * 2026.03.13  임도헌   Modified   알림 설정/방송국 전체 보기 진입에 현재 프로필 경로 returnTo를 함께 전달해 복귀 맥락 유지
+ * 2026.03.14  임도헌   Modified   회원 탈퇴를 로그아웃과 분리된 하단 위험 액션으로 이동해 설정 메뉴 혼재를 완화
+ * 2026.03.15  임도헌   Modified   이메일 미인증 계정에 비밀번호 찾기/계정 복구 안내와 즉시 인증 진입 배너 추가
+ * 2026.03.16  임도헌   Modified   내 프로필 IA 조정안을 되돌리고 기존 계정 관리 중심 리듬에 맞춰 섹션 순서를 복원
+ * 2026.03.17  임도헌   Modified   내 방송국 rail 카드 래퍼 고정폭을 제거해 축소된 StreamCard 폭을 그대로 사용
+ * 2026.03.18  임도헌   Modified   알림 설정 링크용 현재 프로필 경로를 내부 경로 기준으로 정규화해 바깥 복귀 문맥과 nested returnTo 예외를 함께 보강
+ * 2026.03.21  임도헌   Modified   내 방송국 카드에서는 소유자 정보가 자명하므로 StreamCard 스트리머 행 숨김
+ * 2026.03.27  임도헌   Modified   알림 설정 섹션을 상태별 stacked 안내 구조로 정리해 iOS/재연결/권한 필요 케이스를 자연스럽게 표시
+ * 2026.04.08  임도헌   Modified   내 방송국 rail 좌우 정렬선을 다른 프로필 섹션과 같은 시작선으로 맞춤
+ * 2026.04.09  임도헌   Modified   판매/구매/찜한 내역 바로가기 진입 시 상단 스크롤 초기화를 명시해 이전 프로필 스크롤 문맥 유지 완화
+ * 2026.04.10  임도헌   Modified   profile 타이포 정책에 맞춰 주요 CTA/상태 카드/거래 카드 라벨을 400·500·700 체계로 정리
+ * 2026.04.16  임도헌   Modified   profile Lighthouse 대응으로 하단 섹션 지연 로드 분리 및 진입 라벨/a11y 주석 정리
+ * 2026.05.17  임도헌   Modified   차단 유저 목록 상태 타입을 BlockedUserSummary로 명시
+ * 2026.06.18  임도헌   Modified   정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  */
 "use client";
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import ProfileHeader from "@/features/user/components/profile/ProfileHeader";
-import UserBadges from "@/features/user/components/profile/UserBadges";
-import LogoutButton from "@/components/global/LogoutButton";
 import { PushNotificationToggle } from "@/features/notification/components/PushNotificationToggle";
-import StreamCard from "@/features/stream/components/StreamCard";
 import MyLocationButton from "@/features/user/components/profile/MyLocationButton";
+import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 import {
-  ChevronRightIcon,
-  ShoppingBagIcon,
-  TagIcon,
+  ArrowPathIcon,
+  BellAlertIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  ShareIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 import { getMyBlockedUsersAction } from "@/features/user/actions/block";
 import { useModalStore } from "@/components/global/providers/ModalStoreProvider";
@@ -61,10 +81,11 @@ import { useModalStore } from "@/components/global/providers/ModalStoreProvider"
 import type { BroadcastSummary } from "@/features/stream/types";
 import type {
   Badge,
+  BlockedUserSummary,
   ProfileAverageRating,
   UserProfile,
 } from "@/features/user/types";
-import { HeartIcon } from "@heroicons/react/24/solid";
+import type { PushNotificationStatus } from "@/features/notification/types";
 
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
@@ -85,12 +106,27 @@ const BlockedUsersModal = dynamic(() => import("./BlockedUsersModal"), {
 const WithdrawalModal = dynamic(() => import("./WithdrawalModal"), {
   ssr: false,
 });
+// 첫 화면 밖 섹션의 별도 청크 분리를 통한 /profile 초기 JS 및 LCP/TBT 부담 완화
+const MyProfileDeferredSections = dynamic(
+  () => import("./MyProfileDeferredSections"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-6" aria-hidden="true">
+        <div className="h-48 rounded-2xl border border-border-subtle bg-surface-dim/40" />
+        <div className="h-56 rounded-2xl border border-border-subtle bg-surface-dim/40" />
+        <div className="h-64 rounded-2xl border border-border-subtle bg-surface-dim/40" />
+      </div>
+    ),
+  }
+);
 
 type MyProfileProps = {
   user: UserProfile;
   averageRating: ProfileAverageRating | null;
   badges: Badge[];
   userBadges: Badge[];
+  previewReviews: import("@/features/user/types").ProfileReview[];
   myStreams?: BroadcastSummary[];
   viewerId?: number;
 };
@@ -99,7 +135,9 @@ type MyProfileProps = {
  * 내 프로필 메인 UI 컴포넌트
  *
  * [상태 주입 및 상호작용 제어 로직]
- * - 서버로부터 하이드레이션(Hydration)된 유저 정보, 평점, 뱃지, 최근 방송 데이터 선언적 렌더링
+ * - 서버로부터 하이드레이션(Hydration)된 유저 정보, 평점, 뱃지, 최근 방송 데이터를 선언적으로 렌더링
+ * - 프로필 헤더/인증/알림/내 동네처럼 첫 화면 맥락에 필요한 섹션은 즉시 렌더링
+ * - 거래 정보/내 방송국/후기/뱃지/계정 액션은 `MyProfileDeferredSections`로 분리해 아래 영역 부하를 지연 처리
  * - `useModalStore` 기반 Zustand 전역 상태 구독을 통한 다중 모달(리뷰, 뱃지, 이메일, 비밀번호, 차단 관리 등) 표시 제어
  * - 차단한 유저 데이터 로딩(Server Action) 중 토스트 피드백 표시 및 로딩 완료 시 상태 병합 처리
  */
@@ -108,13 +146,23 @@ export default function MyProfile({
   averageRating,
   badges,
   userBadges,
+  previewReviews,
   myStreams,
   viewerId,
 }: MyProfileProps) {
-  const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
-  const fullLocation = [user.region1, user.region2, user.region3]
-    .filter(Boolean)
-    .join(" ");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const returnTo = sanitizeCallbackUrl(
+    currentQuery ? `${pathname}?${currentQuery}` : pathname
+  );
+  const [blockedUsers, setBlockedUsers] = useState<
+    BlockedUserSummary[] | null
+  >(null);
+  const [blockedUsersLoading, setBlockedUsersLoading] = useState(false);
+  const [pushStatus, setPushStatus] =
+    useState<PushNotificationStatus>("disabled");
+  const fullLocation = formatNormalizedRegion(user);
 
   // Zustand 모달 스토어 구독
   const modals = useModalStore((state) => state.modals);
@@ -123,26 +171,28 @@ export default function MyProfile({
 
   // 차단 유저 목록 로드 및 모달 오픈
   useEffect(() => {
-    if (modals.block && blockedUsers.length === 0) {
-      const loadBlockedUsers = async () => {
-        const toastId = toast.loading("차단한 선원 목록을 불러오는 중...");
-        try {
-          const data = await getMyBlockedUsersAction();
-          setBlockedUsers(data);
-          toast.dismiss(toastId);
-        } catch (error) {
-          console.error(error);
-          toast.error("목록을 불러오는 데 실패했습니다.", { id: toastId });
-          closeModal("block");
-        }
-      };
-      loadBlockedUsers();
-    }
-  }, [modals.block, blockedUsers.length, closeModal]);
+    if (!modals.block || blockedUsers !== null) return;
+
+    const loadBlockedUsers = async () => {
+      setBlockedUsersLoading(true);
+      try {
+        const data = await getMyBlockedUsersAction();
+        setBlockedUsers(data);
+      } catch (error) {
+        console.error(error);
+        toast.error("목록을 불러오는 데 실패했습니다.");
+        closeModal("block");
+      } finally {
+        setBlockedUsersLoading(false);
+      }
+    };
+
+    loadBlockedUsers();
+  }, [modals.block, blockedUsers, closeModal]);
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      {/* 1. Header */}
+      {/* 1. 프로필 헤더 */}
       <ProfileHeader
         ownerId={user.id}
         ownerUsername={user.username}
@@ -155,29 +205,125 @@ export default function MyProfile({
         showFollowButton={false}
       />
 
-      {/* 2. Notification */}
+      {user.email && !user.emailVerified && (
+        <section className="rounded-2xl border border-brand/20 bg-brand/5 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light">
+              <EnvelopeIcon className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-sm font-bold text-primary">
+                이메일 인증이 필요합니다
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted">
+                이메일 인증을 완료해야 비밀번호 찾기와 계정 복구를 사용할 수
+                있습니다.
+              </p>
+              <button
+                type="button"
+                onClick={() => openModal("email")}
+                className="focus-ring-strong mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-brand-dark px-4 text-sm font-medium text-white transition-colors hover:bg-brand dark:bg-brand-dark dark:hover:bg-brand"
+              >
+                지금 인증하기
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 2. 알림 설정 및 기기 상태 안내 */}
       <section>
         <div className="flex items-end justify-between mb-3 px-1">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
-            href="/profile/notifications/setting"
-            className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
+            href={`/profile/notifications/setting?returnTo=${encodeURIComponent(returnTo)}`}
+            prefetch={false}
+            className="focus-ring-soft rounded-md text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
           >
             상세 설정
           </Link>
         </div>
-        <div className="panel p-4 flex items-center justify-between gap-4">
-          <span className="text-sm text-primary font-medium shrink-0">
-            푸시 알림 받기
-          </span>
-          <div className="flex-1 flex justify-end min-w-0">
-            {/* 우측 정렬 영역 확보 */}
-            <PushNotificationToggle />
+        <div className="panel p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-sm font-medium text-primary">푸시 알림 받기</p>
+              <p className="text-xs leading-relaxed text-muted">
+                새 메시지와 거래 상태 변경을 기기 알림으로 받아보세요.
+              </p>
+            </div>
+            <div className="shrink-0">
+              <PushNotificationToggle onStatusChange={setPushStatus} />
+            </div>
           </div>
+
+          {pushStatus === "ios_install_required" ? (
+            <div className="mt-4 rounded-2xl border border-brand/15 bg-brand/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <ShareIcon className="size-4 text-brand dark:text-brand-light" />
+                <span>홈 화면에 추가한 뒤 알림을 켤 수 있어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                아이폰(iOS) 사파리에서는 공유 버튼을 누른 뒤
+                <span className="px-1 font-medium text-primary">
+                  홈 화면에 추가
+                </span>
+                를 먼저 진행해야 합니다.
+              </p>
+            </div>
+          ) : pushStatus === "needs_reconnect" ? (
+            <div className="mt-4 rounded-2xl border border-brand/15 bg-brand/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <ArrowPathIcon className="size-4 text-brand dark:text-brand-light" />
+                <span>이 기기의 알림 연결이 끊어졌어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                브라우저 또는 기기 설정 변경으로 연결이 해제되었을 수 있어요.
+                오른쪽 스위치를 눌러 다시 연결하면 새 알림을 계속 받을 수
+                있습니다.
+              </p>
+            </div>
+          ) : pushStatus === "permission_denied" ? (
+            <div className="mt-4 rounded-2xl border border-danger/15 bg-danger/5 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <BellAlertIcon className="size-4 text-danger" />
+                <span>브라우저 알림 권한이 꺼져 있어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                사이트 권한에서 알림을 허용해야 기기 푸시를 다시 받을 수
+                있습니다.
+              </p>
+            </div>
+          ) : pushStatus === "private_mode" ? (
+            <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-dim/40 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <ShieldExclamationIcon className="size-4 text-muted" />
+                <span>프라이빗 모드에서는 푸시를 사용할 수 없어요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                일반 브라우저 창에서 접속하면 기기 알림을 다시 설정할 수
+                있습니다.
+              </p>
+            </div>
+          ) : pushStatus === "unsupported" ? (
+            <div className="mt-4 rounded-2xl border border-border-subtle bg-surface-dim/40 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <ExclamationTriangleIcon className="size-4 text-muted" />
+                <span>이 브라우저는 푸시 알림을 지원하지 않아요</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                최신 브라우저나 설치된 앱에서 접속하면 푸시 알림을 받을 수
+                있습니다.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-4 text-xs leading-relaxed text-muted">
+              전체 푸시를 끄면 기기 알림은 오지 않습니다.
+            </p>
+          )}
         </div>
       </section>
 
-      {/* 3. My Neighborhood */}
+      {/* 3. 내 동네 설정 */}
       <section>
         <h2 className="text-sm font-bold text-primary mb-3">내 동네 설정</h2>
         <MyLocationButton
@@ -186,128 +332,19 @@ export default function MyProfile({
         />
       </section>
 
-      {/* 4. Trade Info */}
-      <section>
-        <h2 className="text-sm font-bold text-primary mb-3">거래 정보</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {/*  판매 내역 */}
-          <Link
-            href="/profile/my-sales"
-            className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2 text-brand dark:text-brand-light">
-              <TagIcon className="size-5" />
-              <span className="text-sm font-semibold">판매 내역</span>
-            </div>
-            <p className="text-xs text-muted group-hover:text-primary transition-colors">
-              판매 중인 물품 관리
-            </p>
-          </Link>
-          {/*  구매 내역 */}
-          <Link
-            href="/profile/my-purchases"
-            className="group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
-          >
-            <div className="flex items-center gap-2 mb-2 text-green-600 dark:text-green-500">
-              <ShoppingBagIcon className="size-5" />
-              <span className="text-sm font-semibold">구매 내역</span>
-            </div>
-            <p className="text-xs text-muted group-hover:text-primary transition-colors">
-              구매한 물품 확인
-            </p>
-          </Link>
-          {/*  찜한 내역 */}
-          <Link
-            href="/profile/my-likes"
-            className="col-span-2 flex items-center justify-between group p-4 bg-surface rounded-xl border border-border shadow-sm hover:border-brand/30 hover:shadow-md transition-all"
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-1 text-rose-500">
-                <HeartIcon className="size-5" />
-                <span className="text-sm font-semibold">찜한 내역</span>
-              </div>
-              <p className="text-xs text-muted group-hover:text-primary transition-colors">
-                내가 찜한 관심 상품
-              </p>
-            </div>
-            <ChevronRightIcon className="size-5 text-muted group-hover:text-brand transition-colors" />
-          </Link>
-        </div>
-      </section>
+      {/* 4. 초기 프로필 렌더 보호를 위한 하단 섹션 지연 렌더링 */}
+      <MyProfileDeferredSections
+        myStreams={myStreams}
+        previewReviews={previewReviews}
+        returnTo={returnTo}
+        user={user}
+        userBadges={userBadges}
+        onOpenBadge={() => openModal("badge")}
+        onOpenReview={() => openModal("review")}
+        onOpenWithdraw={() => openModal("withdraw")}
+      />
 
-      {/* 5. Channel */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-primary">내 방송국</h2>
-          <Link
-            href={`/profile/${user.username}/channel`}
-            className="text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors flex items-center"
-          >
-            전체 보기 <ChevronRightIcon className="size-3 ml-0.5" />
-          </Link>
-        </div>
-
-        {!myStreams || myStreams.length === 0 ? (
-          <div className="text-center py-6 border border-dashed border-border rounded-xl bg-surface-dim/30">
-            <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
-          </div>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-            {myStreams.map((s) => (
-              <div key={s.id} className="w-[200px] shrink-0">
-                <StreamCard
-                  id={s.id}
-                  title={s.title}
-                  thumbnail={s.thumbnail}
-                  isLive={s.status === "CONNECTED"}
-                  streamer={{
-                    username: s.user.username,
-                    avatar: s.user.avatar ?? null,
-                  }}
-                  layout="rail"
-                  shortDescription
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 6. Reviews & Badges */}
-      <div className="grid grid-cols-1 gap-6">
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-primary">받은 거래 후기</h2>
-            <button
-              onClick={() => openModal("review")}
-              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
-            >
-              전체 보기
-            </button>
-          </div>
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
-            <button
-              onClick={() => openModal("badge")}
-              className="text-xs text-muted hover:text-brand dark:hover:text-brand-light"
-            >
-              전체 보기
-            </button>
-          </div>
-          <UserBadges badges={userBadges} max={6} />
-        </section>
-      </div>
-
-      <div className="pt-6 border-t border-border mt-2">
-        <LogoutButton
-          className="w-full h-12 rounded-xl bg-surface border border-border text-danger hover:bg-danger/5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
-        />
-      </div>
-
-      {/* Zustand 상태 기반 모달 렌더링 */}
+      {/* 5. Zustand 기반 모달의 실제 열림 시점 한정 렌더링 */}
       {modals.review && (
         <ProfileReviewsModal
           isOpen={modals.review}
@@ -340,7 +377,9 @@ export default function MyProfile({
         <BlockedUsersModal
           isOpen={modals.block}
           onClose={() => closeModal("block")}
-          initialBlockedUsers={blockedUsers}
+          initialBlockedUsers={blockedUsers ?? []}
+          loading={blockedUsersLoading}
+          onUsersChange={setBlockedUsers}
         />
       )}
       {modals.withdraw && (

@@ -15,15 +15,23 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.06  임도헌   Modified  모바일 옵션 메뉴를 Bottom Sheet 패턴으로 통일하고 드래그 닫기 UX를 적용
+ * 2026.03.09  임도헌   Modified  자식이 없는 대분류(기타) 선택 시 소분류 필터 숨김 처리
+ * 2026.03.09  임도헌   Modified  기존 category 필터가 있을 때 대분류 선택 상태를 복원하도록 동기화
+ * 2026.03.11  임도헌   Modified  flat 헤더 필터 버튼과 맞물리도록 desktop dropdown / mobile sheet 이원 구조 정리
+ * 2026.03.14  임도헌   Modified  필터 적용은 검색어를 유지하고 시트 내부 초기화는 임시 선택값만 되돌리도록 UX를 분리
+ * 2026.03.23  임도헌   Modified  데스크톱 드롭다운을 최근 필터/모달 톤에 맞춰 subtle 보더와 surface 헤더/푸터 기준으로 정리
+ * 2026.03.28  임도헌   Modified  제품 검색의 다크 유틸리티 맥락에 맞춰 적용 버튼을 quiet-dark primary로 정규화
+ * 2026.04.02  임도헌   Modified  검색 필터 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 드롭다운 헤더 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-"use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { Category } from "@/generated/prisma/client";
-import { FilterState } from "@/features/product/types";
 import BottomSheet from "@/components/global/BottomSheet";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSearchParamsUtils } from "@/features/search/hooks/useSearchParamsUtils";
+import type { SearchFilterValues } from "@/features/search/types";
 import CategoryFilter from "@/features/search/components/filters/CategoryFilter";
 import PriceFilter from "@/features/search/components/filters/PriceFilter";
 import GameTypeFilter from "@/features/search/components/filters/GameTypeFilter";
@@ -34,7 +42,7 @@ interface SearchFiltersProps {
   isOpen: boolean;
   onClose: () => void;
   categories: Category[];
-  filters: FilterState;
+  filters: SearchFilterValues;
 }
 
 /**
@@ -46,7 +54,8 @@ interface SearchFiltersProps {
  *
  * [기능]
  * - 임시 필터 상태(`tempFilters`)를 관리하며, '적용' 버튼 클릭 시 URL에 반영
- * - '초기화' 버튼으로 모든 필터를 리셋
+ * - 시트 내부 '초기화' 버튼은 임시 선택값만 리셋하고 URL은 유지
+ * - 기존 category 필터가 있으면 대분류 선택 상태를 역추적해 복원
  */
 export default function SearchFilters({
   isOpen,
@@ -54,9 +63,9 @@ export default function SearchFilters({
   categories,
   filters,
 }: SearchFiltersProps) {
-  const { buildSearchParams } = useSearchParamsUtils();
+  const { applyFilterParams } = useSearchParamsUtils();
 
-  const [tempFilters, setTempFilters] = useState<FilterState>(filters);
+  const [tempFilters, setTempFilters] = useState<SearchFilterValues>(filters);
   const [selectedParentCategory, setSelectedParentCategory] =
     useState<string>("");
 
@@ -88,6 +97,26 @@ export default function SearchFilters({
     setTempFilters(filters);
   }, [filters]);
 
+  useEffect(() => {
+    if (!filters.category) {
+      setSelectedParentCategory("");
+      return;
+    }
+
+    const selectedCategory = categories.find(
+      (category) => String(category.id) === filters.category
+    );
+
+    if (!selectedCategory) {
+      setSelectedParentCategory("");
+      return;
+    }
+
+    setSelectedParentCategory(
+      String(selectedCategory.parentId ?? selectedCategory.id)
+    );
+  }, [categories, filters.category]);
+
   const handleParentCategoryChange = useCallback((value: string) => {
     setSelectedParentCategory(value);
     setTempFilters((prev) => ({ ...prev, category: value }));
@@ -98,12 +127,12 @@ export default function SearchFilters({
   }, []);
 
   const handleApplyFilters = useCallback(() => {
-    buildSearchParams(tempFilters);
+    applyFilterParams(tempFilters);
     onClose();
-  }, [tempFilters, buildSearchParams, onClose]);
+  }, [tempFilters, applyFilterParams, onClose]);
 
   const handleResetFilters = useCallback(() => {
-    const resetFilters: FilterState = {
+    const resetFilters: SearchFilterValues = {
       category: "",
       minPrice: "",
       maxPrice: "",
@@ -117,7 +146,7 @@ export default function SearchFilters({
   const handlePriceChange = useCallback(
     (key: "minPrice" | "maxPrice", value: string) => {
       const numValue =
-        value === "" ? "" : Math.max(0, parseInt(value)).toString();
+        value === "" ? "" : Math.max(0, parseInt(value, 10)).toString();
       setTempFilters((prev) => ({ ...prev, [key]: numValue }));
     },
     []
@@ -134,6 +163,7 @@ export default function SearchFilters({
       ),
     [categories, selectedParentCategory]
   );
+  const hasChildCategories = childCategories.length > 0;
 
   if (!isOpen) return null;
 
@@ -155,7 +185,7 @@ export default function SearchFilters({
             </button>
             <button
               onClick={handleApplyFilters}
-              className="flex-1 btn-primary h-12 text-sm"
+              className="flex-1 btn-primary-quiet-dark h-12 text-sm"
             >
               적용하기
             </button>
@@ -165,6 +195,7 @@ export default function SearchFilters({
         <CategoryFilter
           parentCategories={parentCategories}
           childCategories={childCategories}
+          hasChildCategories={hasChildCategories}
           selectedParentCategory={selectedParentCategory}
           onParentChange={handleParentCategoryChange}
           selectedChildCategory={tempFilters.category ?? ""}
@@ -196,23 +227,24 @@ export default function SearchFilters({
       <div className="hidden md:block absolute top-full right-0 mt-2 w-80 z-50 origin-top-right">
         <div
           ref={wrapperRef}
-          className="bg-surface rounded-xl shadow-xl border border-border overflow-hidden animate-fade-in"
+          className="overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-xl"
         >
-          <div className="flex justify-between items-center px-4 py-3 border-b border-border bg-surface-dim">
-            <h3 className="font-semibold text-primary">상세 필터</h3>
+          <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-4 py-3">
+            <h3 className="font-medium text-primary">상세 필터</h3>
             <button
               onClick={onClose}
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
               aria-label="필터 닫기"
             >
               <XMarkIcon className="size-5" />
             </button>
           </div>
 
-          <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide">
+          <div className="max-h-[60dvh] space-y-4 overflow-y-auto p-5 scrollbar-hide">
             <CategoryFilter
               parentCategories={parentCategories}
               childCategories={childCategories}
+              hasChildCategories={hasChildCategories}
               selectedParentCategory={selectedParentCategory}
               onParentChange={handleParentCategoryChange}
               selectedChildCategory={tempFilters.category ?? ""}
@@ -239,7 +271,7 @@ export default function SearchFilters({
             </div>
           </div>
 
-          <div className="p-4 border-t border-border flex gap-3 bg-surface-dim">
+          <div className="flex gap-3 border-t border-border-subtle bg-surface p-4">
             <button
               onClick={handleResetFilters}
               className="flex-1 btn-secondary text-xs h-9"
@@ -248,7 +280,7 @@ export default function SearchFilters({
             </button>
             <button
               onClick={handleApplyFilters}
-              className="flex-1 btn-primary text-xs h-9"
+              className="flex-1 btn-primary-quiet-dark text-xs h-9"
             >
               적용
             </button>

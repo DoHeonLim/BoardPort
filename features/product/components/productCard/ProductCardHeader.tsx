@@ -12,6 +12,9 @@
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.26  임도헌   Modified  게임 타입 UI 수정
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서 헤더 정보 밀도와 말줄임 폭을 조정
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 헤더의 초소형 타이포 스케일을 단순화
+ * 2026.05.03  임도헌   Modified  카테고리 경로가 남는 폭을 활용하도록 고정 max-width 제거
+ * 2026.05.04  임도헌   Modified  좁은 상품 카드에서는 카테고리 경로를 숨길 수 있도록 반응형 옵션 추가
  */
 
 import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
@@ -29,6 +32,7 @@ interface ProductCardHeaderProps {
       icon: string | null;
     } | null;
   };
+  hideCategoryOnMobile?: boolean;
 }
 
 /**
@@ -39,20 +43,26 @@ export function ProductCardHeader({
   gameType,
   viewMode = "list",
   category,
+  hideCategoryOnMobile = false,
 }: ProductCardHeaderProps) {
   const isGrid = viewMode === "grid";
+  const categoryPath = category
+    ? `${category.parent ? `${category.parent.icon ?? ""} ${category.parent.kor_name} > ` : ""}${category.icon ?? ""} ${category.kor_name}`.trim()
+    : "";
 
   return (
     <div
       className={cn(
-        "flex items-center text-muted",
-        isGrid ? "gap-1 text-[9px] sm:gap-1.5 sm:text-xs" : "gap-1.5 text-[10px] sm:text-xs"
+        "flex min-w-0 max-w-full items-center text-muted",
+        isGrid
+          ? "gap-1 text-xs sm:gap-1.5"
+          : "gap-1.5 text-xs"
       )}
     >
       <span
         className={cn(
           "inline-flex items-center rounded-[4px] font-bold tracking-tight shrink-0",
-          isGrid ? "px-1.5 py-0.5 text-[9px]" : "px-1.5 py-0.5 text-[9px] sm:text-[10px]",
+          "px-1.5 py-0.5 text-xs",
           "bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-gray-100 hover:bg-brand/20 transition-colors"
         )}
       >
@@ -62,23 +72,22 @@ export function ProductCardHeader({
 
       {category && (
         <>
-          <span className="text-border dark:text-neutral-700">|</span>
           <span
             className={cn(
-              "truncate text-muted flex items-center gap-0.5",
-              isGrid ? "max-w-[90px] sm:max-w-[140px]" : "max-w-[140px] sm:max-w-none"
+              "shrink-0 text-border dark:text-neutral-700",
+              hideCategoryOnMobile && "hidden sm:inline"
             )}
           >
-            {/* 부모 카테고리는 sm 이상에서만 노출 */}
-            {category.parent && (
-              <span className="hidden sm:inline">
-                {category.parent.icon} {category.parent.kor_name} &gt;
-              </span>
+            |
+          </span>
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-muted",
+              hideCategoryOnMobile && "hidden sm:block"
             )}
-            {/* 자식 카테고리는 항상 노출 */}
-            <span>
-              {category.icon} {category.kor_name}
-            </span>
+            title={categoryPath}
+          >
+            {categoryPath}
           </span>
         </>
       )}

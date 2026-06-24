@@ -1,13 +1,13 @@
 /**
  * File Name : features/stream/actions/comments.ts
- * Description : 녹화본 댓글 Controller
+ * Description : 녹화본 댓글 서버 액션
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2025.08.04  임도헌   Created   녹화본 댓글 작성 및 삭제 서버 액션 구현 (legacy liveStream)
  * 2025.09.20  임도헌   Modified  VodAsset 단위로 전환 (RecordingComment.vodId)
- * 2026.01.23  임도헌   Modified  Service(comment.ts) 연동 및 Controller 역할 정립
+ * 2026.01.23  임도헌   Modified  Service(comment.ts) 연동 및 서버 액션 역할 정립
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/[id]/recording/actions/comments.ts -> features/stream/actions/comment.ts
  * 2026.02.05  임도헌   Modified  댓글 조회 시 세션 ID 전달
@@ -15,6 +15,9 @@
  * 2026.03.05  임도헌   Modified  Action 내 서버 캐시 무효화(`revalidateTag`) 기능 완전 제거 및 순수 결과 반환 구조로 리팩토링
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  댓글 생성/삭제 에러 코드를 세분화
+ * 2026.03.31  임도헌   Modified  Action 역할과 커서 조회/오류 반환 흐름 설명 보강
+ * 2026.05.13  임도헌   Modified  댓글 조회 액션이 nextCursor를 함께 반환하도록 페이징 응답 구조 정리
+ * 2026.05.16  임도헌   Modified  댓글 액션 에러 분기를 unknown-safe 방식으로 정리
  */
 "use server";
 
@@ -26,12 +29,15 @@ import {
 } from "@/features/stream/service/comment";
 import { streamCommentFormSchema } from "@/features/stream/schemas";
 
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "";
+
 /**
  * 스트리밍 녹화본(VOD) 댓글 페이징 조회 Server Action
  *
- * [데이터 페칭 및 권한 로직]
- * - 로그인 세션(viewerId) 확인을 통해 대상 VOD에 대한 차단 유저 콘텐츠 필터링 적용
- * - 무한 스크롤 조회를 위한 커서 기반 페이징 데이터 및 다음 커서 정보 반환
+ * [기능]
+ * - 커서 기반 무한 스크롤 조회를 service 계층에 위임
+ * - 로그인 세션(viewerId) 기준으로 차단 유저 댓글 필터링을 함께 적용
  *
  * @param {number} vodId - 댓글을 조회할 녹화본 ID
  * @param {number} [cursor] - 이전 페이지의 마지막 댓글 ID
@@ -50,9 +56,10 @@ export const getRecordingCommentsListAction = async (
 /**
  * 녹화본 댓글 작성 Server Action
  *
- * [데이터 가공 및 권한 로직]
- * - 로그인 세션 확인 및 Zod 스키마(`streamCommentFormSchema`)를 통한 폼 데이터 유효성 검증 적용
- * - Service 레이어를 호출하여 신규 댓글 정보(payload, vodId) 데이터 영속화 처리
+ * [기능]
+ * - 로그인 세션을 확인하고 Zod 스키마로 입력값을 검증
+ * - 녹화본 댓글 생성을 service 계층에 위임
+ * - 실패 코드는 클라이언트 토스트/에러 분기에 맞춰 표준화된 상수로 반환
  *
  * @param {FormData} formData - 댓글 텍스트 및 녹화본 ID 포함 데이터
  * @returns {Promise<{success: boolean, error?: string}>} 처리 결과 반환
@@ -78,11 +85,12 @@ export const createRecordingComment = async (formData: FormData) => {
     );
 
     return { success: true as const };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("댓글 생성 실패:", e);
-    if (e.message === "BANNED_USER")
+    const message = getErrorMessage(e);
+    if (message === "BANNED_USER")
       return { success: false as const, error: "BANNED_USER" as const };
-    if (e.message === "FORBIDDEN")
+    if (message === "FORBIDDEN")
       return { success: false as const, error: "FORBIDDEN" as const };
     return { success: false as const, error: "CREATE_FAILED" as const };
   }
@@ -91,9 +99,9 @@ export const createRecordingComment = async (formData: FormData) => {
 /**
  * 녹화본 댓글 삭제 Server Action
  *
- * [데이터 가공 및 권한 로직]
- * - 로그인 세션 확인 및 Service 레이어 호출을 통한 삭제 권한 검증(본인 확인) 적용
- * - 해당 댓글 정보 물리적 삭제(Hard Delete) 처리
+ * [기능]
+ * - 로그인 세션을 확인하고 삭제를 service 계층에 위임
+ * - 실패 코드는 클라이언트 토스트/에러 분기에 맞춰 표준화된 상수로 반환
  *
  * @param {number} commentId - 삭제할 댓글 ID
  * @returns {Promise<{success: boolean, error?: string}>} 처리 결과 반환
@@ -105,13 +113,14 @@ export const deleteRecordingComment = async (commentId: number) => {
   try {
     await deleteService(commentId, session.id);
     return { success: true as const };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("댓글 삭제 실패:", e);
-    if (e.message === "BANNED_USER")
+    const message = getErrorMessage(e);
+    if (message === "BANNED_USER")
       return { success: false, error: "BANNED_USER" as const };
-    if (e.message === "NOT_FOUND")
+    if (message === "NOT_FOUND")
       return { success: false, error: "NOT_FOUND" as const };
-    if (e.message === "FORBIDDEN")
+    if (message === "FORBIDDEN")
       return { success: false, error: "FORBIDDEN" as const };
     return { success: false, error: "DELETE_FAILED" as const };
   }

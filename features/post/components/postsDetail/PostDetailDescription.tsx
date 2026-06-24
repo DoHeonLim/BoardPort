@@ -1,6 +1,6 @@
 /**
- * File Name : features/post/components/postDetail/PostDetailDescription
- * Description : 게시글 상세 설명
+ * File Name : features/post/components/postsDetail/PostDetailDescription.tsx
+ * Description : 게시글 상세 본문 텍스트 렌더러
  * Author : 임도헌
  *
  * History
@@ -18,9 +18,8 @@ interface PostDetailDescriptionProps {
 }
 
 /**
- * 게시글 본문을 표시
- * - 줄바꿈(whitespace-pre-wrap)을 보존
- * - 긴 단어는 줄바꿈(break-words) 처리
+ * 게시글 TEXT 블록 본문 렌더러
+ * 줄바꿈과 긴 단어 개행을 유지해 작성 화면의 읽기 흐름을 그대로 보여준다.
  */
 export default function PostDetailDescription({
   description,

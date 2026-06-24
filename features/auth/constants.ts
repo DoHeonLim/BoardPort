@@ -9,9 +9,11 @@
  * 2026.01.24  임도헌   Modified  AUTH_ERRORS를 lib/constants에서 이관
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.24  임도헌   Modified  카카오 로그인 관련 에러 메시지 추가
+ * 2026.04.02  임도헌   Modified  이메일 인증/비밀번호 재설정/인증 후 복귀 정책 상수 추가
+ * 2026.05.16  임도헌   Modified  타입 전용 import를 명시해 런타임 의존성 제거
  */
 
-import { EmailVerifyState } from "@/features/auth/types";
+import type { EmailVerifyState } from "@/features/auth/types";
 
 /** 이메일 인증 폼 초기 상태 */
 export const INITIAL_EMAIL_VERIFY_STATE: EmailVerifyState = {
@@ -23,6 +25,29 @@ export const INITIAL_EMAIL_VERIFY_STATE: EmailVerifyState = {
   sent: false,
 };
 
+/** 이메일 인증 정책값 */
+/** 이메일 재발송 쿨다운(초) */
+export const EMAIL_VERIFY_RESEND_COOLDOWN_SECONDS = 180;
+/** 이메일 인증 토큰 유효 시간(ms) */
+export const EMAIL_VERIFY_TOKEN_TTL_MS = 10 * 60 * 1000;
+
+/** 비밀번호 재설정 정책값 */
+/** 비밀번호 재설정 토큰 유효 시간(ms) */
+export const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+/** 비밀번호 재설정 재요청 쿨다운(ms) */
+export const PASSWORD_RESET_COOLDOWN_MS = 3 * 60 * 1000;
+
+/** 인증 완료 후 자기 자신으로 복귀시키지 않을 경로 */
+export const POST_AUTH_BLOCKED_PREFIXES = [
+  "/login",
+  "/create-account",
+  "/sms",
+  "/onboarding",
+] as const;
+
+/** SMS 자동 생성 유저명처럼 보완이 필요한 임시 닉네임 패턴 */
+export const TEMP_USERNAME_REGEX = /^user_[0-9a-f]{8}$/i;
+
 /** 인증 관련 에러 메시지 모음 */
 export const AUTH_ERRORS = {
   NOT_LOGGED_IN: "로그인이 필요합니다.",
@@ -31,10 +56,13 @@ export const AUTH_ERRORS = {
 
   // Login
   INVALID_CREDENTIALS: "이메일 또는 비밀번호가 잘못되었습니다.",
+  INVALID_RESET_TOKEN: "재설정 링크가 만료되었거나 유효하지 않습니다.",
 
   // Register
   USERNAME_TAKEN: "이미 사용 중인 닉네임입니다.",
   EMAIL_TAKEN: "이미 가입된 이메일입니다.",
+  EMAIL_TAKEN_BY_SOCIAL:
+    "이미 소셜 로그인으로 가입된 이메일입니다. 기존 소셜 로그인을 이용해주세요.",
   PHONE_TAKEN: "이미 사용 중인 전화번호입니다.",
 
   // SMS

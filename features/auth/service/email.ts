@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/service/email.ts
- * Description : 이메일 인증 서버 액션 (토큰 전송/검증)
+ * Description : 이메일 인증 비즈니스 로직 (토큰 전송/검증)
  * Author : 임도헌
  *
  * History
@@ -23,9 +23,13 @@
  * 2026.01.25  임도헌   Modified   주석 보강
  * 2026.02.23  임도헌   Modified   토큰 삭제 및 인증 상태 업데이트 트랜잭션 원자성 보장
  * 2026.03.05  임도헌   Modified   개인화 캐시 태그 파편화 제거 및 클라이언트 상태 동기화(`revalidatePath`) 기반 갱신으로 단순화
+ * 2026.03.14  임도헌   Modified   메일 발송 전 테스트/예약 도메인 차단 및 MX 검사 적용
+ * 2026.03.17  임도헌   Modified   새 인증 메일 발송 성공 후에만 이전 토큰을 정리해 발송 실패 시 기존 유효 토큰 보존
+ * 2026.04.02  임도헌   Modified   내부 인증 helper JSDoc 보강
+ * 2026.05.16  임도헌   Modified   서버 액션 래퍼를 actions/email.ts로 분리하고 서비스는 인증 처리만 담당
  */
 
-"use server";
+import "server-only";
 import { z, type typeToFlattenedError } from "zod";
 import validator from "validator";
 import { revalidatePath } from "next/cache";
@@ -34,6 +38,11 @@ import db from "@/lib/db";
 import { badgeChecks } from "@/features/user/service/badge";
 import { sendEmail } from "@/features/auth/utils/mailer";
 import { handleGetToken } from "@/features/auth/service/token";
+import { validateDeliverableEmail } from "@/features/auth/utils/emailDeliverability";
+import {
+  EMAIL_VERIFY_RESEND_COOLDOWN_SECONDS,
+  EMAIL_VERIFY_TOKEN_TTL_MS,
+} from "@/features/auth/constants";
 import type { EmailVerifyState } from "@/features/auth/types";
 
 const emailSchema = z
@@ -46,10 +55,11 @@ const tokenFormatSchema = z
   .trim()
   .regex(/^\d{6}$/, "인증번호는 6자리 입니다.");
 
-const RESEND_COOLDOWN_SECONDS = 180; // 3분 (서버 SSOT)
-const TOKEN_TTL_MS = 10 * 60 * 1000; // 10분 유효
-
 type Intent = "request" | "resend" | "verify";
+
+/**
+ * 폼 입력값을 이메일 인증 intent 유니온으로 정규화
+ */
 function parseIntent(v: unknown): Intent {
   if (v === "resend") return "resend";
   if (v === "verify") return "verify";
@@ -69,16 +79,21 @@ function firstZodMessage(flat: typeToFlattenedError<string, string>): string {
   return "인증에 실패했습니다.";
 }
 
+/**
+ * 마지막 토큰 생성 시각 기준으로 남은 재전송 쿨다운 계산
+ */
 function calcCooldownRemainingFromCreatedAt(createdAt: Date): number {
   const elapsedSeconds = Math.floor((Date.now() - createdAt.getTime()) / 1000);
-  return Math.max(0, RESEND_COOLDOWN_SECONDS - elapsedSeconds);
+  return Math.max(0, EMAIL_VERIFY_RESEND_COOLDOWN_SECONDS - elapsedSeconds);
 }
 
 /**
- * 이메일 인증 프로세스 메인 핸들러 (useFormState Action)
+ * 이메일 인증 프로세스 메인 핸들러
  *
  * 1. Intent가 'request' 또는 'resend'일 때:
+ *    - 메일 발송 가능 이메일 주소 검증(테스트/예약 도메인 차단, MX 검사)
  *    - 쿨다운(3분) 체크 후 인증 토큰 생성 및 이메일 발송
+ *    - 새 메일 발송 성공 후 이전 토큰 정리로 기존 유효 토큰 보존
  *    - 클라이언트 상태(sent, cooldownRemaining) 반환
  *
  * 2. Intent가 'verify'일 때:
@@ -88,9 +103,9 @@ function calcCooldownRemainingFromCreatedAt(createdAt: Date): number {
  *
  * @param {EmailVerifyState} prevState - 이전 폼 상태
  * @param {FormData} formData - 폼 데이터 (email, token, intent)
- * @returns {Promise<EmailVerifyState>} 업데이트된 상태 (성공/실패/진행중)
+ * @returns {Promise<EmailVerifyState>} 요청/검증/쿨다운 상태 포함 결과
  */
-export async function verifyEmail(
+export async function handleEmailVerification(
   prevState: EmailVerifyState,
   formData: FormData
 ): Promise<EmailVerifyState> {
@@ -106,6 +121,14 @@ export async function verifyEmail(
 
   // 1. 토큰 요청/재전송 처리
   if (intent === "request" || intent === "resend") {
+    const deliverabilityError = await validateDeliverableEmail(email);
+    if (deliverabilityError) {
+      return {
+        token: false,
+        error: { formErrors: [deliverabilityError] },
+      };
+    }
+
     const latest = await db.emailToken.findFirst({
       where: { email },
       orderBy: { created_at: "desc" },
@@ -125,26 +148,35 @@ export async function verifyEmail(
       }
     }
 
-    // 기존 토큰 정리 및 새 토큰 생성
-    await db.emailToken.deleteMany({ where: { email } });
-
     const code = await handleGetToken();
-    await db.emailToken.create({
+    const createdToken = await db.emailToken.create({
       data: {
         token: code,
         email,
-        expires_at: new Date(Date.now() + TOKEN_TTL_MS),
+        expires_at: new Date(Date.now() + EMAIL_VERIFY_TOKEN_TTL_MS),
         user: { connect: { email } },
       },
     });
 
-    // 이메일 발송
-    await sendEmail(email, code);
+    try {
+      // 새 인증 메일이 실제로 발송되기 전에는 기존 유효 토큰 유지
+      await sendEmail(email, code);
+      await db.emailToken.deleteMany({
+        where: {
+          email,
+          NOT: { id: createdToken.id },
+        },
+      });
+    } catch (error) {
+      // 발송 실패 시 방금 만든 토큰만 롤백해 기존 유효 토큰 보존
+      await db.emailToken.delete({ where: { id: createdToken.id } });
+      throw error;
+    }
 
     return {
       token: true,
       email,
-      cooldownRemaining: RESEND_COOLDOWN_SECONDS,
+      cooldownRemaining: EMAIL_VERIFY_RESEND_COOLDOWN_SECONDS,
       sent: true,
     };
   }

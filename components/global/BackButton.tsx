@@ -13,15 +13,21 @@
  * 2026.01.10  임도헌   Modified  터치 타겟(44px) 확보 및 시맨틱 스타일 적용
  * 2026.01.16  임도헌   Moved     components/common -> components/global
  * 2026.02.26  임도헌   Modified  버튼 사이즈 11로 통일
+ * 2026.03.13  임도헌   Modified  returnTo 쿼리를 우선 복귀 경로로 선택할 수 있도록 보강하고 appbar 톤을 flat 헤더 기준으로 정리
+ * 2026.03.14  임도헌   Modified  SPA 전환 시 document.referrer가 비어도 내부 히스토리가 있으면 router.back()을 우선 사용하도록 보완
+ * 2026.03.18  임도헌   Modified  공통 뒤로가기에서도 returnTo/fallbackHref를 정규화하고 referrer 파싱 예외를 방어
+ * 2026.04.02  임도헌   Modified  appbar 변형의 보더·링 대비를 조정해 라이트모드 헤더 위에서도 윤곽이 흐려지지 않도록 정리
  */
 "use client";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
 
 type Props = {
   fallbackHref?: string; // 히스토리 없을 때 이동할 안전 경로
+  useReturnTo?: boolean; // 현재 URL의 returnTo 쿼리를 우선 복귀 경로로 사용할지 여부
   variant?: "appbar" | "inline"; // appbar: 상단바(배경O), inline: 컨텐츠 내(배경X)
   label?: string;
   className?: string;
@@ -29,33 +35,56 @@ type Props = {
 
 export default function BackButton({
   fallbackHref = "/",
+  useReturnTo = false,
   variant = "appbar",
   label = "뒤로가기",
   className = "",
 }: Props) {
   const router = useRouter();
   const [canGoBack, setCanGoBack] = useState(false);
+  const [resolvedFallbackHref, setResolvedFallbackHref] =
+    useState(sanitizeCallbackUrl(fallbackHref));
 
   useEffect(() => {
     // 히스토리 길이로 1차 판단
     setCanGoBack(window.history.length > 1);
-  }, []);
+
+    if (useReturnTo) {
+      // 공통 뒤로가기도 현재 URL의 returnTo를 내부 경로 기준으로만 복원
+      const rawReturnTo = new URLSearchParams(window.location.search).get(
+        "returnTo"
+      );
+      setResolvedFallbackHref(
+        rawReturnTo != null
+          ? sanitizeCallbackUrl(rawReturnTo)
+          : sanitizeCallbackUrl(fallbackHref)
+      );
+    } else {
+      setResolvedFallbackHref(sanitizeCallbackUrl(fallbackHref));
+    }
+  }, [fallbackHref, useReturnTo]);
 
   const handleClick = () => {
-    if (
-      canGoBack &&
-      document.referrer &&
-      new URL(document.referrer).origin === window.location.origin
-    ) {
+    let hasExternalReferrer = false;
+    if (document.referrer) {
+      try {
+        hasExternalReferrer =
+          new URL(document.referrer).origin !== window.location.origin;
+      } catch {
+        hasExternalReferrer = false;
+      }
+    }
+
+    if (canGoBack && !hasExternalReferrer) {
       router.back();
     } else {
-      router.push(fallbackHref);
+      router.push(resolvedFallbackHref);
     }
   };
 
   const base = cn(
     "inline-flex items-center justify-center rounded-xl transition active:scale-[.98]",
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+    "focus-ring-soft"
   );
 
   const styles =
@@ -63,9 +92,10 @@ export default function BackButton({
       ? cn(
           // [Appbar] 배경 있음, 테두리 있음
           "h-11 w-11 shrink-0",
-          "border border-border",
-          "bg-surface/80 backdrop-blur text-primary",
-          "hover:bg-surface-dim"
+          "border border-border/80 dark:border-border-subtle",
+          "bg-background/92 text-primary shadow-sm backdrop-blur-sm",
+          "ring-1 ring-black/5 dark:ring-white/5",
+          "hover:bg-surface hover:border-border dark:hover:bg-surface-dim"
         )
       : cn(
           // [Inline] 배경 없음, 텍스트만

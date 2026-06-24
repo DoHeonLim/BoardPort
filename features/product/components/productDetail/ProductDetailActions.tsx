@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/components/productDetail/ProductDetailActions.tsx
- * Description : 하단 고정 액션바 (좋아요, 채팅/수정)
+ * Description : 하단 고정 액션바 (좋아요, 채팅/UP)
  * Author : 임도헌
  *
  * History
@@ -10,19 +10,22 @@
  * 2026.01.17  임도헌   Moved     components/product -> features/product/components
  * 2026.01.25  임도헌   Modified  주석 및 컴포넌트 구조 설명 보강
  * 2026.02.05  임도헌   Modified  bumpCount prop 추가 및 횟수 제한 UI 적용
- * 2026.03.05  임도헌   Modified  isModalContext 기반 edit 링크 replace 분기 추가
+ * 2026.03.19  임도헌   Modified  하단 액션바의 반투명/블러 톤을 줄이고 solid 패널 기준으로 정리
+ * 2026.03.25  임도헌   Modified  모바일 하단 액션바 높이/그림자 밀도를 줄이고 owner 액션 비중을 재조정
+ * 2026.04.06  임도헌   Modified  수정/삭제를 상단 owner 메뉴로 이동하고 하단 액션바는 UP 중심으로 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 상세 액션바 타이포 무게를 정리
+ * 2026.04.20  임도헌   Modified  owner용 UP 버튼 포커스가 배경에 묻히지 않도록 inset 강조 기준으로 조정
+ * 2026.06.17  임도헌   Modified  좋아요 상태 캐시 분리를 위해 viewerId 전달
  */
 "use client";
 
 import { useTransition } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import ProductLikeButton from "@/features/product/components/ProductLikeButton";
 import ChatButton from "@/features/chat/components/ChatButton";
 import { MAX_BUMP_COUNT } from "@/features/product/constants";
 import { bumpProductAction } from "@/features/product/actions/bump";
-import { ArrowUpIcon, PencilSquareIcon } from "@heroicons/react/24/solid";
+import { ArrowUpIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
 interface ProductDetailActionsProps {
@@ -30,34 +33,27 @@ interface ProductDetailActionsProps {
   isLiked: boolean;
   likeCount: number;
   isOwner: boolean;
+  viewerId?: number | null;
   bumpCount?: number;
-  isModalContext?: boolean;
 }
 
 /**
  * 화면 하단에 고정되는 액션 버튼 영역
- * - 소유자: 수정 버튼 표시
- * - 방문자: 좋아요 버튼 + 채팅하기 버튼 표시
+ * - 공통: 좋아요 버튼 유지
+ * - 소유자: 끌어올리기 버튼 표시
+ * - 방문자: 채팅하기 버튼 표시
  */
 export default function ProductDetailActions({
   productId,
   isLiked,
   likeCount,
   isOwner,
+  viewerId = null,
   bumpCount = 0,
-  isModalContext = false,
 }: ProductDetailActionsProps) {
-  const [isPending, startTransition] = useTransition(); // 추가
-
+  const [isPending, startTransition] = useTransition();
   const isBumpMaxed = bumpCount >= MAX_BUMP_COUNT;
-  const sp = useSearchParams();
-  const returnTo = sp.get("returnTo");
-  const editHref =
-    returnTo && isModalContext
-      ? `/products/view/${productId}/edit?returnTo=${encodeURIComponent(returnTo)}&flow=modal-edit`
-      : `/products/view/${productId}/edit`;
 
-  // 끌어올리기 핸들러
   const handleBump = () => {
     startTransition(async () => {
       const res = await bumpProductAction(productId);
@@ -72,63 +68,52 @@ export default function ProductDetailActions({
   return (
     <div
       className={cn(
-        "w-full bg-surface/90 backdrop-blur-lg border-t border-border",
-        // 아이폰 하단 홈 바 여백을 고려하되 기본 패딩도 예쁘게 보장
-        "px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]",
-        // 모달에서 뜰 때 하단 그림자가 위로 자연스럽게 퍼지도록
-        "shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.2)]"
+        "w-full border-t border-border-subtle bg-surface",
+        "px-4 py-2.5 sm:py-3",
+        "pb-[max(env(safe-area-inset-bottom),0.5rem)] sm:pb-[max(env(safe-area-inset-bottom),0.75rem)]",
+        "shadow-[0_-2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_-2px_10px_rgba(0,0,0,0.16)]"
       )}
     >
-      <div className="flex items-center justify-between gap-4 max-w-mobile mx-auto">
-        {/* 좋아요 버튼 */}
+      <div className="mx-auto flex max-w-mobile items-center justify-between gap-3 sm:gap-4">
         <div className="shrink-0">
           <ProductLikeButton
             productId={productId}
             isLiked={isLiked}
             likeCount={likeCount}
+            viewerId={viewerId}
           />
         </div>
 
-        {/* 액션 버튼 그룹 */}
-        <div className="flex-1 flex gap-3 h-12">
+        <div className="flex h-11 flex-1 gap-2 sm:h-12 sm:gap-3">
           {isOwner ? (
-            <>
-              {/* 끌어올리기 버튼 (다크모드 가시성 개선) */}
-              <button
-                onClick={handleBump}
-                disabled={isPending || isBumpMaxed}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-xl font-bold text-sm border transition-all shadow-sm",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  isBumpMaxed
-                    ? "bg-surface-dim text-muted border-transparent"
-                    : "bg-surface text-brand border-brand/50 hover:bg-brand/5 dark:text-brand-light dark:border-brand-light/50 dark:hover:bg-brand-light/10 active:scale-[0.98]"
-                )}
-              >
-                {isPending ? (
-                  <span className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <ArrowUpIcon className="size-4" />
-                )}
-                <span>{isBumpMaxed ? "UP 마감" : "UP"}</span>
-                <span className="text-[10px] font-normal opacity-80">
-                  ({bumpCount}/{MAX_BUMP_COUNT})
-                </span>
-              </button>
-
-              {/* 수정 버튼 (시맨틱 btn-primary 적용) */}
-              <Link
-                href={editHref}
-                replace={!isModalContext}
-                className="flex-1 btn-primary flex items-center justify-center gap-1.5 h-12 shadow-sm"
-              >
-                <PencilSquareIcon className="size-4" />
-                <span>수정</span>
-              </Link>
-            </>
+            <button
+              onClick={handleBump}
+              disabled={isPending || isBumpMaxed}
+              className={cn(
+                "w-full",
+                "focus-ring-strong-inset flex items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-[background-color,color,border-color,box-shadow] sm:rounded-xl",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+                isBumpMaxed
+                  ? "bg-surface-dim text-muted border-transparent"
+                  : "border-brand/25 bg-brand/8 text-brand hover:bg-brand/12 dark:border-brand-light/30 dark:bg-brand-light/14 dark:text-brand-light dark:hover:bg-brand-light/18 active:scale-[0.98]"
+              )}
+            >
+              {isPending ? (
+                <span className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <ArrowUpIcon className="size-4" />
+              )}
+              <span>{isBumpMaxed ? "UP 마감" : "UP"}</span>
+              <span className="text-xs font-normal opacity-80">
+                ({bumpCount}/{MAX_BUMP_COUNT})
+              </span>
+            </button>
           ) : (
             <div className="w-full">
-              <ChatButton productId={productId} />
+              <ChatButton
+                productId={productId}
+                className="h-11 rounded-lg text-sm shadow-none sm:h-12 sm:rounded-xl sm:text-base sm:shadow-sm"
+              />
             </div>
           )}
         </div>

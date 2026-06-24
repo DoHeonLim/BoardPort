@@ -11,6 +11,8 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.19  임도헌   Modified  스트림 상세 톤에 맞춰 더보기 버튼을 언더라인 링크형에서 보조 칩형으로 정리
+ * 2026.03.20  임도헌   Modified  설명 토글 문구를 더 직접적으로 조정해 정보 카드 안에서 의미 전달을 보강
  */
 
 "use client";
@@ -39,8 +41,8 @@ export default function StreamDescription({
   description,
   collapsedLines = 2,
   compact = true,
-  expandLabel = "더보기",
-  collapseLabel = "접기",
+  expandLabel = "설명 더보기",
+  collapseLabel = "설명 접기",
   className = "",
 }: StreamDescriptionProps) {
   const contentId = useId();
@@ -104,7 +106,10 @@ export default function StreamDescription({
             aria-expanded={expanded}
             aria-controls={contentId}
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-primary transition-colors underline underline-offset-2"
+            className={cn(
+              "focus-ring-soft inline-flex min-h-[32px] items-center rounded-full border border-border-subtle bg-surface px-3 text-xs font-medium transition-colors",
+              "text-muted hover:bg-surface-dim hover:text-primary"
+            )}
           >
             {expanded ? collapseLabel : expandLabel}
           </button>

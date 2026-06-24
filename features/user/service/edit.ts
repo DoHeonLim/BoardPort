@@ -15,6 +15,8 @@
  * 2026.01.19  임도헌   Moved      lib/user -> features/user/lib
  * 2026.01.24  임도헌   Modified   editProfile, changePassword 로직 통합
  * 2026.03.07  임도헌   Modified   정지 유저 프로필 수정/비밀번호 변경 mutation 가드 추가
+ * 2026.03.12  임도헌   Modified   프로필 이미지 애니메이션 메타(avatarAnimated) 조회 및 저장 지원
+ * 2026.03.21  임도헌   Modified   방송국 소개 수정 전용 updateChannelDescriptionService 추가
  */
 
 import "server-only";
@@ -41,6 +43,7 @@ export async function getCurrentUserForEdit(
       username: true,
       email: true,
       avatar: true,
+      avatarAnimated: true,
       phone: true,
       github_id: true,
       kakao_id: true,
@@ -61,6 +64,7 @@ export async function getCurrentUserForEdit(
     username: user.username,
     email: user.email,
     avatar: user.avatar,
+    avatarAnimated: user.avatarAnimated,
     phone: user.phone,
     github_id: user.github_id,
     kakao_id: user.kakao_id,
@@ -75,6 +79,7 @@ export async function getCurrentUserForEdit(
 
 /**
  * 프로필 업데이트
+ * - avatarAnimated는 사용자 업로드 이미지가 GIF인지 여부를 저장
  */
 export async function updateProfileService(
   userId: number,
@@ -83,6 +88,7 @@ export async function updateProfileService(
     email?: string | null;
     password?: string | null;
     avatar?: string | null;
+    avatarAnimated?: boolean | null;
   },
   options: {
     needsEmailSetup: boolean;
@@ -102,6 +108,7 @@ export async function updateProfileService(
   const updateData: Prisma.UserUpdateInput = {
     username: usernameForDb,
     avatar: data.avatar,
+    avatarAnimated: data.avatar ? (data.avatarAnimated ?? false) : false,
   };
 
   // 2. 조건부 업데이트 (이메일/비밀번호는 최초 설정 시에만 허용)
@@ -153,6 +160,30 @@ export async function updateProfileService(
     }
 
     console.error("[updateProfileService]", e);
+    return { success: false, error: USER_ERRORS.SERVER_ERROR };
+  }
+}
+
+/**
+ * 방송국 전용 소개글 업데이트
+ */
+export async function updateChannelDescriptionService(
+  userId: number,
+  channelDescription: string | null
+): Promise<ServiceResult> {
+  const userStatus = await validateUserStatus(userId);
+  if (!userStatus.success) {
+    return { success: false, error: userStatus.error! };
+  }
+
+  try {
+    await db.user.update({
+      where: { id: userId },
+      data: { channelDescription },
+    });
+    return { success: true };
+  } catch (e) {
+    console.error("[updateChannelDescriptionService]", e);
     return { success: false, error: USER_ERRORS.SERVER_ERROR };
   }
 }

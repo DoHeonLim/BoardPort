@@ -15,12 +15,23 @@
  * 2026.01.14  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.13  임도헌   Modified  채널 히어로에서 상세 진입 시 현재 채널 경로를 returnTo로 함께 전달
+ * 2026.03.14  임도헌   Modified  빈 상태 이모지를 heroicon으로 교체해 Empty State 일관성을 맞춤
+ * 2026.03.17  임도헌   Modified  실시간 방송 섹션에 설명 문구와 패널 톤을 보강해 채널 헤더/다시보기 섹션과 밀도 일관화
+ * 2026.03.17  임도헌   Modified  히어로 패널 외곽선과 메타 간격을 border-border-subtle 기준으로 정리해 카드 톤 통일
+ * 2026.03.18  임도헌   Modified  현재 채널 경로를 내부 경로 기준으로 정규화한 필수 returnTo로 전달해 재사용 시 루트 복귀와 nested returnTo 예외를 함께 방지
+ * 2026.03.19  임도헌   Modified  채널 상단 정보량을 줄이기 위해 섹션 설명과 여백을 한 단계 압축
+ * 2026.03.25  임도헌   Modified  라이브 empty state의 세로 밀도를 소폭 낮춰 첫 화면 비어 보임을 완화
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 팔로우 CTA weight를 500 기준으로 정리
  */
 
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { VideoCameraIcon } from "@heroicons/react/24/outline";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import StreamCategoryTags from "@/features/stream/components/StreamDetail/StreamCategoryTags";
 import type { BroadcastSummary, ViewerRole } from "@/features/stream/types";
 
@@ -38,23 +49,42 @@ interface Props {
  * 2. 방송이 있을 경우 Cloudflare Player(iframe) 렌더링
  * 3. 접근 권한(Private, Followers Only)에 따라 잠금 화면(Teaser/Overlay) 표시
  * 4. 팔로워 전용 방송일 경우 팔로우 버튼으로 유도하는 CTA 제공
+ * 5. 상세 진입 시 현재 채널 경로를 정규화한 returnTo를 함께 전달
  */
 export default function LiveNowHero({ stream, role, onFollow }: Props) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // 채널 상세 진입 뒤에도 현재 채널 문맥으로 안전하게 복귀할 경로 계산
+  const currentHref = sanitizeCallbackUrl(
+    searchParams?.size ? `${pathname}?${searchParams.toString()}` : pathname
+  );
+
   return (
     <section className="mx-auto max-w-3xl px-4 w-full">
-      <h2 className="text-lg font-bold mb-3 text-primary flex items-center gap-2">
-        <span className="text-red-500 animate-pulse">●</span> 실시간 방송
-      </h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-primary flex items-center gap-2">
+          <span className="text-red-500 animate-pulse">●</span> 실시간 방송
+        </h2>
+        <p className="mt-0.5 text-sm text-muted">
+          진행 중인 방송이 있으면 여기에서 바로 볼 수 있습니다.
+        </p>
+      </div>
 
       {!stream ? (
-        // [수정] bg-neutral-100 -> bg-surface-dim, border 추가
-        <div className="flex flex-col items-center gap-2 py-12 rounded-2xl bg-surface-dim/50 border border-border text-muted">
-          <span className="text-2xl grayscale opacity-50">📡</span>
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-border-subtle bg-surface py-10 text-muted shadow-sm sm:py-12">
+          <div className="rounded-full bg-surface p-2.5 text-muted/60 shadow-sm sm:p-3">
+            <VideoCameraIcon className="size-6" />
+          </div>
           <p className="text-sm font-medium">현재 진행 중인 방송이 없습니다.</p>
         </div>
       ) : (
-        <div className="rounded-2xl overflow-hidden border border-border bg-surface shadow-sm transition-shadow hover:shadow-md">
-          <HeroMedia stream={stream} role={role} onFollow={onFollow} />
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-shadow hover:shadow-md">
+          <HeroMedia
+            stream={stream}
+            role={role}
+            onFollow={onFollow}
+            returnTo={currentHref}
+          />
           <HeroMeta stream={stream} />
         </div>
       )}
@@ -68,10 +98,12 @@ function HeroMedia({
   stream,
   role,
   onFollow,
+  returnTo,
 }: {
   stream: BroadcastSummary;
   role: ViewerRole;
   onFollow?: () => void;
+  returnTo: string;
 }) {
   /**
    * 시청 가능 여부 판단 (LiveNowHero의 핵심 규칙)
@@ -100,14 +132,16 @@ function HeroMedia({
         stream.visibility === "PRIVATE" && role !== "OWNER";
 
   const isPlayable = !isPrivateLocked && !isFollowersTeaser;
+  // 현재 채널 경로의 필수 returnTo 전달을 통한 재사용 시 루트 복귀 방지
+  const detailHref = `/streams/${stream.id}?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
     <div className="relative aspect-video bg-black">
       {isPlayable ? (
         <>
           <Link
-            href={`/streams/${stream.id}`}
-            className="absolute inset-0 z-10"
+            href={detailHref}
+            className="focus-ring-strong-inset absolute inset-0 z-10 rounded-2xl"
             aria-label="상세보기"
           >
             <span className="sr-only">상세보기</span>
@@ -154,12 +188,12 @@ function getCategoryIcon(
 
 function HeroMeta({ stream }: { stream: BroadcastSummary }) {
   return (
-    <div className="p-4 bg-surface">
-      <div className="text-lg font-bold line-clamp-2 text-primary leading-tight">
+    <div className="border-t border-border-subtle bg-surface px-4 py-4 sm:px-5">
+      <div className="line-clamp-2 text-lg font-bold leading-tight text-primary">
         {stream.title}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-2.5">
         <StreamCategoryTags
           category={
             stream.category
@@ -268,7 +302,7 @@ function FollowersTeaser({
         <button
           type="button"
           onClick={onFollow}
-          className="px-5 py-2.5 rounded-full bg-brand text-white text-sm font-semibold shadow hover:bg-brand-light transition"
+          className="focus-ring-strong rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-brand-light"
         >
           팔로우하고 시청하기
         </button>
@@ -336,8 +370,7 @@ function Badge({
   yellow?: boolean;
   orange?: boolean;
 }) {
-  const base =
-    "px-2 py-0.5 rounded text-xs font-bold shadow-sm backdrop-blur-[2px]";
+  const base = "rounded px-2 py-0.5 text-xs font-bold shadow-sm";
   const tone = red
     ? "bg-red-600/90 text-white"
     : yellow

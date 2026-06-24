@@ -5,9 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:e2e": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "install:e2e": "playwright install chromium",
+    "install:e2e:deps": "playwright install-deps chromium",
+    "test:e2e": "node scripts/ensure-e2e-server.mjs && playwright test",
+    "cleanup:e2e": "tsx scripts/cleanup-e2e.ts",
+    "seed:e2e": "tsx scripts/seed-e2e.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate"
   },
@@ -24,6 +32,8 @@
     "bcrypt": "^5.1.1",
     "clsx": "^2.1.1",
     "coolsms-node-sdk": "^2.1.0",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.6",
     "framer-motion": "^11.13.5",
     "iron-session": "^8.0.3",
     "next": "^14.2.26",
@@ -34,6 +44,7 @@
     "react-hook-form": "^7.53.2",
     "react-kakao-maps-sdk": "^1.2.0",
     "resend": "^4.2.0",
+    "server-only": "^0.0.1",
     "sharp": "^0.33.5",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.3.0",
@@ -44,6 +55,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/forms": "^0.5.9",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
@@ -58,6 +70,7 @@
     "prisma": "^7.0.1",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.20.6",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }

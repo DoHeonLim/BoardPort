@@ -15,6 +15,9 @@
  * 2026.03.03  임도헌   Modified   unstable_cache 래퍼 제거 및 함수명 단순화 (getAllBadges, getUserBadges)
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.07  임도헌   Modified   push 성공 판정 기준을 result.data.sent로 정정
+ * 2026.03.28  임도헌   Modified   뱃지 조건 주석을 사용자 친화 용어로 정리하고 최근 거래 기준 계산을 보강
+ * 2026.03.30  임도헌   Modified   게시글 카테고리 라벨 단순화에 맞춰 후기/공략 기준으로 뱃지 조건 주석을 정리
+ * 2026.05.26  임도헌   Modified   EARLY_SAILOR 기준일을 2027-01-01 이전 가입으로 조정
  */
 
 import "server-only";
@@ -36,6 +39,8 @@ import {
   isPopularity,
 } from "@/features/user/service/metric";
 import type { Badge } from "@/features/user/types";
+
+const EARLY_SAILOR_DEADLINE = new Date("2027-01-01T00:00:00.000Z");
 
 // -----------------------------------------------------------------------------
 // 1. 조회 (Read)
@@ -250,7 +255,7 @@ export const checkQuickResponseBadge = async (userId: number) => {
 };
 
 /**
- * [첫 항해일지] (FIRST_POST)
+ * [첫 게시글] (FIRST_POST)
  * - 조건: 게시글(Post) 1개 이상 작성
  * - 트리거: 게시글 작성 시점
  */
@@ -287,7 +292,7 @@ export const checkPopularWriterBadge = async (userId: number) => {
 
 /**
  * [열정적인 통신사] (ACTIVE_COMMENTER)
- * - 조건: (최근 30일) 댓글 30개 이상 작성 AND 그 중 '보물지도/항해일지' 카테고리 비율 30% 이상
+ * - 조건: (최근 30일) 댓글 30개 이상 작성 AND 그 중 '공략/후기' 카테고리 비율 30% 이상
  * - 트리거: 댓글 작성 시점
  */
 export const checkActiveCommenterBadge = async (userId: number) => {
@@ -310,7 +315,7 @@ export const checkActiveCommenterBadge = async (userId: number) => {
 
 /**
  * [규칙의 현자] (RULE_SAGE)
- * - 조건: '보물지도(MAP)' 카테고리 게시글 10개 이상 AND 해당 글들의 총 조회수 500회 이상
+ * - 조건: '공략(MAP)' 카테고리 게시글 10개 이상 AND 해당 글들의 총 조회수 500회 이상
  * - 트리거: 게시글 작성 시점 (조회수 증가는 별도 크론잡으로 체크 권장)
  */
 export const checkRuleSageBadge = async (userId: number) => {
@@ -396,7 +401,7 @@ export const checkGenreMasterBadge = async (userId: number) => {
 
 /**
  * [보드게임 탐험가] (BOARD_EXPLORER)
- * - 조건: 게임 타입 4종류 이상 거래 AND (MAP/LOG) 게시글 7개 이상 AND 인기 지수(Popularity) 달성
+ * - 조건: 게임 타입 4종류 이상 거래 AND '공략/후기' 게시글 7개 이상 AND 인기 지수(Popularity) 달성
  * - 트리거: 크론잡(Rolling Batch)으로 체크
  */
 export const checkBoardExplorerBadge = async (userId: number) => {
@@ -499,7 +504,7 @@ export const checkQualityMasterBadge = async (userId: number) => {
 
 /**
  * [첫 항해 선원] (EARLY_SAILOR)
- * - 조건: 2025-01-01 이전 가입 AND (게시글 1개 이상 OR 댓글 1개 이상)
+ * - 조건: 2027-01-01 이전 가입 AND (게시글 1개 이상 OR 댓글 1개 이상)
  * - 트리거: 게시글/댓글 작성 시점 (이벤트 참여)
  */
 export const checkEarlySailorBadge = async (userId: number) => {
@@ -509,9 +514,8 @@ export const checkEarlySailorBadge = async (userId: number) => {
       include: { posts: true, comments: true },
     });
     if (!user) return;
-    const deadline = new Date("2025-01-01");
     if (
-      user.created_at < deadline &&
+      user.created_at < EARLY_SAILOR_DEADLINE &&
       (user.posts.length > 0 || user.comments.length > 0)
     ) {
       await awardBadge(userId, "EARLY_SAILOR");
@@ -523,7 +527,7 @@ export const checkEarlySailorBadge = async (userId: number) => {
 
 /**
  * [항구 축제의 주인] (PORT_FESTIVAL)
- * - 조건: (최근 한 달) 게시글 3개 이상 AND 댓글 10개 이상 AND 거래 1회 이상
+ * - 조건: (최근 한 달) 게시글 3개 이상 AND 댓글 10개 이상 AND 최근 한 달 내 거래 완료 1회 이상
  * - 트리거: 크론잡(Rolling Batch)으로 체크
  */
 export const checkPortFestivalBadge = async (userId: number) => {
@@ -535,9 +539,11 @@ export const checkPortFestivalBadge = async (userId: number) => {
       db.comment.count({ where: { userId, created_at: { gte: lastMonth } } }),
       db.product.count({
         where: {
-          userId,
-          purchase_userId: { not: null },
-          created_at: { gte: lastMonth },
+          purchased_at: { gte: lastMonth },
+          OR: [
+            { userId, purchase_userId: { not: null } },
+            { purchase_userId: userId },
+          ],
         },
       }),
     ]);

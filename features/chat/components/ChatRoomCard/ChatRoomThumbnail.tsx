@@ -10,6 +10,9 @@
  * 2026.01.12  임도헌   Modified  [Rule 5.1] 시맨틱 토큰 적용
  * 2026.01.17  임도헌   Moved     components/chat -> features/chat/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
+ * 2026.03.12  임도헌   Modified  채팅방 썸네일에 GIF 조건부 최적화 예외 처리를 imageAnimated 메타로 연동
+ * 2026.04.14  임도헌   Modified  채팅 목록 최적화 대응으로 썸네일 초기 로드 비용을 낮춤
+ * 2026.05.26  임도헌   Modified  public variant가 붙은 상품 이미지에 avatar variant가 중복 조합되지 않도록 정규화
  */
 "use client";
 
@@ -25,6 +28,10 @@ interface ChatRoomThumbnailProps {
  * 채팅방 목록의 제품 썸네일 이미지
  */
 export default function ChatRoomThumbnail({ product }: ChatRoomThumbnailProps) {
+  const imageBaseUrl = product.imageUrl?.endsWith("/public")
+    ? product.imageUrl.slice(0, -"/public".length)
+    : product.imageUrl;
+
   return (
     <div
       className={cn(
@@ -32,13 +39,14 @@ export default function ChatRoomThumbnail({ product }: ChatRoomThumbnailProps) {
         "bg-surface-dim border border-border"
       )}
     >
-      {product.imageUrl ? (
+      {imageBaseUrl ? (
         <Image
-          src={`${product.imageUrl}/avatar`}
+          src={`${imageBaseUrl}/avatar`}
           alt={product.title}
           fill
+          sizes="(max-width: 640px) 48px, 56px"
+          unoptimized={!!product.imageAnimated}
           className="object-cover"
-          priority
         />
       ) : (
         <div className="flex items-center justify-center w-full h-full text-xs text-muted">

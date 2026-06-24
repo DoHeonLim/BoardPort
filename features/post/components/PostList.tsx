@@ -18,41 +18,70 @@
  * 2026.03.06  임도헌   Modified  뷰 토글 active 상태 및 다크모드 대비 보강
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드 간격을 조정해 게시글 카드 밀도를 더 촘촘하게 정리
  * 2026.03.06  임도헌   Modified  하단 무한스크롤 로딩 배지를 공통 유틸 클래스로 통일
+ * 2026.03.11  임도헌   Modified  currentRange를 queryKeyExtra로 전달해 지역 범위 전환 시 캐시 stale 방지
+ * 2026.03.12  임도헌   Modified  게시글 뷰 토글 외곽선을 border-border-subtle 톤으로 통일
+ * 2026.03.14  임도헌   Modified  첫 페이지 totalCount를 활용해 총 게시글 수와 뷰 토글을 같은 헤더 row로 정리
+ * 2026.03.26  임도헌   Modified  리스트 뷰 본문 폭과 헤더 간격을 조정해 게시글 카드 리듬을 정리
+ * 2026.04.14  임도헌   Modified  현재 목록 경로(returnTo) 계산을 상위 리스트로 승격해 카드별 훅 비용을 줄임
+ * 2026.04.14  임도헌   Modified  상단 3개 게시글 카드까지 우선 로드해 실제 LCP 후보를 lazy 대상에서 제외
+ * 2026.04.14  임도헌   Modified  LCP 우선 로드 카드 수 상수를 모듈 상단으로 분리하고 파생값 구간을 역할별로 정리
+ * 2026.05.30  임도헌   Modified  게시글 뷰 토글을 제품 목록 토글 톤과 통일
  */
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostCard from "@/features/post/components/postCard";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { PostSearchParams } from "@/features/post/types";
 import { cn } from "@/lib/utils";
 
 interface PostListProps {
   searchParams: PostSearchParams;
+  queryKeyExtra?: unknown;
 }
+
+const LCP_PRIORITY_CARD_COUNT = 3;
 
 /**
  * 게시글 목록 렌더링 컴포넌트
  *
  * [상태 주입 및 페이징 로직]
  * - `usePostPagination` 훅을 통한 캐시 데이터 추출 및 무한 스크롤 상태 전역 관리
+ * - queryKeyExtra(currentRange) 기준 캐시 분리
  * - 사용자 가시성(`usePageVisibility`) 기반의 `useInfiniteScroll` 스크롤 감지 및 페이징 요청 제어
  * - 뷰 모드(List/Grid) 전환 로컬 상태 관리 및 적용
+ * - 첫 페이지 `totalCount`를 활용한 총 게시글 수 문구 고정 표시
  * - 데이터 페칭 상태(`isFetchingNextPage`)에 따른 하단 스피너 조건부 렌더링 적용
  */
-export default function PostList({ searchParams }: PostListProps) {
+export default function PostList({
+  searchParams,
+  queryKeyExtra,
+}: PostListProps) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
   const triggerRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
 
   // Suspense에 의해 data 보장
-  const { posts, isFetchingNextPage, hasMore, loadMore } = usePostPagination({
-    searchParams,
-  });
+  const { posts, totalCount, isFetchingNextPage, hasMore, loadMore } =
+    usePostPagination({
+      searchParams,
+      queryKeyExtra,
+    });
+
+  // 렌더링용 파생값의 훅 호출 아래 1회 계산
+  const displayCount = totalCount ?? posts.length;
+  const returnTo = useMemo(() => {
+    const next = currentSearchParams.toString();
+    return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
+  }, [pathname, currentSearchParams]);
 
   useInfiniteScroll({
     triggerRef,
@@ -61,36 +90,41 @@ export default function PostList({ searchParams }: PostListProps) {
     isLoading: isFetchingNextPage,
     onLoadMore: loadMore,
     enabled: isVisible, // 탭이 백그라운드면 로딩 중단
-    rootMargin: "1000px 0px 0px 0px", // 조기 프리패치 여유
+    rootMargin: "0px 0px 1000px 0px", // 하단 조기 프리패치 여유
     threshold: 0.01,
   });
 
   return (
     <>
-      {/* 뷰 모드 전환 버튼 영역 */}
-      <div className="flex justify-end mb-4">
-        <div className="flex rounded-xl border border-border bg-surface-dim/80 p-1 shadow-sm">
+      <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-6">
+        <span className="shrink-0 text-sm font-medium text-muted">
+          총 <span className="font-bold text-primary">{displayCount}</span>개의
+          게시글
+        </span>
+
+        {/* 뷰 모드 전환 버튼 영역 */}
+        <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
           <button
             onClick={() => setViewMode("list")}
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "list"
-                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                : "text-muted hover:bg-background/70 hover:text-primary"
+                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                : "text-muted hover:bg-surface-dim hover:text-primary"
             )}
-            aria-label="리스트 뷰"
+            aria-label="리스트 보기"
           >
             <ListBulletIcon className="size-5" />
           </button>
           <button
             onClick={() => setViewMode("grid")}
             className={cn(
-              "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all",
+              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               viewMode === "grid"
-                ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                : "text-muted hover:bg-background/70 hover:text-primary"
+                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                : "text-muted hover:bg-surface-dim hover:text-primary"
             )}
-            aria-label="그리드 뷰"
+            aria-label="그리드 보기"
           >
             <Squares2X2Icon className="size-5" />
           </button>
@@ -102,11 +136,17 @@ export default function PostList({ searchParams }: PostListProps) {
         className={cn(
           viewMode === "grid"
             ? "grid grid-cols-2 gap-3 sm:gap-4"
-            : "grid grid-cols-1 gap-4"
+            : "mx-auto grid max-w-4xl grid-cols-1 gap-3 sm:gap-4"
         )}
       >
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} viewMode={viewMode} />
+        {posts.map((post, index) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            viewMode={viewMode}
+            isPriority={index < LCP_PRIORITY_CARD_COUNT}
+            returnTo={returnTo}
+          />
         ))}
       </div>
 

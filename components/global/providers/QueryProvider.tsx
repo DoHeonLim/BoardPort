@@ -7,12 +7,23 @@
  * Date        Author   Status    Description
  * 2026.02.28  임도헌   Created   QueryClient 초기화 및 Provider 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.13  임도헌   Modified  React Query Devtools를 동적 로딩으로 분리해 프로덕션 공통 번들 부담을 완화
+ * 2026.05.19  임도헌   Modified  서버 prefetch용 QueryClient와 같은 공용 팩토리를 사용해 기본 옵션 중복 선언 제거
  */
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import dynamic from "next/dynamic";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { getQueryClient } from "@/lib/getQueryClient";
+
+const ReactQueryDevtools = dynamic(
+  () =>
+    import("@tanstack/react-query-devtools").then(
+      (mod) => mod.ReactQueryDevtools
+    ),
+  { ssr: false, loading: () => null }
+);
 
 /**
  * TanStack Query v5 전역 Provider 세팅 컴포넌트
@@ -20,6 +31,7 @@ import { useState } from "react";
  * [상태 주입 및 제어 로직]
  * - Next.js App Router 호환 및 SSR 환경에서의 상태 오염 방지 적용
  * - `useState`를 사용한 1회성 QueryClient 인스턴스 생성
+ * - 서버 prefetch와 클라이언트 Provider가 같은 `getQueryClient` 기본 옵션을 공유
  * - 불필요한 자동 갱신(refetchOnWindowFocus) 비활성화 및 기본 staleTime(1분) 적용
  */
 export default function QueryProvider({
@@ -29,21 +41,8 @@ export default function QueryProvider({
 }) {
   const isDev = process.env.NODE_ENV === "development";
   // useState를 사용하여 컴포넌트 마운트 시 단 한 번만 QueryClient를 생성
-  // 이를 통해 다른 유저의 요청 간에 캐시가 공유되는 상태 오염을 방지
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            // SSR 환경을 고려하여 기본 staleTime을 1분으로 설정
-            // 즉시 refetch되는 것을 방지하여 서버 부하를 줄임
-            staleTime: 60 * 1000,
-            refetchOnWindowFocus: false, // 탭 전환 시 불필요한 자동 갱신 방지
-            retry: 1, // 실패 시 재시도 횟수
-          },
-        },
-      })
-  );
+  // 공용 팩토리를 사용해 서버 prefetch와 클라이언트 Provider의 기본 옵션 drift를 방지
+  const [queryClient] = useState(() => getQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>

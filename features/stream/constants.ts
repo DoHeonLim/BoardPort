@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/constants.ts
- * Description : 공통 스트리밍 select 쿼리 상수
+ * Description : 스트리밍 도메인 공용 상수
  * Author : 임도헌
  *
  * History
@@ -11,20 +11,24 @@
  * 2026.01.19  임도헌   Renamed   streamSelect -> constants 이름 변경
  * 2026.01.25  임도헌   Modified  도메인별 상수(AUTH, PRODUCT 등)를 각 Feature로 이관
  * 2026.01.25  임도헌   Modified  STREAM_SELECT 제거 -> BROADCAST_SUMMARY_SELECT로 대체 및 Enum 상수 추가
+ * 2026.03.12  임도헌   Modified  스트림 썸네일 애니메이션 메타 조회 필드 추가
+ * 2026.04.02  임도헌   Modified  BROADCAST_SUMMARY_SELECT를 selects.ts로 분리하고 스트림 상수 설명 보강
+ * 2026.04.03  임도헌   Modified  스트림 채팅 고정 공지 최대 길이 상수 추가
+ * 2026.05.16  임도헌   Modified  스트림 채팅 입력 제한과 전송 제한 상수 추가
  */
-
-import { Prisma } from "@/generated/prisma/client";
 
 // =============================================================================
 // 1. Enum / Visibility
 // =============================================================================
 
+/** 방송 공개 범위 목록 */
 export const STREAM_VISIBILITY = {
   PUBLIC: "PUBLIC",
   PRIVATE: "PRIVATE",
   FOLLOWERS: "FOLLOWERS",
 } as const;
 
+/** 방송 송출 상태 목록 */
 export const STREAM_STATUS = {
   CREATED: "CREATED",
   CONNECTED: "CONNECTED",
@@ -32,6 +36,7 @@ export const STREAM_STATUS = {
   ENDED: "ENDED",
 } as const;
 
+/** VOD 처리 상태 목록 */
 export const VOD_STATUS = {
   QUEUED: "QUEUED",
   INPROGRESS: "INPROGRESS",
@@ -43,12 +48,14 @@ export const VOD_STATUS = {
 // 2. Display Maps / Categories
 // =============================================================================
 
+/** 방송 공개 범위 표시 라벨 */
 export const STREAM_VISIBILITY_DISPLAY = {
   PUBLIC: "공개",
   PRIVATE: "비공개",
   FOLLOWERS: "팔로워",
 } as const;
 
+/** 스트리밍 카테고리 라벨 */
 export const STREAM_CATEGORY = {
   GAME_PLAY: "🎮 게임 플레이",
   REVIEW: "📝 리뷰",
@@ -56,36 +63,14 @@ export const STREAM_CATEGORY = {
   COMMUNITY: "💬 커뮤니티",
 } as const;
 
-// =============================================================================
-// 3. Prisma Select Queries
-// =============================================================================
+/** 스트림 채팅 상단 고정 공지 최대 길이 */
+export const STREAM_PINNED_NOTICE_MAX_LENGTH = 160;
 
-/**
- * 방송 목록/요약 조회용 공통 Select Query
- * (리스트, 그리드, 레일 등에서 사용)
- */
-export const BROADCAST_SUMMARY_SELECT = {
-  id: true,
-  title: true,
-  description: true,
-  thumbnail: true,
-  visibility: true,
-  status: true,
-  started_at: true,
-  ended_at: true,
-  liveInput: {
-    select: {
-      provider_uid: true, // stream_id
-      userId: true,
-      user: { select: { id: true, username: true, avatar: true } },
-    },
-  },
-  category: { select: { id: true, kor_name: true, icon: true } },
-  tags: { select: { name: true } },
-  // 최신 VOD ID (녹화본 이동용)
-  vodAssets: {
-    select: { id: true },
-    orderBy: { id: "desc" },
-    take: 1,
-  },
-} satisfies Prisma.BroadcastSelect;
+/** 스트림 채팅 메시지 최대 길이 */
+export const STREAM_CHAT_MESSAGE_MAX_LENGTH = 2000;
+
+/** 스트림 채팅 전송 제한 시간 창(ms) */
+export const STREAM_CHAT_RATE_LIMIT_WINDOW_MS = 10_000;
+
+/** 스트림 채팅 전송 제한 시간 창 안의 최대 메시지 수 */
+export const STREAM_CHAT_RATE_LIMIT_MAX = 10;

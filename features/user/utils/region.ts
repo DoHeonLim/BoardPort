@@ -7,16 +7,28 @@
  * Date        Author   Status    Description
  * 2026.02.20  임도헌   Created   지역 범위 비교 로직(isWithinRegionRange) 및 쿼리 빌더 분리
  * 2026.02.22  임도헌   Modified  위치 미설정 유저 방어(Fallback) 및 특수 행정구역 처리 일치화
+ * 2026.05.16  임도헌   Modified  지역 where 조건 타입을 명시해 any 제거
+ * 2026.06.04  임도헌   Modified  구/동 단위 필터에 1차 지역 조건을 함께 적용
+ * 2026.06.18  임도헌   Modified  도 단위 시/군 정규화 정책에 맞춰 주석 용어를 1차 지역 기준으로 정리
  */
 
 import type { RegionRange } from "@/generated/prisma/client";
+
+type RegionWhere = Partial<Record<"region1" | "region2" | "region3", string>>;
+
+function matchesRegion1(
+  userRegion1: string | null | undefined,
+  targetRegion1: string | null | undefined
+) {
+  return !!userRegion1 && userRegion1 === targetRegion1;
+}
 
 /**
  * 유저의 동네 설정 범위 안에 특정 지역이 포함되는지 확인
  *
  * - 위치 설정을 하지 않은 신규 유저는 전국(ALL) 매칭으로 처리하여 알림 누락을 방지
  * - 세종시 등 구(region2)가 없는 특수 행정구역의 경우, 'GU(보통)' 범위 선택 시
- *   시(region1) 전체가 아닌 동(region3) 단위로 좁혀서 비교
+ *   1차 지역(region1) 전체가 아닌 동(region3) 단위로 좁혀서 비교
  * - DB 쿼리 빌더(`buildRegionWhere`) 로직과 일치해야 함
  *
  * @param user - 유저 지역 정보 및 범위 설정
@@ -42,22 +54,34 @@ export function isWithinRegionRange(
     return true;
   }
 
-  // 구 존재 여부 파악 (세종시 등 판별)
+  // 구 존재 여부 파악 (세종시, 구가 없는 시/군 등 판별)
   const hasGu = !!user.region2 && user.region2 !== user.region1;
 
   switch (user.regionRange) {
     case "DONG":
-      // 1순위: 동(region3), 2순위: 구(region2)
-      if (user.region3) return user.region3 === target.region3;
+      // 1순위: 동(region3), 2순위: 구(region2). 같은 동/구 이름이 다른 1차 지역에 있어도 섞이지 않게 region1을 함께 비교.
+      if (!matchesRegion1(user.region1, target.region1)) return false;
+      if (user.region3) {
+        if (hasGu && user.region2 !== target.region2) return false;
+        return user.region3 === target.region3;
+      }
       return user.region2 === target.region2;
 
     case "GU":
       if (hasGu) {
-        // 일반 도시: '구' 단위 일치
-        return user.region2 === target.region2;
+        // 일반 도시: 같은 1차 지역 안의 '구' 단위 일치
+        return (
+          matchesRegion1(user.region1, target.region1) &&
+          user.region2 === target.region2
+        );
       } else {
-        // 세종시 등 특수 행정구역: 쿼리 빌더와 동일하게 동->시 순으로 Fallback
-        if (user.region3) return user.region3 === target.region3;
+        // 구가 없는 지역: 쿼리 빌더와 동일하게 동->1차 지역 순으로 Fallback
+        if (user.region3) {
+          return (
+            matchesRegion1(user.region1, target.region1) &&
+            user.region3 === target.region3
+          );
+        }
         return user.region1 === target.region1;
       }
 
@@ -68,50 +92,63 @@ export function isWithinRegionRange(
       return true;
 
     default:
-      return user.region2 === target.region2;
+      return (
+        matchesRegion1(user.region1, target.region1) &&
+        user.region2 === target.region2
+      );
   }
 }
 
 /**
  * 유저의 설정 범위에 따른 Prisma Where 조건 생성
  * - 제품 목록, 게시글 목록 조회 시 사용
- * - 세종시 등 구(region2)가 없는 특수 행정구역 대응 강화
+ * - 세종시와 구가 없는 시/군처럼 region2가 region1과 같은 지역 대응 강화
  */
 export function buildRegionWhere(user: {
   region1?: string | null;
   region2?: string | null;
   region3?: string | null;
   regionRange: RegionRange;
-}) {
+}): RegionWhere {
   // 위치 설정을 아예 하지 않은 신규 유저는 필터 없이 전국 데이터를 띄워줌
   if (!user.region1) {
     return {};
   }
 
-  let condition: any = {};
+  let condition: RegionWhere = {};
   const hasGu = !!user.region2 && user.region2 !== user.region1; // 구 존재 여부
 
   switch (user.regionRange) {
     case "DONG":
-      // 1순위: 동(region3), 없으면 구(region2)
-      if (user.region3) condition = { region3: user.region3 };
-      else if (user.region2) condition = { region2: user.region2 };
+      // 1순위: 동(region3), 없으면 구(region2). 1차 지역 조건을 함께 걸어 동명/구명 충돌을 방지.
+      if (user.region3) {
+        condition = {
+          region1: user.region1,
+          ...(hasGu && user.region2 ? { region2: user.region2 } : {}),
+          region3: user.region3,
+        };
+      } else if (user.region2) {
+        condition = { region1: user.region1, region2: user.region2 };
+      }
       break;
 
     case "GU":
       if (hasGu) {
-        // 일반적인 도시: '구' 단위 필터
-        condition = { region2: user.region2 };
+        // 일반적인 도시: 같은 1차 지역 안의 '구' 단위 필터
+        condition = { region1: user.region1, region2: user.region2! };
       } else {
-        // 구가 없는 지역은 '시' 전체 대신 '동'으로 좁혀 보여줌(세종시)
-        if (user.region3) condition = { region3: user.region3 };
-        else condition = { region1: user.region1 };
+        // 구가 없는 지역은 1차 지역 전체 대신 동으로 좁혀 보여줌(세종시, 구가 없는 시/군)
+        if (user.region3) {
+          condition = { region1: user.region1, region3: user.region3 };
+        } else {
+          condition = { region1: user.region1 ?? undefined };
+        }
       }
       break;
 
     case "CITY":
-      // 시/도 단위는 언제나 region1
-      condition = { region1: user.region1 };
+      // 시/군/특별시/광역시 단위는 region1 기준
+      condition = { region1: user.region1 ?? undefined };
       break;
 
     case "ALL":
@@ -119,7 +156,9 @@ export function buildRegionWhere(user: {
       break;
 
     default:
-      if (user.region2) condition = { region2: user.region2 };
+      if (user.region2) {
+        condition = { region1: user.region1, region2: user.region2 };
+      }
       break;
   }
 

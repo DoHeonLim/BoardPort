@@ -11,16 +11,20 @@
  * 2026.01.21  임도헌   Moved      lib/logOut -> service/logout
  * 2026.01.25  임도헌   Modified   주석 보강
  * 2026.03.06  임도헌   Modified   결과 반환형으로 변경하여 pending/toast 처리 지원
+ * 2026.04.02  임도헌   Modified   로그아웃 서비스 JSDoc 보강
+ * 2026.05.16  임도헌   Modified   서버 액션 래퍼를 actions/logout.ts로 분리하고 서비스는 세션 파기만 담당
  */
 
-"use server"; // 로그아웃은 보통 컴포넌트에서 바로 부르기도 하므로 use server 유지
+import "server-only";
 
 import getSession from "@/lib/session";
 
 /**
- * 현재 세션을 파기
+ * 현재 로그인 세션 파기
+ *
+ * @returns {Promise<{ success: true } | { success: false; error: string }>} 로그아웃 처리 결과
  */
-export const logOut = async () => {
+export const destroyAuthSession = async () => {
   try {
     const session = await getSession();
     if (session?.destroy) session.destroy();

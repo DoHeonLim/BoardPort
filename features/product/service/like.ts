@@ -11,6 +11,7 @@
  * 2026.03.06  임도헌   Modified  좋아요 추가 시 판매자 대상 알림(인앱 + 설정 기반 푸시) 발송 로직 추가
  * 2026.03.06  임도헌   Modified  동일 유저의 좋아요 토글 스팸 방지를 위한 알림 쿨다운(10분) 검증 로직 추가
  * 2026.03.06  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  * 
  */
 import "server-only";
@@ -26,6 +27,7 @@ import {
   canSendPushForType,
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
+import { toProductImagePublicUrl } from "@/features/product/utils/image";
 
 // 알림 스팸 방지용 쿨다운
 const LIKE_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000; // 10분
@@ -246,9 +248,7 @@ export async function toggleProductLike(
         likerName: liker.username,
         productId,
         productTitle: product.title,
-        image: product.images[0]?.url
-          ? `${product.images[0].url}/public`
-          : undefined,
+        image: toProductImagePublicUrl(product.images[0]?.url),
       });
     } else {
       await db.productLike.delete({
@@ -257,7 +257,7 @@ export async function toggleProductLike(
     }
 
     return { success: true };
-  } catch (e: any) {
+  } catch (e: unknown) {
     // 좋아요 중복 요청(레이스)일 경우 멱등 처리
     if (isLike && isUniqueConstraintError(e, ["userId", "productId"])) {
       return { success: true };

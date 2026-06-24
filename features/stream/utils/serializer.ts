@@ -4,13 +4,17 @@
  * Author : 임도헌
  *
  * History
+ * Date        Author   Status    Description
  * 2025.08.26  임도헌   Created   StreamCardItem DTO 직렬화 유틸
  * 2025.09.17  임도헌   Modified  startedAt(ISO) 통일, 가드/널 처리 정리
  * 2025.09.23  임도헌   Modified  BroadcastSummary 최신 스펙 반영(stream_id/status/started_at/ended_at, isFollowing 제거)
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Moved     lib/stream/serializeStream -> utils/serializer
+ * 2026.03.12  임도헌   Modified  스트림 카드용 썸네일 애니메이션 메타 직렬화 추가
+ * 2026.05.03  임도헌   Modified  방송 목록 카드 표시용 연결 보드게임 locale 직렬화 추가
  */
 
+import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import type {
   BroadcastSummary,
   StreamTag,
@@ -26,6 +30,7 @@ type RawRow = {
   title: string;
   description: string | null;
   thumbnail: string | null;
+  thumbnailAnimated?: boolean;
   visibility: StreamVisibility;
   status: string;
   started_at: Date | null;
@@ -39,6 +44,11 @@ type RawRow = {
     icon?: string | null;
   } | null;
   tags: StreamTag[];
+  board_games?: Array<{
+    boardGame: Omit<BoardGameRelationOption, "locale"> & {
+      locales: BoardGameRelationOption["locale"][];
+    };
+  }>;
 };
 
 /**
@@ -68,6 +78,7 @@ export function serializeStream(
     stream_id: s.stream_id,
     title: s.title,
     thumbnail: s.thumbnail ?? null,
+    thumbnailAnimated: s.thumbnailAnimated ?? false,
     isLive: (s.status ?? "").toUpperCase() === CONNECTED,
     status: s.status,
     visibility: s.visibility,
@@ -86,6 +97,13 @@ export function serializeStream(
         }
       : null,
     tags: Array.isArray(s.tags) ? s.tags.map((t) => ({ name: t.name })) : [],
+    board_games: (s.board_games ?? []).flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 공개 한국어 locale이 없는 연결은 방송 카드/상세 노출 대상에서 제외
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
     followersOnlyLocked,
     requiresPassword,
   };

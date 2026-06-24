@@ -6,31 +6,128 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.07  임도헌   Created   감사 로그 생성 및 목록 조회 기능 구현
+ * 2026.03.29  임도헌   Modified  관리자명·액션·대상·사유·ID 검색과 액션/대상 타입 필터를 지원하도록 확장
+ * 2026.04.28  임도헌   Modified  삭제 감사 로그의 OwnerID에 대응하는 유저명을 표시용 메타로 보강
  */
 
 import "server-only";
 import db from "@/lib/db";
 import type { ServiceResult } from "@/lib/types";
 import type { AdminAuditLogListResponse } from "@/features/report/types";
+import type { Prisma } from "@/generated/prisma/client";
+import {
+  AUDIT_ACTION_LABELS,
+  TARGET_TYPE_LABELS,
+} from "@/features/report/constants";
 
 /**
  * 감사 로그 목록 조회
- * - 모든 관리자 활동 로그를 최신순으로 조회
- * - 페이징 처리를 포함
+ *
+ * [기능]
+ * - 검색어, 액션, 대상 타입 기준으로 감사 로그를 최신순 조회
+ * - 관리자명, 사유, 액션 라벨, 대상 타입, 숫자 ID 검색을 함께 지원
+ * - 페이징과 관리자/대상 추적용 메타를 함께 반환
  *
  * @param page - 현재 페이지 (기본값: 1)
+ * @param query - 관리자명, 사유, 액션 라벨, 대상 타입, 대상 ID 자유 검색어
  * @param limit - 페이지당 항목 수 (기본값: 20)
+ * @param filters - 액션/대상 타입 빠른 필터
  * @returns {Promise<ServiceResult<AdminAuditLogListResponse>>} 로그 목록 및 페이징 정보
  */
 export async function getAuditLogsAdmin(
   page = 1,
-  limit = 20
+  query?: string,
+  limit = 20,
+  filters?: {
+    action?: string;
+    targetType?: string;
+  }
 ): Promise<ServiceResult<AdminAuditLogListResponse>> {
   try {
     const skip = (page - 1) * limit;
+    const trimmedQuery = query?.trim();
+    const normalizedQuery = trimmedQuery?.toLowerCase();
+    const selectedAction = filters?.action?.trim();
+    const selectedTargetType = filters?.targetType?.trim();
+    const actionMatches = normalizedQuery
+      ? Object.entries(AUDIT_ACTION_LABELS)
+          .filter(
+            ([key, label]) =>
+              key.toLowerCase().includes(normalizedQuery) ||
+              label.toLowerCase().includes(normalizedQuery)
+          )
+          .map(([key]) => key)
+      : [];
+    const targetTypeMatches = normalizedQuery
+      ? Object.entries(TARGET_TYPE_LABELS)
+          .filter(
+            ([key, label]) =>
+              key.toLowerCase().includes(normalizedQuery) ||
+              label.toLowerCase().includes(normalizedQuery)
+          )
+          .map(([key]) => key)
+      : [];
+    const parsedTargetId =
+      trimmedQuery && /^\d+$/.test(trimmedQuery) ? Number(trimmedQuery) : null;
+
+    // 관리자명, 사유, 액션 라벨, 대상 타입, 숫자 ID까지 하나의 자유 검색으로 흡수
+    const searchClauses: Prisma.AuditLogWhereInput[] = [];
+
+    if (trimmedQuery) {
+      searchClauses.push({
+        admin: {
+          is: {
+            username: {
+              contains: trimmedQuery,
+              mode: "insensitive",
+            },
+          },
+        },
+      });
+      searchClauses.push({
+        reason: {
+          contains: trimmedQuery,
+          mode: "insensitive",
+        },
+      });
+
+      if (parsedTargetId !== null) {
+        searchClauses.push({ targetId: parsedTargetId });
+      }
+
+      actionMatches.forEach((action) => {
+        searchClauses.push({ action });
+      });
+
+      targetTypeMatches.forEach((targetType) => {
+        searchClauses.push({ targetType });
+      });
+    }
+
+    const whereClauses: Prisma.AuditLogWhereInput[] = [];
+
+    // 자유 검색과 빠른 필터 칩을 AND 기준으로 합쳐 운영 탐색 문맥 유지
+    if (searchClauses.length) {
+      whereClauses.push({ OR: searchClauses });
+    }
+
+    if (selectedAction && selectedAction !== "ALL") {
+      whereClauses.push({ action: selectedAction });
+    }
+
+    if (selectedTargetType && selectedTargetType !== "ALL") {
+      whereClauses.push({ targetType: selectedTargetType });
+    }
+
+    const where: Prisma.AuditLogWhereInput | undefined = whereClauses.length
+      ? { AND: whereClauses }
+      : undefined;
+
+    // 전체 개수와 현재 페이지 항목을 함께 조회해 숫자형 페이지네이션 기준 동기화
     const [total, items] = await Promise.all([
-      db.auditLog.count(),
+      db.auditLog.count({ where }),
       db.auditLog.findMany({
+        where,
         include: {
           admin: { select: { id: true, username: true } },
         },
@@ -39,11 +136,23 @@ export async function getAuditLogsAdmin(
         take: limit,
       }),
     ]);
+    const ownerNameMap = await getAuditReasonOwnerNameMap(
+      items.map((item) => item.reason)
+    );
 
     return {
       success: true,
       data: {
-        items,
+        items: items.map((item) => {
+          const reasonOwnerId = extractOwnerIdFromReason(item.reason);
+
+          return {
+            ...item,
+            reasonOwnerUsername: reasonOwnerId
+              ? (ownerNameMap.get(reasonOwnerId) ?? null)
+              : null,
+          };
+        }),
         total,
         totalPages: Math.ceil(total / limit),
         currentPage: page,
@@ -52,4 +161,31 @@ export async function getAuditLogsAdmin(
   } catch {
     return { success: false, error: "로그를 불러오지 못했습니다." };
   }
+}
+
+/**
+ * 삭제 감사 로그 reason 안의 OwnerID 추출
+ * - 기존 감사 로그 저장 포맷을 유지하면서 화면 표시용 유저명만 보강하기 위한 파서
+ */
+function extractOwnerIdFromReason(reason: string | null) {
+  const match = reason?.match(/\bOwnerID:\s*(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * 현재 페이지 감사 로그에 등장하는 OwnerID의 유저명 맵 조회
+ */
+async function getAuditReasonOwnerNameMap(reasons: Array<string | null>) {
+  const ownerIds = reasons
+    .map(extractOwnerIdFromReason)
+    .filter((id): id is number => !!id);
+  const uniqueOwnerIds = [...new Set(ownerIds)];
+  if (uniqueOwnerIds.length === 0) return new Map<number, string>();
+
+  const users = await db.user.findMany({
+    where: { id: { in: uniqueOwnerIds } },
+    select: { id: true, username: true },
+  });
+
+  return new Map(users.map((user) => [user.id, user.username]));
 }

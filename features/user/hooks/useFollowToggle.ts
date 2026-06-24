@@ -19,24 +19,43 @@
  * 2026.03.03  임도헌   Modified  전역 캐시 조작 로직 보완
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.07  임도헌   Modified   서버가 반환한 팔로우 실패 사유를 토스트로 직접 노출
+ * 2026.03.17  임도헌   Modified  모달 내 토글 시 viewer 자신의 followingCount와 row 상태도 즉시 갱신되도록 캐시 동기화 보강
+ * 2026.03.27  임도헌   Modified  스트림 상세에서 팔로우 직후 전체 방송의 팔로잉 탭이 즉시 갱신되도록 기본 following 목록 캐시 시딩 및 stale 처리 보강
+ * 2026.03.31  임도헌   Modified  훅 역할과 캐시 동기화 맥락이 보이도록 설명 톤 통일
+ * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입 import 경로를 user types로 정리
+ * 2026.05.16  임도헌   Modified  팔로우/스트림 캐시 갱신 타입을 명시해 any 캐스팅 제거
+ * 2026.06.17  임도헌   Modified  서버 성공 후 팔로워 전용 접근 상태를 동기화하는 책임을 주석에 명확히 반영
  */
 
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
 import { toggleFollowAction } from "@/features/user/actions/follow";
+import type {
+  FollowActionResult,
+  FollowListPage,
+  FollowStatsCache,
+} from "@/features/user/types";
+import type { BroadcastSummary, StreamsPage } from "@/features/stream/types";
+
+const DEFAULT_STREAM_LIST_FILTERS = { category: "", keyword: "" } as const;
+
+type FollowToggleOptions = {
+  viewerId?: number | null;
+  refresh?: boolean;
+  onRequireLogin?: () => void;
+};
 
 /**
- * 팔로우/언팔로우 토글 액션 및 낙관적 상태 갱신 훅
+ * 팔로우/언팔로우 토글 액션 및 서버 확정 후 캐시 동기화 훅
  *
- * [상태 추출 및 사이드 이펙트 제어 로직]
- * - `toggleFollowAction` 서버 액션을 호출하여 팔로우 상태 변경 데이터 영속화
- * - `queryClient.setQueryData`를 활용한 헤더 팔로우 통계(`users.followStats`) 즉각적인 캐시 병합(Optimistic Update) 적용
- * - `queryClient.setQueriesData`를 통한 스트리밍 목록 내 팔로워 전용 방송 잠금(`followersOnlyLocked`) 상태 실시간 동기화 처리
- * - 모달 리스트 내부 상태 최신화를 위한 `queryKeys.follows.all` 무효화 유도
+ * [기능]
+ * - `toggleFollowAction` 서버 액션을 호출해 팔로우 상태 변경을 처리
+ * - 성공 응답 기준으로 헤더 통계, 모달 row, 스트리밍 팔로잉 목록 캐시를 함께 동기화
+ * - 버튼/카운트의 표시용 선반영은 `useFollowController`에서 처리하고, 팔로워 전용 접근 상태는 서버 확정 후에만 반영
  */
 export function useFollowToggle() {
   const queryClient = useQueryClient();
@@ -48,7 +67,11 @@ export function useFollowToggle() {
   );
 
   const toggle = useCallback(
-    async (userId: number, isFollowingNow: boolean, opts?: any) => {
+    async (
+      userId: number,
+      isFollowingNow: boolean,
+      opts?: FollowToggleOptions
+    ): Promise<FollowActionResult | undefined> => {
       if (isPending(userId)) return;
       setPendingIds((prev) => new Set(prev).add(userId));
 
@@ -63,15 +86,16 @@ export function useFollowToggle() {
           } else {
             toast.error(res.error);
           }
-          return;
+          return res;
         }
 
         const delta = res.changed ? (intent === "follow" ? 1 : -1) : 0;
 
-        // 1. 헤더 통계 갱신 (users 도메인 캐시 직접 조작)
+        // 헤더 통계 갱신
+        // profile/channel 상단 카운트와 버튼 상태를 같은 기준으로 즉시 동기화
         queryClient.setQueryData(
           queryKeys.users.followStats(userId),
-          (old: any) => {
+          (old: FollowStatsCache | undefined) => {
             if (!old) return old;
             return {
               ...old,
@@ -81,35 +105,169 @@ export function useFollowToggle() {
           }
         );
 
-        // 2. 스트리밍 목록에서 Followers 잠금 상태 해제/설정 동기화를 적용
+        if (opts?.viewerId != null) {
+          // viewer 자신의 followingCount 동기화
+          // 모달 안 토글 후에도 헤더 숫자가 늦게 남지 않도록 즉시 반영
+          queryClient.setQueryData(
+            queryKeys.users.followStats(opts.viewerId),
+            (old: FollowStatsCache | undefined) => {
+              if (!old) return old;
+              return {
+                ...old,
+                followingCount: res.counts.viewerFollowing,
+              };
+            }
+          );
+        }
+
         queryClient.setQueriesData(
-          { queryKey: queryKeys.streams.lists() },
-          (oldData: any) => {
-            if (!oldData || !oldData.pages) return oldData;
+          { queryKey: queryKeys.follows.all },
+          (oldData: InfiniteData<FollowListPage> | undefined) => {
+            if (!oldData?.pages) return oldData;
             return {
               ...oldData,
-              pages: oldData.pages.map((page: any) => ({
+              pages: oldData.pages.map((page) => ({
                 ...page,
-                streams: page.streams.map((stream: any) => {
-                  // 대상 유저의 방송이고 FOLLOWERS 전용일 경우에만 잠금 플래그를 변경
-                  if (
-                    stream.user.id === userId &&
-                    stream.visibility === "FOLLOWERS"
-                  ) {
-                    return { ...stream, followersOnlyLocked: !res.isFollowing };
-                  }
-                  return stream;
-                }),
+                users: page.users.map((user) =>
+                  user.id === userId
+                    ? { ...user, isFollowedByViewer: res.isFollowing }
+                    : user
+                ),
               })),
             };
           }
         );
 
+        // 스트리밍 목록 캐시 동기화
+        // followersOnly 잠금 상태와 기본 "팔로잉" 탭 시드를 함께 맞춰 탭 전환 지연을 줄임
+        const streamQueryEntries = queryClient.getQueriesData<
+          InfiniteData<StreamsPage>
+        >({
+          queryKey: queryKeys.streams.lists(),
+        });
+        const targetUserStreams = new Map<number, BroadcastSummary>();
+
+        for (const [, data] of streamQueryEntries) {
+          if (!data?.pages) continue;
+
+          for (const page of data.pages) {
+            for (const stream of page?.streams ?? []) {
+              if (stream?.user?.id !== userId) continue;
+              targetUserStreams.set(stream.id, {
+                ...stream,
+                followersOnlyLocked:
+                  stream.visibility === "FOLLOWERS" ? !res.isFollowing : false,
+              });
+            }
+          }
+        }
+
+        for (const [queryKey] of streamQueryEntries) {
+          const scope = Array.isArray(queryKey) ? queryKey[2] : undefined;
+
+          queryClient.setQueryData<InfiniteData<StreamsPage>>(
+            queryKey,
+            (oldData) => {
+              if (!oldData?.pages) return oldData;
+
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page, pageIndex) => {
+                  let streams = (page.streams ?? []).map((stream) => {
+                    if (
+                      stream?.user?.id === userId &&
+                      stream.visibility === "FOLLOWERS"
+                    ) {
+                      return {
+                        ...stream,
+                        followersOnlyLocked: !res.isFollowing,
+                      };
+                    }
+                    return stream;
+                  });
+
+                  if (scope === "following") {
+                    if (res.isFollowing && pageIndex === 0) {
+                      const existingIds = new Set(
+                        streams.map((stream) => stream.id)
+                      );
+                      streams = [
+                        ...Array.from(targetUserStreams.values()).filter(
+                          (stream) => !existingIds.has(stream.id)
+                        ),
+                        ...streams,
+                      ];
+                    } else if (!res.isFollowing) {
+                      streams = streams.filter(
+                        (stream) => stream?.user?.id !== userId
+                      );
+                    }
+                  }
+
+                  return { ...page, streams };
+                }),
+              };
+            }
+          );
+        }
+
+        if (res.isFollowing && targetUserStreams.size > 0) {
+          const defaultFollowingKey = queryKeys.streams.list(
+            "following",
+            DEFAULT_STREAM_LIST_FILTERS
+          );
+
+          queryClient.setQueryData<InfiniteData<StreamsPage>>(
+            defaultFollowingKey,
+            (oldData) => {
+              const seededStreams = Array.from(targetUserStreams.values());
+
+              if (!oldData?.pages) {
+                return {
+                  pages: [{ streams: seededStreams, nextCursor: null }],
+                  pageParams: [null],
+                };
+              }
+
+              const firstPage = oldData.pages[0] ?? {
+                streams: [],
+                nextCursor: null,
+              };
+              const existingIds = new Set(
+                (firstPage.streams ?? []).map((stream) => stream.id)
+              );
+
+              return {
+                ...oldData,
+                pages: [
+                  {
+                    ...firstPage,
+                    streams: [
+                      ...seededStreams.filter(
+                        (stream) => !existingIds.has(stream.id)
+                      ),
+                      ...(firstPage.streams ?? []),
+                    ],
+                  },
+                  ...oldData.pages.slice(1),
+                ],
+              };
+            }
+          );
+
+          queryClient.invalidateQueries({ queryKey: defaultFollowingKey });
+        }
+
         // 3. 모달 리스트 데이터 갱신을 위해 무효화 처리를 수행
         queryClient.invalidateQueries({ queryKey: queryKeys.follows.all });
+        return res;
       } catch (e) {
         console.error("Toggle Follow Error:", e);
         toast.error("요청에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return {
+          success: false,
+          error: "요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+        };
       } finally {
         setPendingIds((prev) => {
           const next = new Set(prev);

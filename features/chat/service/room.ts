@@ -22,10 +22,19 @@
  * 2026.02.23  임도헌   Modified  나간 방 재입장 시 기존 대화 내역을 유지하며 양측 모두 재연결되도록 UX 개선
  * 2026.03.03  임도헌   Modified  `unstable_cache` 및 `revalidateTag` 기반 서버 상태 갱신 방식 제거, 순수 DB 조회 로직으로 리팩토링
  * 2026.03.07  임도헌   Modified  채팅방 생성 중복 요청 방어용 In-Memory Lock 및 요청자 정지 상태 검증 추가
+ * 2026.03.12  임도헌   Modified  채팅 상품 썸네일과 메시지 이미지의 애니메이션 메타 조회 필드 추가
+ * 2026.03.13  임도헌   Modified  채팅방 목록 unreadCount 집계에서 SYSTEM 메시지를 제외해 시스템 안내가 미읽음 뱃지를 남기지 않도록 조정
+ * 2026.03.14  임도헌   Modified  채팅방 목록에서 상품 거래 상태를 표시할 수 있도록 예약/판매 완료 메타를 함께 조회
+ * 2026.04.01  임도헌   Modified  삭제된 채팅 메시지를 목록 미리보기와 unread 집계에서 안전하게 처리
+ * 2026.04.02  임도헌   Modified  채팅방 서비스 helper/export JSDoc 태그 형식 정리
+ * 2026.04.03  임도헌   Modified  차단/생성 실패 문구를 다른 채팅 서비스와 같은 정책 설명 톤으로 정리
+ * 2026.04.04  임도헌   Modified  새 채팅방 재연결 시 사용자 채널 rooms_refresh로 목록 재동기화 지원
+ * 2026.05.12  임도헌   Modified  TabBar 뱃지와 채팅방 목록 기준을 맞춘 전체 미읽음 메시지 집계 추가
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { CHAT_EVENT } from "@/features/chat/constants";
 import {
   getBlockedUserIds,
   checkBlockRelation,
@@ -37,6 +46,26 @@ import type { ServiceResult } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
 const roomCreationLocks = new Set<string>();
+
+/**
+ * 사용자별 채팅방 목록을 다시 불러오게 하는 rooms_refresh 이벤트 브로드캐스트
+ *
+ * @param {number[]} userIds - 목록 재동기화가 필요한 사용자 ID 목록
+ * @returns {Promise<void>} 브로드캐스트 완료 후 종료
+ */
+async function broadcastChatRoomListRefresh(userIds: number[]) {
+  const uniqueUserIds = [...new Set(userIds.filter((id) => id > 0))];
+
+  await Promise.allSettled(
+    uniqueUserIds.map((targetUserId) =>
+      supabase.channel(`user-${targetUserId}-chat-rooms`).send({
+        type: "broadcast",
+        event: CHAT_EVENT.ROOMS_REFRESH,
+        payload: { userId: targetUserId },
+      })
+    )
+  );
+}
 
 /**
  * 채팅방 생성 중복 요청을 식별하기 위한 잠금 키 생성
@@ -91,7 +120,6 @@ async function findReusableRoom(productId: number, userId: number) {
  *
  * @param {number} productId - 상품 ID
  * @param {number} userId - 요청자 ID
- * @param {number} ownerId - 판매자 ID
  * @param {number} [retries=5] - 최대 재시도 횟수
  * @param {number} [intervalMs=120] - 재시도 간격(ms)
  * @returns {Promise<string | null>} 생성/복구된 채팅방 ID 또는 null
@@ -99,7 +127,6 @@ async function findReusableRoom(productId: number, userId: number) {
 async function waitForExistingRoom(
   productId: number,
   userId: number,
-  ownerId: number,
   retries = 5,
   intervalMs = 120
 ) {
@@ -151,7 +178,13 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
         select: {
           id: true,
           title: true,
-          images: { where: { order: 0 }, select: { url: true }, take: 1 },
+          reservation_userId: true,
+          purchase_userId: true,
+          images: {
+            where: { order: 0 },
+            select: { url: true, isAnimated: true },
+            take: 1,
+          },
         },
       },
       messages: {
@@ -177,6 +210,8 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
     where: {
       productChatRoomId: { in: roomIds, not: null },
       isRead: false,
+      deleted_at: null,
+      type: { not: "SYSTEM" },
       userId: { not: userId },
     },
     _count: { _all: true },
@@ -205,7 +240,10 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
     const lastMessage = mapToChatMessage(lastRaw);
 
     // 리스트 미리보기용 텍스트 분기 처리
-    if (lastMessage.type === "APPOINTMENT") {
+    if (lastMessage.deleted_at) {
+      lastMessage.payload = "삭제된 메시지입니다.";
+      lastMessage.image = null;
+    } else if (lastMessage.type === "APPOINTMENT") {
       lastMessage.payload = "📅 약속 제안이 도착했습니다.";
     } else if (lastMessage.type === "IMAGE") {
       lastMessage.payload = "📷 사진을 보냈습니다.";
@@ -222,6 +260,9 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
           id: room.product.id,
           title: room.product.title,
           imageUrl: room.product.images[0]?.url ?? "",
+          imageAnimated: room.product.images[0]?.isAnimated ?? false,
+          reservation_userId: room.product.reservation_userId,
+          purchase_userId: room.product.purchase_userId,
         },
         users: [counterparty],
         lastMessage,
@@ -232,7 +273,37 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
 }
 
 /**
+ * 사용자가 참여 중인 채팅방의 전체 미읽음 메시지 수 조회
+ * - 채팅방 목록 뱃지와 같은 기준으로 차단 관계, 삭제 메시지, 시스템 메시지를 제외
+ *
+ * @param {number} userId - 미읽음 집계를 조회하는 사용자 ID
+ * @returns {Promise<number>} 전체 미읽음 채팅 메시지 수
+ */
+export async function getUnreadChatMessageCount(userId: number): Promise<number> {
+  const blockedIds = await getBlockedUserIds(userId);
+
+  return db.productMessage.count({
+    where: {
+      productChatRoomId: { not: null },
+      isRead: false,
+      deleted_at: null,
+      type: { not: "SYSTEM" },
+      userId: { not: userId },
+      room: {
+        users: {
+          some: { id: userId },
+          none: { id: { in: blockedIds } },
+        },
+      },
+    },
+  });
+}
+
+/**
  * 채팅방 상단에 표시할 제품 정보 조회 (이미지/가격/상태)
+ *
+ * @param {number} productId - 채팅 헤더에 노출할 상품 ID
+ * @returns {Promise<{ id: number; title: string; price: number; images: { url: string; isAnimated: boolean }[]; userId: number; purchase_userId: number | null; reservation_userId: number | null; } | null>} 채팅 헤더용 상품 요약 정보
  */
 export const getChatRoomDetails = async (productId: number) => {
   return db.product.findUnique({
@@ -243,7 +314,7 @@ export const getChatRoomDetails = async (productId: number) => {
       price: true,
       images: {
         where: { order: 0 },
-        select: { url: true },
+        select: { url: true, isAnimated: true },
         take: 1,
       },
       userId: true,
@@ -256,6 +327,10 @@ export const getChatRoomDetails = async (productId: number) => {
 /**
  * 채팅방 접근 권한 확인
  * 채팅방이 존재하고, 해당 사용자가 참여자인지 검사
+ *
+ * @param {string} chatRoomId - 권한을 확인할 채팅방 ID
+ * @param {number} userId - 접근 여부를 판별할 사용자 ID
+ * @returns {Promise<import("@prisma/client").ProductChatRoomGetPayload<{ include: { users: { select: { id: true } }; product: { select: { id: true } } } }> | null>} 접근 가능한 채팅방 정보 또는 null
  */
 export async function checkChatRoomAccess(chatRoomId: string, userId: number) {
   const room = await db.productChatRoom.findUnique({
@@ -274,6 +349,10 @@ export async function checkChatRoomAccess(chatRoomId: string, userId: number) {
 /**
  * 채팅방 상대방 유저 정보 조회
  * 1:1 채팅 기준으로 Viewer가 아닌 다른 참여자를 반환
+ *
+ * @param {string} chatRoomId - 상대방을 조회할 채팅방 ID
+ * @param {number} viewerId - 현재 화면을 보는 사용자 ID
+ * @returns {Promise<ChatUser | null>} 상대방 정보 또는 채팅방 접근 불가 시 null
  */
 export async function getCounterpartyInChatRoom(
   chatRoomId: string,
@@ -361,7 +440,7 @@ export async function createChatRoom(
   }
   const isBlocked = await checkBlockRelation(userId, product.userId);
   if (isBlocked) {
-    throw new Error("차단된 사용자 대화할 수 없습니다.");
+    throw new Error("차단된 사용자와는 대화할 수 없습니다.");
   }
 
   const lockKey = getRoomCreationLockKey(productId, userId, product.userId);
@@ -369,8 +448,7 @@ export async function createChatRoom(
   if (roomCreationLocks.has(lockKey)) {
     const existingRoomId = await waitForExistingRoom(
       productId,
-      userId,
-      product.userId
+      userId
     );
     if (existingRoomId) return existingRoomId;
     throw new Error("채팅방 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.");
@@ -416,9 +494,11 @@ export async function createChatRoom(
 
         await supabase.channel(`room-${existingRoom.id}`).send({
           type: "broadcast",
-          event: "message",
+          event: CHAT_EVENT.MESSAGE,
           payload: mapToChatMessage(sysMsg),
         });
+
+        await broadcastChatRoomListRefresh([userId, product.userId]);
       }
       return existingRoom.id;
     }
@@ -451,9 +531,9 @@ export async function createChatRoom(
  *    - 내 계정 연결 해제
  * 5. 방에 남은 인원이 0명이면 채팅방을 물리적으로 삭제 (Cascade로 메시지/약속 자동 정리)
  *
- * @param chatRoomId - 채팅방 ID
- * @param userId - 요청자 ID
- * @returns 캐시 무효화를 위해 본인 및 상대방 ID 반환
+ * @param {string} chatRoomId - 채팅방 ID
+ * @param {number} userId - 요청자 ID
+ * @returns {Promise<ServiceResult<{ userId: number; counterpartyId?: number }>>} 캐시 무효화를 위해 본인 및 상대방 ID 반환
  */
 export async function leaveChatRoom(
   chatRoomId: string,
@@ -556,3 +636,4 @@ export async function leaveChatRoom(
     return { success: false, error: "채팅방 나가기 중 문제가 발생했습니다." };
   }
 }
+

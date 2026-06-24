@@ -17,6 +17,14 @@
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.01  임도헌   Modified  useFollowController에서 반환하는 isOpen 플래그를 사용하여 모달 상태 연동
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.03.16  임도헌   Modified  프로필 헤더 팔로우 버튼 색상 및 팔로우 취소 액션 문구를 공통 규칙에 맞게 정리
+ * 2026.03.19  임도헌   Modified  compact 팔로우 섹션의 터치 타겟을 36px 이상으로 보강해 모바일 누름 UX 개선
+ * 2026.03.28  임도헌   Modified  프로필/채널 헤더 팔로우 CTA의 높이와 세로 정렬을 고정 규격으로 정리해 카운트 텍스트와 리듬 통일
+ * 2026.03.28  임도헌   Modified  compact 팔로우 CTA의 높이/패딩/그림자를 한 단계 낮춰 헤더에서 과하게 커 보이던 무게를 보정
+ * 2026.04.06  임도헌   Modified  좁은 모바일 폭 헤더에서 compact 카운트/버튼이 한 줄에 더 안정적으로 머물도록 간격과 크기 재조정
+ * 2026.04.10  임도헌   Modified  follow 타이포 정책에 맞춰 compact 카운트/CTA 크기와 weight를 400·500·700 기준으로 정리
+ * 2026.04.26  임도헌   Modified  채널 팔로우 CTA의 다크모드 대비와 색조를 primary CTA 톤에 맞춰 보강
+ * 2026.06.17  임도헌   Modified  팔로우 버튼은 선반영 상태를 보여주고 외부 권한 콜백은 확정 상태만 전달
  */
 "use client";
 
@@ -62,10 +70,10 @@ export type FollowSectionProps = {
  * 팔로우 섹션 컴포넌트 (오케스트레이션 역할)
  *
  * [핵심 기능 및 동작 원리]
- * 1. UI 렌더링: 프로필 상단이나 방송국 헤더에 '팔로워 N명', '팔로잉 M명' 및 팔로우 버튼을 렌더링함.
- * 2. 상태 위임: 모든 상태 관리, 낙관적 업데이트, 캐시 조작은 `useFollowController` 훅에 위임함.
+ * 1. UI 렌더링: 프로필 상단이나 방송국 헤더에 '팔로워 N명', '팔로잉 M명' 및 팔로우 버튼을 렌더링
+ * 2. 상태 위임: 모든 상태 관리, 낙관적 업데이트, 캐시 조작은 `useFollowController` 훅에 위임
  * 3. 지연 로딩 연동: 사용자가 팔로워/팔로잉 텍스트를 클릭하면, 컨트롤러의 `openFollowers()`를 호출하여 모달을 열고
- *    동시에 TanStack Query의 `enabled` 플래그를 true로 변경시켜 데이터를 페칭함.
+ *    동시에 TanStack Query의 `enabled` 플래그를 true로 변경시켜 데이터를 페칭
  */
 export default function FollowSection({
   ownerId,
@@ -83,7 +91,7 @@ export default function FollowSection({
 }: FollowSectionProps) {
   const viewerId = viewer?.id ?? undefined;
 
-  // 내 프로필/내 채널에서는 팔로우 버튼이 논리적으로 의미가 없으므로 자동으로 숨김 처리함.
+  // 내 프로필/내 채널에서는 팔로우 버튼이 논리적으로 의미가 없으므로 자동으로 숨김 처리
   const isSelf = viewerId != null && viewerId === ownerId;
   const resolvedShowButton = showButton && !isSelf;
 
@@ -94,6 +102,7 @@ export default function FollowSection({
   // 상태 관리, 쿼리 캐시 조작 및 모달 오픈 트리거를 통합 관리하는 컨트롤러 훅 호출
   const {
     isFollowing,
+    confirmedIsFollowing,
     followerCount,
     followingCount,
     isPending,
@@ -115,7 +124,7 @@ export default function FollowSection({
   });
 
   // 상위 컴포넌트와의 동기화 로직
-  // 마운트 시 초기값으로 덮어쓰는 것을 방지하기 위해 첫 렌더링(didMount)은 스킵함.
+  // 마운트 시 초기값으로 덮어쓰는 것을 방지하기 위해 첫 렌더링(didMount)은 스킵
   const didMount = useRef(false);
   useEffect(() => {
     if (!onFollowingChange) return;
@@ -123,23 +132,29 @@ export default function FollowSection({
       didMount.current = true;
       return;
     }
-    onFollowingChange(isFollowing);
-  }, [isFollowing, onFollowingChange]);
+    onFollowingChange(confirmedIsFollowing);
+  }, [confirmedIsFollowing, onFollowingChange]);
 
   const sizes = useMemo(
     () =>
       size === "compact"
-        ? { numCls: "text-sm", btnCls: "px-1 py-0.5 text-sm" }
-        : { numCls: "text-base", btnCls: "px-1.5 py-0.5 text-base" },
+        ? {
+            numCls: "min-h-8 px-0 text-sm sm:h-9 sm:px-1 sm:text-sm",
+            btnCls: "h-8 px-2 text-xs sm:px-2.5 sm:text-sm",
+          }
+        : {
+            numCls: "min-h-[40px] px-1.5 text-base",
+            btnCls: "min-h-[40px] px-3 py-1.5 text-base",
+          },
     [size]
   );
 
   const alignCls = useMemo(
     () =>
       ({
-        start: "items-start",
-        center: "items-center",
-        end: "items-end",
+        start: "justify-start",
+        center: "justify-center",
+        end: "justify-end",
       })[align],
     [align]
   );
@@ -148,9 +163,11 @@ export default function FollowSection({
     <div
       className={[
         "flex",
-        "gap-3",
+        "gap-x-2.5",
+        "gap-y-1.5",
         "flex-wrap",
         "items-center",
+        "sm:gap-3",
         alignCls,
         className,
       ]
@@ -163,7 +180,7 @@ export default function FollowSection({
         // 컨트롤러의 상태를 변경하여 모달을 열고 쿼리를 활성화함
         onClick={openFollowers}
         aria-label={`팔로워 ${followerCount.toLocaleString()}명 보기`}
-        className={`hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
+        className={`focus-ring-soft inline-flex items-center rounded-md hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
       >
         팔로워 {followerCount.toLocaleString()}
       </button>
@@ -172,7 +189,7 @@ export default function FollowSection({
         type="button"
         onClick={openFollowing}
         aria-label={`팔로잉 ${followingCount.toLocaleString()}명 보기`}
-        className={`hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
+        className={`focus-ring-soft inline-flex items-center rounded-md hover:text-primary dark:hover:text-primary-light text-neutral-500 dark:text-neutral-400 ${sizes.numCls}`}
       >
         팔로잉 {followingCount.toLocaleString()}
       </button>
@@ -187,23 +204,19 @@ export default function FollowSection({
           title={isBlocked ? "차단 관계에서는 팔로우할 수 없습니다" : ""}
           aria-pressed={isFollowing}
           aria-busy={isPending}
-          aria-label={
-            isPending
-              ? "팔로우 처리 중"
-              : isFollowing
-                ? "팔로잉 취소"
-                : "팔로우"
-          }
+          aria-label={isFollowing ? "팔로잉 취소" : "팔로우"}
           className={[
-            "rounded-lg shadow transition-colors whitespace-nowrap",
-            "disabled:opacity-60 disabled:cursor-not-allowed",
+            "inline-flex items-center justify-center rounded-lg border transition-colors whitespace-nowrap font-medium",
+            "disabled:cursor-not-allowed",
+            size === "compact" ? "shadow-none" : "shadow-sm",
             sizes.btnCls,
+            isFollowing ? "focus-ring-soft" : "focus-ring-strong",
             isFollowing
-              ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-300 dark:hover:bg-neutral-600"
-              : "bg-primary text-white hover:bg-primary/90",
+              ? "border-border-strong bg-surface text-muted hover:border-danger/30 hover:bg-danger/5 hover:text-danger dark:border-border dark:bg-surface-dim dark:text-primary dark:hover:border-danger/30 dark:hover:bg-danger/10 dark:hover:text-danger"
+              : "border-transparent bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
           ].join(" ")}
         >
-          {isPending ? "처리 중..." : isFollowing ? "팔로잉 취소" : "팔로우"}
+          {isFollowing ? "팔로우 취소" : "팔로우"}
         </button>
       )}
 

@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/hooks/useStreamPagination.ts
- * Description : 스트리밍 목록 무한 스크롤 및 팔로우 상태 동기화를 처리하는 커스텀 훅
+ * Description : 스트리밍 목록 Suspense 무한 스크롤 페이징 전용 커스텀 훅
  * Author : 임도헌
  *
  * History
@@ -10,17 +10,23 @@
  * 2026.03.03  임도헌   Modified  useSuspenseInfiniteQuery 적용 및 initialData Prop Drilling 제거
  * 2026.03.04  임도헌   Modified  getStreamsListAction 연동 및 쿼리 페이징 통합
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.17  임도헌   Modified  현재 훅이 담당하는 범위가 무한 스크롤 페이징 중심으로 읽히도록 설명을 최신화
+ * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
+ * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  */
 
 "use client";
 
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
-import { getStreamsListAction } from "@/features/stream/actions/list";
 import { queryKeys } from "@/lib/queryKeys";
-import type { BroadcastSummary } from "@/features/stream/types";
+import type {
+  BroadcastSummary,
+  StreamScope,
+  StreamsPage,
+} from "@/features/stream/types";
 
 interface UseStreamPaginationParams {
-  scope: "all" | "following";
+  scope: StreamScope;
   searchParams: Record<string, string>;
   viewerId?: number | null;
 }
@@ -33,16 +39,68 @@ export interface UseStreamPaginationResult {
 }
 
 /**
- * 스트리밍 목록 페이징 및 실시간 동기화 처리
+ * 라이브 방송 목록 Route Handler 요청 URL 생성
+ *
+ * @param {UseStreamPaginationParams & { cursor: number | null }} params - 범위, 검색 조건, 조회자, 커서 정보
+ * @returns {string} 라이브 방송 목록 API URL
+ */
+function buildStreamsApiUrl({
+  scope,
+  searchParams,
+  viewerId,
+  cursor,
+}: UseStreamPaginationParams & { cursor: number | null }): string {
+  const params = new URLSearchParams({ scope });
+
+  if (cursor !== null) {
+    params.set("cursor", String(cursor));
+  }
+
+  if (viewerId !== undefined && viewerId !== null) {
+    params.set("viewerId", String(viewerId));
+  }
+
+  const category = searchParams.category;
+  const keyword = searchParams.keyword;
+
+  if (category) {
+    params.set("category", category);
+  }
+
+  if (keyword) {
+    params.set("keyword", keyword);
+  }
+
+  return `/api/streams?${params.toString()}`;
+}
+
+/**
+ * 라이브 방송 목록 Route Handler 응답 조회
+ * Client Component queryFn에서는 Server Action 직접 호출 대신 HTTP fetch를 사용해 초기 렌더 fetch waterfall 오류를 방지
+ *
+ * @param {string} url - 요청 URL
+ * @returns {Promise<StreamsPage>} 라이브 방송 목록 페이지
+ */
+async function fetchStreamsPage(url: string): Promise<StreamsPage> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("스트리밍 목록을 불러오지 못했습니다.");
+  }
+
+  return (await response.json()) as StreamsPage;
+}
+
+/**
+ * 스트리밍 목록 Suspense 무한 스크롤 훅
  *
  * [데이터 페칭 및 캐시 전략]
- * - 검색 조건(scope, searchParams) 기반 고유 Query Key 생성 및 캐시 분리
- * - useSuspenseInfiniteQuery를 활용한 커서 기반 페이지네이션 및 서버 측 초기 데이터 하이드레이션
- * - 데이터 페칭 성공 시 평탄화(FlatMap)된 스트림 목록 반환
- * - 전역 팔로우 상태 조작을 통한 방송 잠금 상태(`followersOnlyLocked`) 실시간 백그라운드 갱신 유도
+ * - `scope`와 검색 파라미터를 queryKey에 반영해 라이브 목록 캐시를 조건별로 분리
+ * - Route Handler fetch와 `useSuspenseInfiniteQuery`로 Server Action 직접 호출을 피하고 커서 기반 다음 페이지 요청을 관리
+ * - 누적 페이지를 평탄화한 `streams` 배열과 다음 페이지 제어값만 상위 리스트에 전달
  *
- * @param {UseStreamPaginationParams} params - 검색 필터 및 뷰어 정보
- * @returns {UseStreamPaginationResult} 평탄화된 목록 및 페이징 제어 인터페이스
+ * @param {UseStreamPaginationParams} params - 범위 필터와 검색 조건, 조회자 정보
+ * @returns {UseStreamPaginationResult} 평탄화된 스트림 목록 및 페이징 제어 인터페이스
  */
 export function useStreamPagination({
   scope,
@@ -56,12 +114,14 @@ export function useStreamPagination({
     useSuspenseInfiniteQuery({
       queryKey,
       queryFn: async ({ pageParam }) => {
-        // 서버 액션을 호출하여 커서 기반 다음 페이지 데이터를 가져옴
-        return await getStreamsListAction(
-          scope,
-          pageParam as number | null,
-          searchParams,
-          viewerId ?? null
+        // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
+        return fetchStreamsPage(
+          buildStreamsApiUrl({
+            scope,
+            searchParams,
+            viewerId,
+            cursor: pageParam as number | null,
+          })
         );
       },
       initialPageParam: null as number | null,

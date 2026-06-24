@@ -13,43 +13,30 @@
  * 2026.02.13  임도헌   Modified  getCachedBroadcastDetail 캐시 함수 export (Metadata용)
  * 2026.03.04  임도헌   Modified  unstable_cache 래퍼 제거 및 단일 함수(getBroadcastDetail)로 통일
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.02  임도헌   Modified  상세 DTO와 조회 함수 반환 설명 보강
+ * 2026.04.03  임도헌   Modified  스트림 채팅 상단 고정 공지(pinnedChatNotice) 필드 조회 추가
+ * 2026.04.16  임도헌   Modified  상세 비연결 상태 fallback용 thumbnail 필드를 DTO에 포함
+ * 2026.05.03  임도헌   Modified  방송/녹화 상세에 연결된 보드게임 카탈로그 정보 포함
+ * 2026.05.08  임도헌   Modified  방송/녹화 상세 보드게임 relation select를 공용 상수로 교체
+ * 2026.05.08  임도헌   Modified  상세 DTO 타입을 features/stream/types.ts로 이동
  */
 
 import "server-only";
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
-import type { StreamVisibility } from "@/features/stream/types";
-
-// 내부 DTO (페이지에서 사용)
-export type StreamDetailDTO = {
-  title: string;
-  stream_id: string; // CF UID
-  userId: number;
-  user: {
-    id: number;
-    username: string;
-    avatar?: string | null;
-  };
-  category?: {
-    kor_name: string;
-    icon?: string | null;
-  } | null;
-  tags?: { name: string }[] | null;
-  started_at?: Date | null;
-  description?: string | null;
-  status: string;
-  visibility: StreamVisibility;
-};
+import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
+import type { StreamDetailDTO, VodDetailDTO } from "@/features/stream/types";
 
 /**
  * 방송(Broadcast) 상세 정보 조회 로직
  *
  * [데이터 가공 전략]
- * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간 등)만 선택적 조회
+ * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간, fallback 썸네일 등)만 선택적 조회
  * - 방송 소유자의 정보 및 CF Live Input UID 연동 데이터 조인 반환
  *
  * @param {number} id - 방송 ID
+ * @returns {Promise<StreamDetailDTO | null>} 방송 상세 데이터
  */
 export async function getBroadcastDetail(
   id: number
@@ -59,7 +46,9 @@ export async function getBroadcastDetail(
       where: { id },
       select: {
         title: true,
+        thumbnail: true,
         description: true,
+        pinnedChatNotice: true,
         started_at: true,
         status: true,
         visibility: true,
@@ -72,6 +61,9 @@ export async function getBroadcastDetail(
         },
         category: { select: { kor_name: true, icon: true } },
         tags: { select: { name: true } },
+        board_games: {
+          select: STREAM_BOARD_GAME_RELATION_SELECT,
+        },
       },
     });
 
@@ -80,6 +72,7 @@ export async function getBroadcastDetail(
     return {
       title: b.title,
       stream_id: b.liveInput.provider_uid,
+      thumbnail: b.thumbnail ?? null,
       userId: b.liveInput.userId,
       user: {
         id: b.liveInput.user.id,
@@ -90,8 +83,16 @@ export async function getBroadcastDetail(
         ? { kor_name: b.category.kor_name, icon: b.category.icon }
         : null,
       tags: b.tags ?? [],
+      board_games: b.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 공개 한국어 locale이 있는 보드게임 연결만 방송 상세에 노출
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
       started_at: b.started_at ?? null,
       description: b.description ?? null,
+      pinnedChatNotice: b.pinnedChatNotice ?? null,
       status: b.status,
       visibility: b.visibility,
     };
@@ -109,6 +110,7 @@ export async function getBroadcastDetail(
  * - `BROADCAST_DETAIL(id)` 태그를 주입하여 상태 변경(Connected/Ended) 시 주문형 무효화 지원
  *
  * @param {number} id - 방송 ID
+ * @returns {Promise<StreamDetailDTO | null>} 캐시가 적용된 방송 상세 데이터
  */
 export const getCachedBroadcastDetail = (id: number) => {
   return nextCache(
@@ -116,30 +118,6 @@ export const getCachedBroadcastDetail = (id: number) => {
     ["broadcast-detail-data", String(id)],
     { tags: [T.BROADCAST_DETAIL(id)], revalidate: 3600 }
   )();
-};
-
-export type VodDetailDTO = {
-  vodId: number;
-  uid: string;
-  durationSec: number | null;
-  readyAt: Date | null;
-  createdAt: Date;
-  views: number;
-  counts: { likes: number; comments: number };
-  broadcast: {
-    id: number;
-    title: string;
-    visibility: StreamVisibility;
-    stream_id: string;
-    owner: { id: number; username: string; avatar: string | null };
-    category: {
-      id: number;
-      eng_name: string;
-      kor_name: string;
-      icon: string | null;
-    } | null;
-    tags: { id: number; name: string }[];
-  };
 };
 
 /**
@@ -150,6 +128,7 @@ export type VodDetailDTO = {
  * - 조회수, 좋아요, 댓글 등의 집계 데이터(Counts) 병합 반환
  *
  * @param {number} vodId - VOD ID
+ * @returns {Promise<VodDetailDTO | null>} 녹화본 상세 데이터
  */
 export async function getVodDetail(
   vodId: number
@@ -179,6 +158,9 @@ export async function getVodDetail(
             select: { id: true, eng_name: true, kor_name: true, icon: true },
           },
           tags: { select: { id: true, name: true } },
+          board_games: {
+            select: STREAM_BOARD_GAME_RELATION_SELECT,
+          },
         },
       },
     },
@@ -209,6 +191,13 @@ export async function getVodDetail(
       },
       category: vod.broadcast.category ?? null,
       tags: (vod.broadcast.tags ?? []).map((t) => ({ id: t.id, name: t.name })),
+      board_games: vod.broadcast.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 녹화 상세도 방송 상세와 같은 공개 locale 기준으로 보드게임 연결 표시
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
     },
   };
 }

@@ -18,6 +18,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.03  임도헌   Modified  Context 제거 및 useDeleteRecordingCommentMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.03  임도헌   Modified  댓글 삭제 확인 문구를 게시글 댓글과 같은 파괴 액션 문법으로 정리
  */
 "use client";
 
@@ -62,7 +63,7 @@ export default function RecordingCommentDeleteButton({
         aria-label="댓글 삭제"
         onClick={() => setIsConfirmOpen(true)}
         className={cn(
-          "p-1.5 rounded-full transition-colors",
+          "focus-ring-soft p-1.5 rounded-full transition-colors",
           "text-muted hover:text-danger hover:bg-danger/10",
           "disabled:opacity-50 disabled:cursor-not-allowed"
         )}
@@ -73,7 +74,7 @@ export default function RecordingCommentDeleteButton({
       <ConfirmDialog
         open={isConfirmOpen}
         title="댓글 삭제"
-        description="이 댓글을 정말 삭제하시겠습니까?"
+        description="삭제한 댓글은 되돌릴 수 없습니다."
         confirmLabel="삭제"
         cancelLabel="취소"
         onConfirm={handleDelete}

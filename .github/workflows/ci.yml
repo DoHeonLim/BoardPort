@@ -1,0 +1,80 @@
+name: CI
+
+# develop은 통합 브랜치, master는 Vercel production branch 기준으로 검증
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+  push:
+    branches:
+      - develop
+      - master
+
+permissions:
+  contents: read
+
+# 같은 ref에 새 실행이 생기면 이전 CI를 취소해 불필요한 runner 사용 방지
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Unit, Type, Lint, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # build/type check가 참조하는 런타임 env를 placeholder로 채워 외부 서비스 호출 없이 검증
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
+      COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      CRON_SECRET: ci-cron-secret
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLIC_KEY: ci-supabase-public-key
+      KAKAO_CLIENT_ID: ci-kakao-client-id
+      KAKAO_CLIENT_SECRET: ci-kakao-client-secret
+      KAKAO_REDIRECT_URI: http://127.0.0.1:3000/kakao/callback
+      GITHUB_CLIENT_ID: ci-github-client-id
+      GITHUB_CLIENT_SECRET: ci-github-client-secret
+      COOLSMS_API_KEY: ci-coolsms-api-key
+      COOLSMS_API_SECRET: ci-coolsms-api-secret
+      COOLSMS_SENDER_NUMBER: "01000000000"
+      RESEND_API_KEY: re_ci_placeholder
+      NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH: ci-cloudflare-account-hash
+      NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN: https://customer-fllme7un34f7981k.cloudflarestream.com
+      CLOUDFLARE_ACCOUNT_ID: ci-cloudflare-account-id
+      CLOUDFLARE_API_TOKEN: ci-cloudflare-api-token
+      CLOUDFLARE_WEBHOOK_SECRET: ci-cloudflare-webhook-secret
+      CLOUDFLARE_STREAM_WEBHOOK_SECRET: ci-cloudflare-stream-webhook-secret
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BDQxa9WYcbzWsT2ehj226zkdh9l4lOFuMIQIGalUmPoZVOdvQIV9-bDDHbxPeO5mdi681SSOLtj-jFUZwju9e-s
+      VAPID_PRIVATE_KEY: 5PzSaFz9DSLMyg1yptrbwN6gzpYv3zmukFvvrU-hJ9g
+      NEXT_PUBLIC_KAKAO_MAP_API_KEY: ci-kakao-map-api-key
+    steps:
+      # GitHub runner에 저장소 코드를 내려받음
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # package-lock.json 기준 npm cache를 사용해 설치 시간 단축
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Run type check
+        run: npx tsc --noEmit
+
+      - name: Run lint
+        run: npm run lint
+
+      # Vercel 배포 전에 production build 가능 여부를 CI에서 먼저 확인
+      - name: Run production build
+        run: npm run build

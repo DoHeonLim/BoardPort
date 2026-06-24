@@ -11,13 +11,16 @@
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.06  임도헌   Modified  삭제 버튼 hover 대비를 시맨틱 토큰 기반으로 정리
+ * 2026.04.02  임도헌   Modified  검색 기록 타입 import를 search 도메인 공용 타입 기준으로 정리
+ * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 섹션 헤더 weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.06.14  임도헌   Modified  모바일 최근 검색어 삭제 후 터치 잔상과 삭제 버튼 hover 배경을 정리
  */
-"use client";
 
 import Link from "next/link";
 import { XMarkIcon, ClockIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
-import type { SearchHistoryItem } from "@/features/product/types";
+import type { SearchHistoryItem } from "@/features/search/types";
 
 interface SearchHistoryBoxProps {
   history: SearchHistoryItem[];
@@ -47,14 +50,14 @@ export default function SearchHistoryBox({
   return (
     <div className={cn("flex flex-col w-full", isMobile ? "px-0" : "p-0")}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-muted">
+        <h3 className="flex items-center gap-1.5 text-sm font-medium text-muted">
           <ClockIcon className="size-4" />
           최근 검색어
         </h3>
         {!isEmpty && (
           <button
             onClick={onClear}
-            className="text-xs text-muted hover:text-danger flex items-center gap-1 transition-colors"
+            className="focus-ring-soft flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted transition-colors hover:text-danger"
           >
             <TrashIcon className="size-3" />
             전체 삭제
@@ -76,27 +79,32 @@ export default function SearchHistoryBox({
               : "flex-wrap"
           )}
         >
-          {history.map((item, index) => (
+          {history.map((item) => (
             <div
-              key={index}
+              key={item.keyword}
               className="group relative flex items-center shrink-0"
             >
               <Link
                 href={`${basePath}?keyword=${encodeURIComponent(item.keyword)}`}
-                onClick={() => onSearch(item.keyword)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSearch(item.keyword);
+                }}
                 className={cn(
-                  "px-3 py-1.5 text-sm bg-surface-dim text-primary rounded-lg hover:bg-border transition-colors pr-7 border border-transparent",
+                  "focus-ring-soft border border-transparent bg-surface-dim px-3 py-1.5 pr-7 text-sm text-primary transition-colors hover:bg-border rounded-lg",
                   "whitespace-nowrap"
                 )}
               >
                 {item.keyword}
               </Link>
               <button
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   onRemove(item.keyword);
                 }}
-                className="absolute right-1 inline-flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-danger"
+                className="focus-ring-soft absolute right-1 inline-flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-muted transition-colors hover:text-danger"
                 aria-label={`${item.keyword} 삭제`}
               >
                 <XMarkIcon className="size-3.5" />

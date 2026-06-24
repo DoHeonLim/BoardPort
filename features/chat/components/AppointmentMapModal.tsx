@@ -6,8 +6,12 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.20  임도헌   Created   지도 클릭 확대(Zoom/Pan) 지원 모달
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 중첩 모달에서도 스크롤 잠금/복구 안정화
+ * 2026.03.22  임도헌   Modified  최근 모달 셸 기준에 맞춰 높이 단위와 외곽선/헤더/푸터 보더 강도 정리
+ * 2026.04.02  임도헌   Modified  약속 지도 모달 컴포넌트 JSDoc 보강
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 하단 닫기 버튼을 제거해 길찾기 CTA 중심으로 정리
  */
-"use client";
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -18,6 +22,7 @@ import {
   MapPinIcon,
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,6 +32,12 @@ interface Props {
   locationName: string;
 }
 
+/**
+ * 약속 장소를 확대 지도와 외부 길찾기 링크로 보여주는 모달
+ *
+ * @param {Props} props - 닫기 핸들러와 약속 장소 좌표/이름 정보
+ * @returns {JSX.Element | null} 카카오맵 확대 모달
+ */
 export default function AppointmentMapModal({
   onClose,
   latitude,
@@ -43,8 +54,7 @@ export default function AppointmentMapModal({
 
   // 모달 제어 (ESC 닫기, 스크롤 잠금)
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     dialogRef.current?.focus();
 
@@ -54,7 +64,7 @@ export default function AppointmentMapModal({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);
@@ -63,7 +73,7 @@ export default function AppointmentMapModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      {/* Background Click to Close */}
+      {/* 배경 클릭 시 닫기 */}
       <div className="absolute inset-0" onClick={onClose} />
 
       <div
@@ -72,25 +82,25 @@ export default function AppointmentMapModal({
         role="dialog"
         aria-label="약속 장소 상세 지도"
         className={cn(
-          "relative w-full max-w-2xl bg-surface shadow-2xl flex flex-col overflow-hidden outline-none animate-fade-in",
-          "h-[80vh] sm:h-[70vh] rounded-3xl border border-border"
+          "relative w-full max-w-2xl bg-surface shadow-2xl flex flex-col overflow-hidden outline-none",
+          "h-[80dvh] sm:h-[70dvh] rounded-3xl border border-border-subtle"
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface shrink-0 z-10">
+        {/* 헤더 */}
+        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-5 py-4">
           <h3 className="font-bold text-primary flex items-center gap-2">
             <MapPinIcon className="size-5 text-brand" />
             약속 장소
           </h3>
           <button
             onClick={onClose}
-            className="p-1 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
+            className="focus-ring-soft rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >
             <XMarkIcon className="size-6" />
           </button>
         </div>
 
-        {/* Map Area */}
+        {/* 지도 영역 */}
         <div className="flex-1 relative w-full h-full min-h-0 bg-surface-dim">
           {loading ? (
             <div className="flex h-full w-full items-center justify-center">
@@ -110,23 +120,17 @@ export default function AppointmentMapModal({
           )}
         </div>
 
-        {/* Footer Info & Action */}
-        <div className="p-5 border-t border-border bg-surface shrink-0 z-10">
+        {/* 하단 정보 및 액션 */}
+        <div className="z-10 shrink-0 border-t border-border-subtle bg-surface p-5">
           <p className="text-base font-bold text-primary mb-4 leading-snug">
             {locationName}
           </p>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 btn-secondary h-12 text-sm"
-            >
-              닫기
-            </button>
+          <div>
             <a
               href={mapLink}
               target="_blank"
-              rel="noreferrer"
-              className="flex-1 btn-primary h-12 text-sm flex items-center justify-center gap-2"
+              rel="noopener noreferrer"
+              className="btn-primary flex h-12 w-full items-center justify-center gap-2 text-sm"
             >
               <span>길찾기</span>
               <ArrowTopRightOnSquareIcon className="size-4" />

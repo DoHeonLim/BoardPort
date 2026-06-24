@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/key.ts
- * Description : LiveInput 키 관리 Controller
+ * Description : LiveInput 키 관리 서버 액션
  * Author : 임도헌
  *
  * History
@@ -19,6 +19,7 @@
  * 2026.01.23  임도헌   Modified  Service 연동, Client용 Action 추가 (Unlock, GetKey)
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.01.30  임도헌   Moved     app/streams/[id]/actions.ts (getStreamKeyAction, rotateLiveInputKeyAction) -> features/stream/actions/key.ts
+ * 2026.04.02  임도헌   Modified  송출 키 액션 파라미터/반환 JSDoc 보강
  */
 "use server";
 
@@ -34,6 +35,9 @@ import type {
 
 /**
  * LiveInput 키 재발급 Action
+ *
+ * @param {number} liveInputId - 키를 재발급할 LiveInput ID
+ * @returns {Promise<RotateLiveInputKeyResult>} 재발급 결과
  */
 export async function rotateLiveInputKeyAction(
   liveInputId: number
@@ -46,6 +50,9 @@ export async function rotateLiveInputKeyAction(
 
 /**
  * 방송 송출 키 조회 Action
+ *
+ * @param {number} broadcastId - 송출 키를 조회할 방송 ID
+ * @returns {Promise<GetStreamKeyResult>} 방송 송출 키 조회 결과
  */
 export async function getStreamKeyAction(
   broadcastId: number

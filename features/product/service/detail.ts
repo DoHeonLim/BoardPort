@@ -19,13 +19,22 @@
  * 2026.02.13  임도헌   Modified  미사용 함수 getCachedProductTitleById 삭제(generateMetadata에서 getCachedProduct를 사용하므로 삭제함)
  * 2026.03.04  임도헌   Modified  getProductTitleById 다시 추가(metadata용 간소화 함수)
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.04.09  임도헌   Modified  판매완료 숨김 상품 접근 제어를 위해 hidden_at 필드를 상세/메타 조회에 포함
+ * 2026.04.11  임도헌   Modified  제품 상세 이미지에도 isAnimated 메타를 포함해 GIF가 Next 최적화 경고 없이 렌더되도록 보강
+ * 2026.04.14  임도헌   Modified  상세/모달 공통 서버 로더를 추가해 좋아요/차단 상태 조회 중복을 통합
+ * 2026.05.03  임도헌   Modified  제품 상세에 연결된 보드게임 카탈로그 정보 포함
+ * 2026.05.08  임도헌   Modified  제품 상세 보드게임 relation select를 공용 상수로 교체
+ * 2026.06.18  임도헌   Modified  상세 캐시와 별도로 거래/숨김 상태를 최신 조회하도록 보강
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
+import { PRODUCT_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import type { ProductDetailType } from "@/features/product/types";
+import { getProductLikeStatus } from "@/features/product/service/like";
+import { checkBlockRelation } from "@/features/user/service/block";
 
 /**
  * 제품 상세 정보 데이터 조회 로직
@@ -41,22 +50,37 @@ export async function getProductDetail(
   id: number
 ): Promise<ProductDetailType | null> {
   try {
+    // 상세 본문에 필요한 연관 데이터 일괄 조회
     const product = await db.product.findUnique({
       where: { id },
       include: {
         user: { select: { id: true, username: true, avatar: true } },
         images: {
           orderBy: { order: "asc" },
-          select: { url: true, order: true },
+          select: { url: true, order: true, isAnimated: true },
         },
         category: {
           select: { eng_name: true, kor_name: true, icon: true, parent: true },
         },
         search_tags: { select: { name: true } },
+        board_games: {
+          select: PRODUCT_BOARD_GAME_RELATION_SELECT,
+        },
         _count: { select: { product_likes: true } },
       },
     });
-    return product as ProductDetailType | null;
+    if (!product) return null;
+
+    return {
+      ...product,
+      board_games: product.board_games.flatMap(({ boardGame }) => {
+        const { locales, ...linkedBoardGame } = boardGame;
+        const locale = locales[0];
+        // 상세에서도 공개 한국어 locale이 없는 카탈로그 연결은 숨김
+        if (!locale) return [];
+        return [{ boardGame: { ...linkedBoardGame, locale } }];
+      }),
+    } as ProductDetailType;
   } catch (e) {
     console.error("getProductById Error:", e);
     return null;
@@ -74,11 +98,65 @@ export async function getProductDetail(
  */
 export const getCachedProduct = (id: number) => {
   return nextCache(
+    // 상세 원본 조회 위임
     () => getProductDetail(id),
     ["product-detail-data", String(id)],
     { tags: [T.PRODUCT_DETAIL(id)], revalidate: 3600 } // 1시간 유지 (업데이트 시 즉시 파기)
   )();
 };
+
+/**
+ * 상세 페이지/모달에서 공통으로 쓰는 상세 조회 모델.
+ * 공통 본문은 캐시된 상세 데이터를 재사용하고, 자주 바뀌는 거래/숨김 상태와
+ * 개인화된 좋아요/차단 상태만 별도 조회
+ */
+export async function getProductDetailViewData(
+  id: number,
+  userId: number | null
+) {
+  // 공통 본문 캐시는 유지하되, 채팅 약속 수락처럼 상태만 바뀌는 경로는 최신 DB 값을 덮어쓴다.
+  const [product, likeStatus, liveState] = await Promise.all([
+    getCachedProduct(id),
+    getProductLikeStatus(id, userId),
+    db.product.findUnique({
+      where: { id },
+      select: {
+        reservation_userId: true,
+        purchase_userId: true,
+        hidden_at: true,
+      },
+    }),
+  ]);
+
+  if (!product || !liveState) {
+    return {
+      product: null,
+      likeStatus,
+      isOwner: false,
+      isBlocked: false,
+    };
+  }
+
+  const productWithLiveState = {
+    ...product,
+    reservation_userId: liveState.reservation_userId,
+    purchase_userId: liveState.purchase_userId,
+    hidden_at: liveState.hidden_at,
+  };
+
+  const isOwner = userId === productWithLiveState.userId;
+  // 상품 소유자 확인 이후에만 차단 관계 계산, 불필요한 조회 감소
+  const isBlocked = userId
+    ? await checkBlockRelation(userId, productWithLiveState.userId)
+    : false;
+
+  return {
+    product: productWithLiveState,
+    likeStatus,
+    isOwner,
+    isBlocked,
+  };
+}
 
 /**
  * 메타데이터 생성을 위한 경량 제품 조회 로직
@@ -90,9 +168,10 @@ export const getCachedProduct = (id: number) => {
  */
 export async function getProductTitleById(id: number) {
   try {
+    // 메타데이터 최소 필드 조회
     return await db.product.findUnique({
       where: { id },
-      select: { title: true, description: true },
+      select: { title: true, description: true, hidden_at: true },
     });
   } catch (e) {
     console.error("[getProductTitleById] Error:", e);
@@ -110,6 +189,7 @@ export async function getProductTitleById(id: number) {
  * @param {number} id - 제품 ID
  */
 export async function getProductTopbar(id: number) {
+  // 상단바 전용 경량 메타 조회
   const product = await db.product.findUnique({
     where: { id },
     select: {
@@ -122,6 +202,7 @@ export async function getProductTopbar(id: number) {
   });
 
   if (!product)
+    // 상단바 폴백 메타 반환
     return {
       categoryId: null,
       categoryLabel: null,

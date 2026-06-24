@@ -8,19 +8,26 @@
  * 2026.02.19  임도헌   Created   약속 데이터 입력 UI 및 지도 연동
  * 2026.02.26  임도헌   Modified  다크모드 가시성(MapPinIcon, 변경버튼) 개선
  * 2026.03.06  임도헌   Modified  닫기 버튼 터치 타겟과 버튼 hover 대비를 표준 규칙에 맞게 조정
+ * 2026.03.22  임도헌   Modified  최근 모달 톤 기준으로 외곽선과 헤더/푸터 보더 강도 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.04.26  임도헌   Modified  약속 설정 모달에 dialog 의미와 날짜/시간 입력 라벨 연결, ESC 닫기 흐름을 보강
+ * 2026.04.26  임도헌   Modified  약속 입력 오류 문구를 사용자가 수정할 항목 기준으로 구체화
+ * 2026.05.12  임도헌   Modified  약속 모달을 닫은 뒤 다음 제안이 빈 입력값으로 시작되도록 드래프트 초기화
+ * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 약속 제안 CTA 중심으로 정리
+ * 2026.06.19  임도헌   Modified  모바일 약속 입력 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  */
 
-"use client";
-
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   MapPinIcon,
   CalendarIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import BottomSheet from "@/components/global/BottomSheet";
 import LocationPicker from "@/features/map/components/LocationPicker";
 import type { LocationData } from "@/features/map/types";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -41,44 +48,204 @@ export default function ScheduleModal({
   onClose,
   onConfirm,
 }: ScheduleModalProps) {
+  const isMobile = useIsMobile();
   const [dateStr, setDateStr] = useState("");
   const [timeStr, setTimeStr] = useState("");
   const [location, setLocation] = useState<LocationData | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const resetDraft = useCallback(() => {
+    setDateStr("");
+    setTimeStr("");
+    setLocation(null);
+    setShowMap(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    resetDraft();
+    onClose();
+  }, [onClose, resetDraft]);
+
+  useEffect(() => {
+    if (isOpen) return;
+
+    // 새 약속 제안이 이전 취소/전송 기록을 이어받지 않도록 닫힌 상태에서 드래프트 초기화
+    resetDraft();
+  }, [isOpen, resetDraft]);
+
+  useEffect(() => {
+    if (!isOpen || showMap) return;
+    if (isMobile) return;
+
+    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) handleClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleClose, isMobile, isOpen, isPending, showMap]);
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
     if (!dateStr || !timeStr || !location) {
-      toast.error("날짜, 시간, 장소를 모두 입력해주세요.");
+      toast.error("약속 날짜, 시간, 장소를 모두 입력해주세요.");
       return;
     }
 
     const dateTime = new Date(`${dateStr}T${timeStr}`);
     if (isNaN(dateTime.getTime()) || dateTime < new Date()) {
-      toast.error("올바른 미래 시간을 선택해주세요.");
+      toast.error("현재보다 이후 시간을 선택해주세요.");
       return;
     }
 
     startTransition(() => {
       onConfirm(dateTime, location);
-      onClose();
+      handleClose();
     });
   };
 
+  const bodyContent = (
+    <div className="space-y-5">
+      {/* 날짜/시간 선택 */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label
+            htmlFor="schedule-date"
+            className="text-xs font-bold text-muted"
+          >
+            날짜
+          </label>
+          <input
+            id="schedule-date"
+            type="date"
+            value={dateStr}
+            onChange={(e) => setDateStr(e.target.value)}
+            className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="schedule-time"
+            className="text-xs font-bold text-muted"
+          >
+            시간
+          </label>
+          <input
+            id="schedule-time"
+            type="time"
+            value={timeStr}
+            onChange={(e) => setTimeStr(e.target.value)}
+            className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
+          />
+        </div>
+      </div>
+
+      {/* 장소 선택 */}
+      <div className="space-y-2">
+        <span className="text-xs font-bold text-muted">만날 장소</span>
+        {location ? (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 dark:border-brand-light/30 shadow-sm group">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
+                <MapPinIcon className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-primary truncate">
+                  {location.locationName}
+                </p>
+                <p className="text-xs text-muted truncate">
+                  {location.region2} {location.region3}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowMap(true)}
+              className="focus-ring-soft rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            >
+              변경
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowMap(true)}
+            className="focus-ring-soft w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-colors"
+          >
+            <MapPinIcon className="size-5" />
+            <span className="text-sm font-medium">지도에서 장소 선택</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const footer = (
+    <button
+      onClick={handleSubmit}
+      disabled={!location || !dateStr || !timeStr || isPending}
+      className="btn-primary h-10 w-full px-6 text-sm sm:w-auto"
+    >
+      {isPending ? "전송 중..." : "약속 제안하기"}
+    </button>
+  );
+
+  const locationPicker = showMap ? (
+    <LocationPicker
+      onClose={() => setShowMap(false)}
+      onSelect={(loc) => {
+        setLocation(loc);
+        setShowMap(false);
+      }}
+      initialData={location ?? undefined}
+    />
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <>
+        <BottomSheet
+          open={isOpen}
+          title="약속 잡기"
+          description="거래 약속 날짜, 시간, 장소를 선택합니다."
+          onClose={handleClose}
+          contentClassName="pt-4"
+          footer={footer}
+        >
+          {bodyContent}
+        </BottomSheet>
+        {locationPicker}
+      </>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border animate-fade-in">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="schedule-modal-title"
+        tabIndex={-1}
+        className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border-subtle"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface-dim/30">
-          <h3 className="font-bold text-primary text-lg flex items-center gap-2">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface">
+          <h3
+            id="schedule-modal-title"
+            className="font-bold text-primary text-lg flex items-center gap-2"
+          >
             <CalendarIcon className="size-5 text-brand dark:text-brand-light" />
             약속 잡기
           </h3>
           <button
-            onClick={onClose}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
+            onClick={handleClose}
+            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
           >
             <XMarkIcon className="size-6" />
@@ -86,96 +253,16 @@ export default function ScheduleModal({
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-5">
-          {/* 날짜/시간 선택 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted">날짜</label>
-              <input
-                type="date"
-                value={dateStr}
-                onChange={(e) => setDateStr(e.target.value)}
-                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-muted">시간</label>
-              <input
-                type="time"
-                value={timeStr}
-                onChange={(e) => setTimeStr(e.target.value)}
-                className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
-              />
-            </div>
-          </div>
-
-          {/* 장소 선택 */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-muted">만날 장소</label>
-            {location ? (
-              <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-brand/30 dark:border-brand-light/30 shadow-sm group">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 bg-brand/10 text-brand dark:bg-brand-light/10 dark:text-brand-light rounded-full shrink-0">
-                    <MapPinIcon className="size-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-primary truncate">
-                      {location.locationName}
-                    </p>
-                    <p className="text-xs text-muted truncate">
-                      {location.region2} {location.region3}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowMap(true)}
-                  className="rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-                >
-                  변경
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowMap(true)}
-                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted hover:text-primary hover:bg-surface-dim hover:border-brand/30 dark:hover:border-brand-light/30 transition-all"
-              >
-                <MapPinIcon className="size-5" />
-                <span className="text-sm font-medium">지도에서 장소 선택</span>
-              </button>
-            )}
-          </div>
-        </div>
+        <div className="p-5">{bodyContent}</div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-surface-dim/30 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="btn-secondary h-10 text-sm border-transparent"
-            disabled={isPending}
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!location || !dateStr || !timeStr || isPending}
-            className="btn-primary h-10 text-sm px-6"
-          >
-            {isPending ? "전송 중..." : "약속 제안하기"}
-          </button>
+        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end">
+          {footer}
         </div>
       </div>
 
       {/* LocationPicker Modal */}
-      {showMap && (
-        <LocationPicker
-          onClose={() => setShowMap(false)}
-          onSelect={(loc) => {
-            setLocation(loc);
-            setShowMap(false);
-          }}
-          initialData={location ?? undefined}
-        />
-      )}
+      {locationPicker}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 /**
  * File Name : features/auth/schemas/register.ts
  * Description : 유저 회원가입 스키마
-s * Author : 임도헌
+ * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
@@ -12,16 +12,22 @@ s * Author : 임도헌
  * 2025.12.10  임도헌   Modified  이메일 검증 로직 단순화(zod email 사용) 및 스키마 정리
  * 2026.01.19  임도헌   Moved     lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved     lib/createAccountSchema -> schemas/register
+ * 2026.03.08  임도헌   Modified  requiredTrimmedString 공통 유틸 적용으로 공백 입력 검증 통일
+ * 2026.06.04  임도헌   Modified  회원가입 유저명 최대 길이를 공용 상수 기준으로 통일
  */
 
 import { z } from "zod";
+import { requiredTrimmedString } from "@/lib/zod-helpers";
 import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REGEX,
   PASSWORD_REGEX_ERROR,
+  USERNAME_MAX_LENGTH,
 } from "@/lib/constants";
 
-// 유저 비밀번호 확인 함수
+/**
+ * 비밀번호/비밀번호 확인 일치 여부 검사
+ */
 export const handleCheckPasswords = ({
   password,
   confirmPassword,
@@ -30,32 +36,24 @@ export const handleCheckPasswords = ({
   confirmPassword: string;
 }) => password === confirmPassword;
 
+/**
+ * 회원가입 폼 검증 스키마
+ * - 닉네임/이메일/비밀번호/비밀번호 확인 검증
+ */
 export const createAccountSchema = z
   .object({
-    username: z
-      .string({
-        invalid_type_error: "유저명은 문자여야 합니다.",
-        required_error: "유저명을 입력해주세요.",
-      })
-      .trim()
+    username: requiredTrimmedString("유저명을 입력해주세요.")
       .min(3, { message: "유저명은 최소 3자 이상이어야 합니다." })
-      .max(10, { message: "유저명은 최대 10자까지 입력할 수 있습니다." })
+      .max(USERNAME_MAX_LENGTH, {
+        message: `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 입력할 수 있습니다.`,
+      })
       .toLowerCase(),
 
-    email: z
-      .string({
-        required_error: "이메일을 입력해주세요.",
-        invalid_type_error: "이메일은 문자여야 합니다.",
-      })
-      .trim()
+    email: requiredTrimmedString("이메일을 입력해주세요.")
       .toLowerCase()
       .email({ message: "이메일 형식을 확인해주세요." }),
 
-    password: z
-      .string({
-        required_error: "비밀번호를 입력해주세요.",
-      })
-      .trim()
+    password: requiredTrimmedString("비밀번호를 입력해주세요.")
       .min(PASSWORD_MIN_LENGTH, {
         message: `비밀번호는 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`,
       })
@@ -63,11 +61,7 @@ export const createAccountSchema = z
         message: PASSWORD_REGEX_ERROR,
       }),
 
-    confirmPassword: z
-      .string({
-        required_error: "비밀번호 확인을 입력해주세요.",
-      })
-      .trim()
+    confirmPassword: requiredTrimmedString("비밀번호 확인을 입력해주세요.")
       .min(PASSWORD_MIN_LENGTH, {
         message: `비밀번호 확인은 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`,
       }),

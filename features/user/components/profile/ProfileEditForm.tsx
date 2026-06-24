@@ -6,7 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2024.11.25  임도헌   Created
- * 2024.11.25  임도헌   Modified  프로필 편집 폼 컴포넌트추가
+ * 2024.11.25  임도헌   Modified  프로필 편집 폼 컴포넌트 추가
  * 2024.11.27  임도헌   Modified  GitHub 연동한 유저의 케이스 추가
  * 2024.11.28  임도헌   Modified  스키마 위치 변경
  * 2024.12.12  임도헌   Modified  스타일 수정
@@ -23,16 +23,36 @@
  * 2026.01.17  임도헌   Moved     components/profile -> features/user/components/profile
  * 2026.01.29  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.02.25  임도헌   Modified  Cloudflare Images hash 하드코딩 제거
+ * 2026.03.08  임도헌   Modified  FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반 커스텀 검증 UX 적용
+ * 2026.03.09  임도헌   Modified  프로필 이미지 크롭/확대/위치 조정 모달 추가
+ * 2026.03.12  임도헌   Modified  프로필 이미지 크롭 적용 절차와 검증 UX 흐름 명확화
+ * 2026.03.12  임도헌   Modified  프로필 이미지 애니메이션 메타(avatarAnimated) 저장 지원
+ * 2026.03.12  임도헌   Modified  프로필 편집 미리보기 아바타를 원형 컨테이너 기준으로 정렬해 사각형 노출 문제 수정
+ * 2026.03.12  임도헌   Modified  인증 버튼과 안내/성공 상태 배경을 시맨틱 토큰 기준으로 통일
+ * 2026.03.13  임도헌   Modified  저장/취소 시 returnTo 경로로 복귀할 수 있도록 보강
+ * 2026.03.19  임도헌   Modified  작은 화면에서 전화번호 입력과 인증 버튼이 세로로 정렬되도록 조정해 폼 밀도를 완화
+ * 2026.03.21  임도헌   Modified  방송국 전용 소개글 입력을 유저 채널 페이지로 이동
+ * 2026.03.23  임도헌   Modified  프로필 편집 섹션 구분선과 안내 카드 셸을 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.04.10  임도헌   Modified  profile 타이포 정책에 맞춰 전화번호 인증 CTA weight를 500 기준으로 정리
+ * 2026.04.25  임도헌   Modified  서버 액션 prop 전달을 제거하고 소셜 유저 설정 안내의 다크모드 대비를 개선
+ * 2026.04.26  임도헌   Modified  전화번호 인증 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.05.15  임도헌   Modified  이메일/비밀번호 설정 안내 박스의 다크모드 텍스트 대비 보강
+ * 2026.06.01  임도헌   Modified  프로필 수정 폼 간격을 작성형 폼 기준으로 정리
+ * 2026.06.01  임도헌   Modified  취소 시 내부 히스토리는 back으로 복귀하고 직접 진입은 replace fallback 처리
+ * 2026.06.04  임도헌   Modified  프로필 유저명 입력 길이 안내를 공용 상수 기준으로 정리
  */
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { MAX_PHOTO_SIZE } from "@/lib/constants";
-import { getUploadUrl } from "@/lib/cloudflareImages";
+import {
+  MAX_PHOTO_SIZE,
+  PASSWORD_MIN_LENGTH,
+  USERNAME_MAX_LENGTH,
+} from "@/lib/constants";
 import {
   sendProfilePhoneTokenAction,
   verifyProfilePhoneTokenAction,
@@ -41,14 +61,12 @@ import {
   profileEditSchema,
   type ProfileEditDTO,
 } from "@/features/user/schemas";
-import type {
-  EditProfileActionState,
-  CurrentUserForEdit,
-} from "@/features/user/types";
+import type { CurrentUserForEdit } from "@/features/user/types";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import { toast } from "sonner";
-import ConfirmDialog from "@/components/global/ConfirmDialog";
+import type { AvatarCropValues } from "@/features/user/utils/avatarCrop";
 import { PhotoIcon } from "@heroicons/react/24/solid";
 import {
   UserIcon,
@@ -58,14 +76,25 @@ import {
   KeyIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { applyFieldErrors } from "@/lib/applyFieldErrors";
+import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
+import { editProfileAction } from "@/features/user/actions/profile";
+import { canUseBrowserBack } from "@/lib/navigationRefreshFlag";
 
-type EditProfileAction = (
-  formData: FormData
-) => Promise<EditProfileActionState>;
+const ConfirmDialog = dynamic(() => import("@/components/global/ConfirmDialog"), {
+  loading: () => null,
+});
+
+const AvatarCropModal = dynamic(
+  () => import("@/features/user/components/profile/AvatarCropModal"),
+  {
+    loading: () => null,
+  }
+);
 
 interface ProfileEditFormProps {
   user: CurrentUserForEdit;
-  action: EditProfileAction;
+  returnTo: string;
 }
 
 const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
@@ -75,13 +104,14 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  *
  * [기능]
  * 1. 기본 정보 수정: 닉네임, 아바타, 이메일(최초설정), 비밀번호(최초설정)
- * 2. 아바타 관리: 업로드(Cloudflare), 미리보기, 삭제
+ * 2. 아바타 관리: 크롭/확대/위치 조정, 업로드(Cloudflare), 미리보기, 삭제
  * 3. 전화번호 인증: 인증번호 발송/검증 프로세스 내장 (수정 시 인증 필수)
- * 4. 서버 액션 연동: 중복 체크 및 업데이트 처리
+ * 4. FormErrorSummary, applyFieldErrors, focusFirstFieldError 기반 검증 UX 적용
+ * 5. 서버 액션 연동: 클라이언트 내부에서 프로필 업데이트 액션 호출
  */
 export default function ProfileEditForm({
   user,
-  action,
+  returnTo,
 }: ProfileEditFormProps) {
   const router = useRouter();
 
@@ -91,6 +121,10 @@ export default function ProfileEditForm({
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPhoto, setCurrentPhoto] = useState<string | null>(user.avatar);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropSourceUrl, setCropSourceUrl] = useState("");
+  const [pendingImageName, setPendingImageName] = useState("avatar");
+  const [applyingCrop, setApplyingCrop] = useState(false);
 
   // Phone Verification State
   const [phoneVerificationSent, setPhoneVerificationSent] = useState(false);
@@ -105,6 +139,7 @@ export default function ProfileEditForm({
   const [avatarConfirmOpen, setAvatarConfirmOpen] = useState(false);
 
   // --- Schema ---
+  // 소셜 가입 보완 항목과 전화번호 인증 상태에 따라 검증 스키마를 재구성
   const schema = useMemo(
     () =>
       profileEditSchema({
@@ -120,6 +155,7 @@ export default function ProfileEditForm({
     handleSubmit,
     setValue,
     setError,
+    setFocus,
     watch,
     reset: rhfReset,
     clearErrors,
@@ -131,6 +167,7 @@ export default function ProfileEditForm({
       email: user.email ?? "",
       phone: (user.phone ?? "").trim(),
       avatar: user.avatar,
+      avatarAnimated: user.avatarAnimated ?? false,
       password: null,
       confirmPassword: null,
     },
@@ -141,6 +178,7 @@ export default function ProfileEditForm({
   const phoneValue = watch("phone");
   const normalizedPhone = (phoneValue || "").trim();
   const avatarValue = watch("avatar");
+  // 기존 아바타, 새 미리보기, 폼 값을 함께 보고 삭제 버튼 노출 여부를 결정
   const hasAnyAvatar = !!currentPhoto || preview !== "" || !!avatarValue;
 
   // --- Effects ---
@@ -171,18 +209,21 @@ export default function ProfileEditForm({
       setPreview(user.avatar + "/public");
       setCurrentPhoto(user.avatar);
       setValue("avatar", user.avatar);
+      setValue("avatarAnimated", user.avatarAnimated ?? false);
     } else {
       setPreview("");
       setCurrentPhoto(null);
       setValue("avatar", null);
+      setValue("avatarAnimated", false);
     }
-  }, [user.avatar, setValue]);
+  }, [user.avatar, user.avatarAnimated, setValue]);
 
   // --- Handlers ---
 
   const handleImageChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    // 원본 파일은 바로 업로드하지 않고 크롭 모달에서 편집한 뒤 업로드 준비
     const nextFile = event.target.files?.[0];
     if (!nextFile) return;
 
@@ -204,6 +245,16 @@ export default function ProfileEditForm({
       return;
     }
 
+    const url = URL.createObjectURL(nextFile);
+    setCropSourceUrl(url);
+    setPendingImageName(nextFile.name);
+    setCropModalOpen(true);
+    clearErrors("avatar");
+    event.target.value = "";
+  };
+
+  const applyAvatarFile = async (nextFile: File) => {
+    // 크롭 결과 파일을 미리보기로 반영하고 Cloudflare direct upload URL을 예약
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
 
     const url = URL.createObjectURL(nextFile);
@@ -211,6 +262,7 @@ export default function ProfileEditForm({
     setFile(nextFile);
 
     // Cloudflare Upload URL 요청
+    const { getUploadUrl } = await import("@/lib/cloudflareImages");
     const res = await getUploadUrl();
     if (!res.success) {
       URL.revokeObjectURL(url);
@@ -218,17 +270,56 @@ export default function ProfileEditForm({
       setFile(null);
       setUploadUrl("");
       setValue("avatar", user.avatar ?? null);
+      setValue("avatarAnimated", user.avatarAnimated ?? false);
       setError("avatar", {
         type: "manual",
         message: res.error ?? "업로드 URL을 가져오지 못했습니다.",
       });
-      event.target.value = "";
       return;
     }
 
     const { id, uploadURL } = res.result;
     setUploadUrl(uploadURL);
     setValue("avatar", `https://imagedelivery.net/${CF_HASH}/${id}`);
+    setValue("avatarAnimated", false);
+  };
+
+  const handleCropCancel = () => {
+    if (cropSourceUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(cropSourceUrl);
+    }
+    setCropSourceUrl("");
+    setPendingImageName("avatar");
+    setCropModalOpen(false);
+  };
+
+  const handleCropConfirm = async (crop: AvatarCropValues) => {
+    setApplyingCrop(true);
+    try {
+      const { createCroppedAvatarFile } = await import(
+        "@/features/user/utils/avatarCrop"
+      );
+      const croppedFile = await createCroppedAvatarFile(
+        cropSourceUrl,
+        pendingImageName,
+        crop
+      );
+      await applyAvatarFile(croppedFile);
+      if (cropSourceUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(cropSourceUrl);
+      }
+      setCropSourceUrl("");
+      setPendingImageName("avatar");
+      setCropModalOpen(false);
+    } catch (error) {
+      console.error(error);
+      setError("avatar", {
+        type: "manual",
+        message: "이미지 편집 중 오류가 발생했습니다.",
+      });
+    } finally {
+      setApplyingCrop(false);
+    }
   };
 
   const requestClearAvatar = () => {
@@ -246,6 +337,10 @@ export default function ProfileEditForm({
     setUploadUrl("");
     setCurrentPhoto(null);
     setValue("avatar", null, { shouldValidate: true, shouldDirty: true });
+    setValue("avatarAnimated", false, {
+      shouldValidate: false,
+      shouldDirty: true,
+    });
     clearErrors("avatar");
     if (fileInputRef.current) fileInputRef.current.value = "";
 
@@ -254,12 +349,14 @@ export default function ProfileEditForm({
   };
 
   const resetForm = () => {
+    // RHF 값과 미리보기/업로드/전화번호 인증 파생 상태를 함께 원복
     const basePhone = originalPhone;
     rhfReset({
       username: user.username,
       email: user.email ?? "",
       phone: basePhone,
       avatar: user.avatar,
+      avatarAnimated: user.avatarAnimated ?? false,
       password: null,
       confirmPassword: null,
     });
@@ -269,6 +366,7 @@ export default function ProfileEditForm({
     setFile(null);
     setUploadUrl("");
     setCurrentPhoto(user.avatar);
+    setValue("avatarAnimated", user.avatarAnimated ?? false);
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     setPhoneVerificationSent(false);
@@ -376,6 +474,9 @@ export default function ProfileEditForm({
         }
       } else {
         data.avatar = currentPhoto; // 변경 없으면 기존 URL 유지
+        data.avatarAnimated = currentPhoto
+          ? (user.avatarAnimated ?? false)
+          : false;
       }
 
       // 3. 서버 액션 호출 (FormData 구성)
@@ -388,8 +489,9 @@ export default function ProfileEditForm({
           fd.append("confirmPassword", data.confirmPassword);
       }
       fd.append("avatar", data.avatar ?? "");
+      fd.append("avatarAnimated", String(data.avatarAnimated ?? false));
 
-      const result = await action(fd);
+      const result = await editProfileAction(fd);
 
       if (!result.success) {
         // 전역 에러(formErrors)는 Toast로, 필드 에러(fieldErrors)는 Input 하단에 표시
@@ -397,57 +499,75 @@ export default function ProfileEditForm({
           const formMsg = result.errors.formErrors?.[0];
           if (formMsg) toast.error(formMsg);
 
-          Object.entries(result.errors.fieldErrors ?? {}).forEach(
-            ([k, arr]) => {
-              const msg = Array.isArray(arr) ? arr[0] : undefined;
-              if (msg)
-                setError(k as keyof ProfileEditDTO, {
-                  type: "server",
-                  message: msg,
-                });
-            }
+          applyFieldErrors<ProfileEditDTO>(
+            setError,
+            result.errors.fieldErrors,
+            { setFocus }
           );
         }
         return;
       }
 
       toast.success("프로필 수정 완료!");
-      router.replace("/profile");
+      router.replace(returnTo);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onSubmit = handleSubmit(onValid);
+  const handleCancel = () => {
+    let hasExternalReferrer = false;
+
+    if (document.referrer) {
+      try {
+        hasExternalReferrer =
+          new URL(document.referrer).origin !== window.location.origin;
+      } catch {
+        hasExternalReferrer = false;
+      }
+    }
+
+    if (canUseBrowserBack() && !hasExternalReferrer) {
+      router.back();
+      return;
+    }
+
+    router.replace(returnTo);
+  };
+
+  const onInvalid = (formErrors: typeof errors) => {
+    focusFirstFieldError<ProfileEditDTO>(formErrors, setFocus);
+  };
+  // 소셜 가입처럼 이메일 또는 비밀번호가 비어 있는 계정의 보완 안내
   const showSetupNotice = user.needsEmailSetup || user.needsPasswordSetup;
   const phoneReg = register("phone");
 
   return (
     <div className="layout-container pt-page-y pb-24 px-page-x bg-background">
-      <h1 className="text-2xl font-bold text-center mb-8 text-primary">
+      <h1 className="mb-6 text-center text-2xl font-bold text-primary">
         프로필 수정
       </h1>
 
       {/* 아바타 업로드 영역 */}
-      <div className="flex flex-col items-center mb-8">
+      <div className="mb-6 flex flex-col items-center">
         <div className="relative group cursor-pointer">
           <label
             htmlFor="photo"
             className={cn(
-              "flex flex-col items-center justify-center size-28 rounded-full overflow-hidden border-2 border-border bg-surface-dim",
+              "relative flex size-24 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-border bg-surface-dim sm:size-28",
               "hover:border-brand/50 transition-colors",
               !preview && "text-muted"
             )}
           >
             {preview ? (
               <div
-                className="absolute inset-0 bg-cover bg-center"
+                className="absolute inset-0 rounded-full bg-cover bg-center"
                 style={{ backgroundImage: `url(${preview})` }}
               />
             ) : (
               <PhotoIcon className="size-8" />
             )}
-            {/* Overlay Icon */}
+            {/* 오버레이 아이콘 */}
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
               <span className="text-white text-xs font-medium">변경</span>
             </div>
@@ -471,7 +591,7 @@ export default function ProfileEditForm({
             type="button"
             onClick={requestClearAvatar}
             disabled={submitting}
-            className="mt-3 text-xs text-muted hover:text-danger underline transition-colors"
+            className="focus-ring-soft mt-3 rounded-md text-xs text-muted hover:text-danger underline transition-colors"
           >
             아바타 삭제
           </button>
@@ -479,29 +599,36 @@ export default function ProfileEditForm({
       </div>
 
       {/* 폼 영역 */}
-      <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
-        {/* Username */}
+      <form
+        onSubmit={handleSubmit(onValid, onInvalid)}
+        className="flex flex-col gap-4"
+        noValidate
+      >
+        <FormErrorSummary errors={errors} />
+
+        {/* 사용자 이름 */}
         <Input
           id="username"
           label="선원 닉네임"
           type="text"
           required
-          placeholder="닉네임 (3~10자)"
+          placeholder={`닉네임 (3~${USERNAME_MAX_LENGTH}자)`}
+          density="compact"
           {...register("username")}
           errors={[errors.username?.message ?? ""]}
           minLength={3}
-          maxLength={10}
+          maxLength={USERNAME_MAX_LENGTH}
           aria-invalid={!!errors.username}
           icon={<UserIcon className="size-5" />}
         />
 
         {showSetupNotice && (
-          <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-sm">
-            ⚠️ 원활한 서비스 이용을 위해 이메일과 비밀 항해 코드를 설정해주세요.
+          <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 shadow-sm dark:border-amber-300/35 dark:bg-amber-950/70 dark:text-amber-100">
+            원활한 서비스 이용을 위해 이메일과 비밀번호를 설정해주세요.
           </div>
         )}
 
-        {/* Email */}
+        {/* 이메일 */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-primary">이메일</label>
           {user.needsEmailSetup ? (
@@ -509,27 +636,36 @@ export default function ProfileEditForm({
               id="email"
               type="email"
               placeholder="이메일 주소"
+              density="compact"
               {...register("email")}
               errors={[errors.email?.message ?? ""]}
               icon={<EnvelopeIcon className="size-5" />}
             />
           ) : (
-            <div className="input-primary h-input-md px-4 flex items-center bg-surface-dim text-muted cursor-not-allowed border border-border">
+            <div className="input-primary flex h-11 cursor-not-allowed items-center border border-border bg-surface-dim px-4 text-muted sm:h-input-md">
               <EnvelopeIcon className="size-5 mr-2" />
               {user.email ?? "미설정"}
               <span className="ml-auto text-xs">(변경 불가)</span>
             </div>
           )}
+          {user.email && !user.emailVerified && (
+            <p className="pl-1 text-xs leading-relaxed text-muted">
+              이메일 인증을 완료해야 비밀번호 찾기와 계정 복구를 사용할 수
+              있습니다.
+            </p>
+          )}
         </div>
 
-        {/* Password Setup */}
+        {/* 비밀번호 설정 */}
         {user.needsPasswordSetup && (
-          <div className="space-y-4 pt-2 border-t border-border mt-2">
+          <div className="mt-2 space-y-3 border-t border-border-subtle pt-2">
             <Input
-              label="비밀 항해 코드 설정"
+              label="비밀번호 설정"
               type="password"
               passwordToggle
               placeholder="비밀번호"
+              minLength={PASSWORD_MIN_LENGTH}
+              density="compact"
               {...register("password")}
               errors={[errors.password?.message ?? ""]}
               icon={<LockClosedIcon className="size-5" />}
@@ -538,6 +674,8 @@ export default function ProfileEditForm({
               type="password"
               passwordToggle
               placeholder="비밀번호 확인"
+              minLength={PASSWORD_MIN_LENGTH}
+              density="compact"
               {...register("confirmPassword")}
               errors={[errors.confirmPassword?.message ?? ""]}
               icon={<KeyIcon className="size-5" />}
@@ -545,14 +683,14 @@ export default function ProfileEditForm({
           </div>
         )}
 
-        {/* Phone Verification */}
-        <div className="space-y-3 pt-4 border-t border-border">
+        {/* 전화번호 인증 */}
+        <div className="space-y-3 border-t border-border-subtle pt-3">
           <label className="text-sm font-medium text-primary">
             전화번호 (선택)
           </label>
 
-          <div className="p-4 rounded-xl border border-border bg-surface shadow-sm space-y-4">
-            <div className="flex items-start gap-2">
+          <div className="space-y-3 rounded-xl border border-border-subtle bg-surface p-3.5 shadow-sm sm:p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
               <div className="flex-1">
                 <Input
                   id="phone"
@@ -560,6 +698,7 @@ export default function ProfileEditForm({
                   inputMode="numeric"
                   placeholder="01012345678"
                   className="bg-transparent"
+                  density="compact"
                   {...phoneReg}
                   errors={[errors.phone?.message ?? ""]}
                   icon={<PhoneIcon className="size-5" />}
@@ -584,7 +723,7 @@ export default function ProfileEditForm({
                     type="button"
                     onClick={handleSendVerification}
                     disabled={submitting}
-                    className="h-input-md px-4 text-xs font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-xl transition-colors disabled:opacity-50 shadow-sm whitespace-nowrap"
+                    className="focus-ring-strong h-11 w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50 sm:h-input-md sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
                   >
                     인증 요청
                   </button>
@@ -592,7 +731,7 @@ export default function ProfileEditForm({
             </div>
 
             {phoneVerificationSent && !phoneVerified && (
-              <div className="flex gap-2 animate-fade-in">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   placeholder="인증번호 6자리 입력"
                   value={phoneToken}
@@ -601,12 +740,13 @@ export default function ProfileEditForm({
                   inputMode="numeric"
                   maxLength={6}
                   className="text-center tracking-widest"
+                  density="compact"
                 />
                 <button
                   type="button"
                   onClick={handleVerifyToken}
                   disabled={submitting}
-                  className="h-input-md px-4 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors shadow-sm whitespace-nowrap"
+                  className="focus-ring-strong h-11 w-full whitespace-nowrap rounded-xl bg-brand px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-brand-dark sm:h-input-md sm:w-auto dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
                 >
                   확인
                 </button>
@@ -614,20 +754,20 @@ export default function ProfileEditForm({
             )}
 
             {phoneVerified && (
-              <div className="flex items-center gap-2 text-sm text-green-600 font-medium bg-green-50 dark:bg-green-900/20 p-2 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-brand/10 p-2 text-sm font-medium text-brand dark:bg-brand-light/10 dark:text-brand-light">
                 <span>✓ 인증되었습니다.</span>
               </div>
             )}
 
             <div className="text-xs text-muted leading-relaxed">
-              * 전화번호 변경은 인증 완료 시 즉시 저장됩니다.
+   * 전화번호 변경은 인증 완료 시 즉시 저장
               <br />* 이미 인증된 번호는 삭제할 수 없습니다.
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-3 mt-4">
+        {/* 액션 버튼 */}
+        <div className="mt-2 flex flex-col gap-3">
           <Button
             text={submitting ? "저장 중..." : "수정 완료"}
             disabled={submitting}
@@ -637,21 +777,23 @@ export default function ProfileEditForm({
               type="button"
               onClick={resetForm}
               disabled={submitting}
-              className="btn-secondary h-12 text-sm border-transparent bg-surface hover:bg-surface-dim text-muted"
+              className="btn-secondary-page h-11 text-sm font-medium sm:h-12"
             >
               초기화
             </button>
-            <Link
-              href="/profile"
-              className="flex items-center justify-center btn-secondary h-12 text-sm border-transparent bg-surface hover:bg-surface-dim text-muted"
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={submitting}
+              className="btn-secondary-page flex h-11 items-center justify-center text-sm font-medium sm:h-12"
             >
               취소
-            </Link>
+            </button>
           </div>
         </div>
       </form>
 
-      {/* Confirm Dialog */}
+      {/* 확인 다이얼로그 */}
       <ConfirmDialog
         open={avatarConfirmOpen}
         title="아바타 삭제"
@@ -660,6 +802,14 @@ export default function ProfileEditForm({
         onConfirm={confirmClearAvatar}
         onCancel={() => setAvatarConfirmOpen(false)}
         loading={submitting}
+      />
+
+      <AvatarCropModal
+        open={cropModalOpen}
+        imageUrl={cropSourceUrl}
+        onClose={handleCropCancel}
+        onConfirm={handleCropConfirm}
+        loading={applyingCrop}
       />
     </div>
   );

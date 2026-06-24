@@ -29,19 +29,28 @@ export async function POST(req: Request) {
   try {
     const session = await getSession();
     // 비로그인 상태면 구독 정보가 없는 것으로 간주
-    if (!session?.id) return NextResponse.json({ isValid: false });
+    if (!session?.id) {
+      return NextResponse.json(
+        { isValid: false, reason: "disabled_by_user" },
+        { status: 401 }
+      );
+    }
 
     const { endpoint } = await req.json();
     if (!endpoint || typeof endpoint !== "string") {
-      return NextResponse.json({ isValid: false }, { status: 400 });
+      return NextResponse.json(
+        { isValid: false, reason: "needs_reconnect" },
+        { status: 400 }
+      );
     }
 
     // Service 호출: 해당 endpoint가 활성 상태인지 검사
-    const isValid = await checkSubscriptionStatus(session.id, endpoint);
+    const result = await checkSubscriptionStatus(session.id, endpoint);
 
-    return NextResponse.json({ isValid });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Check subscription error:", error);
-    return NextResponse.json({ isValid: false });
+    return NextResponse.json({ isValid: false, reason: "needs_reconnect" });
   }
 }
+

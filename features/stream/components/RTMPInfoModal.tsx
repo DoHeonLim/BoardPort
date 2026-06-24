@@ -16,9 +16,19 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.06  임도헌   Modified  닫기/보기/재발급 버튼 접근성 및 포커스 복귀 보강
  * 2026.03.07  임도헌   Modified  사용자 피드백 문구를 v1.2 기준으로 구체화
+ * 2026.03.12  임도헌   Modified  공용 bodyScrollLock 유틸 적용으로 ConfirmDialog와 중첩되어도 스크롤 잠금/복구 안정화
+ * 2026.03.19  임도헌   Modified  모바일 우선 액션 밀도와 하단 우선순위를 재정리해 RTMP 정보 확인 흐름 개선
+ * 2026.03.21  임도헌   Modified  닫기 액션의 방송 취소 의미를 더 명확히 하고 스트림 키 복사 가드를 현재 동작에 맞게 정리
+ * 2026.03.21  임도헌   Modified  닫기(X/ESC/백드롭)는 즉시 취소하지 않고 확인 다이얼로그를 거치도록 분리
+ * 2026.03.24  임도헌   Modified  중첩 확인 모달 루프를 차단하고 주요 CTA/취소 라벨 및 대비를 최종 정리
+ * 2026.03.24  임도헌   Modified  닫기/생성 취소 액션 문구를 더 쉬운 사용자 표현으로 구체화
+ * 2026.03.24  임도헌   Modified  사용자 혼란을 줄이기 위해 RTMP 모달에서는 송출 정보 삭제 UI를 제거하고 재발급 중심 흐름으로 정리
+ * 2026.03.24  임도헌   Modified  iPhone SE급 작은 화면에서도 모달이 잘리지 않도록 상단 정렬/내부 스크롤과 모바일 간격을 보정
+ * 2026.03.27  임도헌   Modified  생성 완료 후 상세 이동은 replace + returnTo=/streams로 통일해 뒤로가기가 생성 폼으로 복귀하지 않도록 정리
+ * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 송출 정보 확인 흐름을 하단 시트로 정리
+ * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 주요 CTA weight를 500 기준으로 정리
+ * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  */
-
-"use client";
 
 import React, {
   useEffect,
@@ -29,7 +39,9 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import BottomSheet from "@/components/global/BottomSheet";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import {
   XMarkIcon,
   EyeIcon,
@@ -40,11 +52,9 @@ import {
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
-import {
-  deleteBroadcastAction,
-  deleteLiveInputAction,
-} from "@/features/stream/actions/delete";
+import { deleteBroadcastAction } from "@/features/stream/actions/delete";
 import { rotateLiveInputKeyAction } from "@/features/stream/actions/key";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface RTMPInfoModalProps {
   open: boolean;
@@ -61,8 +71,12 @@ interface RTMPInfoModalProps {
  * [기능]
  * 1. RTMP URL 및 스트림 키 복사 기능
  * 2. 스트림 키 재발급(Rotate) 기능
- * 3. Live Input(채널) 삭제 기능
- * 4. 모달 닫기 시 "방송 페이지로 이동"을 안 했다면 생성된 방송을 취소(삭제)하는 로직 포함
+ * 3. 방송 페이지로 이동하지 않고 모달을 닫으면 생성된 방송을 취소(삭제)하는 로직 포함
+ *
+ * [표현]
+ * - RTMP URL과 스트림 키는 모바일 우선 세로 흐름으로 배치
+ * - 하단은 이동/닫기만 남기고, 보안 대응은 키 재발급으로 안내해 핵심 흐름을 단순하게 유지
+ * - 생성 직후 닫기 동작이 "방송 취소"를 뜻하는 경우 안내 문구와 버튼 라벨로 의미를 더 분명하게 노출
  */
 export default function RTMPInfoModal({
   open,
@@ -72,6 +86,7 @@ export default function RTMPInfoModal({
   liveInputId,
   broadcastId,
 }: RTMPInfoModalProps) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   // 패널 참조 (포커스 트랩 등에서 사용)
   const panelRef = useRef<HTMLDivElement>(null);
@@ -96,9 +111,13 @@ export default function RTMPInfoModal({
 
   const [isRotating, startRotate] = useTransition();
   const [isDeleting, startDelete] = useTransition();
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
-  // 확인 모달 오픈 상태(명시적 버튼 클릭 시에만 true)
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setCloseConfirmOpen(false);
+    }
+  }, [open]);
 
   // 스트림 키 마스킹 (길이 고정 느낌 유지)
   const maskedKey = useMemo(() => {
@@ -109,24 +128,24 @@ export default function RTMPInfoModal({
   // 열릴 때 첫 포커스 + 바디 스크롤 잠금
   useEffect(() => {
     if (!open) return;
+    if (isMobile) return;
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => firstFocusRef.current?.focus(), 0);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
     return () => {
       clearTimeout(t);
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       previousFocusRef.current?.focus?.();
     };
-  }, [open]);
+  }, [open, isMobile]);
 
-  // ESC / Tab Trap -> Escape는 닫기 로직(handleClose)으로 연결
+  // ESC / Tab Trap -> Escape는 닫기 확인 로직(requestClose)으로 연결
   useEffect(() => {
     if (!open) return;
+    if (isMobile) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        // 닫기 시 브로드캐스트 삭제 여부를 결정하는 공통 핸들러
-        handleClose();
+        requestClose();
       }
       // 간단 포커스 트랩
       if (e.key === "Tab" && panelRef.current) {
@@ -153,12 +172,7 @@ export default function RTMPInfoModal({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // NOTE:
-  // 백드롭(오버레이) 클릭으로 모달을 닫히지 않도록 변경
-  // (요청: 스트리밍 추가 시 모달창 옆 클릭시 닫힘 방지)
-  // 패널 내부는 기존처럼 stopPropagation으로 외부로 이벤트 전파를 막음
+  }, [open, isMobile]);
 
   const copy = async (text: string, which: "url" | "key") => {
     try {
@@ -172,7 +186,9 @@ export default function RTMPInfoModal({
       }
       toast.success("클립보드에 복사되었습니다.");
     } catch {
-      toast.error("클립보드 복사에 실패했습니다. 브라우저 권한을 확인한 뒤 다시 시도해주세요.");
+      toast.error(
+        "클립보드 복사에 실패했습니다. 브라우저 권한을 확인한 뒤 다시 시도해주세요."
+      );
     }
   };
 
@@ -202,28 +218,12 @@ export default function RTMPInfoModal({
     });
   };
 
-  const handleConfirmDelete = () => {
-    startDelete(async () => {
-      try {
-        const res = await deleteLiveInputAction(liveInputId);
-        if (!res?.success) {
-          toast.error(
-            res?.error ??
-              "송출 채널 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
-          );
-          return;
-        }
-        toast.success("Live Input이 삭제되었습니다.");
-      } finally {
-        setConfirmOpen(false);
-        onOpenChange(false);
-      }
-    });
-  };
-
-  // 닫기 공통 로직: 사용자가 "스트리밍 페이지로 이동" 하지 않았다면
-  // 생성된 broadcast를 삭제하여 중복 생성을 방지
+  // 실제 취소 수행: 사용자가 방송 페이지로 이동하지 않았다면 생성된 방송을 취소
   const handleClose = () => {
+    if (isDeleting) return;
+
+    setCloseConfirmOpen(false);
+
     // 만약 네비게이트 했으면 즉시 닫기
     if (navigatedToBroadcastRef.current || !broadcastId) {
       onOpenChange(false);
@@ -253,57 +253,103 @@ export default function RTMPInfoModal({
     });
   };
 
+  // 닫기 의도는 항상 먼저 이 함수로 모아, 파괴적 취소 여부를 확인
+  const requestClose = () => {
+    if (isDeleting) return;
+    if (closeConfirmOpen) return;
+
+    if (navigatedToBroadcastRef.current || !broadcastId) {
+      onOpenChange(false);
+      return;
+    }
+
+    setCloseConfirmOpen(true);
+  };
+
   if (!open) return null;
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      aria-hidden={!open}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        className={cn(
-          "relative mx-auto w-[min(640px,92vw)] rounded-2xl p-6 shadow-2xl",
-          "bg-surface border border-border"
-        )}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <h2 className="text-xl font-bold text-primary">방송 송출 정보</h2>
+  const closingCancelsBroadcast = !!broadcastId;
+  const hasNestedConfirmOpen = closeConfirmOpen;
+  const handleMoveToBroadcast = () => {
+    if (!broadcastId) return;
+    navigatedToBroadcastRef.current = true;
+    setCloseConfirmOpen(false);
+    onOpenChange(false);
+    router.replace(
+      `/streams/${broadcastId}?returnTo=${encodeURIComponent("/streams")}`
+    );
+  };
+
+  const content = (
+    <>
+      <p className="mb-4 text-sm leading-6 text-muted sm:mb-6">
+        아래 정보를 OBS 등 방송 소프트웨어에 입력하세요.{" "}
+        <span className="font-medium text-danger">
+          스트림 키는 절대 공유하지 마세요.
+        </span>
+      </p>
+
+      <div className="mb-4 space-y-2 sm:mb-5">
+        <label className="text-sm font-medium text-primary">RTMP URL</label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <code className="flex-1 break-all rounded-xl border border-border bg-surface-dim px-4 py-3 text-sm font-mono text-primary">
+            {rtmpUrlState}
+          </code>
           <button
             type="button"
-            onClick={handleClose}
-            aria-label="송출 정보 모달 닫기"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-            disabled={isDeleting}
+            ref={firstFocusRef}
+            onClick={() => copy(rtmpUrlState, "url")}
+            className={cn(
+              "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
+              "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50 sm:shrink-0"
+            )}
           >
-            <XMarkIcon className="size-6" />
+            {copiedUrl ? (
+              <span className="flex items-center gap-1 text-brand dark:text-brand-light">
+                <CheckIcon className="size-4" /> 복사됨
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <ClipboardIcon className="size-4" /> 복사
+              </span>
+            )}
           </button>
         </div>
+      </div>
 
-        <p className="mb-6 text-sm text-muted">
-          아래 정보를 OBS 등 방송 소프트웨어에 입력하세요.{" "}
-          <span className="text-danger font-medium">
-            스트림 키는 절대 공유하지 마세요.
-          </span>
-        </p>
-
-        {/* RTMP URL */}
-        <div className="space-y-2 mb-4">
-          <label className="text-sm font-medium text-primary">RTMP URL</label>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-lg bg-surface-dim border border-border px-3 py-2.5 text-sm font-mono text-primary break-all">
-              {rtmpUrlState}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-primary">스트림 키</label>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-dim px-4 py-3">
+            <code className="flex-1 break-all text-sm font-mono text-primary">
+              {showKey ? streamKeyState : maskedKey}
             </code>
             <button
               type="button"
-              ref={firstFocusRef}
-              onClick={() => copy(rtmpUrlState, "url")}
-              className="shrink-0 btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-primary"
+              onClick={() => setShowKey((v) => !v)}
+              aria-label={showKey ? "스트림 키 숨기기" : "스트림 키 보기"}
+              className="focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-primary"
+              title={showKey ? "숨기기" : "보기"}
             >
-              {copiedUrl ? (
+              {showKey ? (
+                <EyeSlashIcon className="size-5" />
+              ) : (
+                <EyeIcon className="size-5" />
+              )}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+            <button
+              type="button"
+              onClick={() => copy(streamKeyState, "key")}
+              className={cn(
+                "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
+                "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+              disabled={!streamKeyState}
+            >
+              {copiedKey ? (
                 <span className="flex items-center gap-1 text-brand dark:text-brand-light">
                   <CheckIcon className="size-4" /> 복사됨
                 </span>
@@ -313,113 +359,142 @@ export default function RTMPInfoModal({
                 </span>
               )}
             </button>
-          </div>
-        </div>
 
-        {/* Stream Key */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-primary">스트림 키</label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 flex items-center gap-2 rounded-lg bg-surface-dim border border-border px-3 py-2.5">
-              <code className="flex-1 text-sm font-mono text-primary break-all">
-                {showKey ? streamKeyState : maskedKey}
-              </code>
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                aria-label={showKey ? "스트림 키 숨기기" : "스트림 키 보기"}
-                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-primary"
-                title={showKey ? "숨기기" : "보기"}
-              >
-                {showKey ? (
-                  <EyeSlashIcon className="size-5" />
-                ) : (
-                  <EyeIcon className="size-5" />
-                )}
-              </button>
-            </div>
-
-            <div className="flex gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => copy(streamKeyState, "key")}
-                className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-primary"
-              >
-                {copiedKey ? (
-                  <span className="flex items-center gap-1 text-brand dark:text-brand-light">
-                    <CheckIcon className="size-4" /> 복사됨
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1">
-                    <ClipboardIcon className="size-4" /> 복사
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRotate}
-                disabled={isRotating}
-                aria-label="스트림 키 재발급"
-                className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-border bg-surface hover:bg-surface-dim text-amber-600 dark:text-amber-400"
-                title="키 재발급"
-              >
+            <button
+              type="button"
+              onClick={handleRotate}
+              disabled={isRotating}
+              aria-label="스트림 키 재발급"
+              className={cn(
+                "focus-ring-soft inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-medium text-amber-600 transition-colors",
+                "hover:bg-amber-500/10 dark:text-amber-400"
+              )}
+              title="키 재발급"
+            >
+              <span className="inline-flex items-center gap-1.5">
                 <ArrowPathIcon
                   className={cn("size-4", isRotating && "animate-spin")}
                 />
-              </button>
-            </div>
+                재발급
+              </span>
+            </button>
           </div>
-          <p className="text-xs text-muted">
-            * 키가 유출되었다면 재발급하세요. (기존 키 즉시 만료)
-          </p>
         </div>
+        <p className="text-xs text-muted">
+          * 키가 유출되었다면 재발급하세요. (기존 키 즉시 만료)
+        </p>
+      </div>
 
-        {/* Actions */}
-        <div className="mt-8 flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4 border-t border-border">
-          <button
-            type="button"
-            onClick={() => setConfirmOpen(true)}
-            disabled={isDeleting}
-            className="text-sm font-medium text-danger hover:text-red-600 hover:underline underline-offset-4 disabled:opacity-50 transition-colors py-2"
-          >
-            {isDeleting ? "삭제 중..." : "Live Input 삭제"}
-          </button>
+      <div className="mt-6 space-y-3 border-t border-border-subtle pt-4 sm:mt-8 sm:space-y-4">
+        {closingCancelsBroadcast ? (
+          <p className="text-xs leading-5 text-muted">
+            이 창을 닫으면 방금 만든 방송이 취소됩니다. 스트림 키가 유출되었을
+            때는 위에서 재발급을 사용하세요.
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
 
-          <div className="flex gap-3">
+  const footer = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        onClick={handleClose}
+        className={cn(
+          "focus-ring-soft h-11 rounded-xl border border-border bg-surface px-4 text-sm font-medium text-primary transition-colors",
+          "hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
+        )}
+        disabled={isDeleting}
+      >
+        {closingCancelsBroadcast ? "생성 취소하고 닫기" : "닫기"}
+      </button>
+
+      <button
+        type="button"
+        onClick={handleMoveToBroadcast}
+        disabled={!broadcastId}
+        className="focus-ring-strong inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[188px]"
+      >
+        <span>방송 페이지로 이동</span>
+        <ArrowTopRightOnSquareIcon className="size-4" />
+      </button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <BottomSheet
+          open={open}
+          title="방송 송출 정보"
+          description="OBS 등 방송 소프트웨어에 아래 RTMP URL과 스트림 키를 입력하세요."
+          onClose={hasNestedConfirmOpen ? () => {} : requestClose}
+          contentClassName="pt-4"
+          footer={footer}
+        >
+          {content}
+        </BottomSheet>
+
+        <ConfirmDialog
+          open={closeConfirmOpen}
+          title="생성한 방송 취소"
+          description="이 창을 닫으면 방금 만든 방송이 취소됩니다. 계속할까요?"
+          confirmLabel="생성 취소"
+          cancelLabel="돌아가기"
+          onConfirm={handleClose}
+          onCancel={() => setCloseConfirmOpen(false)}
+          loading={isDeleting}
+        />
+      </>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
+      aria-hidden={!open}
+      onMouseDown={hasNestedConfirmOpen ? undefined : requestClose}
+    >
+      <div className="flex min-h-full items-start justify-center px-3 py-3 sm:items-center sm:p-4">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          className={cn(
+            "relative mx-auto w-full max-w-[680px] overflow-y-auto rounded-xl border border-border-subtle bg-surface p-4 shadow-2xl",
+            "max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-32px)] sm:rounded-2xl sm:p-6"
+          )}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="mb-2 flex items-start justify-between">
+            <h2 className="text-lg font-bold text-primary sm:text-xl">
+              방송 송출 정보
+            </h2>
             <button
               type="button"
-              onClick={handleClose}
-              className="flex-1 sm:flex-none btn-secondary h-11 text-sm border-transparent bg-surface-dim hover:bg-border text-primary"
+              onClick={requestClose}
+              aria-label="송출 정보 모달 닫기"
+              title="닫기"
+              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isDeleting}
             >
-              닫기
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (!broadcastId) return;
-                navigatedToBroadcastRef.current = true;
-                onOpenChange(false);
-                router.push(`/streams/${broadcastId}`);
-              }}
-              disabled={!broadcastId}
-              className="flex-1 sm:flex-none btn-primary h-11 text-sm flex items-center justify-center gap-2"
-            >
-              <span>방송 페이지로 이동</span>
-              <ArrowTopRightOnSquareIcon className="size-4" />
+              <XMarkIcon className="size-6" />
             </button>
           </div>
+          {content}
+          <div className="mt-2">{footer}</div>
         </div>
       </div>
 
       <ConfirmDialog
-        open={confirmOpen}
-        title="Live Input 삭제"
-        description="정말 삭제하시겠습니까? 방송 설정을 다시 해야 합니다."
-        confirmLabel="삭제"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setConfirmOpen(false)}
+        open={closeConfirmOpen}
+        title="생성한 방송 취소"
+        description="이 창을 닫으면 방금 만든 방송이 취소됩니다. 계속할까요?"
+        confirmLabel="생성 취소"
+        cancelLabel="돌아가기"
+        onConfirm={handleClose}
+        onCancel={() => setCloseConfirmOpen(false)}
         loading={isDeleting}
       />
     </div>

@@ -1,0 +1,320 @@
+/**
+ * File Name : features/report/components/admin/AdminPostListContainer.tsx
+ * Description : 관리자용 게시글 목록 테이블 및 삭제 핸들링 UI
+ * Author : 임도헌
+ *
+ * History
+ * Date        Author   Status    Description
+ * 2026.02.07  임도헌   Created   게시글 목록 조회 및 삭제 모달 연동
+ * 2026.03.13  임도헌   Modified  관리자 목록에서 게시글 상세 진입 시 현재 목록 경로를 returnTo로 함께 전달
+ * 2026.03.18  임도헌   Modified  강제 삭제 후 현재 테이블 즉시 제거와 서버 목록 재동기화로 운영 피드백 지연과 stale state를 함께 완화
+ * 2026.03.19  임도헌   Modified  관리자 게시글 목록 현재 경로도 내부 경로 기준으로 정규화해 raw returnTo 재전파를 방지
+ * 2026.03.23  임도헌   Modified  관리자 게시글 테이블 셸과 리스트 구분선을 구조선 기준으로 border-border-subtle에 맞춰 정리
+ * 2026.03.29  임도헌   Modified  모바일 카드형 분기와 관리자 전용 네이밍 정리로 게시글 목록 운영 UX를 정비
+ * 2026.03.30  임도헌   Modified  작성자 ID 뱃지를 함께 노출해 감사 로그·신고·유저 관리와 식별자 문법을 통일
+ * 2026.04.04  임도헌   Modified  관리자 삭제 성공 토스트를 사용자 영역과 같은 완료 문법으로 정리
+ * 2026.04.10  임도헌   Modified  게시글 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
+ * 2026.04.18  임도헌   Modified  강제 삭제 모달을 지연 로드해 관리자 목록 초기 번들 비용을 완화
+ * 2026.04.18  임도헌   Modified  모바일 카드 프리패치와 아이콘 링크 접근성, ID 배지 대비를 정리해 관리자 게시글 목록 성능·가독성을 보완
+ */
+
+"use client";
+
+import { useEffect, useState } from "react";
+import nextDynamic from "next/dynamic";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import {
+  TrashIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
+import TimeAgo from "@/components/ui/TimeAgo";
+import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
+import AdminPagination from "@/features/report/components/admin/AdminPagination";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { deletePostAdminAction } from "@/features/post/actions/admin";
+import { POST_CATEGORY, PostCategoryType } from "@/features/post/constants";
+import type { AdminPostListResponse } from "@/features/post/types";
+
+const AdminActionModal = nextDynamic(
+  () => import("@/features/report/components/admin/AdminActionModal"),
+  { ssr: false }
+);
+
+interface AdminPostListContainerProps {
+  data: AdminPostListResponse;
+}
+
+/**
+ * 관리자 게시글 목록 컨테이너
+ *
+ * [기능]
+ * 1. 검색과 페이지네이션을 포함한 관리자 게시글 목록을 데스크톱 테이블/모바일 카드형으로 렌더링
+ * 2. 원본 게시글과 작성자 프로필 바로가기, 작성자 ID 식별자를 함께 제공
+ * 3. 삭제 버튼 클릭 시 `AdminActionModal`을 호출하여 사유 입력 후 강제 삭제 수행
+ */
+export default function AdminPostListContainer({
+  data,
+}: AdminPostListContainerProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [items, setItems] = useState(data.items);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+  const hasQuery = !!searchParams.get("q")?.trim();
+  // 안전한 내부 복귀 경로
+  // 상세 확인 뒤에도 현재 검색/페이지 문맥으로 되돌아올 수 있도록 내부 경로 기준 정규화
+  const returnTo = sanitizeCallbackUrl(
+    searchParams?.size ? `${pathname}?${searchParams.toString()}` : pathname
+  );
+
+  useEffect(() => {
+    // 서버 목록 기준 로컬 상태 재동기화
+    // 목록 재조회 뒤에도 카드/테이블 상태가 같은 기준을 바라보도록 동기화
+    setItems(data.items);
+    setDeleteTarget(null);
+  }, [data.items]);
+
+  const handleDelete = async (reason: string) => {
+    if (!deleteTarget) return;
+    const res = await deletePostAdminAction(deleteTarget.id, reason);
+    if (res.success) {
+      toast.success("게시글을 삭제했습니다.");
+      // 현재 목록 즉시 제거
+      // revalidate와 별개로 화면에서도 먼저 제거해 삭제 피드백을 즉시 체감하게 유지
+      setItems((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } else toast.error(res.error);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <AdminSearchBar placeholder="제목, 작성자 또는 ID 검색" />
+      </div>
+
+      <div className="space-y-4 md:hidden">
+        {items.length === 0 ? (
+          <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
+            {hasQuery
+              ? "검색 조건에 맞는 게시글이 없습니다."
+              : "등록된 게시글이 없습니다."}
+          </div>
+        ) : (
+          items.map((post) => (
+            <article
+              key={post.id}
+              className="rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm"
+              style={{
+                contentVisibility: "auto",
+                containIntrinsicSize: "320px",
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-primary ring-1 ring-border-subtle">
+                      #{post.id}
+                    </span>
+                    <span className="rounded-full bg-brand/10 px-2 py-1 text-xs font-bold text-brand dark:text-brand-light">
+                      {POST_CATEGORY[post.category as PostCategoryType] ||
+                        post.category}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-start gap-2">
+                    <h3 className="line-clamp-2 text-sm font-bold leading-6 text-primary">
+                      {post.title}
+                    </h3>
+                    <Link
+                      href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                      prefetch={false}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus-ring-soft mt-0.5 shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                      aria-label={`${post.title} 원본 게시글 보기`}
+                    >
+                      <ArrowTopRightOnSquareIcon className="size-4" />
+                    </Link>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeleteTarget({ id: post.id, title: post.title })
+                  }
+                  className="focus-ring-soft shrink-0 rounded-xl p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                  aria-label={`${post.title} 게시글 삭제`}
+                >
+                  <TrashIcon className="size-5" />
+                </button>
+              </div>
+
+              <dl className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-surface-dim/30 px-3 py-3">
+                <div className="min-w-0">
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
+                    작성자
+                  </dt>
+                  <dd className="mt-1 flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium text-primary">
+                      {post.user.username}
+                    </span>
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
+                      #{post.user.id}
+                    </span>
+                    <Link
+                      href={`/profile/${post.user.username}`}
+                      prefetch={false}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                      aria-label={`${post.user.username} 프로필 보기`}
+                    >
+                      <ArrowTopRightOnSquareIcon className="size-4" />
+                    </Link>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
+                    조회수
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium text-primary">
+                    {post.views.toLocaleString()}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[0.16em] text-muted">
+                    작성일
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium text-primary">
+                    <TimeAgo date={post.created_at} />
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">
+              <tr>
+                <th className="px-6 py-4 w-16">ID</th>
+                <th className="px-6 py-4 w-32">카테고리</th>
+                <th className="px-6 py-4">제목</th>
+                <th className="px-6 py-4 w-32">작성자</th>
+                <th className="px-6 py-4 w-24 text-center">조회수</th>
+                <th className="px-6 py-4 w-32">작성일</th>
+                <th className="px-6 py-4 w-20 text-right">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-20 text-center text-muted">
+                    {hasQuery
+                      ? "검색 조건에 맞는 게시글이 없습니다."
+                      : "등록된 게시글이 없습니다."}
+                  </td>
+                </tr>
+              ) : (
+                items.map((post) => (
+                  <tr
+                    key={post.id}
+                    className="hover:bg-surface-dim/30 transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-primary ring-1 ring-border-subtle">
+                        #{post.id}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-brand/10 text-brand dark:text-brand-light">
+                        {POST_CATEGORY[post.category as PostCategoryType] ||
+                          post.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 max-w-sm">
+                        <span className="truncate font-medium text-primary">
+                          {post.title}
+                        </span>
+                        <Link
+                          href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                          prefetch={false}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                          aria-label={`${post.title} 원본 게시글 보기`}
+                        >
+                          <ArrowTopRightOnSquareIcon className="size-4" />
+                        </Link>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-primary">
+                          {post.user.username}
+                        </span>
+                        <span className="rounded-full bg-surface-dim px-2 py-0.5 text-xs font-mono text-primary ring-1 ring-border-subtle">
+                          #{post.user.id}
+                        </span>
+                        <Link
+                          href={`/profile/${post.user.username}`}
+                          prefetch={false}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="focus-ring-soft shrink-0 rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                          aria-label={`${post.user.username} 프로필 보기`}
+                        >
+                          <ArrowTopRightOnSquareIcon className="size-4" />
+                        </Link>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center text-muted">
+                      {post.views.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-muted">
+                      <TimeAgo date={post.created_at} />
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDeleteTarget({ id: post.id, title: post.title })
+                        }
+                        className="focus-ring-soft rounded-lg p-2 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                        aria-label={`${post.title} 게시글 삭제`}
+                      >
+                        <TrashIcon className="size-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <AdminPagination
+        currentPage={data.currentPage}
+        totalPages={data.totalPages}
+      />
+
+      <AdminActionModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="게시글 강제 삭제"
+        description={`'${deleteTarget?.title}' 게시글을 삭제하시겠습니까?`}
+        confirmLabel="삭제 확정"
+        confirmVariant="danger"
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
+}

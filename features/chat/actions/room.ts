@@ -1,6 +1,6 @@
 /**
  * File Name : features/chat/actions/room.ts
- * Description : 채팅방 관리 Controller (나가기)
+ * Description : 채팅방 관리 서버 액션
  * Author : 임도헌
  *
  * History
@@ -16,11 +16,18 @@
  * 2026.03.03  임도헌   Modified  채팅방 목록 조회 액션(getChatRoomsAction) 추가
  * 2026.03.04  임도헌   Modified  주석 최신화
  * 2026.03.05  임도헌   Modified  레거시 `revalidateTag` 의존성 제거 및 `invalidateQueries`를 통한 클라이언트 캐시 무효화로 대체
+ * 2026.04.02  임도헌   Modified  채팅방 액션 JSDoc 반환 설명 보강
+ * 2026.05.12  임도헌   Modified  TabBar 미읽음 뱃지용 전체 채팅 미읽음 수 조회 액션 추가
+ * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { leaveChatRoom, getChatRooms } from "@/features/chat/service/room";
+import {
+  leaveChatRoom,
+  getChatRooms,
+  getUnreadChatMessageCount,
+} from "@/features/chat/service/room";
 import type { ChatRoom } from "@/features/chat/types";
 
 /**
@@ -41,6 +48,18 @@ export async function getChatRoomsAction(): Promise<ChatRoom[]> {
 }
 
 /**
+ * 현재 로그인한 유저의 전체 미읽음 채팅 메시지 수 조회
+ *
+ * @returns {Promise<number>} 탭바 신호 뱃지에 표시할 미읽음 채팅 수
+ */
+export async function getUnreadChatMessageCountAction(): Promise<number> {
+  const session = await getSession();
+  if (!session?.id) return 0;
+
+  return getUnreadChatMessageCount(session.id);
+}
+
+/**
  * 채팅방 퇴장 Server Action
  *
  * [데이터 가공 및 상태 제어 로직]
@@ -49,6 +68,7 @@ export async function getChatRoomsAction(): Promise<ChatRoom[]> {
  * - 클라이언트에서는 성공 시 TanStack Query 캐시 수동 무효화 처리
  *
  * @param {string} chatRoomId - 퇴장할 채팅방 ID
+ * @returns {Promise<ServiceResult<{ userId: number; counterpartyId?: number }>>} 캐시 동기화용 사용자 ID 또는 실패 정보
  */
 export const leaveChatRoomAction = async (chatRoomId: string) => {
   const session = await getSession();
