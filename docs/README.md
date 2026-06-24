@@ -2,6 +2,8 @@
 
 이 폴더에는 BoardPort를 만들면서 정리한 공개용 설계, 운영, 트러블슈팅 문서를 모아두었습니다.
 
+서비스 소개, 데모 영상, Feature Flow, System Architecture는 루트 [README](../README.md)에서 먼저 확인할 수 있습니다.
+
 면접이나 코드 리뷰에서 빠르게 흐름을 잡고 싶다면 아래 순서로 보는 편이 좋습니다.
 
 ## 추천 읽는 순서
@@ -41,6 +43,7 @@
 - [보드게임 데이터 import 운영 기준](./operations/boardgame-data-import-runbook.md)
 - [신고 처리와 제재 운영 정책](./operations/report-moderation-policy.md)
 - [테스트 전략](./operations/testing-strategy.md)
+- [CI/CD 워크플로우](./operations/ci-cd-workflows.md)
 
 ### Troubleshooting
 
