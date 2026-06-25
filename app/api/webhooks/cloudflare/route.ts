@@ -21,6 +21,7 @@
  * 2026.04.05  임도헌   Modified  게시글 동영상 draftKey를 READY 웹훅에서 조기 해제하지 않고 실제 게시글 연결 시점까지 유지
  * 2026.05.12  임도헌   Modified  게시글 동영상 READY 선도착/Cloudflare error 웹훅 처리 보강
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 명시
+ * 2026.06.25  임도헌   Modified  production secret 누락 시 Stream/Destination 웹훅 fail-closed 처리
  */
 
 import "server-only";
@@ -32,6 +33,7 @@ import db from "@/lib/db";
 import { sendLiveStatusFromServer } from "@/features/stream/service/realtime";
 import { sendLiveStartNotifications } from "@/features/notification/service/live";
 import { Prisma } from "@/generated/prisma/client";
+import { isMissingRequiredCloudflareWebhookSecret } from "@/features/stream/utils/webhookAuth";
 import type {
   CloudflareStreamAssetPayload,
   CloudflareVideoListResponse,
@@ -813,8 +815,22 @@ export async function POST(req: Request) {
     const sigHeader = req.headers.get("webhook-signature");
     const isStreamWebhook = !!sigHeader;
 
+    // production에서는 secret 누락을 검증 생략으로 처리하지 않고 상태 변경 이벤트를 fail-closed 한다.
     if (isStreamWebhook) {
       // Stream Webhook → HMAC 서명 검증
+      if (
+        isMissingRequiredCloudflareWebhookSecret({
+          kind: "stream",
+          streamSecret: STREAM_SECRET,
+          destinationSecret: DEST_SECRET,
+        })
+      ) {
+        return NextResponse.json(
+          { ok: false, error: "WEBHOOK_SECRET_NOT_CONFIGURED" },
+          { status: 500 }
+        );
+      }
+
       if (STREAM_SECRET) {
         const ok = await verifyStreamSignatureWebCrypto(
           raw,
@@ -829,6 +845,19 @@ export async function POST(req: Request) {
       }
     } else {
       // Destination Webhook → 인증 헤더 확인 (옵션)
+      if (
+        isMissingRequiredCloudflareWebhookSecret({
+          kind: "destination",
+          streamSecret: STREAM_SECRET,
+          destinationSecret: DEST_SECRET,
+        })
+      ) {
+        return NextResponse.json(
+          { ok: false, error: "WEBHOOK_SECRET_NOT_CONFIGURED" },
+          { status: 500 }
+        );
+      }
+
       if (DEST_SECRET && !hasDestinationHeaderSecret(req, DEST_SECRET)) {
         return NextResponse.json(
           { ok: false, error: "UNAUTHORIZED" },
@@ -891,4 +920,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

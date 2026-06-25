@@ -13,6 +13,7 @@
  * 2026.04.17  임도헌   Modified  현재 훅이 담당하는 범위가 무한 스크롤 페이징 중심으로 읽히도록 설명을 최신화
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
+ * 2026.06.25  임도헌   Modified  viewerId URL 전달 제거 및 조회자별 query key 스코프 분리
  */
 
 "use client";
@@ -47,17 +48,14 @@ export interface UseStreamPaginationResult {
 function buildStreamsApiUrl({
   scope,
   searchParams,
-  viewerId,
   cursor,
-}: UseStreamPaginationParams & { cursor: number | null }): string {
+}: Omit<UseStreamPaginationParams, "viewerId"> & {
+  cursor: number | null;
+}): string {
   const params = new URLSearchParams({ scope });
 
   if (cursor !== null) {
     params.set("cursor", String(cursor));
-  }
-
-  if (viewerId !== undefined && viewerId !== null) {
-    params.set("viewerId", String(viewerId));
   }
 
   const category = searchParams.category;
@@ -107,7 +105,10 @@ export function useStreamPagination({
   searchParams,
   viewerId,
 }: UseStreamPaginationParams): UseStreamPaginationResult {
-  const queryKey = queryKeys.streams.list(scope, searchParams);
+  const queryKey = queryKeys.streams.list(scope, {
+    ...searchParams,
+    viewerId: viewerId ?? "guest",
+  });
 
   // TanStack Query를 활용한 무한 스크롤 쿼리 구성
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
@@ -119,7 +120,6 @@ export function useStreamPagination({
           buildStreamsApiUrl({
             scope,
             searchParams,
-            viewerId,
             cursor: pageParam as number | null,
           })
         );

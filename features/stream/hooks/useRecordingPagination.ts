@@ -10,6 +10,7 @@
  * 2026.03.31  임도헌   Modified  export 훅 역할과 반환값이 바로 보이도록 JSDoc 보강
  * 2026.04.02  임도헌   Modified  다시보기 페이징 훅 파라미터/반환 타입 설명 보강
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
+ * 2026.06.25  임도헌   Modified  viewerId URL 전달 제거 및 조회자/팔로잉 필터별 query key 스코프 분리
  */
 "use client";
 
@@ -42,9 +43,10 @@ function buildRecordingsApiUrl({
   sort,
   followingOnly,
   searchParams,
-  viewerId,
   cursor,
-}: UseRecordingPaginationParams & { cursor: number | null }): string {
+}: Omit<UseRecordingPaginationParams, "viewerId"> & {
+  cursor: number | null;
+}): string {
   const params = new URLSearchParams({ sort });
 
   if (followingOnly) {
@@ -53,10 +55,6 @@ function buildRecordingsApiUrl({
 
   if (cursor !== null) {
     params.set("cursor", String(cursor));
-  }
-
-  if (viewerId !== undefined && viewerId !== null) {
-    params.set("viewerId", String(viewerId));
   }
 
   const category = searchParams.category;
@@ -108,7 +106,11 @@ export function useRecordingPagination({
   viewerId,
 }: UseRecordingPaginationParams): UseRecordingPaginationResult {
   // 정렬/검색 조건이 바뀌면 목록 캐시도 별도 스코프로 분리
-  const queryKey = queryKeys.streams.recordingList(sort, searchParams);
+  const queryKey = queryKeys.streams.recordingList(sort, {
+    ...searchParams,
+    followingOnly,
+    viewerId: viewerId ?? "guest",
+  });
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
@@ -120,7 +122,6 @@ export function useRecordingPagination({
             sort,
             followingOnly,
             searchParams,
-            viewerId,
             cursor: pageParam as number | null,
           })
         );

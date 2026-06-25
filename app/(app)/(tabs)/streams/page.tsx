@@ -44,6 +44,7 @@
  * 2026.04.20  임도헌   Modified  sm 구간 데스크톱 헤더가 뒤 콘텐츠를 비치지 않도록 반투명 헤더/카테고리 레일 표면을 불투명 톤으로 정리
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
+ * 2026.06.25  임도헌   Modified  서버 prefetch query key를 조회자/팔로잉 필터 스코프와 일치하도록 정리
 */
 import { Suspense } from "react";
 import { Metadata } from "next";
@@ -136,30 +137,39 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
     sort: recordingSort,
     scope: scope === "following" ? "following" : "",
   };
+  // 로그인 가드 이후에는 viewerId가 존재하지만, 클라이언트 훅의 query key 스코프와 맞추기 위해 guest fallback을 유지한다.
+  const liveListQueryKey = queryKeys.streams.list(scope, {
+    ...liveQueryParams,
+    viewerId: viewerId ?? "guest",
+  });
+  const recordingListQueryKey = queryKeys.streams.recordingList(
+    recordingSort,
+    {
+      ...recordingQueryParams,
+      followingOnly: scope === "following",
+      viewerId: viewerId ?? "guest",
+    }
+  );
 
   const queryClient = getQueryClient();
   const [, unreadCount] = await Promise.all([
     // 라이브/다시보기의 서로 다른 쿼리 키/fetcher에 맞춘 현재 모드 목록만 서버 선프리패치
     mode === "recordings"
       ? queryClient.prefetchInfiniteQuery({
-          queryKey: queryKeys.streams.recordingList(
-            recordingSort,
-            recordingQueryParams
-          ),
+          queryKey: recordingListQueryKey,
           queryFn: () =>
             getRecordingsListAction(
               recordingSort,
               scope === "following",
               null,
-              recordingQueryParams,
-              viewerId
+              recordingQueryParams
             ),
           initialPageParam: null as number | null,
         })
       : queryClient.prefetchInfiniteQuery({
-          queryKey: queryKeys.streams.list(scope, liveQueryParams),
+          queryKey: liveListQueryKey,
           queryFn: () =>
-            getStreamsListAction(scope, null, liveQueryParams, viewerId),
+            getStreamsListAction(scope, null, liveQueryParams),
           initialPageParam: null as number | null,
         }),
     getUnreadNotificationCount(),
@@ -167,11 +177,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
 
   const prefetchData = queryClient.getQueryData<
     InfiniteData<StreamsListPage | RecordingsPage>
-  >(
-    mode === "recordings"
-      ? queryKeys.streams.recordingList(recordingSort, recordingQueryParams)
-      : queryKeys.streams.list(scope, liveQueryParams)
-  );
+  >(mode === "recordings" ? recordingListQueryKey : liveListQueryKey);
   const firstPage = prefetchData?.pages[0];
   const isDataEmpty =
     mode === "recordings"
@@ -401,4 +407,3 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
     </div>
   );
 }
-

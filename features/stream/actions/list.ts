@@ -21,6 +21,7 @@
  * 2026.05.08  임도헌   Modified  목록 응답 타입과 조회 범위 타입을 features/stream/types.ts로 이동
  * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤 액션 추가
  * 2026.05.18  임도헌   Modified  채널 다시보기 추가 페이지에서도 현재 사용자 좋아요 여부를 유지하도록 viewerId 전달
+ * 2026.06.25  임도헌   Modified  목록 액션의 조회자 권한 판단을 서버 세션 기준으로 고정
  */
 
 "use server";
@@ -90,17 +91,15 @@ function applyChannelVodAccess(
  * @param {StreamScope} scope - 조회 범위 ("all" | "following")
  * @param {number | null} cursor - 이전 페이지의 마지막 방송 ID
  * @param {Record<string, string>} searchParams - 카테고리 및 키워드 필터 조건
- * @param {number | null} viewerId - 조회자 ID (팔로잉 목록 확인용)
  * @returns {Promise<StreamsPage>} 평탄화된 방송 목록과 페이징 커서 반환
  */
 export async function getStreamsListAction(
   scope: StreamScope,
   cursor: number | null,
-  searchParams: Record<string, string>,
-  viewerId: number | null
+  searchParams: Record<string, string>
 ): Promise<StreamsPage> {
   const session = await getSession();
-  const userId = session?.id ?? viewerId;
+  const userId = session?.id ?? null;
 
   if (!userId) return { streams: [], nextCursor: null };
 
@@ -127,16 +126,16 @@ export async function getStreamsListAction(
  * - 정렬 기준(latest/popular)과 팔로잉 전용 필터를 service 계층에 위임
  * - 카테고리/키워드 검색 파라미터를 공백 정규화 후 전달
  * - 무한 스크롤용 recordings 배열과 다음 커서(nextCursor)를 반환
+ * - 조회자 권한 판단은 서버 세션만 신뢰
  */
 export async function getRecordingsListAction(
   sort: "latest" | "popular",
   followingOnly: boolean,
   cursor: number | null,
-  searchParams: Record<string, string>,
-  viewerId: number | null
+  searchParams: Record<string, string>
 ): Promise<RecordingsPage> {
   const session = await getSession();
-  const userId = session?.id ?? viewerId;
+  const userId = session?.id ?? null;
 
   if (!userId) return { recordings: [], nextCursor: null };
 
