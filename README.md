@@ -1,6 +1,6 @@
 # BoardPort
 
-BoardPort는 보드게임 거래, 커뮤니티, 채팅 약속, 라이브 방송, 알림, 관리자 운영을 하나의 사용자 흐름으로 연결한 모바일 퍼스트 웹 애플리케이션입니다.
+BoardPort는 보드게임 중고거래에서 자주 분리되는 상품 탐색, 문의, 직거래 약속, 후기, 콘텐츠, 운영 흐름을 하나의 서비스로 연결한 모바일 퍼스트 웹 애플리케이션입니다.
 
 범용 중고거래 앱에서 부족한 보드게임 특화 맥락을 보완하기 위해, 거래·룰 질문·후기·플레이 공유가 자연스럽게 이어지는 흐름에 초점을 맞췄습니다.
 
@@ -13,11 +13,16 @@ BoardPort는 보드게임 거래, 커뮤니티, 채팅 약속, 라이브 방송,
 | Domain       | Board Game Marketplace · Community · Live Streaming · Chat                                                     |
 | Core Stack   | Next.js 14 App Router, React 18, TypeScript, Prisma, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
 
-## Feature Flow
+## Key Engineering Problems
 
-BoardPort는 거래, 커뮤니티, 방송, 알림, 관리자 운영이 독립적으로 동작하면서 보드게임 도감으로 콘텐츠 맥락을 연결합니다.
+| 문제                                                              | 해결 방향                                                                                                                                                 | 관련 문서                                                                                                |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 채팅 약속 수락과 상품 예약 상태가 어긋날 수 있음                  | 약속 수락, 상품 예약 전환, 다른 대기 약속 취소, 시스템 메시지를 하나의 transaction으로 묶고 `updateMany` 조건으로 동시 수락을 방어                        | [Appointment Atomic Transition](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md) |
+| App Router 모달 상세와 일반 상세의 복귀 문맥이 섞임               | Intercepting Route 모달, 일반 상세, 수정/삭제 복귀를 `returnTo`, `flow`, refresh flag로 분리하고 mixed tree 케이스를 문맥별로 정리                        | [Product Modal Routing](./docs/troubleshooting/troubleshooting-product-modal-routing.md)                 |
+| 외부 동영상 인코딩 이벤트와 게시글 저장 순서가 보장되지 않음      | Cloudflare webhook의 READY 선도착과 error payload를 처리하고, `draftKey`를 실제 게시글 연결 전까지 보존해 READY/FAILED 상태로 수렴                        | [Post Video Webhook](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)            |
+| Server State, UI State, Realtime 이벤트가 섞여 갱신 기준이 분산됨 | Zustand는 UI 상태, TanStack Query는 서버 상태, Realtime은 invalidate/refetch 신호로 분리하고 Route Handler fetch와 Query Key Factory로 재검증 경로를 통일 | [State Management Modernization](./docs/architecture/case-study-state-management-modernization.md)       |
 
-![BoardPort Feature Flow](./docs/assets/readme/boardport-feature-flow.png)
+각 문서는 릴리즈 전 QA에서 확인한 증상, 원인, 코드 기준, 운영 판단을 중심으로 정리했습니다.
 
 ## Demo
 
@@ -38,6 +43,12 @@ BoardPort는 거래, 커뮤니티, 방송, 알림, 관리자 운영이 독립적
 BoardPort의 주요 도메인을 빠르게 훑어보는 전체 흐름입니다.
 
 <video src="https://github.com/user-attachments/assets/ca062392-83cf-47c9-8903-70a098b19f41" controls muted playsinline width="100%"></video>
+
+## Feature Flow
+
+BoardPort는 거래, 커뮤니티, 방송, 알림, 관리자 운영이 독립적으로 동작하면서 보드게임 도감으로 콘텐츠 맥락을 연결합니다.
+
+![BoardPort Feature Flow](./docs/assets/readme/boardport-feature-flow.png)
 
 ## Feature Tour
 
@@ -178,8 +189,10 @@ App Router의 일반 상세 페이지와 모달 상세 페이지가 같은 데�
 
 - [Project Overview](./docs/architecture/boardport-project-overview.md)
 - [State Management Modernization](./docs/architecture/case-study-state-management-modernization.md)
-- [Product Modal Routing Troubleshooting](./docs/troubleshooting/troubleshooting-product-modal-routing.md)
 - [Appointment Atomic Transition Troubleshooting](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)
+- [Post Video Cloudflare Webhook Troubleshooting](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)
+- [Product Modal Routing Troubleshooting](./docs/troubleshooting/troubleshooting-product-modal-routing.md)
+- [Access Control Matrix](./docs/operations/access-control-matrix.md)
 - [PWA Web Push Routing Troubleshooting](./docs/troubleshooting/troubleshooting-pwa-web-push-routing.md)
 
 ## Project Structure
