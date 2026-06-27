@@ -41,9 +41,12 @@ const E2E_CHAT_MESSAGE = `${E2E_PREFIX} 채팅 목록 회귀 메시지`;
 const E2E_APPOINTMENT_PRODUCT_TITLE = `${E2E_PREFIX} 약속 수락 상품`;
 const E2E_APPOINTMENT_MESSAGE = `${E2E_PREFIX} 약속 수락 회귀 제안`;
 const E2E_DELETE_PRODUCT_TITLE = `${E2E_PREFIX} 상품 삭제 복귀 테스트`;
+const E2E_MODAL_EDIT_PRODUCT_TITLE = `${E2E_PREFIX} 모달 수정 복귀 상품`;
+const E2E_MODAL_EDIT_PRODUCT_DESCRIPTION = `${E2E_MODAL_EDIT_PRODUCT_TITLE} 설명입니다.`;
 const E2E_REPORT_DESCRIPTION = `${E2E_PREFIX} 관리자 신고 처리 회귀 대상`;
 const E2E_BOARDGAME_TITLE = `${E2E_PREFIX} 항해자의 도감`;
 const E2E_VOD_TITLE = `${E2E_PREFIX} 다시보기 회귀 방송`;
+const E2E_FOLLOWERS_VOD_TITLE = `${E2E_PREFIX} 팔로워 전용 회귀 방송`;
 
 const E2E_USERS = {
   seller: {
@@ -242,6 +245,7 @@ async function createProduct(
     sellerId: number;
     categoryId: number;
     imageUrl?: string;
+    description?: string;
     resetTradeState?: boolean;
   }
 ) {
@@ -268,6 +272,8 @@ async function createProduct(
               purchase_userId: null,
             }
           : {}),
+        ...(input.description ? { description: input.description } : {}),
+        completeness: "PERFECT",
         hidden_at: null,
         ...E2E_LOCATION,
       },
@@ -300,7 +306,7 @@ async function createProduct(
     data: {
       title: input.title,
       price: 12000,
-      description: `${input.title} 설명입니다.`,
+      description: input.description ?? `${input.title} 설명입니다.`,
       userId: input.sellerId,
       categoryId: input.categoryId,
       game_type: "BOARD_GAME",
@@ -308,7 +314,7 @@ async function createProduct(
       max_players: 4,
       play_time: "30분",
       condition: "GOOD",
-      completeness: "COMPLETE",
+      completeness: "PERFECT",
       has_manual: true,
       ...E2E_LOCATION,
       images: input.imageUrl
@@ -548,7 +554,15 @@ async function createBoardGameSeed(db: PrismaClient, reviewerId: number) {
  *
  * 외부 Cloudflare 웹훅 없이 앱이 이미 처리 완료된 VOD를 읽는 경로만 검증
  */
-async function createVodSeed(db: PrismaClient, ownerId: number) {
+async function createVodSeed(
+  db: PrismaClient,
+  input: { ownerId: number; initialVisitorId: number }
+) {
+  const { ownerId, initialVisitorId } = input;
+  await db.follow.deleteMany({
+    where: { followerId: initialVisitorId, followingId: ownerId },
+  });
+
   const liveInput = await db.liveInput.upsert({
     where: { userId: ownerId },
     update: {
@@ -601,6 +615,57 @@ async function createVodSeed(db: PrismaClient, ownerId: number) {
       provider_asset_id: "e2e-vod-asset-990001",
       thumbnail_url: E2E_PRODUCT_IMAGE_URL,
       duration_sec: 900,
+      ready_at: new Date(),
+    },
+  });
+
+  const existingFollowersBroadcast = await db.broadcast.findFirst({
+    where: { liveInputId: liveInput.id, title: E2E_FOLLOWERS_VOD_TITLE },
+    select: { id: true },
+  });
+
+  const followersBroadcast = existingFollowersBroadcast
+    ? await db.broadcast.update({
+        where: { id: existingFollowersBroadcast.id },
+        data: {
+          description:
+            "E2E 회귀 테스트에서 팔로우 후 팔로워 전용 VOD 접근 수렴을 확인하는 방송입니다.",
+          thumbnail: E2E_PRODUCT_IMAGE_URL,
+          visibility: "FOLLOWERS",
+          status: "ENDED",
+          started_at: new Date(Date.now() - 90 * 60 * 1000),
+          ended_at: new Date(Date.now() - 45 * 60 * 1000),
+        },
+        select: { id: true },
+      })
+    : await db.broadcast.create({
+        data: {
+          liveInputId: liveInput.id,
+          title: E2E_FOLLOWERS_VOD_TITLE,
+          description:
+            "E2E 회귀 테스트에서 팔로우 후 팔로워 전용 VOD 접근 수렴을 확인하는 방송입니다.",
+          thumbnail: E2E_PRODUCT_IMAGE_URL,
+          visibility: "FOLLOWERS",
+          status: "ENDED",
+          started_at: new Date(Date.now() - 90 * 60 * 1000),
+          ended_at: new Date(Date.now() - 45 * 60 * 1000),
+        },
+        select: { id: true },
+      });
+
+  await db.vodAsset.upsert({
+    where: { provider_asset_id: "e2e-followers-vod-asset-990002" },
+    update: {
+      broadcastId: followersBroadcast.id,
+      thumbnail_url: E2E_PRODUCT_IMAGE_URL,
+      duration_sec: 1200,
+      ready_at: new Date(),
+    },
+    create: {
+      broadcastId: followersBroadcast.id,
+      provider_asset_id: "e2e-followers-vod-asset-990002",
+      thumbnail_url: E2E_PRODUCT_IMAGE_URL,
+      duration_sec: 1200,
       ready_at: new Date(),
     },
   });
@@ -719,6 +784,14 @@ async function seedE2EData() {
       imageUrl: E2E_PRODUCT_IMAGE_URL,
       resetTradeState: true,
     });
+    await createProduct(db, {
+      title: E2E_MODAL_EDIT_PRODUCT_TITLE,
+      sellerId: seller.id,
+      categoryId: category.id,
+      imageUrl: E2E_PRODUCT_IMAGE_URL,
+      description: E2E_MODAL_EDIT_PRODUCT_DESCRIPTION,
+      resetTradeState: true,
+    });
     await createChatRoomSeed(db, {
       productId: product.id,
       sellerId: seller.id,
@@ -734,7 +807,10 @@ async function seedE2EData() {
       targetProductId: deleteProduct.id,
     });
     await createBoardGameSeed(db, admin.id);
-    await createVodSeed(db, seller.id);
+    await createVodSeed(db, {
+      ownerId: seller.id,
+      initialVisitorId: buyer.id,
+    });
 
     const [{ _max: maxProductId }, { _max: maxPostId }] = await Promise.all([
       db.product.aggregate({ _max: { id: true } }),
