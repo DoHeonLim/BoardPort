@@ -111,6 +111,7 @@ BoardPort의 접근 제어는 middleware 한 곳에만 의존하지 않고, 페�
 ## 5. 함께 보는 문서
 
 - [테스트 전략](./testing-strategy.md)
+- [Rate Limit / 남용 방지 운영 기준](./rate-limit-policy.md)
 - [신고 처리와 제재 운영 정책](./report-moderation-policy.md)
 - [보안 헤더 / CSP 운영 정책](./security-headers-csp-policy.md)
 - [직거래 약속 수락과 상품 상태 원자적 전환](../troubleshooting/troubleshooting-appointment-atomic-transition.md)

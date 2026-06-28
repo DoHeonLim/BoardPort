@@ -74,6 +74,7 @@
  * 2026.04.28  임도헌   Modified  보드게임 인기도/추천 인원/시리즈 요약 메타데이터 필드 추가
  * 2026.04.29  임도헌   Modified  보드게임 한국어 검수자 관계와 taxonomy slug 고유 제약 추가
  * 2026.04.29  임도헌   Modified  보드게임 카탈로그 도메인 모델/필드 주석 보강
+ * 2026.06.27  임도헌   Modified  SMS 인증번호 만료 시각 및 인증 rate limit 이벤트 모델 추가
  */
 generator client {
   provider = "prisma-client"
@@ -187,9 +188,12 @@ model SMSToken {
   phone      String?  @unique // 대상 전화번호
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+  expires_at DateTime
 
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
+
+  @@index([expires_at])
 }
 
 /// 이메일 인증 토큰 저장소
@@ -205,6 +209,18 @@ model EmailToken {
   userId Int
 
   @@index([userId])
+}
+
+/// 인증 경로 rate limit 이벤트
+model AuthRateLimitEvent {
+  id         String   @id @default(cuid())
+  kind       String
+  keyHash    String
+  created_at DateTime @default(now())
+
+  @@index([kind, keyHash, created_at])
+  @@index([kind, created_at])
+  @@map("AuthRateLimitEvent")
 }
 
 /// 비밀번호 재설정 토큰 저장소
