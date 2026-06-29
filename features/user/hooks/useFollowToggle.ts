@@ -25,6 +25,7 @@
  * 2026.05.08  임도헌   Modified  팔로우 액션 결과 타입 import 경로를 user types로 정리
  * 2026.05.16  임도헌   Modified  팔로우/스트림 캐시 갱신 타입을 명시해 any 캐스팅 제거
  * 2026.06.17  임도헌   Modified  서버 성공 후 팔로워 전용 접근 상태를 동기화하는 책임을 주석에 명확히 반영
+ * 2026.06.25  임도헌   Modified  기본 팔로잉 스트림 seed key를 조회자별 캐시 스코프와 일치하도록 정리
  */
 
 "use client";
@@ -211,10 +212,18 @@ export function useFollowToggle() {
           );
         }
 
-        if (res.isFollowing && targetUserStreams.size > 0) {
+        if (
+          res.isFollowing &&
+          targetUserStreams.size > 0 &&
+          opts?.viewerId != null
+        ) {
+          // 기본 팔로잉 탭 seed도 실제 스트림 목록과 같은 조회자별 query key에만 기록한다.
           const defaultFollowingKey = queryKeys.streams.list(
             "following",
-            DEFAULT_STREAM_LIST_FILTERS
+            {
+              ...DEFAULT_STREAM_LIST_FILTERS,
+              viewerId: opts.viewerId,
+            }
           );
 
           queryClient.setQueryData<InfiniteData<StreamsPage>>(

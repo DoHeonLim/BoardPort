@@ -17,11 +17,18 @@
 3. [troubleshooting/troubleshooting-appointment-atomic-transition.md](./troubleshooting/troubleshooting-appointment-atomic-transition.md)
    - 채팅 약속 수락과 상품 예약 상태를 단일 트랜잭션으로 맞춘 사례
 
-4. [troubleshooting/troubleshooting-pwa-web-push-routing.md](./troubleshooting/troubleshooting-pwa-web-push-routing.md)
-   - In-App 알림과 Web Push 중복 제어, Service Worker 라우팅을 정리한 기록
+4. [troubleshooting/troubleshooting-post-video-cloudflare-webhook.md](./troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)
+   - Cloudflare 웹훅과 게시글 저장 순서가 엇갈리는 동영상 상태 수렴 사례
 
 5. [troubleshooting/troubleshooting-product-modal-routing.md](./troubleshooting/troubleshooting-product-modal-routing.md)
    - App Router Intercepting Route, 편집 복귀, 모달 히스토리 문제 해결 사례
+
+추가 사례:
+
+- [operations/access-control-matrix.md](./operations/access-control-matrix.md)
+  - 페이지, Route Handler, Server Action, Webhook 기준의 권한/접근 제어 정리
+- [troubleshooting/troubleshooting-pwa-web-push-routing.md](./troubleshooting/troubleshooting-pwa-web-push-routing.md)
+  - In-App 알림과 Web Push 중복 제어, Service Worker 라우팅을 정리한 기록
 
 ## 문서 분류
 
@@ -39,6 +46,8 @@
 
 ### Operations
 
+- [권한 / 접근 제어 매트릭스](./operations/access-control-matrix.md)
+- [Rate Limit / 남용 방지 운영 기준](./operations/rate-limit-policy.md)
 - [보안 헤더 / CSP 운영 정책](./operations/security-headers-csp-policy.md)
 - [보드게임 데이터 import 운영 기준](./operations/boardgame-data-import-runbook.md)
 - [신고 처리와 제재 운영 정책](./operations/report-moderation-policy.md)

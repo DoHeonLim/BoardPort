@@ -10,6 +10,7 @@
  * 2026.05.26  임도헌   Modified  E2E 보드게임 도감 seed cleanup 기준 추가
  * 2026.05.26  임도헌   Modified  E2E 방송/VOD seed cleanup 기준 추가
  * 2026.05.26  임도헌   Modified  E2E 신고 처리 seed와 감사 로그 cleanup 기준 추가
+ * 2026.06.26  임도헌   Modified  E2E 계정 간 팔로우 관계 cleanup 추가
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -98,6 +99,15 @@ async function cleanupE2EData() {
     });
     const e2eUserIds = e2eUsers.map((user) => user.id);
 
+    const followResult = await db.follow.deleteMany({
+      where: {
+        OR: [
+          { followerId: { in: e2eUserIds } },
+          { followingId: { in: e2eUserIds } },
+        ],
+      },
+    });
+
     const notificationResult = await db.notification.deleteMany({
       where: {
         OR: [
@@ -179,6 +189,7 @@ async function cleanupE2EData() {
     });
 
     console.log("[E2E cleanup] removed test data");
+    console.log(`- follows      : ${followResult.count}`);
     console.log(`- notifications: ${notificationResult.count}`);
     console.log(`- reviews      : ${reviewResult.count}`);
     console.log(`- reports      : ${reportResult.count}`);

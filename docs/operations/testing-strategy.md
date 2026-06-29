@@ -86,6 +86,7 @@ npm run install:e2e
 DB 상태가 필요한 E2E는 `npm run seed:e2e`로 `[E2E]` prefix 기반 테스트 데이터를 먼저 준비한 뒤 실행합니다.
 기본 Playwright 실행에서는 seed 기반 테스트를 skip하고, seed를 실행한 뒤 `E2E_SEEDED=1`을 지정했을 때만 함께 실행합니다.
 seed 기반 테스트가 끝난 뒤에는 `npm run cleanup:e2e`로 `[E2E]` prefix 콘텐츠와 테스트 계정 알림을 정리합니다.
+특정 spec을 먼저 실행한 뒤 전체 suite를 다시 실행하는 것처럼 Playwright 실행을 나눌 때는 각 실행 전에 `npm run seed:e2e`를 다시 실행합니다. 약속 수락, 상품 수정, 팔로우 테스트는 seed 데이터를 실제로 변경하므로 실행 단위마다 기준 상태를 복원합니다.
 
 ```powershell
 npm run seed:e2e

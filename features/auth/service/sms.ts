@@ -10,59 +10,162 @@
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.02.08  임도헌   Modified  로그인 시 정지(Ban) 체크 및 만료 시 자동 해제 로직 추가
  * 2026.04.04  임도헌   Modified  SMS 토큰 발급/소모 단계의 인라인 주석 보강
+ * 2026.06.27  임도헌   Modified  SMS 토큰 TTL, 재전송/IP 쿨다운, 발송 실패 롤백 처리 추가
+ * 2026.06.29  임도헌   Modified  SMS 로그인 토큰의 인증 전 User 생성 방지, userId 잔존, 목적 혼용 방지
  */
 
 import "server-only";
 import crypto from "crypto";
 import { sendSMS } from "@/features/auth/utils/smsSender";
 import { generateUniqueSmsToken } from "@/features/auth/service/token";
-import { AUTH_ERRORS } from "@/features/auth/constants";
+import { checkAndRecordSmsSendAttemptByIp } from "@/features/auth/service/rateLimit";
+import {
+  AUTH_ERRORS,
+  SMS_VERIFY_RESEND_COOLDOWN_SECONDS,
+  SMS_VERIFY_TOKEN_TTL_MS,
+} from "@/features/auth/constants";
 import db from "@/lib/db";
+import { isUniqueConstraintError } from "@/lib/errors";
 import type { ServiceResult } from "@/lib/types";
+
+type SmsSendFailureCode = "SMS_SEND_FAILED" | "SMS_RATE_LIMITED";
 
 /**
  * 전화번호로 인증 토큰 생성 및 SMS 발송을 수행
- * 기존 토큰이 있다면 삭제하고 새로 생성
+ * 기존 유효 토큰이 있다면 쿨다운을 확인하고, 발송 실패 시 이전 토큰 상태를 복구
  *
  * @param {string} phone - 검증된 전화번호 (하이픈 없는 숫자)
- * @returns {Promise<ServiceResult>} 성공 여부
+ * @param {{ clientIp?: string | null }} [options] - SMS IP rate limit 계산에 사용할 요청 컨텍스트
+ * @returns {Promise<ServiceResult<void, SmsSendFailureCode>>} 성공 여부
  */
 export async function createAndSendSmsToken(
-  phone: string
-): Promise<ServiceResult<void>> {
-  try {
-    // 중복 없는 6자리 인증 토큰 생성
-    const token = await generateUniqueSmsToken();
+  phone: string,
+  options: { clientIp?: string | null } = {}
+): Promise<ServiceResult<void, SmsSendFailureCode>> {
+  const now = new Date();
+  const cooldownCutoff = new Date(
+    now.getTime() - SMS_VERIFY_RESEND_COOLDOWN_SECONDS * 1000
+  );
 
-    // 같은 번호의 기존 미사용 토큰 정리
+  try {
     await db.sMSToken.deleteMany({
-      where: { user: { phone } },
+      where: { expires_at: { lt: now } },
     });
 
-    // 토큰 저장 및 phone 기준 임시 계정 연결
-    await db.sMSToken.create({
-      data: {
-        token,
-        phone,
-        user: {
-          connectOrCreate: {
-            where: { phone },
-            create: {
-              username: `user_${crypto.randomBytes(4).toString("hex")}`,
-              phone,
-            },
-          },
-        },
+    const previousToken = await db.sMSToken.findUnique({
+      where: { phone },
+      select: {
+        id: true,
+        token: true,
+        phone: true,
+        userId: true,
+        created_at: true,
+        expires_at: true,
       },
     });
 
+    if (previousToken && previousToken.created_at > cooldownCutoff) {
+      return {
+        success: false,
+        error: AUTH_ERRORS.SMS_RATE_LIMITED,
+        code: "SMS_RATE_LIMITED",
+      };
+    }
+
+    const ipLimit = await checkAndRecordSmsSendAttemptByIp(
+      options.clientIp ?? null
+    );
+    if (!ipLimit.allowed) {
+      return {
+        success: false,
+        error: AUTH_ERRORS.SMS_RATE_LIMITED,
+        code: "SMS_RATE_LIMITED",
+      };
+    }
+
+    // 중복 없는 6자리 인증 토큰 생성
+    const token = await generateUniqueSmsToken();
+    const expiresAt = new Date(now.getTime() + SMS_VERIFY_TOKEN_TTL_MS);
+    let createdNewToken = false;
+
+    if (previousToken) {
+      const updateResult = await db.sMSToken.updateMany({
+        where: {
+          id: previousToken.id,
+          created_at: { lte: cooldownCutoff },
+        },
+        data: {
+          token,
+          phone,
+          userId: null,
+          created_at: now,
+          expires_at: expiresAt,
+        },
+      });
+
+      if (updateResult.count === 0) {
+        return {
+          success: false,
+          error: AUTH_ERRORS.SMS_RATE_LIMITED,
+          code: "SMS_RATE_LIMITED",
+        };
+      }
+    } else {
+      // 인증 전에는 User.phone을 점유하지 않고 발송 토큰만 저장
+      await db.sMSToken.create({
+        data: {
+          token,
+          phone,
+          expires_at: expiresAt,
+        },
+      });
+      createdNewToken = true;
+    }
+
     // 토큰 저장 후 실제 SMS 발송
-    await sendSMS(phone, token);
+    try {
+      await sendSMS(phone, token);
+    } catch (error) {
+      if (previousToken) {
+        await db.sMSToken.updateMany({
+          where: {
+            id: previousToken.id,
+            token,
+            created_at: now,
+          },
+          data: {
+            token: previousToken.token,
+            phone: previousToken.phone,
+            userId: previousToken.userId,
+            created_at: previousToken.created_at,
+            expires_at: previousToken.expires_at,
+          },
+        });
+      } else if (createdNewToken) {
+        await db.sMSToken.deleteMany({
+          where: { phone, token },
+        });
+      }
+
+      throw error;
+    }
 
     return { success: true };
   } catch (error) {
+    if (isUniqueConstraintError(error, ["phone"])) {
+      return {
+        success: false,
+        error: AUTH_ERRORS.SMS_RATE_LIMITED,
+        code: "SMS_RATE_LIMITED",
+      };
+    }
+
     console.error("SMS Send Error:", error);
-    return { success: false, error: AUTH_ERRORS.SMS_SEND_FAILED };
+    return {
+      success: false,
+      error: AUTH_ERRORS.SMS_SEND_FAILED,
+      code: "SMS_SEND_FAILED",
+    };
   }
 }
 
@@ -84,8 +187,9 @@ export async function verifySmsToken(
       id: true,
       userId: true,
       phone: true,
+      expires_at: true,
       user: {
-        select: { id: true, bannedAt: true, bannedUntil: true },
+        select: { id: true, phone: true, bannedAt: true, bannedUntil: true },
       },
     },
   });
@@ -95,7 +199,27 @@ export async function verifySmsToken(
     return { success: false, error: AUTH_ERRORS.SMS_VERIFY_FAILED };
   }
 
-  const user = verifiedToken.user;
+  if (verifiedToken.expires_at < new Date()) {
+    await db.sMSToken.delete({ where: { id: verifiedToken.id } });
+    return { success: false, error: AUTH_ERRORS.SMS_VERIFY_FAILED };
+  }
+
+  // 프로필 전화번호 변경용 토큰은 로그인 검증에서 소비하지 않음
+  if (verifiedToken.userId !== null) {
+    return { success: false, error: AUTH_ERRORS.SMS_VERIFY_FAILED };
+  }
+
+  const user =
+    verifiedToken.user ??
+    (await db.user.upsert({
+      where: { phone },
+      update: {},
+      create: {
+        username: `user_${crypto.randomBytes(4).toString("hex")}`,
+        phone,
+      },
+      select: { id: true, phone: true, bannedAt: true, bannedUntil: true },
+    }));
 
   // 정지 상태 확인 및 만료 시 지연 해제
   if (user.bannedAt) {
@@ -118,5 +242,5 @@ export async function verifySmsToken(
   // 검증 성공 후 토큰 1회 소모
   await db.sMSToken.delete({ where: { id: verifiedToken.id } });
 
-  return { success: true, data: { userId: verifiedToken.userId } };
+  return { success: true, data: { userId: user.id } };
 }

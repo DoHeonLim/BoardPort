@@ -15,6 +15,7 @@
  * 2026.03.05  임도헌   Modified   휴대폰 인증 완료 시의 개인화 캐시 태그 무효화 로직 제거 및 `revalidatePath` 기반 단순화 적용
  * 2026.03.07  임도헌   Modified   인증 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified   정지 유저 가드 및 SMS 발송 실패 롤백 보강
+ * 2026.06.27  임도헌   Modified   프로필 휴대폰 인증 토큰 TTL, 재전송/IP 쿨다운, 발송 실패 롤백 처리 추가
  */
 
 import "server-only";
@@ -22,6 +23,12 @@ import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
 import { sendSMS } from "@/features/auth/utils/smsSender";
 import { generateUniqueSmsToken } from "@/features/auth/service/token";
+import { checkAndRecordSmsSendAttemptByIp } from "@/features/auth/service/rateLimit";
+import {
+  AUTH_ERRORS,
+  SMS_VERIFY_RESEND_COOLDOWN_SECONDS,
+  SMS_VERIFY_TOKEN_TTL_MS,
+} from "@/features/auth/constants";
 import { badgeChecks } from "./badge";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { validateUserStatus } from "@/features/user/service/admin";
@@ -29,10 +36,16 @@ import type { ServiceResult } from "@/lib/types";
 
 /**
  * 프로필 인증용 SMS 발송
+ *
+ * @param {number} userId - 인증을 요청한 사용자 ID
+ * @param {string} phone - 검증할 전화번호
+ * @param {{ clientIp?: string | null }} [options] - SMS IP rate limit 계산에 사용할 요청 컨텍스트
+ * @returns {Promise<ServiceResult>} 발송 성공 여부
  */
 export async function sendProfilePhoneTokenService(
   userId: number,
-  phone: string
+  phone: string,
+  options: { clientIp?: string | null } = {}
 ): Promise<ServiceResult> {
   const userStatus = await validateUserStatus(userId);
   if (!userStatus.success) {
@@ -48,25 +61,100 @@ export async function sendProfilePhoneTokenService(
     return { success: false, error: "이미 사용 중인 전화번호입니다." };
   }
 
-  // 2. 기존 토큰 정리 (해당 번호 또는 유저에게 발송된 미사용 토큰 삭제)
+  const now = new Date();
+  const cooldownCutoff = new Date(
+    now.getTime() - SMS_VERIFY_RESEND_COOLDOWN_SECONDS * 1000
+  );
+
   await db.sMSToken.deleteMany({
-    where: { OR: [{ phone }, { userId }] },
+    where: { expires_at: { lt: now } },
   });
+
+  const previousToken = await db.sMSToken.findFirst({
+    where: { OR: [{ phone }, { userId }] },
+    orderBy: { created_at: "desc" },
+    select: {
+      id: true,
+      token: true,
+      phone: true,
+      userId: true,
+      created_at: true,
+      expires_at: true,
+    },
+  });
+
+  if (previousToken && previousToken.created_at > cooldownCutoff) {
+    return { success: false, error: AUTH_ERRORS.SMS_RATE_LIMITED };
+  }
+
+  const ipLimit = await checkAndRecordSmsSendAttemptByIp(
+    options.clientIp ?? null
+  );
+  if (!ipLimit.allowed) {
+    return { success: false, error: AUTH_ERRORS.SMS_RATE_LIMITED };
+  }
 
   // 3. 새 토큰 생성 및 저장
   const token = await generateUniqueSmsToken();
-  await db.sMSToken.create({
-    data: { token, phone, userId },
-  });
+  const expiresAt = new Date(now.getTime() + SMS_VERIFY_TOKEN_TTL_MS);
+  let createdNewToken = false;
+
+  if (previousToken) {
+    const updateResult = await db.sMSToken.updateMany({
+      where: {
+        id: previousToken.id,
+        created_at: { lte: cooldownCutoff },
+      },
+      data: {
+        token,
+        phone,
+        userId,
+        created_at: now,
+        expires_at: expiresAt,
+      },
+    });
+
+    if (updateResult.count === 0) {
+      return { success: false, error: AUTH_ERRORS.SMS_RATE_LIMITED };
+    }
+  } else {
+    await db.sMSToken.create({
+      data: {
+        token,
+        phone,
+        userId,
+        expires_at: expiresAt,
+      },
+    });
+    createdNewToken = true;
+  }
 
   // 4. SMS 발송
   try {
     await sendSMS(phone, token);
   } catch (error) {
     console.error("sendProfilePhoneTokenService error:", error);
-    await db.sMSToken.deleteMany({
-      where: { token, phone, userId },
-    });
+    if (previousToken) {
+      await db.sMSToken.updateMany({
+        where: {
+          id: previousToken.id,
+          token,
+          created_at: now,
+        },
+        data: {
+          token: previousToken.token,
+          phone: previousToken.phone,
+          userId: previousToken.userId,
+          created_at: previousToken.created_at,
+          expires_at: previousToken.expires_at,
+        },
+      });
+    } else if (createdNewToken) {
+      await db.sMSToken.deleteMany({
+        where: { token, phone, userId },
+      });
+    }
+
     return {
       success: false,
       error:
@@ -82,6 +170,11 @@ export async function sendProfilePhoneTokenService(
  *
  * 트랜잭션을 적용하여 토큰 삭제와 유저 정보 갱신이 동시에 성공하거나,
  * 동시에 실패(롤백)하도록 보장
+ *
+ * @param {number} userId - 인증을 완료할 사용자 ID
+ * @param {string} phone - 검증할 전화번호
+ * @param {string} token - 사용자가 입력한 인증번호
+ * @returns {Promise<ServiceResult>} 전화번호 업데이트 성공 여부
  */
 export async function verifyProfilePhoneTokenService(
   userId: number,
@@ -96,10 +189,18 @@ export async function verifyProfilePhoneTokenService(
   // 1. 토큰 조회 (번호, 토큰, 유저 일치 여부)
   const verified = await db.sMSToken.findFirst({
     where: { token, phone, userId },
-    select: { id: true },
+    select: { id: true, expires_at: true },
   });
 
   if (!verified) {
+    return {
+      success: false,
+      error: "전화번호와 인증번호가 일치하지 않습니다.",
+    };
+  }
+
+  if (verified.expires_at < new Date()) {
+    await db.sMSToken.delete({ where: { id: verified.id } });
     return {
       success: false,
       error: "전화번호와 인증번호가 일치하지 않습니다.",

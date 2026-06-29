@@ -17,10 +17,13 @@
  * 2026.01.30  임도헌   Moved     app/(auth)/sms/actions.ts -> features/auth/actions/sms.ts
  * 2026.04.04  임도헌   Modified  전화번호/SMS 토큰 검증과 세션 저장 단계의 인라인 주석 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.06.27  임도헌   Modified  SMS 발송 시 IP hash 기반 발송 제한 컨텍스트 전달
  */
 "use server";
 
+import { headers } from "next/headers";
 import { phoneSchema, tokenSchema } from "@/features/auth/schemas/sms";
+import { getClientIpFromHeaders } from "@/features/auth/service/rateLimit";
 import { saveUserSession } from "@/features/auth/service/authSession";
 import { resolvePostAuthRedirectPath } from "@/features/auth/service/onboarding";
 import {
@@ -51,7 +54,9 @@ export async function sendPhoneToken(
   }
 
   // 인증번호 생성 및 문자 발송 위임
-  const serviceRes = await createAndSendSmsToken(result.data);
+  const serviceRes = await createAndSendSmsToken(result.data, {
+    clientIp: getClientIpFromHeaders(headers()),
+  });
   if (!serviceRes.success) {
     return { success: false, error: serviceRes.error };
   }

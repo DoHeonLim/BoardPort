@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 다시보기 목록 조회 API 분리
+ * 2026.06.25  임도헌   Modified  URL viewerId fallback 제거 및 세션 기준 조회자 권한 고정
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -52,8 +53,8 @@ export async function GET(request: NextRequest) {
   const sort: RecordingSort =
     searchParams.get("sort") === "popular" ? "popular" : "latest";
   const followingOnly = searchParams.get("followingOnly") === "true";
-  const viewerId =
-    session?.id ?? parseNullableNumberParam(searchParams.get("viewerId"));
+  // /api 경로는 middleware 인증 가드를 타지 않으므로 URL viewerId를 신뢰하지 않고 세션만 조회자 기준으로 사용한다.
+  const viewerId = session?.id ?? null;
 
   if (!viewerId) {
     return NextResponse.json({ recordings: [], nextCursor: null });
