@@ -13,15 +13,22 @@
  * 2026.01.30  임도헌   Moved     app/(auth)/create-account/actions.ts -> features/auth/actions/register.ts
  * 2026.04.04  임도헌   Modified  검증/에러 매핑/세션 저장 단계의 인라인 주석 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.06.27  임도헌   Modified  IP hash 기반 회원가입 단기 제출 제한 추가
  */
 "use server";
 
+import { headers } from "next/headers";
 import {
   createAccountSchema,
   type CreateAccountSchema,
 } from "@/features/auth/schemas/register";
+import { AUTH_ERRORS } from "@/features/auth/constants";
 import { saveUserSession } from "@/features/auth/service/authSession";
 import { resolvePostAuthRedirectPath } from "@/features/auth/service/onboarding";
+import {
+  checkAndRecordSignupAttemptByIp,
+  getClientIpFromHeaders,
+} from "@/features/auth/service/rateLimit";
 import { createAccount } from "@/features/auth/service/register";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import type { ActionState } from "@/features/auth/types";
@@ -30,8 +37,9 @@ import type { ActionState } from "@/features/auth/types";
  * 회원가입 폼 제출을 처리
  *
  * 1. Zod 스키마를 사용하여 입력값을 검증
- * 2. Service 계층을 호출하여 계정을 생성
- * 3. 생성된 유저 ID로 세션을 저장하여 자동 로그인 처리
+ * 2. IP hash 기반 단기 제출 제한을 확인
+ * 3. Service 계층을 호출하여 계정을 생성
+ * 4. 생성된 유저 ID로 세션을 저장하여 자동 로그인 처리
  *
  * @param {unknown} _prevState - 이전 상태
  * @param {FormData} formData - 폼 데이터
@@ -63,7 +71,16 @@ export async function submitCreateAccount(
     };
   }
 
-  // 2. 계정 생성 (Service)
+  // 2. IP hash 기반 단기 제출 제한
+  const signupLimit = await checkAndRecordSignupAttemptByIp(
+    getClientIpFromHeaders(headers())
+  );
+
+  if (!signupLimit.allowed) {
+    return { success: false, error: AUTH_ERRORS.SIGNUP_RATE_LIMITED };
+  }
+
+  // 3. 계정 생성 (Service)
   const result = await createAccount(parsed.data);
 
   if (!result.success) {

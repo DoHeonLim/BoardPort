@@ -47,6 +47,7 @@
 ### Operations
 
 - [권한 / 접근 제어 매트릭스](./operations/access-control-matrix.md)
+- [Rate Limit / 남용 방지 운영 기준](./operations/rate-limit-policy.md)
 - [보안 헤더 / CSP 운영 정책](./operations/security-headers-csp-policy.md)
 - [보드게임 데이터 import 운영 기준](./operations/boardgame-data-import-runbook.md)
 - [신고 처리와 제재 운영 정책](./operations/report-moderation-policy.md)

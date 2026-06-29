@@ -6,11 +6,14 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   Action 정의
+ * 2026.06.27  임도헌   Modified  프로필 SMS 발송에 IP rate limit 컨텍스트 전달
  */
 "use server";
 
+import { headers } from "next/headers";
 import getSession from "@/lib/session";
 import { phoneSchema, tokenSchema } from "@/features/auth/schemas/sms";
+import { getClientIpFromHeaders } from "@/features/auth/service/rateLimit";
 import {
   sendProfilePhoneTokenService,
   verifyProfilePhoneTokenService,
@@ -31,7 +34,9 @@ export async function sendProfilePhoneTokenAction(formData: FormData) {
   }
 
   // 2. Service 호출 (중복 확인 및 SMS 발송)
-  return await sendProfilePhoneTokenService(session.id, parsed.data);
+  return await sendProfilePhoneTokenService(session.id, parsed.data, {
+    clientIp: getClientIpFromHeaders(headers()),
+  });
 }
 
 /**

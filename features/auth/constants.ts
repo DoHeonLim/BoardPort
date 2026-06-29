@@ -11,6 +11,7 @@
  * 2026.02.24  임도헌   Modified  카카오 로그인 관련 에러 메시지 추가
  * 2026.04.02  임도헌   Modified  이메일 인증/비밀번호 재설정/인증 후 복귀 정책 상수 추가
  * 2026.05.16  임도헌   Modified  타입 전용 import를 명시해 런타임 의존성 제거
+ * 2026.06.27  임도헌   Modified  SMS 인증번호 TTL, 재전송 쿨다운, 인증 IP 제한 상수 추가
  */
 
 import type { EmailVerifyState } from "@/features/auth/types";
@@ -48,6 +49,22 @@ export const POST_AUTH_BLOCKED_PREFIXES = [
 /** SMS 자동 생성 유저명처럼 보완이 필요한 임시 닉네임 패턴 */
 export const TEMP_USERNAME_REGEX = /^user_[0-9a-f]{8}$/i;
 
+/** SMS 인증 정책값 */
+/** SMS 재전송 쿨다운(초) */
+export const SMS_VERIFY_RESEND_COOLDOWN_SECONDS = 60;
+/** SMS 인증 토큰 유효 시간(ms) */
+export const SMS_VERIFY_TOKEN_TTL_MS = 10 * 60 * 1000;
+/** 같은 IP에서 허용하는 SMS 발송 요청 수 */
+export const SMS_SEND_IP_RATE_LIMIT_MAX = 10;
+/** IP 기준 SMS 발송 요청 제한 시간 창(ms) */
+export const SMS_SEND_IP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
+/** 회원가입 제출 rate limit 정책값 */
+/** IP 기준 회원가입 제출 제한 시간 창(ms) */
+export const SIGNUP_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+/** 같은 IP에서 허용하는 회원가입 제출 수 */
+export const SIGNUP_RATE_LIMIT_MAX = 10;
+
 /** 인증 관련 에러 메시지 모음 */
 export const AUTH_ERRORS = {
   NOT_LOGGED_IN: "로그인이 필요합니다.",
@@ -68,6 +85,10 @@ export const AUTH_ERRORS = {
   // SMS
   SMS_SEND_FAILED: "SMS 발송에 실패했습니다. 잠시 후 다시 시도해주세요.",
   SMS_VERIFY_FAILED: "인증번호가 일치하지 않거나 만료되었습니다.",
+  SMS_RATE_LIMITED: "인증번호를 방금 발송했습니다. 잠시 후 다시 시도해주세요.",
+
+  // Signup abuse control
+  SIGNUP_RATE_LIMITED: "요청이 많습니다. 잠시 후 다시 시도해주세요.",
 
   // GitHub
   GITHUB_TOKEN_FAILED: "GitHub 인증 토큰을 받아오지 못했습니다.",

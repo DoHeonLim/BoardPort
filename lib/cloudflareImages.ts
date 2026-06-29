@@ -9,15 +9,43 @@
  * 2025.06.12  임도헌   Modified  Cloudflare 이미지 업로드용 URL 요청 함수를 lib로 옮김
  * 2025.08.22  임도헌   Modified  DirectUploadURLResult 타입 도입 및 응답 표준화, 검증 로직 추가
  * 2026.01.16  임도헌   Renamed   lib/cloudflare/getUploadUrl -> lib/cloudflareImages.ts
+ * 2026.06.27  임도헌   Modified  이미지 direct upload URL 발급 전 세션/사용자 상태 가드 추가
  */
 "use server";
+
+import getSession from "@/lib/session";
+import { validateUserStatus } from "@/features/user/service/admin";
 
 type DirectUploadURLResult =
   | { success: true; result: { uploadURL: string; id: string } }
   | { success: false; error: string };
 
+/**
+ * Cloudflare Images direct upload URL을 발급
+ *
+ * 로그인 세션과 사용자 상태를 확인한 뒤 Cloudflare API를 호출하고,
+ * 클라이언트에는 Cloudflare API token 대신 direct upload URL만 반환
+ *
+ * @returns {Promise<DirectUploadURLResult>} 업로드 URL 발급 결과
+ */
 export async function getUploadUrl(): Promise<DirectUploadURLResult> {
   try {
+    const session = await getSession();
+    if (!session?.id) {
+      return {
+        success: false,
+        error: "로그인이 필요합니다.",
+      };
+    }
+
+    const userStatus = await validateUserStatus(session.id);
+    if (!userStatus.success) {
+      return {
+        success: false,
+        error: userStatus.error,
+      };
+    }
+
     const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID!;
     const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN!;
 

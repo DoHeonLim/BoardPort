@@ -215,7 +215,7 @@ prisma/       Prisma schema, seed, migration
 npm install
 ```
 
-2. `.env.local`에 아래 필수 환경 변수를 채웁니다.
+2. `.env.example`을 참고해 `.env.local`에 필수 환경 변수를 채웁니다.
 
 3. 로컬 또는 개발 DB에 Prisma 마이그레이션을 적용합니다.
 
@@ -241,15 +241,21 @@ npm run dev
 
 실제 값은 `.env` 또는 Vercel Environment Variables에 설정하고 저장소에는 커밋하지 않습니다.
 
-#### Core
+#### App / Security
 
-| 변수명                | 설명                                           |
-| --------------------- | ---------------------------------------------- |
-| `DATABASE_URL`        | Prisma 기본 DB 연결 문자열                     |
-| `DIRECT_URL`          | Prisma 마이그레이션/직접 연결용 DB 연결 문자열 |
-| `COOKIE_PASSWORD`     | iron-session 쿠키 암호화 키                    |
-| `NEXT_PUBLIC_APP_URL` | 대표 URL, 인증 콜백, 공유 링크 기준 URL        |
-| `CRON_SECRET`         | Vercel Cron 호출 인증용 시크릿 키              |
+| 변수명                | 설명                                          |
+| --------------------- | --------------------------------------------- |
+| `NEXT_PUBLIC_APP_URL` | 대표 URL, 인증 콜백, 공유 링크 기준 URL       |
+| `COOKIE_PASSWORD`     | iron-session 쿠키 암호화 키                   |
+| `RATE_LIMIT_SALT`     | IP 기반 rate limit hash 생성용 서버 시크릿 키 |
+| `CRON_SECRET`         | Vercel Cron 호출 인증용 시크릿 키             |
+
+#### Database
+
+| 변수명         | 설명                                       |
+| -------------- | ------------------------------------------ |
+| `DATABASE_URL` | 런타임 PostgreSQL 연결 문자열              |
+| `DIRECT_URL`   | Prisma 마이그레이션/CLI용 직접 연결 문자열 |
 
 #### Supabase
 
@@ -258,17 +264,29 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL`        | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY` | Supabase 공개 anon 키 |
 
-#### Auth / SMS / Email
+#### OAuth
 
-| 변수명                  | 설명                             |
-| ----------------------- | -------------------------------- |
-| `KAKAO_CLIENT_ID`       | Kakao OAuth 클라이언트 ID        |
-| `KAKAO_CLIENT_SECRET`   | Kakao OAuth 클라이언트 시크릿 키 |
-| `KAKAO_REDIRECT_URI`    | Kakao OAuth 리다이렉트 URI       |
-| `COOLSMS_API_KEY`       | CoolSMS API 키                   |
-| `COOLSMS_API_SECRET`    | CoolSMS API 시크릿 키            |
-| `COOLSMS_SENDER_NUMBER` | CoolSMS 발신 번호                |
-| `RESEND_API_KEY`        | Resend 이메일 발송 API 키        |
+| 변수명                 | 설명                              |
+| ---------------------- | --------------------------------- |
+| `GITHUB_CLIENT_ID`     | GitHub OAuth 클라이언트 ID        |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth 클라이언트 시크릿 키 |
+| `KAKAO_CLIENT_ID`      | Kakao OAuth 클라이언트 ID         |
+| `KAKAO_CLIENT_SECRET`  | Kakao OAuth 클라이언트 시크릿 키  |
+| `KAKAO_REDIRECT_URI`   | Kakao OAuth 리다이렉트 URI        |
+
+#### SMS (CoolSMS)
+
+| 변수명                  | 설명                  |
+| ----------------------- | --------------------- |
+| `COOLSMS_API_KEY`       | CoolSMS API 키        |
+| `COOLSMS_API_SECRET`    | CoolSMS API 시크릿 키 |
+| `COOLSMS_SENDER_NUMBER` | CoolSMS 발신 번호     |
+
+#### Email (Resend)
+
+| 변수명           | 설명                      |
+| ---------------- | ------------------------- |
+| `RESEND_API_KEY` | Resend 이메일 발송 API 키 |
 
 #### Cloudflare
 
@@ -281,12 +299,17 @@ npm run dev
 | `CLOUDFLARE_WEBHOOK_SECRET`            | Cloudflare 웹훅 요청 검증용 시크릿 키        |
 | `CLOUDFLARE_STREAM_WEBHOOK_SECRET`     | Cloudflare Stream 웹훅 서명 검증용 시크릿 키 |
 
-#### Push / 지도
+#### Push
+
+| 변수명                         | 설명                  |
+| ------------------------------ | --------------------- |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push VAPID 공개키 |
+| `VAPID_PRIVATE_KEY`            | Web Push VAPID 개인키 |
+
+#### Maps
 
 | 변수명                          | 설명                          |
 | ------------------------------- | ----------------------------- |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`  | Web Push VAPID 공개키         |
-| `VAPID_PRIVATE_KEY`             | Web Push VAPID 개인키         |
 | `NEXT_PUBLIC_KAKAO_MAP_API_KEY` | 카카오 지도 JavaScript SDK 키 |
 
 ## Scripts
