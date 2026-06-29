@@ -8,6 +8,7 @@
  * 2026.06.27  임도헌   Created   회원가입 IP hash 기반 단기 제출 제한 추가
  * 2026.06.27  임도헌   Modified  SMS 발송 IP hash 기반 시간당 제한 추가
  * 2026.06.27  임도헌   Modified  kind/keyHash 단위 transaction advisory lock 적용
+ * 2026.06.29  임도헌   Modified  stale event cleanup을 advisory lock transaction 밖으로 분리
  */
 
 import "server-only";
@@ -82,24 +83,26 @@ async function checkAndRecordAuthRateLimitEvent(
   const keyHash = hashRateLimitKey(input.key);
   if (!keyHash) return { allowed: true };
 
+  const windowStart = new Date(now.getTime() - input.windowMs);
+
+  try {
+    await db.authRateLimitEvent.deleteMany({
+      where: {
+        kind: input.kind,
+        created_at: { lt: windowStart },
+      },
+    });
+  } catch (error) {
+    console.warn("[auth rate limit] stale event cleanup failed:", error);
+  }
+
   return db.$transaction(async (tx) => {
-    // 같은 정책/식별자에 대한 check-and-record 경쟁을 DB transaction 단위로 직렬화
+    // PostgreSQL advisory lock은 애플리케이션이 정한 숫자 key로 잡는 DB 잠금이다.
+    // 여기서는 같은 kind/keyHash 요청만 한 줄로 세워, 동시에 limit을 통과하고
+    // 각각 기록되는 check-and-record 경쟁을 막는다.
     await tx.$executeRaw`
       SELECT pg_advisory_xact_lock(hashtext(${`${input.kind}:${keyHash}`}))
     `;
-
-    const windowStart = new Date(now.getTime() - input.windowMs);
-
-    try {
-      await tx.authRateLimitEvent.deleteMany({
-        where: {
-          kind: input.kind,
-          created_at: { lt: windowStart },
-        },
-      });
-    } catch (error) {
-      console.warn("[auth rate limit] stale event cleanup failed:", error);
-    }
 
     const recentAttempts = await tx.authRateLimitEvent.findMany({
       where: {

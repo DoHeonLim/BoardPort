@@ -11,6 +11,7 @@
  * 2026.02.08  임도헌   Modified  로그인 시 정지(Ban) 체크 및 만료 시 자동 해제 로직 추가
  * 2026.04.04  임도헌   Modified  SMS 토큰 발급/소모 단계의 인라인 주석 보강
  * 2026.06.27  임도헌   Modified  SMS 토큰 TTL, 재전송/IP 쿨다운, 발송 실패 롤백 처리 추가
+ * 2026.06.29  임도헌   Modified  SMS 로그인 토큰의 인증 전 User 생성 방지, userId 잔존, 목적 혼용 방지
  */
 
 import "server-only";
@@ -96,6 +97,7 @@ export async function createAndSendSmsToken(
         data: {
           token,
           phone,
+          userId: null,
           created_at: now,
           expires_at: expiresAt,
         },
@@ -109,21 +111,12 @@ export async function createAndSendSmsToken(
         };
       }
     } else {
-      // 토큰 저장 및 phone 기준 임시 계정 연결
+      // 인증 전에는 User.phone을 점유하지 않고 발송 토큰만 저장
       await db.sMSToken.create({
         data: {
           token,
           phone,
           expires_at: expiresAt,
-          user: {
-            connectOrCreate: {
-              where: { phone },
-              create: {
-                username: `user_${crypto.randomBytes(4).toString("hex")}`,
-                phone,
-              },
-            },
-          },
         },
       });
       createdNewToken = true;
@@ -143,6 +136,7 @@ export async function createAndSendSmsToken(
           data: {
             token: previousToken.token,
             phone: previousToken.phone,
+            userId: previousToken.userId,
             created_at: previousToken.created_at,
             expires_at: previousToken.expires_at,
           },
@@ -195,7 +189,7 @@ export async function verifySmsToken(
       phone: true,
       expires_at: true,
       user: {
-        select: { id: true, bannedAt: true, bannedUntil: true },
+        select: { id: true, phone: true, bannedAt: true, bannedUntil: true },
       },
     },
   });
@@ -210,7 +204,22 @@ export async function verifySmsToken(
     return { success: false, error: AUTH_ERRORS.SMS_VERIFY_FAILED };
   }
 
-  const user = verifiedToken.user;
+  // 프로필 전화번호 변경용 토큰은 로그인 검증에서 소비하지 않음
+  if (verifiedToken.userId !== null) {
+    return { success: false, error: AUTH_ERRORS.SMS_VERIFY_FAILED };
+  }
+
+  const user =
+    verifiedToken.user ??
+    (await db.user.upsert({
+      where: { phone },
+      update: {},
+      create: {
+        username: `user_${crypto.randomBytes(4).toString("hex")}`,
+        phone,
+      },
+      select: { id: true, phone: true, bannedAt: true, bannedUntil: true },
+    }));
 
   // 정지 상태 확인 및 만료 시 지연 해제
   if (user.bannedAt) {
@@ -233,5 +242,5 @@ export async function verifySmsToken(
   // 검증 성공 후 토큰 1회 소모
   await db.sMSToken.delete({ where: { id: verifiedToken.id } });
 
-  return { success: true, data: { userId: verifiedToken.userId } };
+  return { success: true, data: { userId: user.id } };
 }
