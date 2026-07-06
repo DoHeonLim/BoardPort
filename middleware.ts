@@ -13,6 +13,7 @@
  * 2026.04.12  임도헌   Modified  robots.txt·sitemap.xml 메타 라우트를 인증 미들웨어 예외로 처리
  * 2026.05.15  임도헌   Modified  비관리자 admin 접근 시 홈 대신 403 안내로 이동하도록 분기
  * 2026.05.15  임도헌   Modified  공유 미리보기 크롤러와 OG 이미지 라우트는 인증 가드 예외로 처리
+ * 2026.07.06  임도헌   Modified  이용약관/개인정보 처리방침 공개 경로를 인증 가드 예외로 추가
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -32,6 +33,8 @@ interface IRoutes {
 const alwaysAccessibleUrls: IRoutes = {
   "/offline": true,
   "/403": true,
+  "/terms": true,
+  "/privacy": true,
   "/manifest.webmanifest": true,
   "/robots.txt": true,
   "/sitemap.xml": true,
