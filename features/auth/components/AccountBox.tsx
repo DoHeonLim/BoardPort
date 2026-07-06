@@ -17,11 +17,13 @@
  * 2026.04.12  임도헌   Modified  로그인 전 메인 CTA 카드의 표면감과 대비를 정리해 전환성과 판독성을 보강
  * 2026.04.13  임도헌   Modified  회원가입 버튼 테두리 톤을 카드 주변 색감에 맞게 부드럽게 조정
  * 2026.04.20  임도헌   Modified  로그인 전 메인 CTA 전용 비주얼 규칙을 CSS Module로 정리해 className 복잡도를 낮춤
+ * 2026.07.06  임도헌   Modified  로그인 전 메인 CTA 하단에 약관/개인정보 처리방침 링크 추가
  */
 
 import Link from "next/link";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
 import mainPageStyles from "@/features/auth/components/mainPage.module.css";
+import LegalLinks from "@/features/legal/components/LegalLinks";
 
 export default function AccountBox() {
   return (
@@ -42,6 +44,7 @@ export default function AccountBox() {
           <span>새로운 선원으로 등록</span>
         </Link>
       </div>
+      <LegalLinks className="mt-4 text-white/75" compact inverse />
     </div>
   );
 }

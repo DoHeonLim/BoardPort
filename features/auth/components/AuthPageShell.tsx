@@ -6,9 +6,11 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.13  임도헌   Created   로그인/회원가입/SMS/비밀번호 재설정 계열 페이지의 공통 헤더와 본문 폭을 재사용하는 셸 추가
+ * 2026.07.06  임도헌   Modified  인증 화면 하단에 이용약관/개인정보 처리방침 링크 추가
  */
 import type { ReactNode } from "react";
 import Logo from "@/components/ui/Logo";
+import LegalLinks from "@/features/legal/components/LegalLinks";
 import { cn } from "@/lib/utils";
 
 interface AuthPageShellProps {
@@ -47,6 +49,8 @@ export default function AuthPageShell({
       <div className={cn("mx-auto w-full max-w-sm", contentClassName)}>
         {children}
       </div>
+
+      <LegalLinks className="mx-auto mt-8 w-full max-w-sm" compact />
     </main>
   );
 }

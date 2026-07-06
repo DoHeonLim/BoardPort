@@ -173,11 +173,11 @@ App Router의 일반 상세 페이지와 모달 상세 페이지가 같은 데�
   In-App 알림, PWA Web Push, 키워드/지역 알림, 채팅/거래/방송/시스템 알림 설정
 
 - **Admin**
-  신고 처리, 콘텐츠 조치, 유저 제재, 감사 로그, 관리자 인사이트
+  신고 처리, 콘텐츠 조치, 유저 제재, 감사 로그, ECharts 기반 관리자 인사이트
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Framer Motion, Floating UI
+- **Frontend:** Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Framer Motion, Floating UI, Apache ECharts
 - **State:** TanStack Query v5, Zustand
 - **Backend/Data:** Prisma, PostgreSQL, iron-session
 - **Realtime/Infra:** Supabase Realtime, Cloudflare Stream/Images, Web Push API, next-pwa, Vercel

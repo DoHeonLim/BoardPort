@@ -23,6 +23,7 @@
  * 2026.03.14  임도헌   Modified  회원 탈퇴를 드롭다운 밖 독립 위험 액션으로 분리해 설정 메뉴 혼재를 완화
  * 2026.03.18  임도헌   Modified  설정 메뉴 현재 경로도 내부 경로 기준으로 정규화해 nested returnTo 예외를 완화
  * 2026.06.21  임도헌   Modified  설정 메뉴 항목을 아이콘+텍스트 문법으로 통일
+ * 2026.07.06  임도헌   Modified  설정 메뉴에 이용약관/개인정보 처리방침 링크 추가
  */
 "use client";
 
@@ -33,10 +34,12 @@ import {
   CheckBadgeIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
+  DocumentTextIcon,
   EnvelopeIcon,
   ExclamationTriangleIcon,
   KeyIcon,
   PencilSquareIcon,
+  ShieldCheckIcon,
   UserMinusIcon,
 } from "@heroicons/react/24/outline";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
@@ -254,6 +257,29 @@ export default function ProfileSettingMenu({
             차단한 선원 관리
           </button>
 
+          <div role="separator" className="h-px bg-border-subtle" />
+
+          <Link
+            href="/terms"
+            role="menuitem"
+            data-menuitem="true"
+            className="focus-ring-soft flex items-center gap-2 px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            onClick={() => setOpen(false)}
+          >
+            <DocumentTextIcon className="size-4 shrink-0" />
+            이용약관
+          </Link>
+
+          <Link
+            href="/privacy"
+            role="menuitem"
+            data-menuitem="true"
+            className="focus-ring-soft flex items-center gap-2 px-4 py-3 text-sm text-primary hover:bg-surface-dim transition-colors"
+            onClick={() => setOpen(false)}
+          >
+            <ShieldCheckIcon className="size-4 shrink-0" />
+            개인정보 처리방침
+          </Link>
         </div>
       )}
     </div>
