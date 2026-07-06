@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "life.boardport.twa",
+      "sha256_cert_fingerprints": [
+        "78:A8:6E:DB:37:74:DB:C1:6F:F4:D0:79:91:3B:EF:3A:E4:B5:0C:18:83:2A:3A:43:6B:E4:1E:D4:93:D5:05:36"
+      ]
+    }
+  }
+]
