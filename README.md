@@ -9,7 +9,7 @@ BoardPort는 보드게임 중고거래에서 자주 분리되는 상품 탐색, 
 | 항목         | 내용                                                                                                           |
 | ------------ | -------------------------------------------------------------------------------------------------------------- |
 | Project Type | Personal Full-Stack Project                                                                                    |
-| Period       | 2024.10.14 - 2026.06                                                                                           |
+| Period       | 2024.10 - 2026.07                                                                                              |
 | Domain       | Board Game Marketplace · Community · Live Streaming · Chat                                                     |
 | Core Stack   | Next.js 14 App Router, React 18, TypeScript, Prisma, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
 
