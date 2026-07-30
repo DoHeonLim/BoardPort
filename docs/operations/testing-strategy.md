@@ -33,7 +33,7 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 5. 관리자 신고 처리와 제재 기록
 6. 방송/VOD 접근, 목록/상세 진입, 공유 썸네일 fallback
 
-## 3. 이번 브랜치 범위
+## 3. 현재 자동화 범위
 
 - Vitest 설정과 npm script 추가
 - `sanitizeCallbackUrl()` 회귀 테스트

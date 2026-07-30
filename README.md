@@ -1,28 +1,33 @@
 # BoardPort
 
-BoardPort는 보드게임 중고거래에서 자주 분리되는 상품 탐색, 문의, 직거래 약속, 후기, 콘텐츠, 운영 흐름을 하나의 서비스로 연결한 모바일 퍼스트 웹 애플리케이션입니다.
+> 보드게임 정보 탐색부터 중고거래, 직거래 약속, 커뮤니티, 라이브/VOD까지 연결한 1인 풀스택 웹 서비스
 
-범용 중고거래 앱에서 부족한 보드게임 특화 맥락을 보완하기 위해, 거래·룰 질문·후기·플레이 공유가 자연스럽게 이어지는 흐름에 초점을 맞췄습니다.
+[서비스 체험](https://boardport.life) · [전체 데모](#demo) · [기술 문서](./docs/README.md) · [Releases](https://github.com/DoHeonLim/BoardPort/releases)
 
-## Summary
+BoardPort는 범용 중고거래 서비스에서 분리되기 쉬운 **상품 탐색 → 문의 → 직거래 약속 → 거래 후기 → 플레이 콘텐츠**를 하나의 흐름으로 연결한 모바일 퍼스트 웹 애플리케이션입니다.
 
-| 항목         | 내용                                                                                                           |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| Project Type | Personal Full-Stack Project                                                                                    |
-| Period       | 2024.10 - 2026.07                                                                                              |
-| Domain       | Board Game Marketplace · Community · Live Streaming · Chat                                                     |
-| Core Stack   | Next.js 14 App Router, React 18, TypeScript, Prisma, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
+상품, 커뮤니티, 방송, 채팅, 알림, 관리자 기능은 각 도메인의 책임에 따라 분리하고, **보드게임 도감**을 상품·게시글·방송을 잇는 공통 맥락으로 사용했습니다.
+
+## 30초 요약
+
+| 항목             | 내용                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 개발 형태        | 1인 기획·설계·개발·배포·운영                                                                                     |
+| 개발 기간        | 2024.10 - 2026.07                                                                                                |
+| 핵심 사용자 흐름 | 도감 탐색 → 상품/콘텐츠 확인 → 채팅·약속 → 거래·후기 → 라이브/VOD                                                |
+| 담당 범위        | Frontend, Backend, Data Modeling, Realtime, Media, PWA, Admin, CI/CD                                             |
+| 핵심 스택        | Next.js 14 App Router, React 18, TypeScript, Prisma 7, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
 
 ## Key Engineering Problems
 
-| 문제                                                              | 해결 방향                                                                                                                                                 | 관련 문서                                                                                                |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 채팅 약속 수락과 상품 예약 상태가 어긋날 수 있음                  | 약속 수락, 상품 예약 전환, 다른 대기 약속 취소, 시스템 메시지를 하나의 transaction으로 묶고 `updateMany` 조건으로 동시 수락을 방어                        | [Appointment Atomic Transition](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md) |
-| App Router 모달 상세와 일반 상세의 복귀 문맥이 섞임               | Intercepting Route 모달, 일반 상세, 수정/삭제 복귀를 `returnTo`, `flow`, refresh flag로 분리하고 mixed tree 케이스를 문맥별로 정리                        | [Product Modal Routing](./docs/troubleshooting/troubleshooting-product-modal-routing.md)                 |
-| 외부 동영상 인코딩 이벤트와 게시글 저장 순서가 보장되지 않음      | Cloudflare webhook의 READY 선도착과 error payload를 처리하고, `draftKey`를 실제 게시글 연결 전까지 보존해 READY/FAILED 상태로 수렴                        | [Post Video Webhook](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)            |
-| Server State, UI State, Realtime 이벤트가 섞여 갱신 기준이 분산됨 | Zustand는 UI 상태, TanStack Query는 서버 상태, Realtime은 invalidate/refetch 신호로 분리하고 Route Handler fetch와 Query Key Factory로 재검증 경로를 통일 | [State Management Modernization](./docs/architecture/case-study-state-management-modernization.md)       |
+기능 수보다 **도메인 사이의 상태 정합성**, **비동기 이벤트의 순서**, **App Router의 탐색 문맥**을 안정화하는 데 집중했습니다.
 
-각 문서는 릴리즈 전 QA에서 확인한 증상, 원인, 코드 기준, 운영 판단을 중심으로 정리했습니다.
+| 문제                                                          | 설계 판단                                                                                                                              | 결과 및 근거                                                                                                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 채팅 약속 수락과 상품 예약 상태가 서로 어긋날 수 있음         | 약속 수락, 상품 예약 전환, 다른 대기 약속 취소, 시스템 메시지를 하나의 transaction으로 처리하고 조건부 `updateMany`로 동시 수락을 방어 | 약속과 상품이 하나의 확정 상태로 전환되도록 만들고 경쟁 요청의 중복 수락을 차단 — [상세 문서](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)        |
+| Server State, UI State, Realtime 이벤트의 갱신 책임이 섞임    | Zustand는 UI 상태, TanStack Query는 서버 상태로 분리하고 Realtime은 화면 성격에 따라 payload 즉시 반영 또는 DB 재검증 신호로 처리      | 메시지·알림의 즉시성을 유지하면서 목록·미읽음 수·방송 상태는 DB의 확정 상태로 수렴 — [상세 문서](./docs/architecture/case-study-state-management-modernization.md)            |
+| 모달 상세, 일반 상세, 수정 화면의 URL과 복귀 문맥이 충돌함    | Intercepting Route와 일반 상세를 함께 지원하고 `returnTo`, `flow`, 1회성 refresh flag로 문맥을 분리                                    | 공유 가능한 상세 URL을 유지하면서 목록·모달·수정 화면 사이의 뒤로가기와 최신화 흐름을 안정화 — [상세 문서](./docs/troubleshooting/troubleshooting-product-modal-routing.md)   |
+| Cloudflare 인코딩 이벤트와 게시글 저장의 순서가 보장되지 않음 | READY 선도착을 허용하고 실제 게시글 연결 전까지 `draftKey`를 보존하며 실패 이벤트를 `FAILED`로 수렴                                    | 이벤트 순서가 바뀌어도 영상을 연결하고 `PROCESSING` 상태가 무기한 고착되는 문제를 방지 — [상세 문서](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md) |
 
 ## Demo
 
@@ -40,15 +45,25 @@ BoardPort는 보드게임 중고거래에서 자주 분리되는 상품 탐색, 
 
 ### Overview
 
-BoardPort의 주요 도메인을 빠르게 훑어보는 전체 흐름입니다.
+BoardPort의 주요 도메인과 사용자 흐름을 한 번에 확인할 수 있는 전체 데모입니다.
 
 <video src="https://github.com/user-attachments/assets/ca062392-83cf-47c9-8903-70a098b19f41" controls muted playsinline width="100%"></video>
 
 ## Feature Flow
 
-BoardPort는 거래, 커뮤니티, 방송, 알림, 관리자 운영이 독립적으로 동작하면서 보드게임 도감으로 콘텐츠 맥락을 연결합니다.
+거래, 커뮤니티, 방송, 채팅, 알림, 관리자 기능은 도메인별 책임에 따라 분리하고, 보드게임 도감이 상품·게시글·방송을 연결하는 기준 축이 됩니다.
 
 ![BoardPort Feature Flow](./docs/assets/readme/boardport-feature-flow.png)
+
+## Core User Journeys
+
+| 흐름                        | 대표 기능                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| 보드게임 탐색 → 상품 거래   | 도감 검색, 지역/조건 필터, 상품 상세, 찜, 최근 본 상품, 거래 상태 전이               |
+| 상품 문의 → 직거래 확정     | 상품 기반 1:1 채팅, 이미지 첨부, 카카오맵 장소 제안, 약속 수락/취소, 상품 예약 연동  |
+| 게임 정보 → 커뮤니티 콘텐츠 | 도감 기반 관련 상품·게시글·방송 연결, 댓글/대댓글, 이미지·동영상·임베드 블록         |
+| 라이브 방송 → VOD 아카이브  | Cloudflare Stream 기반 라이브, 공개/팔로워/비공개 접근 제어, VOD, 좋아요·댓글·조회수 |
+| 사용자 활동 → 운영 관리     | 프로필, 팔로우, 후기, 뱃지, In-App/PWA 알림, 신고·제재·감사 로그                     |
 
 ## Feature Tour
 
@@ -105,95 +120,58 @@ BoardPort는 거래, 커뮤니티, 방송, 알림, 관리자 운영이 독립적
 
 </details>
 
-<!-- markdownlint-enable MD033 -->
-
 ## System Architecture
 
-Next.js App Router를 중심으로 도메인 모듈, 서버 액션, 실시간 채팅, 미디어 처리, PWA 알림, 관리자 흐름을 분리했습니다.
+초기 데이터는 Server Component에서 service 계층 또는 세션·viewer 정보를 주입하는 조회용 Server Action을 서버에서 호출해 준비합니다. 주요 목록의 Client queryFn은 Route Handler fetch를 사용하고, 채팅 메시지·리뷰·팔로우·검색 기록 등 일부 기존 조회와 사용자 변경 작업은 Server Action을 유지합니다. Realtime 이벤트는 화면 특성에 따라 payload를 즉시 반영하거나 DB의 확정 상태를 재검증하는 신호로 사용하고, 외부 웹훅은 비동기 처리 결과를 DB 상태 전이로 반영합니다.
 
 ![BoardPort System Architecture](./docs/assets/readme/boardport-system-architecture.png)
 
-## Technical Highlights
+## Engineering Decisions
 
-### Feature-first Architecture
+| 영역             | 선택                                                                                                 | 이유                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 코드 구조        | `features/*` 중심의 Feature-first Architecture                                                       | 파일 종류보다 상품, 게시글, 채팅, 방송 등 도메인 책임을 기준으로 코드를 탐색하고 변경 범위를 제한 |
+| 데이터 조회/변경 | Server Component service/조회용 Server Action, 주요 목록 Route Handler fetch, mutation Server Action | App Router의 실행 위치와 사용자 의도를 구분하고 주요 목록의 클라이언트 재조회 경로를 명확히 분리  |
+| 상태 관리        | TanStack Query + Query Key Factory / Zustand Store Factory                                           | 서버 캐시와 UI 상태를 분리하고 SSR 요청 사이의 전역 store 공유 위험을 축소                        |
+| 실시간 동기화    | Supabase Realtime payload 즉시 반영 + query invalidate/refetch/refresh                               | 채팅·알림은 즉시 반영하고 목록·미읽음 수·방송 상태는 DB의 확정 상태로 재검증                      |
+| 캐시·개인화      | 공용 데이터 캐시와 사용자별 상태를 분리                                                              | 상품·게시글 같은 공용 데이터의 캐시 이점을 유지하면서 좋아요·팔로우·읽음·접근 권한의 오염을 방지  |
+| 미디어 처리      | Cloudflare Images Direct Upload / Stream webhook 상태 전이                                           | 대용량 미디어 처리를 외부 서비스에 위임하되 업로드 draft와 앱 내부 도메인 상태를 명시적으로 연결  |
 
-상품, 게시글, 채팅, 방송, 알림, 관리자 기능이 커지면서 파일 위치보다 도메인 책임 기준으로 코드를 찾을 수 있게 구조를 정리했습니다.
+## Quality & Delivery
 
-- `features/*` 중심의 도메인 분리
-- `actions / service / hooks / components / types / constants / selects / utils` 책임 분리
-- `app/(public)`과 `app/(app)` 라우트 그룹으로 공개/인증 영역 분리
+| 구분               | 검증 범위                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| Unit / Integration | Vitest로 입력 스키마, 상태 전이, callback URL, query cache/cursor 보정, 알림·접근 정책 검증         |
+| E2E                | Playwright로 인증/보호 경로, 상품·게시글 CRUD, 채팅 약속 수락, 도감/VOD 진입, 관리자 신고 처리 검증 |
+| CI                 | GitHub Actions에서 `test`, type check, lint, build와 Playwright Chromium workflow 실행              |
+| CD                 | `master`를 production branch로 두고 Vercel Git 연동으로 배포                                        |
 
-### Server/Client State 분리와 SSR 안전성
-
-초기에는 로컬 UI 상태, 서버 캐시, 변경 액션이 한 화면 안에 섞여 회귀 위험이 컸고, 상태 성격에 따라 책임을 나눴습니다.
-
-- UI 상태는 Zustand Store Factory로 분리해 SSR 요청 간 상태 공유 위험을 줄임
-- 서버 상태는 TanStack Query와 Query Key Factory로 관리
-- Server Component의 초기 데이터와 prefetch는 service 계층 직접 호출
-- Client Component의 queryFn 재조회는 Route Handler fetch로 분리
-- 생성/수정/삭제/토글 같은 사용자 의도 기반 변경은 Server Action 유지
-
-### 채팅·방송·푸시 알림의 실시간 동기화
-
-채팅, 방송, 알림처럼 실시간 이벤트가 많은 영역은 이벤트 자체를 최종 상태로 믿기보다 DB 기준 재검증 신호로 사용했습니다.
-
-- 채팅 목록/미읽음 수는 앱 전역 bridge와 query invalidation 기준으로 동기화
-- 방송 live-status 구독 지점을 상세 셸로 모아 하위 컴포넌트는 props 기반 표시
-- In-App 알림과 Web Push를 분리하고, Service Worker 클릭/중복 알림 정책 정리
-
-### 모달 라우팅과 공유/복귀 흐름 안정화
-
-App Router의 일반 상세 페이지와 모달 상세 페이지가 같은 데이터를 다루면서도, 뒤로가기와 공유 링크가 깨지지 않도록 라우팅 책임을 분리했습니다.
-
-- 제품 상세는 일반 페이지와 Intercepting Route 모달을 함께 지원
-- `returnTo`, `flow`, refresh flag로 편집/삭제 후 복귀 흐름 안정화
-- 제품/게시글/방송 상세는 Next Metadata 이미지와 소셜 크롤러용 고정 `/og-image` Route Handler를 분리
-
-## Main Features
-
-- **Auth & User**
-  Kakao OAuth, SMS 로그인, 이메일 기반 비밀번호 재설정, 온보딩, 프로필/지역 설정, 팔로우, 차단, 활동 뱃지
-
-- **Product Marketplace**
-  보드게임 특화 상품 등록, 지역 기반 탐색, 무한 스크롤, 리스트/그리드 전환, 좋아요, 최근 본 상품, 거래 상태 전이, 리뷰 연결
-
-- **BoardGame Catalog**
-  Kaggle CSV 기반 BGG 구조화 메타데이터와 한국어 검수 데이터를 활용한 도감, 검색/필터/페이지 이동, 상품·게시글·방송 연결
-
-- **Community Posts**
-  카테고리 게시글, 댓글/대댓글, 위치 정보, 이미지/동영상/임베드 블록, 공유 미리보기
-
-- **Chat & Appointment**
-  상품 기반 1:1 채팅, Supabase Realtime, 미읽음 뱃지, 직거래 약속 제안/수락/취소, 카카오맵 장소 제안
-
-- **Live Stream & VOD**
-  Cloudflare Stream 기반 방송 생성/재생, 공개/팔로워/비공개 접근 제어, 다시보기, 좋아요/댓글/조회수 메타, 모바일 미리보기
-
-- **Notification**
-  In-App 알림, PWA Web Push, 키워드/지역 알림, 채팅/거래/방송/시스템 알림 설정
-
-- **Admin**
-  신고 처리, 콘텐츠 조치, 유저 제재, 감사 로그, ECharts 기반 관리자 인사이트
+- [테스트 전략](./docs/operations/testing-strategy.md)
+- [CI/CD Workflow](./docs/operations/ci-cd-workflows.md)
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Framer Motion, Floating UI, Apache ECharts
-- **State:** TanStack Query v5, Zustand
-- **Backend/Data:** Prisma, PostgreSQL, iron-session
-- **Realtime/Infra:** Supabase Realtime, Cloudflare Stream/Images, Web Push API, next-pwa, Vercel
-- **External APIs:** Kakao OAuth, Kakao Maps/Local API, CoolSMS, Resend
+| Category           | Technologies                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Frontend           | Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Framer Motion, Floating UI, Apache ECharts |
+| State              | TanStack Query v5, Zustand                                                                            |
+| Backend / Data     | Server Actions, Route Handlers, Prisma 7, PostgreSQL, iron-session                                    |
+| Realtime / Media   | Supabase Realtime, Cloudflare Stream, Cloudflare Images                                               |
+| PWA / Notification | next-pwa, Web Push API, Service Worker                                                                |
+| External APIs      | Kakao OAuth, Kakao Maps/Local API, CoolSMS, Resend                                                    |
+| Test / Delivery    | Vitest, Playwright, GitHub Actions, Vercel                                                            |
 
 ## Recommended Reading
 
-핵심 설계 판단과 문제 해결 사례만 추려두었습니다. 전체 문서 인덱스는 [docs/README.md](./docs/README.md)에서 확인할 수 있습니다.
+README에서는 결과를 빠르게 확인하고, 아래 문서에서는 문제의 원인과 선택한 트레이드오프를 확인할 수 있습니다.
 
-- [Project Overview](./docs/architecture/boardport-project-overview.md)
-- [State Management Modernization](./docs/architecture/case-study-state-management-modernization.md)
-- [Appointment Atomic Transition Troubleshooting](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)
-- [Post Video Cloudflare Webhook Troubleshooting](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)
-- [Product Modal Routing Troubleshooting](./docs/troubleshooting/troubleshooting-product-modal-routing.md)
-- [Access Control Matrix](./docs/operations/access-control-matrix.md)
-- [PWA Web Push Routing Troubleshooting](./docs/troubleshooting/troubleshooting-pwa-web-push-routing.md)
+1. [Project Overview](./docs/architecture/boardport-project-overview.md)
+2. [State Management Modernization](./docs/architecture/case-study-state-management-modernization.md)
+3. [Appointment Atomic Transition](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)
+4. [Product Modal Routing](./docs/troubleshooting/troubleshooting-product-modal-routing.md)
+5. [Post Video Cloudflare Webhook](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)
+
+전체 문서 목록은 [docs/README.md](./docs/README.md)에서 확인할 수 있습니다.
 
 ## Project Structure
 
@@ -205,9 +183,13 @@ features/     도메인별 비즈니스 로직과 UI
 hooks/        공용 hooks
 lib/          세션, query keys, store, 공통 유틸
 prisma/       Prisma schema, seed, migration
+tests/        Playwright E2E 시나리오
 ```
 
 ## Local Development
+
+<details>
+<summary><strong>로컬 실행 방법 펼쳐보기</strong></summary>
 
 1. 의존성을 설치합니다.
 
@@ -215,21 +197,21 @@ prisma/       Prisma schema, seed, migration
 npm install
 ```
 
-2. `.env.example`을 참고해 `.env.local`에 필수 환경 변수를 채웁니다.
+1. `.env.example`을 참고해 `.env.local`에 필요한 환경 변수를 설정합니다.
 
-3. 로컬 또는 개발 DB에 Prisma 마이그레이션을 적용합니다.
+1. 로컬 또는 개발 DB에 Prisma 마이그레이션을 적용합니다.
 
 ```bash
 npx prisma migrate dev
 ```
 
-4. 기본 데이터가 필요하면 seed를 실행합니다.
+1. 기본 데이터가 필요하면 seed를 실행합니다.
 
 ```bash
 npx prisma db seed
 ```
 
-5. 개발 서버를 실행합니다.
+1. 개발 서버를 실행합니다.
 
 ```bash
 npm run dev
@@ -237,87 +219,33 @@ npm run dev
 
 외부 연동이 필요한 로그인, SMS, 이메일, 지도, 이미지, 방송, 푸시 알림 기능은 해당 서비스의 환경 변수가 설정되어야 정상 동작합니다.
 
-### 필수 환경 변수
-
-실제 값은 `.env` 또는 Vercel Environment Variables에 설정하고 저장소에는 커밋하지 않습니다.
-
-#### App / Security
-
-| 변수명                | 설명                                          |
-| --------------------- | --------------------------------------------- |
-| `NEXT_PUBLIC_APP_URL` | 대표 URL, 인증 콜백, 공유 링크 기준 URL       |
-| `COOKIE_PASSWORD`     | iron-session 쿠키 암호화 키                   |
-| `RATE_LIMIT_SALT`     | IP 기반 rate limit hash 생성용 서버 시크릿 키 |
-| `CRON_SECRET`         | Vercel Cron 호출 인증용 시크릿 키             |
-
-#### Database
-
-| 변수명         | 설명                                       |
-| -------------- | ------------------------------------------ |
-| `DATABASE_URL` | 런타임 PostgreSQL 연결 문자열              |
-| `DIRECT_URL`   | Prisma 마이그레이션/CLI용 직접 연결 문자열 |
-
-#### Supabase
-
-| 변수명                            | 설명                  |
-| --------------------------------- | --------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`        | Supabase 프로젝트 URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY` | Supabase 공개 anon 키 |
-
-#### OAuth
-
-| 변수명                 | 설명                              |
-| ---------------------- | --------------------------------- |
-| `GITHUB_CLIENT_ID`     | GitHub OAuth 클라이언트 ID        |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth 클라이언트 시크릿 키 |
-| `KAKAO_CLIENT_ID`      | Kakao OAuth 클라이언트 ID         |
-| `KAKAO_CLIENT_SECRET`  | Kakao OAuth 클라이언트 시크릿 키  |
-| `KAKAO_REDIRECT_URI`   | Kakao OAuth 리다이렉트 URI        |
-
-#### SMS (CoolSMS)
-
-| 변수명                  | 설명                  |
-| ----------------------- | --------------------- |
-| `COOLSMS_API_KEY`       | CoolSMS API 키        |
-| `COOLSMS_API_SECRET`    | CoolSMS API 시크릿 키 |
-| `COOLSMS_SENDER_NUMBER` | CoolSMS 발신 번호     |
-
-#### Email (Resend)
-
-| 변수명           | 설명                      |
-| ---------------- | ------------------------- |
-| `RESEND_API_KEY` | Resend 이메일 발송 API 키 |
-
-#### Cloudflare
-
-| 변수명                                 | 설명                                         |
-| -------------------------------------- | -------------------------------------------- |
-| `NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`  | Cloudflare Images 이미지 제공 해시           |
-| `NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN` | Cloudflare Stream 재생 도메인                |
-| `CLOUDFLARE_ACCOUNT_ID`                | Cloudflare 계정 ID                           |
-| `CLOUDFLARE_API_TOKEN`                 | Cloudflare API 토큰                          |
-| `CLOUDFLARE_WEBHOOK_SECRET`            | Cloudflare 웹훅 요청 검증용 시크릿 키        |
-| `CLOUDFLARE_STREAM_WEBHOOK_SECRET`     | Cloudflare Stream 웹훅 서명 검증용 시크릿 키 |
-
-#### Push
-
-| 변수명                         | 설명                  |
-| ------------------------------ | --------------------- |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push VAPID 공개키 |
-| `VAPID_PRIVATE_KEY`            | Web Push VAPID 개인키 |
-
-#### Maps
-
-| 변수명                          | 설명                          |
-| ------------------------------- | ----------------------------- |
-| `NEXT_PUBLIC_KAKAO_MAP_API_KEY` | 카카오 지도 JavaScript SDK 키 |
-
-## Scripts
+### 주요 명령어
 
 ```bash
 npm run dev
-npm run build
-npm run start
-npm run lint
+npm run test
 npx tsc --noEmit
+npm run lint
+npm run build
+npm run test:e2e
 ```
+
+### 환경 변수
+
+실제 값은 `.env` 또는 Vercel Environment Variables에 설정하고 저장소에는 커밋하지 않습니다.
+
+| Group          | Variables                                                                                                                                                                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App / Security | `NEXT_PUBLIC_APP_URL`, `COOKIE_PASSWORD`, `RATE_LIMIT_SALT`, `CRON_SECRET`                                                                                                                      |
+| Database       | `DATABASE_URL`, `DIRECT_URL`                                                                                                                                                                    |
+| Supabase       | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY`                                                                                                                                   |
+| OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`                                                                                      |
+| SMS            | `COOLSMS_API_KEY`, `COOLSMS_API_SECRET`, `COOLSMS_SENDER_NUMBER`                                                                                                                                |
+| Email          | `RESEND_API_KEY`                                                                                                                                                                                |
+| Cloudflare     | `NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`, `NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_WEBHOOK_SECRET` |
+| Push           | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                                                                                                                             |
+| Maps           | `NEXT_PUBLIC_KAKAO_MAP_API_KEY`                                                                                                                                                                 |
+
+</details>
+
+<!-- markdownlint-enable MD033 -->

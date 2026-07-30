@@ -1,8 +1,11 @@
 {
-  "name": "project-market",
-  "version": "0.1.0",
+  "name": "boardport",
+  "version": "1.2.2",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:e2e": "next dev -H 127.0.0.1",

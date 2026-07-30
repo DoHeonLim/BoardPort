@@ -642,15 +642,6 @@ async function onVideoReady(
 
   // 캐시 무효화
   revalidateTag(T.BROADCAST_DETAIL(broadcastIdResolved));
-
-  try {
-    await db.broadcast.findUnique({
-      where: { id: broadcastIdResolved },
-      select: { liveInput: { select: { userId: true } } },
-    });
-  } catch (err) {
-    console.warn("[onVideoReady] revalidateTag failed:", err);
-  }
 }
 
 /**

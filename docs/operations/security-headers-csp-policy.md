@@ -23,10 +23,12 @@ BoardPort는 Lighthouse Trust & Safety 항목을 참고하되, 외부 SDK와 PWA
 
 ## 3. 주요 허용 출처
 
-- 이미지: Cloudflare Images, Supabase Storage, Kakao/Daum 지도 리소스
-- 스크립트: `'self'`, Kakao Maps/Daum SDK
-- 연결: Supabase, Cloudflare Stream, Kakao Local, 필요한 Vercel 런타임 출처
-- 미디어/프레임: Cloudflare Stream, YouTube embed
+- 이미지: GitHub Avatar, BoardGameGeek, Cloudflare Images/Stream, YouTube 썸네일, Kakao/Daum 지도 리소스
+- 스크립트: `'self'`, 인라인 Next.js 초기 스크립트, Kakao Maps/Daum SDK
+- 연결: Supabase HTTP/WebSocket, Kakao/Daum, Cloudflare Images/Stream 업로드·전달 출처
+- 미디어/프레임: Cloudflare Stream, YouTube no-cookie embed
+
+현재 `img-src`에는 Supabase Storage 출처를, `connect-src`에는 별도 Vercel 런타임 출처를 추가하지 않았습니다. 허용 출처는 `next.config.mjs`의 실제 directive를 기준으로 관리합니다.
 
 ## 4. 의도적으로 보류한 항목
 
