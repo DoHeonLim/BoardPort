@@ -13,6 +13,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.05.16  임도헌   Modified  Cloudflare Live Input 응답 타입을 명시해 any 캐스팅 제거
  * 2026.05.19  임도헌   Modified  RTMP URL을 환경변수 override 없이 Cloudflare 기본 ingest URL로 통일
+ * 2026.08.21  임도헌   Modified  신규·재발급 Live Input의 원본 UID 재생을 막도록 signed URL 필수화
  */
 
 import "server-only";
@@ -127,7 +128,7 @@ export async function ensureLiveInput(userId: number, nameHint: string) {
         signal: controller.signal,
         body: JSON.stringify({
           meta: { name: nameHint },
-          recording: { mode: "automatic" },
+          recording: { mode: "automatic", requireSignedURLs: true },
         }),
       }
     );
@@ -152,6 +153,7 @@ export async function ensureLiveInput(userId: number, nameHint: string) {
         provider_uid: uid,
         stream_key: streamKey,
         name: "메인 채널",
+        requireSignedURLs: true,
       },
       select: { id: true, provider_uid: true, stream_key: true },
     });
@@ -322,7 +324,7 @@ export async function rotateLiveInputKey(
       headers: { Authorization: AUTH, "Content-Type": "application/json" },
       body: JSON.stringify({
         meta: { name: liveInput.name || `live-input-${liveInput.id}` },
-        recording: { mode: "automatic" },
+        recording: { mode: "automatic", requireSignedURLs: true },
       }),
     }
   );
@@ -352,6 +354,7 @@ export async function rotateLiveInputKey(
     data: {
       provider_uid: newUid,
       stream_key: newStreamKey,
+      requireSignedURLs: true,
       status: "DISCONNECTED",
       updated_at: new Date(),
     },

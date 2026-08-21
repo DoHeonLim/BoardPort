@@ -866,7 +866,7 @@ model LiveInput {
 
   // CF 설정 동기화
   deleteAfterDays     Int?
-  requireSignedURLs   Boolean @default(false)
+  requireSignedURLs   Boolean @default(true) // 2026.08.21: 원본 UID 재생을 막는 signed playback 기본 정책
   hideLiveViewerCount Boolean @default(false)
 
   status String? // 현재 연결 상태 캐시 (CONNECTED / DISCONNECTED)

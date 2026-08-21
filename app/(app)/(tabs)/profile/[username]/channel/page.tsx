@@ -30,6 +30,7 @@
  * 2026.05.15  임도헌   Modified  채널 다시보기 첫 페이지를 TAKE+1로 조회해 클라이언트 무한스크롤 커서 전달
  * 2026.05.18  임도헌   Modified  채널 다시보기 카드 좋아요 메타를 위해 VOD 조회에 viewerId 전달
  * 2026.05.30  임도헌   Modified  방송국 상단 액션바 높이와 좌우 여백을 압축
+ * 2026.08.21  임도헌   Modified  차단 관계 선판정과 채널 라이브 권한 확인 후에만 signed URL 발급
  */
 
 import { Metadata } from "next";
@@ -44,7 +45,14 @@ import RecordingListRefreshRelay from "@/features/stream/components/RecordingLis
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import { getChannelLive, getChannelVods } from "@/features/stream/service/list";
-import { getViewerRole } from "@/features/stream/service/access";
+import {
+  authorizeBroadcastAccess,
+  getViewerRole,
+} from "@/features/stream/service/access";
+import {
+  createStreamPlaybackToken,
+  createStreamThumbnailUrl,
+} from "@/features/stream/service/playback";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import type {
@@ -111,13 +119,17 @@ export default async function ChannelPage({
   if (!userInfo?.id) return notFound();
   const ownerId = userInfo.id;
 
-  // 2. 데이터 병렬 조회 (차단 여부 체크 추가)
-  const [liveResult, vods, roleResult, isBlocked] = await Promise.all([
-    getChannelLive(ownerId),
-    getChannelVods(ownerId, STREAMS_PAGE_TAKE + 1, null, viewerId),
+  // 2. 차단 관계를 먼저 확정해 숨길 콘텐츠의 signed URL을 RSC payload에 만들지 않는다.
+  const [roleResult, isBlocked] = await Promise.all([
     getViewerRole(viewerId, ownerId),
     viewerId ? checkBlockRelation(viewerId, ownerId) : Promise.resolve(false),
   ]);
+  const [liveResult, vods] = isBlocked
+    ? [null, []]
+    : await Promise.all([
+        getChannelLive(ownerId),
+        getChannelVods(ownerId, STREAMS_PAGE_TAKE + 1, null, viewerId),
+      ]);
 
   const resolvedRole = roleResult as ViewerRole;
   const isFollowing = resolvedRole === "OWNER" || resolvedRole === "FOLLOWER";
@@ -126,12 +138,22 @@ export default async function ChannelPage({
   let liveStreamForUI: BroadcastSummary | null = null;
   if (liveResult) {
     const s = liveResult;
+    const access = await authorizeBroadcastAccess(s.id, viewerId, session);
     const requiresPassword =
-      s.visibility === "PRIVATE" &&
-      resolvedRole !== "OWNER" &&
-      !isBroadcastUnlockedFromSession(session, s.id);
+      !access.allowed && access.reason === "PRIVATE";
 
-    liveStreamForUI = { ...s, requiresPassword };
+    liveStreamForUI = {
+      ...s,
+      requiresPassword,
+      thumbnail:
+        access.allowed && viewerId && !s.thumbnail
+          ? createStreamThumbnailUrl(access.subject.liveInputUid)
+          : s.thumbnail,
+      playbackId:
+        access.allowed && viewerId
+          ? createStreamPlaybackToken(access.subject.liveInputUid)
+          : null,
+    };
   }
 
   // 4. VOD 목록 잠금 보정 (서버 페이지 계층)
@@ -190,4 +212,3 @@ export default async function ChannelPage({
     </>
   );
 }
-

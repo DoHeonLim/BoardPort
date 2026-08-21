@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.15  임도헌   Created   file-based metadata 해시 경로와 별개로 외부 공유 미리보기용 고정 이미지 URL 제공
+ * 2026.08.21  임도헌   Modified  제한 방송은 공용 fallback만 반환하는 OG 정책 위임
  */
 
 import StreamOpenGraphImage from "../opengraph-image";

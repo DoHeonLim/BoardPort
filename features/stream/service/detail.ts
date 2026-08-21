@@ -19,6 +19,7 @@
  * 2026.05.03  임도헌   Modified  방송/녹화 상세에 연결된 보드게임 카탈로그 정보 포함
  * 2026.05.08  임도헌   Modified  방송/녹화 상세 보드게임 relation select를 공용 상수로 교체
  * 2026.05.08  임도헌   Modified  상세 DTO 타입을 features/stream/types.ts로 이동
+ * 2026.08.21  임도헌   Modified  상세 DTO에서 원본 Cloudflare UID를 제거하고 playback token 주입 자리만 제공
  */
 
 import "server-only";
@@ -33,7 +34,7 @@ import type { StreamDetailDTO, VodDetailDTO } from "@/features/stream/types";
  *
  * [데이터 가공 전략]
  * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간, fallback 썸네일 등)만 선택적 조회
- * - 방송 소유자의 정보 및 CF Live Input UID 연동 데이터 조인 반환
+ * - 방송 소유자 정보는 반환하되 원본 CF Live Input UID는 클라이언트 DTO에서 제외
  *
  * @param {number} id - 방송 ID
  * @returns {Promise<StreamDetailDTO | null>} 방송 상세 데이터
@@ -55,7 +56,6 @@ export async function getBroadcastDetail(
         liveInput: {
           select: {
             userId: true,
-            provider_uid: true,
             user: { select: { id: true, username: true, avatar: true } },
           },
         },
@@ -71,7 +71,7 @@ export async function getBroadcastDetail(
 
     return {
       title: b.title,
-      stream_id: b.liveInput.provider_uid,
+      playbackId: null,
       thumbnail: b.thumbnail ?? null,
       userId: b.liveInput.userId,
       user: {
@@ -137,7 +137,6 @@ export async function getVodDetail(
     where: { id: vodId },
     select: {
       id: true,
-      provider_asset_id: true,
       duration_sec: true,
       ready_at: true,
       created_at: true,
@@ -150,7 +149,6 @@ export async function getVodDetail(
           visibility: true,
           liveInput: {
             select: {
-              provider_uid: true,
               user: { select: { id: true, username: true, avatar: true } },
             },
           },
@@ -166,11 +164,11 @@ export async function getVodDetail(
     },
   });
 
-  if (!vod?.broadcast?.liveInput?.provider_uid) return null;
+  if (!vod?.broadcast?.liveInput) return null;
 
   return {
     vodId: vod.id,
-    uid: vod.provider_asset_id,
+    playbackId: null,
     durationSec: vod.duration_sec,
     readyAt: vod.ready_at,
     createdAt: vod.created_at,
@@ -183,7 +181,6 @@ export async function getVodDetail(
       id: vod.broadcast.id,
       title: vod.broadcast.title,
       visibility: vod.broadcast.visibility,
-      stream_id: vod.broadcast.liveInput.provider_uid,
       owner: {
         id: vod.broadcast.liveInput.user.id,
         username: vod.broadcast.liveInput.user.username,

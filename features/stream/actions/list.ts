@@ -22,6 +22,7 @@
  * 2026.05.15  임도헌   Modified  유저 채널 다시보기 무한스크롤 액션 추가
  * 2026.05.18  임도헌   Modified  채널 다시보기 추가 페이지에서도 현재 사용자 좋아요 여부를 유지하도록 viewerId 전달
  * 2026.06.25  임도헌   Modified  목록 액션의 조회자 권한 판단을 서버 세션 기준으로 고정
+ * 2026.08.21  임도헌   Modified  비로그인·차단 관계 채널 VOD Action에서 signed thumbnail 발급 전 조회 중단
  */
 
 "use server";
@@ -42,6 +43,7 @@ import type {
   VodForGrid,
 } from "@/features/stream/types";
 import getSession from "@/lib/session";
+import { checkBlockRelation } from "@/features/user/service/block";
 
 const TAKE = STREAMS_PAGE_TAKE;
 type Session = Awaited<ReturnType<typeof getSession>>;
@@ -174,12 +176,18 @@ export async function getChannelVodsAction(
   }
 
   const session = await getSession();
-  const role = (await getViewerRole(session?.id ?? null, ownerId)) as ViewerRole;
+  const viewerId = session?.id ?? null;
+  if (!viewerId) return { recordings: [], nextCursor: null };
+  if (await checkBlockRelation(viewerId, ownerId)) {
+    return { recordings: [], nextCursor: null };
+  }
+
+  const role = (await getViewerRole(viewerId, ownerId)) as ViewerRole;
   const list = await getChannelVods(
     ownerId,
     TAKE + 1,
     cursor,
-    session?.id ?? null
+    viewerId
   );
   const withAccess = applyChannelVodAccess(list, session, role);
 

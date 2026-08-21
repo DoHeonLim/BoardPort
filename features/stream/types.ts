@@ -28,6 +28,7 @@
  * 2026.05.16  임도헌   Modified  live-status Realtime payload 공용 타입 추가
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 추가
  * 2026.05.18  임도헌   Modified  다시보기 카드 통계 메타 표시를 위한 likeCount/commentCount/isLiked 필드 추가
+ * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
  */
 
 import type { StreamChatMessage } from "@/features/chat/types";
@@ -101,7 +102,8 @@ export interface UserInfo extends UserSummary {
 export interface BroadcastSummary {
   id: number; //Broadcast PK
   latestVodId?: number | null; // 가장 최근 VodAsset id
-  stream_id: string; // Cloudflare Live Input UID (iframe/임베드 식별용)
+  /** 권한 확인 뒤 서버가 발급한 단기 Cloudflare playback token */
+  playbackId?: string | null;
   title: string;
   thumbnail: string | null;
   thumbnailAnimated?: boolean;
@@ -163,7 +165,7 @@ export interface VodForPage extends VodForGrid {
 /** 방송 상세 페이지 조립용 DTO */
 export interface StreamDetailDTO {
   title: string;
-  stream_id: string;
+  playbackId: string | null;
   thumbnail: string | null;
   userId: number;
   user: {
@@ -186,7 +188,7 @@ export interface StreamDetailDTO {
 /** 녹화본 상세 페이지 조립용 DTO */
 export interface VodDetailDTO {
   vodId: number;
-  uid: string;
+  playbackId: string | null;
   durationSec: number | null;
   readyAt: Date | null;
   createdAt: Date;
@@ -196,7 +198,6 @@ export interface VodDetailDTO {
     id: number;
     title: string;
     visibility: StreamVisibility;
-    stream_id: string;
     owner: { id: number; username: string; avatar: string | null };
     category: {
       id: number;
@@ -254,7 +255,7 @@ export interface StreamMetaUpdatePayload {
 
 /** Supabase live-status 브로드캐스트 payload */
 export interface StreamRealtimeStatusPayload {
-  streamId?: string;
+  broadcastId?: number;
   status?: string;
   ownerId?: number;
   token?: string;
@@ -461,4 +462,3 @@ export interface AdminStreamInsights {
     averageBroadcastHours: number;
   };
 }
-

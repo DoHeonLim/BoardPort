@@ -22,6 +22,7 @@
  * 2026.05.12  임도헌   Modified  게시글 동영상 READY 선도착/Cloudflare error 웹훅 처리 보강
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 명시
  * 2026.06.25  임도헌   Modified  production secret 누락 시 Stream/Destination 웹훅 fail-closed 처리
+ * 2026.08.21  임도헌   Modified  클라이언트 상태 이벤트에서 원본 Live Input UID를 제거하고 Broadcast PK 사용
  */
 
 import "server-only";
@@ -480,7 +481,7 @@ async function onConnected(liveInputUid: string) {
     // 상태 변경을 Supabase Realtime 채널로 브로드캐스트
     try {
       await sendLiveStatusFromServer?.({
-        streamId: liveInputUid,
+        broadcastId: updated.id,
         status: "CONNECTED",
         ownerId: li.userId,
       });
@@ -534,7 +535,7 @@ async function onDisconnected(liveInputUid: string) {
     try {
       revalidateTag(T.BROADCAST_DETAIL(b.id));
       await sendLiveStatusFromServer?.({
-        streamId: liveInputUid,
+        broadcastId: b.id,
         status: "ENDED",
         ownerId: li.userId,
       });

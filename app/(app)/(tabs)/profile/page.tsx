@@ -39,6 +39,7 @@
  * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이와 버튼 간격을 압축
  * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이를 모바일 서브 헤더 기준으로 재정렬
  * 2026.08.13  임도헌   Modified  내 프로필 리뷰 prefetch cache에 조회자 범위 추가
+ * 2026.08.21  임도헌   Modified  최근 방송 signed thumbnail 발급에 현재 세션 ID 전달
  */
 
 import { redirect } from "next/navigation";
@@ -98,7 +99,7 @@ export default async function ProfilePage() {
         ]);
         return { badges, userBadges: badgesEarned };
       })(),
-      getRecentBroadcasts(user.id, 6, true),
+      getRecentBroadcasts(user.id, 6, true, userId),
       getUnreadNotificationCount(),
       getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
       queryClient.prefetchInfiniteQuery({

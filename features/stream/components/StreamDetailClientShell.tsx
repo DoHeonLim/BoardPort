@@ -17,6 +17,7 @@
  * 2026.05.28  임도헌   Modified  모바일 키보드 높이에 맞춰 채팅 입력 중 레이아웃과 상단바 상태 제어 추가
  * 2026.05.29  임도헌   Modified  모바일 판정, 수동 상단바 토글, 채팅 플로팅 재진입 기준 정리
  * 2026.05.29  임도헌   Modified  채팅 열림 상태에 따라 방송 정보 높이 제한과 스크롤 기준 적용
+ * 2026.08.21  임도헌   Modified  실시간 상태 이벤트를 Cloudflare UID 대신 내부 방송 ID로 매칭
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -150,7 +151,7 @@ export default function StreamDetailClientShell({
     <div className="flex h-[var(--stream-visual-viewport-height,100dvh)] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
       {/* 상세 전체가 공유하는 live-status 구독 지점을 셸 레벨에 고정 */}
       <LiveStatusRealtimeSubscriber
-        streamId={stream.stream_id}
+        broadcastId={streamId}
         onStatus={handleRealtimeStatus}
       />
 

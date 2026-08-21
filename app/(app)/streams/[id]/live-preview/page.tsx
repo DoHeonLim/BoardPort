@@ -11,14 +11,17 @@
  * 2026.01.14  임도헌   Modified  Fallback 배경색 명시 (bg-black)
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/live-preview/page.tsx 에서 app/(app)/streams/[id]/live-preview/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.08.21  임도헌   Modified  공용 권한 판정 뒤 signed playback token으로만 미리보기 재생
 */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import db from "@/lib/db";
 import getSession from "@/lib/session";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
-import { checkBroadcastAccess } from "@/features/stream/service/access";
-import { StreamVisibility } from "@/features/stream/types";
+import { authorizeBroadcastAccess } from "@/features/stream/service/access";
+import {
+  createStreamPlaybackToken,
+  resolveStreamThumbnailUrl,
+} from "@/features/stream/service/playback";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -66,49 +69,37 @@ export default async function LivePreviewPage({
 
   const session = await getSession();
   const viewerId = session?.id ?? null;
+  if (!viewerId) return <ThumbnailFallback />;
 
-  // DB 직접 조회 (최소 필드)
+  const access = await authorizeBroadcastAccess(
+    broadcastId,
+    viewerId,
+    session
+  );
+  if (!access.allowed) return <ThumbnailFallback />;
+
+  // 접근 판정 이후 플레이어 표시용 최소 필드만 조회
   const row = await db.broadcast.findUnique({
     where: { id: broadcastId },
     select: {
       status: true,
-      visibility: true,
       thumbnail: true,
-      liveInput: {
-        select: {
-          provider_uid: true,
-          userId: true,
-        },
-      },
     },
   });
 
-  if (!row?.liveInput?.provider_uid)
-    return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
+  if (!row) return <ThumbnailFallback />;
+  const thumbnailUrl = resolveStreamThumbnailUrl(
+    row.thumbnail,
+    access.subject.liveInputUid
+  );
   if (row.status !== "CONNECTED")
-    return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
-
-  const ownerId = row.liveInput.userId;
-  const isOwner = !!viewerId && viewerId === ownerId;
-
-  // 권한 체크
-  if (!isOwner) {
-    const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
-    const guard = await checkBroadcastAccess(
-      { userId: ownerId, visibility: row.visibility as StreamVisibility },
-      viewerId,
-      { isPrivateUnlocked: isUnlocked }
-    );
-    if (!guard.allowed) {
-      return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
-    }
-  }
+    return <ThumbnailFallback thumbnailUrl={thumbnailUrl} />;
 
   const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
-  if (!DOMAIN) return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
+  if (!DOMAIN) return <ThumbnailFallback thumbnailUrl={thumbnailUrl} />;
 
   const src = `${DOMAIN.replace(/\/+$/, "")}/${encodeURIComponent(
-    row.liveInput.provider_uid
+    createStreamPlaybackToken(access.subject.liveInputUid)
   )}/iframe?autoplay=1&muted=1&preload=auto`;
 
   return (
@@ -135,4 +126,3 @@ export default async function LivePreviewPage({
     </div>
   );
 }
-

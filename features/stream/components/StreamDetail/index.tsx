@@ -43,6 +43,7 @@
  * 2026.05.28  임도헌   Modified  모바일 플레이어와 정보 패널을 화면 폭에 맞게 정리
  * 2026.05.29  임도헌   Modified  셸 상태 기준으로 모바일 방송 정보 노출, 높이 제한, 스크롤 기준 정리
  * 2026.06.17  임도헌   Modified  팔로우 CTA가 pending 동안 선반영 상태를 유지하도록 opacity/text 처리 정리
+ * 2026.08.21  임도헌   Modified  원본 Live Input UID 대신 단기 playback token으로 라이브 재생
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -209,7 +210,14 @@ export default function StreamDetail({
             muted: "1",
             preload: "auto",
           });
-          const src = `${DOMAIN}/${stream.stream_id}/iframe?${params.toString()}`;
+          if (!stream.playbackId) {
+            return (
+              <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-red-300">
+                재생 권한을 확인할 수 없습니다.
+              </div>
+            );
+          }
+          const src = `${DOMAIN}/${stream.playbackId}/iframe?${params.toString()}`;
           return (
             <iframe
               title={`Live stream player`}

@@ -11,10 +11,12 @@
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
  * 2026.05.15  임도헌   Modified  다시보기 OG 대표 이미지를 방송 카드와 동일하게 최신 ready VOD 썸네일 우선 사용
  * 2026.05.19  임도헌   Modified  상대 썸네일 URL 보정 기준을 NEXT_PUBLIC_APP_URL로 통일
+ * 2026.08.21  임도헌   Modified  제한 방송 OG 노출 차단 및 PUBLIC provider 썸네일 signed 변환
  */
 
 import sharp from "sharp";
 import db from "@/lib/db";
+import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -209,29 +211,41 @@ export default async function Image({ params }: { params: { id: string } }) {
       title: true,
       thumbnail: true,
       status: true,
+      visibility: true,
       vodAssets: {
         where: { ready_at: { not: null } },
-        select: { thumbnail_url: true },
+        select: { provider_asset_id: true, thumbnail_url: true },
         orderBy: [{ ready_at: "desc" }, { id: "desc" }],
         take: 1,
       },
       liveInput: {
-        select: { user: { select: { username: true } } },
+        select: {
+          provider_uid: true,
+          user: { select: { username: true } },
+        },
       },
     },
   });
 
-  if (!stream) {
+  if (!stream || stream.visibility !== "PUBLIC") {
     return createPngResponse(buildFallbackSvg(), null);
   }
 
   const isLive = stream.status === "CONNECTED";
   const badgeText = isLive ? "LIVE" : "다시보기";
   const badgeColor = isLive ? "#ef4444" : "#2563eb";
-  // 다시보기 카드는 VOD 처리 완료 썸네일을 대표 이미지로 쓰므로 OG도 같은 우선순위 적용
-  const thumbUrl = normalizeStreamThumbnailUrl(
-    stream.vodAssets[0]?.thumbnail_url ?? stream.thumbnail
-  );
+  // PUBLIC의 저장된 provider 썸네일도 원본 UID 대신 단기 token URL로 가져온다.
+  const latestVod = stream.vodAssets[0];
+  let thumbnailCandidate: string | null = null;
+  try {
+    thumbnailCandidate = resolveStreamThumbnailUrl(
+      latestVod?.thumbnail_url ?? stream.thumbnail,
+      latestVod?.provider_asset_id ?? stream.liveInput.provider_uid
+    );
+  } catch (error) {
+    console.warn("[StreamOG] signed thumbnail unavailable:", error);
+  }
+  const thumbUrl = normalizeStreamThumbnailUrl(thumbnailCandidate);
   const imageBuffer = await fetchImageBuffer(thumbUrl);
 
   return createPngResponse(

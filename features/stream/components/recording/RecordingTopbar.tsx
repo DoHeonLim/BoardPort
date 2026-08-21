@@ -22,6 +22,7 @@
  * 2026.04.24  임도헌   Modified  내 프로필 방송국에서 진입한 녹화 삭제도 back + refresh 복귀 대상으로 포함
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 녹화 삭제 후 back 복귀 플래그 기록 중복을 정리
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 채널/목록 React Query 캐시에서 삭제 항목을 즉시 제거
+ * 2026.08.21  임도헌   Modified  원본 Live Input UID를 삭제 요청에서 제거하고 서버 소유권 판정만 사용
  */
 
 "use client";
@@ -83,7 +84,6 @@ interface RecordingTopbarProps {
   isOwner?: boolean;
   /** 뒤로가기/삭제 완료 후 돌아갈 내부 경로. 기본값은 다시보기 목록이다. */
   backHref?: string;
-  liveInputUid?: string | null;
   /** 방송 카테고리 표시용 라벨 */
   categoryLabel?: string | null;
   categoryIcon?: string | null;
@@ -107,7 +107,6 @@ export default function RecordingTopbar({
   avatar,
   isOwner,
   backHref = "/streams",
-  liveInputUid,
   categoryLabel,
   categoryIcon,
   preferHistoryBack = false,
@@ -153,21 +152,13 @@ export default function RecordingTopbar({
   };
 
   const handleDelete = async () => {
-    if (!liveInputUid) {
-      toast.error("삭제할 녹화 정보를 찾을 수 없습니다.");
-      return;
-    }
-
     try {
       setIsDeleting(true);
-      const res = await fetch(
-        `/api/streams/${broadcastId}/delete?uid=${encodeURIComponent(liveInputUid)}`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        }
-      );
+      const res = await fetch(`/api/streams/${broadcastId}/delete`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {

@@ -242,7 +242,7 @@ npm run test:e2e
 | OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`                                                                                      |
 | SMS            | `COOLSMS_API_KEY`, `COOLSMS_API_SECRET`, `COOLSMS_SENDER_NUMBER`                                                                                                                                |
 | Email          | `RESEND_API_KEY`                                                                                                                                                                                |
-| Cloudflare     | `NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`, `NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_WEBHOOK_SECRET` |
+| Cloudflare     | `NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`, `NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_SIGNING_KEY_ID`, `CLOUDFLARE_STREAM_SIGNING_KEY_JWK` |
 | Push           | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                                                                                                                             |
 | Maps           | `NEXT_PUBLIC_KAKAO_MAP_API_KEY`                                                                                                                                                                 |
 

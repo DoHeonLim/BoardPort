@@ -9,6 +9,7 @@
  * 2026.01.19  임도헌   Moved     lib/stream -> features/stream/lib
  * 2026.01.23  임도헌   Moved     lib/stream/serverBroadcast -> service/realtime
  * 2026.01.28  임도헌   Modified  주석 보강
+ * 2026.08.21  임도헌   Modified  실시간 상태 payload에서 원본 provider UID를 제거하고 Broadcast PK 사용
  */
 
 import "server-only";
@@ -43,10 +44,10 @@ async function ensureChannel(): Promise<RealtimeChannel> {
 /**
  * 방송 상태 변경을 클라이언트들에게 실시간으로 알림
  *
- * @param payload - 상태 정보 (streamId, status, ownerId 등)
+ * @param payload - 상태 정보 (broadcastId, status, ownerId 등)
  */
 export async function sendLiveStatusFromServer(payload: {
-  streamId: string;
+  broadcastId: number;
   status: "CONNECTED" | "READY" | "ENDED" | "DISCONNECTED" | string;
   ownerId: number;
 }) {

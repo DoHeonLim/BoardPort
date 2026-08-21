@@ -36,6 +36,7 @@
  * 2026.05.17  임도헌   Modified  prefetch 커서 타입을 명시
  * 2026.05.30  임도헌   Modified  타인 프로필 상단 액션바 높이와 좌우 여백을 압축
  * 2026.08.13  임도헌   Modified  프로필 리뷰 prefetch cache를 조회자별로 분리
+ * 2026.08.21  임도헌   Modified  차단 관계에서는 최근 방송과 signed thumbnail 조회를 시작하지 않도록 보강
 */
 
 import { Metadata } from "next";
@@ -131,7 +132,9 @@ export default async function UserProfilePage({
     getUserAverageRating(userProfile.id),
     getAllBadges(),
     getUserBadges(userProfile.id),
-    getRecentBroadcasts(userProfile.id, 6, false),
+    userProfile.isBlocked
+      ? Promise.resolve([])
+      : getRecentBroadcasts(userProfile.id, 6, false, viewerId),
     getUserReviews(userProfile.id, null, 2, viewerId).then((res) => res.reviews),
 
     // TanStack Query Prefetch

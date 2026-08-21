@@ -6,11 +6,13 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 녹화본 댓글 조회 API 분리
+ * 2026.08.21  임도헌   Modified  세션과 부모 방송 권한 확인 후에만 VOD 댓글 반환
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import { getRecordingCommentsList } from "@/features/stream/service/comment";
+import { StreamAccessError } from "@/features/stream/service/access";
 
 interface RouteParams {
   params: {
@@ -50,12 +52,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const searchParams = request.nextUrl.searchParams;
   const session = await getSession();
-  const page = await getRecordingCommentsList(
-    vodId,
-    parseNumberParam(searchParams.get("cursor")),
-    parseNumberParam(searchParams.get("limit")) ?? 10,
-    session?.id ?? null
-  );
+  if (!session?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  return NextResponse.json(page);
+  try {
+    const page = await getRecordingCommentsList(
+      vodId,
+      parseNumberParam(searchParams.get("cursor")),
+      parseNumberParam(searchParams.get("limit")) ?? 10,
+      session.id,
+      session
+    );
+
+    return NextResponse.json(page);
+  } catch (error) {
+    if (error instanceof StreamAccessError) {
+      return NextResponse.json(
+        { error: error.reason === "NOT_FOUND" ? "Not found" : "Forbidden" },
+        { status: error.reason === "NOT_FOUND" ? 404 : 403 }
+      );
+    }
+    throw error;
+  }
 }

@@ -9,6 +9,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.05.16  임도헌   Modified  live-status payload 타입을 명시해 any 캐스팅 제거
  * 2026.05.17  임도헌   Modified  상세 화면 상태 동기화 콜백을 추가해 live-status 구독 지점을 셸로 단일화
+ * 2026.08.21  임도헌   Modified  원본 Cloudflare UID 대신 내부 방송 ID로 상세 상태 이벤트 매칭
  */
 "use client";
 
@@ -23,8 +24,8 @@ interface Props {
   ignoreSelf?: boolean;
   /** (선택) 최소 새로고침 간격(ms). 디폴트 250ms 디바운스 + 가시성 휴면 */
   minIntervalMs?: number;
-  /** 특정 방송 상세에서만 상태 콜백을 받을 때 사용하는 Cloudflare stream uid */
-  streamId?: string;
+  /** 특정 방송 상세에서만 상태 콜백을 받을 때 사용하는 Broadcast PK */
+  broadcastId?: number;
   /** 특정 방송 상태 변경을 부모 로컬 상태에 반영하기 위한 콜백 */
   onStatus?: (payload: StreamRealtimeStatusPayload) => void;
 }
@@ -33,13 +34,13 @@ interface Props {
  * 전역적인 방송 상태 변경 이벤트를 구독하여 페이지를 새로고침(refresh)하는 컴포넌트
  * - 주로 목록 페이지나 상세 페이지 상단에 배치하여 실시간성을 보장
  * - `live-status` 채널을 구독
- * - 상세 셸에서는 `streamId`와 `onStatus`로 로컬 상태를 먼저 동기화
+ * - 상세 셸에서는 `broadcastId`와 `onStatus`로 로컬 상태를 먼저 동기화
  * - 디바운스 및 가시성 체크를 통해 불필요한 새로고침을 방지
  */
 export default function LiveStatusRealtimeSubscriber({
   ignoreSelf = true,
   minIntervalMs = 250,
-  streamId,
+  broadcastId,
   onStatus,
 }: Props) {
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function LiveStatusRealtimeSubscriber({
     channel.on("broadcast", { event: "status" }, (msg) => {
       const payload = (msg as { payload?: StreamRealtimeStatusPayload })
         .payload;
-      // 서버 payload 예시: { streamId, status, ownerId, token?, ts }
+      // 서버 payload 예시: { broadcastId, status, ownerId, token?, ts }
       if (
         ignoreSelf &&
         payload?.token &&
@@ -86,7 +87,11 @@ export default function LiveStatusRealtimeSubscriber({
         return;
       }
 
-      if (payload && streamId && payload.streamId === streamId) {
+      if (
+        payload &&
+        broadcastId &&
+        payload.broadcastId === broadcastId
+      ) {
         onStatus?.(payload);
       }
 
@@ -108,7 +113,7 @@ export default function LiveStatusRealtimeSubscriber({
         timerRef.current = null;
       }
     };
-  }, [router, ignoreSelf, minIntervalMs, streamId, onStatus]);
+  }, [router, ignoreSelf, minIntervalMs, broadcastId, onStatus]);
 
   return null;
 }

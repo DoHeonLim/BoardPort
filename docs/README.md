@@ -53,6 +53,7 @@
 - [신고 처리와 제재 운영 정책](./operations/report-moderation-policy.md)
 - [테스트 전략](./operations/testing-strategy.md)
 - [CI/CD 워크플로우](./operations/ci-cd-workflows.md)
+- [Cloudflare Stream Signed Playback 전환 절차](./operations/stream-signed-playback-runbook.md)
 
 ### Troubleshooting
 
