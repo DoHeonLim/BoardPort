@@ -26,6 +26,7 @@
  * 2026.04.14  임도헌   Modified  상단 3개 게시글 카드까지 우선 로드해 실제 LCP 후보를 lazy 대상에서 제외
  * 2026.04.14  임도헌   Modified  LCP 우선 로드 카드 수 상수를 모듈 상단으로 분리하고 파생값 구간을 역할별로 정리
  * 2026.05.30  임도헌   Modified  게시글 뷰 토글을 제품 목록 토글 톤과 통일
+ * 2026.08.13  임도헌   Modified  게시글 목록 query에 현재 조회자 ID 전달
  */
 
 "use client";
@@ -44,6 +45,7 @@ import { cn } from "@/lib/utils";
 interface PostListProps {
   searchParams: PostSearchParams;
   queryKeyExtra?: unknown;
+  viewerId: number;
 }
 
 const LCP_PRIORITY_CARD_COUNT = 3;
@@ -62,6 +64,7 @@ const LCP_PRIORITY_CARD_COUNT = 3;
 export default function PostList({
   searchParams,
   queryKeyExtra,
+  viewerId,
 }: PostListProps) {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
@@ -74,6 +77,7 @@ export default function PostList({
     usePostPagination({
       searchParams,
       queryKeyExtra,
+      viewerId,
     });
 
   // 렌더링용 파생값의 훅 호출 아래 1회 계산

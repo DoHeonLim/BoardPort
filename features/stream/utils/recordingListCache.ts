@@ -7,6 +7,8 @@
  * Date        Author   Status    Description
  * 2026.05.18  임도헌   Created   녹화본 좋아요/댓글 변경 시 메인/채널 다시보기 목록 캐시 갱신 유틸 추가
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 메인/채널 다시보기 목록에서 항목을 즉시 제거하는 유틸 추가
+ * 2026.08.13  임도헌   Modified  좋아요용 목록 조작에 조회자 범위 선택 옵션 추가
+ * 2026.08.13  임도헌   Modified  댓글 수 낙관 업데이트와 rollback도 현재 조회자 목록으로 제한
  */
 
 import type { InfiniteData, QueryClient, QueryKey } from "@tanstack/react-query";
@@ -21,14 +23,37 @@ export interface RecordingListSnapshots {
   channelRecordings: RecordingListSnapshot;
 }
 
+const getViewerScope = (viewerId: number | null) => viewerId ?? "guest";
+
+/** 다시보기 메인 목록 query key 여부 확인 */
+export function isRecordingListKey(
+  queryKey: QueryKey,
+  viewerId?: number | null
+) {
+  const isRecordingList =
+    queryKey[0] === "streams" && queryKey[1] === "recordings";
+
+  if (!isRecordingList || viewerId === undefined) return isRecordingList;
+  return queryKey[3] === getViewerScope(viewerId);
+}
+
 /**
  * 채널 다시보기 목록 query key 여부 확인
  *
  * @param queryKey - TanStack Query key
  * @returns 채널 다시보기 목록 캐시이면 true
  */
-export function isChannelRecordingsKey(queryKey: QueryKey) {
-  return queryKey[0] === "streams" && queryKey[1] === "channelRecordings";
+export function isChannelRecordingsKey(
+  queryKey: QueryKey,
+  viewerId?: number | null
+) {
+  const isChannelRecordings =
+    queryKey[0] === "streams" && queryKey[1] === "channelRecordings";
+
+  if (!isChannelRecordings || viewerId === undefined) {
+    return isChannelRecordings;
+  }
+  return queryKey[3] === getViewerScope(viewerId);
 }
 
 /**
@@ -36,7 +61,23 @@ export function isChannelRecordingsKey(queryKey: QueryKey) {
  *
  * @param queryClient - TanStack Query Client
  */
-export async function cancelRecordingListQueries(queryClient: QueryClient) {
+export async function cancelRecordingListQueries(
+  queryClient: QueryClient,
+  viewerId?: number | null
+) {
+  if (viewerId !== undefined) {
+    await Promise.all([
+      queryClient.cancelQueries({
+        predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
+      }),
+      queryClient.cancelQueries({
+        predicate: (query) =>
+          isChannelRecordingsKey(query.queryKey, viewerId),
+      }),
+    ]);
+    return;
+  }
+
   await Promise.all([
     queryClient.cancelQueries({
       queryKey: queryKeys.streams.recordingLists(),
@@ -54,8 +95,21 @@ export async function cancelRecordingListQueries(queryClient: QueryClient) {
  * @returns 낙관적 업데이트 rollback용 목록 캐시 스냅샷
  */
 export function getRecordingListSnapshots(
-  queryClient: QueryClient
+  queryClient: QueryClient,
+  viewerId?: number | null
 ): RecordingListSnapshots {
+  if (viewerId !== undefined) {
+    return {
+      recordingLists: queryClient.getQueriesData<RecordingInfiniteCache>({
+        predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
+      }),
+      channelRecordings: queryClient.getQueriesData<RecordingInfiniteCache>({
+        predicate: (query) =>
+          isChannelRecordingsKey(query.queryKey, viewerId),
+      }),
+    };
+  }
+
   return {
     recordingLists: queryClient.getQueriesData<RecordingInfiniteCache>({
       queryKey: queryKeys.streams.recordingLists(),
@@ -125,8 +179,26 @@ function patchRecordingListCache(
 export function updateRecordingListCaches(
   queryClient: QueryClient,
   vodId: number,
-  patcher: (recording: VodForGrid) => Partial<VodForGrid>
+  patcher: (recording: VodForGrid) => Partial<VodForGrid>,
+  viewerId?: number | null
 ) {
+  if (viewerId !== undefined) {
+    queryClient.setQueriesData<RecordingInfiniteCache>(
+      {
+        predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
+      },
+      (oldData) => patchRecordingListCache(oldData, vodId, patcher)
+    );
+    queryClient.setQueriesData<RecordingInfiniteCache>(
+      {
+        predicate: (query) =>
+          isChannelRecordingsKey(query.queryKey, viewerId),
+      },
+      (oldData) => patchRecordingListCache(oldData, vodId, patcher)
+    );
+    return;
+  }
+
   queryClient.setQueriesData<RecordingInfiniteCache>(
     { queryKey: queryKeys.streams.recordingLists() },
     (oldData) => patchRecordingListCache(oldData, vodId, patcher)
@@ -186,7 +258,21 @@ export function removeRecordingFromListCaches(
  *
  * @param queryClient - TanStack Query Client
  */
-export function invalidateRecordingListCaches(queryClient: QueryClient) {
+export function invalidateRecordingListCaches(
+  queryClient: QueryClient,
+  viewerId?: number | null
+) {
+  if (viewerId !== undefined) {
+    queryClient.invalidateQueries({
+      predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
+    });
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        isChannelRecordingsKey(query.queryKey, viewerId),
+    });
+    return;
+  }
+
   queryClient.invalidateQueries({
     queryKey: queryKeys.streams.recordingLists(),
   });

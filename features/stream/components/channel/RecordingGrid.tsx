@@ -31,6 +31,7 @@
  * 2026.05.03  임도헌   Modified  채널 다시보기 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.15  임도헌   Modified  채널 다시보기에 커스텀 훅 기반 무한스크롤 적용
  * 2026.05.18  임도헌   Modified  채널 다시보기 카드에 좋아요/댓글 메타 전달
+ * 2026.08.13  임도헌   Modified  채널 다시보기 query에 현재 조회자 ID 전달
  */
 
 "use client";
@@ -45,6 +46,7 @@ import type { ViewerRole, VodForGrid } from "@/features/stream/types";
 
 interface Props {
   ownerId: number;
+  viewerId?: number | null;
   recordings: VodForGrid[]; // VOD 중심 (readyAt/duration/viewCount 포함)
   initialNextCursor?: number | null;
   role: ViewerRole;
@@ -62,6 +64,7 @@ interface Props {
  */
 export default function RecordingGrid({
   ownerId,
+  viewerId = null,
   recordings,
   initialNextCursor = null,
   role,
@@ -77,6 +80,7 @@ export default function RecordingGrid({
     loadMore,
   } = useChannelRecordingsPagination({
     ownerId,
+    viewerId,
     initialRecordings: recordings,
     initialNextCursor,
   });

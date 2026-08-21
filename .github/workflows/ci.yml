@@ -1,3 +1,11 @@
+# File Name : .github/workflows/ci.yml
+# Description : develop/master 품질 및 production build 검증
+# Author : 임도헌
+#
+# History
+# Date        Author   Status    Description
+# 2026.08.21  임도헌   Modified  PostgreSQL 기반 Push ownership migration 통합 검증 추가
+
 name: CI
 
 # develop은 통합 브랜치, master는 Vercel production branch 기준으로 검증
@@ -24,10 +32,25 @@ jobs:
     name: Unit, Type, Lint, Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: boardport_migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     # build/type check가 참조하는 런타임 env를 placeholder로 채워 외부 서비스 호출 없이 검증
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
+      PUSH_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
@@ -68,6 +91,9 @@ jobs:
 
       - name: Run unit tests
         run: npm run test
+
+      - name: Run Push ownership migration integration test
+        run: npm run test:migration:push
 
       - name: Run type check
         run: npx tsc --noEmit

@@ -13,6 +13,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:migration:push": "node scripts/test-push-ownership-migration.mjs",
     "test:watch": "vitest",
     "install:e2e": "playwright install chromium",
     "install:e2e:deps": "playwright install-deps chromium",

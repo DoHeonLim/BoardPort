@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.15  임도헌   Created   채널 다시보기 SSR 첫 페이지와 추가 페이지를 TanStack Query로 연결
  * 2026.05.19  임도헌   Modified  Client queryFn 추가 페이지 조회의 Server Action 직접 호출을 피하도록 Route Handler fetch로 전환
+ * 2026.08.13  임도헌   Modified  채널 다시보기 query key에 현재 조회자 범위 추가
  */
 "use client";
 
@@ -16,6 +17,7 @@ import type { RecordingsPage, VodForGrid } from "@/features/stream/types";
 
 interface UseChannelRecordingsPaginationParams {
   ownerId: number;
+  viewerId?: number | null;
   initialRecordings: VodForGrid[];
   initialNextCursor: number | null;
 }
@@ -76,12 +78,13 @@ async function fetchChannelRecordingsPage(
  */
 export function useChannelRecordingsPagination({
   ownerId,
+  viewerId = null,
   initialRecordings,
   initialNextCursor,
 }: UseChannelRecordingsPaginationParams): UseChannelRecordingsPaginationResult {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
-      queryKey: queryKeys.streams.channelRecordings(ownerId),
+      queryKey: queryKeys.streams.channelRecordings(ownerId, viewerId),
       queryFn: ({ pageParam }) => {
         // 추가 페이지만 Route Handler로 조회해 SSR 첫 페이지와 Client queryFn 재조회 책임을 분리
         return fetchChannelRecordingsPage(

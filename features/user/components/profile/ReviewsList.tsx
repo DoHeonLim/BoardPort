@@ -16,6 +16,7 @@
  * 2026.03.03  임도헌   Modified  initialReviews Props 제거 및 훅 호출 시그니처 변경
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.23  임도헌   Modified  후기 empty state 점선 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
+ * 2026.08.13  임도헌   Modified  리뷰 무한스크롤 query에 현재 조회자 ID 전달
  */
 "use client";
 
@@ -27,6 +28,7 @@ import ReviewItem from "@/features/user/components/profile/ReviewsItem";
 
 interface ReviewsListProps {
   userId: number;
+  viewerId?: number | null;
   scrollParentRef?: React.RefObject<HTMLElement>;
 }
 
@@ -40,11 +42,12 @@ interface ReviewsListProps {
  */
 export default function ReviewsList({
   userId,
+  viewerId = null,
   scrollParentRef,
 }: ReviewsListProps) {
   // TanStack Query 기반 데이터 관리 훅 호출
   const { reviews, isFetchingNextPage, hasMore, loadMore } =
-    useReviewPagination(userId);
+    useReviewPagination(userId, viewerId);
 
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();

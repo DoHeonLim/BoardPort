@@ -23,6 +23,8 @@
  * 2026.04.17  임도헌   Modified  푸시 구독 훅의 초기 점검/재연결/해제 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.04.26  임도헌   Modified  초기 자동 점검의 Service Worker ready 타임아웃을 콘솔 오류/토스트로 노출하지 않도록 완화
  * 2026.05.16  임도헌   Modified  push 에러 처리 타입을 unknown-safe 방식으로 정리
+ * 2026.08.13  임도헌   Modified  구독 키 소유 증명과 계정 불일치 기기 정리 추가
+ * 2026.08.13  임도헌   Modified  표시 보호 Worker 확인 후 구독하고 서버 해제 성공 뒤에만 전역 OFF 처리
  */
 
 "use client";
@@ -30,6 +32,11 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { PushNotificationStatus } from "@/features/notification/types";
+import {
+  PUSH_DISPLAY_GUARD_VERSION,
+  probePushDisplayGuard,
+  waitForPushDisplayGuard,
+} from "@/features/notification/utils/pushDisplayGuard";
 
 export type { PushNotificationStatus } from "@/features/notification/types";
 
@@ -38,9 +45,20 @@ interface PushSubscriptionData {
   keys: { p256dh: string; auth: string };
 }
 
+function serializeGuardedSubscription(subscription: PushSubscription) {
+  return {
+    ...subscription.toJSON(),
+    displayGuardVersion: PUSH_DISPLAY_GUARD_VERSION,
+  };
+}
+
 type CheckSubscriptionResponse = {
   isValid: boolean;
-  reason?: "active" | "disabled_by_user" | "needs_reconnect";
+  reason?:
+    | "active"
+    | "disabled_by_user"
+    | "needs_reconnect"
+    | "account_mismatch";
 };
 
 /**
@@ -82,9 +100,9 @@ function checkSupport() {
 async function waitForServiceWorkerReady(
   label: string,
   timeoutMs = 10000,
-  options: { logError?: boolean } = {}
+  options: { logError?: boolean; requirePushDisplayGuard?: boolean } = {}
 ): Promise<ServiceWorkerRegistration> {
-  const { logError = true } = options;
+  const { logError = true, requirePushDisplayGuard = false } = options;
 
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     throw new Error("SERVICE_WORKER_NOT_SUPPORTED");
@@ -121,10 +139,27 @@ async function waitForServiceWorkerReady(
       )
     );
 
-    const registration = (await Promise.race([
+    let registration = (await Promise.race([
       readyPromise,
       timeoutPromise,
     ])) as ServiceWorkerRegistration;
+
+    if (requirePushDisplayGuard) {
+      const activeWorker = registration.active;
+      const guardAlreadyReady =
+        activeWorker && (await probePushDisplayGuard(activeWorker));
+
+      if (!guardAlreadyReady) {
+        // importScripts 자원까지 HTTP cache를 우회해 최신 표시 보호 Worker를
+        // 설치한다. skipWaiting 뒤 registration.active가 바뀔 때까지 handshake한다.
+        registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none",
+        });
+        await registration.update();
+        await waitForPushDisplayGuard(registration, timeoutMs);
+      }
+    }
 
     return registration;
   } catch (e: unknown) {
@@ -217,6 +252,7 @@ export function usePushNotification() {
         // 2-2. Service Worker 준비
         const registration = await waitForServiceWorkerReady("check", 10000, {
           logError: false,
+          requirePushDisplayGuard: true,
         });
         if (!mounted) return;
 
@@ -235,7 +271,7 @@ export function usePushNotification() {
         const res = await fetch("/api/push/check-subscription", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: current.endpoint }),
+          body: JSON.stringify(serializeGuardedSubscription(current)),
           signal: controller.signal,
         });
 
@@ -254,8 +290,12 @@ export function usePushNotification() {
             return;
           }
 
-          if (reason === "disabled_by_user") {
-            // 전역 OFF 상태 시 로컬 구독도 정리해 상태 일치 유지
+          if (
+            reason === "disabled_by_user" ||
+            reason === "account_mismatch"
+          ) {
+            // 전역 OFF 또는 이전 계정 소유 기기는 원격/로컬 상태를
+            // 같이 정리해 다음 계정으로 알림이 노출되는 것을 막는다.
             try {
               await current.unsubscribe();
             } catch (unsubErr) {
@@ -365,12 +405,38 @@ export function usePushNotification() {
       }
 
       // 3. 브라우저 구독 생성
-      const registration = await waitForServiceWorkerReady("subscribe");
+      const registration = await waitForServiceWorkerReady(
+        "subscribe",
+        10000,
+        { requirePushDisplayGuard: true }
+      );
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
         toast.error("VAPID 공개키 설정 오류");
         return;
       }
+
+      const handleOwnershipConflict = async (
+        current: PushSubscription
+      ) => {
+        // DB 소유 키와 현재 브라우저 키가 다르면 임의로
+        // 덮어쓰지 않고 로컬 구독을 폐기한다. 다음 시도는
+        // PushManager가 새 소유 키/endpoint를 발급하도록 유도한다.
+        try {
+          await current.unsubscribe();
+        } catch (cleanupError) {
+          console.warn(
+            "[push] conflicting local subscription cleanup failed:",
+            cleanupError
+          );
+        }
+
+        clearLocalState();
+        setStatus("needs_reconnect");
+        toast.error(
+          "기존 알림 연결을 새로 설정해야 합니다. 다시 한 번 시도해주세요."
+        );
+      };
 
       // 기존 구독 재사용 시도
       const existing = await registration.pushManager.getSubscription();
@@ -380,8 +446,12 @@ export function usePushNotification() {
         const resReuse = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(reused),
+          body: JSON.stringify(serializeGuardedSubscription(existing)),
         });
+        if (resReuse.status === 409) {
+          await handleOwnershipConflict(existing);
+          return;
+        }
         if (!resReuse.ok) {
           throw new Error(`서버 동기화 실패(${resReuse.status})`);
         }
@@ -408,10 +478,15 @@ export function usePushNotification() {
       const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(serializeGuardedSubscription(newSub)),
       });
 
       if (!res.ok) {
+        if (res.status === 409) {
+          await handleOwnershipConflict(newSub);
+          return;
+        }
+
         // 서버 저장 실패 시 브라우저 구독도 롤백
         await newSub.unsubscribe().catch(() => {});
         throw new Error(`서버 등록 실패(${res.status})`);
@@ -446,10 +521,16 @@ export function usePushNotification() {
       if (!isSupported) return;
 
       // 1. 서버 전역 OFF
-      await fetch("/api/push/unsubscribe", {
+      const response = await fetch("/api/push/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      }).catch(() => {});
+      });
+
+      // 서버가 모든 기기의 구독과 재검증 자격을 실제로 끈 뒤에만
+      // 이 브라우저를 성공 상태로 전환한다.
+      if (!response.ok) {
+        throw new Error(`서버 구독 해제 실패(${response.status})`);
+      }
 
       // 2. 로컬 상태 정리 (UX 우선)
       setStatus("disabled");

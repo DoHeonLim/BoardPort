@@ -76,6 +76,9 @@
  * 2026.04.29  임도헌   Modified  보드게임 카탈로그 도메인 모델/필드 주석 보강
  * 2026.06.27  임도헌   Modified  SMS 인증번호 만료 시각 및 인증 rate limit 이벤트 모델 추가
  * 2026.06.29  임도헌   Modified  SMS 로그인 토큰의 인증 전 User 점유를 막기 위해 userId optional 처리
+ * 2026.08.13  임도헌   Modified  브라우저 Push endpoint의 전역 단일 소유권 제약 추가
+ * 2026.08.13  임도헌   Modified  Push 소유권 재검증과 1회 자동 복구 상태 필드 추가
+ * 2026.08.21  임도헌   Modified  구버전 Push 쓰기를 차단하는 배포 전환 제약 설명 보완
  */
 generator client {
   provider = "prisma-client"
@@ -745,16 +748,21 @@ model PushSubscription {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
 
-  endpoint  String // 브라우저 엔드포인트
+  endpoint  String  @unique // 하나의 브라우저 구독은 현재 계정 하나만 소유
   p256dh    String // 암호화 키
   auth      String // 인증 키
   userAgent String?
 
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  last_used  DateTime? // 마지막 발송 성공 시간
-  isActive   Boolean   @default(true) // 구독 활성 상태
+  created_at                      DateTime  @default(now())
+  updated_at                      DateTime  @updatedAt
+  last_used                       DateTime? // 마지막 발송 성공 시간
+  isActive                        Boolean   @default(false) // 보호 검증을 통과한 등록 경로만 명시적으로 활성화
+  requires_ownership_verification Boolean   @default(true) // 표시 보호 SW+브라우저 소유 키를 확인하기 전에는 fail-closed
+  allows_automatic_reactivation   Boolean   @default(false) // migration 당시 활성 기기만 보호 검증 후 1회 자동 복구
 
+  // 구 Prisma client의 compound selector 소스 호환만 위해 유지한다. 구 코드의
+  // isActive=true 쓰기는 DB CHECK가 거부하므로 무중단 기능 호환을 의미하지 않는다.
+  // 모든 인스턴스가 endpoint 단일 upsert로 전환된 후 contract migration으로 제거한다.
   @@unique([endpoint, userId], name: "endpoint_userId")
   @@index([userId, isActive])
 }

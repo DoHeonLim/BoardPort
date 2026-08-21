@@ -61,6 +61,7 @@
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
  * 2026.06.15  임도헌   Modified  제품 빈 상태가 검색어와 상세 조건 0건을 구분하도록 조건 여부 전달
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
+ * 2026.08.13  임도헌   Modified  상품 목록 cache key를 조회자와 전체 지역 튜플 기준으로 분리
  */
 
 import { Suspense } from "react";
@@ -188,14 +189,20 @@ export default async function ProductsPage({
   const currentRange = userRegion1
     ? ((userLocation?.regionRange as RegionRange) ?? "GU")
     : "ALL";
+  const productListScope = {
+    range: currentRange,
+    region1: userRegion1 ?? "",
+    region2: userRegion2 ?? "",
+    region3: userRegion3 ?? "",
+  };
   const productListQueryKey = {
     ...queryParams,
-    // 같은 검색 조건이어도 지역 범위가 다를 경우 별도 캐시 분리, stale 결과 혼합 방지
-    __scope: currentRange,
+    // 같은 검색 조건이어도 조회자/지역 튜플이 다르면 캐시를 분리해 개인화 결과 혼합 방지
+    __scope: productListScope,
   };
 
   const prefetchProductsPromise = queryClient.prefetchInfiniteQuery({
-    queryKey: queryKeys.products.list(productListQueryKey),
+    queryKey: queryKeys.products.list(productListQueryKey, userId),
     queryFn: () => getProductsAction(null, queryParams),
     initialPageParam: null as number | null,
   });
@@ -230,7 +237,7 @@ export default async function ProductsPage({
   const prefetchData = queryClient.getQueryData<
     InfiniteData<Paginated<ProductType>>
   >(
-    queryKeys.products.list(productListQueryKey)
+    queryKeys.products.list(productListQueryKey, userId)
   );
   const isDataEmpty = prefetchData?.pages[0]?.products.length === 0;
 
@@ -284,9 +291,10 @@ export default async function ProductsPage({
             <HydrationBoundary state={dehydrate(queryClient)}>
               <Suspense fallback={<ProductListSkeleton viewMode="list" />}>
                 <ProductList
-                  key={`${JSON.stringify(searchParams)}-${currentRange}`}
+                  key={`${JSON.stringify(searchParams)}-${JSON.stringify(productListScope)}`}
                   searchParams={queryParams}
-                  queryKeyExtra={currentRange}
+                  queryKeyExtra={productListScope}
+                  viewerId={userId}
                   headerAction={
                     <div className="flex flex-wrap items-center gap-2">
                       <Link

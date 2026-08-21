@@ -51,6 +51,7 @@
  * 2026.05.12  임도헌   Modified   타인 프로필 방송국 StreamCard에 연결 보드게임 메타 전달
  * 2026.05.16  임도헌   Modified   판매 탭 제품 scope 매핑을 명시해 any 캐스팅 제거
  * 2026.06.21  임도헌   Modified   타인 프로필 판매 목록 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
+ * 2026.08.13  임도헌   Modified  타인 프로필 리뷰 목록에 현재 조회자 ID 전달
  */
 
 "use client";
@@ -449,6 +450,7 @@ export default function UserProfile({
               isOpen={isReviewModalOpen}
               onClose={() => setIsReviewModalOpen(false)}
               userId={user.id}
+              viewerId={viewerId ?? null}
             />
           )}
           {isBadgeModalOpen && (

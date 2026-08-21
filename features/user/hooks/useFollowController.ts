@@ -24,6 +24,7 @@
  * 2026.04.08  임도헌   Modified  프로필/채널 헤더 팔로우 성공 시 맥락형 토스트를 노출해 상태 전환 체감 보강
  * 2026.05.16  임도헌   Modified  팔로우 모달 캐시 조회 타입을 명시해 any 캐스팅 제거
  * 2026.06.17  임도헌   Modified  팔로우 버튼/카운트 표시만 선반영하고 팔로워 전용 접근 상태는 서버 성공 후 동기화
+ * 2026.08.13  임도헌   Modified  팔로우 통계·목록 cache 갱신을 현재 조회자로 제한
  */
 "use client";
 
@@ -75,7 +76,7 @@ export function useFollowController({
   // 헤더 통계 캐시
   // profile/channel 상단 숫자와 팔로우 버튼을 같은 query key 기준으로 유지
   const { data: followStats } = useQuery({
-    queryKey: queryKeys.users.followStats(ownerId),
+    queryKey: queryKeys.users.followStats(ownerId, viewerId ?? null),
     initialData: {
       isFollowing: initialIsFollowing,
       followerCount: initialFollowerCount,
@@ -97,6 +98,7 @@ export function useFollowController({
   const followersList = useFollowPagination({
     username: ownerUsername,
     type: "followers",
+    viewerId: viewerId ?? null,
     fetcher: getFollowersAction,
     enabled: followersOpen,
   });
@@ -104,6 +106,7 @@ export function useFollowController({
   const followingList = useFollowPagination({
     username: ownerUsername,
     type: "following",
+    viewerId: viewerId ?? null,
     fetcher: getFollowingAction,
     enabled: followingOpen,
   });
@@ -163,10 +166,18 @@ export function useFollowController({
       let currentIsFollowing = false;
       // 현재 캐시 기준 팔로우 상태 추출
       // 모달 row의 최신 상태를 기준으로 토글 의도를 계산
+      const viewerScope = viewerId ?? "guest";
       const cachedData = queryClient.getQueriesData<
         InfiniteData<FollowListPage>
       >({
-        queryKey: queryKeys.follows.user(ownerUsername),
+        predicate: (query) => {
+          const queryKey = query.queryKey;
+          return (
+            queryKey[0] === "follows" &&
+            queryKey[1] === ownerUsername &&
+            queryKey[3] === viewerScope
+          );
+        },
       });
 
       for (const [, data] of cachedData) {

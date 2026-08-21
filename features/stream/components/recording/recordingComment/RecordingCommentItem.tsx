@@ -22,6 +22,7 @@
  * 2026.04.03  임도헌   Modified  녹화 댓글 옵션을 게시글 댓글과 같은 모바일 BottomSheet / 데스크톱 드롭다운 문법으로 통일
  * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 댓글 작성자 타이포를 500 기준으로 정리
+ * 2026.08.13  임도헌   Modified  댓글 상세 cache와 삭제 mutation을 조회자 범위로 연결
  */
 "use client";
 
@@ -74,7 +75,7 @@ const RecordingCommentItem = forwardRef<
   // 상태 관리
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
-  const commentsQueryKey = queryKeys.streams.vodComments(vodId);
+  const commentsQueryKey = queryKeys.streams.vodComments(vodId, currentUserId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
@@ -140,6 +141,7 @@ const RecordingCommentItem = forwardRef<
               <RecordingCommentDeleteButton
                 vodId={vodId}
                 commentId={comment.id}
+                viewerId={currentUserId}
               />
             ) : (
               <div className="relative" ref={menuRef}>

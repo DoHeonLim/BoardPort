@@ -28,6 +28,7 @@
  * 2026.03.23  임도헌   Modified  채널 차단 안내 empty state의 점선 카드 보더를 구조 구분용 subtle 기준으로 정리
  * 2026.03.25  임도헌   Modified  프로필 메인과 탭바 하단 간격을 맞추기 위해 채널 페이지 bottom padding을 통일
  * 2026.05.15  임도헌   Modified  채널 다시보기 무한스크롤용 첫 페이지 커서 전달
+ * 2026.08.13  임도헌   Modified  채널 다시보기 목록에 현재 조회자 ID 전달
  * ===============================================================================================
  * User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 채널 소개/owner 편집)
@@ -189,6 +190,7 @@ export default function UserChannelContainer({
           {/* VOD Section */}
           <RecordingGrid
             ownerId={userInfo.id}
+            viewerId={viewerId ?? null}
             recordings={recordingsMemo}
             initialNextCursor={recordingsNextCursor}
             role={role}

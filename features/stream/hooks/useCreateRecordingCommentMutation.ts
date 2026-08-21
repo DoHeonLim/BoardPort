@@ -11,6 +11,7 @@
  * 2026.04.09  임도헌   Modified  성공 결과가 화면에 바로 드러나는 댓글 작성은 실패 토스트만 남기도록 정리
  * 2026.05.16  임도헌   Modified  Mutation 에러 메시지 추출을 unknown-safe 방식으로 정리
  * 2026.05.18  임도헌   Modified  댓글 작성 시 다시보기 목록 카드 commentCount 캐시 동기화 추가
+ * 2026.08.13  임도헌   Modified  목록 낙관 업데이트/롤백/무효화를 현재 조회자로 제한
  */
 "use client";
 
@@ -39,10 +40,14 @@ const getErrorMessage = (error: unknown) =>
  * - 실패 시 상태 코드별 토스트 알림으로 사용자 피드백을 제공
  *
  * @param {number} vodId - 대상 녹화본(VOD) ID
+ * @param {number} viewerId - 댓글 필터 기준 조회자 ID
  */
-export function useCreateRecordingCommentMutation(vodId: number) {
+export function useCreateRecordingCommentMutation(
+  vodId: number,
+  viewerId: number
+) {
   const queryClient = useQueryClient();
-  const queryKey = queryKeys.streams.vodComments(vodId);
+  const queryKey = queryKeys.streams.vodComments(vodId, viewerId);
   const statsQueryKey = queryKeys.streams.recordingStats(vodId);
 
   return useMutation({
@@ -52,14 +57,22 @@ export function useCreateRecordingCommentMutation(vodId: number) {
       return res;
     },
     onMutate: async () => {
-      await cancelRecordingListQueries(queryClient);
-      const previousRecordingLists = getRecordingListSnapshots(queryClient);
+      await cancelRecordingListQueries(queryClient, viewerId);
+      const previousRecordingLists = getRecordingListSnapshots(
+        queryClient,
+        viewerId
+      );
       const previousStats = queryClient.getQueryData(statsQueryKey);
 
       // 카드의 댓글 수는 녹화본 상세 댓글 생성 성공을 기대해 먼저 1 증가
-      updateRecordingListCaches(queryClient, vodId, (recording) => ({
-        commentCount: (recording.commentCount ?? 0) + 1,
-      }));
+      updateRecordingListCaches(
+        queryClient,
+        vodId,
+        (recording) => ({
+          commentCount: (recording.commentCount ?? 0) + 1,
+        }),
+        viewerId
+      );
       queryClient.setQueryData(
         statsQueryKey,
         (oldData: { commentCount: number } | undefined) => ({
@@ -84,7 +97,7 @@ export function useCreateRecordingCommentMutation(vodId: number) {
       else toast.error("댓글 작성에 실패했습니다.");
     },
     onSettled: () => {
-      invalidateRecordingListCaches(queryClient);
+      invalidateRecordingListCaches(queryClient, viewerId);
     },
   });
 }

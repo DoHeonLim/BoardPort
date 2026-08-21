@@ -17,6 +17,7 @@
  * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여하고 목록 캐시만 재검증
  * 2026.06.07  임도헌   Modified  계정 전환 시 이전 사용자의 VOD 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  * 2026.06.17  임도헌   Modified  낙관 반영 직후 좋아요 버튼이 흐려 보이지 않도록 pending opacity 제거
+ * 2026.08.13  임도헌   Modified  목록 낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  */
 
 "use client";
@@ -97,10 +98,13 @@ export default function RecordingLikeButton({
     onMutate: async () => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey }),
-        cancelRecordingListQueries(queryClient),
+        cancelRecordingListQueries(queryClient, viewerId),
       ]);
       const previous = queryClient.getQueryData(queryKey);
-      const previousRecordingLists = getRecordingListSnapshots(queryClient);
+      const previousRecordingLists = getRecordingListSnapshots(
+        queryClient,
+        viewerId
+      );
 
       const nextState = {
         isLiked: !data.isLiked,
@@ -112,7 +116,12 @@ export default function RecordingLikeButton({
       queryClient.setQueryData(queryKey, nextState);
 
       // 상세에서 좋아요를 바꾼 뒤 뒤로갈 때 이전 목록 캐시도 같은 상태를 보여주도록 동기화
-      updateRecordingListCaches(queryClient, vodId, () => nextState);
+      updateRecordingListCaches(
+        queryClient,
+        vodId,
+        () => nextState,
+        viewerId
+      );
 
       return { previous, previousRecordingLists };
     },
@@ -123,7 +132,7 @@ export default function RecordingLikeButton({
       restoreRecordingListSnapshots(queryClient, context?.previousRecordingLists);
     },
     onSettled: () => {
-      invalidateRecordingListCaches(queryClient);
+      invalidateRecordingListCaches(queryClient, viewerId);
     },
   });
 

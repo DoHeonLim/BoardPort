@@ -37,6 +37,7 @@
  * 2026.04.14  임도헌   Modified  제품 상세와 동일하게 가드 후 조회수 반영/화면 보정 순서로 조정
  * 2026.05.15  임도헌   Modified  게시글 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
  * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
+ * 2026.08.13  임도헌   Modified  게시글 댓글 prefetch cache를 조회자별로 분리
  */
 
 export const dynamic = "force-dynamic";
@@ -157,7 +158,7 @@ export default async function PostDetailPage({
     getUserInfoById(userId),
     // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장함 (Prefetch)
     queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.posts.comments(id),
+      queryKey: queryKeys.posts.comments(id, userId),
       queryFn: () => getPostCommentsListAction(id),
       initialPageParam: undefined as number | undefined,
     }),

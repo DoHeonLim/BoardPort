@@ -38,6 +38,7 @@
  * 2026.05.17  임도헌   Modified   리뷰 prefetch 커서 타입을 명시
  * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이와 버튼 간격을 압축
  * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이를 모바일 서브 헤더 기준으로 재정렬
+ * 2026.08.13  임도헌   Modified  내 프로필 리뷰 prefetch cache에 조회자 범위 추가
  */
 
 import { redirect } from "next/navigation";
@@ -101,7 +102,7 @@ export default async function ProfilePage() {
       getUnreadNotificationCount(),
       getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
       queryClient.prefetchInfiniteQuery({
-        queryKey: queryKeys.reviews.user(user.id),
+        queryKey: queryKeys.reviews.user(user.id, user.id),
         queryFn: () => getUserReviewsAction(user.id, null),
         initialPageParam: null as number | null,
       }),

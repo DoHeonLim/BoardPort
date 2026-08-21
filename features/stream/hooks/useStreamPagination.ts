@@ -14,6 +14,7 @@
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.06.25  임도헌   Modified  viewerId URL 전달 제거 및 조회자별 query key 스코프 분리
+ * 2026.08.13  임도헌   Modified  라이브 목록 query key의 조회자 범위 구조 통일
  */
 
 "use client";
@@ -105,10 +106,11 @@ export function useStreamPagination({
   searchParams,
   viewerId,
 }: UseStreamPaginationParams): UseStreamPaginationResult {
-  const queryKey = queryKeys.streams.list(scope, {
-    ...searchParams,
-    viewerId: viewerId ?? "guest",
-  });
+  const queryKey = queryKeys.streams.list(
+    scope,
+    searchParams,
+    viewerId ?? null
+  );
 
   // TanStack Query를 활용한 무한 스크롤 쿼리 구성
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =

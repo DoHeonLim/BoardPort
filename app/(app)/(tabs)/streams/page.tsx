@@ -45,6 +45,7 @@
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
  * 2026.06.25  임도헌   Modified  서버 prefetch query key를 조회자/팔로잉 필터 스코프와 일치하도록 정리
+ * 2026.08.13  임도헌   Modified  라이브·다시보기 목록 cache key의 조회자 범위 구조 통일
 */
 import { Suspense } from "react";
 import { Metadata } from "next";
@@ -137,18 +138,19 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
     sort: recordingSort,
     scope: scope === "following" ? "following" : "",
   };
-  // 로그인 가드 이후에는 viewerId가 존재하지만, 클라이언트 훅의 query key 스코프와 맞추기 위해 guest fallback을 유지한다.
-  const liveListQueryKey = queryKeys.streams.list(scope, {
-    ...liveQueryParams,
-    viewerId: viewerId ?? "guest",
-  });
+  // 접근 플래그와 팔로잉 여부가 조회자에 따라 달라지므로 목록 캐시를 viewerId로 분리한다.
+  const liveListQueryKey = queryKeys.streams.list(
+    scope,
+    liveQueryParams,
+    viewerId
+  );
   const recordingListQueryKey = queryKeys.streams.recordingList(
     recordingSort,
     {
       ...recordingQueryParams,
       followingOnly: scope === "following",
-      viewerId: viewerId ?? "guest",
-    }
+    },
+    viewerId
   );
 
   const queryClient = getQueryClient();

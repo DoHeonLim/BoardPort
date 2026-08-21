@@ -162,7 +162,9 @@ export default withPWA({
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
   // 푸시/오프라인 보조 스크립트는 서비스 워커가 설치될 때 함께 주입
-  importScripts: ["/pwa-push.js"],
+  // query version을 바꾸면 생성된 메인 SW도 달라져 importScripts 보호 로직이
+  // rolling deploy 중 반드시 새 설치 대상으로 인식된다.
+  importScripts: ["/pwa-push.js?guard=1"],
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
   scope: "/",
   fallbacks: { document: "/offline" },

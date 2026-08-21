@@ -28,6 +28,7 @@
  * 2026.06.17  임도헌   Modified  좋아요 낙관 반영 직전 목록/찜 목록 fetch 취소 및 pending opacity 제거
  * 2026.06.17  임도헌   Modified  계정 전환 시 이전 사용자의 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  * 2026.06.18  임도헌   Modified  다크모드에서 빠른 찜 해제 버튼의 중립 배경/경계 대비 보강
+ * 2026.08.13  임도헌   Modified  낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  */
 "use client";
 
@@ -42,6 +43,7 @@ import {
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
   isLikedScopeKey,
+  isProductListKeyForViewer,
   pickProductFromLists,
 } from "@/features/product/utils/productQueryCache";
 import { cn } from "@/lib/utils";
@@ -113,18 +115,23 @@ export default function ProductLikeButton({
     onMutate: async () => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey }),
-        queryClient.cancelQueries({ queryKey: queryKeys.products.lists() }),
         queryClient.cancelQueries({
-          predicate: (query) => isLikedScopeKey(query.queryKey),
+          predicate: (query) =>
+            isProductListKeyForViewer(query.queryKey, viewerId),
+        }),
+        queryClient.cancelQueries({
+          predicate: (query) =>
+            isLikedScopeKey(query.queryKey, viewerId),
         }),
       ]);
 
       const previousLikeStatus = queryClient.getQueryData(queryKey);
       const listQueries = queryClient.getQueriesData({
-        queryKey: queryKeys.products.lists(),
+        predicate: (query) =>
+          isProductListKeyForViewer(query.queryKey, viewerId),
       });
       const likedQueries = queryClient.getQueriesData({
-        predicate: (query) => isLikedScopeKey(query.queryKey),
+        predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
       });
 
       const nextLikeCount = data.isLiked
@@ -140,7 +147,10 @@ export default function ProductLikeButton({
 
       // 2) /products 목록 캐시 즉시 반영: 좋아요 수와 하트 강조 기준(isLiked)을 같이 갱신
       queryClient.setQueriesData(
-        { queryKey: queryKeys.products.lists() },
+        {
+          predicate: (query) =>
+            isProductListKeyForViewer(query.queryKey, viewerId),
+        },
         (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
           if (!oldData?.pages) return oldData;
           return {
@@ -167,7 +177,10 @@ export default function ProductLikeButton({
       // 3) 좋아요 취소 시 LIKED 목록에서 즉시 제거
       if (data.isLiked) {
         queryClient.setQueriesData(
-          { predicate: (query) => isLikedScopeKey(query.queryKey) },
+          {
+            predicate: (query) =>
+              isLikedScopeKey(query.queryKey, viewerId),
+          },
           (oldData: ProductInfiniteCache<{ id: number }> | undefined) => {
             if (!oldData?.pages) return oldData;
             return {
@@ -191,7 +204,10 @@ export default function ProductLikeButton({
         );
         if (snapshot) {
           queryClient.setQueriesData(
-            { predicate: (query) => isLikedScopeKey(query.queryKey) },
+            {
+              predicate: (query) =>
+                isLikedScopeKey(query.queryKey, viewerId),
+            },
             (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
               if (!oldData?.pages?.length) return oldData;
 
@@ -245,9 +261,12 @@ export default function ProductLikeButton({
       );
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.products.lists() });
       queryClient.invalidateQueries({
-        predicate: (query) => isLikedScopeKey(query.queryKey),
+        predicate: (query) =>
+          isProductListKeyForViewer(query.queryKey, viewerId),
+      });
+      queryClient.invalidateQueries({
+        predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
       });
     },
   });

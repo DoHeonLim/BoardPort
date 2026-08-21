@@ -17,6 +17,7 @@
  * 2026.01.27  임도헌   Modified  주석 보강 및 컴포넌트 구조 설명 추가
  * 2026.03.03  임도헌   Modified  Context Provider 래핑 제거 및 Suspense 적용
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.08.13  임도헌   Modified  댓글 작성 폼에 현재 조회자 ID 전달
  * ===============================================================================================
  * PostComment (게시글 댓글) 기능을 구성하는 컴포넌트들을 분리해 모아둔 디렉토리
  *
@@ -54,7 +55,7 @@ interface CommentProps {
 export default function PostComment({ postId, user }: CommentProps) {
   return (
     <div className="flex flex-col">
-      <PostCommentForm postId={postId} />
+      <PostCommentForm postId={postId} viewerId={user.id} />
 
       <Suspense fallback={<CommentSkeleton />}>
         <PostCommentList postId={postId} currentUser={user} />

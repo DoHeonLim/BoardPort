@@ -27,6 +27,7 @@
  * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여해 refetch 경고 방지
  * 2026.06.17  임도헌   Modified  낙관 반영 직후 좋아요 버튼이 흐려 보이지 않도록 pending opacity 제거
  * 2026.06.17  임도헌   Modified  계정 전환 시 이전 사용자의 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
+ * 2026.08.13  임도헌   Modified  낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  */
 "use client";
 
@@ -43,6 +44,7 @@ import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PostsPage } from "@/features/post/types";
+import { isPostListKeyForViewer } from "@/features/post/utils/postQueryCache";
 
 interface PostLikeButtonProps {
   postId: number;
@@ -94,13 +96,19 @@ export default function PostLikeButton({
     },
     // Mutate 발생 직후 실행 (낙관적 업데이트)
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey });
-      await queryClient.cancelQueries({ queryKey: queryKeys.posts.lists() });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey }),
+        queryClient.cancelQueries({
+          predicate: (query) =>
+            isPostListKeyForViewer(query.queryKey, viewerId),
+        }),
+      ]);
       // 롤백을 위한 이전 상태 스냅샷 저장
       const previous = queryClient.getQueryData(queryKey);
       const previousLists =
         queryClient.getQueriesData<InfiniteData<PostsPage>>({
-          queryKey: queryKeys.posts.lists(),
+          predicate: (query) =>
+            isPostListKeyForViewer(query.queryKey, viewerId),
         });
 
       const nextIsLiked = !data.isLiked;
@@ -116,7 +124,10 @@ export default function PostLikeButton({
 
       // 목록 카드는 별도 좋아요 버튼이 없지만 하트 색상은 isLiked 기준이므로 상세 변경을 즉시 반영
       queryClient.setQueriesData<InfiniteData<PostsPage>>(
-        { queryKey: queryKeys.posts.lists() },
+        {
+          predicate: (query) =>
+            isPostListKeyForViewer(query.queryKey, viewerId),
+        },
         (old) =>
           old
             ? {
@@ -153,7 +164,10 @@ export default function PostLikeButton({
     },
     // 성공/실패 무관하게 백그라운드 데이터 최신화
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.posts.lists() });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          isPostListKeyForViewer(query.queryKey, viewerId),
+      });
     },
   });
   const likeButtonLabel = data.isLiked

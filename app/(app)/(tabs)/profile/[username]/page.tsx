@@ -35,6 +35,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/page.tsx 에서 app/(app)/(tabs)/profile/[username]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.17  임도헌   Modified  prefetch 커서 타입을 명시
  * 2026.05.30  임도헌   Modified  타인 프로필 상단 액션바 높이와 좌우 여백을 압축
+ * 2026.08.13  임도헌   Modified  프로필 리뷰 prefetch cache를 조회자별로 분리
 */
 
 import { Metadata } from "next";
@@ -135,7 +136,7 @@ export default async function UserProfilePage({
 
     // TanStack Query Prefetch
     queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.reviews.user(userProfile.id),
+      queryKey: queryKeys.reviews.user(userProfile.id, viewerId),
       queryFn: () => getUserReviewsAction(userProfile.id, null),
       initialPageParam: null as number | null,
     }),
@@ -202,4 +203,3 @@ export default async function UserProfilePage({
     </div>
   );
 }
-

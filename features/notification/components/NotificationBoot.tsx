@@ -16,6 +16,7 @@
  * 2026.04.13  임도헌   Modified  NotificationListener를 동적 로딩으로 전환해 초기 공통 번들에서 실시간 구독 코드를 분리
  * 2026.04.13  임도헌   Modified  window load 이후 idle 시점으로 부팅을 더 미뤄 초기 products 렌더 경쟁을 완화
  * 2026.04.22  임도헌   Modified  스트림 상세에서는 운영 액션(강제 퇴장/채팅 금지/유저 차단) 실시간 반영을 위해 NotificationListener 부팅을 지연하지 않도록 보강
+ * 2026.08.13  임도헌   Modified  인증된 앱 진입 시 Push endpoint 계정 소유권 재확인 추가
  */
 
 "use client";
@@ -24,6 +25,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { MeResponse } from "@/app/api/me/route";
+import { usePushNotification } from "@/features/notification/hooks/usePushNotification";
 
 const NotificationListener = dynamic(
   () => import("@/features/notification/components/NotificationListener"),
@@ -40,12 +42,22 @@ type IdleWindow = Window &
   };
 
 /**
+ * migration에서 fail-closed로 비활성화된 기기를 포함해, 인증된
+ * 사용자가 앱에 진입하면 현재 endpoint+키 소유권을 재확인한다.
+ * 상태 UI는 설정 화면이 담당하므로 이 컴포넌트는 표시 요소가 없다.
+ */
+function PushSubscriptionReconciler() {
+  usePushNotification();
+  return null;
+}
+
+/**
  * 알림 시스템 부트스트랩 컴포넌트
  *
  * - `RootLayout`에 배치되어 앱이 로드될 때 실행
  * - 기본 경로에서는 앱 진입 직후가 아닌 유휴 시점에 `/api/me`를 1회 호출하여 현재 로그인된 유저 ID를 확인
  * - 스트림 상세 경로에서는 운영 액션 실시간 반영을 위해 지연 없이 즉시 부팅
- * - 유저 ID가 확인되면 `NotificationListener`를 렌더링하여 실시간 알림 구독을 시작
+ * - 유저 ID가 확인되면 Push 기기 소유권을 재확인하고 `NotificationListener`를 렌더링해 실시간 알림 구독을 시작
  * - 비로그인 상태이거나 에러 발생 시 아무것도 렌더링하지 않음
  */
 export default function NotificationBoot() {
@@ -143,5 +155,10 @@ export default function NotificationBoot() {
   }, [pathname]);
 
   if (!userId) return null;
-  return <NotificationListener userId={userId} />;
+  return (
+    <>
+      <PushSubscriptionReconciler />
+      <NotificationListener userId={userId} />
+    </>
+  );
 }

@@ -11,6 +11,7 @@
  * 2026.04.17  임도헌   Modified  공통 헤더 훅의 검색/필터/최근 검색어 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.06.15  임도헌   Modified  검색어 초기화 시 빈 키워드가 최근 검색어에 저장되지 않도록 방어
  * 2026.06.15  임도헌   Modified  제품 요약 영역에서 검색어만 남은 상태도 즉시 초기화할 수 있게 핸들러 제공
+ * 2026.08.13  임도헌   Modified  상품 헤더의 검색 기록 cache를 사용자별로 분리
  */
 
 import { useState } from "react";
@@ -22,6 +23,7 @@ import type { Category } from "@/generated/prisma/client";
 import type { FilterState } from "@/features/product/types";
 
 interface UseProductHeaderStateParams {
+  userId: number;
   categories: Category[];
   filters: FilterState;
   keyword?: string;
@@ -37,6 +39,7 @@ interface UseProductHeaderStateParams {
  * - 실제 검색 실행 시 검색어 갱신과 모달 닫힘을 같은 핸들러로 묶는다
  */
 export function useProductHeaderState({
+  userId,
   categories,
   filters,
   keyword,
@@ -49,7 +52,7 @@ export function useProductHeaderState({
     addHistory,
     removeHistory,
     clearHistory,
-  } = useSearchHistory(searchHistory);
+  } = useSearchHistory(userId, searchHistory);
 
   // 모바일/데스크톱 헤더 간 동일 기준의 필터 요약 문구 공유
   const { summary: filterSummary, activeFilterCount } = getProductHeaderSummary(

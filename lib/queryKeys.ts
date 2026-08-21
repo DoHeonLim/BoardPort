@@ -32,9 +32,12 @@
  * 2026.05.17  임도헌   Modified  query key 필터 객체 타입을 QueryKeyParams로 명시
  * 2026.06.07  임도헌   Modified  VOD 좋아요 상태 query key를 시청자별로 분리
  * 2026.06.17  임도헌   Modified  상품/게시글 좋아요 상태 query key도 시청자별로 분리
+ * 2026.08.13  임도헌   Modified  개인화 목록/댓글/검색 캐시를 조회자별로 분리
  */
 
 import type { QueryKeyParams } from "@/lib/types";
+
+const getViewerScope = (viewerId?: number | null) => viewerId ?? "guest";
 
 /**
  * 전역 TanStack Query 캐시 키 관리 팩토리
@@ -49,8 +52,12 @@ export const queryKeys = {
   products: {
     all: ["products"] as const,
     lists: () => [...queryKeys.products.all, "list"] as const,
-    list: (filters: QueryKeyParams) =>
-      [...queryKeys.products.lists(), filters] as const,
+    list: (filters: QueryKeyParams, viewerId: number | null) =>
+      [
+        ...queryKeys.products.lists(),
+        getViewerScope(viewerId),
+        filters,
+      ] as const,
     details: () => [...queryKeys.products.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.products.details(), id] as const,
     likeStatus: (productId: number, viewerId?: number | null) =>
@@ -68,12 +75,21 @@ export const queryKeys = {
   posts: {
     all: ["posts"] as const,
     lists: () => [...queryKeys.posts.all, "list"] as const,
-    list: (filters: QueryKeyParams) =>
-      [...queryKeys.posts.lists(), filters] as const,
+    list: (filters: QueryKeyParams, viewerId: number | null) =>
+      [
+        ...queryKeys.posts.lists(),
+        getViewerScope(viewerId),
+        filters,
+      ] as const,
     details: () => [...queryKeys.posts.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.posts.details(), id] as const,
-    comments: (postId: number) =>
-      [...queryKeys.posts.all, "comments", postId] as const,
+    comments: (postId: number, viewerId: number | null) =>
+      [
+        ...queryKeys.posts.all,
+        "comments",
+        postId,
+        getViewerScope(viewerId),
+      ] as const,
     stats: (postId: number) =>
       [...queryKeys.posts.detail(postId), "stats"] as const,
     likeStatus: (postId: number, viewerId?: number | null) =>
@@ -87,8 +103,13 @@ export const queryKeys = {
   // 3. 리뷰(Review) 도메인
   reviews: {
     all: ["reviews"] as const,
-    user: (userId: number) =>
-      [...queryKeys.reviews.all, "user", userId] as const,
+    user: (userId: number, viewerId: number | null) =>
+      [
+        ...queryKeys.reviews.all,
+        "user",
+        userId,
+        getViewerScope(viewerId),
+      ] as const,
   },
 
   // 4. 채팅(Chat) 도메인
@@ -106,15 +127,43 @@ export const queryKeys = {
   streams: {
     all: ["streams"] as const,
     lists: () => [...queryKeys.streams.all, "list"] as const,
-    list: (scope: string, filters: QueryKeyParams) =>
-      [...queryKeys.streams.lists(), scope, filters] as const,
+    list: (
+      scope: string,
+      filters: QueryKeyParams,
+      viewerId: number | null
+    ) =>
+      [
+        ...queryKeys.streams.lists(),
+        scope,
+        getViewerScope(viewerId),
+        filters,
+      ] as const,
     recordingLists: () => [...queryKeys.streams.all, "recordings"] as const,
-    recordingList: (scope: string, filters: QueryKeyParams) =>
-      [...queryKeys.streams.recordingLists(), scope, filters] as const,
-    channelRecordings: (ownerId: number) =>
-      [...queryKeys.streams.all, "channelRecordings", ownerId] as const,
-    vodComments: (vodId: number) =>
-      [...queryKeys.streams.all, "vodComments", vodId] as const,
+    recordingList: (
+      scope: string,
+      filters: QueryKeyParams,
+      viewerId: number | null
+    ) =>
+      [
+        ...queryKeys.streams.recordingLists(),
+        scope,
+        getViewerScope(viewerId),
+        filters,
+      ] as const,
+    channelRecordings: (ownerId: number, viewerId: number | null) =>
+      [
+        ...queryKeys.streams.all,
+        "channelRecordings",
+        ownerId,
+        getViewerScope(viewerId),
+      ] as const,
+    vodComments: (vodId: number, viewerId: number | null) =>
+      [
+        ...queryKeys.streams.all,
+        "vodComments",
+        vodId,
+        getViewerScope(viewerId),
+      ] as const,
     recordingStats: (vodId: number) =>
       [...queryKeys.streams.all, "vod", vodId, "stats"] as const,
     likeStatus: (vodId: number, viewerId?: number | null) =>
@@ -130,20 +179,34 @@ export const queryKeys = {
   // 6. 유저(User) 도메인
   users: {
     all: ["users"] as const,
-    followStats: (userId: number) =>
-      [...queryKeys.users.all, "followStats", userId] as const,
+    followStats: (userId: number, viewerId: number | null) =>
+      [
+        ...queryKeys.users.all,
+        "followStats",
+        userId,
+        getViewerScope(viewerId),
+      ] as const,
   },
 
   follows: {
     all: ["follows"] as const,
     user: (username: string) => [...queryKeys.follows.all, username] as const,
-    list: (username: string, type: "followers" | "following") =>
-      [...queryKeys.follows.user(username), type] as const,
+    list: (
+      username: string,
+      type: "followers" | "following",
+      viewerId: number | null
+    ) =>
+      [
+        ...queryKeys.follows.user(username),
+        type,
+        getViewerScope(viewerId),
+      ] as const,
   },
 
   search: {
     all: ["search"] as const,
-    history: () => [...queryKeys.search.all, "history"] as const,
+    history: (userId: number) =>
+      [...queryKeys.search.all, "history", userId] as const,
   },
 
   // 7. 보드게임 도감(BoardGame) 도메인

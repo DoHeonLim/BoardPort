@@ -69,9 +69,9 @@
 `lib/queryKeys.ts`를 cache identity의 단일 기준으로 사용했습니다.
 
 ```ts
-queryKeys.products.list(filters);
-queryKeys.posts.comments(postId);
-queryKeys.streams.vodComments(vodId);
+queryKeys.products.list(filters, viewerId);
+queryKeys.posts.comments(postId, viewerId);
+queryKeys.streams.vodComments(vodId, viewerId);
 queryKeys.chats.unreadCount(userId);
 ```
 

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   삭제된 게시글을 infinite cache와 nextCursor에서 제거하는 유틸 분리
+ * 2026.08.13  임도헌   Modified  게시글 목록 캐시 판별을 현재 조회자 범위로 제한
  */
 
 export type PostInfiniteCache<T extends { id: number }> = {
@@ -16,6 +17,22 @@ export type PostInfiniteCache<T extends { id: number }> = {
   }>;
   pageParams?: unknown[];
 };
+
+const getViewerScope = (viewerId: number | null) => viewerId ?? "guest";
+
+/** posts/list/{viewerId}/{filters} 구조에서 현재 조회자의 목록 키인지 판별 */
+export function isPostListKeyForViewer(
+  key: readonly unknown[],
+  viewerId: number | null
+) {
+  return (
+    Array.isArray(key) &&
+    key.length >= 4 &&
+    key[0] === "posts" &&
+    key[1] === "list" &&
+    key[2] === getViewerScope(viewerId)
+  );
+}
 
 /**
  * infinite query 캐시에서 삭제된 게시글과 해당 게시글을 가리키는 nextCursor를 함께 제거

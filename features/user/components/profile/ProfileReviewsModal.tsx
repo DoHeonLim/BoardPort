@@ -23,6 +23,7 @@
  * 2026.03.22  임도헌   Modified   뱃지 컬렉션 모달과 모션 규칙을 맞추기 위해 진입 transform 애니메이션 제거
  * 2026.04.08  임도헌   Modified   모바일에서는 공용 BottomSheet를 사용해 후기 전체 보기 흐름을 다른 프로필 오버레이와 통일
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.13  임도헌   Modified  리뷰 목록에 차단 필터 기준 조회자 ID 전달
  */
 
 import { useEffect, useRef, Suspense } from "react";
@@ -37,6 +38,7 @@ interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: number;
+  viewerId?: number | null;
 }
 
 /**
@@ -51,6 +53,7 @@ export default function ProfileReviewsModal({
   isOpen,
   onClose,
   userId,
+  viewerId = null,
 }: ReviewModalProps) {
   const isMobile = useIsMobile();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -88,7 +91,11 @@ export default function ProfileReviewsModal({
         <div className="size-6 mx-auto mt-10 border-2 border-brand border-t-transparent rounded-full animate-spin" />
       }
     >
-      <ReviewsList userId={userId} scrollParentRef={scrollAreaRef} />
+      <ReviewsList
+        userId={userId}
+        viewerId={viewerId}
+        scrollParentRef={scrollAreaRef}
+      />
     </Suspense>
   );
 
