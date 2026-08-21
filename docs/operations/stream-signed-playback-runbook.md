@@ -23,6 +23,18 @@ signing private JWK는 API token과 같은 서버 비밀이다. 브라우저 환
 
 ## 3. 기존 Live Input·VOD backfill
 
+BoardPort 운영 DB에 연결된 자산은 아래 스크립트로 조회·적용한다. 기본 실행은
+dry-run이며 Cloudflare 설정을 변경하지 않는다. 대상 개수가 Live Input 5개, VOD
+7개와 다르면 실제 적용 전에 중단한다.
+
+```bash
+npm run backfill:stream-signed-playback
+npm run backfill:stream-signed-playback -- --apply
+```
+
+스크립트는 `.env`를 직접 파싱하므로 shell에서 `source .env`를 실행하지 않는다.
+전체 UID와 Live Input의 송출 키는 출력하지 않으며, 이미 적용된 자산은 건너뛴다.
+
 각 `LiveInput.provider_uid`에 대해 먼저 현재 Live Input 설정을 조회한다. 아래 값만 보낸다고 가정하지 말고 기존 `recording.mode`, `timeoutSeconds`, `allowedOrigins`, `hideLiveViewerCount`를 보존한 상태에서 `requireSignedURLs`만 `true`로 병합해 update한다.
 
 아래 값은 구조 예시다. `timeoutSeconds`, `allowedOrigins`, `hideLiveViewerCount`는 조회한 현재 값 또는 승인된 변경값으로 대체하고 그대로 복사하지 않는다.
@@ -80,3 +92,10 @@ signing private JWK는 API token과 같은 서버 비밀이다. 브라우저 환
 - [Cloudflare Stream signed URLs](https://developers.cloudflare.com/stream/viewing-videos/securing-your-stream/)
 - [Cloudflare Stream live input 생성](https://developers.cloudflare.com/stream/stream-live/start-stream-live/)
 - [Cloudflare Stream 라이브 재생](https://developers.cloudflare.com/stream/stream-live/watch-live-stream/)
+
+## 7. 실행 기록
+
+- `2026.08.21`: Production에서 RS256 token 기반 VOD thumbnail과 녹화본 재생을 확인했다.
+- `2026.08.21`: 운영 DB 대상 dry-run에서 Live Input 5개와 VOD 7개가 모두 `requireSignedURLs=false`임을 확인했다.
+- `2026.08.21`: 12개 자산을 모두 `true`로 전환했으며 적용 직후 검증과 재실행 dry-run에서 Live Input 5/5, VOD 7/7을 확인했다.
+- 전체 UID, 송출 키와 signing private JWK는 실행 로그에 기록하지 않았다.

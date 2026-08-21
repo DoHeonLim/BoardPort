@@ -1,5 +1,8 @@
 name: E2E
 
+# History
+# 2026.08.21: VOD signed playback용 임시 RSA key와 Next server 실패 로그 수집 추가
+
 # develop 통합 PR과 master 릴리즈 PR에서 seed 기반 회귀 확인
 on:
   pull_request:
@@ -60,6 +63,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      # E2E seed UID는 실제 Cloudflare 자산이 아니므로 Production private JWK를
+      # 복사하지 않고 workflow 실행마다 token 생성 전용 RSA key를 새로 만든다.
+      - name: Generate E2E Stream signing key
+        run: node scripts/generate-e2e-stream-signing-key.mjs
+
       - name: Validate E2E secrets
         run: |
           test -n "$DATABASE_URL"
@@ -69,6 +77,8 @@ jobs:
           test -n "$NEXT_PUBLIC_SUPABASE_PUBLIC_KEY"
           test -n "$NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH"
           test -n "$NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN"
+          test -n "$CLOUDFLARE_STREAM_SIGNING_KEY_ID"
+          test -n "$CLOUDFLARE_STREAM_SIGNING_KEY_JWK"
 
       - name: Install dependencies
         run: npm ci
@@ -118,5 +128,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: playwright-results
-          path: test-results
+          path: |
+            test-results
+            /tmp/boardport-next.log
           if-no-files-found: ignore
