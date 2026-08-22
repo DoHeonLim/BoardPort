@@ -25,11 +25,16 @@
  * 2026.05.03  임도헌   Modified  상품 수정 시 보드게임 카탈로그 연결 교체 저장 추가
  * 2026.05.03  임도헌   Modified  상품-보드게임 연결 교체 정책 주석 보강
  * 2026.06.18  임도헌   Modified  거래 기준 지역 필수 정책에 맞춰 위치 삭제 저장 경로 제거
+ * 2026.08.21  임도헌   Modified  가격 인하 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
  */
 import "server-only";
 
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  notificationRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import { getBlockedUserIds } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
@@ -100,7 +105,7 @@ async function notifyPriceDrop(params: {
 
       // In-app Broadcast
       tasks.push(
-        supabase.channel(`user-${userId}-notifications`).send({
+        supabase.channel(notificationRealtimeTopic(userId)).send({
           type: "broadcast",
           event: "notification",
           payload: {
@@ -173,7 +178,7 @@ async function notifyPriceDropInChats(
       include: { user: { select: { id: true, username: true, avatar: true } } },
     });
 
-    await supabase.channel(`room-${room.id}`).send({
+    await supabase.channel(productChatRealtimeTopic(room.id)).send({
       type: "broadcast",
       event: "message",
       payload: mapToChatMessage(sysMsg),

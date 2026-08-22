@@ -19,10 +19,12 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  댓글 삭제에도 정지 유저 가드 적용 및 실패 문구 구체화
  * 2026.06.21  임도헌   Modified  게시글 댓글 작성 시 작성자에게 인앱/푸시 알림 전송 추가
+ * 2026.08.21  임도헌   Modified  댓글 알림 발신을 서버 전용 private topic으로 전환
  */
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { badgeChecks } from "@/features/user/service/badge";
 import {
   getBlockedUserIds,
@@ -148,7 +150,7 @@ async function notifyPostOwnerOnComment({
       },
     });
 
-    await supabase.channel(`user-${ownerId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(ownerId)).send({
       type: "broadcast",
       event: "notification",
       payload: {

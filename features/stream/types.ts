@@ -26,6 +26,7 @@
  * 2026.05.08  임도헌   Modified  서비스 상세 DTO와 목록 액션 응답 타입을 types.ts로 이동
  * 2026.05.16  임도헌   Modified  접근/상태 헬퍼를 utils/access.ts로 분리해 타입 파일 역할 정리
  * 2026.05.16  임도헌   Modified  live-status Realtime payload 공용 타입 추가
+ * 2026.08.21  임도헌   Modified  방송 상태 payload를 식별자-only 내부 타입으로 축소하며 공용 타입 제거
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 추가
  * 2026.05.18  임도헌   Modified  다시보기 카드 통계 메타 표시를 위한 likeCount/commentCount/isLiked 필드 추가
  * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
@@ -251,15 +252,6 @@ export type CreateBroadcastResult =
 export interface StreamMetaUpdatePayload {
   title: string;
   description: string | null;
-}
-
-/** Supabase live-status 브로드캐스트 payload */
-export interface StreamRealtimeStatusPayload {
-  broadcastId?: number;
-  status?: string;
-  ownerId?: number;
-  token?: string;
-  ts?: number;
 }
 
 /** Cloudflare Stream 상태 필드 원본 형태 */

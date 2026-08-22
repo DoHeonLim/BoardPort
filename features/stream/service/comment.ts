@@ -15,11 +15,13 @@
  * 2026.05.16  임도헌   Modified  댓글 목록 where 조건 타입 명시
  * 2026.06.21  임도헌   Modified  녹화본 댓글 작성 시 방송 주인에게 인앱/푸시 알림 전송 추가
  * 2026.08.21  임도헌   Modified  댓글 조회·생성·삭제 전에 부모 방송 접근 권한 검증 추가
+ * 2026.08.21  임도헌   Modified  녹화본 댓글 알림 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   checkBlockRelation,
@@ -86,7 +88,7 @@ async function notifyStreamerOnRecordingComment({
       },
     });
 
-    await supabase.channel(`user-${ownerId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(ownerId)).send({
       type: "broadcast",
       event: "notification",
       payload: {

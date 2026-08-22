@@ -9,14 +9,19 @@
  * 2026.05.18  임도헌   Modified  탭 밖 채팅 상세까지 포함하도록 앱 전역 브리지 역할로 설명 보강
  * 2026.05.18  임도헌   Modified  초기 렌더 중 Server Action 재호출을 피하도록 마운트 직후 목록 invalidate 제거
  * 2026.05.18  임도헌   Modified  rooms_refresh 수신 시 미읽음 수 query를 비활성 상태까지 재검증하도록 보강
+ * 2026.08.21  임도헌   Modified  사용자별 목록 갱신 채널을 JWT 인증 private 구독으로 전환
  */
 "use client";
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import {
+  subscribePrivateRealtimeChannel,
+  supabase,
+} from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryKeys";
 import { CHAT_EVENT } from "@/features/chat/constants";
+import { chatRoomsRealtimeTopic } from "@/features/realtime/topics";
 
 interface ChatRoomsRealtimeBridgeProps {
   userId: number;
@@ -39,6 +44,7 @@ export default function ChatRoomsRealtimeBridge({
 
   useEffect(() => {
     let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let authorizationController: AbortController | null = null;
     const listQueryKey = queryKeys.chats.list(userId);
     const unreadQueryKey = queryKeys.chats.unreadCount(userId);
 
@@ -58,14 +64,26 @@ export default function ChatRoomsRealtimeBridge({
       if (activeChannel) return;
 
       activeChannel = supabase
-        .channel(`user-${userId}-chat-rooms`)
-        .on("broadcast", { event: CHAT_EVENT.ROOMS_REFRESH }, refreshChatSummaries)
-        .subscribe();
+        .channel(chatRoomsRealtimeTopic(userId), {
+          config: { private: true },
+        })
+        .on(
+          "broadcast",
+          { event: CHAT_EVENT.ROOMS_REFRESH },
+          refreshChatSummaries
+        );
+      authorizationController = new AbortController();
+      void subscribePrivateRealtimeChannel(
+        activeChannel,
+        authorizationController.signal
+      );
     };
 
     const unsubscribe = () => {
       if (!activeChannel) return;
 
+      authorizationController?.abort();
+      authorizationController = null;
       void supabase.removeChannel(activeChannel);
       activeChannel = null;
     };

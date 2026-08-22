@@ -23,6 +23,7 @@
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 명시
  * 2026.06.25  임도헌   Modified  production secret 누락 시 Stream/Destination 웹훅 fail-closed 처리
  * 2026.08.21  임도헌   Modified  클라이언트 상태 이벤트에서 원본 Live Input UID를 제거하고 Broadcast PK 사용
+ * 2026.08.21  임도헌   Modified  방송 상태 이벤트를 식별자-only private 무효화 신호로 축소
  */
 
 import "server-only";
@@ -482,8 +483,6 @@ async function onConnected(liveInputUid: string) {
     try {
       await sendLiveStatusFromServer?.({
         broadcastId: updated.id,
-        status: "CONNECTED",
-        ownerId: li.userId,
       });
     } catch {}
     // 방송 시작 알림: 팔로워에게 STREAM 알림 + 푸시
@@ -536,8 +535,6 @@ async function onDisconnected(liveInputUid: string) {
       revalidateTag(T.BROADCAST_DETAIL(b.id));
       await sendLiveStatusFromServer?.({
         broadcastId: b.id,
-        status: "ENDED",
-        ownerId: li.userId,
       });
     } catch {}
   }

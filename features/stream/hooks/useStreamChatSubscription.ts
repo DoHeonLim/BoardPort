@@ -18,13 +18,20 @@
  * 2026.04.03  임도헌   Modified  고정 공지 변경 이벤트 구독과 콜백 지원 추가
  * 2026.04.07  임도헌   Modified  방송 제목/설명 변경 이벤트 구독과 콜백 지원 추가
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.21  임도헌   Modified  방송 채팅 topic 분리와 JWT 인증 private 구독 적용
+ * 2026.08.21  임도헌   Modified  재연결·탭 복귀 시 상위 DB 재조회 콜백 호출
+ * 2026.08.22  임도헌   Modified  수신 전용 경계에 맞춰 불필요한 채널 state·반환 제거
  */
 
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useRef } from "react";
+import {
+  subscribePrivateRealtimeChannel,
+  supabase,
+} from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { StreamChatMessage } from "@/features/chat/types";
 import type { StreamMetaUpdatePayload } from "@/features/stream/types";
+import { streamChatRealtimeTopic } from "@/features/realtime/topics";
 
 interface Props {
   streamChatRoomId: number;
@@ -33,8 +40,8 @@ interface Props {
   onDelete?: (payload: { messageId: number; deleted_at: Date }) => void;
   onPinnedNoticeUpdate?: (payload: { notice: string | null }) => void;
   onStreamMetaUpdate?: (payload: StreamMetaUpdatePayload) => void;
+  onResync?: () => void;
   eventName?: string; // 기본 "message"
-  channelName?: string; // 기본 `room-${id}`
   ignoreSelf?: boolean; // 기본 true → 낙관X 플로우에서는 false로 설정
 }
 
@@ -65,8 +72,6 @@ interface StreamMetaEnvelope {
  * 2. 메시지 ID를 기반으로 중복 수신을 방지
  * 3. `ignoreSelf` 옵션으로 내가 보낸 메시지를 무시할지 결정
  * 4. 메시지 삭제, 상단 고정 공지, 방송 메타(title/description) 변경 이벤트도 함께 구독
- *
- * @returns {RealtimeChannel | null} 생성된 채널 인스턴스 (전송용으로 재사용 가능)
  */
 export default function useStreamChatSubscription({
   streamChatRoomId,
@@ -75,14 +80,10 @@ export default function useStreamChatSubscription({
   onDelete,
   onPinnedNoticeUpdate,
   onStreamMetaUpdate,
+  onResync,
   eventName = "message",
-  channelName,
   ignoreSelf = true,
 }: Props) {
-  const [channelState, setChannelState] = useState<RealtimeChannel | null>(
-    null
-  );
-
   const onReceiveRef = useRef(onReceive);
   useEffect(() => {
     onReceiveRef.current = onReceive;
@@ -103,12 +104,22 @@ export default function useStreamChatSubscription({
     onStreamMetaUpdateRef.current = onStreamMetaUpdate;
   }, [onStreamMetaUpdate]);
 
+  const onResyncRef = useRef(onResync);
+  useEffect(() => {
+    onResyncRef.current = onResync;
+  }, [onResync]);
+
   const seenIdsRef = useRef<Set<string | number>>(new Set());
 
   useEffect(() => {
-    const name = channelName ?? `room-${streamChatRoomId}`;
-    const channel: RealtimeChannel = supabase.channel(name);
-    setChannelState(channel);
+    const authorizationController = new AbortController();
+    let hasSubscribed = false;
+    const channel: RealtimeChannel = supabase.channel(
+      streamChatRealtimeTopic(streamChatRoomId),
+      {
+        config: { private: true },
+      }
+    );
 
     const handler = (env: BroadcastEnvelope<StreamChatMessage>) => {
       const msg = env?.payload;
@@ -174,9 +185,23 @@ export default function useStreamChatSubscription({
       { event: "stream_meta_updated" },
       streamMetaHandler
     );
-    channel.subscribe();
+    void subscribePrivateRealtimeChannel(
+      channel,
+      authorizationController.signal,
+      (status) => {
+        if (status !== "SUBSCRIBED") return;
+        if (hasSubscribed) onResyncRef.current?.();
+        hasSubscribed = true;
+      }
+    );
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") onResyncRef.current?.();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      authorizationController.abort();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       try {
         channel.unsubscribe();
       } catch {}
@@ -184,7 +209,5 @@ export default function useStreamChatSubscription({
         supabase.removeChannel(channel);
       } catch {}
     };
-  }, [streamChatRoomId, userId, eventName, channelName, ignoreSelf]);
-
-  return channelState;
+  }, [streamChatRoomId, userId, eventName, ignoreSelf]);
 }

@@ -36,12 +36,17 @@
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  * 2026.04.02  임도헌   Modified  거래 helper JSDoc 보강
  * 2026.04.04  임도헌   Modified  거래 상태 전이/알림/시스템 메시지 단계의 인라인 주석 보강
+ * 2026.08.21  임도헌   Modified  거래 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  notificationRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import { badgeChecks } from "@/features/user/service/badge";
 import { validateUserStatus } from "@/features/user/service/admin";
 import {
@@ -155,7 +160,7 @@ async function dispatchSystemMessage(
     });
 
     // 해당 채팅방 실시간 브로드캐스트
-    await supabase.channel(`room-${room.id}`).send({
+    await supabase.channel(productChatRealtimeTopic(room.id)).send({
       type: "broadcast",
       event: "message",
       payload: mapToChatMessage(sysMsg),
@@ -297,7 +302,7 @@ export async function updateProductStatus(
 
       // 약속 취소 결과의 채팅방 브로드캐스트
       for (const apt of affectedApts) {
-        await supabase.channel(`room-${apt.chatRoomId}`).send({
+        await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
           type: "broadcast",
           event: "appointment_update",
           payload: { id: apt.id, status: "CANCELED" },
@@ -337,7 +342,7 @@ export async function updateProductStatus(
 
         const tasks: Promise<unknown>[] = [];
         tasks.push(
-          supabase.channel(`user-${targetNotiId}-notifications`).send({
+          supabase.channel(notificationRealtimeTopic(targetNotiId)).send({
             type: "broadcast",
             event: "notification",
             payload: {
@@ -443,7 +448,7 @@ export async function updateProductStatus(
 
       // 약속 취소 결과의 채팅방 브로드캐스트
       for (const apt of affectedApts) {
-        await supabase.channel(`room-${apt.chatRoomId}`).send({
+        await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
           type: "broadcast",
           event: "appointment_update",
           payload: { id: apt.id, status: "CANCELED" },
@@ -494,7 +499,7 @@ export async function updateProductStatus(
           },
         });
         tasks.push(
-          supabase.channel(`user-${userId}-notifications`).send({
+          supabase.channel(notificationRealtimeTopic(userId)).send({
             type: "broadcast",
             event: "notification",
             payload: {
@@ -540,7 +545,7 @@ export async function updateProductStatus(
           },
         });
         tasks.push(
-          supabase.channel(`user-${buyerId}-notifications`).send({
+          supabase.channel(notificationRealtimeTopic(buyerId)).send({
             type: "broadcast",
             event: "notification",
             payload: {
@@ -641,7 +646,7 @@ export async function updateProductStatus(
 
     // 약속 취소 결과의 채팅방 브로드캐스트
     for (const apt of affectedApts) {
-      await supabase.channel(`room-${apt.chatRoomId}`).send({
+      await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
         type: "broadcast",
         event: "appointment_update",
         payload: { id: apt.id, status: "CANCELED" },
@@ -695,7 +700,7 @@ export async function updateProductStatus(
 
         const tasks: Promise<unknown>[] = [];
         tasks.push(
-          supabase.channel(`user-${canceledUserId}-notifications`).send({
+          supabase.channel(notificationRealtimeTopic(canceledUserId)).send({
             type: "broadcast",
             event: "notification",
             payload: {

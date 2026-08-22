@@ -26,16 +26,21 @@
  * 2026.04.22  임도헌   Modified  개인 sys_event를 전역 브리지 이벤트로 발행해 스트림 상세 운영 액션(강제 퇴장/채팅 금지/유저 차단)의 실시간 반영 경로를 단일화
  * 2026.05.17  임도헌   Modified  pagehide/hidden 상태에서 알림 채널을 정리하고 복귀 시 unread count를 서버 기준으로 재동기화
  * 2026.05.18  임도헌   Modified  채팅 알림 수신 시 TabBar 미읽음 query도 함께 재검증
+ * 2026.08.21  임도헌   Modified  세션 JWT 인증 후 사용자 전용 private 채널만 구독
  */
 "use client";
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import {
+  subscribePrivateRealtimeChannel,
+  supabase,
+} from "@/lib/supabase";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { queryKeys } from "@/lib/queryKeys";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 
 type NotiPayload = {
   id?: number;
@@ -71,7 +76,7 @@ function getCurrentPath() {
  * 전역 실시간 웹소켓 알림 및 시스템 이벤트 리스너 컴포넌트
  *
  * [상태 주입 및 보안 제어 로직]
- * - Supabase `user-{id}-notifications` 개인 채널 구독을 통한 데이터 실시간 수신
+ * - 세션 JWT로 보호된 사용자 개인 채널 구독을 통한 데이터 실시간 수신
  * - 새 알림 수신 시 Zustand 스토어의 `increment` 액션을 명시적으로 호출하여 뱃지 상태 동기화
  * - 사용자가 현재 보고 있는 화면(채팅방 등)과 동일한 컨텍스트의 알림 수신 시 토스트 알림 생략 처리(Flicker 방지)
  * - `sys_event` 수신 시 스트림 상세가 재사용하는 전역 브리지 이벤트를 먼저 발행
@@ -120,9 +125,10 @@ export default function NotificationListener({ userId }: { userId: number }) {
   useEffect(() => {
     if (!userId) return;
 
-    const channelName = `user-${userId}-notifications`;
+    const channelName = notificationRealtimeTopic(userId);
     let mounted = true;
     let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let authorizationController: AbortController | null = null;
 
     const syncUnreadCount = async () => {
       const nextCount = await getUnreadNotificationCount();
@@ -145,7 +151,9 @@ export default function NotificationListener({ userId }: { userId: number }) {
     const subscribe = () => {
       if (activeChannel) return;
 
-      const channel = supabase.channel(channelName);
+      const channel = supabase.channel(channelName, {
+        config: { private: true },
+      });
 
       channel.on("broadcast", { event: "notification" }, async ({ payload }) => {
         const p = payload as Partial<NotiPayload>;
@@ -228,7 +236,11 @@ export default function NotificationListener({ userId }: { userId: number }) {
         }
       });
 
-      channel.subscribe();
+      authorizationController = new AbortController();
+      void subscribePrivateRealtimeChannel(
+        channel,
+        authorizationController.signal
+      );
       activeChannel = channel;
     };
 
@@ -236,6 +248,8 @@ export default function NotificationListener({ userId }: { userId: number }) {
       if (!activeChannel) return;
       const channel = activeChannel;
       activeChannel = null;
+      authorizationController?.abort();
+      authorizationController = null;
 
       channel.unsubscribe();
       // 언마운트/페이지 이탈/백그라운드 전환 시 채널 객체까지 제거해 WebSocket 상주 시간을 줄임

@@ -5,6 +5,8 @@
 # History
 # Date        Author   Status    Description
 # 2026.08.21  임도헌   Modified  PostgreSQL 기반 Push ownership migration 통합 검증 추가
+# 2026.08.21  임도헌   Modified  Realtime Authorization RLS migration 통합 검증 추가
+# 2026.08.21  임도헌   Modified  Realtime JWT placeholder를 ES256 private JWK 변수로 전환
 
 name: CI
 
@@ -51,11 +53,14 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
       PUSH_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      REALTIME_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLIC_KEY: ci-supabase-public-key
+      SUPABASE_SECRET_KEY: ci-supabase-secret-key
+      SUPABASE_REALTIME_SIGNING_KEY_JWK: ci-realtime-signing-key-placeholder
       KAKAO_CLIENT_ID: ci-kakao-client-id
       KAKAO_CLIENT_SECRET: ci-kakao-client-secret
       KAKAO_REDIRECT_URI: http://127.0.0.1:3000/kakao/callback
@@ -94,6 +99,9 @@ jobs:
 
       - name: Run Push ownership migration integration test
         run: npm run test:migration:push
+
+      - name: Run Realtime authorization migration integration test
+        run: npm run test:migration:realtime
 
       - name: Run type check
         run: npx tsc --noEmit

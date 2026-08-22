@@ -14,6 +14,8 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 검증 항목:
 
 - `npm run test`
+- `npm run test:migration:push`
+- `npm run test:migration:realtime`
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm run build`
@@ -46,7 +48,9 @@ GitHub Actions에서 E2E를 실행하려면 아래 secrets를 설정합니다.
 | `E2E_DIRECT_URL` | E2E seed/cleanup용 직접 DB 연결 문자열 |
 | `E2E_COOKIE_PASSWORD` | iron-session 쿠키 암호화 키 |
 | `E2E_NEXT_PUBLIC_SUPABASE_URL` | E2E Supabase URL |
-| `E2E_NEXT_PUBLIC_SUPABASE_PUBLIC_KEY` | E2E Supabase anon key |
+| `E2E_NEXT_PUBLIC_SUPABASE_PUBLIC_KEY` | E2E Supabase publishable key |
+| `E2E_SUPABASE_SECRET_KEY` | private Broadcast 서버 발신용 E2E Supabase secret key |
+| `E2E_SUPABASE_REALTIME_SIGNING_KEY_JWK` | BoardPort Realtime 단기 JWT 서명용 E2E Supabase ES256 private JWK의 base64 값 |
 | `E2E_NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH` | E2E 이미지 delivery hash |
 | `E2E_NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN` | E2E Stream/VOD 재생 도메인 |
 

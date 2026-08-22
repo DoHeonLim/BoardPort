@@ -18,9 +18,10 @@
  * 2026.05.29  임도헌   Modified  모바일 판정, 수동 상단바 토글, 채팅 플로팅 재진입 기준 정리
  * 2026.05.29  임도헌   Modified  채팅 열림 상태에 따라 방송 정보 높이 제한과 스크롤 기준 적용
  * 2026.08.21  임도헌   Modified  실시간 상태 이벤트를 Cloudflare UID 대신 내부 방송 ID로 매칭
+ * 2026.08.21  임도헌   Modified  실시간 payload 직접 반영 대신 router refresh 결과로 방송 상태 재검증
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import type { StreamChatMessage } from "@/features/chat/types";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
@@ -108,16 +109,6 @@ export default function StreamDetailClientShell({
   const shouldShowTopbar =
     isViewportReady &&
     (!isMobile || (isMobileTopbarVisible && !isChatFocusMode));
-  const handleRealtimeStatus = useCallback((payload: { status?: string }) => {
-    if (!payload.status) return;
-
-    // live-status의 현재 방송 상태를 셸 상태에 먼저 반영해 iframe/오버레이 조건을 즉시 동기화
-    setStreamState((prev) => ({
-      ...prev,
-      status: payload.status ?? prev.status,
-    }));
-  }, []);
-
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) {
       setIsKeyboardOpen(false);
@@ -149,11 +140,8 @@ export default function StreamDetailClientShell({
 
   return (
     <div className="flex h-[var(--stream-visual-viewport-height,100dvh)] flex-col overflow-hidden bg-background transition-colors lg:h-auto lg:min-h-[100dvh] lg:overflow-visible">
-      {/* 상세 전체가 공유하는 live-status 구독 지점을 셸 레벨에 고정 */}
-      <LiveStatusRealtimeSubscriber
-        broadcastId={streamId}
-        onStatus={handleRealtimeStatus}
-      />
+      {/* 상세 전체가 공유하는 private 방송 상태 구독을 셸 레벨에 고정 */}
+      <LiveStatusRealtimeSubscriber broadcastId={streamId} />
 
       {shouldShowTopbar && (
         <StreamTopbar

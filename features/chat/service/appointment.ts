@@ -18,11 +18,16 @@
  * 2026.06.21  임도헌   Modified  약속 제안 수신자에게 거래 알림 전송 추가
  * 2026.06.21  임도헌   Modified  약속 취소/거절 결과를 상대방에게 거래 알림으로 전송
  * 2026.06.21  임도헌   Modified  약속 수락 알림 실패가 수락 처리를 막지 않도록 정리
+ * 2026.08.21  임도헌   Modified  알림·상품 채팅 발신을 서버 전용 private Broadcast로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  notificationRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
@@ -77,7 +82,7 @@ async function sendAppointmentTradeNotification({
       },
     });
 
-    await supabase.channel(`user-${targetUserId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
       type: "broadcast",
       event: "notification",
       payload: { ...notification },
@@ -255,7 +260,7 @@ export async function proposeAppointment(
     // 5. 실시간 브로드캐스트
     // - 취소된 약속들에 대한 상태 업데이트 전송
     for (const oldApt of pendingApts) {
-      await supabase.channel(`room-${chatRoomId}`).send({
+      await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
         type: "broadcast",
         event: "appointment_update",
         payload: { id: oldApt.id, status: "CANCELED" },
@@ -264,7 +269,7 @@ export async function proposeAppointment(
 
     // - 새 약속 제안 메시지 전송
     const chatMessage = mapToChatMessage(result);
-    await supabase.channel(`room-${chatRoomId}`).send({
+    await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
       type: "broadcast",
       event: "message",
       payload: chatMessage,
@@ -454,19 +459,19 @@ export async function acceptAppointment(
     });
 
     // 5. 실시간 이벤트 전송 (Fire & Forget)
-    void supabase.channel(`room-${apt.chatRoomId}`).send({
+    void supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
       type: "broadcast",
       event: "message",
       payload: mapToChatMessage(sysMsg),
     });
-    void supabase.channel(`room-${apt.chatRoomId}`).send({
+    void supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
       type: "broadcast",
       event: "appointment_update",
       payload: { id: appointmentId, status: "ACCEPTED" },
     });
 
     for (const canceled of canceledApts) {
-      void supabase.channel(`room-${canceled.chatRoomId}`).send({
+      void supabase.channel(productChatRealtimeTopic(canceled.chatRoomId)).send({
         type: "broadcast",
         event: "appointment_update",
         payload: { id: canceled.id, status: "CANCELED" },
@@ -604,14 +609,14 @@ export async function cancelAppointment(
     });
 
     // 상태 변경 이벤트 전송
-    await supabase.channel(`room-${apt.chatRoomId}`).send({
+    await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
       type: "broadcast",
       event: "appointment_update",
       payload: { id: appointmentId, status: nextStatus },
     });
 
     // 시스템 메시지 이벤트 전송
-    await supabase.channel(`room-${apt.chatRoomId}`).send({
+    await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
       type: "broadcast",
       event: "message",
       payload: mapToChatMessage(sysMsg),

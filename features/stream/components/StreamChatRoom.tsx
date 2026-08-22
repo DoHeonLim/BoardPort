@@ -69,12 +69,14 @@
  * 2026.05.28  임도헌   Modified  스크롤 이탈 중 새 메시지 하단 이동 버튼과 자동 스크롤 기준 정리
  * 2026.05.29  임도헌   Modified  모바일 채팅 레이아웃, 롱프레스 메뉴, 바텀시트 핸들 닫기 기준 정리
  * 2026.05.29  임도헌   Modified  모바일 호스트 공지/관리 진입점을 압축 채팅 헤더에 유지
+ * 2026.08.21  임도헌   Modified  Realtime 재연결·탭 복귀 시 서버 채팅 상태 재조회
  */
 "use client";
 
 import { useCallback, useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import BottomSheet from "@/components/global/BottomSheet";
 import { toast } from "sonner";
 import useStreamChatSubscription from "@/features/stream/hooks/useStreamChatSubscription";
@@ -167,6 +169,7 @@ export default function StreamChatRoom({
   isFocusMode = false,
   onStreamMetaUpdated,
 }: Props) {
+  const router = useRouter();
   const isMobile = useIsMobile(1024);
 
   /**
@@ -402,6 +405,7 @@ export default function StreamChatRoom({
       setShowPinnedNoticeEditor(false);
     },
     onStreamMetaUpdate: onStreamMetaUpdated,
+    onResync: () => router.refresh(),
   });
 
   useEffect(() => {

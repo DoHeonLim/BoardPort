@@ -30,6 +30,7 @@
  * 2026.04.03  임도헌   Modified  차단/생성 실패 문구를 다른 채팅 서비스와 같은 정책 설명 톤으로 정리
  * 2026.04.04  임도헌   Modified  새 채팅방 재연결 시 사용자 채널 rooms_refresh로 목록 재동기화 지원
  * 2026.05.12  임도헌   Modified  TabBar 뱃지와 채팅방 목록 기준을 맞춘 전체 미읽음 메시지 집계 추가
+ * 2026.08.21  임도헌   Modified  채팅방 목록·상품 채팅 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
@@ -43,7 +44,11 @@ import { validateUserStatus } from "@/features/user/service/admin";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
 import type { ChatRoom, ChatUser } from "@/features/chat/types";
 import type { ServiceResult } from "@/lib/types";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  chatRoomsRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 
 const roomCreationLocks = new Set<string>();
 
@@ -58,7 +63,7 @@ async function broadcastChatRoomListRefresh(userIds: number[]) {
 
   await Promise.allSettled(
     uniqueUserIds.map((targetUserId) =>
-      supabase.channel(`user-${targetUserId}-chat-rooms`).send({
+      supabase.channel(chatRoomsRealtimeTopic(targetUserId)).send({
         type: "broadcast",
         event: CHAT_EVENT.ROOMS_REFRESH,
         payload: { userId: targetUserId },
@@ -492,11 +497,13 @@ export async function createChatRoom(
           },
         });
 
-        await supabase.channel(`room-${existingRoom.id}`).send({
-          type: "broadcast",
-          event: CHAT_EVENT.MESSAGE,
-          payload: mapToChatMessage(sysMsg),
-        });
+        await supabase
+          .channel(productChatRealtimeTopic(existingRoom.id))
+          .send({
+            type: "broadcast",
+            event: CHAT_EVENT.MESSAGE,
+            payload: mapToChatMessage(sysMsg),
+          });
 
         await broadcastChatRoomListRefresh([userId, product.userId]);
       }
@@ -572,7 +579,7 @@ export async function leaveChatRoom(
       });
 
       for (const apt of pendingApts) {
-        await supabase.channel(`room-${chatRoomId}`).send({
+        await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
           type: "broadcast",
           event: "appointment_update",
           payload: { id: apt.id, status: "CANCELED" },
@@ -609,7 +616,7 @@ export async function leaveChatRoom(
       });
 
       // 실시간 소켓으로 상대방 화면에 즉시 렌더링
-      await supabase.channel(`room-${chatRoomId}`).send({
+      await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
         type: "broadcast",
         event: "message",
         payload: mapToChatMessage(sysMsg),
@@ -636,4 +643,3 @@ export async function leaveChatRoom(
     return { success: false, error: "채팅방 나가기 중 문제가 발생했습니다." };
   }
 }
-

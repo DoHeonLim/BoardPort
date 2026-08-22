@@ -12,11 +12,13 @@
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
  * 2026.01.23  임도헌   Modified  lib/sendLiveStartNotifications -> service/live 이동 및 경로 수정
  * 2026.03.07  임도헌   Modified  push 전송 조건 분기 수정(canSendPushForType 부정 조건 제거)
+ * 2026.08.21  임도헌   Modified  라이브 시작 알림 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import {
   canSendPushForType,
   isNotificationTypeEnabled,
@@ -104,7 +106,7 @@ export async function sendLiveStartNotifications({
 
     // 4-3. In-App Realtime 알림 전송 (접속 중인 경우 토스트 표시)
     try {
-      await supabase.channel(`user-${followerId}-notifications`).send({
+      await supabase.channel(notificationRealtimeTopic(followerId)).send({
         type: "broadcast",
         event: "notification",
         payload: {

@@ -238,7 +238,7 @@ npm run test:e2e
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | App / Security | `NEXT_PUBLIC_APP_URL`, `COOKIE_PASSWORD`, `RATE_LIMIT_SALT`, `CRON_SECRET`                                                                                                                      |
 | Database       | `DATABASE_URL`, `DIRECT_URL`                                                                                                                                                                    |
-| Supabase       | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY`                                                                                                                                   |
+| Supabase       | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_REALTIME_SIGNING_KEY_JWK`                                                                       |
 | OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`                                                                                      |
 | SMS            | `COOLSMS_API_KEY`, `COOLSMS_API_SECRET`, `COOLSMS_SENDER_NUMBER`                                                                                                                                |
 | Email          | `RESEND_API_KEY`                                                                                                                                                                                |

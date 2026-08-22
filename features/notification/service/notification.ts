@@ -16,11 +16,13 @@
  * 2026.05.16  임도헌   Modified  미읽음 알림 카운트 조회를 service 계층으로 분리
  * 2026.05.24  임도헌   Modified  삭제된 콘텐츠를 가리키는 오래된 알림 링크/이미지 응답 정규화 추가
  * 2026.06.19  임도헌   Modified  관리자 조치 인앱 알림은 명시 링크가 있을 때만 보기 링크를 저장하도록 정리
+ * 2026.08.21  임도헌   Modified  인앱 알림 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import {
   DIRECT_NOTIFICATION_FILTERS,
@@ -275,7 +277,7 @@ export async function sendAdminActionNotification({
     });
 
     // 실시간 브로드캐스트
-    await supabase.channel(`user-${targetUserId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
       type: "broadcast",
       event: "notification",
       payload: {

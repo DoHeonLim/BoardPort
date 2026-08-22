@@ -54,6 +54,7 @@
 - [테스트 전략](./operations/testing-strategy.md)
 - [CI/CD 워크플로우](./operations/ci-cd-workflows.md)
 - [Cloudflare Stream Signed Playback 전환 절차](./operations/stream-signed-playback-runbook.md)
+- [Supabase Realtime Private Channel 전환 절차](./operations/supabase-realtime-private-channels.md)
 
 ### Troubleshooting
 

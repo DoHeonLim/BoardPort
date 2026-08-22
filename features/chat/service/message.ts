@@ -31,11 +31,17 @@
  * 2026.04.14  임도헌   Modified  채팅 목록 성능 점검 대응으로 메시지/읽음/삭제 변화마다 사용자 목록 refresh 브로드캐스트를 보강
  * 2026.06.17  임도헌   Modified  삭제된 채팅 메시지의 기존 알림 preview를 placeholder로 정리
  * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 새 메시지 알림 본문 사전 축약 제거
+ * 2026.08.21  임도헌   Modified  사용자 목록·알림·상품 채팅 발신을 private topic으로 분리
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  chatRoomsRealtimeTopic,
+  notificationRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import {
   CHAT_EVENT,
   CHAT_MESSAGE_REACTION_META,
@@ -69,7 +75,7 @@ async function broadcastChatRoomListRefresh(userIds: number[]) {
 
   await Promise.allSettled(
     uniqueUserIds.map((targetUserId) =>
-      supabase.channel(`user-${targetUserId}-chat-rooms`).send({
+      supabase.channel(chatRoomsRealtimeTopic(targetUserId)).send({
         type: "broadcast",
         event: CHAT_EVENT.ROOMS_REFRESH,
         payload: { userId: targetUserId },
@@ -364,7 +370,7 @@ export async function createMessage(
     const chatMessage = mapToChatMessage(message);
 
     // 5. 브로드캐스트 (실시간 전송)
-    await supabase.channel(`room-${chatRoomId}`).send({
+    await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
       type: "broadcast",
       event: CHAT_EVENT.MESSAGE,
       payload: chatMessage,
@@ -411,7 +417,7 @@ export async function createMessage(
         const tasks: Promise<unknown>[] = [];
 
         tasks.push(
-          supabase.channel(`user-${receiverId}-notifications`).send({
+          supabase.channel(notificationRealtimeTopic(receiverId)).send({
             type: "broadcast",
             event: "notification",
             payload: {
@@ -507,7 +513,7 @@ export async function markMessagesAsRead(
   if (unreadIds.length === 0) return { success: true, readIds: [] };
 
   // 2. 읽음 상태 Broadcast
-  await supabase.channel(`room-${chatRoomId}`).send({
+  await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
     type: "broadcast",
     event: CHAT_EVENT.MESSAGE_READ,
     payload: { readIds: unreadIds, readerId: userId },
@@ -601,7 +607,7 @@ export async function deleteMessage(
       messageCreatedAt: existing.created_at,
     });
 
-    await supabase.channel(`room-${roomId}`).send({
+    await supabase.channel(productChatRealtimeTopic(roomId)).send({
       type: "broadcast",
       event: CHAT_EVENT.MESSAGE_DELETED,
       payload: {
@@ -719,11 +725,13 @@ export async function toggleMessageReaction(
 
     const chatMessage = mapToChatMessage(updatedMessage);
 
-    await supabase.channel(`room-${existing.productChatRoomId}`).send({
-      type: "broadcast",
-      event: CHAT_EVENT.MESSAGE_REACTION,
-      payload: chatMessage,
-    });
+    await supabase
+      .channel(productChatRealtimeTopic(existing.productChatRoomId))
+      .send({
+        type: "broadcast",
+        event: CHAT_EVENT.MESSAGE_REACTION,
+        payload: chatMessage,
+      });
 
     await broadcastChatRoomListRefreshByRoomId(existing.productChatRoomId);
 
