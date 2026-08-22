@@ -26,6 +26,7 @@
  * 2026.05.19  임도헌   Modified  비공개 방송 입장 비밀번호 입력에 current-password autocomplete를 명시해 브라우저 폼 경고 완화
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소 버튼을 제거해 입장 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  데스크톱 비공개 방송 입력과 입장 CTA를 한 줄 배치로 정리
+ * 2026.08.22  임도헌   Modified  PRIVATE 언락 성공 시 Realtime 권한 JWT 캐시를 폐기해 새 claim 즉시 반영
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -36,6 +37,7 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { unlockErrorMessage } from "@/features/stream/utils/access";
 import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
+import { invalidateRealtimeAccessToken } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
@@ -182,6 +184,8 @@ export default function PrivateAccessModal({
         }
       }
 
+      // 다음 private join이 방금 저장된 unlocked_broadcast_ids claim으로 토큰을 다시 받게 한다.
+      invalidateRealtimeAccessToken();
       close();
       onSuccess?.();
       // 403/모달 게이트 화면을 히스토리에 남기지 않도록 replace 복귀

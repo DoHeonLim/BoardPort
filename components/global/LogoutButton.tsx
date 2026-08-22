@@ -9,6 +9,7 @@
  * 2026.04.04  임도헌   Modified  props/export 주석을 보강해 공용 로그아웃 CTA의 책임을 더 명확히 정리
  * 2026.08.13  임도헌   Modified  로그아웃 기기의 Push 구독과 사용자 Query cache 격리
  * 2026.08.21  임도헌   Modified  인증 종료 후 다른 탭에도 cache 초기화 신호 전파
+ * 2026.08.22  임도헌   Modified  로그아웃 성공 시 이전 계정 Realtime JWT 캐시 폐기
  */
 "use client";
 
@@ -18,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logOut } from "@/features/auth/actions/logout";
 import { finalizeClientAuthExit } from "@/features/auth/utils/authContextReset";
+import { invalidateRealtimeAccessToken } from "@/lib/supabase";
 
 interface LogoutButtonProps {
   className?: string;
@@ -108,6 +110,7 @@ export default function LogoutButton({
       }
 
       toast.success("로그아웃되었습니다.");
+      invalidateRealtimeAccessToken();
       finalizeClientAuthExit(queryClient, router, redirectTo);
     });
   };

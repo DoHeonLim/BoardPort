@@ -10,6 +10,7 @@ Date        Author   Status    Description
 2026.08.21  임도헌   Created   JWT·RLS·server Broadcast 배포 순서와 smoke matrix 정리
 2026.08.21  임도헌   Modified  ES256 signing key 생성·등록·회전 절차로 전환
 2026.08.22  임도헌   Modified  Supabase CLI 2.115 stdout 기준 private JWK 저장 절차 보정
+2026.08.22  임도헌   Modified  Realtime JWT 만료 캐시와 PRIVATE 언락 무효화 운영 동작 추가
 -->
 
 BoardPort Realtime은 브라우저의 공개 anon 채널 발신을 허용하지 않는다. 브라우저는 BoardPort 로그인 세션으로 발급한 5분 JWT를 사용해 private 채널을 구독하고, 발신은 서버의 Supabase secret key를 사용하는 REST Broadcast 경계만 담당한다.
@@ -29,6 +30,7 @@ BoardPort 데이터 조회·변경은 Prisma 서버 경계만 사용한다. migr
 - signing key는 `ES256` P-256 private JWK여야 하며 `kty`, `crv`, `kid`, `d`, `x`, `y`가 필요하다.
 - 앱은 원문 JSON 또는 base64 JWK를 읽을 수 있다. 로컬 `.env`, Vercel, GitHub에는 개행·따옴표 문제를 피하기 위해 JWK JSON 전체를 base64 한 줄로 저장한다.
 - private JWK와 secret key는 브라우저 코드, 로그, 저장소에 포함하지 않는다. Supabase에 import한 private key는 다시 추출할 수 없으므로 별도 secret manager에도 안전하게 백업한다.
+- 브라우저는 서버가 반환한 만료 시각까지 Realtime JWT를 재사용하고 30초 여유를 두고 갱신한다. PRIVATE 방송 비밀번호 해제로 `unlocked_broadcast_ids`가 바뀌거나 로그아웃·탈퇴·다른 탭 인증 종료가 발생하면 캐시를 즉시 폐기한다.
 
 ## 2. Signing key와 API key 준비
 

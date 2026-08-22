@@ -11,6 +11,7 @@
  * 2026.05.19  임도헌   Modified  서버 prefetch용 QueryClient와 같은 공용 팩토리를 사용해 기본 옵션 중복 선언 제거
  * 2026.08.13  임도헌   Modified  인증 영역을 벗어날 때 브라우저 사용자 cache 초기화 옵션 추가
  * 2026.08.21  임도헌   Modified  다른 탭의 인증 종료를 수신해 사용자 cache와 화면 상태 초기화
+ * 2026.08.22  임도헌   Modified  세션 만료·다른 탭 인증 종료 시 Realtime JWT 캐시도 함께 폐기
  */
 "use client";
 
@@ -52,10 +53,22 @@ export default function QueryProvider({
 
     // 공개 라우트 그룹으로 새로 진입했다면 로그아웃 action을 거치지 않은
     // 세션 만료/강제 인증 종료도 이전 계정의 브라우저 cache를 남기지 않는다.
-    if (resetOnMount) client.clear();
+    if (resetOnMount) {
+      client.clear();
+    }
 
     return client;
   });
+
+  useEffect(() => {
+    if (!resetOnMount) return;
+
+    // Supabase SDK를 공개 페이지 공통 bundle에 넣지 않고, 이전 인증 화면에서
+    // 이미 만들어진 Realtime JWT가 있을 수 있는 세션 종료 경계에서만 불러온다.
+    void import("@/lib/supabase").then(({ invalidateRealtimeAccessToken }) =>
+      invalidateRealtimeAccessToken()
+    );
+  }, [resetOnMount]);
 
   useEffect(
     () =>

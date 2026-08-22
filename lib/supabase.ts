@@ -8,6 +8,7 @@
  * 2024.12.19  임도헌   Created
  * 2024.12.19  임도헌   Modified  supabase 클라이언트 코드 분리
  * 2026.08.21  임도헌   Modified  단기 JWT 주입과 private 채널 구독 준비 경계 추가
+ * 2026.08.22  임도헌   Modified  Realtime heartbeat의 반복 발급을 막는 만료 기반 JWT 캐시·무효화 추가
  */
 
 "use client";
@@ -18,10 +19,35 @@ const SUPABASE_PUBLIC_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLIC_KEY;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 let pendingTokenRequest: Promise<string> | null = null;
+let cachedAccessToken:
+  | {
+      token: string;
+      expiresAtMs: number;
+    }
+  | undefined;
+let tokenCacheGeneration = 0;
+
+// heartbeat 갱신 중 만료되는 경계를 피하도록 서버 만료보다 30초 먼저 새 토큰을 받는다.
+const REALTIME_TOKEN_REFRESH_BUFFER_MS = 30_000;
+
+export function invalidateRealtimeAccessToken() {
+  tokenCacheGeneration += 1;
+  cachedAccessToken = undefined;
+  pendingTokenRequest = null;
+}
 
 async function requestRealtimeAccessToken() {
+  if (
+    cachedAccessToken &&
+    cachedAccessToken.expiresAtMs - Date.now() >
+      REALTIME_TOKEN_REFRESH_BUFFER_MS
+  ) {
+    return cachedAccessToken.token;
+  }
+
   if (!pendingTokenRequest) {
-    pendingTokenRequest = fetch("/api/auth/realtime-token", {
+    const requestGeneration = tokenCacheGeneration;
+    const tokenRequest = fetch("/api/auth/realtime-token", {
       method: "POST",
       cache: "no-store",
       credentials: "same-origin",
@@ -30,15 +56,36 @@ async function requestRealtimeAccessToken() {
       .then(async (response) => {
         const body = (await response.json().catch(() => null)) as {
           token?: unknown;
+          expiresAt?: unknown;
         } | null;
-        if (!response.ok || typeof body?.token !== "string") {
+        const expiresAtMs =
+          typeof body?.expiresAt === "string"
+            ? Date.parse(body.expiresAt)
+            : Number.NaN;
+        if (
+          !response.ok ||
+          typeof body?.token !== "string" ||
+          !Number.isFinite(expiresAtMs) ||
+          expiresAtMs <= Date.now()
+        ) {
           throw new Error(`Realtime token request failed (${response.status})`);
         }
+        // 요청 도중 PRIVATE 언락 등으로 권한이 바뀌었다면 이전 claim을 캐시하지 않는다.
+        if (requestGeneration === tokenCacheGeneration) {
+          cachedAccessToken = { token: body.token, expiresAtMs };
+        }
         return body.token;
-      })
-      .finally(() => {
-        pendingTokenRequest = null;
       });
+    pendingTokenRequest = tokenRequest;
+    // 무효화 직후 새 요청이 시작됐다면 먼저 끝난 이전 요청이 새 pending 값을 지우지 않는다.
+    void tokenRequest.then(
+      () => {
+        if (pendingTokenRequest === tokenRequest) pendingTokenRequest = null;
+      },
+      () => {
+        if (pendingTokenRequest === tokenRequest) pendingTokenRequest = null;
+      }
+    );
   }
 
   return pendingTokenRequest;
