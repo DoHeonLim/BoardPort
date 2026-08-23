@@ -4,6 +4,7 @@ name: E2E
 # 2026.08.21: VOD signed playback용 임시 RSA key와 Next server 실패 로그 수집 추가
 # 2026.08.21: private Realtime JWT·서버 발신 secret 환경변수 추가
 # 2026.08.21: Realtime JWT 환경변수를 ES256 private JWK 기준으로 전환
+# 2026.08.23: E2E seed 전에 공유 테스트 DB migration 적용 추가
 
 # develop 통합 PR과 master 릴리즈 PR에서 seed 기반 회귀 확인
 on:
@@ -88,6 +89,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # 앱 코드와 seed가 항상 같은 Prisma schema를 사용하도록 공유 테스트 DB를 먼저 갱신
+      - name: Apply E2E database migrations
+        run: npx prisma migrate deploy
 
       - name: Install Playwright system dependencies
         run: npm run install:e2e:deps
