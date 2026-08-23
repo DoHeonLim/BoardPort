@@ -9,11 +9,16 @@
  * 2026.03.23  임도헌   Modified  잘못된 id 경로는 DB 조회 전 가드해 OG 이미지 라우트 예외 가능성을 줄임
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/opengraph-image.tsx 에서 app/(app)/posts/[id]/opengraph-image.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
+ * 2026.08.22  임도헌   Modified  OG 대표 이미지 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  */
 
 import sharp from "sharp";
 import db from "@/lib/db";
 import { POST_CATEGORY, PostCategoryType } from "@/features/post/constants";
+import {
+  fetchSafeOgImage,
+  SAFE_OG_IMAGE_MAX_PIXELS,
+} from "@/lib/media/safeImageFetch";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -56,18 +61,6 @@ function splitLines(value: string, maxChars: number, maxLines: number) {
 /**
  * 외부 게시글 썸네일의 sharp 합성용 Buffer 조회
  */
-async function fetchImageBuffer(src: string | null) {
-  if (!src) return null;
-
-  try {
-    const response = await fetch(src);
-    if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
-  } catch {
-    return null;
-  }
-}
-
 /**
  * 잘못된 ID나 삭제된 게시글을 위한 기본 BoardPort OG 이미지
  */
@@ -144,7 +137,10 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
   if (imageBuffer) {
     try {
       // 썸네일은 우측 절반에 cover 합성
-      const thumbnail = await sharp(imageBuffer)
+      const thumbnail = await sharp(imageBuffer, {
+        limitInputPixels: SAFE_OG_IMAGE_MAX_PIXELS,
+        failOn: "warning",
+      })
         .resize(600, 630, { fit: "cover", position: "centre" })
         .png()
         .toBuffer();
@@ -195,7 +191,7 @@ export default async function Image({ params }: { params: { id: string } }) {
   const categoryName =
     POST_CATEGORY[post.category as PostCategoryType] || post.category;
   const thumbUrl = post.images[0]?.url ? `${post.images[0].url}/public` : null;
-  const imageBuffer = await fetchImageBuffer(thumbUrl);
+  const imageBuffer = await fetchSafeOgImage(thumbUrl);
 
   return createPngResponse(
     buildPostSvg({

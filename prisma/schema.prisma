@@ -79,6 +79,7 @@
  * 2026.08.13  임도헌   Modified  브라우저 Push endpoint의 전역 단일 소유권 제약 추가
  * 2026.08.13  임도헌   Modified  Push 소유권 재검증과 1회 자동 복구 상태 필드 추가
  * 2026.08.21  임도헌   Modified  구버전 Push 쓰기를 차단하는 배포 전환 제약 설명 보완
+ * 2026.08.22  임도헌   Modified  Cloudflare Images 업로드 소유권과 콘텐츠 연결 상태를 관리하는 MediaAsset 추가
  */
 generator client {
   provider = "prisma-client"
@@ -106,6 +107,21 @@ enum RegionRange {
   GU // 보통 (구/군) - 기본값
   CITY // 넓게 (시/군/특별시/광역시)
   ALL // 전국
+}
+
+enum MediaAssetPurpose {
+  USER_AVATAR
+  PRODUCT_IMAGE
+  POST_IMAGE
+  CHAT_IMAGE
+  STREAM_THUMBNAIL
+}
+
+enum MediaAssetState {
+  PENDING
+  ATTACHED
+  ORPHANED
+  DELETED
 }
 
 /// 사용자 정보 모델
@@ -177,8 +193,32 @@ model User {
   admin_logs                 AuditLog[]         @relation("AdminActions") // 내가 수행한 관리 활동 로그(관리자용)
   keyword_alerts             KeywordAlert[]
   reviewed_boardgame_locales BoardGameLocale[]  @relation("BoardGameLocaleReviewer") // 보드게임 한국어 표시 정보 검수 이력
+  media_assets               MediaAsset[] // 발급받은 Cloudflare Images 업로드 소유권 기록
 
   @@index([username]) // 유저 검색 최적화
+}
+
+/// Cloudflare Images direct upload 발급·소유·연결 상태 관리
+model MediaAsset {
+  id              String            @id @default(cuid())
+  provider         String            @default("CLOUDFLARE_IMAGES")
+  providerAssetId String            @unique
+  deliveryUrl     String
+  purpose         MediaAssetPurpose
+  state           MediaAssetState   @default(PENDING)
+  linkedEntityId  String?
+  expires_at      DateTime
+  attached_at     DateTime?
+  deleted_at      DateTime?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  owner   User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId Int
+
+  @@index([ownerId, purpose, state])
+  @@index([purpose, linkedEntityId])
+  @@index([state, expires_at])
 }
 
 // -----------------------------------------------------------------------------

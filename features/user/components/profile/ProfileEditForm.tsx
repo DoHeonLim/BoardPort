@@ -40,6 +40,7 @@
  * 2026.06.01  임도헌   Modified  프로필 수정 폼 간격을 작성형 폼 기준으로 정리
  * 2026.06.01  임도헌   Modified  취소 시 내부 히스토리는 back으로 복귀하고 직접 진입은 replace fallback 처리
  * 2026.06.04  임도헌   Modified  프로필 유저명 입력 길이 안내를 공용 상수 기준으로 정리
+ * 2026.08.22  임도헌   Modified  아바타 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  */
 "use client";
 
@@ -97,7 +98,6 @@ interface ProfileEditFormProps {
   returnTo: string;
 }
 
-const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
 /**
  * 프로필 편집 폼
@@ -263,7 +263,7 @@ export default function ProfileEditForm({
 
     // Cloudflare Upload URL 요청
     const { getUploadUrl } = await import("@/lib/cloudflareImages");
-    const res = await getUploadUrl();
+    const res = await getUploadUrl("USER_AVATAR");
     if (!res.success) {
       URL.revokeObjectURL(url);
       setPreview(user.avatar ? user.avatar + "/public" : "");
@@ -278,9 +278,9 @@ export default function ProfileEditForm({
       return;
     }
 
-    const { id, uploadURL } = res.result;
+    const { uploadURL, deliveryUrl } = res.result;
     setUploadUrl(uploadURL);
-    setValue("avatar", `https://imagedelivery.net/${CF_HASH}/${id}`);
+    setValue("avatar", deliveryUrl);
     setValue("avatarAnimated", false);
   };
 

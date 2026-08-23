@@ -17,6 +17,7 @@
  * 2026.03.07  임도헌   Modified   정지 유저 프로필 수정/비밀번호 변경 mutation 가드 추가
  * 2026.03.12  임도헌   Modified   프로필 이미지 애니메이션 메타(avatarAnimated) 조회 및 저장 지원
  * 2026.03.21  임도헌   Modified   방송국 소개 수정 전용 updateChannelDescriptionService 추가
+ * 2026.08.22  임도헌   Modified   프로필 이미지 교체 시 MediaAsset 소유권 검증과 이전 자산 정리 추가
  */
 
 import "server-only";
@@ -29,6 +30,11 @@ import { USER_ERRORS } from "@/features/user/constants";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
 import type { CurrentUserForEdit } from "@/features/user/types";
+import {
+  attachOwnedMediaAssets,
+  deleteCloudflareImageAssetsById,
+  detachMissingMediaAssets,
+} from "@/features/media/service/assets";
 
 /**
  * 프로필 편집용 현재 유저 정보 조회
@@ -122,10 +128,36 @@ export async function updateProfileService(
   }
 
   try {
-    await db.user.update({
-      where: { id: userId },
-      data: updateData,
+    let staleImageAssetIds: string[] = [];
+    await db.$transaction(async (tx) => {
+      if (data.avatar !== undefined) {
+        const currentUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: { avatar: true },
+        });
+        const isUnchangedExternalAvatar =
+          !!data.avatar && data.avatar === currentUser?.avatar;
+        if (data.avatar && !isUnchangedExternalAvatar) {
+          const [ownedAvatarUrl] = await attachOwnedMediaAssets(tx, {
+            ownerId: userId,
+            purpose: "USER_AVATAR",
+            urls: [data.avatar],
+            linkedEntityId: String(userId),
+          });
+          updateData.avatar = ownedAvatarUrl;
+        }
+      }
+      await tx.user.update({ where: { id: userId }, data: updateData });
+      if (data.avatar !== undefined) {
+        staleImageAssetIds = await detachMissingMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "USER_AVATAR",
+          linkedEntityId: String(userId),
+          keepUrls: data.avatar ? [data.avatar] : [],
+        });
+      }
     });
+    await deleteCloudflareImageAssetsById(staleImageAssetIds);
     return { success: true };
   } catch (e) {
     // 3. 중복 에러 처리 (P2002)

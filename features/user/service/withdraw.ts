@@ -9,16 +9,18 @@
  * 2026.03.07  임도헌   Modified  탈퇴 실패 문구를 구체화(v1.2)
  * 2026.03.31  임도헌   Modified  도메인별 cleanup helper를 거쳐 외부 자산과 태그 정산까지 반영하도록 보강
  * 2026.05.24  임도헌   Modified  회원 탈퇴 시 상품 채팅방 알림 링크 cleanup 메타 포함
+ * 2026.08.22  임도헌   Modified  회원 이미지 자산을 URL 대신 MediaAsset provider ID로 일괄 정리
  */
 
 import "server-only";
 import db from "@/lib/db";
 import type { ServiceResult } from "@/lib/types";
 import { hardDeletePostWithCleanup } from "@/features/post/service/post";
-import { hardDeleteProductWithCleanup, deleteCloudflareImageAsset } from "@/features/product/service/delete";
+import { hardDeleteProductWithCleanup } from "@/features/product/service/delete";
 import { hardDeleteBroadcastWithCleanup } from "@/features/stream/service/delete";
 import { deleteCloudflareStreamAsset } from "@/features/post/service/video";
 import { deleteCloudflareLiveInputAsset } from "@/features/stream/service/liveInput";
+import { deleteCloudflareImageAssetsById } from "@/features/media/service/assets";
 
 /**
  * 회원 탈퇴 처리
@@ -33,7 +35,7 @@ export async function withdrawUser(userId: number): Promise<ServiceResult> {
     const user = await db.user.findUnique({
       where: { id: userId },
       select: {
-        avatar: true,
+        media_assets: { select: { providerAssetId: true } },
         live_inputs: { select: { id: true, provider_uid: true } },
         posts: {
           select: {
@@ -103,9 +105,9 @@ export async function withdrawUser(userId: number): Promise<ServiceResult> {
       )
     );
 
-    if (user.avatar) {
-      await deleteCloudflareImageAsset(user.avatar);
-    }
+    await deleteCloudflareImageAssetsById(
+      user.media_assets.map((asset) => asset.providerAssetId)
+    );
 
     if (user.live_inputs?.provider_uid) {
       await deleteCloudflareLiveInputAsset(user.live_inputs.provider_uid);

@@ -38,6 +38,7 @@
  * 2026.05.05  임도헌   Modified  게시글 편집기/위치/검증 핸들러 JSDoc 보강
  * 2026.05.26  임도헌   Modified  저장 성공 후 queryFn 없는 상세 하위 query를 건드리지 않도록 목록 query만 무효화
  * 2026.05.30  임도헌   Modified  모바일 게시글 폼의 섹션 간격을 작성형 compact 밀도 기준으로 조정
+ * 2026.08.22  임도헌   Modified  게시글 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  */
 "use client";
 
@@ -591,12 +592,12 @@ export default function PostForm({
         if (asset.file) {
           if (!CF_HASH) throw new Error("Cloudflare 설정 오류");
 
-          const res = await getUploadUrl();
+          const res = await getUploadUrl("POST_IMAGE");
           if (!res.success) {
             throw new Error(res.error || "Failed to get upload URL");
           }
 
-          const { uploadURL, id } = res.result;
+          const { uploadURL, deliveryUrl } = res.result;
           const cloudflareForm = new FormData();
           cloudflareForm.append("file", asset.file);
 
@@ -606,7 +607,7 @@ export default function PostForm({
           });
 
           if (!response.ok) throw new Error("Failed to upload image");
-          allPhotoUrls.push(`https://imagedelivery.net/${CF_HASH}/${id}`);
+          allPhotoUrls.push(deliveryUrl);
         } else if (asset.sourceUrl) {
           allPhotoUrls.push(asset.sourceUrl);
         }

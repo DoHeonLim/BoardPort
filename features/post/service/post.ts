@@ -43,6 +43,7 @@
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상을 현재 사용자 좋아요 여부 기준으로 표시하도록 isLiked 매핑 추가
  * 2026.05.23  임도헌   Modified  삭제된 게시글 알림 링크/이미지 정리 및 삭제 cursor 목록 페이지네이션 실패 방어
  * 2026.06.18  임도헌   Modified  게시글 장소 지역과 동네 피드 노출 지역(feedRegion)을 분리
+ * 2026.08.22  임도헌   Modified  게시글 이미지 연결·교체·삭제를 MediaAsset 소유권 기록 기준으로 보강
  */
 import "server-only";
 
@@ -67,6 +68,12 @@ import type {
   PostUpdateDTO,
   PostSearchParams,
 } from "@/features/post/types";
+import {
+  attachOwnedMediaAssets,
+  deleteCloudflareImageAssetsById,
+  detachMissingMediaAssets,
+  getLinkedMediaAssetIds,
+} from "@/features/media/service/assets";
 
 const TAKE = POSTS_PAGE_TAKE;
 
@@ -269,8 +276,18 @@ export async function hardDeletePostWithCleanup(
 ) {
   const tagNames = Array.from(new Set(target.tags.map((tag) => tag.name)));
   const assetUid = target.video?.providerAssetId ?? target.video?.uploadUid ?? null;
+  const imageAssetIds = await getLinkedMediaAssetIds({
+    purpose: "POST_IMAGE",
+    linkedEntityId: String(target.id),
+  });
 
   await db.$transaction(async (tx) => {
+    if (imageAssetIds.length) {
+      await tx.mediaAsset.updateMany({
+        where: { providerAssetId: { in: imageAssetIds } },
+        data: { state: "ORPHANED", linkedEntityId: null },
+      });
+    }
     if (tagNames.length) {
       // 공용 태그 사전은 row를 재사용하되, 현재 게시글과의 연결은 먼저 끊어 FK 정리와 count 보정을 분리
       await tx.post.update({
@@ -313,6 +330,7 @@ export async function hardDeletePostWithCleanup(
   if (assetUid) {
     await deleteCloudflareStreamAsset(assetUid);
   }
+  await deleteCloudflareImageAssetsById(imageAssetIds);
 }
 
 /**
@@ -688,8 +706,14 @@ export async function createPost(
 
       // 첨부 이미지 저장
       if (data.photos.length) {
+        const ownedPhotoUrls = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "POST_IMAGE",
+          urls: data.photos,
+          linkedEntityId: String(newPost.id),
+        });
         await Promise.all(
-          data.photos.map((url, index) =>
+          ownedPhotoUrls.map((url, index) =>
             tx.postImage.create({
               data: {
                 url,
@@ -814,6 +838,7 @@ export async function updatePost(
         };
 
     // 수정 트랜잭션 실행
+    let staleImageAssetIds: string[] = [];
     const staleVideoAssetUids = await db.$transaction(async (tx) => {
       const removedAssetUids: string[] = [];
 
@@ -864,8 +889,14 @@ export async function updatePost(
 
       // 새 이미지 저장
       if (data.photos.length) {
+        const ownedPhotoUrls = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "POST_IMAGE",
+          urls: data.photos,
+          linkedEntityId: String(data.id),
+        });
         await Promise.all(
-          data.photos.map((url, index) =>
+          ownedPhotoUrls.map((url, index) =>
             tx.postImage.create({
               data: {
                 url,
@@ -877,6 +908,13 @@ export async function updatePost(
           )
         );
       }
+
+      staleImageAssetIds = await detachMissingMediaAssets(tx, {
+        ownerId: userId,
+        purpose: "POST_IMAGE",
+        linkedEntityId: String(data.id),
+        keepUrls: data.photos,
+      });
 
       if (boardGameIds.length) {
         // 기존 연결 삭제 이후 현재 선택값만 재삽입해 제거된 보드게임 잔존 방지
@@ -909,6 +947,7 @@ export async function updatePost(
         staleVideoAssetUids.map((assetUid) => deleteCloudflareStreamAsset(assetUid))
       );
     }
+    await deleteCloudflareImageAssetsById(staleImageAssetIds);
 
     return { success: true, data: { postId: data.id } };
   } catch (error) {

@@ -7,6 +7,7 @@
 # 2026.08.21  임도헌   Modified  PostgreSQL 기반 Push ownership migration 통합 검증 추가
 # 2026.08.21  임도헌   Modified  Realtime Authorization RLS migration 통합 검증 추가
 # 2026.08.21  임도헌   Modified  Realtime JWT placeholder를 ES256 private JWK 변수로 전환
+# 2026.08.22  임도헌   Modified  MediaAsset ownership migration PostgreSQL 통합 검증 추가
 
 name: CI
 
@@ -54,6 +55,7 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
       PUSH_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       REALTIME_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      MEDIA_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
@@ -102,6 +104,9 @@ jobs:
 
       - name: Run Realtime authorization migration integration test
         run: npm run test:migration:realtime
+
+      - name: Run MediaAsset ownership migration integration test
+        run: npm run test:migration:media
 
       - name: Run type check
         run: npx tsc --noEmit

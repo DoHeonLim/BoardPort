@@ -12,11 +12,16 @@
  * 2026.05.15  임도헌   Modified  다시보기 OG 대표 이미지를 방송 카드와 동일하게 최신 ready VOD 썸네일 우선 사용
  * 2026.05.19  임도헌   Modified  상대 썸네일 URL 보정 기준을 NEXT_PUBLIC_APP_URL로 통일
  * 2026.08.21  임도헌   Modified  제한 방송 OG 노출 차단 및 PUBLIC provider 썸네일 signed 변환
+ * 2026.08.22  임도헌   Modified  OG 썸네일 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  */
 
 import sharp from "sharp";
 import db from "@/lib/db";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
+import {
+  fetchSafeOgImage,
+  SAFE_OG_IMAGE_MAX_PIXELS,
+} from "@/lib/media/safeImageFetch";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -59,18 +64,6 @@ function splitLines(value: string, maxChars: number, maxLines: number) {
 /**
  * 외부 방송 썸네일의 sharp 합성용 Buffer 조회
  */
-async function fetchImageBuffer(src: string | null) {
-  if (!src) return null;
-
-  try {
-    const response = await fetch(src);
-    if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
-  } catch {
-    return null;
-  }
-}
-
 /**
  * 스트리밍 썸네일 URL의 외부 공유 이미지용 public URL 보정
  */
@@ -163,7 +156,10 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
   if (imageBuffer) {
     try {
       // 방송 썸네일은 전체 배경으로 cover 합성
-      const thumbnail = await sharp(imageBuffer)
+      const thumbnail = await sharp(imageBuffer, {
+        limitInputPixels: SAFE_OG_IMAGE_MAX_PIXELS,
+        failOn: "warning",
+      })
         .resize(size.width, size.height, { fit: "cover", position: "centre" })
         .png()
         .toBuffer();
@@ -246,7 +242,7 @@ export default async function Image({ params }: { params: { id: string } }) {
     console.warn("[StreamOG] signed thumbnail unavailable:", error);
   }
   const thumbUrl = normalizeStreamThumbnailUrl(thumbnailCandidate);
-  const imageBuffer = await fetchImageBuffer(thumbUrl);
+  const imageBuffer = await fetchSafeOgImage(thumbUrl);
 
   return createPngResponse(
     buildStreamOverlaySvg({

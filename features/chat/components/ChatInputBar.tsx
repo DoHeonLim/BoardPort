@@ -40,6 +40,7 @@
  * 2026.04.14  임도헌   Modified  채팅 입력 textarea 포커스 시 브라우저 기본 사각형 outline이 노출되지 않도록 정리
  * 2026.04.14  임도헌   Modified  데스크톱에서 이미지 첨부 후 Enter 전송이 자연스럽도록 업로드 완료 뒤 textarea 포커스 복구
  * 2026.05.28  임도헌   Modified  모바일은 버튼 전송, 데스크톱은 Enter 전송 기준으로 IME 정책 정리
+ * 2026.08.22  임도헌   Modified  채팅 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -152,7 +153,7 @@ export default function ChatInputBar({
       const uploadFile = await prepareChatImageForUpload(file, mode);
 
       // 1) CF Upload URL 발급
-      const res = await getUploadUrl();
+      const res = await getUploadUrl("CHAT_IMAGE");
       if (!res.success) throw new Error("URL 발급 실패");
 
       // 2) 실제 업로드
@@ -164,9 +165,7 @@ export default function ChatInputBar({
       });
       if (!uploadRes.ok) throw new Error("업로드 실패");
 
-      const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
-      const finalUrl = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
-      setUploadedUrl(finalUrl);
+      setUploadedUrl(res.result.deliveryUrl);
     } finally {
       setIsUploading(false);
     }

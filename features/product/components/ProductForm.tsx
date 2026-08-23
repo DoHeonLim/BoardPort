@@ -52,6 +52,7 @@
  * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
  * 2026.05.30  임도헌   Modified  모바일 상품 폼의 필드 높이와 섹션 간격을 압축해 작성 밀도 조정
  * 2026.06.18  임도헌   Modified  거래 기준 지역 필수화에 맞춰 위치 검증/에러 이동 UX 보강
+ * 2026.08.22  임도헌   Modified  상품 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  */
 
 /**
@@ -587,12 +588,12 @@ export default function ProductForm({
       // 1) 새로 추가한 파일만 Cloudflare에 업로드
       if (newFiles.length > 0) {
         const uploadPromises = newFiles.map(async (file) => {
-          const res = await getUploadUrl();
+          const res = await getUploadUrl("PRODUCT_IMAGE");
           if (!res.success) {
             throw new Error(res.error || "Failed to get upload URL");
           }
 
-          const { uploadURL, id } = res.result;
+          const { uploadURL, deliveryUrl } = res.result;
           const cloudflareForm = new FormData();
           cloudflareForm.append("file", file);
 
@@ -602,7 +603,7 @@ export default function ProductForm({
           });
 
           if (!response.ok) throw new Error("Failed to upload image");
-          return `https://imagedelivery.net/${CF_HASH}/${id}`;
+          return deliveryUrl;
         });
         const urls = await Promise.all(uploadPromises);
         uploadedPhotoUrls.push(...urls);

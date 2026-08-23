@@ -19,55 +19,18 @@
  * 2026.04.04  임도헌   Modified  삭제 대상 조회/cleanup/메타 반환 단계의 인라인 주석 보강
  * 2026.05.23  임도헌   Modified  삭제된 상품을 가리키는 알림 이미지/링크 정리와 리뷰 FK cleanup 추가
  * 2026.05.24  임도헌   Modified  상품 삭제로 함께 제거되는 채팅방 알림 링크 정리 추가
+ * 2026.08.22  임도헌   Modified  상품 이미지 삭제를 URL 파싱 대신 MediaAsset의 provider ID 기준으로 전환
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { validateUserStatus } from "@/features/user/service/admin";
-import { extractCloudflareImageId } from "@/features/product/utils/image";
+import {
+  deleteCloudflareImageAssetsById,
+  getLinkedMediaAssetIds,
+} from "@/features/media/service/assets";
 import type { ServiceResult } from "@/lib/types";
 import type { ProductDeleteMeta } from "@/features/product/types";
-
-/**
- * Cloudflare Images 자산 삭제 best-effort 요청
- *
- * [동작]
- * - 제품 원본 이미지 URL에서 imageId를 추출한 뒤 Cloudflare Images API로 DELETE 요청 전송
- * - 계정 설정 누락, imageId 미추출, 404 응답은 조용히 무시
- * - 네트워크 오류나 비정상 응답은 로그만 남기고 제품 삭제 흐름은 계속 진행
- *
- * @param {string} imageUrl - 삭제 대상 제품 이미지 URL
- * @returns {Promise<void>} 반환값 없음
- */
-export async function deleteCloudflareImageAsset(
-  imageUrl: string
-): Promise<void> {
-  const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-  const imageId = extractCloudflareImageId(imageUrl);
-
-  if (!ACCOUNT_ID || !API_TOKEN || !imageId) return;
-
-  try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/images/v1/${imageId}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
-        },
-      }
-    );
-
-    if (!response.ok && response.status !== 404) {
-      console.warn(
-        `[deleteCloudflareImageAsset] unexpected status=${response.status} url=${imageUrl}`
-      );
-    }
-  } catch (error) {
-    console.error("[deleteCloudflareImageAsset] failed:", error);
-  }
-}
 
 type HardDeleteProductTarget = {
   id: number;
@@ -90,6 +53,10 @@ export async function hardDeleteProductWithCleanup(
   // 태그/이미지 cleanup용 원시 목록 추출
   const tagNames = target.search_tags.map((tag) => tag.name);
   const imageUrls = target.images.map((image) => image.url);
+  const imageAssetIds = await getLinkedMediaAssetIds({
+    purpose: "PRODUCT_IMAGE",
+    linkedEntityId: String(target.id),
+  });
   const chatRoomIds = target.chat_rooms.map((room) => room.id);
   const notificationImageUrls = imageUrls.flatMap((url) => [
     url,
@@ -97,6 +64,12 @@ export async function hardDeleteProductWithCleanup(
   ]);
 
   await db.$transaction(async (tx) => {
+    if (imageAssetIds.length > 0) {
+      await tx.mediaAsset.updateMany({
+        where: { providerAssetId: { in: imageAssetIds } },
+        data: { state: "ORPHANED", linkedEntityId: null },
+      });
+    }
     // 연결된 태그 count 감소
     if (tagNames.length > 0) {
       await Promise.all(
@@ -156,9 +129,7 @@ export async function hardDeleteProductWithCleanup(
   });
 
   // DB 삭제 이후 이미지 자산 best-effort 정리
-  await Promise.allSettled(
-    imageUrls.map((imageUrl) => deleteCloudflareImageAsset(imageUrl))
-  );
+  await deleteCloudflareImageAssetsById(imageAssetIds);
 }
 
 /**

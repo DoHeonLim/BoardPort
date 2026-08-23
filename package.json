@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:migration:push": "node scripts/test-push-ownership-migration.mjs",
     "test:migration:realtime": "node scripts/test-realtime-authorization-migration.mjs",
+    "test:migration:media": "node scripts/test-media-asset-migration.mjs",
     "backfill:stream-signed-playback": "tsx scripts/backfill-cloudflare-signed-playback.ts",
     "test:watch": "vitest",
     "install:e2e": "playwright install chromium",

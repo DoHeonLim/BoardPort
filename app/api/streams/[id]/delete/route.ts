@@ -12,6 +12,7 @@
  * 2026.03.05  임도헌   Modified  방송 목록 갱신용 레거시 `revalidateTag` 제거 및 클라이언트 Query Cache로 무효화 책임 위임
  * 2026.06.22  임도헌   Modified  삭제 후 방송국 경로 서버 캐시도 무효화해 새로고침/직접 진입 상태 보정
  * 2026.08.21  임도헌   Modified  클라이언트 Live Input UID 검증을 제거하고 세션·DB 소유권만으로 삭제 판정
+ * 2026.08.22  임도헌   Modified  DB commit 완료 뒤 방송 외부 이미지/VOD 자산을 정리하도록 순서 보강
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,7 +20,10 @@ import db from "@/lib/db";
 import getSession from "@/lib/session";
 import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
-import { deleteBroadcastTx } from "@/features/stream/service/delete";
+import {
+  cleanupDeletedBroadcastAssets,
+  deleteBroadcastTx,
+} from "@/features/stream/service/delete";
 
 export const runtime = "nodejs";
 
@@ -90,12 +94,14 @@ export async function DELETE(
     }
 
     // 4. 삭제 트랜잭션 실행
-    await db.$transaction(async (tx) => {
+    const cleanup = await db.$transaction(async (tx) => {
       const res = await deleteBroadcastTx(tx, idNum);
       if (!res.success) {
         throw new Error(res.error || "삭제 실패");
       }
+      return res.cleanup;
     });
+    if (cleanup) await cleanupDeletedBroadcastAssets(cleanup);
 
     // 5. 캐시 무효화 (상세 페이지 & 유저 방송 목록)
     try {

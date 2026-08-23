@@ -10,11 +10,16 @@
  * 2026.03.23  임도헌   Modified  잘못된 id 경로는 DB 조회 전 가드해 OG 이미지 라우트 예외 가능성을 줄임
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/opengraph-image.tsx 에서 app/(app)/products/view/[id]/opengraph-image.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
+ * 2026.08.22  임도헌   Modified  OG 대표 이미지 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  */
 
 import sharp from "sharp";
 import db from "@/lib/db";
 import { formatToWon } from "@/lib/utils";
+import {
+  fetchSafeOgImage,
+  SAFE_OG_IMAGE_MAX_PIXELS,
+} from "@/lib/media/safeImageFetch";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -66,18 +71,6 @@ function splitLines(value: string, maxChars: number, maxLines: number) {
  * 외부 상품 이미지를 sharp 합성용 Buffer로 조회
  * Cloudflare 이미지 장애나 만료 URL 발생 시 카드 전체 실패 대신 텍스트 카드 폴백
  */
-async function fetchImageBuffer(src: string | null) {
-  if (!src) return null;
-
-  try {
-    const response = await fetch(src);
-    if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
-  } catch {
-    return null;
-  }
-}
-
 /**
  * 잘못된 ID나 삭제된 상품을 위한 기본 BoardPort OG 이미지
  */
@@ -162,7 +155,10 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
   if (imageBuffer) {
     try {
       // 공유 카드에서 대표 이미지 영역이 비지 않도록 왼쪽 절반에 cover 합성
-      const productImage = await sharp(imageBuffer)
+      const productImage = await sharp(imageBuffer, {
+        limitInputPixels: SAFE_OG_IMAGE_MAX_PIXELS,
+        failOn: "warning",
+      })
         .resize(600, 630, { fit: "cover", position: "centre" })
         .png()
         .toBuffer();
@@ -220,7 +216,7 @@ export default async function Image({ params }: { params: { id: string } }) {
   const imageUrl = product.images[0]?.url
     ? `${product.images[0].url}/public`
     : null;
-  const imageBuffer = await fetchImageBuffer(imageUrl);
+  const imageBuffer = await fetchSafeOgImage(imageUrl);
 
   return createPngResponse(
     buildProductSvg({

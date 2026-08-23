@@ -32,6 +32,7 @@
  * 2026.06.17  임도헌   Modified  삭제된 채팅 메시지의 기존 알림 preview를 placeholder로 정리
  * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 새 메시지 알림 본문 사전 축약 제거
  * 2026.08.21  임도헌   Modified  사용자 목록·알림·상품 채팅 발신을 private topic으로 분리
+ * 2026.08.22  임도헌   Modified  채팅 이미지 저장 전 MediaAsset 소유권과 CHAT_IMAGE 용도 검증 추가
  */
 
 import "server-only";
@@ -63,6 +64,7 @@ import type {
 } from "@/features/chat/types";
 import type { MessageType } from "@/generated/prisma/client";
 import type { ChatMessageReactionKey } from "@/features/chat/constants";
+import { attachOwnedMediaAssets } from "@/features/media/service/assets";
 
 /**
  * 사용자별 채팅방 목록을 다시 불러오게 하는 rooms_refresh 이벤트 브로드캐스트
@@ -350,21 +352,41 @@ export async function createMessage(
     if (image) msgType = "IMAGE";
 
     // 4. 메시지 저장 & 방 갱신
-    const message = await db.productMessage.create({
-      data: {
-        payload,
-        image,
-        imageIsAnimated: image ? (imageIsAnimated ?? false) : false,
-        type: msgType,
-        userId: senderId,
-        productChatRoomId: chatRoomId,
-      },
-      include: MESSAGE_INCLUDE,
-    });
-
-    await db.productChatRoom.update({
-      where: { id: chatRoomId },
-      data: { updated_at: new Date() },
+    const message = await db.$transaction(async (tx) => {
+      const created = await tx.productMessage.create({
+        data: {
+          payload,
+          image: null,
+          imageIsAnimated: image ? (imageIsAnimated ?? false) : false,
+          type: msgType,
+          userId: senderId,
+          productChatRoomId: chatRoomId,
+        },
+        include: MESSAGE_INCLUDE,
+      });
+      if (image) {
+        const [ownedImageUrl] = await attachOwnedMediaAssets(tx, {
+          ownerId: senderId,
+          purpose: "CHAT_IMAGE",
+          urls: [image],
+          linkedEntityId: String(created.id),
+        });
+        const updated = await tx.productMessage.update({
+          where: { id: created.id },
+          data: { image: ownedImageUrl },
+          include: MESSAGE_INCLUDE,
+        });
+        await tx.productChatRoom.update({
+          where: { id: chatRoomId },
+          data: { updated_at: new Date() },
+        });
+        return updated;
+      }
+      await tx.productChatRoom.update({
+        where: { id: chatRoomId },
+        data: { updated_at: new Date() },
+      });
+      return created;
     });
 
     const chatMessage = mapToChatMessage(message);
