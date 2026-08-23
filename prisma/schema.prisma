@@ -80,6 +80,7 @@
  * 2026.08.13  임도헌   Modified  Push 소유권 재검증과 1회 자동 복구 상태 필드 추가
  * 2026.08.21  임도헌   Modified  구버전 Push 쓰기를 차단하는 배포 전환 제약 설명 보완
  * 2026.08.22  임도헌   Modified  Cloudflare Images 업로드 소유권과 콘텐츠 연결 상태를 관리하는 MediaAsset 추가
+ * 2026.08.23  임도헌   Modified  비밀번호 변경 후 기존 세션 폐기용 sessionVersion 추가
  */
 generator client {
   provider = "prisma-client"
@@ -143,6 +144,7 @@ model User {
   role               Role      @default(USER) // 유저 역할
   bannedAt           DateTime? // 관리자에 의한 이용 정지 (Null이면 정상, 값이 있으면 정지된 시간)
   bannedUntil        DateTime? // 정지 만료 시점
+  sessionVersion     Int       @default(1) // 비밀번호 변경 시 증가하여 기존 암호화 쿠키 세션 폐기
 
   latitude     Float?
   longitude    Float?

@@ -39,7 +39,11 @@ vi.mock("@/features/notification/service/sender", () => ({
 
 const subscription = {
   endpoint: "https://fcm.googleapis.com/fcm/send/current-device",
-  keys: { p256dh: "device_key", auth: "auth_key" },
+  keys: {
+    p256dh:
+      "BAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    auth: "AgICAgICAgICAgICAgICAg",
+  },
 };
 
 function subscribeRequest(payload: unknown) {

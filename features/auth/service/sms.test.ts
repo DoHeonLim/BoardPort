@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
   sendSMS: vi.fn(),
   generateUniqueSmsToken: vi.fn(),
   checkAndRecordSmsSendAttemptByIp: vi.fn(),
+  checkAndRecordSmsVerifyAttempt: vi.fn(),
+  clearSmsVerifyAttempts: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -48,6 +50,8 @@ vi.mock("@/features/auth/service/token", () => ({
 
 vi.mock("@/features/auth/service/rateLimit", () => ({
   checkAndRecordSmsSendAttemptByIp: mocks.checkAndRecordSmsSendAttemptByIp,
+  checkAndRecordSmsVerifyAttempt: mocks.checkAndRecordSmsVerifyAttempt,
+  clearSmsVerifyAttempts: mocks.clearSmsVerifyAttempts,
 }));
 
 describe("SMS verification service", () => {
@@ -71,6 +75,8 @@ describe("SMS verification service", () => {
     mocks.checkAndRecordSmsSendAttemptByIp.mockResolvedValue({
       allowed: true,
     });
+    mocks.checkAndRecordSmsVerifyAttempt.mockResolvedValue({ allowed: true });
+    mocks.clearSmsVerifyAttempts.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -276,6 +282,25 @@ describe("SMS verification service", () => {
     });
   });
 
+  it("SMS 인증 실패 제한을 초과하면 토큰 조회 전에 차단한다", async () => {
+    const { verifySmsToken } = await import("./sms");
+    mocks.checkAndRecordSmsVerifyAttempt.mockResolvedValue({
+      allowed: false,
+      retryAfterSeconds: 60,
+    });
+
+    const result = await verifySmsToken("01012345678", "123456", {
+      clientIp: "203.0.113.10",
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: AUTH_ERRORS.AUTH_RATE_LIMITED,
+      code: "RATE_LIMITED",
+    });
+    expect(mocks.db.sMSToken.findUnique).not.toHaveBeenCalled();
+  });
+
   it("SMS 인증 성공 시 전화번호 기준 User를 찾거나 생성한 뒤 로그인 ID를 반환한다", async () => {
     const { verifySmsToken } = await import("./sms");
 
@@ -302,6 +327,10 @@ describe("SMS verification service", () => {
       where: { id: 1 },
     });
     expect(result).toEqual({ success: true, data: { userId: 10 } });
+    expect(mocks.clearSmsVerifyAttempts).toHaveBeenCalledWith(
+      null,
+      "01012345678"
+    );
   });
 
   it("프로필 인증 토큰은 SMS 로그인 검증에서 소비하지 않는다", async () => {

@@ -16,15 +16,23 @@
  * 2026.03.07  임도헌   Modified  정지 계정 안내를 전역 에러로 분리하고 일반 인증 실패는 필드 에러로 유지
  * 2026.04.04  임도헌   Modified  검증/정지 분기/세션 저장 단계의 인라인 주석 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  IP·계정 로그인 실패 제한과 성공 시 bucket 초기화 추가
  */
 "use server";
 
+import { headers } from "next/headers";
 import { verifyLogin } from "@/features/auth/service/login";
 import { loginSchema, type LoginSchema } from "@/features/auth/schemas/login";
 import { saveUserSession } from "@/features/auth/service/authSession";
 import { resolvePostAuthRedirectPath } from "@/features/auth/service/onboarding";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import type { ActionState } from "@/features/auth/types";
+import { AUTH_ERRORS } from "@/features/auth/constants";
+import {
+  checkAndRecordLoginAttempt,
+  clearLoginAttempts,
+  getClientIpFromHeaders,
+} from "@/features/auth/service/rateLimit";
 
 /**
  * 로그인 폼 제출을 처리
@@ -61,6 +69,15 @@ export async function login(
     };
   }
 
+  const clientIp = getClientIpFromHeaders(headers());
+  const loginLimit = await checkAndRecordLoginAttempt(
+    clientIp,
+    parsed.data.email
+  );
+  if (!loginLimit.allowed) {
+    return { success: false, error: AUTH_ERRORS.AUTH_RATE_LIMITED };
+  }
+
   // 2. 로그인 검증 (Service)
   const result = await verifyLogin(parsed.data);
 
@@ -79,6 +96,8 @@ export async function login(
       fieldErrors: { password: [result.error] },
     };
   }
+
+  await clearLoginAttempts(clientIp, parsed.data.email);
 
   // 로그인 성공 후 세션 저장
   await saveUserSession(result.data.userId);

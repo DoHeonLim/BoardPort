@@ -16,11 +16,13 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 - `npm run test`
 - `npm run test:migration:push`
 - `npm run test:migration:realtime`
+- `npm run test:migration:media`
+- `npm run test:migration:auth-session`
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm run build`
 
-기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
+Migration 통합 테스트는 CI PostgreSQL의 `boardport_migration_test` 전용 DB에서 순차 실행합니다. 기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
 
 ## 2. Playwright E2E
 

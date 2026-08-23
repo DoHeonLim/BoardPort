@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.06.27  임도헌   Created   회원가입 IP hash 기반 단기 제출 제한 테스트 추가
  * 2026.06.27  임도헌   Modified  advisory lock 기반 원자적 기록 테스트 보강
+ * 2026.08.23  임도헌   Modified  로그인 다중 bucket과 성공 초기화 검증 추가
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -150,5 +151,31 @@ describe("auth rate limit service", () => {
 
     expect(result).toEqual({ allowed: true });
     expect(mocks.db.authRateLimitEvent.create).toHaveBeenCalled();
+  });
+
+  it("로그인은 IP와 정규화된 계정 bucket을 모두 기록한다", async () => {
+    const { checkAndRecordLoginAttempt } = await import("./rateLimit");
+
+    await expect(
+      checkAndRecordLoginAttempt("203.0.113.10", "USER@example.com")
+    ).resolves.toEqual({ allowed: true });
+    expect(mocks.db.authRateLimitEvent.create).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.db.authRateLimitEvent.create.mock.calls.map(
+        ([input]) => input.data.kind
+      )
+    ).toEqual(["login-failure-ip", "login-failure-account"]);
+  });
+
+  it("로그인 성공 시 IP와 계정 실패 bucket을 모두 지운다", async () => {
+    const { clearLoginAttempts } = await import("./rateLimit");
+
+    await clearLoginAttempts("203.0.113.10", "USER@example.com");
+    expect(mocks.db.authRateLimitEvent.deleteMany).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.db.authRateLimitEvent.deleteMany.mock.calls.map(
+        ([input]) => input.where.kind
+      )
+    ).toEqual(["login-failure-ip", "login-failure-account"]);
   });
 });

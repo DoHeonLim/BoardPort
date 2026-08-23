@@ -13,6 +13,7 @@
  * 2026.05.19  임도헌   Modified  상대 썸네일 URL 보정 기준을 NEXT_PUBLIC_APP_URL로 통일
  * 2026.08.21  임도헌   Modified  제한 방송 OG 노출 차단 및 PUBLIC provider 썸네일 signed 변환
  * 2026.08.22  임도헌   Modified  OG 썸네일 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
+ * 2026.08.23  임도헌   Modified  상대 썸네일 URL을 공용 trusted origin과 로컬 fallback으로 보정
  */
 
 import sharp from "sharp";
@@ -22,6 +23,7 @@ import {
   fetchSafeOgImage,
   SAFE_OG_IMAGE_MAX_PIXELS,
 } from "@/lib/media/safeImageFetch";
+import { getTrustedAppBaseUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -79,10 +81,9 @@ function normalizeStreamThumbnailUrl(src: string | null | undefined) {
     return trimmed;
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (siteUrl && trimmed.startsWith("/")) {
+  if (trimmed.startsWith("/")) {
     try {
-      return new URL(trimmed, siteUrl).toString();
+      return new URL(trimmed, getTrustedAppBaseUrl()).toString();
     } catch {
       return null;
     }

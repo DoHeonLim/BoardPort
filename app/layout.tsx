@@ -7,9 +7,11 @@
  * Date        Author   Status    Description
  * 2026.04.12  임도헌   Created   라우트 그룹 개편에 맞춰 공통 루트 레이아웃만 유지하도록 구조 분리
  * 2026.05.30  임도헌   Modified  PWA 상태표시줄 색상을 라이트/다크 테마 기준으로 분리
+ * 2026.08.23  임도헌   Modified  metadata base URL을 공용 trusted origin 검증으로 통합
  */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { getTrustedAppBaseUrl } from "@/lib/env";
 import "./globals.css";
 
 const pretendardSubset = localFont({
@@ -40,9 +42,7 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 };
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-  ? new URL(process.env.NEXT_PUBLIC_APP_URL)
-  : new URL("http://localhost:3000"); // 로컬 개발용 폴백
+const baseUrl = new URL(getTrustedAppBaseUrl());
 
 export const metadata: Metadata = {
   metadataBase: baseUrl,
@@ -83,4 +83,3 @@ export default function RootLayout({
     </html>
   );
 }
-

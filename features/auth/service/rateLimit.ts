@@ -9,6 +9,7 @@
  * 2026.06.27  임도헌   Modified  SMS 발송 IP hash 기반 시간당 제한 추가
  * 2026.06.27  임도헌   Modified  kind/keyHash 단위 transaction advisory lock 적용
  * 2026.06.29  임도헌   Modified  stale event cleanup을 advisory lock transaction 밖으로 분리
+ * 2026.08.23  임도헌   Modified  로그인·SMS 검증·메일 요청·PRIVATE 방송 다중 bucket 제한 추가
  */
 
 import "server-only";
@@ -17,12 +18,29 @@ import db from "@/lib/db";
 import {
   SIGNUP_RATE_LIMIT_MAX,
   SIGNUP_RATE_LIMIT_WINDOW_MS,
+  AUTH_EMAIL_REQUEST_RATE_LIMIT_MAX,
+  AUTH_EMAIL_REQUEST_RATE_LIMIT_WINDOW_MS,
+  LOGIN_FAILURE_RATE_LIMIT_MAX,
+  LOGIN_FAILURE_RATE_LIMIT_WINDOW_MS,
+  PRIVATE_STREAM_PASSWORD_RATE_LIMIT_MAX,
+  PRIVATE_STREAM_PASSWORD_RATE_LIMIT_WINDOW_MS,
   SMS_SEND_IP_RATE_LIMIT_MAX,
   SMS_SEND_IP_RATE_LIMIT_WINDOW_MS,
+  SMS_VERIFY_FAILURE_RATE_LIMIT_MAX,
+  SMS_VERIFY_FAILURE_RATE_LIMIT_WINDOW_MS,
 } from "@/features/auth/constants";
+import { getRateLimitSecret } from "@/lib/env";
 
 const SIGNUP_RATE_LIMIT_KIND = "signup-submit-ip";
 const SMS_SEND_RATE_LIMIT_KIND = "sms-send-ip";
+const LOGIN_IP_RATE_LIMIT_KIND = "login-failure-ip";
+const LOGIN_ACCOUNT_RATE_LIMIT_KIND = "login-failure-account";
+const SMS_VERIFY_RATE_LIMIT_KIND = "sms-verify-failure-ip-phone";
+const PRIVATE_STREAM_PASSWORD_RATE_LIMIT_KIND =
+  "private-stream-password-failure-ip-broadcast";
+const EMAIL_VERIFY_REQUEST_RATE_LIMIT_KIND = "email-verify-request-ip-email";
+const PASSWORD_RESET_REQUEST_RATE_LIMIT_KIND =
+  "password-reset-request-ip-email";
 
 type AuthRateLimitResult =
   | { allowed: true }
@@ -56,10 +74,16 @@ export function getClientIpFromHeaders(headers: Headers): string | null {
  * @returns {string | null} 저장 가능한 hash 값
  */
 export function hashRateLimitKey(value: string): string | null {
-  const secret = process.env.RATE_LIMIT_SALT ?? process.env.COOKIE_PASSWORD;
+  const secret = getRateLimitSecret();
   if (!secret) return null;
 
   return crypto.createHmac("sha256", secret).update(value).digest("hex");
+}
+
+function buildCompositeKey(parts: Array<string | number | null>): string {
+  return parts
+    .map((part) => String(part ?? "unknown").trim().toLowerCase())
+    .join("\u001f");
 }
 
 /**
@@ -137,6 +161,13 @@ async function checkAndRecordAuthRateLimitEvent(
   });
 }
 
+/** 성공한 인증의 실패 이력을 같은 hash bucket에서 제거한다. */
+async function clearAuthRateLimitEvent(kind: string, key: string) {
+  const keyHash = hashRateLimitKey(key);
+  if (!keyHash) return;
+  await db.authRateLimitEvent.deleteMany({ where: { kind, keyHash } });
+}
+
 /**
  * 회원가입 제출에 대한 IP 기준 단기 rate limit을 확인하고 기록
  *
@@ -151,7 +182,7 @@ export async function checkAndRecordSignupAttemptByIp(
   return checkAndRecordAuthRateLimitEvent(
     {
       kind: SIGNUP_RATE_LIMIT_KIND,
-      key: ip,
+      key: buildCompositeKey([ip]),
       limit: SIGNUP_RATE_LIMIT_MAX,
       windowMs: SIGNUP_RATE_LIMIT_WINDOW_MS,
     },
@@ -173,10 +204,144 @@ export async function checkAndRecordSmsSendAttemptByIp(
   return checkAndRecordAuthRateLimitEvent(
     {
       kind: SMS_SEND_RATE_LIMIT_KIND,
-      key: ip,
+      key: buildCompositeKey([ip]),
       limit: SMS_SEND_IP_RATE_LIMIT_MAX,
       windowMs: SMS_SEND_IP_RATE_LIMIT_WINDOW_MS,
     },
+    now
+  );
+}
+
+/** 로그인 시 IP와 계정 bucket을 모두 소비한다. 성공 시 별도로 초기화한다. */
+export async function checkAndRecordLoginAttempt(
+  ip: string | null,
+  email: string,
+  now: Date = new Date()
+): Promise<AuthRateLimitResult> {
+  const ipKey = buildCompositeKey([ip]);
+  const accountKey = buildCompositeKey([email]);
+  const ipResult = await checkAndRecordAuthRateLimitEvent(
+    {
+      kind: LOGIN_IP_RATE_LIMIT_KIND,
+      key: ipKey,
+      limit: LOGIN_FAILURE_RATE_LIMIT_MAX,
+      windowMs: LOGIN_FAILURE_RATE_LIMIT_WINDOW_MS,
+    },
+    now
+  );
+  if (!ipResult.allowed) return ipResult;
+
+  return checkAndRecordAuthRateLimitEvent(
+    {
+      kind: LOGIN_ACCOUNT_RATE_LIMIT_KIND,
+      key: accountKey,
+      limit: LOGIN_FAILURE_RATE_LIMIT_MAX,
+      windowMs: LOGIN_FAILURE_RATE_LIMIT_WINDOW_MS,
+    },
+    now
+  );
+}
+
+export async function clearLoginAttempts(ip: string | null, email: string) {
+  await Promise.all([
+    clearAuthRateLimitEvent(LOGIN_IP_RATE_LIMIT_KIND, buildCompositeKey([ip])),
+    clearAuthRateLimitEvent(
+      LOGIN_ACCOUNT_RATE_LIMIT_KIND,
+      buildCompositeKey([email])
+    ),
+  ]);
+}
+
+/** SMS 인증번호 검증 시 IP와 전화번호를 묶은 bucket을 소비한다. */
+export function checkAndRecordSmsVerifyAttempt(
+  ip: string | null,
+  phone: string,
+  now: Date = new Date()
+) {
+  return checkAndRecordAuthRateLimitEvent(
+    {
+      kind: SMS_VERIFY_RATE_LIMIT_KIND,
+      key: buildCompositeKey([ip, phone]),
+      limit: SMS_VERIFY_FAILURE_RATE_LIMIT_MAX,
+      windowMs: SMS_VERIFY_FAILURE_RATE_LIMIT_WINDOW_MS,
+    },
+    now
+  );
+}
+
+export function clearSmsVerifyAttempts(ip: string | null, phone: string) {
+  return clearAuthRateLimitEvent(
+    SMS_VERIFY_RATE_LIMIT_KIND,
+    buildCompositeKey([ip, phone])
+  );
+}
+
+/** PRIVATE 방송 비밀번호 검증 시 IP와 방송 ID bucket을 소비한다. */
+export function checkAndRecordPrivateStreamPasswordAttempt(
+  ip: string | null,
+  broadcastId: number,
+  now: Date = new Date()
+) {
+  return checkAndRecordAuthRateLimitEvent(
+    {
+      kind: PRIVATE_STREAM_PASSWORD_RATE_LIMIT_KIND,
+      key: buildCompositeKey([ip, broadcastId]),
+      limit: PRIVATE_STREAM_PASSWORD_RATE_LIMIT_MAX,
+      windowMs: PRIVATE_STREAM_PASSWORD_RATE_LIMIT_WINDOW_MS,
+    },
+    now
+  );
+}
+
+export function clearPrivateStreamPasswordAttempts(
+  ip: string | null,
+  broadcastId: number
+) {
+  return clearAuthRateLimitEvent(
+    PRIVATE_STREAM_PASSWORD_RATE_LIMIT_KIND,
+    buildCompositeKey([ip, broadcastId])
+  );
+}
+
+function checkAndRecordEmailRequest(
+  kind: string,
+  ip: string | null,
+  email: string,
+  now: Date
+) {
+  return checkAndRecordAuthRateLimitEvent(
+    {
+      kind,
+      key: buildCompositeKey([ip, email]),
+      limit: AUTH_EMAIL_REQUEST_RATE_LIMIT_MAX,
+      windowMs: AUTH_EMAIL_REQUEST_RATE_LIMIT_WINDOW_MS,
+    },
+    now
+  );
+}
+
+export function checkAndRecordEmailVerificationRequest(
+  ip: string | null,
+  email: string,
+  now: Date = new Date()
+) {
+  return checkAndRecordEmailRequest(
+    EMAIL_VERIFY_REQUEST_RATE_LIMIT_KIND,
+    ip,
+    email,
+    now
+  );
+}
+
+export function checkAndRecordPasswordResetRequest(
+  ip: string | null,
+  email: string,
+  now: Date = new Date()
+) {
+  return checkAndRecordEmailRequest(
+    PASSWORD_RESET_REQUEST_RATE_LIMIT_KIND,
+    ip,
+    email,
     now
   );
 }

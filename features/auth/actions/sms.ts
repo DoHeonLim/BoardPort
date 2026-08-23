@@ -18,6 +18,7 @@
  * 2026.04.04  임도헌   Modified  전화번호/SMS 토큰 검증과 세션 저장 단계의 인라인 주석 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.06.27  임도헌   Modified  SMS 발송 시 IP hash 기반 발송 제한 컨텍스트 전달
+ * 2026.08.23  임도헌   Modified  SMS 인증번호 검증에 IP·전화번호 실패 제한 적용
  */
 "use server";
 
@@ -89,9 +90,11 @@ export async function verifyPhoneToken(
   }
 
   // 검증 Service 호출
+  const clientIp = getClientIpFromHeaders(headers());
   const serviceRes = await verifySmsToken(
     phoneResult.data,
-    tokenResult.data.toString()
+    tokenResult.data.toString(),
+    { clientIp }
   );
 
   if (!serviceRes.success) {

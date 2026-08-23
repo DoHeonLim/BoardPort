@@ -6,13 +6,13 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.13  임도헌   Created   endpoint와 브라우저 소유 증명 키 검증 추가
+ * 2026.08.23  임도헌   Modified  p256dh·auth 키의 base64url canonical 형식과 byte 길이 검증
  */
 
 import type { PushSubscriptionDTO } from "@/features/notification/types";
 import { PUSH_DISPLAY_GUARD_VERSION } from "@/features/notification/utils/pushDisplayGuard";
 
 const MAX_ENDPOINT_LENGTH = 4096;
-const MAX_KEY_LENGTH = 512;
 const BASE64_URL_PATTERN = /^[A-Za-z0-9_-]+={0,2}$/;
 const TRUSTED_PUSH_SERVICE_HOSTS = new Set([
   // Chromium 계열 Web Push/legacy GCM endpoint
@@ -30,13 +30,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isValidPushKey(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= MAX_KEY_LENGTH &&
-    BASE64_URL_PATTERN.test(value)
-  );
+function decodeCanonicalBase64Url(value: unknown): Buffer | null {
+  if (typeof value !== "string" || !BASE64_URL_PATTERN.test(value)) return null;
+
+  try {
+    const unpadded = value.replace(/=+$/, "");
+    const decoded = Buffer.from(unpadded, "base64url");
+    return decoded.toString("base64url") === unpadded ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Web Push p256dh는 uncompressed P-256 public key(0x04 + 64 bytes)여야 한다. */
+function isValidP256dh(value: unknown): value is string {
+  const decoded = decodeCanonicalBase64Url(value);
+  return decoded?.length === 65 && decoded[0] === 0x04;
+}
+
+/** Web Push auth secret은 RFC 8291 기준 16 bytes여야 한다. */
+function isValidAuthSecret(value: unknown): value is string {
+  return decodeCanonicalBase64Url(value)?.length === 16;
 }
 
 /**
@@ -89,8 +103,8 @@ export function parsePushSubscriptionDTO(
   const keys = value.keys;
   if (
     !isRecord(keys) ||
-    !isValidPushKey(keys.p256dh) ||
-    !isValidPushKey(keys.auth)
+    !isValidP256dh(keys.p256dh) ||
+    !isValidAuthSecret(keys.auth)
   ) {
     return null;
   }

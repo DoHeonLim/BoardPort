@@ -18,6 +18,7 @@
  * 2026.03.12  임도헌   Modified   프로필 이미지 애니메이션 메타(avatarAnimated) 조회 및 저장 지원
  * 2026.03.21  임도헌   Modified   방송국 소개 수정 전용 updateChannelDescriptionService 추가
  * 2026.08.22  임도헌   Modified   프로필 이미지 교체 시 MediaAsset 소유권 검증과 이전 자산 정리 추가
+ * 2026.08.23  임도헌   Modified   비밀번호 설정·변경 시 sessionVersion 증가
  */
 
 import "server-only";
@@ -125,6 +126,7 @@ export async function updateProfileService(
 
   if (options.needsPasswordSetup && data.password) {
     updateData.password = await bcrypt.hash(data.password, 12);
+    updateData.sessionVersion = { increment: 1 };
   }
 
   try {
@@ -253,7 +255,10 @@ export async function changePasswordService(
   const hashed = await bcrypt.hash(newPw, 12);
   await db.user.update({
     where: { id: userId },
-    data: { password: hashed },
+    data: {
+      password: hashed,
+      sessionVersion: { increment: 1 },
+    },
   });
 
   return { success: true };

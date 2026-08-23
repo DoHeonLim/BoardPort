@@ -9,6 +9,7 @@
  * 2026.01.19  임도헌   Moved     lib/auth -> features/auth/lib
  * 2026.01.21  임도헌   Moved     lib/safeRedirect -> utils/redirect
  * 2026.01.25  임도헌   Modified  주석 보강
+ * 2026.08.23  임도헌   Modified  trusted origin 파싱과 역슬래시·제어문자·다중 인코딩 차단
  */
 
 /**
@@ -19,21 +20,28 @@
  * @returns {string} 안전한 내부 경로 또는 루트("/")
  */
 export function sanitizeCallbackUrl(raw: unknown): string {
-  const val = typeof raw === "string" ? raw : "";
-  if (!val) return "/";
-
-  // 1. 외부/절대 URL 및 네트워크 경로 차단
-  if (/^https?:\/\//i.test(val)) return "/";
-  if (val.startsWith("//")) return "/";
-  if (!val.startsWith("/")) return "/";
+  const value = typeof raw === "string" ? raw : "";
+  if (!value || value.length > 2048) return "/";
 
   try {
-    // 2. 이중 인코딩 등을 통한 우회 시도 방지
-    const dec = decodeURIComponent(val);
-    if (/^https?:\/\//i.test(dec)) return "/";
-    if (dec.startsWith("//")) return "/";
-    if (!dec.startsWith("/")) return "/";
-    return dec || "/";
+    // 브라우저 URL 파서는 역슬래시를 슬래시처럼 취급할 수 있으므로 디코딩
+    // 전후 모든 단계에서 역슬래시와 제어문자를 먼저 거부한다.
+    let decoded = value;
+    for (let depth = 0; depth < 3; depth += 1) {
+      if (/[\\\u0000-\u001f\u007f]/.test(decoded)) return "/";
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    }
+
+    if (/[\\\u0000-\u001f\u007f]/.test(decoded)) return "/";
+    if (!decoded.startsWith("/") || decoded.startsWith("//")) return "/";
+
+    const trustedOrigin = "https://boardport.internal";
+    const parsed = new URL(decoded, trustedOrigin);
+    if (parsed.origin !== trustedOrigin) return "/";
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
   } catch {
     return "/";
   }

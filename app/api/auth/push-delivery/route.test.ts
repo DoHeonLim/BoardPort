@@ -30,8 +30,9 @@ const deliveryPayload = {
   recipientUserId: 7,
   endpoint: "https://fcm.googleapis.com/fcm/send/current-device",
   keys: {
-    p256dh: "valid-p256dh_key",
-    auth: "valid-auth_key",
+    p256dh:
+      "BAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    auth: "AgICAgICAgICAgICAgICAg",
   },
 };
 
@@ -66,7 +67,7 @@ describe("POST /api/auth/push-delivery", () => {
     { ...deliveryPayload, version: 0 },
     { ...deliveryPayload, recipientUserId: 0 },
     { ...deliveryPayload, endpoint: "https://127.0.0.1/internal" },
-    { ...deliveryPayload, keys: { p256dh: "", auth: "valid-auth_key" } },
+    { ...deliveryPayload, keys: { p256dh: "", auth: "AgICAgICAgICAgICAgICAg" } },
   ])("잘못된 표시 payload를 fail-closed로 거부한다", async (payload) => {
     const { POST } = await import("./route");
 

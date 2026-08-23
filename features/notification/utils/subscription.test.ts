@@ -18,13 +18,14 @@ import {
 const validPayload = {
   endpoint: "https://fcm.googleapis.com/fcm/send/device-token?version=1",
   keys: {
-    p256dh: "BEl6ZP_p256dh-key==",
-    auth: "auth_key-123",
+    p256dh:
+      "BAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    auth: "AgICAgICAgICAgICAgICAg",
   },
 };
 
 describe("parsePushSubscriptionDTO", () => {
-  it("HTTPS endpoint와 padding을 포함한 base64url 키를 수용한다", () => {
+  it("HTTPS endpoint와 올바른 Web Push 키 길이를 수용한다", () => {
     expect(parsePushSubscriptionDTO(validPayload)).toEqual(validPayload);
   });
 
@@ -64,6 +65,8 @@ describe("parsePushSubscriptionDTO", () => {
     { p256dh: "valid_key", auth: "invalid/base64" },
     { p256dh: "a".repeat(513), auth: "auth_key-123" },
     { p256dh: "valid_key", auth: "a".repeat(513) },
+    { p256dh: "AQ", auth: validPayload.keys.auth },
+    { p256dh: validPayload.keys.p256dh, auth: "AQ" },
   ])("누락되거나 잘못된 소유 키를 거부한다", (keys) => {
     expect(parsePushSubscriptionDTO({ ...validPayload, keys })).toBeNull();
   });

@@ -12,13 +12,18 @@
  * 2026.04.04  임도헌   Modified  SMS 토큰 발급/소모 단계의 인라인 주석 보강
  * 2026.06.27  임도헌   Modified  SMS 토큰 TTL, 재전송/IP 쿨다운, 발송 실패 롤백 처리 추가
  * 2026.06.29  임도헌   Modified  SMS 로그인 토큰의 인증 전 User 생성 방지, userId 잔존, 목적 혼용 방지
+ * 2026.08.23  임도헌   Modified  SMS 검증 실패 IP·전화번호 bucket 제한과 성공 초기화 추가
  */
 
 import "server-only";
 import crypto from "crypto";
 import { sendSMS } from "@/features/auth/utils/smsSender";
 import { generateUniqueSmsToken } from "@/features/auth/service/token";
-import { checkAndRecordSmsSendAttemptByIp } from "@/features/auth/service/rateLimit";
+import {
+  checkAndRecordSmsSendAttemptByIp,
+  checkAndRecordSmsVerifyAttempt,
+  clearSmsVerifyAttempts,
+} from "@/features/auth/service/rateLimit";
 import {
   AUTH_ERRORS,
   SMS_VERIFY_RESEND_COOLDOWN_SECONDS,
@@ -178,8 +183,19 @@ export async function createAndSendSmsToken(
  */
 export async function verifySmsToken(
   phone: string,
-  token: string
+  token: string,
+  options: { clientIp?: string | null } = {}
 ): Promise<ServiceResult<{ userId: number }>> {
+  const clientIp = options.clientIp ?? null;
+  const verifyLimit = await checkAndRecordSmsVerifyAttempt(clientIp, phone);
+  if (!verifyLimit.allowed) {
+    return {
+      success: false,
+      error: AUTH_ERRORS.AUTH_RATE_LIMITED,
+      code: "RATE_LIMITED",
+    };
+  }
+
   // 입력 토큰 기준의 저장 레코드 조회
   const verifiedToken = await db.sMSToken.findUnique({
     where: { token },
@@ -241,6 +257,7 @@ export async function verifySmsToken(
 
   // 검증 성공 후 토큰 1회 소모
   await db.sMSToken.delete({ where: { id: verifiedToken.id } });
+  await clearSmsVerifyAttempts(clientIp, phone);
 
   return { success: true, data: { userId: user.id } };
 }

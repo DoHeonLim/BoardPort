@@ -8,6 +8,7 @@
 # 2026.08.21  임도헌   Modified  Realtime Authorization RLS migration 통합 검증 추가
 # 2026.08.21  임도헌   Modified  Realtime JWT placeholder를 ES256 private JWK 변수로 전환
 # 2026.08.22  임도헌   Modified  MediaAsset ownership migration PostgreSQL 통합 검증 추가
+# 2026.08.23  임도헌   Modified  sessionVersion migration PostgreSQL 통합 검증 추가
 
 name: CI
 
@@ -56,9 +57,11 @@ jobs:
       PUSH_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       REALTIME_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       MEDIA_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      AUTH_SESSION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
+      RATE_LIMIT_SALT: ci-rate-limit-salt-at-least-32-chars
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLIC_KEY: ci-supabase-public-key
       SUPABASE_SECRET_KEY: ci-supabase-secret-key
@@ -107,6 +110,9 @@ jobs:
 
       - name: Run MediaAsset ownership migration integration test
         run: npm run test:migration:media
+
+      - name: Run auth session migration integration test
+        run: npm run test:migration:auth-session
 
       - name: Run type check
         run: npx tsc --noEmit

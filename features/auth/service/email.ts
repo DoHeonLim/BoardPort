@@ -27,6 +27,7 @@
  * 2026.03.17  임도헌   Modified   새 인증 메일 발송 성공 후에만 이전 토큰을 정리해 발송 실패 시 기존 유효 토큰 보존
  * 2026.04.02  임도헌   Modified   내부 인증 helper JSDoc 보강
  * 2026.05.16  임도헌   Modified   서버 액션 래퍼를 actions/email.ts로 분리하고 서비스는 인증 처리만 담당
+ * 2026.08.23  임도헌   Modified   이메일 인증 메일 요청에 IP·이메일 bucket 제한 추가
  */
 
 import "server-only";
@@ -44,6 +45,7 @@ import {
   EMAIL_VERIFY_TOKEN_TTL_MS,
 } from "@/features/auth/constants";
 import type { EmailVerifyState } from "@/features/auth/types";
+import { checkAndRecordEmailVerificationRequest } from "@/features/auth/service/rateLimit";
 
 const emailSchema = z
   .string()
@@ -107,7 +109,8 @@ function calcCooldownRemainingFromCreatedAt(createdAt: Date): number {
  */
 export async function handleEmailVerification(
   prevState: EmailVerifyState,
-  formData: FormData
+  formData: FormData,
+  options: { clientIp?: string | null } = {}
 ): Promise<EmailVerifyState> {
   const intent = parseIntent(formData.get("intent"));
   const emailRaw = formData.get("email") ?? prevState.email ?? "";
@@ -121,6 +124,19 @@ export async function handleEmailVerification(
 
   // 1. 토큰 요청/재전송 처리
   if (intent === "request" || intent === "resend") {
+    const requestLimit = await checkAndRecordEmailVerificationRequest(
+      options.clientIp ?? null,
+      email
+    );
+    if (!requestLimit.allowed) {
+      return {
+        token: false,
+        email,
+        sent: false,
+        error: { formErrors: ["요청이 많습니다. 잠시 후 다시 시도해주세요."] },
+      };
+    }
+
     const deliverabilityError = await validateDeliverableEmail(email);
     if (deliverabilityError) {
       return {

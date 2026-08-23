@@ -43,8 +43,9 @@ describe("logOut", () => {
   const deviceSubscription = {
     endpoint: "https://fcm.googleapis.com/fcm/send/current-device",
     keys: {
-      p256dh: "valid-p256dh_key",
-      auth: "valid-auth_key",
+      p256dh:
+        "BAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      auth: "AgICAgICAgICAgICAgICAg",
     },
   };
 
