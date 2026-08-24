@@ -37,11 +37,18 @@
  * 2026.05.25  임도헌   Modified  알림 이미지/삭제 콘텐츠 렌더링 판단을 테스트 가능한 유틸로 분리
  * 2026.06.19  임도헌   Modified  모바일 긴 알림 본문 더보기와 알림센터 자기 링크 버튼 숨김 처리 추가
  * 2026.06.21  임도헌   Modified  모바일 알림 제목/본문 펼침 기준을 실제 clamp overflow 측정으로 보정
+ * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
  */
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactElement,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -333,7 +340,7 @@ export default function NotificationListContainer({
   };
 
   // 알림 타입별 시스템 아이콘 매핑
-  const typeIcons: Record<string, JSX.Element> = {
+  const typeIcons: Record<string, ReactElement> = {
     CHAT: <ChatBubbleLeftEllipsisIcon className="size-5" />,
     TRADE: <ArrowsRightLeftIcon className="size-5" />,
     REVIEW: <ChatBubbleBottomCenterTextIcon className="size-5" />,

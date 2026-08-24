@@ -20,6 +20,7 @@ export const revalidate = 0;
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 
+/** Push payload의 수신자 ID를 안전한 양의 정수로 정규화한다. */
 function getRecipientUserId(value: unknown): number | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;

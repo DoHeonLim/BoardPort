@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   비로그인·제한·미존재 VOD의 HTTP 거부 경계 검증
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,7 +49,9 @@ describe("GET recording comments", () => {
     mocks.getSession.mockResolvedValue({});
     const { GET } = await import("./route");
 
-    const response = await GET(request(), { params: { vodId: "91" } });
+    const response = await GET(request(), {
+      params: Promise.resolve({ vodId: "91" }),
+    });
 
     expect(response.status).toBe(401);
     expect(mocks.getRecordingCommentsList).not.toHaveBeenCalled();
@@ -61,7 +64,9 @@ describe("GET recording comments", () => {
     );
     const { GET } = await import("./route");
 
-    const response = await GET(request(), { params: { vodId: "91" } });
+    const response = await GET(request(), {
+      params: Promise.resolve({ vodId: "91" }),
+    });
 
     expect(response.status).toBe(403);
   });
@@ -73,7 +78,9 @@ describe("GET recording comments", () => {
     );
     const { GET } = await import("./route");
 
-    const response = await GET(request(), { params: { vodId: "91" } });
+    const response = await GET(request(), {
+      params: Promise.resolve({ vodId: "91" }),
+    });
 
     expect(response.status).toBe(404);
   });

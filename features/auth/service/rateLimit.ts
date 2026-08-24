@@ -43,8 +43,7 @@ const PASSWORD_RESET_REQUEST_RATE_LIMIT_KIND =
   "password-reset-request-ip-email";
 
 type AuthRateLimitResult =
-  | { allowed: true }
-  | { allowed: false; retryAfterSeconds: number };
+  { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
 /**
  * 요청 헤더에서 rate limit 식별용 클라이언트 IP 후보를 추출
@@ -80,9 +79,14 @@ export function hashRateLimitKey(value: string): string | null {
   return crypto.createHmac("sha256", secret).update(value).digest("hex");
 }
 
+/** 여러 식별자를 정규화해 충돌 없이 hash할 인증 제한 복합 키를 만든다. */
 function buildCompositeKey(parts: Array<string | number | null>): string {
   return parts
-    .map((part) => String(part ?? "unknown").trim().toLowerCase())
+    .map((part) =>
+      String(part ?? "unknown")
+        .trim()
+        .toLowerCase()
+    )
     .join("\u001f");
 }
 
@@ -139,8 +143,7 @@ async function checkAndRecordAuthRateLimitEvent(
     });
 
     if (recentAttempts.length >= input.limit) {
-      const resetAt =
-        recentAttempts[0].created_at.getTime() + input.windowMs;
+      const resetAt = recentAttempts[0].created_at.getTime() + input.windowMs;
       const retryAfterSeconds = Math.max(
         1,
         Math.ceil((resetAt - now.getTime()) / 1000)
@@ -242,6 +245,7 @@ export async function checkAndRecordLoginAttempt(
   );
 }
 
+/** 로그인 성공 뒤 해당 IP·계정의 실패 이력을 함께 제거한다. */
 export async function clearLoginAttempts(ip: string | null, email: string) {
   await Promise.all([
     clearAuthRateLimitEvent(LOGIN_IP_RATE_LIMIT_KIND, buildCompositeKey([ip])),
@@ -269,6 +273,7 @@ export function checkAndRecordSmsVerifyAttempt(
   );
 }
 
+/** SMS 인증 성공 뒤 IP·전화번호 실패 이력을 제거한다. */
 export function clearSmsVerifyAttempts(ip: string | null, phone: string) {
   return clearAuthRateLimitEvent(
     SMS_VERIFY_RATE_LIMIT_KIND,
@@ -293,6 +298,7 @@ export function checkAndRecordPrivateStreamPasswordAttempt(
   );
 }
 
+/** PRIVATE 방송 비밀번호 검증 성공 뒤 관련 실패 이력을 제거한다. */
 export function clearPrivateStreamPasswordAttempts(
   ip: string | null,
   broadcastId: number
@@ -303,6 +309,7 @@ export function clearPrivateStreamPasswordAttempts(
   );
 }
 
+/** 이메일 요청의 IP·계정 복합 bucket을 확인하고 현재 요청을 기록한다. */
 function checkAndRecordEmailRequest(
   kind: string,
   ip: string | null,
@@ -320,6 +327,7 @@ function checkAndRecordEmailRequest(
   );
 }
 
+/** 이메일 인증 메일 요청 제한을 확인하고 기록한다. */
 export function checkAndRecordEmailVerificationRequest(
   ip: string | null,
   email: string,
@@ -333,6 +341,7 @@ export function checkAndRecordEmailVerificationRequest(
   );
 }
 
+/** 비밀번호 재설정 메일 요청 제한을 확인하고 기록한다. */
 export function checkAndRecordPasswordResetRequest(
   ip: string | null,
   email: string,

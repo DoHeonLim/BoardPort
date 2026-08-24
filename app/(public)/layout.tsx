@@ -13,6 +13,7 @@ import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import QueryProvider from "@/components/global/providers/QueryProvider";
 import GlobalToaster from "@/components/global/GlobalToaster";
 
+/** 인증 없이 접근 가능한 페이지를 공통 공개 레이아웃으로 감싼다. */
 export default function PublicLayout({
   children,
 }: {

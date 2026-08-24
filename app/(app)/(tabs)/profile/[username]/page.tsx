@@ -37,7 +37,8 @@
  * 2026.05.30  임도헌   Modified  타인 프로필 상단 액션바 높이와 좌우 여백을 압축
  * 2026.08.13  임도헌   Modified  프로필 리뷰 prefetch cache를 조회자별로 분리
  * 2026.08.21  임도헌   Modified  차단 관계에서는 최근 방송과 signed thumbnail 조회를 시작하지 않도록 보강
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
@@ -62,11 +63,11 @@ import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { username: string };
+/** URL username을 기반으로 사용자 프로필 메타데이터를 생성한다. */
+export async function generateMetadata(props: {
+  params: Promise<{ username: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
   const username = decodeURIComponent(params.username);
   return {
     title: `${username}님의 선원증`,
@@ -89,13 +90,12 @@ export async function generateMetadata({
  * - TanStack Query를 활용한 대상 유저의 리뷰, 판매 중/판매 완료 상품 목록 서버 프리패치(Prefetch) 적용
  * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달
  */
-export default async function UserProfilePage({
-  params,
-  searchParams,
-}: {
-  params: { username: string };
-  searchParams?: { returnTo?: string };
+export default async function UserProfilePage(props: {
+  params: Promise<{ username: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/profile");
 
   // 1. Username -> ID 변환
@@ -128,37 +128,40 @@ export default async function UserProfilePage({
   const queryClient = getQueryClient();
 
   // 4. 데이터 병렬 로딩
-  const [averageRating, badges, userBadges, streams, previewReviews] = await Promise.all([
-    getUserAverageRating(userProfile.id),
-    getAllBadges(),
-    getUserBadges(userProfile.id),
-    userProfile.isBlocked
-      ? Promise.resolve([])
-      : getRecentBroadcasts(userProfile.id, 6, false, viewerId),
-    getUserReviews(userProfile.id, null, 2, viewerId).then((res) => res.reviews),
+  const [averageRating, badges, userBadges, streams, previewReviews] =
+    await Promise.all([
+      getUserAverageRating(userProfile.id),
+      getAllBadges(),
+      getUserBadges(userProfile.id),
+      userProfile.isBlocked
+        ? Promise.resolve([])
+        : getRecentBroadcasts(userProfile.id, 6, false, viewerId),
+      getUserReviews(userProfile.id, null, 2, viewerId).then(
+        (res) => res.reviews
+      ),
 
-    // TanStack Query Prefetch
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.reviews.user(userProfile.id, viewerId),
-      queryFn: () => getUserReviewsAction(userProfile.id, null),
-      initialPageParam: null as number | null,
-    }),
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
-      queryFn: () =>
-        getUserProductsAction(
-          { type: "SELLING", userId: userProfile.id },
-          null
-        ),
-      initialPageParam: null as number | null,
-    }),
-    queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
-      queryFn: () =>
-        getUserProductsAction({ type: "SOLD", userId: userProfile.id }, null),
-      initialPageParam: null as number | null,
-    }),
-  ]);
+      // TanStack Query Prefetch
+      queryClient.prefetchInfiniteQuery({
+        queryKey: queryKeys.reviews.user(userProfile.id, viewerId),
+        queryFn: () => getUserReviewsAction(userProfile.id, null),
+        initialPageParam: null as number | null,
+      }),
+      queryClient.prefetchInfiniteQuery({
+        queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
+        queryFn: () =>
+          getUserProductsAction(
+            { type: "SELLING", userId: userProfile.id },
+            null
+          ),
+        initialPageParam: null as number | null,
+      }),
+      queryClient.prefetchInfiniteQuery({
+        queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
+        queryFn: () =>
+          getUserProductsAction({ type: "SOLD", userId: userProfile.id }, null),
+        initialPageParam: null as number | null,
+      }),
+    ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">

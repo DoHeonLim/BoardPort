@@ -36,12 +36,11 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/(..)products/view/[id]/page.tsx 에서 app/(app)/(tabs)/products/@modal/(..)products/view/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  일반 상세와 동일한 공통 상세 로더/조회수 보정 흐름을 적용하고 서버 본문을 children으로 재사용
  * 2026.06.17  임도헌   Modified  제품 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { notFound, redirect } from "next/navigation";
-import {
-  getProductDetailViewData,
-} from "@/features/product/service/detail";
+import { getProductDetailViewData } from "@/features/product/service/detail";
 import { incrementViews } from "@/features/common/service/view";
 import ProductDetailModalContainer from "@/features/product/components/productDetail/modal/ProductDetailModalContainer";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
@@ -59,13 +58,12 @@ export const dynamic = "force-dynamic";
  * - 판매자-조회자 간 차단 관계 검증 및 차단 시나리오에서 `/403` 리다이렉트 수행
  * - 가드를 통과한 실제 모달 진입만 조회수에 반영하고 현재 렌더 값에 즉시 반영
  */
-export default async function ProductDetailModal({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function ProductDetailModal(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
 
@@ -104,10 +102,7 @@ export default async function ProductDetailModal({
   const currentViews = counted ? (product.views ?? 0) + 1 : product.views;
 
   return (
-    <ProductDetailModalContainer
-      product={product}
-      isOwner={isOwner}
-    >
+    <ProductDetailModalContainer product={product} isOwner={isOwner}>
       <ProductDetailContainer
         product={product}
         views={currentViews}
@@ -120,5 +115,3 @@ export default async function ProductDetailModal({
     </ProductDetailModalContainer>
   );
 }
-
-

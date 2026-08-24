@@ -39,6 +39,7 @@
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 목록/채널 캐시에서 현재 VOD를 즉시 제거할 수 있도록 vodId 전달
  * 2026.08.13  임도헌   Modified  다시보기 댓글 prefetch cache를 조회자별로 분리
  * 2026.08.21  임도헌   Modified  VOD 권한 판정 전에 실행되던 조회수·좋아요·댓글 조회 부수 효과 차단
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 export const dynamic = "force-dynamic";
 
@@ -69,16 +70,14 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - 양방향 차단 가드 확인 및 방송 접근 권한(PRIVATE, FOLLOWERS) 세션 검증 처리
  * - TanStack Query를 활용한 VOD 댓글 목록 서버 프리패치(Prefetch) 및 HydrationBoundary 적용
  *
- * @param {Object} params - URL 파라미터 (id: 녹화본 ID)
- * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
+ * @param props - 녹화본 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function RecordingVodPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function RecordingVodPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const vodId = Number(params.id);
   if (!Number.isFinite(vodId) || vodId <= 0) return notFound();
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/streams");

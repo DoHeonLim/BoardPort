@@ -11,6 +11,7 @@
  * 2026.02.06  임도헌   Modified  세션에 역할 추가
  * 2026.05.19  임도헌   Modified  쿠키 기반 세션 헬퍼가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  * 2026.08.23  임도헌   Modified  DB sessionVersion 불일치 세션을 요청 경계에서 폐기
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 cookies API 호환 반영
  */
 
 import "server-only";
@@ -38,19 +39,19 @@ export interface ISessionContent {
   unlockedBroadcastIds?: Record<string, true>;
 }
 
-/**
- * 현재 요청의 세션을 가져옴
- * - `iron-session`을 사용하여 쿠키를 암호화/복호화
- * - Server Component, Route Handler, Server Action에서 사용 가능
- */
 /** 로그인·비밀번호 변경 직후 최신 DB 상태로 쿠키를 재발급할 때만 사용한다. */
-export function getSessionForUpdate() {
-  return getIronSession<ISessionContent>(cookies(), {
+export async function getSessionForUpdate() {
+  const cookieStore = await cookies();
+  return getIronSession<ISessionContent>(cookieStore, {
     cookieName: "user",
     password: getCookiePassword(),
   });
 }
 
+/**
+ * 현재 요청의 암호화 세션을 읽고 로그인 세션의 DB sessionVersion을 검증한다.
+ * 사용자가 없거나 버전이 다르면 기존 쿠키를 폐기한다.
+ */
 export default async function getSession() {
   const session = await getSessionForUpdate();
 

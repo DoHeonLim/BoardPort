@@ -30,12 +30,14 @@ let tokenCacheGeneration = 0;
 // heartbeat 갱신 중 만료되는 경계를 피하도록 서버 만료보다 30초 먼저 새 토큰을 받는다.
 const REALTIME_TOKEN_REFRESH_BUFFER_MS = 30_000;
 
+/** 계정·권한 변경 뒤 브라우저에 남은 Realtime JWT 캐시를 즉시 폐기한다. */
 export function invalidateRealtimeAccessToken() {
   tokenCacheGeneration += 1;
   cachedAccessToken = undefined;
   pendingTokenRequest = null;
 }
 
+/** 만료 여유가 있는 JWT는 재사용하고 필요할 때만 발급 API를 다시 호출한다. */
 async function requestRealtimeAccessToken() {
   if (
     cachedAccessToken &&
@@ -52,30 +54,29 @@ async function requestRealtimeAccessToken() {
       cache: "no-store",
       credentials: "same-origin",
       headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        const body = (await response.json().catch(() => null)) as {
-          token?: unknown;
-          expiresAt?: unknown;
-        } | null;
-        const expiresAtMs =
-          typeof body?.expiresAt === "string"
-            ? Date.parse(body.expiresAt)
-            : Number.NaN;
-        if (
-          !response.ok ||
-          typeof body?.token !== "string" ||
-          !Number.isFinite(expiresAtMs) ||
-          expiresAtMs <= Date.now()
-        ) {
-          throw new Error(`Realtime token request failed (${response.status})`);
-        }
-        // 요청 도중 PRIVATE 언락 등으로 권한이 바뀌었다면 이전 claim을 캐시하지 않는다.
-        if (requestGeneration === tokenCacheGeneration) {
-          cachedAccessToken = { token: body.token, expiresAtMs };
-        }
-        return body.token;
-      });
+    }).then(async (response) => {
+      const body = (await response.json().catch(() => null)) as {
+        token?: unknown;
+        expiresAt?: unknown;
+      } | null;
+      const expiresAtMs =
+        typeof body?.expiresAt === "string"
+          ? Date.parse(body.expiresAt)
+          : Number.NaN;
+      if (
+        !response.ok ||
+        typeof body?.token !== "string" ||
+        !Number.isFinite(expiresAtMs) ||
+        expiresAtMs <= Date.now()
+      ) {
+        throw new Error(`Realtime token request failed (${response.status})`);
+      }
+      // 요청 도중 PRIVATE 언락 등으로 권한이 바뀌었다면 이전 claim을 캐시하지 않는다.
+      if (requestGeneration === tokenCacheGeneration) {
+        cachedAccessToken = { token: body.token, expiresAtMs };
+      }
+      return body.token;
+    });
     pendingTokenRequest = tokenRequest;
     // 무효화 직후 새 요청이 시작됐다면 먼저 끝난 이전 요청이 새 pending 값을 지우지 않는다.
     void tokenRequest.then(

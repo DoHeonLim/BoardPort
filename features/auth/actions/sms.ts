@@ -56,7 +56,7 @@ export async function sendPhoneToken(
 
   // 인증번호 생성 및 문자 발송 위임
   const serviceRes = await createAndSendSmsToken(result.data, {
-    clientIp: getClientIpFromHeaders(headers()),
+    clientIp: getClientIpFromHeaders(await headers()),
   });
   if (!serviceRes.success) {
     return { success: false, error: serviceRes.error };
@@ -90,7 +90,7 @@ export async function verifyPhoneToken(
   }
 
   // 검증 Service 호출
-  const clientIp = getClientIpFromHeaders(headers());
+  const clientIp = getClientIpFromHeaders(await headers());
   const serviceRes = await verifySmsToken(
     phoneResult.data,
     tokenResult.data.toString(),
@@ -110,6 +110,9 @@ export async function verifyPhoneToken(
   return {
     success: true,
     // 온보딩 필요 여부를 반영한 인증 후 목적지 결정
-    redirectTo: await resolvePostAuthRedirectPath(serviceRes.data.userId, callbackUrl),
+    redirectTo: await resolvePostAuthRedirectPath(
+      serviceRes.data.userId,
+      callbackUrl
+    ),
   };
 }

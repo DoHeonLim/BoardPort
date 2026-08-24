@@ -105,6 +105,7 @@ function normalizeNotificationText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/** 게시글 작성자에게 댓글 알림을 DB·private Realtime·Push로 전달한다. */
 async function notifyPostOwnerOnComment({
   postId,
   postTitle,
@@ -300,8 +301,7 @@ export async function deleteComment(
     console.error("deleteComment failed:", e);
     return {
       success: false,
-      error:
-        "댓글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "댓글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

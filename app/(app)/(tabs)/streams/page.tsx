@@ -46,7 +46,8 @@
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
  * 2026.06.25  임도헌   Modified  서버 prefetch query key를 조회자/팔로잉 필터 스코프와 일치하도록 정리
  * 2026.08.13  임도헌   Modified  라이브·다시보기 목록 cache key의 조회자 범위 구조 통일
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
@@ -73,7 +74,10 @@ import StreamListSkeleton from "@/features/stream/components/StreamListSkeleton"
 import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import RecordingListRefreshRelay from "@/features/stream/components/RecordingListRefreshRelay";
-import { getRecordingsListAction, getStreamsListAction } from "@/features/stream/actions/list";
+import {
+  getRecordingsListAction,
+  getStreamsListAction,
+} from "@/features/stream/actions/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import type {
   RecordingSort,
@@ -86,13 +90,13 @@ import type {
 export const dynamic = "force-dynamic";
 
 interface StreamsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     keyword?: string;
     category?: string;
     mode?: StreamMode;
     sort?: RecordingSort;
     scope?: StreamScope;
-  };
+  }>;
 }
 
 export const metadata: Metadata = {
@@ -113,7 +117,8 @@ export const metadata: Metadata = {
  * - 모바일/데스크톱 헤더를 분리 렌더링하여 검색/스코프/카테고리 제어를 기기별 밀도에 맞게 제공
  * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달 및 초기 렌더링 최적화
  */
-export default async function StreamsPage({ searchParams }: StreamsPageProps) {
+export default async function StreamsPage(props: StreamsPageProps) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   const viewerId = session?.id ?? null;
 
@@ -124,8 +129,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
   // 파라미터 정규화
   const mode = searchParams.mode === "recordings" ? "recordings" : "live";
   const scope = searchParams.scope === "following" ? "following" : "all";
-  const recordingSort =
-    searchParams.sort === "popular" ? "popular" : "latest";
+  const recordingSort = searchParams.sort === "popular" ? "popular" : "latest";
   const category = searchParams.category?.trim() || undefined;
   const keyword = searchParams.keyword?.trim() || undefined;
   const liveQueryParams: Record<string, string> = {
@@ -170,8 +174,7 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
         })
       : queryClient.prefetchInfiniteQuery({
           queryKey: liveListQueryKey,
-          queryFn: () =>
-            getStreamsListAction(scope, null, liveQueryParams),
+          queryFn: () => getStreamsListAction(scope, null, liveQueryParams),
           initialPageParam: null as number | null,
         }),
     getUnreadNotificationCount(),
@@ -269,13 +272,12 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
             <StreamSearchBarWrapper
               className="flex-1"
               compact
-              placeholder={mode === "recordings" ? "다시보기 검색" : "방송 검색"}
+              placeholder={
+                mode === "recordings" ? "다시보기 검색" : "방송 검색"
+              }
             />
             <div className="shrink-0">
-              <NotificationBell
-                userId={viewerId!}
-                initialCount={unreadCount}
-              />
+              <NotificationBell userId={viewerId!} initialCount={unreadCount} />
             </div>
           </div>
           <div className="mt-1.5 flex items-center gap-2">
@@ -349,15 +351,15 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
                   prefetch={false}
                   className={cn(
                     "focus-ring-soft inline-flex h-10 shrink-0 items-center justify-center rounded-xl border px-3 text-sm font-medium transition-colors",
-                  scope === "following"
-                    ? "border-brand/20 bg-brand/10 text-brand shadow-sm ring-1 ring-brand/20 dark:border-brand-light/25 dark:bg-brand-light/12 dark:text-brand-light dark:ring-brand-light/25"
-                    : "border-border-subtle bg-background text-muted hover:bg-surface/80 hover:text-primary"
-                )}
-              >
-                팔로잉만
-              </Link>
-            </>
-          )}
+                    scope === "following"
+                      ? "border-brand/20 bg-brand/10 text-brand shadow-sm ring-1 ring-brand/20 dark:border-brand-light/25 dark:bg-brand-light/12 dark:text-brand-light dark:ring-brand-light/25"
+                      : "border-border-subtle bg-background text-muted hover:bg-surface/80 hover:text-primary"
+                  )}
+                >
+                  팔로잉만
+                </Link>
+              </>
+            )}
 
             <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border-subtle bg-background">
               <StreamCategoryTabs
@@ -373,35 +375,35 @@ export default async function StreamsPage({ searchParams }: StreamsPageProps) {
       {/* 본문 */}
       <PullToRefresh className="flex-1">
         <div className="flex-1 px-page-x py-5 md:py-6">
-            {isDataEmpty ? (
-              <StreamEmptyState
-                keyword={keyword}
-                category={category}
-                scope={scope}
-                mode={mode}
-              />
-            ) : (
-              <HydrationBoundary state={dehydrate(queryClient)}>
-                <Suspense fallback={<StreamListSkeleton />}>
-                  {mode === "recordings" ? (
-                    <RecordingListSection
-                      key={`recordings-${JSON.stringify(searchParams)}`}
-                      sort={recordingSort}
-                      followingOnly={scope === "following"}
-                      searchParams={recordingQueryParams}
-                      viewerId={viewerId}
-                    />
-                  ) : (
-                    <StreamListSection
-                      key={`live-${JSON.stringify(searchParams)}`}
-                      scope={scope}
-                      searchParams={liveQueryParams}
-                      viewerId={viewerId}
-                    />
-                  )}
-                </Suspense>
-              </HydrationBoundary>
-            )}
+          {isDataEmpty ? (
+            <StreamEmptyState
+              keyword={keyword}
+              category={category}
+              scope={scope}
+              mode={mode}
+            />
+          ) : (
+            <HydrationBoundary state={dehydrate(queryClient)}>
+              <Suspense fallback={<StreamListSkeleton />}>
+                {mode === "recordings" ? (
+                  <RecordingListSection
+                    key={`recordings-${JSON.stringify(searchParams)}`}
+                    sort={recordingSort}
+                    followingOnly={scope === "following"}
+                    searchParams={recordingQueryParams}
+                    viewerId={viewerId}
+                  />
+                ) : (
+                  <StreamListSection
+                    key={`live-${JSON.stringify(searchParams)}`}
+                    scope={scope}
+                    searchParams={liveQueryParams}
+                    viewerId={viewerId}
+                  />
+                )}
+              </Suspense>
+            </HydrationBoundary>
+          )}
         </div>
       </PullToRefresh>
       {/* 스트리밍 추가 플로팅 버튼 (FAB) */}

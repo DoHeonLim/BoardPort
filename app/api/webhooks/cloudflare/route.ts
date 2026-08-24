@@ -24,6 +24,7 @@
  * 2026.06.25  임도헌   Modified  production secret 누락 시 Stream/Destination 웹훅 fail-closed 처리
  * 2026.08.21  임도헌   Modified  클라이언트 상태 이벤트에서 원본 Live Input UID를 제거하고 Broadcast PK 사용
  * 2026.08.21  임도헌   Modified  방송 상태 이벤트를 식별자-only private 무효화 신호로 축소
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import "server-only";
@@ -219,7 +220,11 @@ function getCloudflareStatusState(
   status: CloudflareStreamAssetPayload["status"]
 ): string | null {
   if (typeof status === "string") return status;
-  if (status && typeof status === "object" && typeof status.state === "string") {
+  if (
+    status &&
+    typeof status === "object" &&
+    typeof status.state === "string"
+  ) {
     return status.state;
   }
   return null;
@@ -329,9 +334,7 @@ function isAssetReadyPayload(body: CloudflareStreamAssetPayload): boolean {
   // Destination Webhook의 경우 body.data 안에 실제 페이로드가 들어있는 경우가 많으므로 우선 언랩
   const src = body?.data ?? body;
   const state = getCloudflareStatusState(src?.status);
-  const ready =
-    src?.readyToStream === true ||
-    state === "ready";
+  const ready = src?.readyToStream === true || state === "ready";
 
   const hasPlayback =
     !!src?.playback &&
@@ -397,7 +400,9 @@ async function tryFillThumbnailFromCloudflare(
 
     // 우선순위: live-inprogress → ready → 첫 항목
     const chosen =
-      list.find((v) => getCloudflareStatusState(v.status) === "live-inprogress") ||
+      list.find(
+        (v) => getCloudflareStatusState(v.status) === "live-inprogress"
+      ) ||
       list.find((v) => getCloudflareStatusState(v.status) === "ready") ||
       list[0];
 
@@ -417,7 +422,7 @@ async function tryFillThumbnailFromCloudflare(
 
         // 관련 캐시 무효화 (비동기 처리)
         try {
-          revalidateTag(T.BROADCAST_DETAIL(broadcastId));
+          revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
         } catch {}
       }
     }
@@ -476,7 +481,7 @@ async function onConnected(liveInputUid: string) {
 
     // 상태 변경에 대한 캐시 무효화 (썸네일 여부와 무관하게 항상 수행)
     try {
-      revalidateTag(T.BROADCAST_DETAIL(updated.id));
+      revalidateTag(T.BROADCAST_DETAIL(updated.id), { expire: 0 });
     } catch {}
 
     // 상태 변경을 Supabase Realtime 채널로 브로드캐스트
@@ -532,7 +537,7 @@ async function onDisconnected(liveInputUid: string) {
     });
 
     try {
-      revalidateTag(T.BROADCAST_DETAIL(b.id));
+      revalidateTag(T.BROADCAST_DETAIL(b.id), { expire: 0 });
       await sendLiveStatusFromServer?.({
         broadcastId: b.id,
       });
@@ -639,7 +644,7 @@ async function onVideoReady(
   }
 
   // 캐시 무효화
-  revalidateTag(T.BROADCAST_DETAIL(broadcastIdResolved));
+  revalidateTag(T.BROADCAST_DETAIL(broadcastIdResolved), { expire: 0 });
 }
 
 /**
@@ -696,7 +701,7 @@ async function onPostVideoReady(assetBody: CloudflareStreamAssetPayload) {
   });
 
   if (draft.postId) {
-    revalidateTag(T.POST_DETAIL(draft.postId));
+    revalidateTag(T.POST_DETAIL(draft.postId), { expire: 0 });
   }
 }
 
@@ -741,7 +746,7 @@ async function onPostVideoFailed(assetBody: CloudflareStreamAssetPayload) {
   });
 
   if (draft.postId) {
-    revalidateTag(T.POST_DETAIL(draft.postId));
+    revalidateTag(T.POST_DETAIL(draft.postId), { expire: 0 });
   }
 }
 

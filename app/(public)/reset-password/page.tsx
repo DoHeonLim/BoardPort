@@ -12,7 +12,8 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/reset-password/page.tsx 에서 app/(public)/reset-password/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.13  임도헌   Modified  인증 공통 셸을 적용해 main 랜드마크와 상단 로고 우선 로드 패턴을 통일
  * 2026.04.17  임도헌   Modified  callbackUrl 정규화와 공통 셸 책임이 페이지 설명에 드러나도록 주석 보강
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -27,17 +28,16 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - callbackUrl을 안전한 내부 경로로 정규화해 재설정 완료 후 로그인 복귀 맥락 유지
  * - `AuthPageShell` 아래에서 유효 토큰이면 재설정 폼, 아니면 재요청 링크를 렌더링
  */
-export default async function ResetPasswordPage({
-  searchParams,
-}: {
-  searchParams?: { token?: string; callbackUrl?: string };
+export default async function ResetPasswordPage(props: {
+  searchParams?: Promise<{ token?: string; callbackUrl?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const token = searchParams?.token?.trim();
-  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl ?? "/profile");
+  const callbackUrl = sanitizeCallbackUrl(
+    searchParams?.callbackUrl ?? "/profile"
+  );
   if (!token) {
-    redirect(
-      `/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`
-    );
+    redirect(`/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`);
   }
 
   const validation = await validatePasswordResetToken(token);
@@ -63,4 +63,3 @@ export default async function ResetPasswordPage({
     </AuthPageShell>
   );
 }
-

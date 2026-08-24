@@ -50,6 +50,7 @@ import type { LocationData } from "@/features/map/types";
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "";
 
+/** 거래 약속 변경 알림을 DB·private Realtime·Push 경계로 전달한다. */
 async function sendAppointmentTradeNotification({
   targetUserId,
   title,
@@ -471,11 +472,13 @@ export async function acceptAppointment(
     });
 
     for (const canceled of canceledApts) {
-      void supabase.channel(productChatRealtimeTopic(canceled.chatRoomId)).send({
-        type: "broadcast",
-        event: "appointment_update",
-        payload: { id: canceled.id, status: "CANCELED" },
-      });
+      void supabase
+        .channel(productChatRealtimeTopic(canceled.chatRoomId))
+        .send({
+          type: "broadcast",
+          event: "appointment_update",
+          payload: { id: canceled.id, status: "CANCELED" },
+        });
     }
 
     // 6. 알림 전송 (상대방에게)
@@ -512,8 +515,7 @@ export async function acceptAppointment(
     console.error("acceptAppointment error:", error);
     return {
       success: false,
-      error:
-        "약속 수락에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "약속 수락에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
@@ -659,8 +661,7 @@ export async function cancelAppointment(
     }
     return {
       success: false,
-      error:
-        "약속 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "약속 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

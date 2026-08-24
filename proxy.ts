@@ -1,6 +1,6 @@
 /**
- * File Name : middleware.ts
- * Description : 미들웨어
+ * File Name : proxy.ts
+ * Description : 요청 전 인증·권한 프록시
  * Author : 임도헌
  *
  * History
@@ -15,6 +15,7 @@
  * 2026.05.15  임도헌   Modified  공유 미리보기 크롤러와 OG 이미지 라우트는 인증 가드 예외로 처리
  * 2026.07.06  임도헌   Modified  이용약관/개인정보 처리방침 공개 경로를 인증 가드 예외로 추가
  * 2026.08.23  임도헌   Modified  중앙 검증된 COOKIE_PASSWORD 사용
+ * 2026.08.23  임도헌   Renamed   Next.js 16 규약에 맞춰 middleware를 proxy로 전환
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -57,7 +58,7 @@ const authGuestOnlyUrls: IRoutes = {
 };
 
 /**
- * 글로벌 미들웨어
+ * 글로벌 요청 프록시
  *
  * 1. 세션 쿠키를 복호화하여 로그인 여부, 역할(Role), 정지(Ban) 상태를 확인
  * 2. `session.banned`가 true인 유저가 Public 경로 외의 페이지에 접근 시
@@ -66,7 +67,7 @@ const authGuestOnlyUrls: IRoutes = {
  * 4. 비로그인 유저가 보호된 경로 접근 시 로그인 페이지로 리다이렉트 (CallbackUrl 보존)
  * 5. 로그인 유저가 로그인/회원가입 등 게스트 전용 경로 접근 시 `/products`로 리다이렉트
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const sessionResponse = NextResponse.next();
 
@@ -109,7 +110,10 @@ export async function middleware(request: NextRequest) {
     if (!isLoggedIn) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/login";
-      loginUrl.searchParams.set("callbackUrl", pathname + request.nextUrl.search);
+      loginUrl.searchParams.set(
+        "callbackUrl",
+        pathname + request.nextUrl.search
+      );
       return NextResponse.redirect(loginUrl);
     }
 
@@ -118,7 +122,10 @@ export async function middleware(request: NextRequest) {
       deniedUrl.pathname = "/403";
       deniedUrl.search = "";
       deniedUrl.searchParams.set("reason", "ADMIN_ONLY");
-      deniedUrl.searchParams.set("callbackUrl", pathname + request.nextUrl.search);
+      deniedUrl.searchParams.set(
+        "callbackUrl",
+        pathname + request.nextUrl.search
+      );
       return NextResponse.redirect(deniedUrl);
     }
   }

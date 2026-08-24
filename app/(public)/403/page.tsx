@@ -17,6 +17,7 @@
  * 2026.03.18  임도헌   Modified   sid/uid가 없거나 0인 경우 undefined로 정리해 잘못된 CTA 노출 방지
  * 2026.04.12  임도헌   Moved      파일 경로를 app/403/page.tsx 에서 app/(public)/403/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified   관리자 전용 경로 접근 거부 사유(ADMIN_ONLY) 지원
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { redirect } from "next/navigation";
@@ -39,17 +40,10 @@ function parsePositiveInt(value: string | undefined) {
  * - 클라이언트 컴포넌트 `AccessDenied`를 렌더링하여 비밀번호 입력이나 팔로우 유도 UI를 제공
  *
  * @param {Object} props - Next.js Page Props
- * @param {Object} props.searchParams - URL 쿼리 파라미터
- * @param {string} [props.searchParams.reason] - 거부 사유 ("PRIVATE" | "FOLLOWERS_ONLY" | "ADMIN_ONLY" | "UNKNOWN")
- * @param {string} [props.searchParams.username] - 방송 소유자 닉네임 (표시용)
- * @param {string} [props.searchParams.callbackUrl] - 권한 획득 후 복귀할 URL
- * @param {string} [props.searchParams.sid] - 방송 ID (비밀번호 검증용)
- * @param {string} [props.searchParams.uid] - 방송 소유자 ID (팔로우 요청용)
+ * @param props - 거부 사유·복귀 경로·대상 ID를 담은 Promise 기반 라우트 속성
  */
-export default async function AccessDeniedPage({
-  searchParams,
-}: {
-  searchParams: {
+export default async function AccessDeniedPage(props: {
+  searchParams: Promise<{
     reason?:
       | "PRIVATE"
       | "FOLLOWERS_ONLY"
@@ -61,8 +55,9 @@ export default async function AccessDeniedPage({
     callbackUrl?: string; // 신규 표준
     sid?: string; // stream id
     uid?: string; // 방송 소유자 id
-  };
+  }>;
 }) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   const viewerId = session?.id ?? null;
 
@@ -119,4 +114,3 @@ export default async function AccessDeniedPage({
     </div>
   );
 }
-

@@ -31,6 +31,7 @@
  * 2026.05.18  임도헌   Modified  채널 다시보기 카드 좋아요 메타를 위해 VOD 조회에 viewerId 전달
  * 2026.05.30  임도헌   Modified  방송국 상단 액션바 높이와 좌우 여백을 압축
  * 2026.08.21  임도헌   Modified  차단 관계 선판정과 채널 라이브 권한 확인 후에만 signed URL 발급
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { Metadata } from "next";
@@ -64,11 +65,11 @@ import type {
 // 세션/팔로우 상태에 따라 UI가 달라지는 페이지 → 캐시 강제 비활성화
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { username: string };
+/** URL username을 기반으로 방송국 공유·브라우저 메타데이터를 생성한다. */
+export async function generateMetadata(props: {
+  params: Promise<{ username: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
   const username = decodeURIComponent(params.username);
   const channel = await getUserChannel(username);
 
@@ -100,13 +101,12 @@ export async function generateMetadata({
  * 4. 차단 관계를 확인하고 상단 액션바/옵션 메뉴에 필요한 상태를 함께 구성
  * 5. 각 콘텐츠(라이브, VOD)에 대한 접근 권한(Private 언락 여부 등)을 계산하여 주입
  */
-export default async function ChannelPage({
-  params,
-  searchParams,
-}: {
-  params: { username: string };
-  searchParams?: { returnTo?: string };
+export default async function ChannelPage(props: {
+  params: Promise<{ username: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const username = decodeURIComponent(params.username);
   const session = await getSession();
   const viewerId = session?.id ?? null;
@@ -139,8 +139,7 @@ export default async function ChannelPage({
   if (liveResult) {
     const s = liveResult;
     const access = await authorizeBroadcastAccess(s.id, viewerId, session);
-    const requiresPassword =
-      !access.allowed && access.reason === "PRIVATE";
+    const requiresPassword = !access.allowed && access.reason === "PRIVATE";
 
     liveStreamForUI = {
       ...s,

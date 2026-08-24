@@ -35,18 +35,13 @@ const EXCLUSION = {
 type ExclusionReason = (typeof EXCLUSION)[keyof typeof EXCLUSION];
 
 type AccessResult =
-  | { allowed: true; reason: null }
-  | { allowed: false; reason: ExclusionReason };
+  { allowed: true; reason: null } | { allowed: false; reason: ExclusionReason };
 
 export type StreamUnlockState =
-  | { unlockedBroadcastIds?: unknown }
-  | null
-  | undefined;
+  { unlockedBroadcastIds?: unknown } | null | undefined;
 
 export type StreamAccessDeniedReason =
-  | "NOT_FOUND"
-  | "BLOCKED"
-  | ExclusionReason;
+  "NOT_FOUND" | "BLOCKED" | ExclusionReason;
 
 export interface BroadcastAccessSubject {
   broadcastId: number;
@@ -175,6 +170,7 @@ export async function checkBroadcastAccess(
   });
 }
 
+/** 현재 세션 상태에 PRIVATE 방송 해제 권한이 기록돼 있는지 확인한다. */
 function isUnlockedFromState(state: StreamUnlockState, broadcastId: number) {
   const value = state?.unlockedBroadcastIds;
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -209,10 +205,7 @@ async function authorizeSubject<T extends BroadcastAccessSubject>(
     { userId: subject.ownerId, visibility: subject.visibility },
     role,
     {
-      isPrivateUnlocked: isUnlockedFromState(
-        unlockState,
-        subject.broadcastId
-      ),
+      isPrivateUnlocked: isUnlockedFromState(unlockState, subject.broadcastId),
     }
   );
 

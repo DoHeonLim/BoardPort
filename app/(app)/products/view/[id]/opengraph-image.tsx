@@ -11,9 +11,10 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/opengraph-image.tsx 에서 app/(app)/products/view/[id]/opengraph-image.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
  * 2026.08.22  임도헌   Modified  OG 대표 이미지 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import db from "@/lib/db";
 import { formatToWon } from "@/lib/utils";
 import {
@@ -150,7 +151,7 @@ function buildProductSvg({
  * SVG 정보 패널과 대표 이미지를 합성한 PNG Response 생성
  */
 async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
-  const composites: sharp.OverlayOptions[] = [];
+  const composites: OverlayOptions[] = [];
 
   if (imageBuffer) {
     try {

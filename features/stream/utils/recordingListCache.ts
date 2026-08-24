@@ -11,18 +11,25 @@
  * 2026.08.13  임도헌   Modified  댓글 수 낙관 업데이트와 rollback도 현재 조회자 목록으로 제한
  */
 
-import type { InfiniteData, QueryClient, QueryKey } from "@tanstack/react-query";
+import type {
+  InfiniteData,
+  QueryClient,
+  QueryKey,
+} from "@tanstack/react-query";
 import type { RecordingsPage, VodForGrid } from "@/features/stream/types";
 import { queryKeys } from "@/lib/queryKeys";
 
 type RecordingInfiniteCache = InfiniteData<RecordingsPage>;
-type RecordingListSnapshot = Array<[QueryKey, RecordingInfiniteCache | undefined]>;
+type RecordingListSnapshot = Array<
+  [QueryKey, RecordingInfiniteCache | undefined]
+>;
 
 export interface RecordingListSnapshots {
   recordingLists: RecordingListSnapshot;
   channelRecordings: RecordingListSnapshot;
 }
 
+/** nullable 조회자 ID를 녹화 목록 캐시의 안정적인 scope로 변환한다. */
 const getViewerScope = (viewerId: number | null) => viewerId ?? "guest";
 
 /** 다시보기 메인 목록 query key 여부 확인 */
@@ -71,8 +78,7 @@ export async function cancelRecordingListQueries(
         predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
       }),
       queryClient.cancelQueries({
-        predicate: (query) =>
-          isChannelRecordingsKey(query.queryKey, viewerId),
+        predicate: (query) => isChannelRecordingsKey(query.queryKey, viewerId),
       }),
     ]);
     return;
@@ -104,8 +110,7 @@ export function getRecordingListSnapshots(
         predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
       }),
       channelRecordings: queryClient.getQueriesData<RecordingInfiniteCache>({
-        predicate: (query) =>
-          isChannelRecordingsKey(query.queryKey, viewerId),
+        predicate: (query) => isChannelRecordingsKey(query.queryKey, viewerId),
       }),
     };
   }
@@ -191,8 +196,7 @@ export function updateRecordingListCaches(
     );
     queryClient.setQueriesData<RecordingInfiniteCache>(
       {
-        predicate: (query) =>
-          isChannelRecordingsKey(query.queryKey, viewerId),
+        predicate: (query) => isChannelRecordingsKey(query.queryKey, viewerId),
       },
       (oldData) => patchRecordingListCache(oldData, vodId, patcher)
     );
@@ -267,8 +271,7 @@ export function invalidateRecordingListCaches(
       predicate: (query) => isRecordingListKey(query.queryKey, viewerId),
     });
     queryClient.invalidateQueries({
-      predicate: (query) =>
-        isChannelRecordingsKey(query.queryKey, viewerId),
+      predicate: (query) => isChannelRecordingsKey(query.queryKey, viewerId),
     });
     return;
   }

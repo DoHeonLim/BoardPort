@@ -69,7 +69,7 @@ export async function login(
     };
   }
 
-  const clientIp = getClientIpFromHeaders(headers());
+  const clientIp = getClientIpFromHeaders(await headers());
   const loginLimit = await checkAndRecordLoginAttempt(
     clientIp,
     parsed.data.email
@@ -105,6 +105,9 @@ export async function login(
   return {
     success: true,
     // 온보딩 필요 여부를 반영한 인증 후 목적지 결정
-    redirectTo: await resolvePostAuthRedirectPath(result.data.userId, callbackUrl),
+    redirectTo: await resolvePostAuthRedirectPath(
+      result.data.userId,
+      callbackUrl
+    ),
   };
 }

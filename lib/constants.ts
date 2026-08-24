@@ -42,7 +42,7 @@ export const PRODUCTS_PAGE_TAKE = 10;
 export const STREAMS_PAGE_TAKE = 12;
 
 /**
- * 로그인 없이 접근 가능한 경로 목록 (middleware.ts와 동기화)
+ * 로그인 없이 접근 가능한 경로 목록 (`proxy.ts`의 인증 경계와 동기화)
  */
 export const PUBLIC_ONLY_URLS = [
   "/",

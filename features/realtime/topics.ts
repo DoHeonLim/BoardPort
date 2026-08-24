@@ -10,22 +10,26 @@
 
 const PRODUCT_CHAT_ROOM_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
+/** Realtime topic에 사용할 숫자 ID가 안전한 양의 정수인지 검증한다. */
 function assertPositiveInteger(value: number, label: string) {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`${label} must be a positive safe integer`);
   }
 }
 
+/** 사용자 알림 private 채널 topic을 생성한다. */
 export function notificationRealtimeTopic(userId: number) {
   assertPositiveInteger(userId, "userId");
   return `user:${userId}:notifications`;
 }
 
+/** 사용자 채팅방 목록 private 채널 topic을 생성한다. */
 export function chatRoomsRealtimeTopic(userId: number) {
   assertPositiveInteger(userId, "userId");
   return `user:${userId}:chat-rooms`;
 }
 
+/** 상품 채팅방 ID를 검증하고 private 채널 topic을 생성한다. */
 export function productChatRealtimeTopic(chatRoomId: string) {
   const normalizedId = chatRoomId.trim();
   if (
@@ -38,6 +42,7 @@ export function productChatRealtimeTopic(chatRoomId: string) {
   return `product-room:${normalizedId}`;
 }
 
+/** 방송 채팅방 private 채널 topic을 생성한다. */
 export function streamChatRealtimeTopic(streamChatRoomId: number) {
   assertPositiveInteger(streamChatRoomId, "streamChatRoomId");
   return `stream-room:${streamChatRoomId}`;

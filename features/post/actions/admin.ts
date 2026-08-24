@@ -8,6 +8,7 @@
  * 2026.02.07  임도헌   Created   게시글 관리용 액션 추가
  * 2026.03.31  임도헌   Modified  권한 검증과 service 위임 흐름이 드러나도록 주석 보강
  * 2026.04.02  임도헌   Modified  관리자 액션 파라미터/반환 JSDoc 태그 형식 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -59,7 +60,7 @@ export async function deletePostAdminAction(postId: number, reason: string) {
   const res = await deletePostByAdmin(auth.adminId, postId, reason);
 
   if (res.success && res.data) {
-    revalidateTag(T.POST_DETAIL(postId));
+    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
     revalidatePath("/admin/posts");
     revalidatePath("/posts"); // 사용자 화면도 갱신
     revalidatePath(`/profile/${res.data.username}`);

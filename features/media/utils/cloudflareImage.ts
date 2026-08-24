@@ -49,8 +49,10 @@ export function parseCloudflareImageReference(
   }
 }
 
+/** 검증된 provider asset ID를 현재 계정의 Cloudflare Images delivery URL로 변환한다. */
 export function buildCloudflareImageDeliveryUrl(providerAssetId: string) {
   const accountHash = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH?.trim();
-  if (!accountHash) throw new Error("Cloudflare Images account hash is missing");
+  if (!accountHash)
+    throw new Error("Cloudflare Images account hash is missing");
   return `https://${DELIVERY_HOST}/${accountHash}/${providerAssetId}`;
 }

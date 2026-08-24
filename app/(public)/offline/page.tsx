@@ -13,7 +13,8 @@
  * 2026.03.23  임도헌   Modified  오프라인 안내 카드와 아이콘 링 보더를 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.04.10  임도헌   Modified  app 타이포 정책에 맞춰 오프라인 안내 카드/재시도 CTA weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/offline/page.tsx 에서 app/(public)/offline/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.23  임도헌   Modified  next-pwa 오프라인 폴백 설명을 Serwist 구성에 맞게 갱신
+ */
 import Link from "next/link";
 import Logo from "@/components/ui/Logo";
 import { SignalSlashIcon } from "@heroicons/react/24/outline";
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils";
  *
  * - 인터넷 연결이 끊겼을 때 Service Worker가 이 페이지를 서빙
  * - 사용자에게 오프라인 상태임을 알리고, 재시도(새로고침) 가이드를 제공
- * - `next-pwa` 설정(`fallbacks: { document: "/offline" }`)에 의해 매핑
+ * - Serwist 서비스 워커의 document fallback 설정으로 매핑
  *
  * @returns {JSX.Element} 오프라인 안내 UI
  */
@@ -80,4 +81,3 @@ export default function OfflinePage() {
     </main>
   );
 }
-

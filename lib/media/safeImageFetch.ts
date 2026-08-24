@@ -23,9 +23,11 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "image/avif",
 ]);
 
+/** IPv4 주소가 loopback·사설·예약 대역에 속하는지 확인한다. */
 function isPrivateIpv4(address: string): boolean {
   const parts = address.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return true;
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part)))
+    return true;
   const [a, b] = parts;
   return (
     a === 0 ||
@@ -40,6 +42,7 @@ function isPrivateIpv4(address: string): boolean {
   );
 }
 
+/** IPv4·IPv6 주소가 외부 이미지 요청에 허용되지 않는 내부 대역인지 확인한다. */
 export function isPrivateIpAddress(address: string): boolean {
   const normalized = address.toLowerCase().split("%")[0];
   const version = isIP(normalized);
@@ -58,6 +61,7 @@ export function isPrivateIpAddress(address: string): boolean {
   );
 }
 
+/** 설정된 Cloudflare Stream delivery URL에서 허용 hostname을 읽는다. */
 function configuredStreamHostname(): string | null {
   const value = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN?.trim();
   if (!value) return null;
@@ -68,6 +72,7 @@ function configuredStreamHostname(): string | null {
   }
 }
 
+/** OG 이미지 프록시가 요청할 수 있는 Cloudflare hostname인지 확인한다. */
 export function isAllowedOgImageHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
   return (
@@ -76,6 +81,7 @@ export function isAllowedOgImageHostname(hostname: string): boolean {
   );
 }
 
+/** 원격 URL의 protocol·인증정보·hostname·DNS 결과를 검증한다. */
 async function validateRemoteUrl(input: string): Promise<URL | null> {
   let url: URL;
   try {
@@ -114,7 +120,11 @@ export async function fetchSafeOgImage(
   if (!src) return null;
   let current = src;
 
-  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_REDIRECTS;
+    redirectCount += 1
+  ) {
     const url = await validateRemoteUrl(current);
     if (!url) return null;
 
@@ -124,7 +134,9 @@ export async function fetchSafeOgImage(
       const response = await fetch(url, {
         redirect: "manual",
         signal: controller.signal,
-        headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,image/gif" },
+        headers: {
+          Accept: "image/avif,image/webp,image/png,image/jpeg,image/gif",
+        },
       });
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
@@ -134,12 +146,18 @@ export async function fetchSafeOgImage(
       }
       if (!response.ok || !response.body) return null;
 
-      const contentType = response.headers.get("content-type")?.split(";", 1)[0];
-      if (!contentType || !ALLOWED_CONTENT_TYPES.has(contentType.toLowerCase())) {
+      const contentType = response.headers
+        .get("content-type")
+        ?.split(";", 1)[0];
+      if (
+        !contentType ||
+        !ALLOWED_CONTENT_TYPES.has(contentType.toLowerCase())
+      ) {
         return null;
       }
       const contentLength = Number(response.headers.get("content-length"));
-      if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES) return null;
+      if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES)
+        return null;
 
       const reader = response.body.getReader();
       const chunks: Uint8Array[] = [];

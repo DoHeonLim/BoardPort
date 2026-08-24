@@ -20,6 +20,7 @@
  * 2026.03.12  임도헌   Modified  GIF 조건부 최적화를 위한 photosAnimated 메타 파싱 및 전달 추가
  * 2026.04.02  임도헌   Modified  파일 설명과 수정 액션 주석을 현재 서버 액션 톤으로 정리
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -165,7 +166,7 @@ export async function updateProductAction(
   }
 
   // 상세/목록 캐시 무효화
-  revalidateTag(T.PRODUCT_DETAIL(productId));
+  revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
   revalidatePath("/products");
   revalidatePath(`/products/view/${productId}`);
   boardGameIds.forEach((boardGameId) => {

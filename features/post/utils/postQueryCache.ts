@@ -18,6 +18,7 @@ export type PostInfiniteCache<T extends { id: number }> = {
   pageParams?: unknown[];
 };
 
+/** nullable 조회자 ID를 게시글 캐시에서 사용할 안정적인 scope로 변환한다. */
 const getViewerScope = (viewerId: number | null) => viewerId ?? "guest";
 
 /** posts/list/{viewerId}/{filters} 구조에서 현재 조회자의 목록 키인지 판별 */

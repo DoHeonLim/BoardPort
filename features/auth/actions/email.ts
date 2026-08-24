@@ -27,6 +27,6 @@ export async function verifyEmail(
   formData: FormData
 ): Promise<EmailVerifyState> {
   return handleEmailVerification(prevState, formData, {
-    clientIp: getClientIpFromHeaders(headers()),
+    clientIp: getClientIpFromHeaders(await headers()),
   });
 }

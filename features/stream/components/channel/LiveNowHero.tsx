@@ -95,6 +95,7 @@ export default function LiveNowHero({ stream, role, onFollow }: Props) {
 
 /* -------------------- Media 영역 -------------------- */
 
+/** 라이브 카드의 접근 상태에 맞춰 재생 화면 또는 보호 썸네일을 렌더링한다. */
 function HeroMedia({
   stream,
   role,
@@ -213,6 +214,7 @@ function HeroMeta({ stream }: { stream: BroadcastSummary }) {
 
 /* -------------------- Sub components -------------------- */
 
+/** 접근 가능한 라이브 방송을 서명된 playback ID로 재생한다. */
 function PlayableLive({
   playbackId,
   thumbnail,

@@ -23,7 +23,8 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/login/page.tsx 에서 app/(public)/login/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.13  임도헌   Modified  모바일 Lighthouse 대응으로 main 랜드마크와 상단 로고 우선 로드를 적용
  * 2026.04.13  임도헌   Modified  인증 공통 셸로 헤더 구조를 통일해 auth 페이지 간 레이아웃 중복을 제거
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 
 import AuthPageShell from "@/features/auth/components/AuthPageShell";
 import LoginForm from "@/features/auth/components/form/LoginForm";
@@ -38,16 +39,12 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - 소셜 로그인 콜백 에러 코드를 사용자 메시지로 변환
  * - 초기 에러 메시지와 callbackUrl을 LoginForm에 전달
  *
- * @param {Object} props - 페이지 props
- * @param {Object} [props.searchParams] - URL 쿼리 파라미터
- * @param {string} [props.searchParams.callbackUrl] - 로그인 후 이동할 경로
- * @param {string} [props.searchParams.error] - 소셜 로그인 콜백 에러 코드
+ * @param props - 복귀 경로와 소셜 로그인 오류를 담은 Promise 기반 라우트 속성
  */
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { callbackUrl?: string; error?: string };
+export default async function LoginPage(props: {
+  searchParams?: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const raw = searchParams?.callbackUrl ?? "/profile";
   const initialErrorMessage = getLoginErrorMessage(searchParams?.error);
 
@@ -66,4 +63,3 @@ export default function LoginPage({
     </AuthPageShell>
   );
 }
-

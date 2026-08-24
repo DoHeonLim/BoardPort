@@ -42,6 +42,7 @@ type CloudflareVod = {
   requireSignedURLs?: boolean;
 };
 
+/** 저장소의 `.env`를 기존 process 환경변수를 보존하며 불러온다. */
 function loadEnvFile() {
   const envPath = resolve(process.cwd(), ".env");
   if (!existsSync(envPath)) return;
@@ -64,12 +65,14 @@ function loadEnvFile() {
   }
 }
 
+/** 필수 운영 환경변수를 읽고 누락 시 즉시 중단한다. */
 function requireEnvironment(name: string) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required.`);
   return value;
 }
 
+/** backfill에 사용할 Prisma PostgreSQL adapter와 client를 생성한다. */
 function createDb() {
   const rawConnectionString =
     process.env.DATABASE_URL ?? process.env.DIRECT_URL;
@@ -86,16 +89,19 @@ function createDb() {
   });
 }
 
+/** 로그에 provider UID 전체가 노출되지 않도록 일부만 표시한다. */
 function maskUid(uid: string) {
   return `${uid.slice(0, 6)}...${uid.slice(-4)}`;
 }
 
+/** Cloudflare Stream provider UID 형식을 검증한다. */
 function assertProviderUid(uid: string, label: string) {
   if (!/^[a-zA-Z0-9]{32}$/.test(uid)) {
     throw new Error(`${label} contains an invalid Cloudflare UID.`);
   }
 }
 
+/** Cloudflare API envelope을 파싱하고 실패 응답을 작업 오류로 변환한다. */
 async function readResponse<T>(response: Response, label: string) {
   let data: CloudflareEnvelope<T>;
   try {
@@ -110,6 +116,7 @@ async function readResponse<T>(response: Response, label: string) {
   return data.result;
 }
 
+/** timeout과 오류 변환이 적용된 최소 Cloudflare Stream API client를 만든다. */
 function createCloudflareClient(accountId: string, apiToken: string) {
   async function request<T>(label: string, path: string, init?: RequestInit) {
     const controller = new AbortController();
@@ -179,6 +186,7 @@ function createCloudflareClient(accountId: string, apiToken: string) {
   };
 }
 
+/** 기존 Live Input·VOD를 signed URL 필수 상태로 전환하고 결과를 재검증한다. */
 async function main() {
   loadEnvFile();
 
@@ -212,8 +220,10 @@ async function main() {
 
     const liveUids = liveInputs.map((item) => item.provider_uid);
     const vodUids = vodAssets.map((item) => item.provider_asset_id);
-    for (const uid of liveUids) assertProviderUid(uid, "LiveInput.provider_uid");
-    for (const uid of vodUids) assertProviderUid(uid, "VodAsset.provider_asset_id");
+    for (const uid of liveUids)
+      assertProviderUid(uid, "LiveInput.provider_uid");
+    for (const uid of vodUids)
+      assertProviderUid(uid, "VodAsset.provider_asset_id");
 
     console.log(
       `[${applyChanges ? "APPLY" : "DRY-RUN"}] Live Inputs ${liveUids.length}, VOD ${vodUids.length}`
@@ -223,7 +233,9 @@ async function main() {
     for (const uid of liveUids) {
       const current = await cloudflare.getLiveInput(uid);
       const signed = current.recording?.requireSignedURLs === true;
-      console.log(`Live Input ${maskUid(uid)}: ${signed ? "already true" : "false -> true"}`);
+      console.log(
+        `Live Input ${maskUid(uid)}: ${signed ? "already true" : "false -> true"}`
+      );
 
       if (applyChanges && !signed) {
         await cloudflare.updateLiveInput(uid, current.recording ?? {});
@@ -235,7 +247,9 @@ async function main() {
     for (const uid of vodUids) {
       const current = await cloudflare.getVod(uid);
       const signed = current.requireSignedURLs === true;
-      console.log(`VOD ${maskUid(uid)}: ${signed ? "already true" : "false -> true"}`);
+      console.log(
+        `VOD ${maskUid(uid)}: ${signed ? "already true" : "false -> true"}`
+      );
 
       if (applyChanges && !signed) {
         await cloudflare.updateVod(uid);
@@ -252,8 +266,8 @@ async function main() {
       liveUids.map(async (uid) => ({
         uid,
         signed:
-          (await cloudflare.getLiveInput(uid)).recording
-            ?.requireSignedURLs === true,
+          (await cloudflare.getLiveInput(uid)).recording?.requireSignedURLs ===
+          true,
       }))
     );
     const verifiedVods = await Promise.all(

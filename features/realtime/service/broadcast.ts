@@ -17,6 +17,7 @@ interface BroadcastMessage {
   payload: unknown;
 }
 
+/** 서버 전용 Realtime REST 발신에 필요한 URL과 secret key를 읽는다. */
 function getServerRealtimeConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
   const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -25,6 +26,7 @@ function getServerRealtimeConfig() {
   return { url, secretKey };
 }
 
+/** private=true가 강제된 Supabase Realtime Broadcast를 비치명적으로 전송한다. */
 export async function sendPrivateRealtimeBroadcast(
   topic: string,
   message: BroadcastMessage

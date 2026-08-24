@@ -47,10 +47,12 @@ let cachedSigningKey:
     }
   | undefined;
 
+/** 문자열을 JWT 규격의 base64url 값으로 인코딩한다. */
 function encodeBase64Url(value: string) {
   return Buffer.from(value, "utf8").toString("base64url");
 }
 
+/** BoardPort 사용자 ID로 Supabase Auth와 분리된 안정적인 UUID subject를 만든다. */
 function createStableSubject(userId: number) {
   const hex = createHash("sha256")
     .update(`boardport-realtime:${userId}`)
@@ -68,6 +70,7 @@ function createStableSubject(userId: number) {
   )}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
 
+/** private 방송 해제 ID를 유효한 양의 정수 목록으로 정규화한다. */
 function normalizeUnlockedBroadcastIds(ids: number[]) {
   return Array.from(
     new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))
@@ -76,6 +79,7 @@ function normalizeUnlockedBroadcastIds(ids: number[]) {
     .map(String);
 }
 
+/** 환경변수의 ES256 private JWK를 검증하고 재사용 가능한 서명 키로 변환한다. */
 function readSigningKey(encodedOrJsonJwk: string | undefined) {
   const configuredJwk = encodedOrJsonJwk?.trim();
   if (!configuredJwk) {
@@ -123,6 +127,7 @@ function readSigningKey(encodedOrJsonJwk: string | undefined) {
   }
 }
 
+/** BoardPort 세션 권한을 5분 유효한 Supabase Realtime ES256 JWT로 변환한다. */
 export function createRealtimeAccessToken({
   userId,
   unlockedBroadcastIds = [],
@@ -145,8 +150,7 @@ export function createRealtimeAccessToken({
     role: "authenticated",
     sub: createStableSubject(userId),
     boardport_user_id: userId,
-    unlocked_broadcast_ids:
-      normalizeUnlockedBroadcastIds(unlockedBroadcastIds),
+    unlocked_broadcast_ids: normalizeUnlockedBroadcastIds(unlockedBroadcastIds),
     iat: issuedAt,
     exp: issuedAt + REALTIME_TOKEN_TTL_SECONDS,
   };

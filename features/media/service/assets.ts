@@ -23,6 +23,7 @@ export const MEDIA_ASSET_PURPOSES = [
 
 export type MediaAssetPurposeValue = (typeof MEDIA_ASSET_PURPOSES)[number];
 
+/** 입력값이 BoardPort에서 지원하는 이미지 자산 용도인지 확인한다. */
 export function isMediaAssetPurpose(
   value: unknown
 ): value is MediaAssetPurposeValue {
@@ -81,7 +82,9 @@ export async function attachOwnedMediaAssets(
       (!reusableAttachment && row.state !== "PENDING") ||
       (!reusableAttachment && row.expires_at <= now)
     ) {
-      throw new Error("이미지 업로드 소유권 또는 연결 상태가 올바르지 않습니다.");
+      throw new Error(
+        "이미지 업로드 소유권 또는 연결 상태가 올바르지 않습니다."
+      );
     }
   }
 
@@ -138,7 +141,9 @@ export async function detachMissingMediaAssets(
 
   if (stale.length) {
     await tx.mediaAsset.updateMany({
-      where: { providerAssetId: { in: stale.map((item) => item.providerAssetId) } },
+      where: {
+        providerAssetId: { in: stale.map((item) => item.providerAssetId) },
+      },
       data: { state: "ORPHANED", linkedEntityId: null },
     });
   }
@@ -185,6 +190,7 @@ export async function deleteCloudflareImageAssetsById(
   );
 }
 
+/** 연결된 엔터티와 용도에 해당하는 Cloudflare provider asset ID를 조회한다. */
 export async function getLinkedMediaAssetIds(input: {
   purpose: MediaAssetPurposeValue;
   linkedEntityId: string;

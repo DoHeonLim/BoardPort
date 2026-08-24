@@ -36,17 +36,18 @@ export class StreamPlaybackConfigurationError extends Error {
   }
 }
 
+/** JWT header와 payload 객체를 base64url JSON으로 인코딩한다. */
 function encodeJson(value: unknown): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
 
+/** Cloudflare Stream RS256 private JWK를 검증하고 서명 키로 변환한다. */
 function readSigningKey(): {
   keyId: string;
   privateKey: ReturnType<typeof createPrivateKey>;
 } {
   const keyId = process.env.CLOUDFLARE_STREAM_SIGNING_KEY_ID?.trim();
-  const encodedJwk =
-    process.env.CLOUDFLARE_STREAM_SIGNING_KEY_JWK?.trim();
+  const encodedJwk = process.env.CLOUDFLARE_STREAM_SIGNING_KEY_JWK?.trim();
 
   if (!keyId || !encodedJwk) {
     throw new StreamPlaybackConfigurationError(
@@ -125,9 +126,11 @@ export function createStreamPlaybackToken(
 
 /** Cloudflare 기본 thumbnail 경로도 원본 ID 대신 signed token으로 구성한다. */
 export function createStreamThumbnailUrl(providerId: string): string {
-  const domain = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN
-    ?.trim()
-    .replace(/\/+$/, "");
+  const domain =
+    process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN?.trim().replace(
+      /\/+$/,
+      ""
+    );
   if (!domain) {
     throw new StreamPlaybackConfigurationError(
       "Cloudflare Stream playback domain이 설정되지 않았습니다."
@@ -137,6 +140,7 @@ export function createStreamThumbnailUrl(providerId: string): string {
   return `${domain}/${createStreamPlaybackToken(providerId)}/thumbnails/thumbnail.jpg`;
 }
 
+/** URL이 알려진 Cloudflare Stream 원본 delivery host를 사용하는지 판별한다. */
 function isCloudflareStreamAssetUrl(value: string): boolean {
   let hostname: string;
   try {
@@ -148,7 +152,9 @@ function isCloudflareStreamAssetUrl(value: string): boolean {
   let configuredHostname: string | null = null;
   try {
     configuredHostname = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN
-      ? new URL(process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN).hostname.toLowerCase()
+      ? new URL(
+          process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN
+        ).hostname.toLowerCase()
       : null;
   } catch {
     // 알려진 Cloudflare 기본 host 판정은 환경변수 파싱 실패와 독립적으로 유지한다.

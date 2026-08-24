@@ -62,6 +62,7 @@
  * 2026.06.15  임도헌   Modified  제품 빈 상태가 검색어와 상세 조건 0건을 구분하도록 조건 여부 전달
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.08.13  임도헌   Modified  상품 목록 cache key를 조회자와 전체 지역 튜플 기준으로 분리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { Suspense } from "react";
@@ -100,14 +101,14 @@ import type { Paginated, ProductType } from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
 
 interface ProductsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     category?: string;
     keyword?: string;
     minPrice?: string;
     maxPrice?: string;
     game_type?: string;
     condition?: string;
-  };
+  }>;
 }
 
 export const metadata: Metadata = {
@@ -142,9 +143,8 @@ function parseNumberParam(val: string | undefined): number | undefined {
  * - HydrationBoundary를 이용한 초기 렌더링 시 클라이언트 캐시 하이드레이션 처리
  * - 데이터 존재 여부에 따른 `ProductList` 또는 `ProductEmptyState` 조건부 렌더링 및 키워드 알림 버튼 주입
  */
-export default async function ProductsPage({
-  searchParams,
-}: ProductsPageProps) {
+export default async function ProductsPage(props: ProductsPageProps) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   const userId = session?.id ?? null;
 
@@ -236,9 +236,7 @@ export default async function ProductsPage({
 
   const prefetchData = queryClient.getQueryData<
     InfiniteData<Paginated<ProductType>>
-  >(
-    queryKeys.products.list(productListQueryKey, userId)
-  );
+  >(queryKeys.products.list(productListQueryKey, userId));
   const isDataEmpty = prefetchData?.pages[0]?.products.length === 0;
 
   return (

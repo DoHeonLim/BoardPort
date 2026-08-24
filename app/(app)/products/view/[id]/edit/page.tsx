@@ -35,6 +35,7 @@
  * 2026.04.14  임도헌   Modified  ProductForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
  * 2026.05.30  임도헌   Modified  제품 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -56,16 +57,15 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - 비인가 사용자(소유자가 아닌 경우) 접근 시 제품 목록 페이지로 리다이렉트 처리
  * - 서버에서 로드한 제품 정보를 클라이언트 폼 데이터 형식에 맞게 변환 및 주입
  */
-export default async function EditPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: {
+export default async function EditPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{
     returnTo?: string;
     flow?: string;
-  };
+  }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const id = Number(params.id);
   const rawReturnTo = searchParams?.returnTo;
   const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : null;

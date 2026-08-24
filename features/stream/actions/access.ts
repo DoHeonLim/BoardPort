@@ -37,7 +37,7 @@ export const unlockPrivateBroadcastAction = async (
   const session = await getSession();
   if (!session?.id) return { success: false, error: "NOT_LOGGED_IN" as const };
 
-  const clientIp = getClientIpFromHeaders(headers());
+  const clientIp = getClientIpFromHeaders(await headers());
   const limit = await checkAndRecordPrivateStreamPasswordAttempt(
     clientIp,
     broadcastId

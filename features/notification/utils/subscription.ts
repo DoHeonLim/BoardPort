@@ -26,10 +26,12 @@ const TRUSTED_PUSH_SERVICE_SUFFIXES = [
   "notify.windows.com",
 ] as const;
 
+/** 입력값이 배열이 아닌 일반 객체인지 확인한다. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** canonical base64url Web Push 키를 검증해 byte buffer로 디코딩한다. */
 function decodeCanonicalBase64Url(value: unknown): Buffer | null {
   if (typeof value !== "string" || !BASE64_URL_PATTERN.test(value)) return null;
 

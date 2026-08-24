@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.07  임도헌   Created   방송 상세 상단 메뉴에서 제목/설명만 수정하는 서버 액션 추가
  * 2026.04.07  임도헌   Modified  저장 후 스트림 채팅방 브로드캐스트로 실시간 메타 동기화 추가
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -51,12 +52,16 @@ export async function updateBroadcastMetaAction(
     };
   }
 
-  const result = await updateBroadcastMeta(session.id, broadcastId, parsed.data);
+  const result = await updateBroadcastMeta(
+    session.id,
+    broadcastId,
+    parsed.data
+  );
   if (!result.success) {
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.BROADCAST_DETAIL(broadcastId));
+  revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
   revalidatePath("/streams");
   revalidatePath(`/streams/${broadcastId}`);
   revalidatePath(`/profile/${result.data.username}/channel`);

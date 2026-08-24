@@ -26,7 +26,10 @@
 import "server-only";
 import webPush from "web-push";
 import db from "@/lib/db";
-import type { NotificationType, SendPushResult } from "@/features/notification/types";
+import type {
+  NotificationType,
+  SendPushResult,
+} from "@/features/notification/types";
 import { isTrustedPushEndpoint } from "@/features/notification/utils/subscription";
 import type { ServiceResult } from "@/lib/types";
 
@@ -102,6 +105,7 @@ if (!VAPID_PUB || !VAPID_PRIV) {
 }
 
 // 타입 가드 함수
+/** web-push 전송 오류에서 HTTP 상태를 읽을 수 있는지 판별한다. */
 function isWebPushError(error: unknown): error is WebPushError {
   return (
     typeof error === "object" &&
@@ -112,6 +116,7 @@ function isWebPushError(error: unknown): error is WebPushError {
 }
 
 /* ---------- 타입별 기본 정책 ---------- */
+/** 알림 유형과 URL에 맞는 기본 Push 중복 제거 tag를 반환한다. */
 function defaultTagByType(type: NotificationType, url?: string) {
   switch (type) {
     case "CHAT": {
@@ -141,6 +146,7 @@ function defaultTagByType(type: NotificationType, url?: string) {
   }
 }
 
+/** 알림 유형별 기본 아이콘·클릭 경로·표시 정책을 구성한다. */
 function defaultsFor(type: NotificationType) {
   // 긴급도/TTL은 UX 관점에서 합리적 기본치로 설정
   // CHAT   : 실시간성이 중요 → high / 1시간
@@ -169,6 +175,7 @@ function defaultsFor(type: NotificationType) {
 }
 
 /* ---------- 4KB payload 보호 ---------- */
+/** provider 제한을 넘지 않도록 Push payload를 직렬화하고 가변 텍스트를 축약한다. */
 function ensureMaxPayload(json: WebPushPayload): string {
   const text = JSON.stringify(json);
   // Node에서 문자열 길이는 코드 유닛 기준이라 대략 체크, 여유 버퍼를 둠(3800B)

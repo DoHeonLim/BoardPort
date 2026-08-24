@@ -18,6 +18,7 @@ export const PUSH_DISPLAY_GUARD_VERSION_RESPONSE =
 const PROBE_TIMEOUT_MS = 100;
 const RETRY_INTERVAL_MS = 25;
 
+/** 표시 보호 handshake 재시도 사이의 비동기 대기 시간을 만든다. */
 function delay(timeoutMs: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, timeoutMs);
@@ -55,10 +56,9 @@ export function probePushDisplayGuard(
     channel.port1.onmessageerror = () => finish(false);
 
     try {
-      worker.postMessage(
-        { type: PUSH_DISPLAY_GUARD_VERSION_REQUEST },
-        [channel.port2]
-      );
+      worker.postMessage({ type: PUSH_DISPLAY_GUARD_VERSION_REQUEST }, [
+        channel.port2,
+      ]);
     } catch {
       finish(false);
     }

@@ -17,6 +17,7 @@
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.23  임도헌   Modified  후기 empty state 점선 카드 외곽선을 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.08.13  임도헌   Modified  리뷰 무한스크롤 query에 현재 조회자 ID 전달
+ * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
  */
 "use client";
 
@@ -29,7 +30,7 @@ import ReviewItem from "@/features/user/components/profile/ReviewsItem";
 interface ReviewsListProps {
   userId: number;
   viewerId?: number | null;
-  scrollParentRef?: React.RefObject<HTMLElement>;
+  scrollParentRef?: React.RefObject<HTMLElement | null>;
 }
 
 /**

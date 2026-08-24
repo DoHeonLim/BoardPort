@@ -26,6 +26,7 @@ interface Props {
   onClose: () => void;
 }
 
+/** 회원 탈퇴 확인과 성공 후 현재·다른 탭의 인증 상태 초기화를 처리한다. */
 export default function WithdrawalModal({ isOpen, onClose }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();

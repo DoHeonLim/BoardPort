@@ -14,6 +14,7 @@
  * 2026.03.05  임도헌   Modified  `revalidateTag` 호출 제거 및 `queryClient.setQueryData`를 활용한 좋아요 상태 즉각적 UI 갱신(Optimistic Update) 적용
  * 2026.04.02  임도헌   Modified  좋아요 액션 반환 설명 JSDoc 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -40,7 +41,7 @@ export const likePost = async (postId: number) => {
   const result = await togglePostLike(session.id, postId, true);
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId));
+    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
   }
 };
 
@@ -62,6 +63,6 @@ export const dislikePost = async (postId: number) => {
   const result = await togglePostLike(session.id, postId, false);
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId));
+    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
   }
 };

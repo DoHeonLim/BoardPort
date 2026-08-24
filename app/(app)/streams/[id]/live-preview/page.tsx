@@ -12,7 +12,8 @@
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/live-preview/page.tsx 에서 app/(app)/streams/[id]/live-preview/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.08.21  임도헌   Modified  공용 권한 판정 뒤 signed playback token으로만 미리보기 재생
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import db from "@/lib/db";
@@ -55,11 +56,10 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
  * - 접근 권한을 체크하여 권한이 없으면 썸네일(Fallback)을 보여줌
  * - Cloudflare Player를 전체 화면으로 렌더링
  */
-export default async function LivePreviewPage({
-  params,
-}: {
-  params: { id: string };
+export default async function LivePreviewPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   noStore();
 
   const broadcastId = Number(params.id);
@@ -71,11 +71,7 @@ export default async function LivePreviewPage({
   const viewerId = session?.id ?? null;
   if (!viewerId) return <ThumbnailFallback />;
 
-  const access = await authorizeBroadcastAccess(
-    broadcastId,
-    viewerId,
-    session
-  );
+  const access = await authorizeBroadcastAccess(broadcastId, viewerId, session);
   if (!access.allowed) return <ThumbnailFallback />;
 
   // 접근 판정 이후 플레이어 표시용 최소 필드만 조회

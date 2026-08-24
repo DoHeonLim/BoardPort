@@ -15,6 +15,7 @@ import { createRealtimeAccessToken } from "@/features/realtime/service/token";
 
 export const dynamic = "force-dynamic";
 
+/** Realtime JWT 응답이 브라우저나 중간 캐시에 저장되지 않도록 반환한다. */
 function noStoreJson(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -22,6 +23,7 @@ function noStoreJson(body: Record<string, unknown>, status = 200) {
   });
 }
 
+/** 현재 로그인 세션과 이용 상태를 검증해 private Realtime 단기 JWT를 발급한다. */
 export async function POST() {
   const session = await getSession();
   if (!session.id) {

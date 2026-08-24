@@ -14,9 +14,10 @@
  * 2026.08.21  임도헌   Modified  제한 방송 OG 노출 차단 및 PUBLIC provider 썸네일 signed 변환
  * 2026.08.22  임도헌   Modified  OG 썸네일 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  * 2026.08.23  임도헌   Modified  상대 썸네일 URL을 공용 trusted origin과 로컬 fallback으로 보정
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import db from "@/lib/db";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 import {
@@ -152,7 +153,7 @@ function buildStreamOverlaySvg({
  * 방송 썸네일과 오버레이를 합성한 PNG Response 생성
  */
 async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
-  const composites: sharp.OverlayOptions[] = [];
+  const composites: OverlayOptions[] = [];
 
   if (imageBuffer) {
     try {

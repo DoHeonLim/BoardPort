@@ -19,6 +19,7 @@ import type { ServiceResult } from "@/lib/types";
 import type { BoardGameRelatedContent } from "@/features/boardgame/types/public";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 
+/** 연관 방송의 공개 범위와 provider ID를 기준으로 안전한 썸네일을 선택한다. */
 function getRelatedBroadcastThumbnail(broadcast: {
   thumbnail: string | null;
   liveInput: { provider_uid: string };

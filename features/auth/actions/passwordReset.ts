@@ -54,14 +54,15 @@ export async function requestPasswordResetAction(
 
   try {
     await requestPasswordResetService(parsed.data.email, callbackUrl, {
-      clientIp: getClientIpFromHeaders(headers()),
+      clientIp: getClientIpFromHeaders(await headers()),
     });
     return { success: true };
   } catch (error) {
     console.error("[requestPasswordResetAction]", error);
     return {
       success: false,
-      error: "비밀번호 재설정 메일 요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error:
+        "비밀번호 재설정 메일 요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

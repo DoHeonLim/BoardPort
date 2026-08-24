@@ -43,6 +43,7 @@ function normalizeNotificationText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/** 방송 소유자에게 녹화본 댓글 알림을 DB·private Realtime·Push로 전달한다. */
 async function notifyStreamerOnRecordingComment({
   vodId,
   recordingTitle,
@@ -146,7 +147,9 @@ export async function getRecordingCommentsList(
   viewerId?: number | null,
   unlockState?: StreamUnlockState
 ) {
-  requireStreamAccess(await authorizeVodAccess(vodId, viewerId ?? null, unlockState));
+  requireStreamAccess(
+    await authorizeVodAccess(vodId, viewerId ?? null, unlockState)
+  );
 
   const take = Math.max(1, Math.min(limit, 50));
   const where: Prisma.RecordingCommentWhereInput = {

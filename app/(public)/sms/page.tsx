@@ -21,6 +21,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/sms/page.tsx 에서 app/(public)/sms/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.13  임도헌   Modified  모바일 로그인 접근성 정리를 위해 main 랜드마크와 상단 로고 우선 로드를 적용
  * 2026.04.13  임도헌   Modified  인증 공통 셸로 헤더 구조를 통일해 auth 페이지 간 레이아웃 중복을 제거
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import Link from "next/link";
@@ -35,11 +36,10 @@ import SmsForm from "@/features/auth/components/form/SmsForm";
  * - callbackUrl을 안전한 내부 경로로 정규화해 인증 완료 후 복귀 경로로 전달
  * - SMS 인증 폼(`SmsForm`)을 렌더링
  */
-export default function SMSLoginPage({
-  searchParams,
-}: {
-  searchParams?: { callbackUrl?: string };
+export default async function SMSLoginPage(props: {
+  searchParams?: Promise<{ callbackUrl?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const callbackUrl = sanitizeCallbackUrl(
     searchParams?.callbackUrl ?? "/profile"
   );
@@ -63,5 +63,3 @@ export default function SMSLoginPage({
     </AuthPageShell>
   );
 }
-
-

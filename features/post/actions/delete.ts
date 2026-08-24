@@ -10,6 +10,7 @@
  * 2026.03.06  임도헌   Modified  삭제 확인 모달 연동을 위해 처리 결과를 클라이언트에서 소비 가능한 형태로 반환
  * 2026.04.02  임도헌   Modified  삭제 액션 반환 설명 JSDoc 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -37,7 +38,7 @@ export async function deletePostAction(postId: number) {
   const result = await deletePostService(session.id, postId);
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId));
+    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
     revalidatePath("/posts");
   }
 

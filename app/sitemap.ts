@@ -11,6 +11,7 @@
 import type { MetadataRoute } from "next";
 import { getTrustedAppBaseUrl } from "@/lib/env";
 
+/** 공개 정적 경로의 sitemap 항목을 운영 origin 기준으로 생성한다. */
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = getTrustedAppBaseUrl();
 

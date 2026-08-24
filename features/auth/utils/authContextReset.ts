@@ -48,13 +48,17 @@ type AuthExitNavigation = {
 
 const sourceId = `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+/** 브라우저 전역 접근이 가능한 환경에서만 최소 window 인터페이스를 반환한다. */
 function getBrowser(): AuthContextBrowser | null {
   return typeof window === "undefined"
     ? null
     : (window as unknown as AuthContextBrowser);
 }
 
-function isAuthContextResetEvent(value: unknown): value is AuthContextResetEvent {
+/** 외부 저장소·채널에서 받은 값이 인증 초기화 이벤트인지 검증한다. */
+function isAuthContextResetEvent(
+  value: unknown
+): value is AuthContextResetEvent {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
@@ -70,6 +74,7 @@ function isAuthContextResetEvent(value: unknown): value is AuthContextResetEvent
   );
 }
 
+/** 현재 탭에서 전파할 고유 인증 초기화 이벤트를 생성한다. */
 function createResetEvent(): AuthContextResetEvent {
   return {
     type: AUTH_CONTEXT_EVENT_TYPE,

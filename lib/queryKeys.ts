@@ -37,6 +37,7 @@
 
 import type { QueryKeyParams } from "@/lib/types";
 
+/** nullable 조회자 ID를 개인화 Query Key의 안정적인 scope로 변환한다. */
 const getViewerScope = (viewerId?: number | null) => viewerId ?? "guest";
 
 /**
@@ -76,11 +77,7 @@ export const queryKeys = {
     all: ["posts"] as const,
     lists: () => [...queryKeys.posts.all, "list"] as const,
     list: (filters: QueryKeyParams, viewerId: number | null) =>
-      [
-        ...queryKeys.posts.lists(),
-        getViewerScope(viewerId),
-        filters,
-      ] as const,
+      [...queryKeys.posts.lists(), getViewerScope(viewerId), filters] as const,
     details: () => [...queryKeys.posts.all, "detail"] as const,
     detail: (id: number) => [...queryKeys.posts.details(), id] as const,
     comments: (postId: number, viewerId: number | null) =>
@@ -127,11 +124,7 @@ export const queryKeys = {
   streams: {
     all: ["streams"] as const,
     lists: () => [...queryKeys.streams.all, "list"] as const,
-    list: (
-      scope: string,
-      filters: QueryKeyParams,
-      viewerId: number | null
-    ) =>
+    list: (scope: string, filters: QueryKeyParams, viewerId: number | null) =>
       [
         ...queryKeys.streams.lists(),
         scope,

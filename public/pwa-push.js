@@ -1,5 +1,5 @@
 /* File: public/pwa-push
- * Description: next-pwa 메인 SW가 importScripts로 불러 push 이벤트 처리
+ * Description: Serwist 메인 SW가 importScripts로 불러 push 이벤트 처리
  * Author : 임도헌
  *
  * History
@@ -7,6 +7,7 @@
  * 2025.11.10  임도헌   Created
  * 2026.02.24  임도헌   Modified   푸시 알림 아이콘 로고 변경
  * 2026.08.13  임도헌   Modified   표시 직전 현재 계정과 endpoint 소유권 재확인
+ * 2026.08.23  임도헌   Modified   Serwist 서비스 워커 연동 설명으로 갱신
  */
 
 const PUSH_DISPLAY_GUARD_VERSION = 1;

@@ -13,6 +13,7 @@
  * 2026.06.22  임도헌   Modified  삭제 후 방송국 경로 서버 캐시도 무효화해 새로고침/직접 진입 상태 보정
  * 2026.08.21  임도헌   Modified  클라이언트 Live Input UID 검증을 제거하고 세션·DB 소유권만으로 삭제 판정
  * 2026.08.22  임도헌   Modified  DB commit 완료 뒤 방송 외부 이미지/VOD 자산을 정리하도록 순서 보강
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -35,8 +36,9 @@ export const runtime = "nodejs";
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getSession();
     if (!session?.id) {
@@ -105,7 +107,7 @@ export async function DELETE(
 
     // 5. 캐시 무효화 (상세 페이지 & 유저 방송 목록)
     try {
-      revalidateTag(T.BROADCAST_DETAIL(row.id));
+      revalidateTag(T.BROADCAST_DETAIL(row.id), { expire: 0 });
       const username = row.liveInput.user.username;
       revalidatePath(`/profile/${encodeURIComponent(username)}/channel`);
       revalidatePath("/streams");

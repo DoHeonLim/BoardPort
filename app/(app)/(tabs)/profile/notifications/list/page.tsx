@@ -19,6 +19,7 @@
  * 2026.03.18  임도헌   Modified  로그인 가드 callbackUrl에 포함하는 returnTo도 먼저 정규화해 중첩 복귀 경로를 안정화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/list/page.tsx 에서 app/(app)/(tabs)/profile/notifications/list/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  알림 센터 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { redirect } from "next/navigation";
@@ -43,16 +44,12 @@ export const dynamic = "force-dynamic";
  * - returnTo 쿼리가 있으면 뒤로가기 폴백 경로로 우선 사용
  *
  * @param {Object} props - 페이지 props
- * @param {Object} props.searchParams - URL 쿼리 파라미터
- * @param {string} [props.searchParams.page] - 알림 페이지 번호
- * @param {string} [props.searchParams.filter] - 알림 필터 그룹
- * @param {string} [props.searchParams.returnTo] - 알림 센터 진입 전 복귀 경로
+ * @param props - 페이지·필터·복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function NotificationListPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; filter?: string; returnTo?: string };
+export default async function NotificationListPage(props: {
+  searchParams: Promise<{ page?: string; filter?: string; returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   const safeReturnTo = searchParams.returnTo
     ? sanitizeCallbackUrl(searchParams.returnTo)
@@ -111,5 +108,3 @@ export default async function NotificationListPage({
     </div>
   );
 }
-
-

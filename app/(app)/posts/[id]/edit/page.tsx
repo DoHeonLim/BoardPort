@@ -25,6 +25,7 @@
  * 2026.04.14  임도헌   Modified  PostForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 초기값 및 옵션 주입
  * 2026.05.09  임도헌   Modified  수정 페이지 정적 프리렌더를 비활성화해 인증/보드게임 옵션 DB 조회 안정화
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
@@ -48,16 +49,14 @@ export const revalidate = 0;
  * - returnTo 쿼리를 정규화해 저장/취소 후 복귀 경로로 사용
  *
  * @param {Object} props - 동적 라우트 파라미터와 쿼리 파라미터
- * @param {{ id: string }} props.params - 게시글 ID
- * @param {{ returnTo?: string; flow?: string }} [props.searchParams] - 수정 완료 후 복귀 경로 및 진입 흐름
+ * @param props - 게시글 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function PostEditPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string; flow?: string };
+export default async function PostEditPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string; flow?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
   const rawReturnTo = searchParams?.returnTo;

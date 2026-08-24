@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.02.28  임도헌   Created   Zustand Store Factory + Context API 패턴 적용
+ * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
  */
 "use client";
 
@@ -38,7 +39,9 @@ export interface NotificationStoreProviderProps {
 export const NotificationStoreProvider = ({
   children,
 }: NotificationStoreProviderProps) => {
-  const storeRef = useRef<ReturnType<typeof createNotificationStore>>();
+  const storeRef = useRef<
+    ReturnType<typeof createNotificationStore> | undefined
+  >(undefined);
 
   // 최초 렌더링 시에만 스토어 인스턴스 생성
   if (!storeRef.current) {

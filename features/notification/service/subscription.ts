@@ -25,6 +25,7 @@ type SubscriptionDTO = PushSubscriptionDTO & {
 
 export const MAX_ACTIVE_PUSH_SUBSCRIPTIONS_PER_USER = 10;
 
+/** endpoint row와 브라우저가 제출한 Web Push 소유 키가 일치하는지 확인한다. */
 function hasMatchingDeviceProof(
   subscription: { p256dh: string; auth: string },
   dto: PushSubscriptionDTO
@@ -49,6 +50,7 @@ export class PushSubscriptionLimitExceededError extends Error {
   }
 }
 
+/** 동일 Push endpoint의 소유권 변경을 transaction advisory lock으로 직렬화한다. */
 async function lockPushEndpoint(
   tx: Prisma.TransactionClient,
   endpoint: string
@@ -58,12 +60,14 @@ async function lockPushEndpoint(
   `;
 }
 
+/** 사용자별 기기 상한 검사를 transaction advisory lock으로 직렬화한다. */
 async function lockPushUser(tx: Prisma.TransactionClient, userId: number) {
   await tx.$queryRaw`
     SELECT pg_advisory_xact_lock(hashtext(${`push-subscription-user:${userId}`}))
   `;
 }
 
+/** 현재 endpoint를 제외한 활성 Push 기기 수가 사용자 상한 이내인지 확인한다. */
 async function ensureUserHasSubscriptionCapacity(
   tx: Prisma.TransactionClient,
   userId: number,

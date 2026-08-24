@@ -13,6 +13,7 @@
 import type { MetadataRoute } from "next";
 import { getTrustedAppBaseUrl } from "@/lib/env";
 
+/** 운영 앱 URL을 검증해 robots.txt에 사용할 origin을 결정한다. */
 function resolveRobotsHost() {
   const url = new URL(getTrustedAppBaseUrl());
   return url.hostname === "localhost" || url.hostname === "127.0.0.1"
@@ -20,6 +21,7 @@ function resolveRobotsHost() {
     : url.origin;
 }
 
+/** 검색 로봇 허용 범위와 sitemap 위치를 반환한다. */
 export default function robots(): MetadataRoute.Robots {
   const host = resolveRobotsHost();
   const sitemap = host ? `${host}/sitemap.xml` : undefined;

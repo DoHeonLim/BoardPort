@@ -99,7 +99,7 @@ PWA 환경에서는 새 배포가 완료되어도 사용자의 기존 Service Wo
   - 전역 푸시 ON/OFF
   - 방해 금지 시간
   - 브라우저 구독 상태
-  를 함께 확인하도록 분리했습니다.
+    를 함께 확인하도록 분리했습니다.
 
 ### 전략 3. 현재 보고 있는 화면과 동일한 알림은 토스트 생략
 
@@ -262,6 +262,7 @@ PWA 환경에서는 새 배포가 완료되어도 사용자의 기존 Service Wo
 관련 파일:
 
 - [pwa-push.js](../../public/pwa-push.js)
+- `app/sw.ts`
 - `app/(public)/offline/page.tsx`
 - `next.config.mjs`
 
@@ -271,7 +272,7 @@ PWA 환경에서는 새 배포가 완료되어도 사용자의 기존 Service Wo
 - 새 배포 후 주요 route에서 document 요청이 200을 반환하는지 확인
 - fetch error가 보이면 unregister 전후 재현 여부를 비교
 - unregister 후 사라지는 오류는 기존 사용자 cache 전파 이슈로 기록
-- unregister 후에도 재현되는 오류만 앱 코드 또는 next-pwa 설정 문제로 분석
+- unregister 후에도 재현되는 오류만 앱 코드 또는 Serwist 설정 문제로 분석
 
 ## 5. 결과
 

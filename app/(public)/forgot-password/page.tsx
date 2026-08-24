@@ -12,7 +12,8 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/forgot-password/page.tsx 에서 app/(public)/forgot-password/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.13  임도헌   Modified  인증 공통 셸을 적용해 main 랜드마크와 상단 로고 우선 로드 패턴을 통일
  * 2026.04.17  임도헌   Modified  callbackUrl 정규화와 공통 셸 책임이 페이지 설명에 드러나도록 주석 보강
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 
 import AuthPageShell from "@/features/auth/components/AuthPageShell";
 import ForgotPasswordForm from "@/features/auth/components/form/ForgotPasswordForm";
@@ -24,12 +25,13 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - 인증 공통 셸 안에 비밀번호 찾기 폼을 렌더링
  * - 재설정 후 로그인 복귀 문맥을 폼까지 그대로 전달
  */
-export default function ForgotPasswordPage({
-  searchParams,
-}: {
-  searchParams?: { callbackUrl?: string };
+export default async function ForgotPasswordPage(props: {
+  searchParams?: Promise<{ callbackUrl?: string }>;
 }) {
-  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl ?? "/profile");
+  const searchParams = await props.searchParams;
+  const callbackUrl = sanitizeCallbackUrl(
+    searchParams?.callbackUrl ?? "/profile"
+  );
 
   return (
     <AuthPageShell
@@ -40,4 +42,3 @@ export default function ForgotPasswordPage({
     </AuthPageShell>
   );
 }
-

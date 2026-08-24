@@ -1,4 +1,27 @@
-import withPWA from "next-pwa";
+/**
+ * File Name : next.config.mjs
+ * Description : Next.js 보안 헤더·이미지·Serwist 빌드 설정
+ *
+ * History
+ * 2026.08.23 Modified Next.js 16 및 Serwist 기반 PWA 빌드 구성으로 전환
+ */
+
+import withSerwistInit from "@serwist/next";
+
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  register: true,
+  scope: "/",
+  disable: process.env.NODE_ENV === "development",
+  additionalPrecacheEntries: [
+    {
+      url: "/offline",
+      revision: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    },
+  ],
+  exclude: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
+});
 
 // 환경변수 URL에서 CSP에 넣을 origin만 안전하게 추출
 function normalizeOrigin(value) {
@@ -156,16 +179,4 @@ const nextConfig = {
   },
 };
 
-export default withPWA({
-  dest: "public",
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === "development",
-  // 푸시/오프라인 보조 스크립트는 서비스 워커가 설치될 때 함께 주입
-  // query version을 바꾸면 생성된 메인 SW도 달라져 importScripts 보호 로직이
-  // rolling deploy 중 반드시 새 설치 대상으로 인식된다.
-  importScripts: ["/pwa-push.js?guard=1"],
-  buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
-  scope: "/",
-  fallbacks: { document: "/offline" },
-})(nextConfig);
+export default withSerwist(nextConfig);
