@@ -52,6 +52,7 @@
  * 2026.05.16  임도헌   Modified   판매 탭 제품 scope 매핑을 명시해 any 캐스팅 제거
  * 2026.06.21  임도헌   Modified   타인 프로필 판매 목록 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
  * 2026.08.13  임도헌   Modified  타인 프로필 리뷰 목록에 현재 조회자 ID 전달
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 "use client";
@@ -506,8 +507,8 @@ function SalesTabContent({
     return (
       <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-12 text-center text-sm text-muted">
         {type === "selling"
-          ? "판매 중인 제품이 없습니다."
-          : "판매 완료한 제품이 없습니다."}
+          ? "판매 중인 상품이 없습니다."
+          : "판매 완료한 상품이 없습니다."}
       </div>
     );
   }

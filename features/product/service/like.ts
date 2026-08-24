@@ -13,7 +13,8 @@
  * 2026.03.06  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  * 2026.08.21  임도헌   Modified  상품 좋아요 알림 발신을 서버 전용 private topic으로 전환
- * 
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ *
  */
 import "server-only";
 
@@ -222,7 +223,7 @@ export async function toggleProductLike(
       }),
     ]);
 
-    if (!product) return { success: false, error: "제품을 찾을 수 없습니다." };
+    if (!product) return { success: false, error: "상품을 찾을 수 없습니다." };
     if (!liker)
       return { success: false, error: "사용자 정보를 찾을 수 없습니다." };
 

@@ -13,6 +13,7 @@
  * 2026.03.23  임도헌   Modified  최근 제품 상세 메타 톤에 맞춰 정보 카드 외곽선을 subtle 기준으로 정리
  * 2026.04.14  임도헌   Modified  정보 항목을 실제 dl 구조로 감싸 Lighthouse 접근성 경고를 정리
  * 2026.04.14  임도헌   Modified  상세 스펙 그리드의 구성 원칙과 접근성 의도가 드러나도록 함수 상단 JSDoc 설명을 보강
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import {
@@ -102,7 +103,7 @@ export default function ProductDetailInfoGrid({
         value={play_time}
       />
       <ProductInfoItem
-        label={renderLabel(CubeIcon, "제품 상태")}
+        label={renderLabel(CubeIcon, "상품 상태")}
         value={CONDITION_DISPLAY[condition as ConditionType]}
       />
       <ProductInfoItem

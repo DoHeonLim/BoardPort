@@ -20,6 +20,7 @@
  * 2026.05.23  임도헌   Modified  삭제된 상품을 가리키는 알림 이미지/링크 정리와 리뷰 FK cleanup 추가
  * 2026.05.24  임도헌   Modified  상품 삭제로 함께 제거되는 채팅방 알림 링크 정리 추가
  * 2026.08.22  임도헌   Modified  상품 이미지 삭제를 URL 파싱 대신 MediaAsset의 provider ID 기준으로 전환
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 import "server-only";
 
@@ -165,7 +166,7 @@ export async function deleteProduct(
     });
 
     if (!product) {
-      return { success: false, error: "제품을 찾을 수 없습니다." };
+      return { success: false, error: "상품을 찾을 수 없습니다." };
     }
 
     if (product.userId !== userId) {
@@ -200,8 +201,7 @@ export async function deleteProduct(
     console.error("deleteProduct Service Error:", error);
     return {
       success: false,
-      error:
-        "제품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

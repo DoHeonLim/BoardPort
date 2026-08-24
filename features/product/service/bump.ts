@@ -13,6 +13,7 @@
  * 2026.03.07  임도헌   Modified  실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  정지 유저 가드 추가 및 실패 문구 오기 정정
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import "server-only";
@@ -57,7 +58,7 @@ export async function bumpProduct(
     });
 
     if (!product) {
-      return { success: false, error: "제품을 찾을 수 없습니다." };
+      return { success: false, error: "상품을 찾을 수 없습니다." };
     }
 
     if (product.userId !== userId) {
@@ -131,7 +132,7 @@ export async function bumpProduct(
     console.error("bumpProduct error:", e);
     return {
       success: false,
-      error: "제품 끌어올리기에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "상품 끌어올리기에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

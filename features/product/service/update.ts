@@ -27,6 +27,7 @@
  * 2026.06.18  임도헌   Modified  거래 기준 지역 필수 정책에 맞춰 위치 삭제 저장 경로 제거
  * 2026.08.21  임도헌   Modified  가격 인하 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
  * 2026.08.22  임도헌   Modified  상품 이미지 교체 시 MediaAsset 소유권 검증과 제거 자산 정리 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 import "server-only";
 
@@ -224,7 +225,7 @@ export async function updateProduct(
     });
 
     if (!existing) {
-      return { success: false, error: "제품을 찾을 수 없습니다." };
+      return { success: false, error: "상품을 찾을 수 없습니다." };
     }
     if (existing.userId !== userId) {
       return { success: false, error: "수정 권한이 없습니다." };
@@ -398,7 +399,7 @@ export async function updateProduct(
     return {
       success: false,
       error:
-        "제품 수정에 실패했습니다. 변경한 항목과 이미지 상태를 확인한 뒤 다시 시도해주세요.",
+        "상품 수정에 실패했습니다. 변경한 항목과 이미지 상태를 확인한 뒤 다시 시도해주세요.",
     };
   }
 }

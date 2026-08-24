@@ -24,6 +24,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 접근 거부 안내 강조 텍스트를 500 기준으로 정리
  * 2026.04.20  임도헌   Modified  팔로워 전용 CTA가 버튼 폭 안에서 자연스럽게 줄바꿈되도록 문구 배치를 정리
  * 2026.05.15  임도헌   Modified  비관리자 admin 접근 거부 안내 상태 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 "use client";
@@ -336,7 +337,7 @@ export default function AccessDenied({
                 onClick={() => router.push("/products")}
                 className="btn-primary min-h-[44px] w-full"
               >
-                제품 목록으로 이동
+                상품 목록으로 이동
               </button>
               <button
                 onClick={() => router.back()}

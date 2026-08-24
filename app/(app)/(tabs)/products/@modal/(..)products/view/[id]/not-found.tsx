@@ -15,6 +15,7 @@
  * 2026.03.18  임도헌   Modified  모달 닫기 복귀 경로에 sanitizeCallbackUrl을 적용해 예외 경로 유입 방지
  * 2026.03.23  임도헌   Modified  상태 카드 외곽선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx 에서 app/(app)/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 "use client";
 
@@ -42,7 +43,7 @@ export default function ModalProductNotFound() {
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-label="제품을 찾을 수 없음"
+        aria-label="상품을 찾을 수 없음"
         className={cn(
           "flex flex-col bg-background outline-none shadow-2xl transition-all",
           // [Mobile] Full Screen
@@ -59,7 +60,7 @@ export default function ModalProductNotFound() {
         {/* Content */}
         <div className="flex flex-1 items-center justify-center px-4 pb-6">
           <NotFound
-            title="제품이 없습니다"
+            title="상품이 없습니다"
             description="삭제되었거나 잘못된 접근입니다."
             action={
               <button
@@ -75,7 +76,3 @@ export default function ModalProductNotFound() {
     </div>
   );
 }
-
-
-
-

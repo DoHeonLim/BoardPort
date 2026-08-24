@@ -14,6 +14,7 @@
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 카드만 priority 적용하고 빈 상태 heading/order 정리
  * 2026.04.24  임도헌   Modified  찜 목록 제품 상세 진입 시 현재 목록 경로를 returnTo로 전달
  * 2026.06.17  임도헌   Modified  빠른 찜 해제 버튼의 좋아요 캐시 분리를 위해 viewerId 전달
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 "use client";
 
@@ -74,14 +75,15 @@ export default function MyLikesList({ userId }: { userId: number }) {
           </div>
           <p className="state-title">찜한 상품이 없습니다</p>
           <p className="state-description">
-            관심 있는 게임을 저장해두고 가격 변화와 거래 상태를 편하게 확인해보세요.
+            관심 있는 게임을 저장해두고 가격 변화와 거래 상태를 편하게
+            확인해보세요.
           </p>
           <div className="state-actions justify-center">
             <Link
               href="/products"
               className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center px-6 text-sm font-medium shadow-sm sm:w-auto"
             >
-              제품 둘러보기
+              상품 둘러보기
             </Link>
           </div>
         </div>

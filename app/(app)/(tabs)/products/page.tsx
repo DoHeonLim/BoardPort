@@ -63,6 +63,7 @@
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.08.13  임도헌   Modified  상품 목록 cache key를 조회자와 전체 지역 튜플 기준으로 분리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import { Suspense } from "react";
@@ -112,7 +113,7 @@ interface ProductsPageProps {
 }
 
 export const metadata: Metadata = {
-  title: "항구 (제품 목록)",
+  title: "항구 (상품 목록)",
   description: "다양한 보드게임과 TRPG 물품을 거래하세요.",
   openGraph: {
     title: "보드포트 항구",

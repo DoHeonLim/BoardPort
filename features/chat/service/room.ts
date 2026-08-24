@@ -31,6 +31,7 @@
  * 2026.04.04  임도헌   Modified  새 채팅방 재연결 시 사용자 채널 rooms_refresh로 목록 재동기화 지원
  * 2026.05.12  임도헌   Modified  TabBar 뱃지와 채팅방 목록 기준을 맞춘 전체 미읽음 메시지 집계 추가
  * 2026.08.21  임도헌   Modified  채팅방 목록·상품 채팅 발신을 서버 전용 private topic으로 전환
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import "server-only";
@@ -284,7 +285,9 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
  * @param {number} userId - 미읽음 집계를 조회하는 사용자 ID
  * @returns {Promise<number>} 전체 미읽음 채팅 메시지 수
  */
-export async function getUnreadChatMessageCount(userId: number): Promise<number> {
+export async function getUnreadChatMessageCount(
+  userId: number
+): Promise<number> {
   const blockedIds = await getBlockedUserIds(userId);
 
   return db.productMessage.count({
@@ -434,9 +437,9 @@ export async function createChatRoom(
     select: { userId: true },
   });
 
-  if (!product) throw new Error("존재하지 않는 제품입니다.");
+  if (!product) throw new Error("존재하지 않는 상품입니다.");
   if (product.userId === userId)
-    throw new Error("자신의 제품에는 채팅할 수 없습니다.");
+    throw new Error("자신의 상품에는 채팅할 수 없습니다.");
 
   // 보안 체크
   const ownerStatus = await validateUserStatus(product.userId);
@@ -451,10 +454,7 @@ export async function createChatRoom(
   const lockKey = getRoomCreationLockKey(productId, userId, product.userId);
 
   if (roomCreationLocks.has(lockKey)) {
-    const existingRoomId = await waitForExistingRoom(
-      productId,
-      userId
-    );
+    const existingRoomId = await waitForExistingRoom(productId, userId);
     if (existingRoomId) return existingRoomId;
     throw new Error("채팅방 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.");
   }
@@ -497,13 +497,11 @@ export async function createChatRoom(
           },
         });
 
-        await supabase
-          .channel(productChatRealtimeTopic(existingRoom.id))
-          .send({
-            type: "broadcast",
-            event: CHAT_EVENT.MESSAGE,
-            payload: mapToChatMessage(sysMsg),
-          });
+        await supabase.channel(productChatRealtimeTopic(existingRoom.id)).send({
+          type: "broadcast",
+          event: CHAT_EVENT.MESSAGE,
+          payload: mapToChatMessage(sysMsg),
+        });
 
         await broadcastChatRoomListRefresh([userId, product.userId]);
       }

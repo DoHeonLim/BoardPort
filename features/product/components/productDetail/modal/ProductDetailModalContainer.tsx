@@ -28,6 +28,8 @@
  * 2026.05.30  임도헌   Modified  모달 상세 상단 닫기/액션바 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.06.01  임도헌   Modified  제품 모달 닫기 버튼의 배경과 hover 톤 조정
  * 2026.06.12  임도헌   Modified  채팅 왕복 후 모달 닫기 시 returnTo replace로 이전 히스토리 재진입 방지
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.24  임도헌   Modified  relay가 재오픈한 모달에서 편집 복귀 refresh 신호를 소비하도록 보강
  */
 "use client";
 
@@ -82,8 +84,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   }, []);
 
   useEffect(() => {
-    // modal-edit 저장 후 기존 모달 상세로 back 복귀했거나 fallback으로 재오픈된 상세만
-    // 세션 플래그를 1회 소비해 최신 데이터로 다시 동기화.
+    // modal-edit 저장 후 목록 relay가 새로 연 모달만 단발성 신호를 소비해 최신화한다.
     if (
       !consumeNavigationRefresh(
         NAVIGATION_REFRESH_SCOPES.PRODUCT_MODAL,
@@ -92,6 +93,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     ) {
       return;
     }
+
     router.refresh();
   }, [props.product.id, router]);
 
@@ -109,7 +111,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="제품 상세"
+        aria-label="상품 상세"
         ref={dialogRef}
         tabIndex={-1}
         className={cn(

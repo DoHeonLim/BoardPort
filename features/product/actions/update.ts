@@ -21,6 +21,7 @@
  * 2026.04.02  임도헌   Modified  파일 설명과 수정 액션 주석을 현재 서버 액션 톤으로 정리
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 "use server";
 
@@ -56,7 +57,7 @@ export async function updateProductAction(
   const productId = idStr ? Number(idStr) : undefined;
 
   if (!productId || isNaN(productId)) {
-    return { success: false, error: "잘못된 제품 ID입니다." };
+    return { success: false, error: "잘못된 상품 ID입니다." };
   }
 
   // 이미지 메타 파싱

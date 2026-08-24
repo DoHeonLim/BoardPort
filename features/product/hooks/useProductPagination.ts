@@ -24,6 +24,7 @@
  * 2026.05.16  임도헌   Modified  제품 무한스크롤 캐시 shape 타입을 공용 유틸 타입으로 정리
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.08.13  임도헌   Modified  상품 목록 query key에 현재 조회자 범위 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 "use client";
@@ -177,7 +178,7 @@ async function fetchProductsPage<T>(url: string): Promise<ProductsEnvelope<T>> {
   });
 
   if (!response.ok) {
-    throw new Error("제품 목록을 불러오지 못했습니다.");
+    throw new Error("상품 목록을 불러오지 못했습니다.");
   }
 
   return response.json();

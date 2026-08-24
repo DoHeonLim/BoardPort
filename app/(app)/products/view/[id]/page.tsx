@@ -51,6 +51,7 @@
  * 2026.05.30  임도헌   Modified  제품 상세 상단 액션바 높이와 좌우 여백을 압축
  * 2026.06.17  임도헌   Modified  제품 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -83,15 +84,15 @@ export async function generateMetadata(props: {
   const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) {
-    return { title: "제품을 찾을 수 없음" };
+    return { title: "상품을 찾을 수 없음" };
   }
   const product = await getProductTitleById(id);
 
   if (!product) {
-    return { title: "제품을 찾을 수 없음" };
+    return { title: "상품을 찾을 수 없음" };
   }
   if (product.hidden_at) {
-    return { title: "제품을 찾을 수 없음" };
+    return { title: "상품을 찾을 수 없음" };
   }
   // 본문 앞 100자 요약. 비어 있으면 공유 카드가 루트 기본 설명으로 떨어지지 않도록 고정 문구 사용
   const desc =

@@ -34,6 +34,7 @@
  * 2026.04.17  임도헌   Modified  채팅방 상단 검색창 스타일을 정리
  * 2026.04.21  임도헌   Modified  데스크톱/모바일 액션 메뉴 항목을 공통 컴포넌트로 분리하고 주석 정합을 보강
  * 2026.05.30  임도헌   Modified  채팅 상세 헤더 높이를 모바일 서브 헤더 기준으로 정리
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import Image from "next/image";
@@ -267,7 +268,7 @@ export default function ChatHeader({
       if (res?.success) {
         // 리뷰 삭제 로직은 서버 트랜잭션으로 이관됨
         toast.success(
-          "판매 중으로 되돌렸어요. 이 제품에 작성된 리뷰도 모두 삭제되었습니다."
+          "판매 중으로 되돌렸어요. 이 상품에 작성된 리뷰도 모두 삭제되었습니다."
         );
         setProductState((prev) => ({
           ...prev,

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.06.26  임도헌   Created   상품 목록 모달 상세에서 수정 후 목록 문맥 복귀 검증 추가
+ * 2026.08.24  임도헌   Modified  Next.js 16 목록 relay 기반 모달 복귀와 목적 화면 성공 토스트 검증 반영
  */
 
 import { expect, type Page, test } from "@playwright/test";
@@ -64,7 +65,7 @@ test.describe("seeded product modal edit regressions", () => {
     await expect(productCard).toBeVisible({ timeout: 15_000 });
     await productCard.click();
 
-    const dialog = page.getByRole("dialog", { name: "제품 상세" });
+    const dialog = page.getByRole("dialog", { name: "상품 상세" });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await expect(
       dialog.getByRole("heading", { name: E2E_MODAL_EDIT_PRODUCT_TITLE })
@@ -80,16 +81,16 @@ test.describe("seeded product modal edit regressions", () => {
     expect(new URL(page.url()).searchParams.get("flow")).toBe("modal-edit");
 
     const descriptionInput = page.getByPlaceholder(
-      "제품의 상태, 특이사항 등을 자세히 적어주세요."
+      "상품의 상태, 특이사항 등을 자세히 적어주세요."
     );
     await expect(descriptionInput).toBeVisible({ timeout: 15_000 });
     await descriptionInput.fill(nextDescription);
 
     await page.getByRole("button", { name: "수정하기" }).click();
 
-    await expect(
-      page.getByText("제품 정보가 수정되었습니다. 변경 내용이 상세 페이지에 반영됩니다.")
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("상품 정보가 수정되었습니다.")).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await expect(dialog.getByText(nextDescription)).toBeVisible({
       timeout: 15_000,

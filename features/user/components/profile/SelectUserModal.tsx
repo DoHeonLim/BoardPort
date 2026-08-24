@@ -26,6 +26,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.18  임도헌   Modified  모달 보조/닫기 버튼 톤을 공통 secondary modal 스타일로 통일
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 닫기 버튼을 제거해 닫기 동작 통일
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -254,7 +255,7 @@ export default function SelectUserModal({
       <BottomSheet
         open={isOpen}
         title="예약자 선택"
-        description="이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다."
+        description="이 상품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다."
         onClose={() => onOpenChange(false)}
         contentClassName="pt-4"
       >
@@ -298,7 +299,7 @@ export default function SelectUserModal({
               id="select-user-description"
               className="mt-1 text-sm leading-5 text-muted"
             >
-              이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
+              이 상품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
             </p>
           </div>
           <button

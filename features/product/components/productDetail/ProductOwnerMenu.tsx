@@ -12,6 +12,7 @@
  * 2026.04.24  임도헌   Modified  내 판매 목록도 전용 refresh relay를 통해 back + 1회 refresh 복귀를 사용하도록 조정
  * 2026.04.24  임도헌   Modified  returnTo 문맥 분류와 navigation refresh helper로 삭제/숨김 복귀 분기 중복을 정리
  * 2026.05.23  임도헌   Modified  삭제 성공 시 제품 infinite query 캐시와 stale cursor를 즉시 정리
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 "use client";
 
@@ -53,7 +54,9 @@ interface ProductOwnerMenuProps {
 
 type ProductReturnContext = "products" | "my-sales" | "chats" | "other";
 
-function getProductReturnContext(rawReturnTo: string | null): ProductReturnContext {
+function getProductReturnContext(
+  rawReturnTo: string | null
+): ProductReturnContext {
   if (rawReturnTo?.startsWith("/products")) return "products";
   if (rawReturnTo?.startsWith("/profile/my-sales")) return "my-sales";
   if (rawReturnTo?.startsWith("/chats/")) return "chats";
@@ -87,20 +90,14 @@ export default function ProductOwnerMenu({
   const [isPending, startTransition] = useTransition();
 
   const rawReturnTo = searchParams.get("returnTo");
-  const returnTo = rawReturnTo
-    ? sanitizeCallbackUrl(rawReturnTo)
-    : "/products";
+  const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : "/products";
   const returnContext = getProductReturnContext(rawReturnTo);
-  const nextAfterDelete =
-    returnContext !== "chats" ? returnTo : "/products";
+  const nextAfterDelete = returnContext !== "chats" ? returnTo : "/products";
   const hasBackHistory = canUseBrowserBack();
   // 모달 상세는 목록 위에 열린 상태가 정상 문맥이므로 제품 목록 returnTo에서만 back 복귀 허용
   const canGoBackToProductsListModal =
-    isModalContext &&
-    returnContext === "products" &&
-    hasBackHistory;
-  const canGoBackToMySales =
-    returnContext === "my-sales" && hasBackHistory;
+    isModalContext && returnContext === "products" && hasBackHistory;
+  const canGoBackToMySales = returnContext === "my-sales" && hasBackHistory;
   // rawReturnTo가 있어야 내부 문맥에서 온 복귀로 판단하고 history 재사용 허용
   // full-page 상세 삭제는 모바일 퍼스트 기준으로 back UX 우선
   const canGoBackAfterDelete =
@@ -203,11 +200,11 @@ export default function ProductOwnerMenu({
       const result = await deleteProductAction(productId);
 
       if (!result.success) {
-        toast.error(result.error ?? "제품 삭제에 실패했습니다.");
+        toast.error(result.error ?? "상품 삭제에 실패했습니다.");
         return;
       }
 
-      toast.success("제품이 삭제되었습니다.");
+      toast.success("상품이 삭제되었습니다.");
       setConfirmOpen(false);
       setIsOpen(false);
       removeRecentViewedProduct(productId);
@@ -216,8 +213,7 @@ export default function ProductOwnerMenu({
           predicate: (query) =>
             Array.isArray(query.queryKey) &&
             query.queryKey[0] === "products" &&
-            (query.queryKey[1] === "list" ||
-              query.queryKey[1] === "userScope"),
+            (query.queryKey[1] === "list" || query.queryKey[1] === "userScope"),
         },
         (oldData: ProductInfiniteCache<{ id: number }> | undefined) =>
           removeProductFromInfiniteCache(oldData, productId)
@@ -361,8 +357,8 @@ export default function ProductOwnerMenu({
 
       <ConfirmDialog
         open={confirmOpen}
-        title="제품을 삭제할까요?"
-        description="삭제한 제품은 되돌릴 수 없습니다."
+        title="상품을 삭제할까요?"
+        description="삭제한 상품은 되돌릴 수 없습니다."
         confirmLabel="삭제"
         cancelLabel="취소"
         onConfirm={handleDelete}

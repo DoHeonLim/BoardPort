@@ -36,6 +36,7 @@
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
  * 2026.05.30  임도헌   Modified  제품 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -105,7 +106,7 @@ export default async function EditPage(props: {
             className="px-0"
           />
           <h1 className="text-base font-medium text-primary">
-            보드게임 제품 수정
+            보드게임 상품 수정
           </h1>
         </div>
       </header>
