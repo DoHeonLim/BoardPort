@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.23  임도헌   Created   누락 secret·운영 query secret·Bearer 인증 경계 검증
+ * 2026.08.26  임도헌   Modified  인증 성공 뒤 moderation outbox 배치 실행 검증 추가
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getCronSecret: vi.fn(),
   findMany: vi.fn(),
   updateMany: vi.fn(),
+  processModerationOutbox: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -28,12 +30,20 @@ vi.mock("@/features/user/service/badge", () => ({
   checkBoardExplorerBadge: vi.fn(),
   checkPortFestivalBadge: vi.fn(),
 }));
+vi.mock("@/features/report/service/moderationOutbox", () => ({
+  processModerationOutboxBatch: mocks.processModerationOutbox,
+}));
 
 describe("GET /api/cron/check-badges", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getCronSecret.mockReturnValue("cron-secret-value");
     mocks.findMany.mockResolvedValue([]);
+    mocks.processModerationOutbox.mockResolvedValue({
+      claimed: 0,
+      completed: 0,
+      failed: 0,
+    });
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -44,7 +54,9 @@ describe("GET /api/cron/check-badges", () => {
     });
     const { GET } = await import("./route");
 
-    const response = await GET(new NextRequest("https://boardport.example/api/cron/check-badges"));
+    const response = await GET(
+      new NextRequest("https://boardport.example/api/cron/check-badges")
+    );
     expect(response.status).toBe(503);
     expect(mocks.findMany).not.toHaveBeenCalled();
   });
@@ -54,7 +66,9 @@ describe("GET /api/cron/check-badges", () => {
     const { GET } = await import("./route");
 
     const response = await GET(
-      new NextRequest("https://boardport.example/api/cron/check-badges?secret=cron-secret-value")
+      new NextRequest(
+        "https://boardport.example/api/cron/check-badges?secret=cron-secret-value"
+      )
     );
     expect(response.status).toBe(403);
     expect(mocks.findMany).not.toHaveBeenCalled();
@@ -71,5 +85,6 @@ describe("GET /api/cron/check-badges", () => {
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true });
+    expect(mocks.processModerationOutbox).toHaveBeenCalledWith(30);
   });
 });

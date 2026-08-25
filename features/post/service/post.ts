@@ -44,6 +44,7 @@
  * 2026.05.23  임도헌   Modified  삭제된 게시글 알림 링크/이미지 정리 및 삭제 cursor 목록 페이지네이션 실패 방어
  * 2026.06.18  임도헌   Modified  게시글 장소 지역과 동네 피드 노출 지역(feedRegion)을 분리
  * 2026.08.22  임도헌   Modified  게시글 이미지 연결·교체·삭제를 MediaAsset 소유권 기록 기준으로 보강
+ * 2026.08.26  임도헌   Modified  신고 처리 transaction이 재사용할 게시글 DB cleanup 경계 분리
  */
 import "server-only";
 
@@ -72,7 +73,6 @@ import {
   attachOwnedMediaAssets,
   deleteCloudflareImageAssetsById,
   detachMissingMediaAssets,
-  getLinkedMediaAssetIds,
 } from "@/features/media/service/assets";
 
 const TAKE = POSTS_PAGE_TAKE;
@@ -99,9 +99,11 @@ function toFeedRegionPayload(source: RegionSource | null | undefined) {
   };
 }
 
-function buildPostFeedRegionWhere(user: RegionSource & {
-  regionRange: Parameters<typeof buildRegionWhere>[0]["regionRange"];
-}): FeedRegionWhere {
+function buildPostFeedRegionWhere(
+  user: RegionSource & {
+    regionRange: Parameters<typeof buildRegionWhere>[0]["regionRange"];
+  }
+): FeedRegionWhere {
   const regionWhere = buildRegionWhere(user);
 
   return {
@@ -255,13 +257,76 @@ async function removeAttachedPostVideo(
     .filter((assetUid): assetUid is string => Boolean(assetUid));
 }
 
-interface PostDeleteCleanupTarget {
+/** 게시글 DB 삭제와 연결 데이터 정리에 필요한 최소 조회 결과. */
+export interface PostDeleteCleanupTarget {
   id: number;
   tags: { name: string }[];
   video?: {
     providerAssetId?: string | null;
     uploadUid?: string | null;
   } | null;
+}
+
+/** 게시글 transaction commit 뒤 정리할 Cloudflare 자산 식별자. */
+export interface PostDeleteExternalCleanup {
+  assetUid: string | null;
+  imageAssetIds: string[];
+}
+
+/**
+ * 게시글과 연결 데이터를 주입받은 transaction 안에서 삭제하고 외부 정리 메타를 반환한다.
+ * Cloudflare 호출은 commit 이후 호출자가 수행한다.
+ */
+export async function hardDeletePostTx(
+  tx: Prisma.TransactionClient,
+  target: PostDeleteCleanupTarget
+): Promise<PostDeleteExternalCleanup> {
+  const tagNames = Array.from(new Set(target.tags.map((tag) => tag.name)));
+  const assetUid =
+    target.video?.providerAssetId ?? target.video?.uploadUid ?? null;
+  const imageAssets = await tx.mediaAsset.findMany({
+    where: {
+      purpose: "POST_IMAGE",
+      linkedEntityId: String(target.id),
+      state: "ATTACHED",
+    },
+    select: { providerAssetId: true },
+  });
+  const imageAssetIds = imageAssets.map((asset) => asset.providerAssetId);
+
+  if (imageAssetIds.length) {
+    await tx.mediaAsset.updateMany({
+      where: { providerAssetId: { in: imageAssetIds } },
+      data: { state: "ORPHANED", linkedEntityId: null },
+    });
+  }
+  if (tagNames.length) {
+    await tx.post.update({
+      where: { id: target.id },
+      data: { tags: { set: [] } },
+    });
+    await tx.postTag.updateMany({
+      where: { name: { in: tagNames }, count: { gt: 0 } },
+      data: { count: { decrement: 1 } },
+    });
+    await tx.postTag.deleteMany({
+      where: { name: { in: tagNames }, count: { lte: 0 } },
+    });
+  }
+
+  await tx.notification.updateMany({
+    where: {
+      OR: [
+        { link: `/posts/${target.id}` },
+        { link: { startsWith: `/posts/${target.id}?` } },
+      ],
+    },
+    data: { image: null, link: null },
+  });
+  await tx.postVideo.deleteMany({ where: { postId: target.id } });
+  await tx.post.delete({ where: { id: target.id } });
+
+  return { assetUid, imageAssetIds };
 }
 
 /**
@@ -274,58 +339,9 @@ interface PostDeleteCleanupTarget {
 export async function hardDeletePostWithCleanup(
   target: PostDeleteCleanupTarget
 ) {
-  const tagNames = Array.from(new Set(target.tags.map((tag) => tag.name)));
-  const assetUid = target.video?.providerAssetId ?? target.video?.uploadUid ?? null;
-  const imageAssetIds = await getLinkedMediaAssetIds({
-    purpose: "POST_IMAGE",
-    linkedEntityId: String(target.id),
-  });
-
-  await db.$transaction(async (tx) => {
-    if (imageAssetIds.length) {
-      await tx.mediaAsset.updateMany({
-        where: { providerAssetId: { in: imageAssetIds } },
-        data: { state: "ORPHANED", linkedEntityId: null },
-      });
-    }
-    if (tagNames.length) {
-      // 공용 태그 사전은 row를 재사용하되, 현재 게시글과의 연결은 먼저 끊어 FK 정리와 count 보정을 분리
-      await tx.post.update({
-        where: { id: target.id },
-        data: { tags: { set: [] } },
-      });
-
-      await tx.postTag.updateMany({
-        where: { name: { in: tagNames }, count: { gt: 0 } },
-        data: { count: { decrement: 1 } },
-      });
-
-      await tx.postTag.deleteMany({
-        where: {
-          name: { in: tagNames },
-          count: { lte: 0 },
-        },
-      });
-    }
-
-    // 삭제된 게시글을 가리키는 알림은 더 이상 상세 이동/썸네일을 노출하지 않음
-    await tx.notification.updateMany({
-      where: {
-        OR: [
-          { link: `/posts/${target.id}` },
-          { link: { startsWith: `/posts/${target.id}?` } },
-        ],
-      },
-      data: {
-        image: null,
-        link: null,
-      },
-    });
-
-    // 게시글 첨부 동영상은 부모 콘텐츠와 함께 정리해 orphan record를 남기지 않음
-    await tx.postVideo.deleteMany({ where: { postId: target.id } });
-    await tx.post.delete({ where: { id: target.id } });
-  });
+  const { assetUid, imageAssetIds } = await db.$transaction((tx) =>
+    hardDeletePostTx(tx, target)
+  );
 
   if (assetUid) {
     await deleteCloudflareStreamAsset(assetUid);
@@ -365,16 +381,15 @@ async function syncPostBlocksFromDraft(
 
   // 블록 에디터 입력 우선
   // blocksJson이 비어 있더라도 최소 TEXT 블록 하나만 유지해 본문 구조를 새 포맷 기준으로 통일
-  const sourceBlocks =
-    draftBlocks?.length
-      ? draftBlocks
-      : [
-          {
-            id: "fallback-text-0",
-            type: "TEXT" as const,
-            textContent: description ?? "",
-          },
-        ];
+  const sourceBlocks = draftBlocks?.length
+    ? draftBlocks
+    : [
+        {
+          id: "fallback-text-0",
+          type: "TEXT" as const,
+          textContent: description ?? "",
+        },
+      ];
   const blocks: Prisma.PostBlockCreateManyInput[] = [];
   let nextOrder = 0;
   let nextImageIndex = 0;
@@ -739,7 +754,12 @@ export async function createPost(
 
       // 동영상 draft 연결
       if (!data.removeVideo && data.videoDraftKey) {
-        await attachDraftVideoToPost(tx, userId, newPost.id, data.videoDraftKey);
+        await attachDraftVideoToPost(
+          tx,
+          userId,
+          newPost.id,
+          data.videoDraftKey
+        );
       }
 
       // 본문 블록 동기화
@@ -813,7 +833,9 @@ export async function updatePost(
     // 수정 폼의 현재 보드게임 선택값을 전체 교체 기준으로 정규화
     const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
     const nextTagSet = new Set(nextTags);
-    const removedTags = Array.from(prevTags).filter((tag) => !nextTagSet.has(tag));
+    const removedTags = Array.from(prevTags).filter(
+      (tag) => !nextTagSet.has(tag)
+    );
     const addedTags = nextTags.filter((tag) => !prevTags.has(tag));
 
     // 위치 업데이트 payload 구성
@@ -932,7 +954,12 @@ export async function updatePost(
         removedAssetUids.push(...(await removeAttachedPostVideo(tx, data.id)));
       } else if (data.videoDraftKey) {
         removedAssetUids.push(
-          ...(await attachDraftVideoToPost(tx, userId, data.id, data.videoDraftKey))
+          ...(await attachDraftVideoToPost(
+            tx,
+            userId,
+            data.id,
+            data.videoDraftKey
+          ))
         );
       }
 
@@ -944,7 +971,9 @@ export async function updatePost(
     // 오래된 외부 동영상 자산 정리
     if (staleVideoAssetUids.length) {
       await Promise.allSettled(
-        staleVideoAssetUids.map((assetUid) => deleteCloudflareStreamAsset(assetUid))
+        staleVideoAssetUids.map((assetUid) =>
+          deleteCloudflareStreamAsset(assetUid)
+        )
       );
     }
     await deleteCloudflareImageAssetsById(staleImageAssetIds);
@@ -1003,8 +1032,7 @@ export async function deletePost(
     console.error("deletePost Error:", error);
     return {
       success: false,
-      error:
-        "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

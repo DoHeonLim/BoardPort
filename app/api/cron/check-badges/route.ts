@@ -11,6 +11,7 @@
  * 2026.01.09  임도헌   Modified  Vercel Hobby 플랜 제한(1일 1회) 대응으로 배지 점검 배치 크기 정책을 재조정
  * 2026.05.19  임도헌   Modified  Vercel Cron 자동 Authorization 헤더와 맞추기 위해 CRON_SECRET 기준으로 변경
  * 2026.08.23  임도헌   Modified  CRON_SECRET 누락 fail-closed와 query secret development 제한
+ * 2026.08.26  임도헌   Modified  미처리 moderation outbox 재시도를 일일 운영 배치에 포함
  */
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
@@ -20,6 +21,7 @@ import {
   checkPortFestivalBadge,
 } from "@/features/user/service/badge";
 import { getCronSecret } from "@/lib/env";
+import { processModerationOutboxBatch } from "@/features/report/service/moderationOutbox";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +34,7 @@ const RECHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 /**
  * GET /api/cron/check-badges
  * - Vercel Cron에 의해 주기적으로 실행
+ * - 신고 처리 직후 시도에서 완료되지 않은 moderation outbox 작업을 먼저 재시도
  * - 타임아웃 방지를 위해 'Rolling Batch' 전략을 사용하여 일정 수의 유저만 처리
  */
 export async function GET(req: NextRequest) {
@@ -53,6 +56,14 @@ export async function GET(req: NextRequest) {
   if (!isValidHeader && !isValidDevelopmentQuery) {
     return new NextResponse("Forbidden", { status: 403 });
   }
+
+  // 신고 처리 직후 실패했던 알림·실시간 신호·외부 자산 정리를 재시도한다.
+  const moderationOutbox = await processModerationOutboxBatch(30).catch(
+    (error) => {
+      console.error("[cron/check-badges] moderation outbox failed:", error);
+      return { claimed: 0, completed: 0, failed: 1 };
+    }
+  );
 
   const now = new Date();
   const recheckThreshold = new Date(now.getTime() - RECHECK_INTERVAL_MS);
@@ -77,6 +88,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       message: "No users to check at this time",
+      moderationOutbox,
     });
   }
 
@@ -104,5 +116,6 @@ export async function GET(req: NextRequest) {
     processed: processedIds.length,
     success: successCount,
     nextBatchAvailable: processedIds.length === BATCH_SIZE, // 꽉 채워 처리했으면 대기열이 더 있을 수 있음
+    moderationOutbox,
   });
 }

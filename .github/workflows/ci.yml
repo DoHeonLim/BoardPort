@@ -9,6 +9,7 @@
 # 2026.08.21  임도헌   Modified  Realtime JWT placeholder를 ES256 private JWK 변수로 전환
 # 2026.08.22  임도헌   Modified  MediaAsset ownership migration PostgreSQL 통합 검증 추가
 # 2026.08.23  임도헌   Modified  sessionVersion migration PostgreSQL 통합 검증 추가
+# 2026.08.26  임도헌   Modified  신고 처리 멱등성과 동시 claim migration 통합 검증 추가
 
 name: CI
 
@@ -58,6 +59,7 @@ jobs:
       REALTIME_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       MEDIA_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       AUTH_SESSION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      REPORT_MODERATION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
@@ -113,6 +115,9 @@ jobs:
 
       - name: Run auth session migration integration test
         run: npm run test:migration:auth-session
+
+      - name: Run report moderation migration integration test
+        run: npm run test:migration:report-moderation
 
       - name: Run type check
         run: npx tsc --noEmit

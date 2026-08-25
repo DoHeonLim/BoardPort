@@ -17,6 +17,7 @@
     "test:migration:realtime": "node scripts/test-realtime-authorization-migration.mjs",
     "test:migration:media": "node scripts/test-media-asset-migration.mjs",
     "test:migration:auth-session": "node scripts/test-auth-session-migration.mjs",
+    "test:migration:report-moderation": "node scripts/test-report-moderation-migration.mjs",
     "backfill:stream-signed-playback": "tsx scripts/backfill-cloudflare-signed-playback.ts",
     "test:watch": "vitest",
     "install:e2e": "playwright install chromium",

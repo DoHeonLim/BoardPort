@@ -14,6 +14,7 @@
  * 2026.05.16  임도헌   Modified  방송 삭제 액션의 사전 조회용 메타 헬퍼 추가
  * 2026.05.24  임도헌   Modified  삭제된 방송을 가리키는 알림 링크/이미지 정리 추가
  * 2026.08.22  임도헌   Modified  방송 썸네일 삭제를 MediaAsset provider ID 기준으로 전환
+ * 2026.08.26  임도헌   Modified  moderation outbox용 외부 방송 자산 삭제 실패 전파 옵션 추가
  */
 
 import "server-only";
@@ -24,7 +25,8 @@ import {
   getLinkedMediaAssetIds,
 } from "@/features/media/service/assets";
 
-type BroadcastAssetCleanup = {
+/** 방송 transaction commit 뒤 정리할 Cloudflare VOD·썸네일 식별자. */
+export type BroadcastAssetCleanup = {
   vodAssetIds: string[];
   thumbnailAssetIds: string[];
 };
@@ -64,12 +66,21 @@ export async function getBroadcastIdsByLiveInput(
 
   return broadcasts.map((broadcast) => broadcast.id);
 }
-/** Cloudflare Stream VOD 자산 best-effort 삭제 */
-async function deleteCloudflareVodAsset(providerAssetId: string): Promise<void> {
+/** Cloudflare Stream VOD를 삭제하며 outbox 호출에서는 실패를 재시도 대상으로 전파한다. */
+async function deleteCloudflareVodAsset(
+  providerAssetId: string,
+  throwOnFailure: boolean = false
+): Promise<void> {
   const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
   const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 
-  if (!ACCOUNT_ID || !API_TOKEN || !providerAssetId) return;
+  if (!providerAssetId) return;
+  if (!ACCOUNT_ID || !API_TOKEN) {
+    if (throwOnFailure) {
+      throw new Error("Cloudflare Stream 삭제 환경변수가 누락되었습니다.");
+    }
+    return;
+  }
 
   try {
     const response = await fetch(
@@ -83,23 +94,33 @@ async function deleteCloudflareVodAsset(providerAssetId: string): Promise<void> 
     );
 
     if (!response.ok && response.status !== 404) {
-      console.warn(
-        `[deleteCloudflareVodAsset] unexpected status=${response.status} asset=${providerAssetId}`
+      throw new Error(
+        `Cloudflare Stream delete failed status=${response.status} asset=${providerAssetId}`
       );
     }
   } catch (error) {
     console.error("[deleteCloudflareVodAsset] failed:", error);
+    if (throwOnFailure) throw error;
   }
 }
 
-/** DB transaction commit 뒤 외부 방송/VOD 이미지 자산을 정리한다. */
+/** DB transaction commit 뒤 외부 방송 자산을 정리하고 선택적으로 실패를 전파한다. */
 export async function cleanupDeletedBroadcastAssets(
-  cleanup: BroadcastAssetCleanup
+  cleanup: BroadcastAssetCleanup,
+  options: { throwOnFailure?: boolean } = {}
 ): Promise<void> {
-  await Promise.allSettled([
-    ...cleanup.vodAssetIds.map((assetId) => deleteCloudflareVodAsset(assetId)),
-    deleteCloudflareImageAssetsById(cleanup.thumbnailAssetIds),
+  const results = await Promise.allSettled([
+    ...cleanup.vodAssetIds.map((assetId) =>
+      deleteCloudflareVodAsset(assetId, options.throwOnFailure)
+    ),
+    deleteCloudflareImageAssetsById(cleanup.thumbnailAssetIds, options),
   ]);
+  if (
+    options.throwOnFailure &&
+    results.some((result) => result.status === "rejected")
+  ) {
+    throw new Error("일부 Cloudflare 방송 자산 삭제에 실패했습니다.");
+  }
 }
 
 function buildBroadcastNotificationCleanupWhere(
@@ -226,16 +247,19 @@ export async function deleteBroadcastTx(
     return {
       success: true,
       cleanup: {
-        vodAssetIds: broadcast.vodAssets.map((asset) => asset.provider_asset_id),
-        thumbnailAssetIds: thumbnailAssets.map((asset) => asset.providerAssetId),
+        vodAssetIds: broadcast.vodAssets.map(
+          (asset) => asset.provider_asset_id
+        ),
+        thumbnailAssetIds: thumbnailAssets.map(
+          (asset) => asset.providerAssetId
+        ),
       },
     };
   } catch (e) {
     console.error("[deleteBroadcastTx] failed:", e);
     return {
       success: false,
-      error:
-        "방송 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "방송 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
@@ -249,7 +273,9 @@ export async function deleteBroadcastTx(
 export async function deleteBroadcast(
   broadcastId: number
 ): Promise<DeleteResult> {
-  const result = await db.$transaction((tx) => deleteBroadcastTx(tx, broadcastId));
+  const result = await db.$transaction((tx) =>
+    deleteBroadcastTx(tx, broadcastId)
+  );
   if (result.success && result.cleanup) {
     await cleanupDeletedBroadcastAssets(result.cleanup);
   }

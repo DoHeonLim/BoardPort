@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.22  임도헌   Created   업로드 자산의 소유자·용도·연결 대상 검증과 provider ID 기반 삭제 추가
+ * 2026.08.26  임도헌   Modified  moderation outbox용 외부 이미지 삭제 실패 전파 옵션 추가
  */
 import "server-only";
 
@@ -150,16 +151,26 @@ export async function detachMissingMediaAssets(
   return stale.map((item) => item.providerAssetId);
 }
 
-/** DB에 저장된 provider ID로만 Cloudflare Images 삭제를 수행한다. */
+/**
+ * DB에 저장된 provider ID로만 Cloudflare Images 삭제를 수행한다.
+ * 기본 호출은 실패를 기록하고 계속 진행하며, outbox는 `throwOnFailure`로 실패를 전파해 재시도한다.
+ */
 export async function deleteCloudflareImageAssetsById(
-  providerAssetIds: string[]
+  providerAssetIds: string[],
+  options: { throwOnFailure?: boolean } = {}
 ): Promise<void> {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken = process.env.CLOUDFLARE_API_TOKEN;
   const uniqueIds = [...new Set(providerAssetIds.filter(Boolean))];
-  if (!accountId || !apiToken || uniqueIds.length === 0) return;
+  if (uniqueIds.length === 0) return;
+  if (!accountId || !apiToken) {
+    if (options.throwOnFailure) {
+      throw new Error("Cloudflare Images 삭제 환경변수가 누락되었습니다.");
+    }
+    return;
+  }
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     uniqueIds.map(async (providerAssetId) => {
       try {
         const response = await fetch(
@@ -170,10 +181,9 @@ export async function deleteCloudflareImageAssetsById(
           }
         );
         if (!response.ok && response.status !== 404) {
-          console.warn(
-            `[deleteCloudflareImageAssetsById] unexpected status=${response.status} asset=${providerAssetId}`
+          throw new Error(
+            `Cloudflare Images delete failed status=${response.status} asset=${providerAssetId}`
           );
-          return;
         }
         await db.mediaAsset.updateMany({
           where: { providerAssetId },
@@ -185,9 +195,17 @@ export async function deleteCloudflareImageAssetsById(
         });
       } catch (error) {
         console.error("[deleteCloudflareImageAssetsById] failed:", error);
+        throw error;
       }
     })
   );
+
+  if (
+    options.throwOnFailure &&
+    results.some((result) => result.status === "rejected")
+  ) {
+    throw new Error("일부 Cloudflare Images 자산 삭제에 실패했습니다.");
+  }
 }
 
 /** 연결된 엔터티와 용도에 해당하는 Cloudflare provider asset ID를 조회한다. */
