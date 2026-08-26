@@ -22,6 +22,7 @@
  * 2026.05.26  임도헌   Modified  알림 설정 저장 E2E 반복 실행을 위해 seed 계정 preference 기본값 리셋
  * 2026.06.22  임도헌   Modified  지역 노출 정책 변경에 맞춰 E2E 계정/콘텐츠 지역 seed 보정
  * 2026.08.23  임도헌   Modified  상품 수정 seed에 고유 이미지와 MediaAsset 소유권 상태 추가
+ * 2026.08.26  임도헌   Modified  상품·구매 문의자 복합 키 기준으로 seed 채팅방을 재사용
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -40,10 +41,8 @@ const E2E_PREFIX = "[E2E]";
 const E2E_PASSWORD = "BoardPort!234";
 const E2E_PRODUCT_IMAGE_URL =
   "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/55cfdd12-033e-4c98-973d-aea323285d00";
-const E2E_MODAL_EDIT_PRODUCT_IMAGE_ID =
-  "e2e-modal-edit-product-image-990001";
-const E2E_MODAL_EDIT_PRODUCT_IMAGE_URL =
-  `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${E2E_MODAL_EDIT_PRODUCT_IMAGE_ID}`;
+const E2E_MODAL_EDIT_PRODUCT_IMAGE_ID = "e2e-modal-edit-product-image-990001";
+const E2E_MODAL_EDIT_PRODUCT_IMAGE_URL = `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${E2E_MODAL_EDIT_PRODUCT_IMAGE_ID}`;
 const E2E_CHAT_MESSAGE = `${E2E_PREFIX} 채팅 목록 회귀 메시지`;
 const E2E_APPOINTMENT_PRODUCT_TITLE = `${E2E_PREFIX} 약속 수락 상품`;
 const E2E_APPOINTMENT_MESSAGE = `${E2E_PREFIX} 약속 수락 회귀 제안`;
@@ -426,13 +425,12 @@ async function createChatRoomSeed(
     buyerId: number;
   }
 ) {
-  const existingRoom = await db.productChatRoom.findFirst({
+  const existingRoom = await db.productChatRoom.findUnique({
     where: {
-      productId: input.productId,
-      AND: [
-        { users: { some: { id: input.sellerId } } },
-        { users: { some: { id: input.buyerId } } },
-      ],
+      productId_buyerId: {
+        productId: input.productId,
+        buyerId: input.buyerId,
+      },
     },
     select: { id: true },
   });
@@ -442,6 +440,7 @@ async function createChatRoomSeed(
     (await db.productChatRoom.create({
       data: {
         productId: input.productId,
+        buyerId: input.buyerId,
         users: {
           connect: [{ id: input.sellerId }, { id: input.buyerId }],
         },

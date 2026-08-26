@@ -41,6 +41,7 @@
  * 2026.04.14  임도헌   Modified  데스크톱에서 이미지 첨부 후 Enter 전송이 자연스럽도록 업로드 완료 뒤 textarea 포커스 복구
  * 2026.05.28  임도헌   Modified  모바일은 버튼 전송, 데스크톱은 Enter 전송 기준으로 IME 정책 정리
  * 2026.08.22  임도헌   Modified  채팅 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
+ * 2026.08.26  임도헌   Modified  응답 유실 뒤 재전송에도 같은 clientMessageId를 재사용
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -61,8 +62,9 @@ interface ChatInputBarProps {
   isSubmitting: boolean;
   onSubmit: (
     text: string,
-    imageUrl?: string | null,
-    imageIsAnimated?: boolean
+    imageUrl: string | null,
+    imageIsAnimated: boolean,
+    clientMessageId: string
   ) => Promise<void> | void;
   onScheduleOpen?: () => void;
   autoFocus?: boolean;
@@ -100,6 +102,10 @@ export default function ChatInputBar({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalImageFileRef = useRef<File | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const pendingSubmissionRef = useRef<{
+    fingerprint: string;
+    clientMessageId: string;
+  } | null>(null);
 
   // 모바일 전송 탭 시 버튼으로 포커스가 이동하며 키보드가 닫히는 현상 방지
   const preventFocusSteal = (
@@ -243,20 +249,42 @@ export default function ChatInputBar({
 
   // 2. 메시지 제출
   const submit = async (options?: { allowComposing?: boolean }) => {
-    if ((!options?.allowComposing && isComposing) || isSubmitting || isUploading)
+    if (
+      (!options?.allowComposing && isComposing) ||
+      isSubmitting ||
+      isUploading
+    )
       return;
     const trimmed = text.trim();
     if (!trimmed && !uploadedUrl) return;
     const currentUrl = uploadedUrl;
     const currentPreview = imagePreview;
     const currentImageIsAnimated = imageIsAnimated;
+    const fingerprint = JSON.stringify([
+      trimmed,
+      currentUrl,
+      currentImageIsAnimated,
+    ]);
+    if (pendingSubmissionRef.current?.fingerprint !== fingerprint) {
+      pendingSubmissionRef.current = {
+        fingerprint,
+        clientMessageId: crypto.randomUUID().replaceAll("-", ""),
+      };
+    }
+    const clientMessageId = pendingSubmissionRef.current.clientMessageId;
 
     try {
       setText("");
       removeImage(); // 전송 시도 시 프리뷰 제거
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-      await onSubmit(trimmed, currentUrl, currentImageIsAnimated);
+      await onSubmit(
+        trimmed,
+        currentUrl,
+        currentImageIsAnimated,
+        clientMessageId
+      );
+      pendingSubmissionRef.current = null;
     } catch {
       setText(trimmed);
       setImagePreview(currentPreview);

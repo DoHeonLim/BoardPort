@@ -19,6 +19,7 @@
  * 2026.06.21  임도헌   Modified  약속 취소/거절 결과를 상대방에게 거래 알림으로 전송
  * 2026.06.21  임도헌   Modified  약속 수락 알림 실패가 수락 처리를 막지 않도록 정리
  * 2026.08.21  임도헌   Modified  알림·상품 채팅 발신을 서버 전용 private Broadcast로 전환
+ * 2026.08.26  임도헌   Modified  PENDING 약속 DB 단일 제약과 commit 이후 Realtime·알림 실패 격리
  */
 
 import "server-only";
@@ -83,11 +84,20 @@ async function sendAppointmentTradeNotification({
       },
     });
 
-    await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
-      type: "broadcast",
-      event: "notification",
-      payload: { ...notification },
-    });
+    // Realtime 전달 실패가 Push 시도까지 건너뛰게 하지 않는다.
+    const realtimeResult = await Promise.allSettled([
+      supabase.channel(notificationRealtimeTopic(targetUserId)).send({
+        type: "broadcast",
+        event: "notification",
+        payload: { ...notification },
+      }),
+    ]);
+    if (realtimeResult[0]?.status === "rejected") {
+      console.warn(
+        "[Appointment] Notification realtime delivery failed:",
+        realtimeResult[0].reason
+      );
+    }
 
     if (canSendPushForType(pref, "TRADE")) {
       const pushRes = await sendPushNotification({
@@ -193,12 +203,6 @@ export async function proposeAppointment(
   }
 
   try {
-    // 취소될 기존 약속들 식별 (클라이언트 상태 동기화용)
-    const pendingApts = await db.appointment.findMany({
-      where: { chatRoomId, status: "PENDING" },
-      select: { id: true },
-    });
-
     // 4. 트랜잭션 실행
     const result = await db.$transaction(async (tx) => {
       // 트랜잭션 내부에서 상품 상태 재확인 (Race Condition 방어)
@@ -214,7 +218,11 @@ export async function proposeAppointment(
         throw new Error("PRODUCT_ALREADY_TRADED");
       }
 
-      // 기존 PENDING 약속 일괄 취소
+      // 실제로 취소할 PENDING 약속을 transaction 안에서 확정해 후속 이벤트와 일치시킨다.
+      const pendingApts = await tx.appointment.findMany({
+        where: { chatRoomId, status: "PENDING" },
+        select: { id: true },
+      });
       await tx.appointment.updateMany({
         where: { chatRoomId, status: "PENDING" },
         data: { status: "CANCELED" },
@@ -255,26 +263,32 @@ export async function proposeAppointment(
         data: { updated_at: new Date() },
       });
 
-      return message;
+      return {
+        message,
+        canceledAppointmentIds: pendingApts.map(
+          (appointment) => appointment.id
+        ),
+      };
     });
 
     // 5. 실시간 브로드캐스트
-    // - 취소된 약속들에 대한 상태 업데이트 전송
-    for (const oldApt of pendingApts) {
-      await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
+    // DB commit 성공과 Realtime 전달 실패를 분리해 저장된 제안을 실패로 오인하지 않는다.
+    await Promise.allSettled([
+      ...result.canceledAppointmentIds.map((appointmentId) =>
+        supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
+          type: "broadcast",
+          event: "appointment_update",
+          payload: { id: appointmentId, status: "CANCELED" },
+        })
+      ),
+      supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
         type: "broadcast",
-        event: "appointment_update",
-        payload: { id: oldApt.id, status: "CANCELED" },
-      });
-    }
+        event: "message",
+        payload: mapToChatMessage(result.message),
+      }),
+    ]);
 
-    // - 새 약속 제안 메시지 전송
-    const chatMessage = mapToChatMessage(result);
-    await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
-      type: "broadcast",
-      event: "message",
-      payload: chatMessage,
-    });
+    const chatMessage = mapToChatMessage(result.message);
 
     try {
       await sendAppointmentTradeNotification({
@@ -459,27 +473,26 @@ export async function acceptAppointment(
       return { sysMsg: msg, canceledApts: otherApts };
     });
 
-    // 5. 실시간 이벤트 전송 (Fire & Forget)
-    void supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-      type: "broadcast",
-      event: "message",
-      payload: mapToChatMessage(sysMsg),
-    });
-    void supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-      type: "broadcast",
-      event: "appointment_update",
-      payload: { id: appointmentId, status: "ACCEPTED" },
-    });
-
-    for (const canceled of canceledApts) {
-      void supabase
-        .channel(productChatRealtimeTopic(canceled.chatRoomId))
-        .send({
+    // 5. commit 이후 Realtime 실패는 저장된 수락 결과와 분리한다.
+    await Promise.allSettled([
+      supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+        type: "broadcast",
+        event: "message",
+        payload: mapToChatMessage(sysMsg),
+      }),
+      supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+        type: "broadcast",
+        event: "appointment_update",
+        payload: { id: appointmentId, status: "ACCEPTED" },
+      }),
+      ...canceledApts.map((canceled) =>
+        supabase.channel(productChatRealtimeTopic(canceled.chatRoomId)).send({
           type: "broadcast",
           event: "appointment_update",
           payload: { id: canceled.id, status: "CANCELED" },
-        });
-    }
+        })
+      ),
+    ]);
 
     // 6. 알림 전송 (상대방에게)
     const targetNotiId = userId === buyerId ? sellerId : buyerId;
@@ -610,19 +623,19 @@ export async function cancelAppointment(
       return message;
     });
 
-    // 상태 변경 이벤트 전송
-    await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-      type: "broadcast",
-      event: "appointment_update",
-      payload: { id: appointmentId, status: nextStatus },
-    });
-
-    // 시스템 메시지 이벤트 전송
-    await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-      type: "broadcast",
-      event: "message",
-      payload: mapToChatMessage(sysMsg),
-    });
+    // commit 이후 Realtime 실패는 저장된 취소·거절 결과와 분리한다.
+    await Promise.allSettled([
+      supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+        type: "broadcast",
+        event: "appointment_update",
+        payload: { id: appointmentId, status: nextStatus },
+      }),
+      supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+        type: "broadcast",
+        event: "message",
+        payload: mapToChatMessage(sysMsg),
+      }),
+    ]);
 
     try {
       const targetUserId =

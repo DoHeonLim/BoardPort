@@ -82,6 +82,7 @@
  * 2026.08.22  임도헌   Modified  Cloudflare Images 업로드 소유권과 콘텐츠 연결 상태를 관리하는 MediaAsset 추가
  * 2026.08.23  임도헌   Modified  비밀번호 변경 후 기존 세션 폐기용 sessionVersion 추가
  * 2026.08.26  임도헌   Modified  신고 처리 멱등 키와 post-commit moderation outbox 추가
+ * 2026.08.26  임도헌   Modified  상품 채팅방·메시지·대기 약속의 DB 멱등성 제약 추가
  */
 generator client {
   provider = "prisma-client"
@@ -159,6 +160,7 @@ model User {
   tokens                    SMSToken[] // SMS 인증 토큰 목록
   products                  Product[]                @relation("Seller") // 판매 등록한 상품들
   product_chat_rooms        ProductChatRoom[] // 참여 중인 상품 채팅방
+  buyer_chat_rooms          ProductChatRoom[]        @relation("ProductChatBuyer") // 구매 문의자로 생성한 상품 채팅방
   product_messages          ProductMessage[] // 상품 채팅 메시지
   product_message_reactions ProductMessageReaction[] // 채팅 메시지 반응
   product_likes             ProductLike[] // 찜한 상품 목록
@@ -650,8 +652,11 @@ model ProductChatRoom {
 
   product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId    Int
+  buyer        User          @relation("ProductChatBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId      Int // 상품 소유자가 아닌 채팅방 생성 요청자
   appointments Appointment[]
 
+  @@unique([productId, buyerId]) // 상품별 구매 문의자는 하나의 채팅방만 재사용
   @@index([updated_at]) // 채팅방 목록 정렬 (최신 대화순)
   @@index([productId])
 }
@@ -679,6 +684,7 @@ model ProductMessage {
   image           String? // Cloudflare 이미지 URL 저장 필드
   imageIsAnimated Boolean   @default(false) // 채팅 이미지 애니메이션 여부 (GIF 등)
   deleted_at      DateTime?
+  clientMessageId String? // 클라이언트 재전송에도 같은 메시지로 수렴시키는 요청 ID
 
   // 메시지 타입 및 약속 연결
   type          MessageType  @default(TEXT)
@@ -698,6 +704,7 @@ model ProductMessage {
 
   reactions ProductMessageReaction[]
 
+  @@unique([userId, clientMessageId]) // 발신자별 요청 ID 중복 저장 방지(null 시스템 메시지는 제외)
   // [Optimization] 메시지 내역 조회 & 안 읽은 메시지 카운트
   @@index([productChatRoomId, created_at])
   @@index([productChatRoomId, isRead, userId]) // 안 읽은 개수 집계용
@@ -753,7 +760,7 @@ model Appointment {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  @@index([chatRoomId])
+  @@index([chatRoomId]) // PENDING 단일 제약은 PostgreSQL partial unique index로 migration에서 관리
   @@index([proposerId])
   @@index([receiverId])
 }

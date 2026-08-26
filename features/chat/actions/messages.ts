@@ -32,6 +32,7 @@
  * 2026.03.07  임도헌   Modified  메시지 조회/읽음 Server Action에 세션 및 채팅방 접근 권한 검증 추가
  * 2026.04.01  임도헌   Modified  본인 채팅 메시지 삭제 Server Action 추가
  * 2026.04.02  임도헌   Modified  채팅 메시지 반응 토글 Server Action 추가 및 설명 톤 정리
+ * 2026.08.26  임도헌   Modified  클라이언트 메시지 요청 ID를 service 멱등 키로 전달
  */
 "use server";
 
@@ -63,13 +64,15 @@ import type { ChatMessageReactionKey } from "@/features/chat/constants";
  * @param {string | null} [payload] - 전송할 텍스트 내용
  * @param {string | null} [image] - 첨부 이미지 URL
  * @param {boolean} [imageIsAnimated] - 첨부 이미지 GIF 여부
+ * @param {string} [clientMessageId] - 동일 전송 요청을 식별하는 클라이언트 생성 ID
  * @returns {Promise<ServiceResult<{ message: ChatMessage; receiverId: number }>>} 저장/브로드캐스트 결과
  */
 export const sendMessageAction = async (
   chatRoomId: string,
   payload?: string | null,
   image?: string | null,
-  imageIsAnimated?: boolean
+  imageIsAnimated?: boolean,
+  clientMessageId?: string
 ) => {
   const session = await getSession();
   if (!session?.id) throw new Error("로그인이 필요합니다.");
@@ -79,7 +82,8 @@ export const sendMessageAction = async (
     session.id,
     payload,
     image,
-    imageIsAnimated
+    imageIsAnimated,
+    clientMessageId
   );
 
   return result;

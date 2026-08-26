@@ -33,6 +33,7 @@
  * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 새 메시지 알림 본문 사전 축약 제거
  * 2026.08.21  임도헌   Modified  사용자 목록·알림·상품 채팅 발신을 private topic으로 분리
  * 2026.08.22  임도헌   Modified  채팅 이미지 저장 전 MediaAsset 소유권과 CHAT_IMAGE 용도 검증 추가
+ * 2026.08.26  임도헌   Modified  clientMessageId 멱등 저장과 DB commit 이후 Realtime·알림 실패 격리
  */
 
 import "server-only";
@@ -62,9 +63,18 @@ import type {
   ChatMessage,
   MessageReadUpdateResult,
 } from "@/features/chat/types";
-import type { MessageType } from "@/generated/prisma/client";
+import type { MessageType, Prisma } from "@/generated/prisma/client";
 import type { ChatMessageReactionKey } from "@/features/chat/constants";
 import { attachOwnedMediaAssets } from "@/features/media/service/assets";
+
+/** 브라우저가 생성한 메시지 요청 ID를 DB 고유 키에 사용해도 되는지 확인한다. */
+export function isValidClientMessageId(value: string): boolean {
+  return /^[A-Za-z0-9_-]{16,128}$/.test(value);
+}
+
+type PersistedChatMessage = Prisma.ProductMessageGetPayload<{
+  include: typeof MESSAGE_INCLUDE;
+}>;
 
 /**
  * 사용자별 채팅방 목록을 다시 불러오게 하는 rooms_refresh 이벤트 브로드캐스트
@@ -292,6 +302,7 @@ export async function getUnreadCount(
  * @param {string | null} [payload] - 텍스트 내용
  * @param {string | null} [image] - 이미지 URL
  * @param {boolean} [imageIsAnimated] - 이미지 GIF 여부
+ * @param {string} clientMessageId - 동일 전송 요청을 식별하는 클라이언트 생성 ID
  * @returns {Promise<ServiceResult<{ message: ChatMessage; receiverId: number }>>} 처리 결과
  */
 export async function createMessage(
@@ -299,9 +310,13 @@ export async function createMessage(
   senderId: number,
   payload?: string | null,
   image?: string | null,
-  imageIsAnimated?: boolean
+  imageIsAnimated?: boolean,
+  clientMessageId?: string
 ): Promise<ServiceResult<{ message: ChatMessage; receiverId: number }>> {
   try {
+    if (!clientMessageId || !isValidClientMessageId(clientMessageId)) {
+      return { success: false, error: "메시지 요청 ID가 올바르지 않습니다." };
+    }
     // 1. 발신자 정지 유저 체크
     const status = await validateUserStatus(senderId);
     if (!status.success) return status;
@@ -322,8 +337,7 @@ export async function createMessage(
       },
     });
 
-    if (!room)
-      return { success: false, error: "채팅방 접근 권한이 없습니다." };
+    if (!room) return { success: false, error: "채팅방 접근 권한이 없습니다." };
 
     const receiver = room.users[0];
     if (!receiver)
@@ -352,57 +366,92 @@ export async function createMessage(
     if (image) msgType = "IMAGE";
 
     // 4. 메시지 저장 & 방 갱신
-    const message = await db.$transaction(async (tx) => {
-      const created = await tx.productMessage.create({
-        data: {
-          payload,
-          image: null,
-          imageIsAnimated: image ? (imageIsAnimated ?? false) : false,
-          type: msgType,
-          userId: senderId,
-          productChatRoomId: chatRoomId,
-        },
-        include: MESSAGE_INCLUDE,
-      });
-      if (image) {
-        const [ownedImageUrl] = await attachOwnedMediaAssets(tx, {
-          ownerId: senderId,
-          purpose: "CHAT_IMAGE",
-          urls: [image],
-          linkedEntityId: String(created.id),
-        });
-        const updated = await tx.productMessage.update({
-          where: { id: created.id },
-          data: { image: ownedImageUrl },
+    let persisted: { message: PersistedChatMessage; created: boolean };
+    try {
+      persisted = await db.$transaction(async (tx) => {
+        const existing = await tx.productMessage.findUnique({
+          where: {
+            userId_clientMessageId: { userId: senderId, clientMessageId },
+          },
           include: MESSAGE_INCLUDE,
         });
+        if (existing) return { message: existing, created: false };
+
+        const created = await tx.productMessage.create({
+          data: {
+            payload,
+            image: null,
+            imageIsAnimated: image ? (imageIsAnimated ?? false) : false,
+            type: msgType,
+            userId: senderId,
+            productChatRoomId: chatRoomId,
+            clientMessageId,
+          },
+          include: MESSAGE_INCLUDE,
+        });
+        if (image) {
+          const [ownedImageUrl] = await attachOwnedMediaAssets(tx, {
+            ownerId: senderId,
+            purpose: "CHAT_IMAGE",
+            urls: [image],
+            linkedEntityId: String(created.id),
+          });
+          const updated = await tx.productMessage.update({
+            where: { id: created.id },
+            data: { image: ownedImageUrl },
+            include: MESSAGE_INCLUDE,
+          });
+          await tx.productChatRoom.update({
+            where: { id: chatRoomId },
+            data: { updated_at: new Date() },
+          });
+          return { message: updated, created: true };
+        }
         await tx.productChatRoom.update({
           where: { id: chatRoomId },
           data: { updated_at: new Date() },
         });
-        return updated;
-      }
-      await tx.productChatRoom.update({
-        where: { id: chatRoomId },
-        data: { updated_at: new Date() },
+        return { message: created, created: true };
       });
-      return created;
-    });
+    } catch (error) {
+      // 동시 요청의 unique 충돌은 선행 요청이 저장한 동일 메시지를 반환해 성공으로 수렴한다.
+      const existing = await db.productMessage.findUnique({
+        where: {
+          userId_clientMessageId: { userId: senderId, clientMessageId },
+        },
+        include: MESSAGE_INCLUDE,
+      });
+      if (!existing) throw error;
+      persisted = { message: existing, created: false };
+    }
+
+    const message = persisted.message;
+    if (message.productChatRoomId !== chatRoomId) {
+      return {
+        success: false,
+        error: "다른 채팅방에서 이미 사용된 메시지 요청 ID입니다.",
+      };
+    }
 
     const chatMessage = mapToChatMessage(message);
 
     // 5. 브로드캐스트 (실시간 전송)
-    await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
-      type: "broadcast",
-      event: CHAT_EVENT.MESSAGE,
-      payload: chatMessage,
-    });
+    if (!persisted.created) {
+      return { success: true, data: { message: chatMessage, receiverId } };
+    }
 
-    await broadcastChatRoomListRefresh([senderId, receiverId]);
+    await Promise.allSettled([
+      supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
+        type: "broadcast",
+        event: CHAT_EVENT.MESSAGE,
+        payload: chatMessage,
+      }),
+      broadcastChatRoomListRefresh([senderId, receiverId]),
+    ]);
 
     // 6. 알림 처리 (수신자 설정 조회)
     // receiverId가 존재하면 알림 로직 수행 (이미 위에서 찾았으므로 재사용)
-    if (receiverId) {
+    try {
       const receiverData = await db.user.findUnique({
         where: { id: receiverId },
         select: { notification_preferences: true },
@@ -480,6 +529,8 @@ export async function createMessage(
 
         await Promise.allSettled(tasks);
       }
+    } catch (notificationError) {
+      console.warn("[createMessage] notification failed:", notificationError);
     }
 
     return {

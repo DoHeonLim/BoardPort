@@ -10,6 +10,7 @@
 # 2026.08.22  임도헌   Modified  MediaAsset ownership migration PostgreSQL 통합 검증 추가
 # 2026.08.23  임도헌   Modified  sessionVersion migration PostgreSQL 통합 검증 추가
 # 2026.08.26  임도헌   Modified  신고 처리 멱등성과 동시 claim migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  채팅방·메시지·약속 멱등성 migration 통합 검증 추가
 
 name: CI
 
@@ -60,6 +61,7 @@ jobs:
       MEDIA_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       AUTH_SESSION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       REPORT_MODERATION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      CHAT_IDEMPOTENCY_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
@@ -118,6 +120,9 @@ jobs:
 
       - name: Run report moderation migration integration test
         run: npm run test:migration:report-moderation
+
+      - name: Run chat idempotency migration integration test
+        run: npm run test:migration:chat-idempotency
 
       - name: Run type check
         run: npx tsc --noEmit
