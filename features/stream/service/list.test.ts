@@ -1,11 +1,12 @@
 /**
  * File Name : features/stream/service/list.test.ts
- * Description : 방송 목록 provider 썸네일 접근 범위 회귀 테스트
+ * Description : 방송·다시보기 목록 조회 회귀 테스트
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   잠긴 방송의 원본 썸네일 비노출과 PUBLIC signed 변환 검증
+ * 2026.08.26  임도헌   Modified  다시보기 최신·인기 복합 커서의 DB 조건 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +14,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   db: {
     broadcast: { findMany: vi.fn() },
+    vodAsset: { findMany: vi.fn() },
+    recordingLike: { findMany: vi.fn() },
   },
   getBlockedUserIds: vi.fn(),
   resolveStreamThumbnailUrl: vi.fn(),
@@ -54,6 +57,71 @@ const createBroadcast = (visibility: "PUBLIC" | "PRIVATE") => ({
   vodAssets: [],
 });
 
+describe("getRecordingsList composite cursor", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getBlockedUserIds.mockResolvedValue([]);
+    mocks.db.vodAsset.findMany.mockResolvedValue([]);
+  });
+
+  it("최신순은 ready_at과 id 동률 해소 조건을 함께 적용한다", async () => {
+    const readyAt = new Date("2026-08-26T10:30:00.000Z");
+    const { getRecordingsList } = await import("./list");
+
+    await getRecordingsList({
+      sort: "latest",
+      viewerId: 11,
+      cursor: { sort: "latest", readyAt, id: 37, views: 125 },
+      take: 13,
+    });
+
+    expect(mocks.db.vodAsset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: expect.arrayContaining([
+            {
+              OR: [
+                { ready_at: { lt: readyAt } },
+                { ready_at: readyAt, id: { lt: 37 } },
+              ],
+            },
+          ]),
+        },
+        orderBy: [{ ready_at: "desc" }, { id: "desc" }],
+      })
+    );
+  });
+
+  it("인기순은 views, ready_at, id 순서의 동률 해소 조건을 적용한다", async () => {
+    const readyAt = new Date("2026-08-26T10:30:00.000Z");
+    const { getRecordingsList } = await import("./list");
+
+    await getRecordingsList({
+      sort: "popular",
+      viewerId: 11,
+      cursor: { sort: "popular", readyAt, id: 37, views: 125 },
+      take: 13,
+    });
+
+    expect(mocks.db.vodAsset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: expect.arrayContaining([
+            {
+              OR: [
+                { views: { lt: 125 } },
+                { views: 125, ready_at: { lt: readyAt } },
+                { views: 125, ready_at: readyAt, id: { lt: 37 } },
+              ],
+            },
+          ]),
+        },
+        orderBy: [{ views: "desc" }, { ready_at: "desc" }, { id: "desc" }],
+      })
+    );
+  });
+});
+
 describe("getStreamsList thumbnail boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -65,9 +133,7 @@ describe("getStreamsList thumbnail boundary", () => {
   });
 
   it("PRIVATE 비소유자 목록은 provider 썸네일 발급 권한을 전달하지 않는다", async () => {
-    mocks.db.broadcast.findMany.mockResolvedValue([
-      createBroadcast("PRIVATE"),
-    ]);
+    mocks.db.broadcast.findMany.mockResolvedValue([createBroadcast("PRIVATE")]);
     const { getStreamsList } = await import("./list");
 
     const result = await getStreamsList({

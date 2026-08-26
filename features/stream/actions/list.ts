@@ -23,6 +23,8 @@
  * 2026.05.18  임도헌   Modified  채널 다시보기 추가 페이지에서도 현재 사용자 좋아요 여부를 유지하도록 viewerId 전달
  * 2026.06.25  임도헌   Modified  목록 액션의 조회자 권한 판단을 서버 세션 기준으로 고정
  * 2026.08.21  임도헌   Modified  비로그인·차단 관계 채널 VOD Action에서 signed thumbnail 발급 전 조회 중단
+ * 2026.08.26  임도헌   Modified  메인 다시보기 목록에 정렬값 기반 불투명 복합 커서 적용
+ * 2026.08.27  임도헌   Modified  손상된 비어 있지 않은 다시보기 커서를 Server Action에서도 거부
  */
 
 "use server";
@@ -37,11 +39,17 @@ import { getViewerRole } from "@/features/stream/service/access";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
 import type {
   RecordingsPage,
+  RecordingListCursor,
+  RecordingSort,
   StreamsPage,
   StreamScope,
   ViewerRole,
   VodForGrid,
 } from "@/features/stream/types";
+import {
+  decodeRecordingCursor,
+  encodeRecordingCursor,
+} from "@/features/stream/utils/recordingCursor";
 import getSession from "@/lib/session";
 import { checkBlockRelation } from "@/features/user/service/block";
 
@@ -129,17 +137,28 @@ export async function getStreamsListAction(
  * - 카테고리/키워드 검색 파라미터를 공백 정규화 후 전달
  * - 무한 스크롤용 recordings 배열과 다음 커서(nextCursor)를 반환
  * - 조회자 권한 판단은 서버 세션만 신뢰
+ *
+ * @param sort - 최신순 또는 인기순 정렬
+ * @param followingOnly - 팔로잉한 스트리머만 조회할지 여부
+ * @param cursor - 이전 페이지에서 발급한 불투명 복합 커서
+ * @param searchParams - 카테고리·키워드 필터
+ * @returns 다시보기 목록과 다음 페이지 커서
  */
 export async function getRecordingsListAction(
-  sort: "latest" | "popular",
+  sort: RecordingSort,
   followingOnly: boolean,
-  cursor: number | null,
+  cursor: RecordingListCursor | null,
   searchParams: Record<string, string>
 ): Promise<RecordingsPage> {
   const session = await getSession();
   const userId = session?.id ?? null;
 
   if (!userId) return { recordings: [], nextCursor: null };
+
+  const decodedCursor = decodeRecordingCursor(cursor, sort);
+  if (cursor && !decodedCursor) {
+    throw new Error("유효하지 않은 다시보기 커서입니다.");
+  }
 
   // 다시보기 service는 TAKE + 1 규칙으로 다음 페이지 존재 여부를 판별
   const list = await getRecordingsList({
@@ -148,13 +167,15 @@ export async function getRecordingsListAction(
     category: norm(searchParams.category),
     keyword: norm(searchParams.keyword),
     viewerId: userId,
-    cursor,
+    cursor: decodedCursor,
     take: TAKE + 1,
   });
 
   const hasMore = list.length > TAKE;
   const trimmed = hasMore ? list.slice(0, TAKE) : list;
-  const nextCursor = hasMore ? trimmed[trimmed.length - 1].vodId : null;
+  const nextCursor = hasMore
+    ? encodeRecordingCursor(sort, trimmed[trimmed.length - 1])
+    : null;
 
   return { recordings: trimmed, nextCursor };
 }
@@ -170,7 +191,7 @@ export async function getRecordingsListAction(
 export async function getChannelVodsAction(
   ownerId: number,
   cursor: number | null
-): Promise<RecordingsPage> {
+): Promise<RecordingsPage<number>> {
   if (!Number.isFinite(ownerId) || ownerId <= 0) {
     return { recordings: [], nextCursor: null };
   }
@@ -183,12 +204,7 @@ export async function getChannelVodsAction(
   }
 
   const role = (await getViewerRole(viewerId, ownerId)) as ViewerRole;
-  const list = await getChannelVods(
-    ownerId,
-    TAKE + 1,
-    cursor,
-    viewerId
-  );
+  const list = await getChannelVods(ownerId, TAKE + 1, cursor, viewerId);
   const withAccess = applyChannelVodAccess(list, session, role);
 
   const hasMore = withAccess.length > TAKE;

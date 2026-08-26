@@ -85,6 +85,7 @@
  * 2026.08.26  임도헌   Modified  상품 채팅방·메시지·대기 약속의 DB 멱등성 제약 추가
  * 2026.08.26  임도헌   Modified  상품 거래 상대·시각 쌍과 판매자 제외 DB 불변식 추가
  * 2026.08.26  임도헌   Modified  Cloudflare webhook inbox·outbox와 provider 세션 순서 필드 추가
+ * 2026.08.26  임도헌   Modified  다시보기 최신·인기 복합 커서 정렬 인덱스 추가
  */
 generator client {
   provider = "prisma-client"
@@ -1181,8 +1182,8 @@ model VodAsset {
   recordingComments RecordingComment[] // 녹화본 댓글
 
   @@index([broadcastId])
-  @@index([ready_at])
-  @@index([views])
+  @@index([ready_at(sort: Desc), id(sort: Desc)]) // 최신 다시보기 복합 커서 정렬
+  @@index([views(sort: Desc), ready_at(sort: Desc), id(sort: Desc)]) // 인기 다시보기 복합 커서 정렬
 }
 
 /// 인증을 통과한 Cloudflare webhook 원문과 처리 상태를 보존하는 inbox

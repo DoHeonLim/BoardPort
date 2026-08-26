@@ -32,6 +32,8 @@
  * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
  * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 rate limit 실패 코드 추가
  * 2026.08.26  임도헌   Modified  Cloudflare webhook provider 시각·Notifications 식별 필드 추가
+ * 2026.08.26  임도헌   Modified  다시보기 메인 목록의 정렬값 기반 불투명 커서 타입 추가
+ * 2026.08.27  임도헌   Modified  메인·채널별 커서 제네릭 응답 타입 설명 보강
  */
 
 import type { StreamChatMessage } from "@/features/chat/types";
@@ -52,6 +54,9 @@ export type ViewerRole = "OWNER" | "FOLLOWER" | "VISITOR";
 
 /** 방송 목록 조회 범위 */
 export type StreamScope = "all" | "following";
+
+/** 메인 다시보기 목록의 정렬값을 단일 문자열로 직렬화한 복합 커서 */
+export type RecordingListCursor = string;
 
 /** 방송 공개 범위 타입 */
 export type StreamVisibility =
@@ -220,10 +225,12 @@ export interface StreamsPage {
   nextCursor: number | null;
 }
 
-/** 다시보기 목록 액션 응답 */
-export interface RecordingsPage {
+/** 메인은 복합 문자열, 채널은 숫자 ID 커서를 선택해 사용하는 다시보기 목록 응답 */
+export interface RecordingsPage<
+  TCursor extends string | number = RecordingListCursor,
+> {
   recordings: VodForGrid[];
-  nextCursor: number | null;
+  nextCursor: TCursor | null;
 }
 
 /** 댓글 타입 */

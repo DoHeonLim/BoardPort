@@ -47,6 +47,7 @@
  * 2026.06.25  임도헌   Modified  서버 prefetch query key를 조회자/팔로잉 필터 스코프와 일치하도록 정리
  * 2026.08.13  임도헌   Modified  라이브·다시보기 목록 cache key의 조회자 범위 구조 통일
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.26  임도헌   Modified  다시보기 서버 프리패치의 복합 커서 타입 반영
  */
 import { Suspense } from "react";
 import { Metadata } from "next";
@@ -81,6 +82,7 @@ import {
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import type {
   RecordingSort,
+  RecordingListCursor,
   RecordingsPage,
   StreamMode,
   StreamScope,
@@ -170,7 +172,7 @@ export default async function StreamsPage(props: StreamsPageProps) {
               null,
               recordingQueryParams
             ),
-          initialPageParam: null as number | null,
+          initialPageParam: null as RecordingListCursor | null,
         })
       : queryClient.prefetchInfiniteQuery({
           queryKey: liveListQueryKey,

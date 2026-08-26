@@ -25,6 +25,7 @@
  * 2026.05.15  임도헌   Modified  유저 채널 VOD 조회에 커서 기반 페이징을 적용해 무한스크롤 대응
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타용 좋아요/댓글 수와 현재 사용자 좋아요 여부 매핑 추가
  * 2026.08.21  임도헌   Modified  목록 DTO 원본 provider UID 제거 및 접근 범위별 Cloudflare 썸네일 signed 변환
+ * 2026.08.26  임도헌   Modified  다시보기 최신·인기 정렬을 복합 커서 조건으로 변경해 동률 누락 방지
  */
 
 import "server-only";
@@ -41,9 +42,11 @@ import { selectRecordingThumbnail } from "@/features/stream/utils/thumbnail";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 import type {
   BroadcastSummary,
+  RecordingSort,
   StreamScope,
   VodForGrid,
 } from "@/features/stream/types";
+import type { DecodedRecordingCursor } from "@/features/stream/utils/recordingCursor";
 
 /** provider URL은 signed URL로 교체하고, 접근 불가 또는 설정 오류면 원본을 노출하지 않는다. */
 function getAccessScopedThumbnail(
@@ -198,12 +201,12 @@ export async function getStreamsList(params: {
  * - 카드에서 필요한 접근 제어 플래그와 메타데이터(길이, 조회수, 좋아요/댓글 수, 사용자 좋아요 여부)를 함께 반환
  */
 export async function getRecordingsList(params: {
-  sort: "latest" | "popular";
+  sort: RecordingSort;
   followingOnly?: boolean;
   category?: string;
   keyword?: string;
   viewerId: number;
-  cursor: number | null;
+  cursor: DecodedRecordingCursor | null;
   take: number;
 }): Promise<VodForGrid[]> {
   const {
@@ -224,7 +227,34 @@ export async function getRecordingsList(params: {
     { broadcast: { liveInput: { userId: { notIn: blockedIds } } } },
   ];
 
-  if (cursor) conditions.push({ id: { lt: cursor } });
+  if (cursor) {
+    conditions.push(
+      sort === "popular"
+        ? {
+            OR: [
+              { views: { lt: cursor.views } },
+              {
+                views: cursor.views,
+                ready_at: { lt: cursor.readyAt },
+              },
+              {
+                views: cursor.views,
+                ready_at: cursor.readyAt,
+                id: { lt: cursor.id },
+              },
+            ],
+          }
+        : {
+            OR: [
+              { ready_at: { lt: cursor.readyAt } },
+              {
+                ready_at: cursor.readyAt,
+                id: { lt: cursor.id },
+              },
+            ],
+          }
+    );
+  }
 
   if (category) {
     conditions.push({

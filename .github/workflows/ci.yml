@@ -13,6 +13,7 @@
 # 2026.08.26  임도헌   Modified  채팅방·메시지·약속 멱등성 migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  상품 거래 상태 불변식 migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  Stream webhook inbox/outbox migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  다시보기 복합 커서 migration·다중 페이지 통합 검증 추가
 
 name: CI
 
@@ -66,6 +67,7 @@ jobs:
       CHAT_IDEMPOTENCY_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       PRODUCT_TRADE_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       STREAM_WEBHOOK_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      VOD_PAGINATION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
@@ -133,6 +135,9 @@ jobs:
 
       - name: Run Stream webhook migration integration test
         run: npm run test:migration:stream-webhook
+
+      - name: Run VOD pagination migration integration test
+        run: npm run test:migration:vod-pagination
 
       - name: Run type check
         run: npx tsc --noEmit

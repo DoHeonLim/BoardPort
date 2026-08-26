@@ -12,12 +12,17 @@
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.06.25  임도헌   Modified  viewerId URL 전달 제거 및 조회자/팔로잉 필터별 query key 스코프 분리
  * 2026.08.13  임도헌   Modified  다시보기 목록 query key의 조회자 범위 구조 통일
+ * 2026.08.26  임도헌   Modified  정렬값 동률을 보존하는 불투명 복합 커서 전달
  */
 "use client";
 
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
-import type { RecordingsPage, VodForGrid } from "@/features/stream/types";
+import type {
+  RecordingListCursor,
+  RecordingsPage,
+  VodForGrid,
+} from "@/features/stream/types";
 
 interface UseRecordingPaginationParams {
   sort: "latest" | "popular";
@@ -37,7 +42,7 @@ export interface UseRecordingPaginationResult {
 /**
  * 다시보기 목록 Route Handler 요청 URL 생성
  *
- * @param {UseRecordingPaginationParams & { cursor: number | null }} params - 정렬, 필터, 조회자, 커서 정보
+ * @param {UseRecordingPaginationParams & { cursor: RecordingListCursor | null }} params - 정렬, 필터, 조회자, 커서 정보
  * @returns {string} 다시보기 목록 API URL
  */
 function buildRecordingsApiUrl({
@@ -46,7 +51,7 @@ function buildRecordingsApiUrl({
   searchParams,
   cursor,
 }: Omit<UseRecordingPaginationParams, "viewerId"> & {
-  cursor: number | null;
+  cursor: RecordingListCursor | null;
 }): string {
   const params = new URLSearchParams({ sort });
 
@@ -126,11 +131,11 @@ export function useRecordingPagination({
             sort,
             followingOnly,
             searchParams,
-            cursor: pageParam as number | null,
+            cursor: pageParam as RecordingListCursor | null,
           })
         );
       },
-      initialPageParam: null as number | null,
+      initialPageParam: null as RecordingListCursor | null,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 60 * 1000,
     });

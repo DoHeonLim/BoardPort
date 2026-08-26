@@ -9,6 +9,7 @@
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 메인/채널 다시보기 목록에서 항목을 즉시 제거하는 유틸 추가
  * 2026.08.13  임도헌   Modified  좋아요용 목록 조작에 조회자 범위 선택 옵션 추가
  * 2026.08.13  임도헌   Modified  댓글 수 낙관 업데이트와 rollback도 현재 조회자 목록으로 제한
+ * 2026.08.27  임도헌   Modified  메인 복합 문자열·채널 숫자 커서를 함께 보존하는 캐시 타입 적용
  */
 
 import type {
@@ -16,10 +17,15 @@ import type {
   QueryClient,
   QueryKey,
 } from "@tanstack/react-query";
-import type { RecordingsPage, VodForGrid } from "@/features/stream/types";
+import type {
+  RecordingListCursor,
+  RecordingsPage,
+  VodForGrid,
+} from "@/features/stream/types";
 import { queryKeys } from "@/lib/queryKeys";
 
-type RecordingInfiniteCache = InfiniteData<RecordingsPage>;
+type RecordingPageCursor = RecordingListCursor | number;
+type RecordingInfiniteCache = InfiniteData<RecordingsPage<RecordingPageCursor>>;
 type RecordingListSnapshot = Array<
   [QueryKey, RecordingInfiniteCache | undefined]
 >;

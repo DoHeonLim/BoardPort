@@ -8,6 +8,7 @@
  * 2026.05.15  임도헌   Created   채널 다시보기 SSR 첫 페이지와 추가 페이지를 TanStack Query로 연결
  * 2026.05.19  임도헌   Modified  Client queryFn 추가 페이지 조회의 Server Action 직접 호출을 피하도록 Route Handler fetch로 전환
  * 2026.08.13  임도헌   Modified  채널 다시보기 query key에 현재 조회자 범위 추가
+ * 2026.08.27  임도헌   Modified  메인 복합 커서와 구분되는 채널 숫자 커서 응답 타입 명시
  */
 "use client";
 
@@ -54,18 +55,18 @@ function buildChannelRecordingsApiUrl(
  * Client Component queryFn에서는 Server Action 직접 호출 대신 HTTP fetch를 사용해 초기 렌더 fetch waterfall 오류를 방지
  *
  * @param {string} url - 요청 URL
- * @returns {Promise<RecordingsPage>} 채널 다시보기 페이지
+ * @returns {Promise<RecordingsPage<number>>} 숫자 ID 커서를 사용하는 채널 다시보기 페이지
  */
 async function fetchChannelRecordingsPage(
   url: string
-): Promise<RecordingsPage> {
+): Promise<RecordingsPage<number>> {
   const response = await fetch(url);
 
   if (!response.ok) {
     throw new Error("채널 다시보기를 불러오지 못했습니다.");
   }
 
-  return (await response.json()) as RecordingsPage;
+  return (await response.json()) as RecordingsPage<number>;
 }
 
 /**
@@ -97,7 +98,7 @@ export function useChannelRecordingsPagination({
           {
             recordings: initialRecordings,
             nextCursor: initialNextCursor,
-          } satisfies RecordingsPage,
+          } satisfies RecordingsPage<number>,
         ],
         pageParams: [null],
       },
