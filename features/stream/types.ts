@@ -31,6 +31,7 @@
  * 2026.05.18  임도헌   Modified  다시보기 카드 통계 메타 표시를 위한 likeCount/commentCount/isLiked 필드 추가
  * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
  * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 rate limit 실패 코드 추가
+ * 2026.08.26  임도헌   Modified  Cloudflare webhook provider 시각·Notifications 식별 필드 추가
  */
 
 import type { StreamChatMessage } from "@/features/chat/types";
@@ -58,8 +59,7 @@ export type StreamVisibility =
 
 /** 방송 상태 타입 */
 export type StreamStatus =
-  | (typeof STREAM_STATUS)[keyof typeof STREAM_STATUS]
-  | string;
+  (typeof STREAM_STATUS)[keyof typeof STREAM_STATUS] | string;
 
 /** VOD 상태 타입 */
 export type VodStatus = (typeof VOD_STATUS)[keyof typeof VOD_STATUS];
@@ -289,6 +289,11 @@ export interface CloudflareStreamAssetPayload {
   readyToStream?: boolean | null;
   readyToStreamAt?: string | null;
   created?: string | null;
+  modified?: string | null;
+  updated_at?: string | null;
+  ts?: number | null;
+  alert_correlation_id?: string | null;
+  alert_event?: string | null;
   status?: CloudflareStreamStatusValue;
   playback?: CloudflareStreamPlayback | null;
   thumbnail?: string | null;
@@ -328,8 +333,7 @@ export type UnlockErrorCode =
 
 /** 비공개 방송 잠금 해제 결과 */
 export type UnlockResult =
-  | { success: true }
-  | { success: false; error: UnlockErrorCode };
+  { success: true } | { success: false; error: UnlockErrorCode };
 
 /** 방송 채팅 메시지 전송 결과 */
 export type SendStreamMessageResult =
@@ -366,11 +370,7 @@ export type ToggleStreamChatMuteResult =
   | { success: true; targetId: number; muted: boolean }
   | {
       success: false;
-      error:
-        | "NOT_LOGGED_IN"
-        | "FORBIDDEN"
-        | "NOT_FOUND"
-        | "MUTE_FAILED";
+      error: "NOT_LOGGED_IN" | "FORBIDDEN" | "NOT_FOUND" | "MUTE_FAILED";
     };
 
 /** 방송 단위 채팅 금지 대상 시청자 요약 */
@@ -404,8 +404,7 @@ export type GetStreamKeyResult =
 
 /** 송출 키 재발급 결과 */
 export type RotateLiveInputKeyResult =
-  | { success: true; rtmpUrl: string; streamKey: string }
-  | ServiceFailure;
+  { success: true; rtmpUrl: string; streamKey: string } | ServiceFailure;
 
 // =============================================================================
 // 4. Admin Types

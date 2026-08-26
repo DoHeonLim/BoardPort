@@ -12,6 +12,7 @@
 # 2026.08.26  임도헌   Modified  신고 처리 멱등성과 동시 claim migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  채팅방·메시지·약속 멱등성 migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  상품 거래 상태 불변식 migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  Stream webhook inbox/outbox migration 통합 검증 추가
 
 name: CI
 
@@ -64,6 +65,7 @@ jobs:
       REPORT_MODERATION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       CHAT_IDEMPOTENCY_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       PRODUCT_TRADE_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      STREAM_WEBHOOK_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
@@ -128,6 +130,9 @@ jobs:
 
       - name: Run product trade migration integration test
         run: npm run test:migration:product-trade
+
+      - name: Run Stream webhook migration integration test
+        run: npm run test:migration:stream-webhook
 
       - name: Run type check
         run: npx tsc --noEmit
