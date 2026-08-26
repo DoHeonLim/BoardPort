@@ -13,6 +13,7 @@
  * 2026.05.26  임도헌   Modified  initialData 기반 stats query에 local queryFn을 부여해 refetch 경고 방지
  * 2026.06.17  임도헌   Modified  좋아요 상태 캐시 분리를 위해 viewerId 전달
  * 2026.06.21  임도헌   Modified  관련 장소 또는 작성 동네 메타를 상세 화면에 표시
+ * 2026.08.27  임도헌   Modified  재방문 시 새 서버 댓글 수를 기존 무기한 cache보다 우선하도록 동기화
  */
 "use client";
 
@@ -23,9 +24,9 @@ import {
   MapPinIcon,
 } from "@heroicons/react/24/solid";
 import TimeAgo from "@/components/ui/TimeAgo";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
+import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 
 interface PostDetailMetaProps {
   postId: number;
@@ -66,17 +67,11 @@ export default function PostDetailMeta({
   feedRegion2,
   feedRegion3,
 }: PostDetailMetaProps) {
-  const queryClient = useQueryClient();
   const statsQueryKey = queryKeys.posts.stats(postId);
   const initialStats = { commentCount };
-  const { data: stats } = useQuery({
+  const stats = useServerSnapshotQuery({
     queryKey: statsQueryKey,
-    queryFn: async () =>
-      queryClient.getQueryData<typeof initialStats>(statsQueryKey) ??
-      initialStats,
-    initialData: initialStats,
-    staleTime: Infinity,
-    enabled: false,
+    snapshot: initialStats,
   });
   const explicitLocationText = locationName
     ? formatNormalizedRegion({ region1, region2, region3 })

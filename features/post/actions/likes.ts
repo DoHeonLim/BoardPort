@@ -15,6 +15,7 @@
  * 2026.04.02  임도헌   Modified  좋아요 액션 반환 설명 JSDoc 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.08.27  임도헌   Modified  Service 실패를 예외로 전파해 클라이언트 낙관적 업데이트가 롤백되도록 보강
  */
 "use server";
 
@@ -33,6 +34,7 @@ import { togglePostLike } from "@/features/post/service/like";
  *
  * @param {number} postId - 게시글 ID
  * @returns {Promise<void>} 좋아요 반영 후 상세 캐시 최신화
+ * @throws {Error} Service 계층에서 좋아요 처리를 완료하지 못한 경우
  */
 export const likePost = async (postId: number) => {
   const session = await getSession();
@@ -40,9 +42,10 @@ export const likePost = async (postId: number) => {
 
   const result = await togglePostLike(session.id, postId, true);
 
-  if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
-  }
+  // 실패를 정상 완료로 숨기면 클라이언트 mutation의 onError가 실행되지 않아 낙관적 상태가 남는다.
+  if (!result.success) throw new Error(result.error);
+
+  revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
 };
 
 /**
@@ -55,6 +58,7 @@ export const likePost = async (postId: number) => {
  *
  * @param {number} postId - 게시글 ID
  * @returns {Promise<void>} 좋아요 취소 반영 후 상세 캐시 최신화
+ * @throws {Error} Service 계층에서 좋아요 취소를 완료하지 못한 경우
  */
 export const dislikePost = async (postId: number) => {
   const session = await getSession();
@@ -62,7 +66,8 @@ export const dislikePost = async (postId: number) => {
 
   const result = await togglePostLike(session.id, postId, false);
 
-  if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
-  }
+  // 좋아요 추가와 같은 실패 계약을 유지해 클라이언트 롤백 경로를 보장한다.
+  if (!result.success) throw new Error(result.error);
+
+  revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
 };

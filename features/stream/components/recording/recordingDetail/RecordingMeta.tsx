@@ -15,6 +15,7 @@
  * 2026.05.18  임도헌   Modified  상세 통계 아이콘을 다시보기 카드와 같은 solid 문법으로 통일
  * 2026.05.26  임도헌   Modified  initialData 기반 recordingStats query에 local queryFn을 부여해 refetch 경고 방지
  * 2026.06.07  임도헌   Modified  녹화 메타 정보 영역에 라이브 기록 보기 버튼 추가, viewerId 전달 준비
+ * 2026.08.27  임도헌   Modified  재방문 시 새 서버 댓글 수를 기존 무기한 cache보다 우선하도록 동기화
  */
 
 "use client";
@@ -30,8 +31,8 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/solid";
 import { formatDuration, handleShare } from "@/lib/utils";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 
 interface RecordingMetaProps {
   vodId: number;
@@ -60,17 +61,11 @@ export default function RecordingMeta({
   commentCount = 0,
   LikeButtonComponent,
 }: RecordingMetaProps) {
-  const queryClient = useQueryClient();
   const statsQueryKey = queryKeys.streams.recordingStats(vodId);
   const initialStats = { commentCount };
-  const { data: stats } = useQuery({
+  const stats = useServerSnapshotQuery({
     queryKey: statsQueryKey,
-    queryFn: async () =>
-      queryClient.getQueryData<typeof initialStats>(statsQueryKey) ??
-      initialStats,
-    initialData: initialStats,
-    staleTime: Infinity,
-    enabled: false,
+    snapshot: initialStats,
   });
 
   return (
