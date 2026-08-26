@@ -20,6 +20,7 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 - `npm run test:migration:auth-session`
 - `npm run test:migration:report-moderation`
 - `npm run test:migration:chat-idempotency`
+- `npm run test:migration:product-trade`
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm run build`

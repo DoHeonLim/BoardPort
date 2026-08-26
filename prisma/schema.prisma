@@ -83,6 +83,7 @@
  * 2026.08.23  임도헌   Modified  비밀번호 변경 후 기존 세션 폐기용 sessionVersion 추가
  * 2026.08.26  임도헌   Modified  신고 처리 멱등 키와 post-commit moderation outbox 추가
  * 2026.08.26  임도헌   Modified  상품 채팅방·메시지·대기 약속의 DB 멱등성 제약 추가
+ * 2026.08.26  임도헌   Modified  상품 거래 상대·시각 쌍과 판매자 제외 DB 불변식 추가
  */
 generator client {
   provider = "prisma-client"
@@ -344,9 +345,10 @@ model Product {
   chat_rooms ProductChatRoom[] // 이 상품에 대한 채팅방들
 
   // --- Transaction State (거래 상태) ---
-  // 판매중: reservation_userId == null && purchase_userId == null
-  // 예약중: reservation_userId != null
-  // 판매완료: purchase_userId != null
+  // 판매중: 예약·구매 ID와 시각이 모두 null
+  // 예약중: reservation_userId/reservation_at만 함께 존재
+  // 판매완료: purchase_userId/purchased_at만 함께 존재
+  // 위 불변식과 판매자 본인 제외는 PostgreSQL CHECK constraint로 migration에서 관리
 
   reservation_at     DateTime? // 예약 시점
   reservation_user   User?     @relation("ReservationUser", fields: [reservation_userId], references: [id], onDelete: SetNull)

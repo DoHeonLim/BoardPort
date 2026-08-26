@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/service/trade.ts
- * Description : 제품 거래(상태/예약) 및 상호작용(좋아요) 로직
+ * Description : 상품 예약·판매완료·판매중 복귀와 거래 후처리 로직
  *
  * History
  * Date        Author   Status    Description
@@ -37,6 +37,7 @@
  * 2026.04.02  임도헌   Modified  거래 helper JSDoc 보강
  * 2026.04.04  임도헌   Modified  거래 상태 전이/알림/시스템 메시지 단계의 인라인 주석 보강
  * 2026.08.21  임도헌   Modified  거래 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
+ * 2026.08.26  임도헌   Modified  관찰한 상대·시각 기반 조건부 갱신과 commit 이후 외부 전달 실패 격리
  */
 
 import "server-only";
@@ -114,6 +115,21 @@ async function sendPushAndMarkIfSent(params: {
 }
 
 /**
+ * 거래 상태가 commit된 뒤 실행하는 부가 작업의 실패를 성공 응답과 분리
+ *
+ * @param label - 실패 로그에서 작업을 구분할 이름
+ * @param task - 알림·뱃지 등 재시도 가능한 commit 이후 작업
+ * @returns 부가 작업 완료 또는 실패 로그 기록 후 종료
+ */
+async function runPostCommitTask(label: string, task: () => Promise<void>) {
+  try {
+    await task();
+  } catch (err) {
+    console.warn(`[trade] post-commit ${label} failed:`, err);
+  }
+}
+
+/**
  * 특정 상품 채팅방에 거래 상태 관련 시스템 메시지 broadcast
  *
  * [동작]
@@ -171,7 +187,7 @@ async function dispatchSystemMessage(
 }
 
 /**
- * 제품의 거래 상태 변경 (판매중 <-> 예약중 <-> 판매완료)
+ * 상품의 거래 상태 변경 (판매중 <-> 예약중 <-> 판매완료)
  *
  * [원자성 및 동시성 제어]
  * - 단순 `findUnique` 후 `update` 방식은 TOCTOU(Time-of-check to time-of-use) 취약점이 발생할 수 있음
@@ -192,7 +208,7 @@ async function dispatchSystemMessage(
  *    - 취소 대상자(예약자/구매자)에게 취소 알림 전송
  *
  * @param userId - 요청자(판매자) ID
- * @param productId - 제품 ID
+ * @param productId - 상품 ID
  * @param status - 변경할 상태 ("selling" | "reserved" | "sold")
  * @param selectUserId - 예약/판매 대상 유저 ID
  * @param options - 부가 옵션 (skipSystemMessage, actorId)
@@ -241,11 +257,9 @@ export async function updateProductStatus(
       }
 
       // 실제 대화 상대만 예약자로 지정 가능
-      const validChat = await db.productChatRoom.findFirst({
+      const validChat = await db.productChatRoom.findUnique({
         where: {
-          productId,
-          users: { some: { id: userId } },
-          AND: [{ users: { some: { id: selectUserId } } }],
+          productId_buyerId: { productId, buyerId: selectUserId },
         },
         select: { id: true },
       });
@@ -263,7 +277,9 @@ export async function updateProductStatus(
           const updatedResult = await tx.product.updateMany({
             where: {
               id: productId,
+              reservation_at: null,
               reservation_userId: null,
+              purchased_at: null,
               purchase_userId: null,
             },
             data: {
@@ -301,13 +317,17 @@ export async function updateProductStatus(
       );
 
       // 약속 취소 결과의 채팅방 브로드캐스트
-      for (const apt of affectedApts) {
-        await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-          type: "broadcast",
-          event: "appointment_update",
-          payload: { id: apt.id, status: "CANCELED" },
-        });
-      }
+      await runPostCommitTask("reservation appointment broadcast", async () => {
+        await Promise.allSettled(
+          affectedApts.map((apt) =>
+            supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+              type: "broadcast",
+              event: "appointment_update",
+              payload: { id: apt.id, status: "CANCELED" },
+            })
+          )
+        );
+      });
 
       // 상대방 채팅방 시스템 메시지 후처리
       if (!skipSystemMessage) {
@@ -319,61 +339,62 @@ export async function updateProductStatus(
         );
       }
 
-      // 행위자가 아닌 상대방 대상 거래 알림
-      const targetNotiId = actorId === selectUserId ? userId : selectUserId;
-      const imageUrl = toProductImagePublicUrl(updatedProduct.images?.[0]?.url);
-
-      const pref = await db.notificationPreferences.findUnique({
-        where: { userId: targetNotiId },
-      });
-
-      if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
-        const notification = await db.notification.create({
-          data: {
-            userId: targetNotiId,
-            title: "상품이 예약되었습니다",
-            body: `'${updatedProduct.title}' 상품의 거래 약속이 확정되었습니다.`,
-            type: "TRADE",
-            link: `/products/view/${productId}`,
-            image: imageUrl,
-            isPushSent: false,
-          },
+      await runPostCommitTask("reservation notification", async () => {
+        // 행위자가 아닌 상대방 대상 거래 알림
+        const targetNotiId = actorId === selectUserId ? userId : selectUserId;
+        const imageUrl = toProductImagePublicUrl(
+          updatedProduct.images?.[0]?.url
+        );
+        const pref = await db.notificationPreferences.findUnique({
+          where: { userId: targetNotiId },
         });
 
-        const tasks: Promise<unknown>[] = [];
-        tasks.push(
-          supabase.channel(notificationRealtimeTopic(targetNotiId)).send({
-            type: "broadcast",
-            event: "notification",
-            payload: {
+        if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
+          const notification = await db.notification.create({
+            data: {
               userId: targetNotiId,
-              title: notification.title,
-              body: notification.body,
-              link: notification.link,
-              type: notification.type,
-              image: notification.image,
-            },
-          })
-        );
-
-        if (canSendPushForType(pref, "TRADE")) {
-          tasks.push(
-            sendPushAndMarkIfSent({
-              notificationId: notification.id,
-              targetUserId: targetNotiId,
-              title: notification.title,
-              message: notification.body,
-              url: notification.link ?? undefined,
+              title: "상품이 예약되었습니다",
+              body: `'${updatedProduct.title}' 상품의 거래 약속이 확정되었습니다.`,
               type: "TRADE",
-              image: notification.image ?? undefined,
-              tag: `bp-trade-${productId}`,
-              renotify: true,
-              topic: `bp-trade-${productId}`,
-            })
-          );
+              link: `/products/view/${productId}`,
+              image: imageUrl,
+              isPushSent: false,
+            },
+          });
+          const tasks: Promise<unknown>[] = [
+            supabase.channel(notificationRealtimeTopic(targetNotiId)).send({
+              type: "broadcast",
+              event: "notification",
+              payload: {
+                userId: targetNotiId,
+                title: notification.title,
+                body: notification.body,
+                link: notification.link,
+                type: notification.type,
+                image: notification.image,
+              },
+            }),
+          ];
+
+          if (canSendPushForType(pref, "TRADE")) {
+            tasks.push(
+              sendPushAndMarkIfSent({
+                notificationId: notification.id,
+                targetUserId: targetNotiId,
+                title: notification.title,
+                message: notification.body,
+                url: notification.link ?? undefined,
+                type: "TRADE",
+                image: notification.image ?? undefined,
+                tag: `bp-trade-${productId}`,
+                renotify: true,
+                topic: `bp-trade-${productId}`,
+              })
+            );
+          }
+          await Promise.allSettled(tasks);
         }
-        await Promise.allSettled(tasks);
-      }
+      });
 
       return {
         success: true,
@@ -395,14 +416,16 @@ export async function updateProductStatus(
         where: { id: productId },
         select: {
           reservation_userId: true,
+          reservation_at: true,
           purchase_userId: true,
+          purchased_at: true,
           title: true,
           images: { take: 1, select: { url: true } },
         },
       });
 
       if (!info) return { success: false, error: "상품을 찾을 수 없습니다." };
-      if (!info.reservation_userId) {
+      if (!info.reservation_userId || !info.reservation_at) {
         return {
           success: false,
           error: "예약자가 지정되어 있지 않아 판매완료로 전환할 수 없습니다.",
@@ -417,8 +440,10 @@ export async function updateProductStatus(
         const updatedResult = await tx.product.updateMany({
           where: {
             id: productId,
+            reservation_userId: buyerId,
+            reservation_at: info.reservation_at,
             purchase_userId: null,
-            reservation_userId: { not: null },
+            purchased_at: null,
           },
           data: {
             purchased_at: new Date(),
@@ -447,13 +472,17 @@ export async function updateProductStatus(
       });
 
       // 약속 취소 결과의 채팅방 브로드캐스트
-      for (const apt of affectedApts) {
-        await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-          type: "broadcast",
-          event: "appointment_update",
-          payload: { id: apt.id, status: "CANCELED" },
-        });
-      }
+      await runPostCommitTask("sale appointment broadcast", async () => {
+        await Promise.allSettled(
+          affectedApts.map((apt) =>
+            supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+              type: "broadcast",
+              event: "appointment_update",
+              payload: { id: apt.id, status: "CANCELED" },
+            })
+          )
+        );
+      });
 
       // 거래 완료 시스템 메시지 후처리
       if (!skipSystemMessage) {
@@ -465,117 +494,119 @@ export async function updateProductStatus(
         );
       }
 
-      const imageUrl = toProductImagePublicUrl(info.images?.[0]?.url);
+      await runPostCommitTask("sale completion side effects", async () => {
+        const imageUrl = toProductImagePublicUrl(info.images?.[0]?.url);
 
-      // 판매자/구매자 거래 완료 뱃지 후처리
-      await Promise.allSettled([
-        badgeChecks.onTradeComplete(userId, "seller"),
-        badgeChecks.onTradeComplete(buyerId, "buyer"),
-      ]);
+        // 판매자/구매자 거래 완료 뱃지 후처리
+        await Promise.allSettled([
+          badgeChecks.onTradeComplete(userId, "seller"),
+          badgeChecks.onTradeComplete(buyerId, "buyer"),
+        ]);
 
-      // 판매자/구매자 알림 설정 조회 및 전송
-      const prefsList = await db.notificationPreferences.findMany({
-        where: { userId: { in: [userId, buyerId] } },
-      });
-      const prefMap = new Map(prefsList.map((p) => [p.userId, p]));
-
-      const sellerPref = prefMap.get(userId) ?? null;
-      const buyerPref = prefMap.get(buyerId) ?? null;
-      const tasks: Promise<unknown>[] = [];
-
-      // 판매자 알림 (본인이 누른게 아닐 때만)
-      if (
-        userId !== actorId &&
-        isNotificationTypeEnabled(sellerPref, "TRADE")
-      ) {
-        const noti = await db.notification.create({
-          data: {
-            userId: userId,
-            title: "상품이 판매되었습니다",
-            body: `'${info.title}' 상품이 판매되었습니다.`,
-            type: "TRADE",
-            link: `/products/view/${productId}`,
-            image: imageUrl,
-          },
+        // 판매자/구매자 알림 설정 조회 및 전송
+        const prefsList = await db.notificationPreferences.findMany({
+          where: { userId: { in: [userId, buyerId] } },
         });
-        tasks.push(
-          supabase.channel(notificationRealtimeTopic(userId)).send({
-            type: "broadcast",
-            event: "notification",
-            payload: {
-              userId,
-              title: noti.title,
-              body: noti.body,
-              link: noti.link,
-              type: noti.type,
-              image: noti.image,
-            },
-          })
-        );
-        if (canSendPushForType(sellerPref, "TRADE")) {
-          tasks.push(
-            sendPushAndMarkIfSent({
-              notificationId: noti.id,
-              targetUserId: userId,
-              title: noti.title,
-              message: noti.body,
-              url: noti.link ?? undefined,
+        const prefMap = new Map(prefsList.map((p) => [p.userId, p]));
+
+        const sellerPref = prefMap.get(userId) ?? null;
+        const buyerPref = prefMap.get(buyerId) ?? null;
+        const tasks: Promise<unknown>[] = [];
+
+        // 판매자 알림 (본인이 누른게 아닐 때만)
+        if (
+          userId !== actorId &&
+          isNotificationTypeEnabled(sellerPref, "TRADE")
+        ) {
+          const noti = await db.notification.create({
+            data: {
+              userId: userId,
+              title: "상품이 판매되었습니다",
+              body: `'${info.title}' 상품이 판매되었습니다.`,
               type: "TRADE",
-              image: noti.image ?? undefined,
-              tag: `bp-trade-${productId}`,
-              renotify: true,
+              link: `/products/view/${productId}`,
+              image: imageUrl,
+            },
+          });
+          tasks.push(
+            supabase.channel(notificationRealtimeTopic(userId)).send({
+              type: "broadcast",
+              event: "notification",
+              payload: {
+                userId,
+                title: noti.title,
+                body: noti.body,
+                link: noti.link,
+                type: noti.type,
+                image: noti.image,
+              },
             })
           );
+          if (canSendPushForType(sellerPref, "TRADE")) {
+            tasks.push(
+              sendPushAndMarkIfSent({
+                notificationId: noti.id,
+                targetUserId: userId,
+                title: noti.title,
+                message: noti.body,
+                url: noti.link ?? undefined,
+                type: "TRADE",
+                image: noti.image ?? undefined,
+                tag: `bp-trade-${productId}`,
+                renotify: true,
+              })
+            );
+          }
         }
-      }
 
-      // 구매자 알림 (본인이 누른게 아닐 때만)
-      if (
-        buyerId !== actorId &&
-        isNotificationTypeEnabled(buyerPref, "TRADE")
-      ) {
-        const noti = await db.notification.create({
-          data: {
-            userId: buyerId,
-            title: "상품 구매가 완료되었습니다",
-            body: `'${info.title}' 상품의 구매가 완료되었습니다. 리뷰를 작성해주세요.`,
-            type: "TRADE",
-            link: `/profile/my-purchases`,
-            image: imageUrl,
-          },
-        });
-        tasks.push(
-          supabase.channel(notificationRealtimeTopic(buyerId)).send({
-            type: "broadcast",
-            event: "notification",
-            payload: {
+        // 구매자 알림 (본인이 누른게 아닐 때만)
+        if (
+          buyerId !== actorId &&
+          isNotificationTypeEnabled(buyerPref, "TRADE")
+        ) {
+          const noti = await db.notification.create({
+            data: {
               userId: buyerId,
-              title: noti.title,
-              body: noti.body,
-              link: noti.link,
-              type: noti.type,
-              image: noti.image,
-            },
-          })
-        );
-        if (canSendPushForType(buyerPref, "TRADE")) {
-          tasks.push(
-            sendPushAndMarkIfSent({
-              notificationId: noti.id,
-              targetUserId: buyerId,
-              title: noti.title,
-              message: noti.body,
-              url: noti.link ?? undefined,
+              title: "상품 구매가 완료되었습니다",
+              body: `'${info.title}' 상품의 구매가 완료되었습니다. 리뷰를 작성해주세요.`,
               type: "TRADE",
-              image: noti.image ?? undefined,
-              tag: `bp-trade-${productId}`,
-              renotify: true,
+              link: `/profile/my-purchases`,
+              image: imageUrl,
+            },
+          });
+          tasks.push(
+            supabase.channel(notificationRealtimeTopic(buyerId)).send({
+              type: "broadcast",
+              event: "notification",
+              payload: {
+                userId: buyerId,
+                title: noti.title,
+                body: noti.body,
+                link: noti.link,
+                type: noti.type,
+                image: noti.image,
+              },
             })
           );
+          if (canSendPushForType(buyerPref, "TRADE")) {
+            tasks.push(
+              sendPushAndMarkIfSent({
+                notificationId: noti.id,
+                targetUserId: buyerId,
+                title: noti.title,
+                message: noti.body,
+                url: noti.link ?? undefined,
+                type: "TRADE",
+                image: noti.image ?? undefined,
+                tag: `bp-trade-${productId}`,
+                renotify: true,
+              })
+            );
+          }
         }
-      }
 
-      await Promise.allSettled(tasks);
+        await Promise.allSettled(tasks);
+      });
 
       return {
         success: true,
@@ -591,6 +622,7 @@ export async function updateProductStatus(
       where: { id: productId },
       select: {
         reservation_userId: true,
+        reservation_at: true,
         purchase_userId: true,
         purchased_at: true,
         title: true,
@@ -604,15 +636,19 @@ export async function updateProductStatus(
     const canceledUserId = prev2.reservation_userId || prev2.purchase_userId;
 
     // 판매중 복귀, 리뷰 정리, 확정 약속 취소의 같은 트랜잭션 처리
+    if (!prev2.reservation_userId && !prev2.purchase_userId) {
+      return { success: false, error: "이미 상태가 변경되었습니다." };
+    }
+
     const affectedApts = await db.$transaction(async (tx) => {
       // 판매중 복귀: 이미 예약중이거나 판매완료 상태인 경우만
       const updatedResult = await tx.product.updateMany({
         where: {
           id: productId,
-          OR: [
-            { reservation_userId: { not: null } },
-            { purchase_userId: { not: null } },
-          ],
+          reservation_userId: prev2.reservation_userId,
+          reservation_at: prev2.reservation_at,
+          purchase_userId: prev2.purchase_userId,
+          purchased_at: prev2.purchased_at,
         },
         data: {
           purchased_at: null,
@@ -645,13 +681,17 @@ export async function updateProductStatus(
     });
 
     // 약속 취소 결과의 채팅방 브로드캐스트
-    for (const apt of affectedApts) {
-      await supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
-        type: "broadcast",
-        event: "appointment_update",
-        payload: { id: apt.id, status: "CANCELED" },
-      });
-    }
+    await runPostCommitTask("cancellation appointment broadcast", async () => {
+      await Promise.allSettled(
+        affectedApts.map((apt) =>
+          supabase.channel(productChatRealtimeTopic(apt.chatRoomId)).send({
+            type: "broadcast",
+            event: "appointment_update",
+            payload: { id: apt.id, status: "CANCELED" },
+          })
+        )
+      );
+    });
 
     // 취소 대상자 기준 시스템 메시지 후처리
     if (canceledUserId && !skipSystemMessage) {
@@ -672,66 +712,72 @@ export async function updateProductStatus(
       !!prev2.purchase_userId &&
       !!prev2.purchased_at;
 
-    // 취소 대상자가 행위자가 아닐 때만 거래 취소 알림 전송
-    if ((wasReserved || wasSold) && canceledUserId && canceledUserId !== actorId) {
-      const imageUrl = toProductImagePublicUrl(prev2.images?.[0]?.url);
-      const pref = await db.notificationPreferences.findUnique({
-        where: { userId: canceledUserId },
-      });
-
-      const title = wasReserved
-        ? "상품 예약이 취소되었습니다"
-        : "완료된 거래가 취소되었습니다";
-      const body = wasReserved
-        ? `'${prev2.title}' 상품의 예약이 취소되었습니다.`
-        : `'${prev2.title}' 상품의 거래가 취소되어 다시 판매중으로 변경되었습니다.`;
-
-      if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
-        const noti = await db.notification.create({
-          data: {
-            userId: canceledUserId,
-            title,
-            body,
-            type: "TRADE",
-            link: `/products/view/${productId}`,
-            image: imageUrl,
-          },
+    await runPostCommitTask("trade cancellation notification", async () => {
+      // 취소 대상자가 행위자가 아닐 때만 거래 취소 알림 전송
+      if (
+        (wasReserved || wasSold) &&
+        canceledUserId &&
+        canceledUserId !== actorId
+      ) {
+        const imageUrl = toProductImagePublicUrl(prev2.images?.[0]?.url);
+        const pref = await db.notificationPreferences.findUnique({
+          where: { userId: canceledUserId },
         });
 
-        const tasks: Promise<unknown>[] = [];
-        tasks.push(
-          supabase.channel(notificationRealtimeTopic(canceledUserId)).send({
-            type: "broadcast",
-            event: "notification",
-            payload: {
-              userId: canceledUserId,
-              title: noti.title,
-              body: noti.body,
-              link: noti.link,
-              type: noti.type,
-              image: noti.image,
-            },
-          })
-        );
+        const title = wasReserved
+          ? "상품 예약이 취소되었습니다"
+          : "완료된 거래가 취소되었습니다";
+        const body = wasReserved
+          ? `'${prev2.title}' 상품의 예약이 취소되었습니다.`
+          : `'${prev2.title}' 상품의 거래가 취소되어 다시 판매중으로 변경되었습니다.`;
 
-        if (canSendPushForType(pref, "TRADE")) {
-          tasks.push(
-            sendPushAndMarkIfSent({
-              notificationId: noti.id,
-              targetUserId: canceledUserId,
-              title: noti.title,
-              message: noti.body,
-              url: noti.link ?? undefined,
+        if (!pref || isNotificationTypeEnabled(pref, "TRADE")) {
+          const noti = await db.notification.create({
+            data: {
+              userId: canceledUserId,
+              title,
+              body,
               type: "TRADE",
-              image: noti.image ?? undefined,
-              tag: `bp-trade-${productId}`,
-              renotify: true,
+              link: `/products/view/${productId}`,
+              image: imageUrl,
+            },
+          });
+
+          const tasks: Promise<unknown>[] = [];
+          tasks.push(
+            supabase.channel(notificationRealtimeTopic(canceledUserId)).send({
+              type: "broadcast",
+              event: "notification",
+              payload: {
+                userId: canceledUserId,
+                title: noti.title,
+                body: noti.body,
+                link: noti.link,
+                type: noti.type,
+                image: noti.image,
+              },
             })
           );
+
+          if (canSendPushForType(pref, "TRADE")) {
+            tasks.push(
+              sendPushAndMarkIfSent({
+                notificationId: noti.id,
+                targetUserId: canceledUserId,
+                title: noti.title,
+                message: noti.body,
+                url: noti.link ?? undefined,
+                type: "TRADE",
+                image: noti.image ?? undefined,
+                tag: `bp-trade-${productId}`,
+                renotify: true,
+              })
+            );
+          }
+          await Promise.allSettled(tasks);
         }
-        await Promise.allSettled(tasks);
       }
-    }
+    });
 
     return {
       success: true,
@@ -749,8 +795,7 @@ export async function updateProductStatus(
     console.error("updateProductStatus Service Error:", err);
     return {
       success: false,
-      error:
-        "상품 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "상품 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

@@ -53,6 +53,7 @@
 - [신고 처리와 제재 운영 정책](./operations/report-moderation-policy.md)
 - [신고 처리 원자성·멱등성 운영 기준](./operations/report-moderation-atomicity.md)
 - [상품 채팅 동시성·멱등성 운영 기준](./operations/chat-idempotency.md)
+- [상품 거래 상태 불변식 운영 기준](./operations/product-trade-invariants.md)
 - [테스트 전략](./operations/testing-strategy.md)
 - [CI/CD 워크플로우](./operations/ci-cd-workflows.md)
 - [프레임워크·의존성 보안 업그레이드 기록](./operations/dependency-security-upgrade.md)

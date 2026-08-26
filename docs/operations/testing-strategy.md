@@ -50,6 +50,8 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 - PostgreSQL 16 기반 신고 처리 상태 제약·동시 claim·rollback migration 통합 테스트
 - 상품·구매 문의자별 채팅방 생성과 메시지 요청 ID 멱등성 회귀 테스트
 - PostgreSQL 16 기반 중복 채팅방 병합·메시지 요청 ID·PENDING 약속 단일 제약 migration 통합 테스트
+- 상품 예약·판매완료·판매중 복귀의 관찰 상태 기반 CAS와 commit 이후 실패 격리 회귀 테스트
+- PostgreSQL 16 기반 거래 상대 배타·ID/시각 쌍·판매자 제외 migration 통합 테스트
 - Playwright 의존성과 script 준비
 - 로그인 전 메인, 로그인, 오프라인 공개 페이지 smoke 테스트
 - 비로그인 보호 경로의 로그인 redirect와 `callbackUrl` 보존 smoke 테스트

@@ -19,6 +19,7 @@
     "test:migration:auth-session": "node scripts/test-auth-session-migration.mjs",
     "test:migration:report-moderation": "node scripts/test-report-moderation-migration.mjs",
     "test:migration:chat-idempotency": "node scripts/test-chat-idempotency-migration.mjs",
+    "test:migration:product-trade": "node scripts/test-product-trade-migration.mjs",
     "backfill:stream-signed-playback": "tsx scripts/backfill-cloudflare-signed-playback.ts",
     "test:watch": "vitest",
     "install:e2e": "playwright install chromium",
