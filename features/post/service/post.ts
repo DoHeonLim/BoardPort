@@ -47,6 +47,7 @@
  * 2026.08.26  임도헌   Modified  신고 처리 transaction이 재사용할 게시글 DB cleanup 경계 분리
  * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리하는 렌더 전용 조회 모델 추가
+ * 2026.08.27  임도헌   Modified  생성 시각이 같은 게시글도 안정적으로 페이지 순서를 유지하도록 id 보조 정렬 추가
  */
 import "server-only";
 
@@ -613,6 +614,7 @@ export async function getPostDetailViewData(
  * [데이터 페칭 및 가공 전략]
  * - 검색 조건(Where) 적용 및 커서 기반 페이지네이션 구현
  * - 조회자 ID(viewerId) 기준 차단된 유저의 게시글 은닉 처리
+ * - 생성 시각 내림차순 뒤 ID 내림차순을 적용해 동률에서도 결정적인 순서 유지
  * - 다음 페이지 존재 여부(nextCursor) 판별을 위해 LIMIT + 1 조회 적용
  * - 첫 페이지 totalCount를 함께 반환해 무한스크롤 중에도 총 게시글 수 문구를 고정 표시
  *
@@ -649,7 +651,7 @@ export async function getPostsList(
     db.post.findMany({
       where,
       select: POST_SELECT,
-      orderBy: { created_at: "desc" },
+      orderBy: [{ created_at: "desc" }, { id: "desc" }],
       take: TAKE + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     }),
