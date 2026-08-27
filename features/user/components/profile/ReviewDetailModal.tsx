@@ -20,9 +20,10 @@
  * 2026.04.26  임도헌   Modified  리뷰 상세 별점 aria-label을 sr-only 텍스트와 장식용 아이콘 구조로 정리
  * 2026.06.18  임도헌   Modified  닫기 버튼을 공통 secondary modal 스타일로 통일
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 닫기 버튼을 제거해 신고/삭제 액션만 남김
+ * 2026.08.27  임도헌   Modified  중첩 신고 모달을 고려한 포커스 관리를 공용 useModalFocus로 통일
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { StarIcon } from "@heroicons/react/24/solid";
 import {
@@ -31,6 +32,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import type { ProfileReview } from "@/features/user/types";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -69,15 +71,12 @@ export default function ReviewDetailModal({
   const [reportOpen, setReportOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ESC 키로 닫기
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
+  useModalFocus({
+    open: isOpen,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   // 삭제 핸들러 (비동기 처리 & 로딩 상태 관리)
   const handleDelete = useCallback(async () => {
@@ -111,6 +110,7 @@ export default function ReviewDetailModal({
       {/* Modal Content */}
       <div
         ref={dialogRef}
+        tabIndex={-1}
         className={cn(
           "relative mx-4 w-full max-w-md overflow-hidden rounded-2xl shadow-2xl sm:max-w-lg",
           "bg-surface border border-border-subtle"

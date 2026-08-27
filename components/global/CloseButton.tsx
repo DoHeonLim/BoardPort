@@ -16,6 +16,7 @@
  * 2026.03.06  임도헌   Modified  hover 배경을 공용 시맨틱 토큰(bg-surface-dim) 기준으로 정리
  * 2026.03.09  임도헌   Modified  모달 닫기 시 history back 우선 처리 옵션 추가
  * 2026.03.18  임도헌   Modified  공통 닫기 버튼에서도 returnTo/fallbackHref를 정규화해 raw 쿼리 재사용 예외를 방지
+ * 2026.08.27  임도헌   Modified  상위 모달 포커스 관리자가 Escape를 담당할 때 중복 리스너를 끄는 옵션 추가
  */
 "use client";
 
@@ -35,6 +36,8 @@ interface Props {
   className?: string;
   /** 인터셉트 모달처럼 직전 히스토리 복귀가 더 자연스러운 경우 back()을 우선 사용 */
   preferHistoryBack?: boolean;
+  /** 상위 모달 포커스 관리자가 Escape를 처리하면 false로 지정 */
+  closeOnEscape?: boolean;
 }
 
 export default function CloseButton({
@@ -43,6 +46,7 @@ export default function CloseButton({
   label = "닫기",
   className,
   preferHistoryBack = false,
+  closeOnEscape = true,
 }: Props) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -63,12 +67,14 @@ export default function CloseButton({
 
   // ESC로 닫기
   useEffect(() => {
+    if (!closeOnEscape) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [closeOnEscape, onClose]);
 
   return (
     <button

@@ -31,6 +31,7 @@
  * 2026.04.18  임도헌   Modified  모바일에서 하단 배지를 선택하면 설명 패널이 보이도록 상단으로 부드럽게 스크롤하는 흐름 추가
  * 2026.04.18  임도헌   Modified  데스크톱 배지 모달 대비와 툴팁 화살표/박스 경계 표현을 보강해 가시성과 완성도를 높임
  * 2026.04.18  임도헌   Modified  미획득/선택 상태의 대비를 높여 라이트·다크 모드 모두에서 배지 가시성을 보강
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -52,6 +53,7 @@ import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import type { Badge } from "@/features/user/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface ProfileBadgesModalProps {
   isOpen: boolean;
@@ -213,22 +215,24 @@ export default function ProfileBadgesModal({
   const [showDesktopTooltip, setShowDesktopTooltip] = useState(false);
   const [selectedBadgeId, setSelectedBadgeId] = useState<number | null>(null);
 
-  // 접근성: 데스크톱 모달 포커스, ESC 닫기, body scroll lock 관리
+  // 모바일은 BottomSheet가 담당하므로 데스크톱에서만 스크롤을 잠근다.
   useEffect(() => {
     if (!isOpen) return;
     if (isMobile) return;
 
-    dialogRef.current?.focus();
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeModal();
-    };
-    window.addEventListener("keydown", handleKey);
     lockBodyScroll();
     return () => {
-      window.removeEventListener("keydown", handleKey);
       unlockBodyScroll();
     };
-  }, [closeModal, isMobile, isOpen]);
+  }, [isMobile, isOpen]);
+
+  useModalFocus({
+    open: isOpen,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: closeModal,
+  });
 
   // 획득 뱃지 Set (빠른 조회용)
   const earnedSet = useMemo(

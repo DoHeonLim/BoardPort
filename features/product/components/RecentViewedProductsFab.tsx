@@ -17,6 +17,7 @@
  * 2026.04.13  임도헌   Modified  썸네일을 장식 요소로 처리하고 자식 텍스트 기반 접근성 이름으로 정리
  * 2026.04.20  임도헌   Modified  최근 본 상품 FAB 포커스 강도를 높여 썸네일 위에서도 상태가 더 또렷하게 보이도록 조정
  * 2026.05.29  임도헌   Modified  최근 본 상품 삭제 버튼이 카드 선닫힘 이벤트를 타지 않도록 전파 기준 보정
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 "use client";
 
@@ -34,6 +35,7 @@ import {
 } from "@/features/product/utils/recentViewed";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 /**
  * 최근 본 상품 FAB 및 목록 시트/모달
@@ -90,21 +92,21 @@ export default function RecentViewedProductsFab() {
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isDesktop) return;
 
-    desktopDialogRef.current?.focus();
     lockBodyScroll();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
       unlockBodyScroll();
     };
-  }, [isOpen]);
+  }, [isDesktop, isOpen]);
+
+  useModalFocus({
+    open: isOpen,
+    enabled: isDesktop,
+    containerRef: desktopDialogRef,
+    initialFocusRef: desktopDialogRef,
+    onClose: () => setIsOpen(false),
+  });
 
   const latestProduct = products[0];
   const latestProductImageUrl = toProductImagePublicUrl(

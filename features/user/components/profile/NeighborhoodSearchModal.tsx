@@ -17,9 +17,10 @@
  * 2026.04.26  임도헌   Modified  동네 검색 로딩/오류/빈 결과 문구를 사용자 행동 기준으로 정리
  * 2026.05.16  임도헌   Modified  카카오 주소 검색 응답 타입을 명시해 any 제거
  * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BottomSheet from "@/components/global/BottomSheet";
 import {
@@ -35,6 +36,7 @@ import {
   normalizeKakaoRegion,
 } from "@/features/map/utils/normalizeRegion";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface Props {
   onClose: () => void;
@@ -143,6 +145,15 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
   const [hasNextPage, setHasNextPage] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useModalFocus({
+    open: true,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   /**
    * 검색 실행과 페이지네이션 상태 동기화
@@ -179,7 +190,9 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
           const normalizedResults = normalizeResults(data);
 
           setResults((prev) =>
-            page === 1 ? normalizedResults : mergeResults(prev, normalizedResults)
+            page === 1
+              ? normalizedResults
+              : mergeResults(prev, normalizedResults)
           );
           setCurrentPage(page);
           setHasNextPage(Boolean(pagination?.hasNextPage));
@@ -244,7 +257,9 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
   const searchContent = error ? (
     <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
       <p className="mb-2 font-bold text-danger">동네 검색을 열지 못했어요</p>
-      <p className="text-sm text-muted">네트워크 상태를 확인한 뒤 다시 시도해주세요.</p>
+      <p className="text-sm text-muted">
+        네트워크 상태를 확인한 뒤 다시 시도해주세요.
+      </p>
     </div>
   ) : loading ? (
     <div className="flex flex-col items-center justify-center px-6 py-20">
@@ -315,7 +330,9 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
                 disabled={isLoadingMore}
                 className="focus-ring-soft w-full rounded-xl border border-border-subtle bg-surface-dim px-4 py-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isLoadingMore ? "결과를 더 불러오는 중..." : "검색 결과 더 보기"}
+                {isLoadingMore
+                  ? "결과를 더 불러오는 중..."
+                  : "검색 결과 더 보기"}
               </button>
             ) : null}
           </div>
@@ -328,9 +345,11 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
   const modalWrapper = (content: React.ReactNode) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="neighborhood-search-title"
+        tabIndex={-1}
         className="bg-surface flex max-h-[80dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border-subtle shadow-2xl sm:max-w-lg"
       >
         <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0">

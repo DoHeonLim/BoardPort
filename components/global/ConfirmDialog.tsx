@@ -20,12 +20,14 @@
  * 2026.05.05  임도헌   Modified  키보드/배경 클릭 처리 helper JSDoc 보강
  * 2026.06.19  임도헌   Modified  모바일 확인 다이얼로그를 공용 BottomSheet로 분기해 차단/신고 계열 문법 통일
  * 2026.06.19  임도헌   Modified  모바일 BottomSheet에서는 X 닫기와 중복되는 취소 버튼을 제거해 확인 CTA만 남김
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 수명 주기를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BottomSheet from "@/components/global/BottomSheet";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +64,6 @@ export default function ConfirmDialog({
   const isMobile = useIsMobile();
   const firstRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const prevFocusedRef = useRef<HTMLElement | null>(null);
   const descId = description ? "confirm-desc" : undefined;
 
   // SSR Hydration 불일치 방지를 위한 mounted 상태
@@ -72,72 +73,32 @@ export default function ConfirmDialog({
     setMounted(true);
   }, []);
 
-  // 포커스 진입/복원 + 바디 스크롤 잠금
+  // 모바일은 BottomSheet가 담당하므로 데스크톱에서만 스크롤을 잠근다.
   useEffect(() => {
     if (!open) return;
     if (isMobile) return;
 
-    prevFocusedRef.current = document.activeElement as HTMLElement | null;
-
-    const t = setTimeout(() => firstRef.current?.focus(), 0);
     lockBodyScroll();
 
     return () => {
-      clearTimeout(t);
       unlockBodyScroll();
-      // 닫히면 이전 포커스로 복귀
-      prevFocusedRef.current?.focus?.();
     };
   }, [isMobile, open]);
-
-  // ESC + 포커스 트랩(Tab 순환)
-  useEffect(() => {
-    if (!open) return;
-    if (isMobile) return;
-
-    /**
-     * ESC 닫기와 Tab 포커스 순환을 처리
-     *
-     * @param e - 전역 keydown 이벤트
-     */
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (!loading) onCancel();
-        return;
-      }
-      if (e.key === "Tab" && panelRef.current) {
-        const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-          'a,button,input,textarea,select,details,[tabindex]:not([tabindex="-1"])'
-        );
-        const list = Array.from(focusables).filter(
-          (el) => !el.hasAttribute("disabled")
-        );
-        if (list.length === 0) return;
-
-        const first = list[0];
-        const last = list[list.length - 1];
-        const active = document.activeElement as HTMLElement | null;
-
-        if (!e.shiftKey && active === last) {
-          e.preventDefault();
-          first.focus();
-        } else if (e.shiftKey && active === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isMobile, open, loading, onCancel]);
-
-  // open이 false거나 마운트 전이면 렌더링 안 함
-  if (!open || !mounted) return null;
 
   const onCancelIfIdle = () => {
     if (!loading) onCancel();
   };
+
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: panelRef,
+    initialFocusRef: firstRef,
+    onClose: onCancelIfIdle,
+  });
+
+  // open이 false거나 마운트 전이면 렌더링 안 함
+  if (!open || !mounted) return null;
 
   const onBackdropClick = onCancelIfIdle;
 
@@ -225,6 +186,7 @@ export default function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-title"
         aria-describedby={descId}
+        tabIndex={-1}
         className={cn(
           "relative z-10 flex w-full max-w-[480px] flex-col rounded-2xl border border-border-subtle bg-surface p-5 shadow-2xl sm:p-6",
           "max-h-[min(80dvh,560px)] sm:max-h-[min(70dvh,560px)]",

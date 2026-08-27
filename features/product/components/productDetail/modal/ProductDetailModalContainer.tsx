@@ -30,6 +30,7 @@
  * 2026.06.12  임도헌   Modified  채팅 왕복 후 모달 닫기 시 returnTo replace로 이전 히스토리 재진입 방지
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.24  임도헌   Modified  relay가 재오픈한 모달에서 편집 복귀 refresh 신호를 소비하도록 보강
+ * 2026.08.27  임도헌   Modified  인터셉트 상세의 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 "use client";
 
@@ -47,6 +48,7 @@ import {
   consumeNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -66,21 +68,13 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // Body 스크롤 잠금
+  // 인터셉트 상세가 열린 동안 배경 목록의 스크롤을 잠근다.
   useEffect(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
     lockBodyScroll();
     return () => {
       unlockBodyScroll();
-      previousFocusRef.current?.focus?.();
     };
-  }, []);
-
-  // 초기 포커스 이동 (접근성)
-  useEffect(() => {
-    dialogRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -102,6 +96,13 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const handleOverlayClick = () => {
     router.replace(returnTo);
   };
+
+  useModalFocus({
+    open: true,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: handleOverlayClick,
+  });
 
   return (
     <div
@@ -127,6 +128,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
           <CloseButton
             fallbackHref="/products"
             returnTo={returnTo}
+            closeOnEscape={false}
             className="bg-surface-dim/45 text-muted/80 hover:bg-surface-dim hover:text-primary active:bg-border/50 dark:bg-surface-dim/35 dark:hover:bg-surface-dim/70"
           />
           <div className="flex items-center gap-1">

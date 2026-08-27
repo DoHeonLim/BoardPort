@@ -17,6 +17,7 @@
  * 2026.05.17  임도헌   Modified  차단 유저 아이템 타입을 user types 공용 타입으로 이동
  * 2026.06.18  임도헌   Modified  모바일 차단 관리 흐름을 BottomSheet로 분리하고 닫기 버튼 크기 기준 통일
  * 2026.06.19  임도헌   Modified  X 닫기로 모달 종료 동작을 통일하고 푸터 닫기 버튼 제거
+ * 2026.08.27  임도헌   Modified  포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -28,6 +29,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { BlockedUserSummary } from "@/features/user/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 /**
  * 차단한 선원(유저) 관리 모달
@@ -60,20 +62,15 @@ export default function BlockedUsersModal({
     setUsers(initialBlockedUsers);
   }, [initialBlockedUsers, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, isPending, onClose]);
+  useModalFocus({
+    open: isOpen,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: () => {
+      if (!isPending) onClose();
+    },
+  });
 
   if (!isOpen) return null;
 

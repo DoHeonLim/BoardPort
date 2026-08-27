@@ -10,6 +10,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  드래그 닫기를 pointer 이벤트로 통합해 PC 좁은 viewport의 마우스 드래그도 지원
  * 2026.04.28  임도헌   Modified  닫기 버튼 등 상호작용 요소 클릭이 드래그 시작으로 처리되지 않도록 보강
+ * 2026.08.27  임도헌   Modified  공용 useModalFocus로 초기·순환·복귀 포커스와 중첩 모달 키보드 처리를 통일
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -17,6 +18,7 @@ import { createPortal } from "react-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface BottomSheetProps {
   open: boolean;
@@ -53,7 +55,6 @@ export default function BottomSheet({
   const [isDragging, setIsDragging] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const dragStartYRef = useRef(0);
   const dragCurrentYRef = useRef(0);
   const titleId = useId();
@@ -67,14 +68,10 @@ export default function BottomSheet({
   useEffect(() => {
     if (!open) return;
 
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const timer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
     lockBodyScroll();
 
     return () => {
-      window.clearTimeout(timer);
       unlockBodyScroll();
-      previousFocusRef.current?.focus?.();
       setTranslateY(0);
       setIsDragging(false);
       dragStartYRef.current = 0;
@@ -82,42 +79,13 @@ export default function BottomSheet({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-
-      if (event.key !== "Tab" || !panelRef.current) return;
-
-      const focusableElements = panelRef.current.querySelectorAll<HTMLElement>(
-        'a,button,input,textarea,select,details,[tabindex]:not([tabindex="-1"])'
-      );
-      const focusableList = Array.from(focusableElements).filter(
-        (element) => !element.hasAttribute("disabled")
-      );
-
-      if (focusableList.length === 0) return;
-
-      const firstElement = focusableList[0];
-      const lastElement = focusableList[focusableList.length - 1];
-      const activeElement = document.activeElement as HTMLElement | null;
-
-      if (!event.shiftKey && activeElement === lastElement) {
-        event.preventDefault();
-        firstElement.focus();
-      } else if (event.shiftKey && activeElement === firstElement) {
-        event.preventDefault();
-        lastElement.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  useModalFocus({
+    open,
+    enabled: mounted,
+    containerRef: panelRef,
+    initialFocusRef: closeButtonRef,
+    onClose,
+  });
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -175,6 +143,7 @@ export default function BottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        tabIndex={-1}
         className={cn(
           "relative flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface shadow-2xl",
           !isDragging && "transition-transform duration-200 ease-out",

@@ -17,6 +17,7 @@
  * 2026.04.28  임도헌   Modified  모바일 관리자 액션을 공용 BottomSheet로 분기해 작은 화면의 입력/버튼 잘림을 완화
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소 버튼을 제거해 실제 관리자 액션만 남김
  * 2026.06.19  임도헌   Modified  데스크톱 관리자 액션 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -26,6 +27,7 @@ import BottomSheet from "@/components/global/BottomSheet";
 import { cn } from "@/lib/utils";
 import Select from "@/components/ui/Select";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface AdminActionModalProps {
   open: boolean;
@@ -103,20 +105,13 @@ export default function AdminActionModal({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open || isMobile) return;
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") handleRequestClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleRequestClose, isMobile, open]);
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: handleRequestClose,
+  });
 
   if (!open || !mounted) return null;
 

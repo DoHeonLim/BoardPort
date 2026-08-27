@@ -24,6 +24,7 @@
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소/닫기 버튼을 제거해 처리 액션 중심으로 정리
  * 2026.06.19  임도헌   Modified  신고 처리 오버레이 레이어를 상향해 관리자 상단 영역까지 안정적으로 덮도록 보강
  * 2026.06.19  임도헌   Modified  데스크톱 신고 처리 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import Link from "next/link";
@@ -52,6 +53,7 @@ import {
 import type { ReportReason } from "@/generated/prisma/client";
 import type { ReportResolutionAction } from "@/features/report/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { cn } from "@/lib/utils";
 
 interface ReportActionDialogProps {
@@ -180,20 +182,13 @@ export default function ReportActionDialog({
     setDeleteContent(effectiveRecommended.deleteContent);
   }, [effectiveRecommended, existingAdminComment, open]);
 
-  useEffect(() => {
-    if (!open || isMobile) return;
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") handleRequestClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleRequestClose, isMobile, open]);
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: handleRequestClose,
+  });
 
   if (!open || !mounted) return null;
 

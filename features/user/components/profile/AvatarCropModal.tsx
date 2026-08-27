@@ -13,6 +13,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 크롭 적용 CTA 위계 정리
  * 2026.06.19  임도헌   Modified  모바일 프로필 이미지 조정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +29,7 @@ import {
   getAvatarCropPreviewStyle,
 } from "@/features/user/utils/avatarCrop";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface AvatarCropModalProps {
   open: boolean;
@@ -60,7 +62,7 @@ export default function AvatarCropModal({
     setMounted(true);
   }, []);
 
-  // 모달 오픈 시 배경 스크롤 잠금, ESC 닫기, 첫 포커스 진입을 함께 처리
+  // 모달을 다시 열면 이전 크롭 상태를 초기화한다.
   useEffect(() => {
     if (!open) return;
     setCrop(DEFAULT_CROP);
@@ -71,22 +73,21 @@ export default function AvatarCropModal({
     if (isMobile) return;
 
     lockBodyScroll();
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !loading) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
       unlockBodyScroll();
     };
-  }, [isMobile, loading, onClose, open]);
+  }, [isMobile, open]);
+
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: () => {
+      if (!loading) onClose();
+    },
+  });
 
   useEffect(() => {
     if (!open || !imageUrl) return;

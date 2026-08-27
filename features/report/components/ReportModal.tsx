@@ -18,6 +18,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 신고 제출 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  모바일 신고 UI를 공용 BottomSheet로 분기해 차단/신고 모달 문법 통일
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import {
@@ -38,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { submitReportAction } from "@/features/report/actions/create";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import {
   REPORT_REASON_LABELS,
   REPORT_ERRORS,
@@ -73,7 +75,6 @@ export default function ReportModal({
   const searchParams = useSearchParams();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
   const isMobile = useIsMobile();
@@ -110,56 +111,13 @@ export default function ReportModal({
     }
   }, [isMobile, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    if (isMobile) return;
-
-    previousFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-
-    const focusTimer = window.setTimeout(() => {
-      closeButtonRef.current?.focus();
-    }, 0);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleRequestClose();
-        return;
-      }
-
-      if (event.key !== "Tab" || !dialogRef.current) return;
-
-      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
-      );
-
-      if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.removeEventListener("keydown", handleKeyDown);
-      previousFocusRef.current?.focus();
-    };
-  }, [handleRequestClose, isMobile, isOpen]);
+  useModalFocus({
+    open: isOpen,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: closeButtonRef,
+    onClose: handleRequestClose,
+  });
 
   if (!isOpen || !mounted) return null;
 
@@ -228,7 +186,8 @@ export default function ReportModal({
 
       <div>
         <label className="text-sm font-bold text-primary mb-2 block">
-          상세 설명 <span className="font-normal text-muted text-xs">(선택)</span>
+          상세 설명{" "}
+          <span className="font-normal text-muted text-xs">(선택)</span>
         </label>
         <textarea
           value={description}
@@ -279,6 +238,7 @@ export default function ReportModal({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        tabIndex={-1}
       >
         <p id={descriptionId} className="sr-only">
           신고 사유를 선택하고 필요한 경우 상세 설명을 입력한 뒤 제출합니다.
@@ -301,9 +261,7 @@ export default function ReportModal({
         </div>
 
         {/* 본문 */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {reportForm}
-        </div>
+        <div className="flex-1 overflow-y-auto p-6">{reportForm}</div>
 
         {/* 하단 액션 */}
         <div className="shrink-0 p-4 border-t border-border-subtle bg-surface flex justify-end">

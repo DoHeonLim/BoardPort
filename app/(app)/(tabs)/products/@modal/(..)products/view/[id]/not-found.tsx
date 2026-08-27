@@ -16,6 +16,7 @@
  * 2026.03.23  임도헌   Modified  상태 카드 외곽선을 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx 에서 app/(app)/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx 로 변경 (라우트 그룹 개편)
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.27  임도헌   Modified  잘못된 aria-hidden 제거와 모달 포커스 트랩·초기/복귀 포커스 보강
  */
 "use client";
 
@@ -24,26 +25,36 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import CloseButton from "@/components/global/CloseButton";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { useRef } from "react";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 export default function ModalProductNotFound() {
   const sp = useSearchParams();
   const router = useRouter();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const returnTo = sanitizeCallbackUrl(sp.get("returnTo") ?? "/products");
 
   const handleClose = () => {
     router.replace(returnTo);
   };
 
+  useModalFocus({
+    open: true,
+    containerRef: dialogRef,
+    onClose: handleClose,
+  });
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
       onClick={handleClose}
-      aria-hidden="true"
     >
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-label="상품을 찾을 수 없음"
+        tabIndex={-1}
         className={cn(
           "flex flex-col bg-background outline-none shadow-2xl transition-all",
           // [Mobile] Full Screen
@@ -54,7 +65,11 @@ export default function ModalProductNotFound() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-end p-4">
-          <CloseButton returnTo={returnTo} label="모달 닫기" />
+          <CloseButton
+            returnTo={returnTo}
+            label="모달 닫기"
+            closeOnEscape={false}
+          />
         </div>
 
         {/* Content */}
