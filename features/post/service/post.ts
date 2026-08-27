@@ -45,6 +45,7 @@
  * 2026.06.18  임도헌   Modified  게시글 장소 지역과 동네 피드 노출 지역(feedRegion)을 분리
  * 2026.08.22  임도헌   Modified  게시글 이미지 연결·교체·삭제를 MediaAsset 소유권 기록 기준으로 보강
  * 2026.08.26  임도헌   Modified  신고 처리 transaction이 재사용할 게시글 DB cleanup 경계 분리
+ * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  */
 import "server-only";
 
@@ -519,45 +520,42 @@ async function buildWhere(
  *
  * @param {number} id - 게시글 ID
  * @returns {Promise<PostDetail | null>} 게시글 상세 정보 또는 null
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getPostDetail(id: number): Promise<PostDetail | null> {
-  try {
-    const post = await db.post.findUnique({
-      where: { id },
-      include: {
-        user: { select: { id: true, username: true, avatar: true } },
-        _count: { select: { comments: true, post_likes: true } },
-        images: { orderBy: { order: "asc" } },
-        tags: true,
-        video: true,
-        blocks: {
-          orderBy: { order: "asc" },
-          include: {
-            postImage: true,
-            postVideo: true,
-          },
-        },
-        board_games: {
-          select: POST_BOARD_GAME_RELATION_SELECT,
+  // findUnique의 null만 실제 미존재이며, DB 예외는 cache에 null로 저장하지 않고 상위로 전파한다.
+  const post = await db.post.findUnique({
+    where: { id },
+    include: {
+      user: { select: { id: true, username: true, avatar: true } },
+      _count: { select: { comments: true, post_likes: true } },
+      images: { orderBy: { order: "asc" } },
+      tags: true,
+      video: true,
+      blocks: {
+        orderBy: { order: "asc" },
+        include: {
+          postImage: true,
+          postVideo: true,
         },
       },
-    });
-    if (!post) return null;
+      board_games: {
+        select: POST_BOARD_GAME_RELATION_SELECT,
+      },
+    },
+  });
+  if (!post) return null;
 
-    return {
-      ...post,
-      board_games: post.board_games.flatMap(({ boardGame }) => {
-        const { locales, ...linkedBoardGame } = boardGame;
-        const locale = locales[0];
-        // 상세에서도 공개 전 보드게임 locale은 노출하지 않아 목록 조건과 정합성 유지
-        if (!locale) return [];
-        return [{ boardGame: { ...linkedBoardGame, locale } }];
-      }),
-    } as PostDetail;
-  } catch (e) {
-    console.error("[getPostDetail] Error:", e);
-    return null;
-  }
+  return {
+    ...post,
+    board_games: post.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 상세에서도 공개 전 보드게임 locale은 노출하지 않아 목록 조건과 정합성 유지
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  } as PostDetail;
 }
 
 /**
