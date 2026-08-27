@@ -5,13 +5,14 @@
  *
  * History
  * Date        Author   Status    Description
- * 2026.08.27  임도헌   Created   실제 미존재만 null로 반환하고 DB 실패는 cache 밖으로 전파하는지 검증
+ * 2026.08.27  임도헌   Created   실제 미존재·DB 실패 경계와 최신 조회수 overlay를 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   productFindUnique: vi.fn(),
+  getProductLikeStatus: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -24,7 +25,7 @@ vi.mock("next/cache", () => ({
   unstable_cache: (callback: () => unknown) => callback,
 }));
 vi.mock("@/features/product/service/like", () => ({
-  getProductLikeStatus: vi.fn(),
+  getProductLikeStatus: mocks.getProductLikeStatus,
 }));
 vi.mock("@/features/user/service/block", () => ({
   checkBlockRelation: vi.fn(),
@@ -33,6 +34,10 @@ vi.mock("@/features/user/service/block", () => ({
 describe("product detail lookup boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getProductLikeStatus.mockResolvedValue({
+      isLiked: false,
+      likeCount: 0,
+    });
   });
 
   it("실제로 존재하지 않는 상품만 null로 반환한다", async () => {
@@ -56,5 +61,26 @@ describe("product detail lookup boundary", () => {
     const { getProductTitleById } = await import("./detail");
 
     await expect(getProductTitleById(91)).rejects.toBe(databaseError);
+  });
+
+  it("상세 본문 cache의 조회수를 최신 DB 값으로 덮어쓴다", async () => {
+    mocks.productFindUnique
+      .mockResolvedValueOnce({
+        id: 91,
+        userId: 11,
+        views: 3,
+        board_games: [],
+      })
+      .mockResolvedValueOnce({
+        reservation_userId: null,
+        purchase_userId: null,
+        hidden_at: null,
+        views: 42,
+      });
+    const { getProductDetailViewData } = await import("./detail");
+
+    const result = await getProductDetailViewData(91, null);
+
+    expect(result.product?.views).toBe(42);
   });
 });

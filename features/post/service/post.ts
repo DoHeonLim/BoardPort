@@ -46,6 +46,7 @@
  * 2026.08.22  임도헌   Modified  게시글 이미지 연결·교체·삭제를 MediaAsset 소유권 기록 기준으로 보강
  * 2026.08.26  임도헌   Modified  신고 처리 transaction이 재사용할 게시글 DB cleanup 경계 분리
  * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
+ * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리하는 렌더 전용 조회 모델 추가
  */
 import "server-only";
 
@@ -574,6 +575,37 @@ export const getCachedPost = (id: number) => {
     revalidate: 3600,
   })();
 };
+
+/**
+ * 게시글 상세 화면에서 사용하는 최신 조회 모델을 반환한다.
+ *
+ * [캐시 분리 전략]
+ * - 제목·본문·첨부 관계는 1시간 상세 cache를 재사용한다.
+ * - 진입마다 달라지는 조회수와 실제 행 존재 여부는 DB에서 별도 조회한다.
+ * - 삭제 직후 오래된 본문 cache가 남아 있어도 live state가 없으면 미존재로 처리한다.
+ *
+ * @param id - 게시글 ID
+ * @returns 최신 조회수를 덮어쓴 게시글 상세 또는 실제 미존재 시 null
+ * @throws {Error} 본문 또는 최신 조회수 조회에 실패한 경우
+ */
+export async function getPostDetailViewData(
+  id: number
+): Promise<PostDetail | null> {
+  const [post, liveState] = await Promise.all([
+    getCachedPost(id),
+    db.post.findUnique({
+      where: { id },
+      select: { views: true },
+    }),
+  ]);
+
+  if (!post || !liveState) return null;
+
+  return {
+    ...post,
+    views: liveState.views,
+  };
+}
 
 /**
  * 게시글 목록 조회 및 페이징 로직

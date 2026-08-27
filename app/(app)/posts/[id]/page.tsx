@@ -39,6 +39,7 @@
  * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
  * 2026.08.13  임도헌   Modified  게시글 댓글 prefetch cache를 조회자별로 분리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.27  임도헌   Modified  상세 본문 cache와 조회수를 분리해 최신 DB 조회수 기준으로 렌더링
  */
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,10 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import PostDetail from "@/features/post/components/postsDetail";
 import { incrementViews } from "@/features/common/service/view";
 import { getUserInfoById } from "@/features/user/service/profile";
-import { getCachedPost } from "@/features/post/service/post";
+import {
+  getCachedPost,
+  getPostDetailViewData,
+} from "@/features/post/service/post";
 import { getPostLikeStatus } from "@/features/post/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { getPostCommentsListAction } from "@/features/post/actions/comments";
@@ -152,7 +156,7 @@ export default async function PostDetailPage(props: {
   // QueryClient 초기화 및 데이터 병렬 조회
   const queryClient = getQueryClient();
   const [post, likeStatus, viewerInfo] = await Promise.all([
-    getCachedPost(id),
+    getPostDetailViewData(id),
     getPostLikeStatus(id, userId),
     getUserInfoById(userId),
     // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장함 (Prefetch)

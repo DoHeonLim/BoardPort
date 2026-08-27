@@ -26,6 +26,7 @@
  * 2026.05.08  임도헌   Modified  제품 상세 보드게임 relation select를 공용 상수로 교체
  * 2026.06.18  임도헌   Modified  상세 캐시와 별도로 거래/숨김 상태를 최신 조회하도록 보강
  * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
+ * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리해 최신 DB 값으로 덮어쓰도록 보강
  */
 import "server-only";
 
@@ -105,7 +106,7 @@ export const getCachedProduct = (id: number) => {
 
 /**
  * 상세 페이지/모달에서 공통으로 쓰는 상세 조회 모델.
- * 공통 본문은 캐시된 상세 데이터를 재사용하고, 자주 바뀌는 거래/숨김 상태와
+ * 공통 본문은 캐시된 상세 데이터를 재사용하고, 자주 바뀌는 거래/숨김/조회수 상태와
  * 개인화된 좋아요/차단 상태만 별도 조회
  */
 export async function getProductDetailViewData(
@@ -122,6 +123,7 @@ export async function getProductDetailViewData(
         reservation_userId: true,
         purchase_userId: true,
         hidden_at: true,
+        views: true,
       },
     }),
   ]);
@@ -140,6 +142,7 @@ export async function getProductDetailViewData(
     reservation_userId: liveState.reservation_userId,
     purchase_userId: liveState.purchase_userId,
     hidden_at: liveState.hidden_at,
+    views: liveState.views,
   };
 
   const isOwner = userId === productWithLiveState.userId;
