@@ -24,6 +24,7 @@
  * 2026.03.22  임도헌   Modified  프로필 유틸 모달 모션 규칙 통일을 위해 진입 transform 애니메이션 제거
  * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 이메일 인증 흐름을 하단 시트로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.27  임도헌   Modified  인증 코드 label·입력과 도움말을 명시적 ID 및 aria-describedby로 연결
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -249,10 +250,14 @@ function EmailVerificationModalInner({
   const content = state.token ? (
     <div className="space-y-6">
       <div>
-        <label className="mb-2 block text-sm font-medium text-primary">
+        <label
+          htmlFor="email-verification-token"
+          className="mb-2 block text-sm font-medium text-primary"
+        >
           인증 코드 입력
         </label>
         <Input
+          id="email-verification-token"
           name="token"
           placeholder="6자리 숫자"
           maxLength={6}
@@ -260,13 +265,17 @@ function EmailVerificationModalInner({
           pattern="[0-9]{6}"
           icon={<KeyIcon className="size-5" />}
           className="text-center text-lg tracking-widest font-mono"
+          aria-describedby="email-verification-token-help"
           onChange={(e) => {
             const v = e.target.value?.replace(/\D/g, "").slice(0, 6) ?? "";
             e.target.value = v;
             if (v.length === 6) handleVerify(v);
           }}
         />
-        <p className="mt-2 text-xs text-muted">
+        <p
+          id="email-verification-token-help"
+          className="mt-2 text-xs text-muted"
+        >
           * 이메일로 전송된 6자리 코드를 입력해주세요.
         </p>
       </div>

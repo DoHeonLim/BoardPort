@@ -41,6 +41,7 @@
  * 2026.06.01  임도헌   Modified  취소 시 내부 히스토리는 back으로 복귀하고 직접 진입은 replace fallback 처리
  * 2026.06.04  임도헌   Modified  프로필 유저명 입력 길이 안내를 공용 상수 기준으로 정리
  * 2026.08.22  임도헌   Modified  아바타 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
+ * 2026.08.27  임도헌   Modified  이메일·비밀번호·전화 인증 입력의 label과 실제 필드 연결 보강
  */
 "use client";
 
@@ -82,9 +83,12 @@ import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { editProfileAction } from "@/features/user/actions/profile";
 import { canUseBrowserBack } from "@/lib/navigationRefreshFlag";
 
-const ConfirmDialog = dynamic(() => import("@/components/global/ConfirmDialog"), {
-  loading: () => null,
-});
+const ConfirmDialog = dynamic(
+  () => import("@/components/global/ConfirmDialog"),
+  {
+    loading: () => null,
+  }
+);
 
 const AvatarCropModal = dynamic(
   () => import("@/features/user/components/profile/AvatarCropModal"),
@@ -97,7 +101,6 @@ interface ProfileEditFormProps {
   user: CurrentUserForEdit;
   returnTo: string;
 }
-
 
 /**
  * 프로필 편집 폼
@@ -296,9 +299,8 @@ export default function ProfileEditForm({
   const handleCropConfirm = async (crop: AvatarCropValues) => {
     setApplyingCrop(true);
     try {
-      const { createCroppedAvatarFile } = await import(
-        "@/features/user/utils/avatarCrop"
-      );
+      const { createCroppedAvatarFile } =
+        await import("@/features/user/utils/avatarCrop");
       const croppedFile = await createCroppedAvatarFile(
         cropSourceUrl,
         pendingImageName,
@@ -630,7 +632,13 @@ export default function ProfileEditForm({
 
         {/* 이메일 */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-primary">이메일</label>
+          {user.needsEmailSetup ? (
+            <label htmlFor="email" className="text-sm font-medium text-primary">
+              이메일
+            </label>
+          ) : (
+            <p className="text-sm font-medium text-primary">이메일</p>
+          )}
           {user.needsEmailSetup ? (
             <Input
               id="email"
@@ -671,6 +679,7 @@ export default function ProfileEditForm({
               icon={<LockClosedIcon className="size-5" />}
             />
             <Input
+              label="비밀번호 확인"
               type="password"
               passwordToggle
               placeholder="비밀번호 확인"
@@ -685,7 +694,7 @@ export default function ProfileEditForm({
 
         {/* 전화번호 인증 */}
         <div className="space-y-3 border-t border-border-subtle pt-3">
-          <label className="text-sm font-medium text-primary">
+          <label htmlFor="phone" className="text-sm font-medium text-primary">
             전화번호 (선택)
           </label>
 
@@ -733,6 +742,8 @@ export default function ProfileEditForm({
             {phoneVerificationSent && !phoneVerified && (
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
+                  label="전화번호 인증번호"
+                  hideLabel
                   placeholder="인증번호 6자리 입력"
                   value={phoneToken}
                   onChange={(e) => setPhoneToken(e.target.value)}
@@ -760,7 +771,7 @@ export default function ProfileEditForm({
             )}
 
             <div className="text-xs text-muted leading-relaxed">
-   * 전화번호 변경은 인증 완료 시 즉시 저장
+              * 전화번호 변경은 인증 완료 시 즉시 저장
               <br />* 이미 인증된 번호는 삭제할 수 없습니다.
             </div>
           </div>

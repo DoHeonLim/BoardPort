@@ -15,11 +15,12 @@
  * 2026.04.04  임도헌   Modified  export 주석을 보강해 react-hook-form 기반 태그 입력 역할을 더 명확히 정리
  * 2026.05.17  임도헌   Modified  control/name props를 react-hook-form 제네릭 타입으로 구체화
  * 2026.06.18  임도헌   Modified  모바일 키보드 Enter/blur 시 태그 확정 흐름 보강
+ * 2026.08.27  임도헌   Modified  태그 label과 입력·검증 오류를 자동 ID 및 ARIA 속성으로 연결
  */
 "use client";
 
 import { XMarkIcon } from "@heroicons/react/24/solid";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { Control, FieldValues, Path } from "react-hook-form";
 import { useController } from "react-hook-form";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,11 @@ export default function TagInput<TFieldValues extends FieldValues>({
         (tag): tag is string => typeof tag === "string"
       )
     : [];
+  const autoId = useId();
+  const inputId = `${name}-${autoId}`;
+  const errorMessage =
+    typeof error?.message === "string" && error.message ? error.message : null;
+  const errorMessageId = `${inputId}-error`;
 
   const [tagInput, setTagInput] = useState("");
 
@@ -91,7 +97,7 @@ export default function TagInput<TFieldValues extends FieldValues>({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium text-primary">
+      <label htmlFor={inputId} className="text-sm font-medium text-primary">
         태그 (최대 {maxTags}개)
       </label>
 
@@ -118,6 +124,7 @@ export default function TagInput<TFieldValues extends FieldValues>({
       )}
 
       <input
+        id={inputId}
         type="text"
         value={tagInput}
         onChange={(e) => setTagInput(e.target.value)}
@@ -131,12 +138,19 @@ export default function TagInput<TFieldValues extends FieldValues>({
           tags.length >= maxTags ? "태그가 꽉 찼습니다" : "태그 입력 (Enter)"
         }
         disabled={disabled || tags.length >= maxTags}
+        aria-invalid={errorMessage ? "true" : "false"}
+        aria-describedby={errorMessage ? errorMessageId : undefined}
+        aria-errormessage={errorMessage ? errorMessageId : undefined}
         className={cn(
           "input-primary h-input-md px-4", // 시맨틱 높이 및 클래스
           "disabled:opacity-50 disabled:cursor-not-allowed"
         )}
       />
-      {error && <p className="text-xs text-danger mt-1">{error.message}</p>}
+      {errorMessage && (
+        <p id={errorMessageId} className="mt-1 text-xs text-danger">
+          {errorMessage}
+        </p>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@
  * 2026.04.14  임도헌   Modified  select 내부 좌측 여백과 label htmlFor/id 연결을 보강해 모바일 폼 가독성과 접근성을 개선
  * 2026.04.14  임도헌   Modified  공용 select 주석을 현재 여백/접근성 정책 기준으로 간결하게 정리
  * 2026.05.30  임도헌   Modified  작성형 폼 compact 밀도를 위한 density 옵션 추가
+ * 2026.08.27  임도헌   Modified  검증 오류 ID와 aria-describedby·aria-errormessage 연결 보강
  */
 import { forwardRef, useId } from "react";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,8 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
       id,
       name,
       density = "default",
+      "aria-describedby": describedByProp,
+      "aria-errormessage": errorMessageIdProp,
       ...rest
     },
     ref
@@ -51,6 +54,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const autoId = useId();
     const selectId = id ?? (name ? `${name}-${autoId}` : `select-${autoId}`);
     const filteredErrors = errors.filter(Boolean);
+    const hasErrors = filteredErrors.length > 0;
+    const errorMessageId = errorMessageIdProp ?? `${selectId}-error`;
+    const describedBy =
+      [describedByProp, hasErrors ? errorMessageId : undefined]
+        .filter(Boolean)
+        .join(" ") || undefined;
 
     return (
       <div className="flex flex-col gap-1.5 w-full">
@@ -69,10 +78,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             className={cn(
               "input-primary w-full bg-surface cursor-pointer pl-4 pr-10 text-base md:text-sm",
               density === "compact" ? "h-11 sm:h-input-md" : "h-input-md",
-              filteredErrors.length > 0 && "ring-2 ring-danger/50",
+              hasErrors && "ring-2 ring-danger/50",
               className
             )}
-            aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
+            aria-invalid={hasErrors ? "true" : "false"}
+            aria-describedby={describedBy}
+            aria-errormessage={hasErrors ? errorMessageId : undefined}
             // 브라우저 기본 화살표를 제거해 커스텀 chevron만 노출
             style={{
               WebkitAppearance: "none",
@@ -103,11 +114,18 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </div>
         </div>
 
-        {filteredErrors.map((error, idx) => (
-          <span key={idx} className="text-xs text-danger font-medium pl-1">
-            {error}
-          </span>
-        ))}
+        {hasErrors && (
+          <div id={errorMessageId} className="space-y-0.5 pl-1">
+            {filteredErrors.map((error, index) => (
+              <span
+                key={index}
+                className="block text-xs font-medium text-danger"
+              >
+                {error}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
