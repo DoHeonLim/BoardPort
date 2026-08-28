@@ -11,6 +11,7 @@
  * 2026.05.18  임도헌   Modified  채팅 미읽음 Realtime 브리지를 앱 전역으로 이동해 탭 밖 채팅 상세 읽음 처리까지 동기화
  * 2026.08.23  임도헌   Modified  Next.js 16 호환 클라이언트 지연 로딩 경계로 알림 부트스트랩 분리
  * 2026.08.27  임도헌   Modified  본문 바로가기 링크가 이동할 로그인 영역 공통 포커스 대상 추가
+ * 2026.08.28  임도헌   Modified  서버에서 확인한 세션 ID를 알림 부트스트랩에 전달해 중복 사용자 조회 제거
  */
 import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import AppWrapper from "@/components/global/AppWrapper";
@@ -26,7 +27,7 @@ import NotificationBootLoader from "@/features/notification/components/Notificat
  * 로그인 후 앱 영역 전용 루트 레이아웃
  *
  * - 테마, React Query, 알림/모달 스토어처럼 탭 전반에 걸쳐 재사용되는 provider를 한 번만 감싼다
- * - `NotificationBoot`는 동적 로딩으로 분리해 첫 렌더 공통 번들에 실시간 알림 구독 코드를 싣지 않는다
+ * - 서버에서 확인한 세션 ID를 지연 로딩되는 `NotificationBoot`에 전달해 별도 사용자 조회 없이 알림을 시작한다
  * - 채팅 미읽음 브리지는 앱 전역에 두어 탭 밖 채팅 상세의 읽음 처리도 놓치지 않도록 유지한다
  * - `GlobalToaster`를 앱 영역 공통으로 배치해 제품/채팅/스트림/프로필 전환 중에도 일관된 토스트 레이어를 유지
  */
@@ -50,7 +51,7 @@ export default async function AppLayout({
             <ModalStoreProvider>
               {/* 토스트와 알림 부트스트랩의 앱 공통 chrome 내 1회 마운트 */}
               <GlobalToaster />
-              <NotificationBootLoader />
+              <NotificationBootLoader userId={session?.id ?? null} />
               {session?.id ? (
                 <ChatRoomsRealtimeBridge userId={session.id} />
               ) : null}
