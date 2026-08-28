@@ -21,6 +21,7 @@
  * 2026.06.19  임도헌   Modified  모바일 확인 다이얼로그를 공용 BottomSheet로 분기해 차단/신고 계열 문법 통일
  * 2026.06.19  임도헌   Modified  모바일 BottomSheet에서는 X 닫기와 중복되는 취소 버튼을 제거해 확인 CTA만 남김
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 수명 주기를 공용 useModalFocus로 통일
+ * 2026.08.28  임도헌   Modified  로딩 중 취소 방지 함수 JSDoc 보강
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -85,6 +86,7 @@ export default function ConfirmDialog({
     };
   }, [isMobile, open]);
 
+  /** 확인 작업 중이 아닐 때만 다이얼로그 취소 동작을 실행한다. */
   const onCancelIfIdle = () => {
     if (!loading) onCancel();
   };

@@ -18,6 +18,7 @@
  * 2026.05.16  임도헌   Modified  카카오 주소 검색 응답 타입을 명시해 any 제거
  * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.08.28  임도헌   Modified  데스크톱 모달 셸 함수 JSDoc 보강
  */
 
 import { useRef, useState } from "react";
@@ -341,7 +342,12 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
     </>
   );
 
-  // 모달 기본 뼈대
+  /**
+   * 동네 검색 콘텐츠를 데스크톱 dialog 셸로 감싼다.
+   *
+   * @param content - 모달 본문에 표시할 검색 콘텐츠
+   * @returns 포커스 관리 대상이 되는 데스크톱 모달
+   */
   const modalWrapper = (content: React.ReactNode) => (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div

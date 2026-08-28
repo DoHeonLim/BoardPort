@@ -16,6 +16,7 @@
  * 2026.05.12  임도헌   Modified  지역 선택 버튼이 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
  * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.28  임도헌   Modified  온보딩 제출 함수 JSDoc 보강
  */
 "use client";
 
@@ -138,6 +139,11 @@ export default function OnboardingForm({
     setIsLocationModalOpen(false);
   };
 
+  /**
+   * 필요한 온보딩 필드만 FormData로 구성해 완료 액션을 실행한다.
+   *
+   * @param data - 검증을 통과한 온보딩 입력값
+   */
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
       try {

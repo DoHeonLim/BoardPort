@@ -10,6 +10,7 @@
  * 2026.08.13  임도헌   Modified  탈퇴 성공 시 사용자 Query cache를 비운 뒤 홈으로 이동
  * 2026.08.21  임도헌   Modified  탈퇴 완료 후 다른 탭에도 인증 cache 초기화 신호 전파
  * 2026.08.22  임도헌   Modified  탈퇴 성공 시 삭제 계정의 Realtime JWT 캐시 폐기
+ * 2026.08.28  임도헌   Modified  회원 탈퇴 실행 함수 JSDoc 보강
  */
 
 import { useTransition } from "react";
@@ -32,6 +33,7 @@ export default function WithdrawalModal({ isOpen, onClose }: Props) {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
+  /** 회원 탈퇴를 실행하고 성공 시 모든 탭의 인증 상태와 사용자 캐시를 정리한다. */
   const handleWithdraw = () => {
     startTransition(async () => {
       try {

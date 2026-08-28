@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.13  임도헌   Created   구 Service Worker 활성 상태에서 구독 복구 차단
+ * 2026.08.28  임도헌   Modified  표시 보호 handshake 완료 함수 JSDoc 보강
  */
 
 export const PUSH_DISPLAY_GUARD_VERSION = 1 as const;
@@ -36,6 +37,11 @@ export function probePushDisplayGuard(
     const channel = new MessageChannel();
     let settled = false;
 
+    /**
+     * 첫 handshake 결과만 확정하고 타이머와 메시지 포트를 정리한다.
+     *
+     * @param supported - Worker의 현재 표시 보호 프로토콜 지원 여부
+     */
     const finish = (supported: boolean) => {
       if (settled) return;
       settled = true;

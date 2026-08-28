@@ -12,6 +12,7 @@
  * 2026.03.14  임도헌   Modified  태그 이모지(🏷️)를 # prefix로 교체해 렌더링 일관성 확보
  * 2026.06.14  임도헌   Modified  상세 태그 검색 이동 시 최근 검색어 저장과 캐시 갱신을 보강
  * 2026.08.13  임도헌   Modified  상세 태그의 최근 검색 기록 cache를 사용자별로 분리
+ * 2026.08.28  임도헌   Modified  태그 검색 기록 함수 JSDoc 보강
  */
 
 "use client";
@@ -43,6 +44,11 @@ export default function ProductDetailTags({
 
   if (!tags || tags.length === 0) return null;
 
+  /**
+   * 로그인 사용자의 태그 검색어를 최근 검색 캐시와 서버 기록에 반영한다.
+   *
+   * @param keyword - 사용자가 선택한 상품 태그
+   */
   const handleTagSearch = (keyword: string) => {
     if (viewerId == null) return;
 

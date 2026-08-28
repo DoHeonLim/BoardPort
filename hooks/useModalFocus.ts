@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   중첩 모달 순서를 고려한 공용 포커스 관리 정책 추가
+ * 2026.08.28  임도헌   Modified  모달 키보드 처리 함수 JSDoc 보강
  */
 
 import { useEffect, useRef, type RefObject } from "react";
@@ -118,6 +119,11 @@ export function useModalFocus({
         }, 0)
       : undefined;
 
+    /**
+     * 최상위 모달에서 Escape 닫기와 Tab 포커스 순환을 처리한다.
+     *
+     * @param event - 문서에서 발생한 키보드 이벤트
+     */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (activeModalStack.at(-1) !== modalToken) return;
 

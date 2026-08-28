@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   운영 DB 대상만 dry-run·적용·전수 검증하도록 추가
+ * 2026.08.28  임도헌   Modified  Cloudflare API 요청 함수 JSDoc 보강
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -118,6 +119,14 @@ async function readResponse<T>(response: Response, label: string) {
 
 /** timeout과 오류 변환이 적용된 최소 Cloudflare Stream API client를 만든다. */
 function createCloudflareClient(accountId: string, apiToken: string) {
+  /**
+   * 요청 제한 시간과 Cloudflare 오류 변환을 적용해 Stream API를 호출한다.
+   *
+   * @param label - 오류 메시지에 사용할 작업 이름
+   * @param path - 계정 API base 이후의 요청 경로
+   * @param init - fetch 요청 옵션
+   * @returns Cloudflare 응답의 result 값
+   */
   async function request<T>(label: string, path: string, init?: RequestInit) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

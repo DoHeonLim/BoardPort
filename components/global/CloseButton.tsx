@@ -17,6 +17,7 @@
  * 2026.03.09  임도헌   Modified  모달 닫기 시 history back 우선 처리 옵션 추가
  * 2026.03.18  임도헌   Modified  공통 닫기 버튼에서도 returnTo/fallbackHref를 정규화해 raw 쿼리 재사용 예외를 방지
  * 2026.08.27  임도헌   Modified  상위 모달 포커스 관리자가 Escape를 담당할 때 중복 리스너를 끄는 옵션 추가
+ * 2026.08.28  임도헌   Modified  공용 닫기 버튼 함수 JSDoc 보강
  */
 "use client";
 
@@ -40,6 +41,12 @@ interface Props {
   closeOnEscape?: boolean;
 }
 
+/**
+ * 안전한 내부 복귀 경로와 선택적 히스토리 복귀를 지원하는 공용 닫기 버튼
+ *
+ * @param props - 복귀 경로, 접근성 레이블과 Escape 처리 설정
+ * @returns 닫기 아이콘 버튼
+ */
 export default function CloseButton({
   fallbackHref = "/products",
   returnTo,

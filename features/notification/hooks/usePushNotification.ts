@@ -26,6 +26,7 @@
  * 2026.08.13  임도헌   Modified  구독 키 소유 증명과 계정 불일치 기기 정리 추가
  * 2026.08.13  임도헌   Modified  표시 보호 Worker 확인 후 구독하고 서버 해제 성공 뒤에만 전역 OFF 처리
  * 2026.08.23  임도헌   Modified  Serwist 자동 등록 및 수동 복구 경로 기준으로 설명 갱신
+ * 2026.08.28  임도헌   Modified  푸시 초기 점검과 소유권 충돌 처리 함수 JSDoc 보강
  */
 
 "use client";
@@ -225,6 +226,7 @@ export function usePushNotification() {
     let mounted = true;
     const controller = new AbortController();
 
+    /** 브라우저 권한·구독·서버 소유권을 확인해 초기 푸시 상태를 동기화한다. */
     const check = async () => {
       try {
         // 2-1. Private(Incognito) 모드 감지
@@ -412,6 +414,11 @@ export function usePushNotification() {
         return;
       }
 
+      /**
+       * 다른 계정이 소유한 로컬 구독을 폐기하고 재연결 필요 상태로 전환한다.
+       *
+       * @param current - 소유권이 충돌한 현재 브라우저 Push 구독
+       */
       const handleOwnershipConflict = async (current: PushSubscription) => {
         // DB 소유 키와 현재 브라우저 키가 다르면 임의로
         // 덮어쓰지 않고 로컬 구독을 폐기한다. 다음 시도는

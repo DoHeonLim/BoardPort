@@ -10,6 +10,7 @@
  * 2026.08.13  임도헌   Modified  로그아웃 기기의 Push 구독과 사용자 Query cache 격리
  * 2026.08.21  임도헌   Modified  인증 종료 후 다른 탭에도 cache 초기화 신호 전파
  * 2026.08.22  임도헌   Modified  로그아웃 성공 시 이전 계정 Realtime JWT 캐시 폐기
+ * 2026.08.28  임도헌   Modified  로그아웃 처리 함수 JSDoc 보강
  */
 "use client";
 
@@ -70,6 +71,9 @@ export default function LogoutButton({
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
+  /**
+   * 현재 기기 푸시 구독을 확인한 뒤 서버 로그아웃과 클라이언트 인증 정리를 순서대로 실행한다.
+   */
   const handleLogout = () => {
     startTransition(async () => {
       let currentPushSubscription: PushSubscription | null;

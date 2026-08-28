@@ -10,15 +10,13 @@
  * 2026.05.18  임도헌   Modified  초기 렌더 중 Server Action 재호출을 피하도록 마운트 직후 목록 invalidate 제거
  * 2026.05.18  임도헌   Modified  rooms_refresh 수신 시 미읽음 수 query를 비활성 상태까지 재검증하도록 보강
  * 2026.08.21  임도헌   Modified  사용자별 목록 갱신 채널을 JWT 인증 private 구독으로 전환
+ * 2026.08.28  임도헌   Modified  채팅방 Realtime 구독 수명 주기 함수 JSDoc 보강
  */
 "use client";
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  subscribePrivateRealtimeChannel,
-  supabase,
-} from "@/lib/supabase";
+import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryKeys";
 import { CHAT_EVENT } from "@/features/chat/constants";
 import { chatRoomsRealtimeTopic } from "@/features/realtime/topics";
@@ -60,6 +58,7 @@ export default function ChatRoomsRealtimeBridge({
       });
     };
 
+    /** 사용자 전용 private 채널을 만들고 JWT 인증 구독을 시작한다. */
     const subscribe = () => {
       if (activeChannel) return;
 
@@ -79,6 +78,7 @@ export default function ChatRoomsRealtimeBridge({
       );
     };
 
+    /** 진행 중인 인증과 사용자 채널을 함께 정리한다. */
     const unsubscribe = () => {
       if (!activeChannel) return;
 

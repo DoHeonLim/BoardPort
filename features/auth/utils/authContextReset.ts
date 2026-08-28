@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   로그아웃·탈퇴의 다중 탭 cache 초기화와 이동 순서 통합
+ * 2026.08.28  임도헌   Modified  탭 간 인증 종료 이벤트 함수 JSDoc 보강
  */
 
 const AUTH_CONTEXT_CHANNEL = "boardport-auth-context";
@@ -123,6 +124,11 @@ export function subscribeToAuthContextReset(
   let channel: BroadcastChannelLike | null = null;
   let lastHandledEventId: string | null = null;
 
+  /**
+   * 인증 종료 이벤트를 검증하고 다른 탭에서 온 새 이벤트만 한 번 처리한다.
+   *
+   * @param value - BroadcastChannel 또는 storage에서 수신한 값
+   */
   const handleEvent = (value: unknown) => {
     if (!isAuthContextResetEvent(value)) return;
     if (value.sourceId === sourceId || value.eventId === lastHandledEventId) {
@@ -144,6 +150,11 @@ export function subscribeToAuthContextReset(
     channel = null;
   }
 
+  /**
+   * localStorage fallback으로 전달된 인증 종료 이벤트를 파싱한다.
+   *
+   * @param event - 브라우저 storage 변경 이벤트
+   */
   const handleStorage = (event: StorageEvent) => {
     if (event.key !== AUTH_CONTEXT_STORAGE_KEY || !event.newValue) return;
 

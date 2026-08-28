@@ -28,6 +28,7 @@
  * 2026.06.19  임도헌   Modified  데스크톱 비공개 방송 입력과 입장 CTA를 한 줄 배치로 정리
  * 2026.08.22  임도헌   Modified  PRIVATE 언락 성공 시 Realtime 권한 JWT 캐시를 폐기해 새 claim 즉시 반영
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.08.28  임도헌   Modified  비공개 방송 접근 제출 함수 JSDoc 보강
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -112,6 +113,11 @@ export default function PrivateAccessModal({
     },
   });
 
+  /**
+   * 비밀번호를 검증해 비공개 방송을 해제하고 결과 코드에 맞는 경로로 이동한다.
+   *
+   * @param e - 비밀번호 입력 폼 제출 이벤트
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isPending) return;

@@ -48,6 +48,7 @@
  * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리하는 렌더 전용 조회 모델 추가
  * 2026.08.27  임도헌   Modified  생성 시각이 같은 게시글도 안정적으로 페이지 순서를 유지하도록 id 보조 정렬 추가
+ * 2026.08.28  임도헌   Modified  게시글 피드 지역 조건 함수 JSDoc 보강
  */
 import "server-only";
 
@@ -102,6 +103,12 @@ function toFeedRegionPayload(source: RegionSource | null | undefined) {
   };
 }
 
+/**
+ * 사용자 지역 범위를 게시글 피드 전용 지역 조건으로 변환한다.
+ *
+ * @param user - 사용자 지역과 조회 범위
+ * @returns 값이 존재하는 피드 지역 필드만 포함한 Prisma 조건
+ */
 function buildPostFeedRegionWhere(
   user: RegionSource & {
     regionRange: Parameters<typeof buildRegionWhere>[0]["regionRange"];

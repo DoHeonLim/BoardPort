@@ -30,14 +30,12 @@
  * 2026.05.18  임도헌   Modified  채팅방 내부 읽음 처리 후 TabBar 미읽음 query를 즉시 동기화
  * 2026.08.21  임도헌   Modified  상품 채팅 topic 분리와 JWT 인증 private 구독 적용
  * 2026.08.21  임도헌   Modified  재연결·탭 복귀 시 메시지 query를 DB 기준으로 재검증
+ * 2026.08.28  임도헌   Modified  메시지 재검증 함수 JSDoc 보강
  */
 
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  subscribePrivateRealtimeChannel,
-  supabase,
-} from "@/lib/supabase";
+import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import {
   ChatMessage,
   MessageDeletedPayload,
@@ -152,6 +150,7 @@ export default function useChatSubscription({
   useEffect(() => {
     const authorizationController = new AbortController();
     hasSubscribedRef.current = false;
+    /** 활성 메시지 query를 서버 상태 기준으로 다시 조회한다. */
     const refetchMessages = () => {
       void queryClient.refetchQueries({
         queryKey: queryKeys.chats.messages(chatRoomId),
@@ -307,6 +306,7 @@ export default function useChatSubscription({
         hasSubscribedRef.current = true;
       }
     );
+    /** 탭이 다시 보이면 놓친 메시지를 서버에서 재검증한다. */
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") refetchMessages();
     };

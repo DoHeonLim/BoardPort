@@ -14,6 +14,7 @@
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 크롭 적용 CTA 위계 정리
  * 2026.06.19  임도헌   Modified  모바일 프로필 이미지 조정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.08.28  임도헌   Modified  아바타 크롭 모달 함수 JSDoc 보강
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -45,6 +46,12 @@ const DEFAULT_CROP: AvatarCropValues = {
   offsetYPercent: 0,
 };
 
+/**
+ * 아바타 확대·이동 값을 조절하고 원형 미리보기 기준 크롭 설정을 반환한다.
+ *
+ * @param props - 원본 이미지, 열림 상태와 크롭 완료 콜백
+ * @returns 모바일 BottomSheet 또는 데스크톱 크롭 대화상자
+ */
 export default function AvatarCropModal({
   open,
   imageUrl,

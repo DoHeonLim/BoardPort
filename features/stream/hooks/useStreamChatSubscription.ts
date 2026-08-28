@@ -21,13 +21,11 @@
  * 2026.08.21  임도헌   Modified  방송 채팅 topic 분리와 JWT 인증 private 구독 적용
  * 2026.08.21  임도헌   Modified  재연결·탭 복귀 시 상위 DB 재조회 콜백 호출
  * 2026.08.22  임도헌   Modified  수신 전용 경계에 맞춰 불필요한 채널 state·반환 제거
+ * 2026.08.28  임도헌   Modified  방송 채팅 탭 복귀 재동기화 함수 JSDoc 보강
  */
 
 import { useEffect, useRef } from "react";
-import {
-  subscribePrivateRealtimeChannel,
-  supabase,
-} from "@/lib/supabase";
+import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { StreamChatMessage } from "@/features/chat/types";
 import type { StreamMetaUpdatePayload } from "@/features/stream/types";
@@ -194,6 +192,7 @@ export default function useStreamChatSubscription({
         hasSubscribed = true;
       }
     );
+    /** 탭이 다시 보이면 구독 중 놓친 방송 채팅 상태를 상위에서 재조회한다. */
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") onResyncRef.current?.();
     };

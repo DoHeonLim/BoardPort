@@ -13,6 +13,7 @@
  * 2026.04.24  임도헌   Modified  returnTo 문맥 분류와 navigation refresh helper로 삭제/숨김 복귀 분기 중복을 정리
  * 2026.05.23  임도헌   Modified  삭제 성공 시 제품 infinite query 캐시와 stale cursor를 즉시 정리
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.28  임도헌   Modified  상품 복귀 문맥과 삭제 함수 JSDoc 보강
  */
 "use client";
 
@@ -54,6 +55,12 @@ interface ProductOwnerMenuProps {
 
 type ProductReturnContext = "products" | "my-sales" | "chats" | "other";
 
+/**
+ * 상품 상세 진입 경로를 삭제·숨김 후 복귀 정책에 사용하는 문맥으로 분류한다.
+ *
+ * @param rawReturnTo - 상세 화면에 전달된 원본 복귀 경로
+ * @returns 상품 목록·내 판매·채팅 또는 기타 문맥
+ */
 function getProductReturnContext(
   rawReturnTo: string | null
 ): ProductReturnContext {
@@ -195,6 +202,7 @@ export default function ProductOwnerMenu({
     });
   };
 
+  /** 상품을 삭제하고 관련 목록 캐시를 정리한 뒤 진입 문맥에 맞게 복귀한다. */
   const handleDelete = () => {
     startTransition(async () => {
       const result = await deleteProductAction(productId);

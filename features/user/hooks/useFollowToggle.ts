@@ -27,6 +27,7 @@
  * 2026.06.17  임도헌   Modified  서버 성공 후 팔로워 전용 접근 상태를 동기화하는 책임을 주석에 명확히 반영
  * 2026.06.25  임도헌   Modified  기본 팔로잉 스트림 seed key를 조회자별 캐시 스코프와 일치하도록 정리
  * 2026.08.13  임도헌   Modified  팔로우 관련 cache 갱신과 무효화를 현재 조회자로 제한
+ * 2026.08.28  임도헌   Modified  팔로우 토글 함수 JSDoc 보강
  */
 
 "use client";
@@ -68,6 +69,14 @@ export function useFollowToggle() {
     [pendingIds]
   );
 
+  /**
+   * 팔로우 상태를 서버에서 전환하고 조회자 범위의 관련 캐시를 결과에 맞게 동기화한다.
+   *
+   * @param userId - 팔로우 상태를 변경할 사용자 ID
+   * @param isFollowingNow - 요청 직전 팔로우 여부
+   * @param opts - 조회자 ID, 새로고침과 로그인 유도 설정
+   * @returns 서버 팔로우 처리 결과 또는 중복 요청일 때 undefined
+   */
   const toggle = useCallback(
     async (
       userId: number,

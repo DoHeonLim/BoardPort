@@ -17,6 +17,7 @@
  * 2026.04.28  임도헌   Modified  신고 처리 모달이 실제 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 조회 추가
  * 2026.05.16  임도헌   Modified  신고 사유 검색 조건과 목록 후처리 타입 단언 축소
  * 2026.08.26  임도헌   Modified  신고 claim·DB 조치·감사 로그를 단일 transaction으로 묶고 outbox 멱등 재시도 적용
+ * 2026.08.28  임도헌   Modified  신고 대상 미리보기와 소유자 조회 함수 JSDoc 보강
  */
 
 import "server-only";
@@ -866,6 +867,13 @@ function getResolvedTargetUserIdFromMaps(
   return null;
 }
 
+/**
+ * 신고 대상 유형에 맞는 제목·본문·사용자명을 사전 조회 맵에서 찾는다.
+ *
+ * @param report - 대상별 ID가 포함된 신고 정보
+ * @param maps - 신고 대상 유형별 표시 메타 맵
+ * @returns 관리자 목록에 표시할 대상 요약 또는 null
+ */
 function getTargetPreviewFromMaps(
   report: {
     targetUserId: number | null;
@@ -951,6 +959,13 @@ function getTargetPreviewFromMaps(
   return null;
 }
 
+/**
+ * 댓글·메시지·리뷰 신고가 속한 상위 게시글·상품·방송 제목을 찾는다.
+ *
+ * @param report - 간접 신고 대상 ID
+ * @param maps - 대상과 상위 콘텐츠의 사전 조회 메타 맵
+ * @returns 상위 콘텐츠 요약 또는 null
+ */
 function getTargetParentPreviewFromMaps(
   report: {
     targetCommentId: number | null;
@@ -1082,6 +1097,7 @@ async function getUserNameMap(userIds: number[]) {
   return new Map(rows.map((row) => [row.id, row.username]));
 }
 
+/** 신고된 상품 ID별 소유자와 제목을 조회한다. */
 async function getProductOwnerMap(
   reports: { targetProductId: number | null }[]
 ) {
@@ -1101,6 +1117,7 @@ async function getProductOwnerMap(
   );
 }
 
+/** 신고된 게시글 ID별 소유자와 제목을 조회한다. */
 async function getPostOwnerMap(reports: { targetPostId: number | null }[]) {
   const ids = reports
     .map((report) => report.targetPostId)
@@ -1118,6 +1135,7 @@ async function getPostOwnerMap(reports: { targetPostId: number | null }[]) {
   );
 }
 
+/** 신고된 댓글 ID별 작성자와 본문, 상위 게시글 ID를 조회한다. */
 async function getCommentOwnerMap(
   reports: { targetCommentId: number | null }[]
 ) {
@@ -1143,6 +1161,7 @@ async function getCommentOwnerMap(
   );
 }
 
+/** 신고된 방송 ID별 소유자와 제목을 조회한다. */
 async function getStreamOwnerMap(reports: { targetStreamId: number | null }[]) {
   const ids = reports
     .map((report) => report.targetStreamId)
@@ -1163,6 +1182,7 @@ async function getStreamOwnerMap(reports: { targetStreamId: number | null }[]) {
   );
 }
 
+/** 신고된 거래 메시지 ID별 작성자와 본문, 상위 상품 ID를 조회한다. */
 async function getProductMessageOwnerMap(
   reports: { targetProductMessageId: number | null }[]
 ) {
@@ -1197,6 +1217,7 @@ async function getProductMessageOwnerMap(
   );
 }
 
+/** 신고된 방송 메시지 ID별 작성자와 본문, 상위 방송 ID를 조회한다. */
 async function getStreamMessageOwnerMap(
   reports: { targetStreamMessageId: number | null }[]
 ) {
@@ -1231,6 +1252,7 @@ async function getStreamMessageOwnerMap(
   );
 }
 
+/** 신고된 리뷰 ID별 작성자와 본문, 상위 상품 ID를 조회한다. */
 async function getReviewOwnerMap(reports: { targetReviewId: number | null }[]) {
   const ids = reports
     .map((report) => report.targetReviewId)

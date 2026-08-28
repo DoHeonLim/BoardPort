@@ -42,6 +42,7 @@
  * 2026.06.04  임도헌   Modified  프로필 유저명 입력 길이 안내를 공용 상수 기준으로 정리
  * 2026.08.22  임도헌   Modified  아바타 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  * 2026.08.27  임도헌   Modified  이메일·비밀번호·전화 인증 입력의 label과 실제 필드 연결 보강
+ * 2026.08.28  임도헌   Modified  아바타 적용·크롭 완료 함수 JSDoc 보강
  */
 "use client";
 
@@ -256,6 +257,11 @@ export default function ProfileEditForm({
     event.target.value = "";
   };
 
+  /**
+   * 크롭된 아바타 파일을 미리보기에 반영하고 전용 업로드 URL을 준비한다.
+   *
+   * @param nextFile - 업로드할 아바타 이미지 파일
+   */
   const applyAvatarFile = async (nextFile: File) => {
     // 크롭 결과 파일을 미리보기로 반영하고 Cloudflare direct upload URL을 예약
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
@@ -296,6 +302,11 @@ export default function ProfileEditForm({
     setCropModalOpen(false);
   };
 
+  /**
+   * 선택한 크롭 설정으로 새 아바타 파일을 생성해 폼 업로드 상태에 반영한다.
+   *
+   * @param crop - 사용자가 확정한 확대 및 위치 조절값
+   */
   const handleCropConfirm = async (crop: AvatarCropValues) => {
     setApplyingCrop(true);
     try {

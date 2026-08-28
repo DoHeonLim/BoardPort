@@ -27,15 +27,13 @@
  * 2026.05.17  임도헌   Modified  pagehide/hidden 상태에서 알림 채널을 정리하고 복귀 시 unread count를 서버 기준으로 재동기화
  * 2026.05.18  임도헌   Modified  채팅 알림 수신 시 TabBar 미읽음 query도 함께 재검증
  * 2026.08.21  임도헌   Modified  세션 JWT 인증 후 사용자 전용 private 채널만 구독
+ * 2026.08.28  임도헌   Modified  알림 private 채널 구독 수명 주기 함수 JSDoc 보강
  */
 "use client";
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  subscribePrivateRealtimeChannel,
-  supabase,
-} from "@/lib/supabase";
+import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
@@ -148,6 +146,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       });
     };
 
+    /** 사용자 알림 private 채널을 생성하고 세션 JWT 인증 구독을 시작한다. */
     const subscribe = () => {
       if (activeChannel) return;
 
@@ -155,86 +154,87 @@ export default function NotificationListener({ userId }: { userId: number }) {
         config: { private: true },
       });
 
-      channel.on("broadcast", { event: "notification" }, async ({ payload }) => {
-        const p = payload as Partial<NotiPayload>;
+      channel
+        .on("broadcast", { event: "notification" }, async ({ payload }) => {
+          const p = payload as Partial<NotiPayload>;
 
-        if (typeof p.userId === "number" && p.userId !== userId) return;
+          if (typeof p.userId === "number" && p.userId !== userId) return;
 
-        if (p.type === "CHAT") {
-          // 알림 채널은 배포 환경에서 이미 살아 있는 사용자 채널이므로 채팅 뱃지 재검증 보조 경로로 활용
-          syncChatUnreadCount();
-        }
-
-        // 사용자가 현재 보고 있는 페이지(예: 지금 대화 중인 채팅방)와 관련된 알림일 경우,
-        // 토스트 팝업 표시 및 상단 뱃지 카운트 증가를 생략하여 번쩍거리는 UX 결함을 방지
-        if (
-          typeof document !== "undefined" &&
-          !document.hidden &&
-          p.link &&
-          normalizeComparableHref(getCurrentPath()) ===
-            normalizeComparableHref(p.link)
-        ) {
-          return;
-        }
-
-        // 기존 window.dispatchEvent 방식 대신 Zustand 액션을 명시적으로 호출
-        increment();
-        const { toast } = await import("sonner");
-
-        // 토스트 알림 표시
-        const toastId = p.id
-          ? `noti:${p.id}`
-          : `noti:${p.type ?? "SYSTEM"}:${p.link ?? ""}`;
-
-        toast(p.title ?? "알림", {
-          id: toastId,
-          description: p.body ?? "",
-          icon: p.image ? (
-            <span
-              aria-hidden="true"
-              className="block h-6 w-6 rounded-full bg-cover bg-center"
-              style={{ backgroundImage: `url(${p.image})` }}
-            />
-          ) : undefined,
-          action: p.link
-            ? {
-                label: "보기",
-                onClick: () => {
-                  const href = buildToastHref(p.link!);
-                  if (href) {
-                    window.location.assign(href);
-                  }
-                },
-              }
-            : undefined,
-        });
-      })
-      .on("broadcast", { event: "sys_event" }, async ({ payload }) => {
-        const p = payload as SysEventPayload;
-
-        // 개인 운영 이벤트는 전역 브리지로 먼저 흘려 보내고,
-        // 각 화면은 필요한 타입만 골라 강제 퇴장/채팅 금지/차단 반응을 즉시 동기화
-        window.dispatchEvent(
-          new CustomEvent("app:sys-event", {
-            detail: p,
-          })
-        );
-
-        // 실시간 정지(BAN) 처리
-        if (p.type === "BAN") {
-          try {
-            // 1. 서버 세션 쿠키 갱신 (banned: true 설정)
-            await fetch("/api/auth/refresh", { method: "POST" });
-          } catch (e) {
-            console.error("Session refresh failed", e);
+          if (p.type === "CHAT") {
+            // 알림 채널은 배포 환경에서 이미 살아 있는 사용자 채널이므로 채팅 뱃지 재검증 보조 경로로 활용
+            syncChatUnreadCount();
           }
 
-          // 2. 강제 페이지 이동 (SPA 라우팅 대신 href를 사용하여 미들웨어를 거치도록 강제)
-          window.location.href = `/403?reason=BANNED&banReason=${encodeURIComponent(
-            p.reason || ""
-          )}`;
-        }
-      });
+          // 사용자가 현재 보고 있는 페이지(예: 지금 대화 중인 채팅방)와 관련된 알림일 경우,
+          // 토스트 팝업 표시 및 상단 뱃지 카운트 증가를 생략하여 번쩍거리는 UX 결함을 방지
+          if (
+            typeof document !== "undefined" &&
+            !document.hidden &&
+            p.link &&
+            normalizeComparableHref(getCurrentPath()) ===
+              normalizeComparableHref(p.link)
+          ) {
+            return;
+          }
+
+          // 기존 window.dispatchEvent 방식 대신 Zustand 액션을 명시적으로 호출
+          increment();
+          const { toast } = await import("sonner");
+
+          // 토스트 알림 표시
+          const toastId = p.id
+            ? `noti:${p.id}`
+            : `noti:${p.type ?? "SYSTEM"}:${p.link ?? ""}`;
+
+          toast(p.title ?? "알림", {
+            id: toastId,
+            description: p.body ?? "",
+            icon: p.image ? (
+              <span
+                aria-hidden="true"
+                className="block h-6 w-6 rounded-full bg-cover bg-center"
+                style={{ backgroundImage: `url(${p.image})` }}
+              />
+            ) : undefined,
+            action: p.link
+              ? {
+                  label: "보기",
+                  onClick: () => {
+                    const href = buildToastHref(p.link!);
+                    if (href) {
+                      window.location.assign(href);
+                    }
+                  },
+                }
+              : undefined,
+          });
+        })
+        .on("broadcast", { event: "sys_event" }, async ({ payload }) => {
+          const p = payload as SysEventPayload;
+
+          // 개인 운영 이벤트는 전역 브리지로 먼저 흘려 보내고,
+          // 각 화면은 필요한 타입만 골라 강제 퇴장/채팅 금지/차단 반응을 즉시 동기화
+          window.dispatchEvent(
+            new CustomEvent("app:sys-event", {
+              detail: p,
+            })
+          );
+
+          // 실시간 정지(BAN) 처리
+          if (p.type === "BAN") {
+            try {
+              // 1. 서버 세션 쿠키 갱신 (banned: true 설정)
+              await fetch("/api/auth/refresh", { method: "POST" });
+            } catch (e) {
+              console.error("Session refresh failed", e);
+            }
+
+            // 2. 강제 페이지 이동 (SPA 라우팅 대신 href를 사용하여 미들웨어를 거치도록 강제)
+            window.location.href = `/403?reason=BANNED&banReason=${encodeURIComponent(
+              p.reason || ""
+            )}`;
+          }
+        });
 
       authorizationController = new AbortController();
       void subscribePrivateRealtimeChannel(
@@ -244,6 +244,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       activeChannel = channel;
     };
 
+    /** 알림 채널 인증과 WebSocket 채널 객체를 함께 정리한다. */
     const unsubscribe = () => {
       if (!activeChannel) return;
       const channel = activeChannel;

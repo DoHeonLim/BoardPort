@@ -23,6 +23,7 @@
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 녹화 삭제 후 back 복귀 플래그 기록 중복을 정리
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 채널/목록 React Query 캐시에서 삭제 항목을 즉시 제거
  * 2026.08.21  임도헌   Modified  원본 Live Input UID를 삭제 요청에서 제거하고 서버 소유권 판정만 사용
+ * 2026.08.28  임도헌   Modified  녹화 삭제 함수 JSDoc 보강
  */
 
 "use client";
@@ -151,6 +152,7 @@ export default function RecordingTopbar({
     });
   };
 
+  /** 녹화를 삭제하고 목록 캐시에서 제거한 뒤 안전한 진입 문맥으로 복귀한다. */
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
@@ -163,8 +165,7 @@ export default function RecordingTopbar({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
         toast.error(
-          data?.error ??
-            "녹화 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+          data?.error ?? "녹화 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
         );
         return;
       }
@@ -182,7 +183,10 @@ export default function RecordingTopbar({
       if (canReturnWithHistory) {
         // 삭제 후에는 기존 목록/채널/프로필 히스토리 엔트리로 돌아가고,
         // 복귀 화면에서만 1회 router.refresh()를 실행해 stale 목록 보정
-        markNavigationRefresh(NAVIGATION_REFRESH_SCOPES.RECORDING_LIST, backHref);
+        markNavigationRefresh(
+          NAVIGATION_REFRESH_SCOPES.RECORDING_LIST,
+          backHref
+        );
         router.back();
         return;
       }
@@ -239,7 +243,9 @@ export default function RecordingTopbar({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              aria-label={isOwner ? "녹화 관리 메뉴 열기" : "다시보기 옵션 열기"}
+              aria-label={
+                isOwner ? "녹화 관리 메뉴 열기" : "다시보기 옵션 열기"
+              }
               aria-expanded={menuOpen}
               aria-haspopup={isMobile ? "dialog" : "menu"}
               className="appbar-icon-btn"
@@ -282,7 +288,8 @@ export default function RecordingTopbar({
                       role="menuitem"
                       className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
                     >
-                      <ExclamationTriangleIcon className="size-4" /> 다시보기 신고
+                      <ExclamationTriangleIcon className="size-4" /> 다시보기
+                      신고
                     </button>
                   </>
                 )}

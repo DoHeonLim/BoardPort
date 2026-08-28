@@ -17,6 +17,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx 에서 app/(app)/(tabs)/products/@modal/(..)products/view/[id]/not-found.tsx 로 변경 (라우트 그룹 개편)
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.27  임도헌   Modified  잘못된 aria-hidden 제거와 모달 포커스 트랩·초기/복귀 포커스 보강
+ * 2026.08.28  임도헌   Modified  모달 상품 없음 컴포넌트 함수 JSDoc 보강
  */
 "use client";
 
@@ -28,6 +29,11 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { useRef } from "react";
 import { useModalFocus } from "@/hooks/useModalFocus";
 
+/**
+ * 인터셉트 모달에서 존재하지 않는 상품을 안내하고 안전한 목록 문맥으로 닫는다.
+ *
+ * @returns 포커스가 관리되는 상품 없음 모달
+ */
 export default function ModalProductNotFound() {
   const sp = useSearchParams();
   const router = useRouter();
