@@ -13,6 +13,7 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 
 검증 항목:
 
+- 빈 PostgreSQL에서 전체 `prisma migrate deploy` → E2E seed 2회 → cleanup
 - `npm run test`
 - `npm run test:migration:push`
 - `npm run test:migration:realtime`
@@ -22,11 +23,12 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 - `npm run test:migration:chat-idempotency`
 - `npm run test:migration:product-trade`
 - `npm run test:migration:stream-webhook`
+- `npm run test:migration:vod-pagination`
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm run build`
 
-Migration 통합 테스트는 CI PostgreSQL의 `boardport_migration_test` 전용 DB에서 순차 실행합니다. 기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
+`Full Migration and Seed Smoke` job은 전용 `RELEASE_MIGRATION_TEST_DATABASE_URL`만 읽는 Prisma config로 빈 `boardport_release_test` DB에 전체 migration 이력을 처음부터 적용합니다. 이어서 E2E seed를 두 번 실행해 최종 schema와 seed 멱등성을 확인한 뒤 cleanup을 검증합니다. 도메인별 Migration 통합 테스트는 별도 `boardport_migration_test` DB에서 순차 실행합니다. 기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
 
 ## 2. Playwright E2E
 
@@ -35,14 +37,16 @@ Migration 통합 테스트는 CI PostgreSQL의 `boardport_migration_test` 전용
 실행 순서:
 
 - 의존성 설치
+- 공유 테스트 DB migration 적용
 - Playwright Linux 의존성 설치
 - Playwright Chromium 설치
-- `npm run dev:e2e` 서버 실행
+- `npm run build`로 production 산출물 생성
+- `npm run start:e2e`로 production 서버 실행
 - `npm run seed:e2e`
 - `E2E_SEEDED=1 npm run test:e2e -- --project=chromium`
 - `npm run cleanup:e2e`
 
-E2E는 공유 테스트 DB를 사용하므로 workflow concurrency를 `e2e-shared-db`로 고정해 동시에 여러 E2E가 seed/cleanup을 수행하지 않도록 제한합니다.
+E2E는 공유 테스트 DB를 사용하므로 workflow concurrency를 `e2e-shared-db`로 고정해 동시에 여러 E2E가 seed/cleanup을 수행하지 않도록 제한합니다. CI에서는 개발 서버가 허용하는 동작에 기대지 않도록 `next build` 결과를 `next start`로 실행해 실제 배포 모드와 같은 경계를 검증합니다.
 
 ## 3. E2E Secrets
 
@@ -72,6 +76,7 @@ GitHub Actions에서 별도 deploy job을 두지 않는 이유:
 
 `master` production 배포를 CI 통과 후에만 허용하려면 GitHub branch protection 또는 ruleset에서 필수 check를 설정합니다. 기본 권장 check:
 
+- `Full Migration and Seed Smoke`
 - `Unit, Type, Lint, Build`
 - `Playwright Chromium`
 

@@ -5,6 +5,7 @@ name: E2E
 # 2026.08.21: private Realtime JWT·서버 발신 secret 환경변수 추가
 # 2026.08.21: Realtime JWT 환경변수를 ES256 private JWK 기준으로 전환
 # 2026.08.23: E2E seed 전에 공유 테스트 DB migration 적용 추가
+# 2026.08.28: Next.js production build와 next start를 대상으로 E2E 실행
 
 # develop 통합 PR과 master 릴리즈 PR에서 seed 기반 회귀 확인
 on:
@@ -100,10 +101,14 @@ jobs:
       - name: Install Playwright browsers
         run: npm run install:e2e
 
-      # test:e2e는 이미 떠 있는 dev server를 대상으로 하므로 백그라운드에서 Next 실행
+      # 개발 서버의 느슨한 동작이 배포 오류를 가리지 않도록 실제 production 산출물을 생성
+      - name: Build E2E application
+        run: npm run build
+
+      # test:e2e는 이미 떠 있는 production server를 대상으로 하므로 백그라운드에서 Next 실행
       - name: Start E2E server
         run: |
-          npm run dev:e2e > /tmp/boardport-next.log 2>&1 &
+          npm run start:e2e > /tmp/boardport-next.log 2>&1 &
           echo $! > /tmp/boardport-next.pid
 
       # 서버 준비 전에 Playwright가 시작되지 않도록 health check 대기

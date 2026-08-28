@@ -11,6 +11,7 @@
     "dev:e2e": "next dev --webpack -H 127.0.0.1",
     "build": "next build --webpack",
     "start": "next start",
+    "start:e2e": "next start -H 127.0.0.1",
     "lint": "eslint .",
     "test": "vitest run",
     "test:migration:push": "node scripts/test-push-ownership-migration.mjs",

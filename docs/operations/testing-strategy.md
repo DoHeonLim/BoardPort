@@ -87,7 +87,7 @@ npm run install:e2e:deps
 npm run install:e2e
 ```
 
-로컬에서 Playwright 테스트를 실행할 때는 별도 터미널에서 `npm run dev:e2e`를 먼저 실행한 뒤 `npm run test:e2e`를 실행합니다. 개발 서버 lifecycle은 테스트 러너가 자동으로 관리하지 않고, 테스트 자체는 이미 떠 있는 `http://127.0.0.1:3000`을 대상으로 검증합니다.
+로컬에서 빠르게 Playwright 테스트를 반복할 때는 별도 터미널에서 `npm run dev:e2e`를 먼저 실행합니다. 배포 모드까지 확인하려면 `npm run build` 후 `npm run start:e2e`를 사용합니다. 서버 lifecycle은 테스트 러너가 자동으로 관리하지 않고, 테스트 자체는 이미 떠 있는 `http://127.0.0.1:3000`을 대상으로 검증합니다. GitHub E2E workflow는 항상 production build와 `next start` 조합을 사용합니다.
 
 `npm run test:e2e`는 실행 전 로컬 서버 연결을 확인합니다. 서버가 켜져 있지 않으면 Playwright 테스트를 시작하기 전에 실행 순서를 안내하고 종료합니다.
 

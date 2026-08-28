@@ -14,6 +14,7 @@
 # 2026.08.26  임도헌   Modified  상품 거래 상태 불변식 migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  Stream webhook inbox/outbox migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  다시보기 복합 커서 migration·다중 페이지 통합 검증 추가
+# 2026.08.28  임도헌   Modified  빈 PostgreSQL의 전체 migration·E2E seed·cleanup release smoke 추가
 
 name: CI
 
@@ -37,6 +38,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-database-smoke:
+    name: Full Migration and Seed Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: boardport_release_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_release_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/boardport_release_test?schema=public
+      RELEASE_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_release_test?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 기존 상태를 가정하지 않는 빈 DB에서 전체 migration 순서와 최종 schema를 검증
+      - name: Apply full migration chain
+        run: npx prisma migrate deploy --config prisma.release-migration-test.config.ts
+
+      - name: Confirm migration status
+        run: npx prisma migrate status --config prisma.release-migration-test.config.ts
+
+      # 실제 E2E fixture가 요구하는 관계·제약까지 생성하고 재실행 멱등성을 확인
+      - name: Seed E2E smoke data
+        id: seed
+        run: |
+          npm run seed:e2e
+          npm run seed:e2e
+
+      - name: Cleanup E2E smoke data
+        if: always() && steps.seed.outcome == 'success'
+        run: npm run cleanup:e2e
+
   quality:
     name: Unit, Type, Lint, Build
     runs-on: ubuntu-latest
