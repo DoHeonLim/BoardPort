@@ -37,6 +37,10 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 
 `Unit, Type, Lint, Build` job은 Node 기반 단위 테스트와 파일별 jsdom 컴포넌트 테스트를 함께 실행하고 전체 source V8 coverage가 [`testing-strategy.md`](./testing-strategy.md)의 기준선 아래로 내려가면 실패합니다.
 
+운영 DB migration은 Vercel Git 배포와 GitHub Actions의 실행 순서가 보장되지 않으므로 CI가 자동 적용하지 않습니다. migration이 포함된 릴리즈의 연결 경계·적용 순서·실패 복구는 [`database-deployment-runbook.md`](./database-deployment-runbook.md)를 따릅니다.
+
+`develop`에서 `master`로 승격할 때의 환경변수 대조, 외부 서비스 확인, Production smoke와 rollback 판단은 [`release-runbook.md`](./release-runbook.md)를 기준으로 수행합니다.
+
 ## 2. Playwright E2E
 
 `.github/workflows/e2e.yml`은 `develop`/`master` 대상 PR과 수동 실행에서 Playwright Chromium E2E를 실행합니다.

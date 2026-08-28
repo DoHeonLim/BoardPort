@@ -15,7 +15,7 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 - DTO 변환, 상태 전이, fallback 계산 유틸
 - 공용 폼 필드의 label·도움말·검증 오류 ARIA 연결
 
-CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전체 source를 분모에 포함한 V8 coverage를 측정합니다. 2026-08-28 기준선은 Statements 11.41%, Branches 10.72%, Functions 9.93%, Lines 11.78%이며 CI 하한은 각각 11%, 10%, 9%, 11%입니다. 낮은 전체 수치를 숨기지 않고 시작점으로 기록하며, 단순 percentage를 맞추기 위한 의미 없는 테스트보다 인증·권한·상태 전이·cache·공용 UI처럼 회귀 영향이 큰 경로를 우선 보강합니다. 릴리즈 전에는 coverage 하락 여부와 새 핵심 로직의 회귀 테스트 포함 여부를 함께 리뷰합니다.
+CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전체 source를 분모에 포함한 V8 coverage를 측정합니다. 2026-08-28 기준선은 Statements 11.50%, Branches 10.82%, Functions 10.00%, Lines 11.88%이며 CI 하한은 각각 11%, 10%, 9%, 11%입니다. 낮은 전체 수치를 숨기지 않고 시작점으로 기록하며, 단순 percentage를 맞추기 위한 의미 없는 테스트보다 인증·권한·상태 전이·cache·공용 UI처럼 회귀 영향이 큰 경로를 우선 보강합니다. 릴리즈 전에는 coverage 하락 여부와 새 핵심 로직의 회귀 테스트 포함 여부를 함께 리뷰합니다.
 
 ### Playwright
 
