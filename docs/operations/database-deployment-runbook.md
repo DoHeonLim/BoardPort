@@ -12,11 +12,11 @@ BoardPort는 Vercel 애플리케이션 런타임과 Prisma CLI가 서로 다른 
 
 `prisma.config.ts`는 migration과 Prisma CLI에 `DIRECT_URL`만 사용합니다. 애플리케이션의 `PrismaPg` 어댑터는 `DATABASE_URL`과 아래 node-postgres Pool 옵션을 사용합니다.
 
-- `DATABASE_POOL_MAX`: Vercel 인스턴스별 최대 연결 수, 기본값 `1`
+- `DATABASE_POOL_MAX`: Vercel 인스턴스별 최대 연결 수, 기본값 `5`
 - `DATABASE_CONNECTION_TIMEOUT_MS`: 연결 획득 제한 시간, 기본값 `10000`
 - `DATABASE_IDLE_TIMEOUT_MS`: 유휴 연결 정리 시간, 기본값 `10000`
 
-Prisma URL의 `connection_limit`은 `@prisma/adapter-pg`가 생성하는 `pg.Pool`의 `max` 옵션이 아닙니다. BoardPort는 URL 파라미터에 기대지 않고 위 환경변수를 정수로 검증해 Pool에 직접 전달합니다. 트래픽과 DB 연결 한도를 측정하기 전에는 기본값을 임의로 늘리지 않습니다.
+Prisma URL의 `connection_limit`은 `@prisma/adapter-pg`가 생성하는 `pg.Pool`의 `max` 옵션이 아닙니다. BoardPort는 URL 파라미터에 기대지 않고 위 환경변수를 정수로 검증해 Pool에 직접 전달합니다. 기본값 5는 관리자 대시보드와 App Router의 병렬 조회를 수용하면서 기존 node-postgres 암묵적 기본값 10보다 인스턴스별 연결 상한을 낮춘 값입니다. 트래픽과 DB 연결 한도를 측정하기 전에는 이를 임의로 늘리지 않습니다.
 
 ## 2. 배포 전 검증
 

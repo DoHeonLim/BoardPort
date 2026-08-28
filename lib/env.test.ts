@@ -6,7 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.23  임도헌   Created   세션·rate limit·cron·trusted origin 환경변수 검증 추가
- * 2026.08.28  임도헌   Modified  PostgreSQL URL과 pg Pool 기본값·형식 검증 추가
+ * 2026.08.28  임도헌   Modified  PostgreSQL URL과 병렬 조회용 pg Pool 기본값·형식 검증 추가
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -73,7 +73,7 @@ describe("server environment", () => {
     vi.stubEnv("DATABASE_IDLE_TIMEOUT_MS", "");
 
     expect(getDatabasePoolConfig()).toEqual({
-      max: 1,
+      max: 5,
       connectionTimeoutMillis: 10_000,
       idleTimeoutMillis: 10_000,
     });

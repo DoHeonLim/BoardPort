@@ -7,6 +7,7 @@ name: E2E
 # 2026.08.23: E2E seed 전에 공유 테스트 DB migration 적용 추가
 # 2026.08.28: Next.js production build와 next start를 대상으로 E2E 실행
 # 2026.08.28: Production 로그인 rate limit 검증용 실행별 salt 추가
+# 2026.08.28: Production 병렬 조회를 재현하도록 PrismaPg Pool 크기 명시
 
 # develop 통합 PR과 master 릴리즈 PR에서 seed 기반 회귀 확인
 on:
@@ -33,6 +34,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
       DIRECT_URL: ${{ secrets.E2E_DIRECT_URL }}
+      DATABASE_POOL_MAX: "5"
       COOKIE_PASSWORD: ${{ secrets.E2E_COOKIE_PASSWORD }}
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000

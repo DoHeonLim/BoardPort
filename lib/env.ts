@@ -6,7 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.23  임도헌   Created   세션·rate limit·cron·앱 URL 환경변수 fail-closed 검증 추가
- * 2026.08.28  임도헌   Modified  PostgreSQL URL과 pg Pool 정수 설정 fail-closed 검증 추가
+ * 2026.08.28  임도헌   Modified  PostgreSQL URL 검증과 병렬 조회를 고려한 pg Pool 설정 추가
  */
 
 type RequiredEnvOptions = {
@@ -21,7 +21,7 @@ export type DatabasePoolConfig = {
 };
 
 const DEFAULT_DATABASE_POOL_CONFIG: DatabasePoolConfig = {
-  max: 1,
+  max: 5,
   connectionTimeoutMillis: 10_000,
   idleTimeoutMillis: 10_000,
 };
