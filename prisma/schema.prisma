@@ -86,6 +86,7 @@
  * 2026.08.26  임도헌   Modified  상품 거래 상대·시각 쌍과 판매자 제외 DB 불변식 추가
  * 2026.08.26  임도헌   Modified  Cloudflare webhook inbox·outbox와 provider 세션 순서 필드 추가
  * 2026.08.26  임도헌   Modified  다시보기 최신·인기 복합 커서 정렬 인덱스 추가
+ * 2026.08.28  임도헌   Modified  PostgreSQL 식별자 제한에 맞춘 방송 세션 인덱스 이름 고정
  */
 generator client {
   provider = "prisma-client"
@@ -983,7 +984,7 @@ model Broadcast {
   @@index([liveInputId, id]) // 유저 채널 목록
   @@index([status, id]) // 라이브 중인 방송 목록
   @@index([started_at])
-  @@index([liveInputId, providerSessionStartedAt, providerSessionEndedAt])
+  @@index([liveInputId, providerSessionStartedAt, providerSessionEndedAt], map: "Broadcast_liveInputId_providerSessionStartedAt_providerSess_idx")
   @@index([streamCategoryId])
 }
 

@@ -17,7 +17,7 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 - 적용된 빈 DB와 `schema.prisma` 사이 migration drift 검사
 - 전체 Git 이력 Gitleaks secret scan
 - `npm run audit:production` critical 취약점 차단
-- `npm run test`
+- `npm run test:coverage`
 - `npm run test:migration:push`
 - `npm run test:migration:realtime`
 - `npm run test:migration:media`
@@ -33,7 +33,9 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 
 `Full Migration and Seed Smoke` job은 전용 `RELEASE_MIGRATION_TEST_DATABASE_URL`만 읽는 Prisma config로 빈 `boardport_release_test` DB에 전체 migration 이력을 처음부터 적용합니다. 적용된 DB와 `schema.prisma`를 비교해 drift가 있으면 차단하고, E2E seed를 두 번 실행해 최종 schema와 seed 멱등성을 확인한 뒤 cleanup을 검증합니다. 도메인별 Migration 통합 테스트는 별도 `boardport_migration_test` DB에서 순차 실행합니다. 기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
 
-`Dependency and Secret Audit` job은 전체 Git 이력을 Gitleaks로 검사하고 production dependency audit을 실행합니다. 현재 Prisma CLI 경로의 알려진 high 3건은 [`dependency-security-upgrade.md`](./dependency-security-upgrade.md)에 추적하며, 자동 수정이 Prisma 6.12 강제 다운그레이드를 제안하므로 적용하지 않습니다. CI는 이 기준선을 숨기지 않으면서 critical 취약점이 새로 유입되면 실패하도록 설정합니다.
+`Dependency and Secret Audit` job은 전체 Git 이력을 Gitleaks로 검사하고 production dependency audit을 실행합니다. 이 job은 의존성 트리만 검사하므로 `npm ci --ignore-scripts`를 사용해 Prisma Client 생성과 애플리케이션 DB 환경 변수 의존성을 제외합니다. 현재 Prisma CLI 경로의 알려진 high 3건은 [`dependency-security-upgrade.md`](./dependency-security-upgrade.md)에 추적하며, 자동 수정이 Prisma 6.12 강제 다운그레이드를 제안하므로 적용하지 않습니다. CI는 이 기준선을 숨기지 않으면서 critical 취약점이 새로 유입되면 실패하도록 설정합니다.
+
+`Unit, Type, Lint, Build` job은 Node 기반 단위 테스트와 파일별 jsdom 컴포넌트 테스트를 함께 실행하고 전체 source V8 coverage가 [`testing-strategy.md`](./testing-strategy.md)의 기준선 아래로 내려가면 실패합니다.
 
 ## 2. Playwright E2E
 

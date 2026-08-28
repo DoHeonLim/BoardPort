@@ -16,6 +16,8 @@
 # 2026.08.26  임도헌   Modified  다시보기 복합 커서 migration·다중 페이지 통합 검증 추가
 # 2026.08.28  임도헌   Modified  빈 PostgreSQL의 전체 migration·E2E seed·cleanup release smoke 추가
 # 2026.08.28  임도헌   Modified  schema drift·critical dependency audit·Git 이력 secret scan 추가
+# 2026.08.28  임도헌   Modified  jsdom 컴포넌트 접근성 테스트와 전체 source coverage 측정 추가
+# 2026.08.28  임도헌   Modified  보안 감사 설치 단계에서 애플리케이션 postinstall 실행 제외
 
 name: CI
 
@@ -126,7 +128,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # 의존성 트리 감사에는 Prisma Client 생성이 필요하지 않으며, 보안 job에
+        # 애플리케이션 DB 환경변수를 주입하지 않도록 lifecycle script를 실행하지 않는다.
+        run: npm ci --ignore-scripts
 
       # Prisma CLI 경로의 알려진 high 3건은 추적하되 critical 신규 유입은 즉시 차단한다.
       - name: Audit production dependencies
@@ -206,8 +210,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run unit and component tests with coverage
+        run: npm run test:coverage
 
       - name: Run Push ownership migration integration test
         run: npm run test:migration:push

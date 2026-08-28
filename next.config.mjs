@@ -4,6 +4,7 @@
  *
  * History
  * 2026.08.23 Modified Next.js 16 및 Serwist 기반 PWA 빌드 구성으로 전환
+ * 2026.08.28 Modified TypeScript CLI showConfig 출력 파싱 불안정을 Compiler API 경로로 우회
  */
 
 import withSerwistInit from "@serwist/next";
@@ -153,6 +154,11 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // Next 16 CLI 경로가 큰 --showConfig 출력을 잘린 JSON으로 읽는 경우가 있어
+    // 타입 검사를 생략하지 않고 현재 TypeScript 5.9 Compiler API로 실행한다.
+    useTypeScriptCli: false,
+  },
   images: {
     remotePatterns: [
       {

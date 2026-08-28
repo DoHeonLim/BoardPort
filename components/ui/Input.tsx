@@ -26,6 +26,7 @@
  * 2026.04.18  임도헌   Modified  textarea는 자동 높이 조절을 기본 동작으로 삼고 커스텀 resize affordance를 제거해 표현과 동작을 일치시킴
  * 2026.05.30  임도헌   Modified  작성형 폼 compact 밀도를 위한 density 옵션 추가
  * 2026.08.27  임도헌   Modified  label·필드·오류 ID 연결과 시각적 숨김 label 옵션으로 접근 가능한 이름·설명 보강
+ * 2026.08.28  임도헌   Modified  숫자 스피너 제거를 인라인 style 태그에서 필드 selector class로 전환
  */
 "use client";
 
@@ -125,11 +126,6 @@ const Input = (
     resizeTextarea(textareaRef.current);
   }, [resizeTextarea, rest.defaultValue, rest.value, type]);
 
-  // 스피너 제거 스타일
-  const noSpinnerStyle = {
-    MozAppearance: "textfield", // Firefox
-  } as React.CSSProperties;
-
   if (type === "textarea") {
     return (
       <div className="flex flex-col gap-1.5 w-full">
@@ -199,15 +195,6 @@ const Input = (
       )}
 
       <div className="relative">
-        {/* Webkit 스피너 제거용 글로벌 스타일 (필요시 globals.css로 이동 가능) */}
-        <style jsx>{`
-          input[type="number"]::-webkit-inner-spin-button,
-          input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-          }
-        `}</style>
-
         {icon && (
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
             {icon}
@@ -228,10 +215,11 @@ const Input = (
             icon ? "pl-11" : "pl-4",
             canToggle ? "pr-12" : "pr-4",
             hasErrors && "ring-2 ring-danger/50",
+            type === "number" &&
+              "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
             "text-base md:text-sm",
             className
           )}
-          style={type === "number" ? noSpinnerStyle : undefined}
           // 스크롤로 숫자 변경되는 것 방지
           onWheel={(e) => type === "number" && e.currentTarget.blur()}
           {...rest}

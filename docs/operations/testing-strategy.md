@@ -6,13 +6,16 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 
 ### Vitest
 
-빠르게 반복 가능한 순수 로직과 cache 변환은 Vitest로 검증합니다.
+빠르게 반복 가능한 순수 로직과 cache 변환은 기본 Node 환경의 Vitest로 검증합니다. 실제 DOM 의미 구조가 필요한 React 컴포넌트 테스트만 파일 단위 `jsdom` 환경을 사용해 기존 테스트 실행 비용을 유지합니다.
 
 - `returnTo` / callback URL 정규화
 - 상품/게시글 작성 폼 입력 스키마
 - TanStack Query infinite cache의 삭제 항목과 stale cursor 정리
 - 알림 타입 설정, Push 허용 여부, quiet hours 정책
 - DTO 변환, 상태 전이, fallback 계산 유틸
+- 공용 폼 필드의 label·도움말·검증 오류 ARIA 연결
+
+CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전체 source를 분모에 포함한 V8 coverage를 측정합니다. 2026-08-28 기준선은 Statements 11.41%, Branches 10.72%, Functions 9.93%, Lines 11.78%이며 CI 하한은 각각 11%, 10%, 9%, 11%입니다. 낮은 전체 수치를 숨기지 않고 시작점으로 기록하며, 단순 percentage를 맞추기 위한 의미 없는 테스트보다 인증·권한·상태 전이·cache·공용 UI처럼 회귀 영향이 큰 경로를 우선 보강합니다. 릴리즈 전에는 coverage 하락 여부와 새 핵심 로직의 회귀 테스트 포함 여부를 함께 리뷰합니다.
 
 ### Playwright
 
@@ -36,6 +39,7 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 ## 3. 현재 자동화 범위
 
 - Vitest 설정과 npm script 추가
+- React Testing Library·jsdom 기반 컴포넌트 접근성 테스트 환경과 V8 coverage 측정 추가
 - `sanitizeCallbackUrl()` 회귀 테스트
 - 로그인/회원가입/온보딩/SMS/비밀번호 재설정 폼 스키마 회귀 테스트
 - 상품/게시글 폼 스키마 회귀 테스트
