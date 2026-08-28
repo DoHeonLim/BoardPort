@@ -39,6 +39,8 @@ production build를 `next start`로 실행한 Chromium smoke에서 서비스 워
 
 남은 3건은 `prisma → @prisma/config → deepmerge-ts@7` 한 경로가 package 단위로 집계된 결과다. npm의 자동 수정 제안은 Prisma `7.9.1`을 `6.12.0`으로 강제 다운그레이드하므로 적용하지 않는다. 이 경로는 application request runtime이 아니라 Prisma CLI 설정 처리 경로이며 다음 Prisma 7 패치에서 `deepmerge-ts >= 8` 반영 여부를 재확인한다.
 
+CI의 `npm run audit:production`은 이 high 3건을 계속 출력해 기준선을 숨기지 않으면서 critical 취약점이 새로 유입되면 실패하도록 설정한다. hardcoded secret은 별도 `Dependency and Secret Audit` job에서 전체 Git 이력을 Gitleaks로 검사해 차단한다.
+
 다음 명령은 사용하지 않는다.
 
 ```bash
@@ -53,7 +55,7 @@ npx tsc --noEmit
 npm run lint
 npm run build
 npx prisma validate
-npm audit --omit=dev
+npm run audit:production
 git diff --check
 ```
 

@@ -6,6 +6,7 @@ name: E2E
 # 2026.08.21: Realtime JWT 환경변수를 ES256 private JWK 기준으로 전환
 # 2026.08.23: E2E seed 전에 공유 테스트 DB migration 적용 추가
 # 2026.08.28: Next.js production build와 next start를 대상으로 E2E 실행
+# 2026.08.28: Production 로그인 rate limit 검증용 실행별 salt 추가
 
 # develop 통합 PR과 master 릴리즈 PR에서 seed 기반 회귀 확인
 on:
@@ -36,6 +37,8 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
+      # Production 로그인은 별도 HMAC salt를 강제하므로 실행별 테스트 값을 주입
+      RATE_LIMIT_SALT: boardport-e2e-rate-limit-salt-${{ github.run_id }}-${{ github.run_attempt }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLIC_KEY: ${{ secrets.E2E_NEXT_PUBLIC_SUPABASE_PUBLIC_KEY }}
       SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
@@ -55,8 +58,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ci-cloudflare-api-token
       CLOUDFLARE_WEBHOOK_SECRET: ci-cloudflare-webhook-secret
       CLOUDFLARE_STREAM_WEBHOOK_SECRET: ci-cloudflare-stream-webhook-secret
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BDQxa9WYcbzWsT2ehj226zkdh9l4lOFuMIQIGalUmPoZVOdvQIV9-bDDHbxPeO5mdi681SSOLtj-jFUZwju9e-s
-      VAPID_PRIVATE_KEY: 5PzSaFz9DSLMyg1yptrbwN6gzpYv3zmukFvvrU-hJ9g
       NEXT_PUBLIC_KAKAO_MAP_API_KEY: ci-kakao-map-api-key
     steps:
       - name: Checkout
@@ -71,7 +72,7 @@ jobs:
 
       # E2E seed UID는 실제 Cloudflare 자산이 아니므로 Production private JWK를
       # 복사하지 않고 workflow 실행마다 token 생성 전용 RSA key를 새로 만든다.
-      - name: Generate E2E Stream signing key
+      - name: Generate E2E signing keys
         run: node scripts/generate-e2e-stream-signing-key.mjs
 
       - name: Validate E2E secrets

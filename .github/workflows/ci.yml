@@ -15,6 +15,7 @@
 # 2026.08.26  임도헌   Modified  Stream webhook inbox/outbox migration 통합 검증 추가
 # 2026.08.26  임도헌   Modified  다시보기 복합 커서 migration·다중 페이지 통합 검증 추가
 # 2026.08.28  임도헌   Modified  빈 PostgreSQL의 전체 migration·E2E seed·cleanup release smoke 추가
+# 2026.08.28  임도헌   Modified  schema drift·critical dependency audit·Git 이력 secret scan 추가
 
 name: CI
 
@@ -80,6 +81,15 @@ jobs:
       - name: Confirm migration status
         run: npx prisma migrate status --config prisma.release-migration-test.config.ts
 
+      # migration 적용 결과가 schema.prisma와 달라지면 exit code 2로 릴리즈 차단
+      - name: Check migrated schema drift
+        run: >-
+          npx prisma migrate diff
+          --config prisma.release-migration-test.config.ts
+          --from-config-datasource
+          --to-schema prisma/schema.prisma
+          --exit-code
+
       # 실제 E2E fixture가 요구하는 관계·제약까지 생성하고 재실행 멱등성을 확인
       - name: Seed E2E smoke data
         id: seed
@@ -90,6 +100,37 @@ jobs:
       - name: Cleanup E2E smoke data
         if: always() && steps.seed.outcome == 'success'
         run: npm run cleanup:e2e
+
+  security:
+    name: Dependency and Secret Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # 전체 Git 이력을 검사하므로 shallow checkout을 사용하지 않는다.
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Scan Git history for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Prisma CLI 경로의 알려진 high 3건은 추적하되 critical 신규 유입은 즉시 차단한다.
+      - name: Audit production dependencies
+        run: npm run audit:production
 
   quality:
     name: Unit, Type, Lint, Build
@@ -145,8 +186,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ci-cloudflare-api-token
       CLOUDFLARE_WEBHOOK_SECRET: ci-cloudflare-webhook-secret
       CLOUDFLARE_STREAM_WEBHOOK_SECRET: ci-cloudflare-stream-webhook-secret
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BDQxa9WYcbzWsT2ehj226zkdh9l4lOFuMIQIGalUmPoZVOdvQIV9-bDDHbxPeO5mdi681SSOLtj-jFUZwju9e-s
-      VAPID_PRIVATE_KEY: 5PzSaFz9DSLMyg1yptrbwN6gzpYv3zmukFvvrU-hJ9g
       NEXT_PUBLIC_KAKAO_MAP_API_KEY: ci-kakao-map-api-key
     steps:
       # GitHub runner에 저장소 코드를 내려받음
@@ -159,6 +198,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # build가 요구하는 VAPID key를 실행마다 생성해 private key를 저장소에 남기지 않음
+      - name: Generate CI signing keys
+        run: node scripts/generate-e2e-stream-signing-key.mjs
 
       - name: Install dependencies
         run: npm ci
