@@ -42,6 +42,8 @@
  * 2026.05.28  임도헌   Modified  모바일은 버튼 전송, 데스크톱은 Enter 전송 기준으로 IME 정책 정리
  * 2026.08.22  임도헌   Modified  채팅 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  * 2026.08.26  임도헌   Modified  응답 유실 뒤 재전송에도 같은 clientMessageId를 재사용
+ * 2026.08.27  임도헌   Modified  채팅 이미지 미리보기의 고정 표시 폭을 Image sizes로 명시
+ * 2026.08.28  임도헌   Modified  채팅 입력·이미지 업로드 핸들러 JSDoc 보강
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -107,7 +109,11 @@ export default function ChatInputBar({
     clientMessageId: string;
   } | null>(null);
 
-  // 모바일 전송 탭 시 버튼으로 포커스가 이동하며 키보드가 닫히는 현상 방지
+  /**
+   * 모바일 액션 버튼을 누를 때 textarea 포커스가 먼저 빠지는 동작을 막는다.
+   *
+   * @param event - 액션 버튼에서 발생한 마우스 또는 포인터 이벤트
+   */
   const preventFocusSteal = (
     event:
       | React.MouseEvent<HTMLButtonElement>
@@ -116,20 +122,24 @@ export default function ChatInputBar({
     event.preventDefault();
   };
 
-  // 사진 선택 트리거 (ActionMenu에서 호출)
+  /** 액션 메뉴에서 이미지 파일 선택기를 열고 모바일 키보드를 정리한다. */
   const triggerPhotoSelect = () => {
     // 이미지 첨부는 미리보기 공간을 여는 흐름이라 모바일 키보드를 먼저 정리
     textareaRef.current?.blur();
     fileInputRef.current?.click();
   };
 
-  // 약속 제안은 별도 모달 입력 흐름으로 넘어가므로 키보드를 먼저 정리
+  /** 약속 제안 모달을 열기 전에 모바일 키보드를 닫는다. */
   const triggerAppointmentOpen = () => {
     textareaRef.current?.blur();
     onScheduleOpen?.();
   };
 
-  // 로컬 preview URL 수명 관리
+  /**
+   * 이전 객체 URL을 해제하고 현재 이미지 미리보기 URL을 교체한다.
+   *
+   * @param nextPreviewUrl - 새 미리보기 URL 또는 초기화를 위한 null
+   */
   const replacePreviewUrl = (nextPreviewUrl: string | null) => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
@@ -138,6 +148,7 @@ export default function ChatInputBar({
     setImagePreview(nextPreviewUrl);
   };
 
+  /** 포인터가 정밀한 데스크톱 환경에서만 textarea 포커스를 복구한다. */
   const focusTextareaOnDesktop = () => {
     if (typeof window === "undefined") return;
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
@@ -149,7 +160,12 @@ export default function ChatInputBar({
     });
   };
 
-  // 선택 원본과 업로드 모드에 맞춰 Cloudflare Images 업로드 수행
+  /**
+   * 선택한 이미지를 전송 모드에 맞게 가공해 Cloudflare Images에 업로드한다.
+   *
+   * @param file - 사용자가 선택한 원본 이미지
+   * @param mode - 최적화 또는 원본 업로드 모드
+   */
   const uploadSelectedImage = async (file: File, mode: ChatImageUploadMode) => {
     setIsUploading(true);
     setUploadedUrl(null);
@@ -177,7 +193,11 @@ export default function ChatInputBar({
     }
   };
 
-  // 1. 이미지 선택 및 업로드 핸들러
+  /**
+   * 파일 입력에서 선택한 이미지의 크기·형식을 검증하고 미리보기와 업로드를 시작한다.
+   *
+   * @param e - 이미지 파일 입력 변경 이벤트
+   */
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -221,7 +241,7 @@ export default function ChatInputBar({
     }
   };
 
-  // 이미지 삭제
+  /** 선택 이미지와 업로드 결과, 파일 입력 상태를 모두 초기화한다. */
   const removeImage = () => {
     replacePreviewUrl(null);
     setUploadedUrl(null);
@@ -231,7 +251,7 @@ export default function ChatInputBar({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // 업로드 품질 전환
+  /** 선택한 원본 파일을 반대 화질 모드로 다시 업로드한다. */
   const toggleImageUploadMode = async () => {
     const originalFile = originalImageFileRef.current;
     if (!originalFile || isUploading) return;
@@ -247,7 +267,11 @@ export default function ChatInputBar({
     }
   };
 
-  // 2. 메시지 제출
+  /**
+   * 현재 텍스트와 이미지 정보를 멱등성 ID와 함께 제출하고 실패 시 입력을 복원한다.
+   *
+   * @param options - IME 조합 중 명시적 버튼 전송을 허용할지 여부
+   */
   const submit = async (options?: { allowComposing?: boolean }) => {
     if (
       (!options?.allowComposing && isComposing) ||
@@ -310,6 +334,11 @@ export default function ChatInputBar({
     };
   }, []);
 
+  /**
+   * 데스크톱 Enter 입력은 전송하고 Shift+Enter 및 모바일 Enter는 줄바꿈으로 유지한다.
+   *
+   * @param e - textarea 키보드 이벤트
+   */
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const isDesktopInput =
       typeof window !== "undefined" &&
@@ -331,6 +360,7 @@ export default function ChatInputBar({
               src={imagePreview}
               alt="Preview"
               fill
+              sizes="80px"
               unoptimized={imageIsAnimated}
               className="object-cover"
             />

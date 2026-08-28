@@ -12,12 +12,20 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/add/layout.tsx 에서 app/(app)/(tabs)/products/add/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  모바일 작성 헤더 높이와 좌우 여백을 압축
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.27  임도헌   Modified  상위 탭 레이아웃과 중복되던 main 랜드마크 제거
+ * 2026.08.28  임도헌   Modified  상품 등록 레이아웃 함수 JSDoc 보강
  */
 
 import type { ReactNode } from "react";
 import BackButton from "@/components/global/BackButton";
 import { cn } from "@/lib/utils";
 
+/**
+ * 상품 등록 화면의 상단 앱바와 본문 컨테이너를 구성한다.
+ *
+ * @param props - 상품 등록 페이지 콘텐츠
+ * @returns 상품 등록 전용 레이아웃
+ */
 export default function AddProductLayout({
   children,
 }: {
@@ -41,7 +49,7 @@ export default function AddProductLayout({
       </header>
 
       {/* 본문 컨테이너 */}
-      <main className="mx-auto max-w-mobile pb-20">{children}</main>
+      <div className="mx-auto max-w-mobile pb-20">{children}</div>
 
       {/* 스크린리더 안내 */}
       <span className="sr-only" aria-live="polite">

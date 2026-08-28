@@ -55,6 +55,7 @@
  * 2026.08.22  임도헌   Modified  상품 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.24  임도헌   Modified  Next.js 16 모달 편집 복귀를 목록 relay로 고정하고 목적 경로 전환 후 성공 피드백 표시
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 폼 오류·이미지 섹션 스크롤 동작 조정
  */
 
 /**
@@ -95,6 +96,7 @@ import {
   PRODUCT_UPDATE_SUCCESS_MESSAGE,
 } from "@/features/product/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import { toast } from "sonner";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -535,7 +537,7 @@ export default function ProductForm({
     setIsImageFormOpen(true);
     imageSectionRef.current?.focus();
     imageSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
+      behavior: getMotionSafeScrollBehavior(),
       block: "center",
       inline: "nearest",
     });
@@ -735,7 +737,7 @@ export default function ProductForm({
 
     if (formErrors.location) {
       locationSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
         block: "center",
         inline: "nearest",
       });

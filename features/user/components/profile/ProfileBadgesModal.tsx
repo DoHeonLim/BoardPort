@@ -32,6 +32,9 @@
  * 2026.04.18  임도헌   Modified  데스크톱 배지 모달 대비와 툴팁 화살표/박스 경계 표현을 보강해 가시성과 완성도를 높임
  * 2026.04.18  임도헌   Modified  미획득/선택 상태의 대비를 높여 라이트·다크 모드 모두에서 배지 가시성을 보강
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.08.27  임도헌   Modified  고정 크기 뱃지 아이콘의 Image sizes 명시
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 모바일 뱃지 선택 스크롤 동작 조정
+ * 2026.08.28  임도헌   Modified  입력 방식 감지 함수 JSDoc 보강
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -51,6 +54,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import type { Badge } from "@/features/user/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -153,6 +157,7 @@ function BadgeItem({
             src={`${badge.icon}/public`}
             alt={badge.name}
             fill
+            sizes="(min-width: 640px) 48px, 40px"
             className={cn(
               "object-contain",
               !isEarned && "grayscale opacity-75"
@@ -259,6 +264,7 @@ export default function ProfileBadgesModal({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    /** 현재 입력 장치가 데스크톱 툴팁 상호작용을 지원하는지 동기화한다. */
     const sync = () => setShowDesktopTooltip(mq.matches);
     sync();
     mq.addEventListener("change", sync);
@@ -279,6 +285,7 @@ export default function ProfileBadgesModal({
                   src={`${selectedBadge.icon}/public`}
                   alt={selectedBadge.name}
                   fill
+                  sizes="44px"
                   className={cn(
                     "object-contain p-1.5",
                     !earnedSet.has(selectedBadge.id) && "grayscale opacity-80"
@@ -329,7 +336,7 @@ export default function ProfileBadgesModal({
             if (!showDesktopTooltip) {
               mobileScrollRef.current?.scrollTo({
                 top: 0,
-                behavior: "smooth",
+                behavior: getMotionSafeScrollBehavior(),
               });
             }
           }}

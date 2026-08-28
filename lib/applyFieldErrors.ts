@@ -8,6 +8,7 @@
  * 2026.03.08  임도헌   Created   서버 fieldErrors 공통 적용 및 첫 에러 포커스/스크롤 처리 유틸 추가
  * 2026.03.12  임도헌   Modified  첫 필드 포커스/스크롤 옵션과 공통 fieldErrors 매핑 규칙 명확화
  * 2026.03.12  임도헌   Modified  로그인/회원가입/상품/게시글/스트림 폼 공통 서버 에러 적용 경로로 통일
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 서버 필드 오류 스크롤 동작 조정
  */
 
 import type {
@@ -16,6 +17,7 @@ import type {
   UseFormSetError,
   UseFormSetFocus,
 } from "react-hook-form";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 
 /**
  * 서버 필드 에러가 매핑된 실제 입력 요소를 찾아 화면 중앙으로 스크롤
@@ -35,7 +37,7 @@ function scrollFieldIntoView(fieldName: string) {
   if (!target) return;
 
   target.scrollIntoView({
-    behavior: "smooth",
+    behavior: getMotionSafeScrollBehavior(),
     block: "center",
     inline: "nearest",
   });

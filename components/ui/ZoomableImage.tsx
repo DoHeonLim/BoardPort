@@ -10,7 +10,11 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 원본 버튼 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.14  임도헌   Modified  게시글 상세 첫 이미지의 priority/fetchPriority/sizes 주입을 받을 수 있도록 미리보기 이미지 옵션 확장
+ * 2026.08.28  임도헌   Modified  게시글 블록 서버 경계 분리에 맞춰 확대 상호작용의 클라이언트 island 책임 명시
+ * 2026.08.28  임도헌   Modified  확대·이동·포인터 제어 함수 JSDoc 보강
  */
+
+"use client";
 
 import {
   useCallback,
@@ -76,6 +80,13 @@ export function ImageZoomModal({
   const pinchDistanceRef = useRef<number | null>(null);
   const pinchScaleOriginRef = useRef(MIN_SCALE);
 
+  /**
+   * 확대 배율에서 이미지가 뷰포트 밖으로 과도하게 이동하지 않도록 좌표를 제한한다.
+   *
+   * @param nextTranslate - 적용하려는 이미지 이동 좌표
+   * @param nextScale - 좌표 제한을 계산할 확대 배율
+   * @returns 뷰포트 경계 안으로 보정된 이동 좌표
+   */
   const clampTranslate = useCallback(
     (nextTranslate: { x: number; y: number }, nextScale: number) => {
       const viewport = viewportRef.current;
@@ -96,6 +107,11 @@ export function ImageZoomModal({
     []
   );
 
+  /**
+   * 허용 범위로 보정한 확대 배율과 해당 배율의 유효 이동 좌표를 적용한다.
+   *
+   * @param nextScale - 적용하려는 확대 배율
+   */
   const applyScale = useCallback(
     (nextScale: number) => {
       const boundedScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, nextScale));
@@ -105,6 +121,7 @@ export function ImageZoomModal({
     [clampTranslate]
   );
 
+  /** 확대 상태와 포인터 추적값을 초기화한 뒤 모달을 닫는다. */
   const closeZoom = useCallback(() => {
     onClose();
     setScale(1);
@@ -115,14 +132,17 @@ export function ImageZoomModal({
     pinchDistanceRef.current = null;
   }, [onClose]);
 
+  /** 현재 배율을 한 단계 확대한다. */
   const zoomIn = useCallback(() => {
     applyScale(scale + ZOOM_STEP);
   }, [applyScale, scale]);
 
+  /** 현재 배율을 한 단계 축소한다. */
   const zoomOut = useCallback(() => {
     applyScale(scale - ZOOM_STEP);
   }, [applyScale, scale]);
 
+  /** 확대 배율과 이동 상태를 초기값으로 되돌린다. */
   const resetZoom = useCallback(() => {
     setScale(1);
     setTranslate({ x: 0, y: 0 });
@@ -132,6 +152,11 @@ export function ImageZoomModal({
     pinchDistanceRef.current = null;
   }, []);
 
+  /**
+   * 마우스 휠 방향을 확대 또는 축소 동작으로 변환한다.
+   *
+   * @param event - 이미지 뷰포트에서 발생한 휠 이벤트
+   */
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       event.preventDefault();
@@ -144,6 +169,11 @@ export function ImageZoomModal({
     [zoomIn, zoomOut]
   );
 
+  /**
+   * 포인터를 등록하고 단일 이동 또는 두 손가락 확대 제스처를 시작한다.
+   *
+   * @param event - 이미지 뷰포트의 포인터 시작 이벤트
+   */
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -175,6 +205,11 @@ export function ImageZoomModal({
     setIsPanning(true);
   };
 
+  /**
+   * 활성 포인터 위치를 갱신해 이미지 이동 또는 핀치 배율을 적용한다.
+   *
+   * @param event - 이미지 뷰포트의 포인터 이동 이벤트
+   */
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (activePointersRef.current.has(event.pointerId)) {
@@ -224,6 +259,11 @@ export function ImageZoomModal({
     );
   };
 
+  /**
+   * 종료된 포인터를 해제하고 남은 포인터가 있으면 이동 기준점을 재설정한다.
+   *
+   * @param event - 종료되거나 취소된 포인터 이벤트
+   */
   const handlePointerEnd = (event?: PointerEvent<HTMLDivElement>) => {
     if (event) {
       activePointersRef.current.delete(event.pointerId);
@@ -262,6 +302,7 @@ export function ImageZoomModal({
   useEffect(() => {
     if (!open) return;
 
+    /** 키보드 입력을 모달 닫기와 확대·축소 동작으로 연결한다. */
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closeZoom();

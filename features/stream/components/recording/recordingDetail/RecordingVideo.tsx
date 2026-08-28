@@ -12,9 +12,8 @@
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.03.21  임도헌   Modified  플레이어 폴백 카드 보더를 subtle 톤으로 맞춰 녹화 상세 패널 기준과 통일
  * 2026.08.21  임도헌   Modified  권한 확인 후 발급된 단기 playback token으로만 iframe 재생
+ * 2026.08.28  임도헌   Modified  정적 Cloudflare iframe 셸을 서버 컴포넌트로 전환
  */
-
-"use client";
 
 import { cn } from "@/lib/utils";
 

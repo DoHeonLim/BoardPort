@@ -13,6 +13,8 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/live-preview/page.tsx 에서 app/(app)/streams/[id]/live-preview/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.08.21  임도헌   Modified  공용 권한 판정 뒤 signed playback token으로만 미리보기 재생
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.27  임도헌   Modified  전체 화면 미리보기 썸네일의 Image sizes 명시
+ * 2026.08.28  임도헌   Modified  미리보기 폴백 컴포넌트 함수 JSDoc 보강
  */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
@@ -31,6 +33,12 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * 라이브 재생 전 또는 접근 불가 상태에 썸네일 폴백을 표시한다.
+ *
+ * @param props - 표시할 서명된 썸네일 URL
+ * @returns 전체 화면 썸네일 또는 방송 준비 안내
+ */
 function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
   return (
     <div className="relative h-screen w-screen bg-black flex items-center justify-center">
@@ -39,6 +47,7 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
           src={thumbnailUrl}
           alt="Thumbnail"
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />
@@ -105,6 +114,7 @@ export default async function LivePreviewPage(props: {
           src={row.thumbnail}
           alt="Thumbnail"
           fill
+          sizes="100vw"
           className="object-cover -z-10"
           priority
         />

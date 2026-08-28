@@ -10,6 +10,7 @@
  * 2026.04.17  임도헌   Modified  provider 배치 순서와 지연 부트스트랩 의도가 레이아웃 설명에서 바로 드러나도록 주석 보강
  * 2026.05.18  임도헌   Modified  채팅 미읽음 Realtime 브리지를 앱 전역으로 이동해 탭 밖 채팅 상세 읽음 처리까지 동기화
  * 2026.08.23  임도헌   Modified  Next.js 16 호환 클라이언트 지연 로딩 경계로 알림 부트스트랩 분리
+ * 2026.08.27  임도헌   Modified  본문 바로가기 링크가 이동할 로그인 영역 공통 포커스 대상 추가
  */
 import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import AppWrapper from "@/components/global/AppWrapper";
@@ -53,7 +54,9 @@ export default async function AppLayout({
               {session?.id ? (
                 <ChatRoomsRealtimeBridge userId={session.id} />
               ) : null}
-              {children}
+              <div id="main-content" tabIndex={-1} className="min-h-[100dvh]">
+                {children}
+              </div>
             </ModalStoreProvider>
           </NotificationStoreProvider>
         </QueryProvider>

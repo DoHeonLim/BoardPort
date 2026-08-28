@@ -12,6 +12,8 @@
  * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 섹션 앱바 타이틀 weight를 500 기준으로 정리
  * 2026.04.18  임도헌   Modified  프로필 상품 하위 페이지 헤더를 고정 + 높이 스페이서 구조로 정리하고 스크롤 초기화 책임을 template로 분리
  * 2026.05.30  임도헌   Modified  모바일 상품 하위 페이지 앱바 높이와 간격을 압축
+ * 2026.08.27  임도헌   Modified  상위 탭 레이아웃과 중복되던 main 랜드마크 제거
+ * 2026.08.28  임도헌   Modified  경로별 제목 결정 함수 JSDoc 보강
  */
 
 import { usePathname } from "next/navigation";
@@ -19,6 +21,12 @@ import type { ReactNode } from "react";
 import BackButton from "@/components/global/BackButton";
 import { cn } from "@/lib/utils";
 
+/**
+ * 현재 프로필 상품 하위 경로에 맞는 앱바 제목을 결정한다.
+ *
+ * @param pathname - 현재 애플리케이션 경로
+ * @returns 판매·구매·찜 내역에 대응하는 제목
+ */
 function resolveTitle(pathname: string) {
   if (pathname.endsWith("/my-sales")) return "판매 내역";
   if (pathname.endsWith("/my-purchases")) return "구매 내역";
@@ -72,7 +80,7 @@ export default function ProfileProductSectionLayout({
         style={{ height: `${SECTION_HEADER_HEIGHT}px` }}
       />
 
-      <main className="mx-auto max-w-mobile pb-24">{children}</main>
+      <div className="mx-auto max-w-mobile pb-24">{children}</div>
     </div>
   );
 }

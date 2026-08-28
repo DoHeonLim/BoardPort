@@ -29,6 +29,7 @@
  * 2026.03.25  임도헌   Modified  프로필 메인과 탭바 하단 간격을 맞추기 위해 채널 페이지 bottom padding을 통일
  * 2026.05.15  임도헌   Modified  채널 다시보기 무한스크롤용 첫 페이지 커서 전달
  * 2026.08.13  임도헌   Modified  채널 다시보기 목록에 현재 조회자 ID 전달
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 팔로우 CTA 스크롤 동작 조정
  * ===============================================================================================
  * User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 채널 소개/owner 편집)
@@ -44,6 +45,7 @@ import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { NoSymbolIcon } from "@heroicons/react/24/outline";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import UserChannelHeader from "@/features/stream/components/channel/UserChannelHeader";
 import LiveNowHero from "@/features/stream/components/channel/LiveNowHero";
 import RecordingGrid from "@/features/stream/components/channel/RecordingGrid";
@@ -138,12 +140,15 @@ export default function UserChannelContainer({
   const focusFollowButton = () => {
     const btn = document.getElementById("channel-follow-button");
     if (btn) {
-      btn.scrollIntoView({ behavior: "smooth", block: "center" });
+      btn.scrollIntoView({
+        behavior: getMotionSafeScrollBehavior(),
+        block: "center",
+      });
       btn.focus();
       return;
     }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: getMotionSafeScrollBehavior() });
   };
 
   return (

@@ -12,6 +12,8 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.14  임도헌   Modified  블록 유형 배지의 명도 대비를 높여 작성 페이지 접근성을 보강
  * 2026.05.30  임도헌   Modified  이미지/동영상 블록 드롭존에 제품 업로더와 같은 드래그 피드백 추가
+ * 2026.08.27  임도헌   Modified  게시글 이미지 블록의 반응형 표시 폭을 Image sizes로 명시
+ * 2026.08.28  임도헌   Modified  텍스트 블록 높이 조절 함수 JSDoc 보강
  */
 
 import Image from "next/image";
@@ -111,6 +113,11 @@ export default function PostEditorBlocksField({
   const textAreaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
 
+  /**
+   * 텍스트 블록 textarea 높이를 내용에 맞추되 최소 편집 높이를 유지한다.
+   *
+   * @param element - 높이를 다시 계산할 textarea 요소
+   */
   const resizeTextBlockTextarea = (element: HTMLTextAreaElement | null) => {
     if (!element) return;
 
@@ -128,7 +135,10 @@ export default function PostEditorBlocksField({
   /**
    * 미디어 블록 드롭 가능 상태 표시
    */
-  const markBlockDragOver = (event: DragEvent<HTMLElement>, blockId: string) => {
+  const markBlockDragOver = (
+    event: DragEvent<HTMLElement>,
+    blockId: string
+  ) => {
     event.preventDefault();
     if (isEditorLocked || isUploading || isVideoUploading) return;
     setDragOverBlockId(blockId);
@@ -435,6 +445,7 @@ export default function PostEditorBlocksField({
                                   src={imageBlockAssets[block.id]!.preview}
                                   alt={`${index + 1}번째 이미지 블록`}
                                   fill
+                                  sizes="(max-width: 768px) 100vw, 768px"
                                   unoptimized
                                   className="object-cover"
                                 />

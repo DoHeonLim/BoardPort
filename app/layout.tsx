@@ -8,9 +8,12 @@
  * 2026.04.12  임도헌   Created   라우트 그룹 개편에 맞춰 공통 루트 레이아웃만 유지하도록 구조 분리
  * 2026.05.30  임도헌   Modified  PWA 상태표시줄 색상을 라이트/다크 테마 기준으로 분리
  * 2026.08.23  임도헌   Modified  metadata base URL을 공용 trusted origin 검증으로 통합
+ * 2026.08.27  임도헌   Modified  키보드 사용자를 위한 공통 본문 바로가기 링크 추가
+ * 2026.08.28  임도헌   Modified  루트 레이아웃 함수 JSDoc 보강
  */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import SkipLink from "@/components/global/SkipLink";
 import { getTrustedAppBaseUrl } from "@/lib/env";
 import "./globals.css";
 
@@ -68,6 +71,12 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * 전역 글꼴과 공통 접근성 요소를 적용하는 앱 루트 레이아웃
+ *
+ * @param props - 애플리케이션 하위 콘텐츠
+ * @returns 공통 HTML 문서 구조
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -79,7 +88,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={pretendardSubset.variable}
     >
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <SkipLink />
+        {children}
+      </body>
     </html>
   );
 }

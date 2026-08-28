@@ -20,6 +20,7 @@
  * 2026.05.18  임도헌   Modified  RecordingMeta가 VodAsset 기준 댓글 수 캐시를 갱신할 수 있도록 vodId 전달
  * 2026.06.07  임도헌   Modified  녹화본 좋아요 상태를 시청자별 캐시로 분리하기 위해 viewerId 전달
  * 2026.08.21  임도헌   Modified  원본 VOD UID 대신 권한 확인 후 발급한 playback token만 플레이어에 전달
+ * 2026.08.28  임도헌   Modified  정적 VOD 상세 조합을 서버 컴포넌트로 전환하고 메타 상호작용만 클라이언트 island로 유지
  * ===============================================================================================
  * RecordingDetail (녹화본 상세) 정보를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - RecordingTitle.tsx      : 녹화본 제목
@@ -30,8 +31,6 @@
  * - index.tsx               : 위 컴포넌트들을 조합한 최종 컨테이너
  * ===============================================================================================
  */
-
-"use client";
 
 import RecordingTitle from "@/features/stream/components/recording/recordingDetail/RecordingTitle";
 import RecordingVideo from "@/features/stream/components/recording/recordingDetail/RecordingVideo";

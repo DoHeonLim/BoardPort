@@ -39,6 +39,7 @@
  * 2026.05.26  임도헌   Modified  저장 성공 후 queryFn 없는 상세 하위 query를 건드리지 않도록 목록 query만 무효화
  * 2026.05.30  임도헌   Modified  모바일 게시글 폼의 섹션 간격을 작성형 compact 밀도 기준으로 조정
  * 2026.08.22  임도헌   Modified  게시글 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 편집기 블록 스크롤 동작 조정
  */
 "use client";
 
@@ -54,6 +55,7 @@ import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
 import { getUploadUrl } from "@/lib/cloudflareImages";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import { postFormSchema, PostFormValues } from "@/features/post/schemas";
 import PostEditorBlocksField from "@/features/post/components/PostEditorBlocksField";
 import { createPostAction } from "@/features/post/actions/create";
@@ -254,7 +256,7 @@ export default function PostForm({
     scrollToBlock: (blockId: string) => {
       requestAnimationFrame(() => {
         blockRefs.current[blockId]?.scrollIntoView({
-          behavior: "smooth",
+          behavior: getMotionSafeScrollBehavior(),
           block: "center",
         });
       });
@@ -360,7 +362,7 @@ export default function PostForm({
     setEditorBlocks((prev) => [...prev, nextBlock]);
     requestAnimationFrame(() => {
       blockRefs.current[nextBlock.id]?.scrollIntoView({
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
         block: "center",
       });
     });
@@ -376,7 +378,7 @@ export default function PostForm({
     setEditorBlocks((prev) => [...prev, nextBlock]);
     requestAnimationFrame(() => {
       blockRefs.current[nextBlock.id]?.scrollIntoView({
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
         block: "center",
       });
     });
@@ -402,7 +404,7 @@ export default function PostForm({
     setEditorBlocks((prev) => [...prev, nextBlock]);
     requestAnimationFrame(() => {
       blockRefs.current[nextBlock.id]?.scrollIntoView({
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
         block: "center",
       });
     });
@@ -418,7 +420,7 @@ export default function PostForm({
     setEditorBlocks((prev) => [...prev, nextBlock]);
     requestAnimationFrame(() => {
       blockRefs.current[nextBlock.id]?.scrollIntoView({
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
         block: "center",
       });
     });

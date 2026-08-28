@@ -53,6 +53,8 @@
  * 2026.06.21  임도헌   Modified   타인 프로필 판매 목록 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
  * 2026.08.13  임도헌   Modified  타인 프로필 리뷰 목록에 현재 조회자 ID 전달
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 팔로우 CTA 스크롤 동작 조정
+ * 2026.08.28  임도헌   Modified  로그인·팔로우·판매 탭 함수 JSDoc 보강
  */
 
 "use client";
@@ -87,6 +89,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import type {
   ProductType,
   UserProductsScope,
@@ -172,14 +175,19 @@ export default function UserProfile({
   // 차단 해제 Transition
   const [isUnblocking, startUnblock] = useTransition();
 
+  /** 현재 프로필 경로를 복귀 주소로 포함한 로그인 화면으로 이동한다. */
   const onRequireLogin = useCallback(() => {
     router.push(`/login?callbackUrl=${encodeURIComponent(next)}`);
   }, [router, next]);
 
-  /**
-   * [Interaction] 방송 레일에서 팔로우 유도 시
-   */
   const followButtonId = "user-profile-follow-btn";
+
+  /**
+   * 방송 레일의 팔로워 전용 콘텐츠에서 프로필 팔로우 버튼으로 사용자를 유도한다.
+   *
+   * 비로그인 사용자는 로그인 화면으로 이동하고, 로그인 사용자는 팔로우 버튼을
+   * 화면 중앙으로 이동한 뒤 사용할 수 있으면 즉시 실행한다.
+   */
   const requestFollowFromRail = useCallback(() => {
     if (!viewerId) {
       onRequireLogin();
@@ -191,13 +199,16 @@ export default function UserProfile({
       followButtonId
     ) as HTMLButtonElement | null;
     if (btn) {
-      btn.scrollIntoView({ behavior: "smooth", block: "center" });
+      btn.scrollIntoView({
+        behavior: getMotionSafeScrollBehavior(),
+        block: "center",
+      });
       if (!btn.disabled) btn.click();
       else btn.focus();
       return;
     }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: getMotionSafeScrollBehavior() });
   }, [viewerId, isFollowing, onRequireLogin]);
 
   /**
@@ -215,6 +226,11 @@ export default function UserProfile({
     });
   };
 
+  /**
+   * 판매 상태 탭을 URL 쿼리에 반영해 새로고침과 복귀 후에도 선택을 유지한다.
+   *
+   * @param tab - 선택한 판매 중 또는 판매 완료 상태
+   */
   const handleTabChange = useCallback(
     (tab: ProductStatus) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -468,9 +484,12 @@ export default function UserProfile({
   );
 }
 
-// ----------------------------------------------------------------------
-// 내부 컴포넌트: 선택된 판매 탭 전용 데이터만 불러와 리스트 교체
-// ----------------------------------------------------------------------
+/**
+ * 선택한 판매 상태의 상품을 불러와 무한 스크롤 목록으로 표시한다.
+ *
+ * @param props - 판매 상태, 프로필 사용자, 보기 방식과 상세 복귀 경로
+ * @returns 선택한 판매 탭의 상품 목록 또는 빈 상태 안내
+ */
 function SalesTabContent({
   type,
   userId,
