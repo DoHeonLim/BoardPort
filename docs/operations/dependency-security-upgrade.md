@@ -4,11 +4,11 @@
 
 BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱신하면서 호환성 변경, PWA 전환, 남은 취약점의 처리 기준을 함께 기록한다.
 
-기준일은 `2026-08-23`이며, 버전 판단은 [Next.js 16 업그레이드 가이드](https://nextjs.org/docs/app/guides/upgrading/version-16), [Next.js PWA 가이드](https://nextjs.org/docs/app/guides/progressive-web-apps), [Serwist Next.js 가이드](https://serwist.pages.dev/docs/next/getting-started)를 따른다.
+최종 확인일은 `2026-08-30`이며, 버전 판단은 [Next.js 16 업그레이드 가이드](https://nextjs.org/docs/app/guides/upgrading/version-16), [Next.js 2026년 8월 보안 릴리스](https://nextjs.org/blog/august-2026-security-release), [Next.js PWA 가이드](https://nextjs.org/docs/app/guides/progressive-web-apps), [Serwist Next.js 가이드](https://serwist.pages.dev/docs/next/getting-started)를 따른다.
 
 ## 적용 범위
 
-- Next.js `14.2.26` → `16.3.2`
+- Next.js `14.2.26` → `16.3.3`
 - React·React DOM `18.3.1` → `19.2.8`
 - Prisma CLI·Client·adapter `7.0.1` → `7.9.1`
 - Supabase JS, bcrypt, sharp, validator, ECharts, iron-session 등 직접 의존성 갱신
@@ -61,6 +61,6 @@ git diff --check
 
 ## 병합 전 후속 확인
 
-[Next.js 공식 공지](https://nextjs.org/blog)에 따르면 2026-08-26에 Next.js 16.3·15.5 대상 critical 보안 패치가 예정되어 있다. `master` 병합 전에 16.3 최신 patch를 다시 조회하고 업그레이드·전체 검증을 반복한다.
+[Next.js 2026년 8월 보안 릴리스](https://nextjs.org/blog/august-2026-security-release)에서 안내한 두 건의 critical 취약점을 수정하기 위해 Next.js와 `eslint-config-next`를 `16.3.3`으로 맞췄다. `master` 병합 전 전체 품질 게이트와 Preview smoke를 다시 실행한다.
 
 배포 Preview에서는 PWA 설치, 오프라인 fallback, 실제 Web Push 수신·클릭 이동을 한 번 더 smoke test한다.
