@@ -11,6 +11,7 @@
  * 2026.08.21  임도헌   Modified  탈퇴 완료 후 다른 탭에도 인증 cache 초기화 신호 전파
  * 2026.08.22  임도헌   Modified  탈퇴 성공 시 삭제 계정의 Realtime JWT 캐시 폐기
  * 2026.08.28  임도헌   Modified  회원 탈퇴 실행 함수 JSDoc 보강
+ * 2026.08.30  임도헌   Modified  탈퇴 후 Realtime JWT 발급까지 비활성화해 삭제 계정 재요청 차단
  */
 
 import { useTransition } from "react";
@@ -20,14 +21,14 @@ import { toast } from "sonner";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { withdrawAction } from "@/features/user/actions/withdraw";
 import { finalizeClientAuthExit } from "@/features/auth/utils/authContextReset";
-import { invalidateRealtimeAccessToken } from "@/lib/supabase";
+import { deactivateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
 }
 
-/** 회원 탈퇴 확인과 성공 후 현재·다른 탭의 인증 상태 초기화를 처리한다. */
+/** 회원 탈퇴 확인과 성공 후 모든 탭의 인증 상태 및 Realtime JWT 발급을 정리한다. */
 export default function WithdrawalModal({ isOpen, onClose }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -44,7 +45,7 @@ export default function WithdrawalModal({ isOpen, onClose }: Props) {
         }
 
         toast.success("회원 탈퇴가 완료되었습니다.");
-        invalidateRealtimeAccessToken();
+        deactivateRealtimeAccessToken();
         finalizeClientAuthExit(queryClient, router);
       } catch {
         toast.error("탈퇴 처리에 실패했습니다.");

@@ -11,6 +11,7 @@
  * 2026.08.21  임도헌   Modified  인증 종료 후 다른 탭에도 cache 초기화 신호 전파
  * 2026.08.22  임도헌   Modified  로그아웃 성공 시 이전 계정 Realtime JWT 캐시 폐기
  * 2026.08.28  임도헌   Modified  로그아웃 처리 함수 JSDoc 보강
+ * 2026.08.30  임도헌   Modified  로그아웃 후 Realtime JWT 발급까지 비활성화해 공개 화면 재요청 차단
  */
 "use client";
 
@@ -20,7 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logOut } from "@/features/auth/actions/logout";
 import { finalizeClientAuthExit } from "@/features/auth/utils/authContextReset";
-import { invalidateRealtimeAccessToken } from "@/lib/supabase";
+import { deactivateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 
 interface LogoutButtonProps {
   className?: string;
@@ -56,6 +57,7 @@ async function getCurrentPushSubscription() {
  *
  * - 로그아웃 서비스 호출
  * - 성공/실패 toast 처리
+ * - Realtime JWT 캐시와 후속 발급 비활성화
  * - 로그아웃 후 redirect 및 refresh 처리
  *
  * @param {LogoutButtonProps} props - 버튼 스타일과 문구, 이동 경로 설정
@@ -114,7 +116,7 @@ export default function LogoutButton({
       }
 
       toast.success("로그아웃되었습니다.");
-      invalidateRealtimeAccessToken();
+      deactivateRealtimeAccessToken();
       finalizeClientAuthExit(queryClient, router, redirectTo);
     });
   };

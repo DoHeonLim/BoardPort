@@ -12,6 +12,7 @@
  * 2026.08.13  임도헌   Modified  인증 영역을 벗어날 때 브라우저 사용자 cache 초기화 옵션 추가
  * 2026.08.21  임도헌   Modified  다른 탭의 인증 종료를 수신해 사용자 cache와 화면 상태 초기화
  * 2026.08.22  임도헌   Modified  세션 만료·다른 탭 인증 종료 시 Realtime JWT 캐시도 함께 폐기
+ * 2026.08.30  임도헌   Modified  공개 화면 cache 초기화에서 Supabase SDK 로드와 비로그인 토큰 요청 제거
  */
 "use client";
 
@@ -20,6 +21,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { subscribeToAuthContextReset } from "@/features/auth/utils/authContextReset";
+import { deactivateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 
 const ReactQueryDevtools = dynamic(
   () =>
@@ -37,6 +39,7 @@ const ReactQueryDevtools = dynamic(
  * - `useState`를 사용한 1회성 QueryClient 인스턴스 생성
  * - 서버 prefetch와 클라이언트 Provider가 같은 `getQueryClient` 기본 옵션을 공유
  * - 불필요한 자동 갱신(refetchOnWindowFocus) 비활성화 및 기본 staleTime(1분) 적용
+ * - 공개 라우트 진입 시 이전 사용자 cache와 Realtime JWT 후속 발급 비활성화
  */
 export default function QueryProvider({
   children,
@@ -63,11 +66,8 @@ export default function QueryProvider({
   useEffect(() => {
     if (!resetOnMount) return;
 
-    // Supabase SDK를 공개 페이지 공통 bundle에 넣지 않고, 이전 인증 화면에서
-    // 이미 만들어진 Realtime JWT가 있을 수 있는 세션 종료 경계에서만 불러온다.
-    void import("@/lib/supabase").then(({ invalidateRealtimeAccessToken }) =>
-      invalidateRealtimeAccessToken()
-    );
+    // 공개 화면에서는 Supabase SDK를 만들지 않고 이전 계정 JWT와 후속 발급만 정리한다.
+    deactivateRealtimeAccessToken();
   }, [resetOnMount]);
 
   useEffect(

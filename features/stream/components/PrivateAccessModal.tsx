@@ -29,6 +29,7 @@
  * 2026.08.22  임도헌   Modified  PRIVATE 언락 성공 시 Realtime 권한 JWT 캐시를 폐기해 새 claim 즉시 반영
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.08.28  임도헌   Modified  비공개 방송 접근 제출 함수 JSDoc 보강
+ * 2026.08.30  임도헌   Modified  언락 후 활성 Realtime JWT 캐시만 갱신하는 전용 모듈 사용
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -39,7 +40,7 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { unlockErrorMessage } from "@/features/stream/utils/access";
 import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
-import { invalidateRealtimeAccessToken } from "@/lib/supabase";
+import { invalidateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -58,6 +59,7 @@ interface PrivateAccessModalProps {
  *
  * - 비밀번호 검증 서버 액션(`unlockPrivateBroadcastAction`) 호출
  * - 성공 시 세션에 언락 정보 저장 및 대상 경로로 replace 복귀
+ * - 성공 시 기존 Realtime JWT를 폐기해 갱신된 PRIVATE 접근 권한 반영
  * - 에러 코드별 적절한 메시지 표시 또는 로그인 페이지 이동
  * - 403 안내 카드와 시각적 톤을 맞춰 게이트 전환 시 이질감을 줄임
  */
