@@ -12,6 +12,7 @@
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
  * 2026.08.22  임도헌   Modified  OG 대표 이미지 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 상품 경로 정보 처리 보완
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -68,10 +69,6 @@ function splitLines(value: string, maxChars: number, maxLines: number) {
   return lines.length ? lines : [FALLBACK_LOGO_TEXT];
 }
 
-/**
- * 외부 상품 이미지를 sharp 합성용 Buffer로 조회
- * Cloudflare 이미지 장애나 만료 URL 발생 시 카드 전체 실패 대신 텍스트 카드 폴백
- */
 /**
  * 잘못된 ID나 삭제된 상품을 위한 기본 BoardPort OG 이미지
  */
@@ -183,11 +180,20 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
 }
 
 /**
- * 제품 상세 공유 미리보기 이미지 생성 엔트리
- * next/og의 Windows 로컬 폰트 경로 오류 회피를 위한 sharp 직접 PNG 생성 경로
+ * Next.js가 비동기로 전달하는 상품 ID를 해석해 공유 이미지를 생성
+ *
+ * next/og의 Windows 로컬 폰트 경로 오류를 피하기 위해 sharp로 PNG를 직접 생성한다.
+ *
+ * @param params - 상품 ID를 담은 비동기 경로 정보
+ * @returns 상품 정보 또는 기본 안내 화면을 합성한 PNG 응답
  */
-export default async function Image({ params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: rawId } = await params;
+  const id = Number(rawId);
 
   if (!Number.isFinite(id) || id <= 0) {
     return createPngResponse(buildFallbackSvg(), null);

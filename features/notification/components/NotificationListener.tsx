@@ -28,6 +28,7 @@
  * 2026.05.18  임도헌   Modified  채팅 알림 수신 시 TabBar 미읽음 query도 함께 재검증
  * 2026.08.21  임도헌   Modified  세션 JWT 인증 후 사용자 전용 private 채널만 구독
  * 2026.08.28  임도헌   Modified  알림 private 채널 구독 수명 주기 함수 JSDoc 보강
+ * 2026.08.30  임도헌   Modified  실시간 이용 정지 후 403 안내 페이지로 이동하는 URL 생성 방식 보완
  */
 "use client";
 
@@ -229,10 +230,11 @@ export default function NotificationListener({ userId }: { userId: number }) {
               console.error("Session refresh failed", e);
             }
 
-            // 2. 강제 페이지 이동 (SPA 라우팅 대신 href를 사용하여 미들웨어를 거치도록 강제)
-            window.location.href = `/403?reason=BANNED&banReason=${encodeURIComponent(
-              p.reason || ""
-            )}`;
+            // 2. 갱신된 정지 상태를 인증 가드가 다시 확인하도록 403 페이지를 전체 문서로 이동
+            const bannedUrl = new URL("/403", window.location.origin);
+            bannedUrl.searchParams.set("reason", "BANNED");
+            bannedUrl.searchParams.set("banReason", p.reason || "");
+            window.location.assign(bannedUrl.href);
           }
         });
 

@@ -15,6 +15,7 @@
  * 2026.08.22  임도헌   Modified  OG 썸네일 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  * 2026.08.23  임도헌   Modified  상대 썸네일 URL을 공용 trusted origin과 로컬 fallback으로 보정
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 방송 경로 정보 처리 보완
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -64,9 +65,6 @@ function splitLines(value: string, maxChars: number, maxLines: number) {
   return lines.length ? lines : ["보드포트 등대방송"];
 }
 
-/**
- * 외부 방송 썸네일의 sharp 합성용 Buffer 조회
- */
 /**
  * 스트리밍 썸네일 URL의 외부 공유 이미지용 public URL 보정
  */
@@ -194,10 +192,18 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
 }
 
 /**
- * 방송 상세 공유 미리보기 이미지 생성 엔트리
+ * Next.js가 비동기로 전달하는 방송 ID를 해석해 공유 이미지를 생성
+ *
+ * @param params - 방송 ID를 담은 비동기 경로 정보
+ * @returns 방송 정보 또는 기본 안내 화면을 합성한 PNG 응답
  */
-export default async function Image({ params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: rawId } = await params;
+  const id = Number(rawId);
 
   if (!Number.isFinite(id) || id <= 0) {
     return createPngResponse(buildFallbackSvg(), null);
