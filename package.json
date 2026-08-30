@@ -1,6 +1,6 @@
 {
   "name": "boardport",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:migration": "node scripts/test-migrations.mjs",
     "test:migration:push": "node scripts/test-push-ownership-migration.mjs",
     "test:migration:realtime": "node scripts/test-realtime-authorization-migration.mjs",
     "test:migration:media": "node scripts/test-media-asset-migration.mjs",
