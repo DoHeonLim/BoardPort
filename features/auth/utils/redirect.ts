@@ -10,6 +10,7 @@
  * 2026.01.21  임도헌   Moved     lib/safeRedirect -> utils/redirect
  * 2026.01.25  임도헌   Modified  주석 보강
  * 2026.08.23  임도헌   Modified  trusted origin 파싱과 역슬래시·제어문자·다중 인코딩 차단
+ * 2026.08.30  임도헌   Modified  기본 인증 복귀 경로는 쿼리에서 생략하는 href 생성 함수 추가
  */
 
 /**
@@ -45,4 +46,27 @@ export function sanitizeCallbackUrl(raw: unknown): string {
   } catch {
     return "/";
   }
+}
+
+/**
+ * 인증 화면 간 이동 주소를 만들되 기본 복귀 경로는 불필요한 쿼리에서 생략한다.
+ *
+ * 다른 보호 화면에서 인증 흐름으로 들어온 경우에는 안전하게 정규화한
+ * callbackUrl을 유지해 로그인·회원가입 완료 후 원래 문맥으로 돌아간다.
+ *
+ * @param pathname - 이동할 인증 화면의 내부 경로
+ * @param rawCallbackUrl - 인증 완료 후 돌아갈 원본 경로
+ * @param defaultCallbackUrl - 쿼리 없이도 각 인증 화면이 사용하는 기본 복귀 경로
+ */
+export function buildAuthFlowHref(
+  pathname: string,
+  rawCallbackUrl: unknown,
+  defaultCallbackUrl = "/profile"
+) {
+  const safePathname = sanitizeCallbackUrl(pathname);
+  const safeDefault = sanitizeCallbackUrl(defaultCallbackUrl);
+  const callbackUrl = sanitizeCallbackUrl(rawCallbackUrl ?? safeDefault);
+
+  if (callbackUrl === safeDefault) return safePathname;
+  return `${safePathname}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 }

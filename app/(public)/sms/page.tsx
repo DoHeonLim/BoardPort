@@ -22,11 +22,15 @@
  * 2026.04.13  임도헌   Modified  모바일 로그인 접근성 정리를 위해 main 랜드마크와 상단 로고 우선 로드를 적용
  * 2026.04.13  임도헌   Modified  인증 공통 셸로 헤더 구조를 통일해 auth 페이지 간 레이아웃 중복을 제거
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 이메일 로그인 링크에서 생략
  */
 
 import Link from "next/link";
 import AuthPageShell from "@/features/auth/components/AuthPageShell";
-import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import {
+  buildAuthFlowHref,
+  sanitizeCallbackUrl,
+} from "@/features/auth/utils/redirect";
 import SmsForm from "@/features/auth/components/form/SmsForm";
 
 /**
@@ -43,6 +47,7 @@ export default async function SMSLoginPage(props: {
   const callbackUrl = sanitizeCallbackUrl(
     searchParams?.callbackUrl ?? "/profile"
   );
+  const loginHref = buildAuthFlowHref("/login", callbackUrl);
 
   return (
     <AuthPageShell
@@ -54,7 +59,7 @@ export default async function SMSLoginPage(props: {
       <div className="mt-6 text-center text-sm text-muted">
         다른 방법으로 항해하시겠어요?{" "}
         <Link
-          href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          href={loginHref}
           className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
         >
           이메일 로그인

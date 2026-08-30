@@ -20,7 +20,7 @@ npm run seed:e2e
 npm run dev:e2e
 ```
 
-production build 검증:
+로컬 Production 모드 검증(선택):
 
 ```bash
 npm run build
@@ -71,7 +71,8 @@ npm run cleanup:e2e
 - 운영 DB가 아니라 로컬/테스트 DB를 대상으로 실행합니다.
 - seed 기반 테스트는 `E2E_SEEDED=1`이 없으면 skip됩니다.
 - GitHub E2E workflow는 seed 전에 `prisma migrate deploy`를 실행해 공유 테스트 DB schema를 현재 코드와 맞춥니다.
-- GitHub E2E workflow는 `next build` 결과를 `next start`로 실행해 production 서버를 대상으로 테스트합니다.
+- GitHub E2E workflow는 실제 운영 사이트가 아니라 CI 내부에서 `next build` 결과를 `next start`로 실행한 임시 서버를 테스트합니다.
+- 서비스 워커 회귀 테스트는 위 CI 환경에서 자동 실행하며, 실제 offline 문서 fallback과 `no-response` 오류 부재를 검증합니다. 개발 서버를 사용하는 로컬 E2E에서는 자동으로 건너뜁니다.
 - 기본 CI의 release database smoke는 빈 PostgreSQL에 전체 migration을 적용하고 seed를 두 번 실행해 신규 환경과 반복 실행을 함께 검증합니다.
 - 실제 외부 서비스 호출이 필요한 Cloudflare, Kakao, Push, SMS, Email 시나리오는 별도 mock 또는 전용 테스트 환경이 준비된 뒤 확장합니다.
 - GitHub E2E는 Production Stream private JWK를 사용하지 않고 실행마다 임시 RSA key를 생성해 signed token 생성 경로만 검증합니다. Seed VOD는 실제 Cloudflare 재생 자산이 아니므로 외부 플레이어 성공 여부는 검증 범위에 포함하지 않습니다.

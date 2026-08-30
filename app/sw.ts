@@ -4,11 +4,15 @@
  *
  * History
  * 2026.08.23 Created next-pwa를 Serwist로 전환하고 기존 푸시 표시 보호 로직 연동
+ * 2026.08.30 Modified 정적 자산·문서 탐색만 가로채 RSC 요청 취소의 no-response 오류 차단
  */
 
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { CacheFirst, ExpirationPlugin, NetworkOnly, Serwist } from "serwist";
-import { isPwaStaticAssetPath } from "@/features/notification/utils/pwaCachePolicy";
+import {
+  isPwaDocumentNavigation,
+  isPwaStaticAssetPath,
+} from "@/features/notification/utils/pwaCachePolicy";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -43,7 +47,10 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: /.*/i,
+      // API·RSC·prefetch는 등록하지 않아 브라우저가 직접 네트워크로 처리한다.
+      // 실제 문서 탐색만 NetworkOnly로 처리해 실패 시 /offline을 제공한다.
+      matcher: ({ sameOrigin, request }) =>
+        sameOrigin && isPwaDocumentNavigation(request),
       handler: new NetworkOnly(),
     },
   ],
@@ -52,7 +59,7 @@ const serwist = new Serwist({
       {
         url: "/offline",
         matcher({ request }) {
-          return request.destination === "document";
+          return isPwaDocumentNavigation(request);
         },
       },
     ],

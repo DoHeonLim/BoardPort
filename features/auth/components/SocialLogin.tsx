@@ -22,6 +22,7 @@
  * 2026.05.12  임도헌   Modified  포인터 이동 시 blur 검증으로 CTA가 한 번 막히지 않도록 focus 이동 방지 처리
  * 2026.05.16  임도헌   Modified  포인터 이벤트 핸들러를 가진 클라이언트 컴포넌트임을 명시
  * 2026.05.18  임도헌   Modified  타깃 사용자 맥락에 맞춰 GitHub 로그인 버튼을 화면에서 제거
+ * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로는 소셜·SMS 시작 주소에서 생략
  */
 "use client";
 
@@ -29,6 +30,7 @@ import Link from "next/link";
 import { ChatBubbleOvalLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
+import { buildAuthFlowHref } from "@/features/auth/utils/redirect";
 
 /**
  * 소셜 로그인 버튼 묶음
@@ -37,11 +39,7 @@ import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
  * - callbackUrl을 각 OAuth 시작 라우트에 전달
  * - 카카오, SMS 로그인 진입 버튼 제공
  */
-export default function SocialLogin({
-  callbackUrl,
-}: {
-  callbackUrl?: string;
-}) {
+export default function SocialLogin({ callbackUrl }: { callbackUrl?: string }) {
   const baseButtonClass = cn(
     "flex h-11 w-full items-center justify-center gap-2.5 sm:h-input-md",
     "rounded-xl border border-border bg-surface text-primary",
@@ -49,12 +47,8 @@ export default function SocialLogin({
     "focus-ring-soft",
     "text-sm font-medium sm:text-base"
   );
-  const kakaoHref = callbackUrl
-    ? `/kakao/start?callbackUrl=${encodeURIComponent(callbackUrl)}`
-    : "/kakao/start";
-  const smsHref = callbackUrl
-    ? `/sms?callbackUrl=${encodeURIComponent(callbackUrl)}`
-    : "/sms";
+  const kakaoHref = buildAuthFlowHref("/kakao/start", callbackUrl);
+  const smsHref = buildAuthFlowHref("/sms", callbackUrl);
 
   return (
     <div className="flex w-full flex-col gap-2.5">
