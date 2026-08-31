@@ -17,6 +17,8 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 방송 경로 정보 처리 보완
  * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
+ * 2026.09.01  임도헌   Modified  Vercel 서버 렌더러와 호환되는 OTF 한글 글꼴 적용
+ * 2026.09.01  임도헌   Modified  공백 없는 긴 방송 제목의 카드 영역 내 줄바꿈 보완
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -29,6 +31,7 @@ import {
 import { getTrustedAppBaseUrl } from "@/lib/env";
 import {
   createOgTextOverlays,
+  splitOgTextLines,
   type OgCard,
   type OgTextSpec,
 } from "@/lib/media/ogText";
@@ -36,32 +39,6 @@ import {
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-
-/**
- * 고정 폭 방송 OG 카드용 텍스트 줄 분리
- */
-function splitLines(value: string, maxChars: number, maxLines: number) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of normalized.split(" ")) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxChars) {
-      current = next;
-      continue;
-    }
-    if (current) lines.push(current);
-    current = word;
-    if (lines.length === maxLines - 1) break;
-  }
-
-  if (current && lines.length < maxLines) lines.push(current);
-  if (normalized.length > lines.join(" ").length && lines.length) {
-    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, -1)}...`;
-  }
-  return lines.length ? lines : ["보드포트 등대방송"];
-}
 
 /**
  * 스트리밍 썸네일 URL의 외부 공유 이미지용 public URL 보정
@@ -153,13 +130,15 @@ function buildStreamOverlayCard({
       color: "#ffffff",
       anchor: "middle",
     },
-    ...splitLines(title, 18, 2).map((line, index) => ({
-      text: line,
-      x: 82,
-      baseline: 392 + index * 58,
-      fontSize: 50,
-      color: "#ffffff",
-    })),
+    ...splitOgTextLines(title, 18, 2, "보드포트 등대방송").map(
+      (line, index) => ({
+        text: line,
+        x: 82,
+        baseline: 392 + index * 58,
+        fontSize: 50,
+        color: "#ffffff",
+      })
+    ),
     {
       text: `방송국: ${username}`,
       x: 82,

@@ -7,6 +7,7 @@
  * 2026.08.28 Modified TypeScript CLI showConfig 출력 파싱 불안정을 Compiler API 경로로 우회
  * 2026.08.31 Modified 동적 OG 이미지 함수에 Pretendard 한글 글꼴 파일 포함
  * 2026.08.31 Modified 오프라인 안내 페이지의 로고 자산을 Serwist precache에 포함
+ * 2026.09.01 Modified Vercel 서버 이미지 렌더링용 Pretendard OTF 글꼴 포함
  */
 
 import withSerwistInit from "@serwist/next";
@@ -167,14 +168,12 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingIncludes: {
-    "/products/view/*/opengraph-image*": [
-      "./app/fonts/Pretendard-Bold.subset.woff2",
-    ],
-    "/products/view/*/og-image": ["./app/fonts/Pretendard-Bold.subset.woff2"],
-    "/posts/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.subset.woff2"],
-    "/posts/*/og-image": ["./app/fonts/Pretendard-Bold.subset.woff2"],
-    "/streams/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.subset.woff2"],
-    "/streams/*/og-image": ["./app/fonts/Pretendard-Bold.subset.woff2"],
+    "/products/view/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.otf"],
+    "/products/view/*/og-image": ["./app/fonts/Pretendard-Bold.otf"],
+    "/posts/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.otf"],
+    "/posts/*/og-image": ["./app/fonts/Pretendard-Bold.otf"],
+    "/streams/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.otf"],
+    "/streams/*/og-image": ["./app/fonts/Pretendard-Bold.otf"],
   },
   experimental: {
     // Next 16 CLI 경로가 큰 --showConfig 출력을 잘린 JSON으로 읽는 경우가 있어

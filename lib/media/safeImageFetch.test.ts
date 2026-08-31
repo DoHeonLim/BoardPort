@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.22  임도헌   Created   사설 IP·redirect·크기·content-type·정상 이미지 경계 검증
+ * 2026.09.01  임도헌   Modified  서버 변환 호환 이미지 형식 우선 요청 검증
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -95,17 +96,26 @@ describe("fetchSafeOgImage", () => {
     await expect(
       fetchSafeOgImage("https://imagedelivery.net/hash/asset/public")
     ).resolves.toEqual(Buffer.from([1, 2, 3]));
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({
+        headers: {
+          Accept: "image/png,image/jpeg,image/webp,image/gif,image/avif",
+        },
+      })
+    );
   });
 
   it("응답이 제한 시간 안에 오지 않으면 요청을 중단한다", async () => {
     vi.useFakeTimers();
     mocks.lookup.mockResolvedValue([{ address: "104.16.1.1", family: 4 }]);
-    vi.mocked(fetch).mockImplementation((_input, init) =>
-      new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () =>
-          reject(new DOMException("aborted", "AbortError"))
-        );
-      })
+    vi.mocked(fetch).mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError"))
+          );
+        })
     );
     const { fetchSafeOgImage } = await import("./safeImageFetch");
     const pending = fetchSafeOgImage(

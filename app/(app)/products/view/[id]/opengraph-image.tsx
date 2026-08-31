@@ -14,6 +14,8 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 상품 경로 정보 처리 보완
  * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
+ * 2026.09.01  임도헌   Modified  Vercel 호환 OTF 글꼴 적용 및 대표 이미지 변환 실패 폴백 보완
+ * 2026.09.01  임도헌   Modified  공백 없는 긴 상품 제목 줄바꿈 및 글자 크기 조정
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -25,6 +27,7 @@ import {
 } from "@/lib/media/safeImageFetch";
 import {
   createOgTextOverlays,
+  splitOgTextLines,
   type OgCard,
   type OgTextSpec,
 } from "@/lib/media/ogText";
@@ -33,36 +36,14 @@ export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const FALLBACK_LOGO_TEXT = "BoardPort";
-
-/**
- * OG 이미지처럼 폭이 고정된 영역에서 텍스트가 넘치지 않도록 문자 수 기준 줄 분리
- * 한글/영문 폭 차이를 정확히 재지는 않지만, 공유 카드의 안정적인 폴백으로 충분한 예측 가능성 확보
- */
-function splitLines(value: string, maxChars: number, maxLines: number) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of normalized.split(" ")) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxChars) {
-      current = next;
-      continue;
-    }
-
-    if (current) lines.push(current);
-    current = word;
-    if (lines.length === maxLines - 1) break;
-  }
-
-  if (current && lines.length < maxLines) lines.push(current);
-  if (normalized.length > lines.join(" ").length && lines.length) {
-    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, -1)}...`;
-  }
-
-  return lines.length ? lines : [FALLBACK_LOGO_TEXT];
-}
+const PRODUCT_IMAGE_FALLBACK_TEXT = {
+  text: "No Image",
+  x: 300,
+  baseline: 316,
+  fontSize: 52,
+  color: "#94a3b8",
+  anchor: "middle",
+} satisfies OgTextSpec;
 
 /**
  * 잘못된 ID나 삭제된 상품을 위한 기본 BoardPort OG 이미지
@@ -116,21 +97,10 @@ function buildProductCard({
   statusColor: string;
   hasImage: boolean;
 }) {
-  const titleLines = splitLines(title, 14, 2);
-  const descriptionLines = splitLines(description, 17, 3);
+  const titleLines = splitOgTextLines(title, 14, 2, "BoardPort");
+  const descriptionLines = splitOgTextLines(description, 17, 3, "BoardPort");
   const texts: OgTextSpec[] = [
-    ...(hasImage
-      ? []
-      : [
-          {
-            text: "No Image",
-            x: 300,
-            baseline: 316,
-            fontSize: 52,
-            color: "#94a3b8",
-            anchor: "middle" as const,
-          },
-        ]),
+    ...(hasImage ? [] : [PRODUCT_IMAGE_FALLBACK_TEXT]),
     {
       text: statusText,
       x: 748,
@@ -142,8 +112,8 @@ function buildProductCard({
     ...titleLines.map((line, index) => ({
       text: line,
       x: 682,
-      baseline: 180 + index * 48,
-      fontSize: 40,
+      baseline: 180 + index * 44,
+      fontSize: 36,
       color: "#0f172a",
     })),
     ...descriptionLines.map((line, index) => ({
@@ -213,7 +183,10 @@ async function createPngResponse(card: OgCard, imageBuffer: Buffer | null) {
         .toBuffer();
       composites.push({ input: productImage, left: 0, top: 0 });
     } catch {
-      // 외부 이미지 처리 실패 시 텍스트 중심 OG 이미지로 폴백
+      // 다운로드 후 디코딩이 실패해도 대표 이미지 영역이 빈 상태로 남지 않게 안내
+      composites.push(
+        ...(await createOgTextOverlays([PRODUCT_IMAGE_FALLBACK_TEXT]))
+      );
     }
   }
 

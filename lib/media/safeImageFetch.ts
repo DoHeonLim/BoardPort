@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.22  임도헌   Created   HTTPS/host/DNS/redirect/timeout/byte/content-type 제한 추가
+ * 2026.09.01  임도헌   Modified  서버 이미지 변환 호환성을 위해 PNG·JPEG 응답을 우선 요청
  */
 import "server-only";
 
@@ -135,7 +136,7 @@ export async function fetchSafeOgImage(
         redirect: "manual",
         signal: controller.signal,
         headers: {
-          Accept: "image/avif,image/webp,image/png,image/jpeg,image/gif",
+          Accept: "image/png,image/jpeg,image/webp,image/gif,image/avif",
         },
       });
       if (response.status >= 300 && response.status < 400) {

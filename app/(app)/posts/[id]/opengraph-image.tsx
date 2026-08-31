@@ -13,6 +13,8 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 게시글 경로 정보 처리 보완
  * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
+ * 2026.09.01  임도헌   Modified  Vercel 호환 OTF 글꼴 적용 및 썸네일 변환 실패 폴백 보완
+ * 2026.09.01  임도헌   Modified  공백 없는 긴 게시글 제목의 카드 영역 내 줄바꿈 보완
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -24,6 +26,7 @@ import {
 } from "@/lib/media/safeImageFetch";
 import {
   createOgTextOverlays,
+  splitOgTextLines,
   type OgCard,
   type OgTextSpec,
 } from "@/lib/media/ogText";
@@ -32,31 +35,14 @@ export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/**
- * 고정 폭 OG 카드용 텍스트 줄 분리
- */
-function splitLines(value: string, maxChars: number, maxLines: number) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of normalized.split(" ")) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxChars) {
-      current = next;
-      continue;
-    }
-    if (current) lines.push(current);
-    current = word;
-    if (lines.length === maxLines - 1) break;
-  }
-
-  if (current && lines.length < maxLines) lines.push(current);
-  if (normalized.length > lines.join(" ").length && lines.length) {
-    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, -1)}...`;
-  }
-  return lines.length ? lines : ["BoardPort"];
-}
+const POST_IMAGE_FALLBACK_TEXT = {
+  text: "BoardPort",
+  x: 900,
+  baseline: 316,
+  fontSize: 54,
+  color: "#94a3b8",
+  anchor: "middle",
+} satisfies OgTextSpec;
 
 /**
  * 잘못된 ID나 삭제된 게시글을 위한 기본 BoardPort OG 이미지
@@ -114,14 +100,14 @@ function buildPostCard({
       color: "#1e3a8a",
       anchor: "middle",
     },
-    ...splitLines(title, 14, 2).map((line, index) => ({
+    ...splitOgTextLines(title, 14, 2, "BoardPort").map((line, index) => ({
       text: line,
       x: 74,
       baseline: 168 + index * 50,
       fontSize: 42,
       color: "#0f172a",
     })),
-    ...splitLines(description, 18, 3).map((line, index) => ({
+    ...splitOgTextLines(description, 18, 3, "BoardPort").map((line, index) => ({
       text: line,
       x: 74,
       baseline: 302 + index * 34,
@@ -143,18 +129,7 @@ function buildPostCard({
       color: "#1e3a8a",
       anchor: "end",
     },
-    ...(hasImage
-      ? []
-      : [
-          {
-            text: "BoardPort",
-            x: 900,
-            baseline: 316,
-            fontSize: 54,
-            color: "#94a3b8",
-            anchor: "middle" as const,
-          },
-        ]),
+    ...(hasImage ? [] : [POST_IMAGE_FALLBACK_TEXT]),
   ];
 
   return {
@@ -193,7 +168,10 @@ async function createPngResponse(card: OgCard, imageBuffer: Buffer | null) {
         .toBuffer();
       composites.push({ input: thumbnail, left: 600, top: 0 });
     } catch {
-      // 외부 이미지 처리 실패 시 텍스트 중심 OG 이미지로 폴백
+      // 다운로드 후 디코딩이 실패해도 썸네일 영역이 빈 상태로 남지 않게 안내
+      composites.push(
+        ...(await createOgTextOverlays([POST_IMAGE_FALLBACK_TEXT]))
+      );
     }
   }
 

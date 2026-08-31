@@ -6,6 +6,8 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.31  임도헌   Created   Vercel 런타임의 시스템 글꼴과 무관하게 Pretendard 한글 텍스트 합성
+ * 2026.09.01  임도헌   Modified  서버 이미지 렌더러가 안정적으로 읽는 Pretendard OTF 글꼴로 전환
+ * 2026.09.01  임도헌   Modified  공백 없는 긴 OG 제목도 카드 폭 안에서 줄바꿈하도록 공통 처리
  */
 
 import path from "node:path";
@@ -15,7 +17,7 @@ const PRETENDARD_BOLD_FONT_PATH = path.join(
   process.cwd(),
   "app",
   "fonts",
-  "Pretendard-Bold.subset.woff2"
+  "Pretendard-Bold.otf"
 );
 
 export type OgTextSpec = {
@@ -31,6 +33,53 @@ export type OgCard = {
   svg: string;
   texts: OgTextSpec[];
 };
+
+/**
+ * 고정 폭 OG 카드에서 공백 유무와 관계없이 지정한 문자 수와 줄 수로 텍스트 분리
+ *
+ * @param value - 카드에 표시할 원문
+ * @param maxChars - 한 줄에 허용할 최대 문자 수
+ * @param maxLines - 표시할 최대 줄 수
+ * @param fallback - 내용이 비었을 때 표시할 기본 문구
+ * @returns 카드 폭에 맞춰 나뉜 텍스트 줄
+ */
+export function splitOgTextLines(
+  value: string,
+  maxChars: number,
+  maxLines: number,
+  fallback: string
+) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return [fallback];
+
+  const characters = Array.from(normalized);
+  const lines: string[] = [];
+  let cursor = 0;
+
+  while (cursor < characters.length && lines.length < maxLines) {
+    let end = Math.min(cursor + maxChars, characters.length);
+
+    if (end < characters.length) {
+      const lastSpace = characters.slice(cursor, end).lastIndexOf(" ");
+      if (lastSpace > 0) end = cursor + lastSpace;
+    }
+
+    lines.push(characters.slice(cursor, end).join("").trim());
+    cursor = end;
+    while (characters[cursor] === " ") cursor += 1;
+  }
+
+  if (cursor < characters.length && lines.length) {
+    const lastIndex = lines.length - 1;
+    const visibleCharacters = Math.max(1, maxChars - 3);
+    lines[lastIndex] = `${Array.from(lines[lastIndex])
+      .slice(0, visibleCharacters)
+      .join("")
+      .trimEnd()}...`;
+  }
+
+  return lines;
+}
 
 /**
  * 사용자 문자열을 Pango markup 텍스트 노드에 안전하게 삽입

@@ -1,12 +1,13 @@
 /**
  * File Name : app/opengraph-image.test.ts
- * Description : 동적 상세 OG 이미지의 비동기 경로 정보 처리 회귀 테스트
+ * Description : 동적 상세 OG 이미지 생성과 비동기 경로 정보 처리 회귀 테스트
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.08.30  임도헌   Created   게시글·상품·방송의 자동 생성 OG 이미지와 고정 이미지 URL 경로 검증
  * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴을 사용하는 기본 한글 OG 이미지 생성 경로 검증
+ * 2026.09.01  임도헌   Modified  서버 렌더링 호환 Pretendard OTF 기반 OG 이미지 회귀 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
