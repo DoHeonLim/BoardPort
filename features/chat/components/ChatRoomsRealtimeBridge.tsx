@@ -11,6 +11,7 @@
  * 2026.05.18  임도헌   Modified  rooms_refresh 수신 시 미읽음 수 query를 비활성 상태까지 재검증하도록 보강
  * 2026.08.21  임도헌   Modified  사용자별 목록 갱신 채널을 JWT 인증 private 구독으로 전환
  * 2026.08.28  임도헌   Modified  채팅방 Realtime 구독 수명 주기 함수 JSDoc 보강
+ * 2026.08.31  임도헌   Modified  짧은 화면 전환에서는 연결을 유지하도록 hidden 정리 지연
  */
 "use client";
 
@@ -20,6 +21,7 @@ import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryKeys";
 import { CHAT_EVENT } from "@/features/chat/constants";
 import { chatRoomsRealtimeTopic } from "@/features/realtime/topics";
+import { createRealtimeVisibilityCleanup } from "@/features/realtime/utils/visibilityCleanup";
 
 interface ChatRoomsRealtimeBridgeProps {
   userId: number;
@@ -88,21 +90,26 @@ export default function ChatRoomsRealtimeBridge({
       activeChannel = null;
     };
 
+    const visibilityCleanup = createRealtimeVisibilityCleanup(unsubscribe);
+
     const handlePageHide = () => {
-      unsubscribe();
+      visibilityCleanup.flush();
     };
 
     const handlePageShow = () => {
+      visibilityCleanup.cancel();
       subscribe();
       refreshChatSummaries();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        unsubscribe();
+        // 빠른 Alt+Tab은 연결을 유지하고 장기 백그라운드에서만 채널을 해제한다.
+        visibilityCleanup.schedule();
         return;
       }
 
+      visibilityCleanup.cancel();
       subscribe();
       refreshChatSummaries();
     };
@@ -116,6 +123,7 @@ export default function ChatRoomsRealtimeBridge({
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      visibilityCleanup.cancel();
       unsubscribe();
     };
   }, [queryClient, userId]);

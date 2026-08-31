@@ -29,6 +29,7 @@
  * 2026.08.21  임도헌   Modified  세션 JWT 인증 후 사용자 전용 private 채널만 구독
  * 2026.08.28  임도헌   Modified  알림 private 채널 구독 수명 주기 함수 JSDoc 보강
  * 2026.08.30  임도헌   Modified  실시간 이용 정지 후 403 안내 페이지로 이동하는 URL 생성 방식 보완
+ * 2026.08.31  임도헌   Modified  짧은 화면 전환의 연결 해제를 지연하고 채널 중복 해제 제거
  */
 "use client";
 
@@ -40,6 +41,7 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import { queryKeys } from "@/lib/queryKeys";
 import { notificationRealtimeTopic } from "@/features/realtime/topics";
+import { createRealtimeVisibilityCleanup } from "@/features/realtime/utils/visibilityCleanup";
 
 type NotiPayload = {
   id?: number;
@@ -254,26 +256,30 @@ export default function NotificationListener({ userId }: { userId: number }) {
       authorizationController?.abort();
       authorizationController = null;
 
-      channel.unsubscribe();
-      // 언마운트/페이지 이탈/백그라운드 전환 시 채널 객체까지 제거해 WebSocket 상주 시간을 줄임
-      supabase.removeChannel(channel);
+      // removeChannel이 구독 해제와 객체 제거를 함께 처리하므로 별도 unsubscribe를 중복 호출하지 않는다.
+      void supabase.removeChannel(channel);
     };
 
+    const visibilityCleanup = createRealtimeVisibilityCleanup(unsubscribe);
+
     const handlePageHide = () => {
-      unsubscribe();
+      visibilityCleanup.flush();
     };
 
     const handlePageShow = () => {
+      visibilityCleanup.cancel();
       subscribe();
       void syncUnreadCount();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        unsubscribe();
+        // 빠른 Alt+Tab에서는 연결을 유지하고 장기 백그라운드일 때만 정리한다.
+        visibilityCleanup.schedule();
         return;
       }
 
+      visibilityCleanup.cancel();
       subscribe();
       void syncUnreadCount();
     };
@@ -288,6 +294,7 @@ export default function NotificationListener({ userId }: { userId: number }) {
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      visibilityCleanup.cancel();
       unsubscribe();
     };
   }, [userId, increment, queryClient, setUnreadCount]);
