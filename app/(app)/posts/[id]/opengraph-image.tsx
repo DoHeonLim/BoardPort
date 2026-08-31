@@ -12,6 +12,7 @@
  * 2026.08.22  임도헌   Modified  OG 대표 이미지 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 게시글 경로 정보 처리 보완
+ * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -21,18 +22,15 @@ import {
   fetchSafeOgImage,
   SAFE_OG_IMAGE_MAX_PIXELS,
 } from "@/lib/media/safeImageFetch";
+import {
+  createOgTextOverlays,
+  type OgCard,
+  type OgTextSpec,
+} from "@/lib/media/ogText";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-
-function escapeSvgText(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 /**
  * 고정 폭 OG 카드용 텍스트 줄 분리
@@ -63,20 +61,38 @@ function splitLines(value: string, maxChars: number, maxLines: number) {
 /**
  * 잘못된 ID나 삭제된 게시글을 위한 기본 BoardPort OG 이미지
  */
-function buildFallbackSvg() {
-  return `
-    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="630" fill="#f8fafc"/>
-      <text x="600" y="292" text-anchor="middle" font-family="Arial, sans-serif" font-size="78" font-weight="700" fill="#1e3a8a">BoardPort</text>
-      <text x="600" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#64748b">항해일지</text>
-    </svg>
-  `;
+function buildFallbackCard() {
+  return {
+    svg: `
+      <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1200" height="630" fill="#f8fafc"/>
+      </svg>
+    `,
+    texts: [
+      {
+        text: "BoardPort",
+        x: 600,
+        baseline: 292,
+        fontSize: 78,
+        color: "#1e3a8a",
+        anchor: "middle",
+      },
+      {
+        text: "항해일지",
+        x: 600,
+        baseline: 352,
+        fontSize: 30,
+        color: "#64748b",
+        anchor: "middle",
+      },
+    ],
+  } satisfies OgCard;
 }
 
 /**
- * 게시글 정보 패널 SVG 생성
+ * 게시글 정보 카드의 도형과 글꼴 텍스트 사양 생성
  */
-function buildPostSvg({
+function buildPostCard({
   title,
   description,
   categoryName,
@@ -89,48 +105,80 @@ function buildPostSvg({
   username: string;
   hasImage: boolean;
 }) {
-  const titleText = splitLines(title, 14, 2)
-    .map(
-      (line, index) =>
-        `<text x="74" y="${168 + index * 50}" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#0f172a">${escapeSvgText(line)}</text>`
-    )
-    .join("");
-  const descriptionText = splitLines(description, 18, 3)
-    .map(
-      (line, index) =>
-        `<text x="74" y="${302 + index * 34}" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#64748b">${escapeSvgText(line)}</text>`
-    )
-    .join("");
+  const texts: OgTextSpec[] = [
+    {
+      text: categoryName,
+      x: 147,
+      baseline: 112,
+      fontSize: 23,
+      color: "#1e3a8a",
+      anchor: "middle",
+    },
+    ...splitLines(title, 14, 2).map((line, index) => ({
+      text: line,
+      x: 74,
+      baseline: 168 + index * 50,
+      fontSize: 42,
+      color: "#0f172a",
+    })),
+    ...splitLines(description, 18, 3).map((line, index) => ({
+      text: line,
+      x: 74,
+      baseline: 302 + index * 34,
+      fontSize: 25,
+      color: "#64748b",
+    })),
+    {
+      text: `작성자: ${username}`,
+      x: 74,
+      baseline: 548,
+      fontSize: 24,
+      color: "#64748b",
+    },
+    {
+      text: "항해일지",
+      x: 464,
+      baseline: 548,
+      fontSize: 28,
+      color: "#1e3a8a",
+      anchor: "end",
+    },
+    ...(hasImage
+      ? []
+      : [
+          {
+            text: "BoardPort",
+            x: 900,
+            baseline: 316,
+            fontSize: 54,
+            color: "#94a3b8",
+            anchor: "middle" as const,
+          },
+        ]),
+  ];
 
-  return `
-    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="630" fill="#f8fafc"/>
-      <rect x="0" y="0" width="600" height="630" fill="#ffffff"/>
-      <rect x="48" y="44" width="504" height="542" rx="30" fill="#f8fafc"/>
-      <rect x="48" y="44" width="504" height="542" rx="30" fill="none" stroke="#e2e8f0" stroke-width="2"/>
-      <rect x="74" y="82" width="146" height="44" rx="14" fill="#dbeafe"/>
-      <text x="147" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="23" font-weight="700" fill="#1e3a8a">${escapeSvgText(categoryName)}</text>
-      ${titleText}
-      <rect x="74" y="260" width="390" height="126" rx="20" fill="#ffffff"/>
-      <rect x="74" y="260" width="390" height="126" rx="20" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
-      ${descriptionText}
-      <rect x="74" y="492" width="390" height="2" rx="1" fill="#dbeafe"/>
-      <text x="74" y="548" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#64748b">작성자: ${escapeSvgText(username)}</text>
-      <text x="464" y="548" text-anchor="end" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#1e3a8a">항해일지</text>
-      <rect x="600" y="0" width="600" height="630" fill="#dbeafe"/>
-      ${
-        hasImage
-          ? ""
-          : '<text x="900" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#94a3b8">BoardPort</text>'
-      }
-    </svg>
-  `;
+  return {
+    svg: `
+      <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1200" height="630" fill="#f8fafc"/>
+        <rect x="0" y="0" width="600" height="630" fill="#ffffff"/>
+        <rect x="48" y="44" width="504" height="542" rx="30" fill="#f8fafc"/>
+        <rect x="48" y="44" width="504" height="542" rx="30" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+        <rect x="74" y="82" width="146" height="44" rx="14" fill="#dbeafe"/>
+        <rect x="74" y="260" width="390" height="126" rx="20" fill="#ffffff"/>
+        <rect x="74" y="260" width="390" height="126" rx="20" fill="none" stroke="#e2e8f0" stroke-width="1.5"/>
+        <rect x="74" y="492" width="390" height="2" rx="1" fill="#dbeafe"/>
+        <rect x="600" y="0" width="600" height="630" fill="#dbeafe"/>
+      </svg>
+    `,
+    texts,
+  } satisfies OgCard;
 }
 
 /**
- * SVG 정보 패널과 대표 이미지를 합성한 PNG Response 생성
+ * 게시글 정보 카드와 대표 이미지를 합성한 PNG Response 생성
  */
-async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
+async function createPngResponse(card: OgCard, imageBuffer: Buffer | null) {
   const composites: OverlayOptions[] = [];
 
   if (imageBuffer) {
@@ -149,7 +197,9 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
     }
   }
 
-  const png = await sharp(Buffer.from(svg))
+  composites.push(...(await createOgTextOverlays(card.texts)));
+
+  const png = await sharp(Buffer.from(card.svg))
     .composite(composites)
     .png()
     .toBuffer();
@@ -177,7 +227,7 @@ export default async function Image({
   const id = Number(rawId);
 
   if (!Number.isFinite(id) || id <= 0) {
-    return createPngResponse(buildFallbackSvg(), null);
+    return createPngResponse(buildFallbackCard(), null);
   }
 
   const post = await db.post.findUnique({
@@ -192,7 +242,7 @@ export default async function Image({
   });
 
   if (!post) {
-    return createPngResponse(buildFallbackSvg(), null);
+    return createPngResponse(buildFallbackCard(), null);
   }
 
   const categoryName =
@@ -201,7 +251,7 @@ export default async function Image({
   const imageBuffer = await fetchSafeOgImage(thumbUrl);
 
   return createPngResponse(
-    buildPostSvg({
+    buildPostCard({
       title: post.title,
       description:
         post.description?.trim().replace(/\s+/g, " ") ||

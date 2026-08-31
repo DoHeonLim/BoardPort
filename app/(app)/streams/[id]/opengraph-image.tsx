@@ -16,6 +16,7 @@
  * 2026.08.23  임도헌   Modified  상대 썸네일 URL을 공용 trusted origin과 로컬 fallback으로 보정
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 방송 경로 정보 처리 보완
+ * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -26,18 +27,15 @@ import {
   SAFE_OG_IMAGE_MAX_PIXELS,
 } from "@/lib/media/safeImageFetch";
 import { getTrustedAppBaseUrl } from "@/lib/env";
+import {
+  createOgTextOverlays,
+  type OgCard,
+  type OgTextSpec,
+} from "@/lib/media/ogText";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-
-function escapeSvgText(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 /**
  * 고정 폭 방송 OG 카드용 텍스트 줄 분리
@@ -94,20 +92,38 @@ function normalizeStreamThumbnailUrl(src: string | null | undefined) {
 /**
  * 잘못된 ID나 삭제된 방송을 위한 기본 BoardPort OG 이미지
  */
-function buildFallbackSvg() {
-  return `
-    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="630" fill="#020617"/>
-      <text x="600" y="292" text-anchor="middle" font-family="Arial, sans-serif" font-size="78" font-weight="700" fill="#ffffff">BoardPort</text>
-      <text x="600" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#93c5fd">등대방송</text>
-    </svg>
-  `;
+function buildFallbackCard() {
+  return {
+    svg: `
+      <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1200" height="630" fill="#020617"/>
+      </svg>
+    `,
+    texts: [
+      {
+        text: "BoardPort",
+        x: 600,
+        baseline: 292,
+        fontSize: 78,
+        color: "#ffffff",
+        anchor: "middle",
+      },
+      {
+        text: "등대방송",
+        x: 600,
+        baseline: 352,
+        fontSize: 30,
+        color: "#93c5fd",
+        anchor: "middle",
+      },
+    ],
+  } satisfies OgCard;
 }
 
 /**
- * 방송 정보 오버레이 SVG 생성
+ * 방송 정보 오버레이의 도형과 글꼴 텍스트 사양 생성
  */
-function buildStreamOverlaySvg({
+function buildStreamOverlayCard({
   title,
   username,
   badgeText,
@@ -120,37 +136,62 @@ function buildStreamOverlaySvg({
   badgeColor: string;
   hasImage: boolean;
 }) {
-  const titleText = splitLines(title, 18, 2)
-    .map(
-      (line, index) =>
-        `<text x="82" y="${392 + index * 58}" font-family="Arial, sans-serif" font-size="50" font-weight="700" fill="#ffffff">${escapeSvgText(line)}</text>`
-    )
-    .join("");
+  const texts: OgTextSpec[] = [
+    {
+      text: "BoardPort",
+      x: 1070,
+      baseline: 88,
+      fontSize: 30,
+      color: "#ffffff",
+      anchor: "end",
+    },
+    {
+      text: badgeText,
+      x: 153,
+      baseline: 317,
+      fontSize: 25,
+      color: "#ffffff",
+      anchor: "middle",
+    },
+    ...splitLines(title, 18, 2).map((line, index) => ({
+      text: line,
+      x: 82,
+      baseline: 392 + index * 58,
+      fontSize: 50,
+      color: "#ffffff",
+    })),
+    {
+      text: `방송국: ${username}`,
+      x: 82,
+      baseline: 548,
+      fontSize: 30,
+      color: "#bfdbfe",
+    },
+  ];
 
-  return `
-    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="630" fill="${hasImage ? "rgba(0,0,0,0.18)" : "#020617"}"/>
-      <rect x="0" y="0" width="1200" height="630" fill="url(#streamGradient)"/>
-      <defs>
-        <linearGradient id="streamGradient" x1="0" y1="630" x2="0" y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#020617" stop-opacity="0.95"/>
-          <stop offset="0.55" stop-color="#020617" stop-opacity="0.45"/>
-          <stop offset="1" stop-color="#020617" stop-opacity="0.12"/>
-        </linearGradient>
-      </defs>
-      <text x="1070" y="88" text-anchor="end" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">BoardPort</text>
-      <rect x="82" y="284" width="142" height="48" rx="15" fill="${badgeColor}"/>
-      <text x="153" y="317" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#ffffff">${badgeText}</text>
-      ${titleText}
-      <text x="82" y="548" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#bfdbfe">방송국: ${escapeSvgText(username)}</text>
-    </svg>
-  `;
+  return {
+    svg: `
+      <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1200" height="630" fill="${hasImage ? "rgba(0,0,0,0.18)" : "#020617"}"/>
+        <rect x="0" y="0" width="1200" height="630" fill="url(#streamGradient)"/>
+        <defs>
+          <linearGradient id="streamGradient" x1="0" y1="630" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#020617" stop-opacity="0.95"/>
+            <stop offset="0.55" stop-color="#020617" stop-opacity="0.45"/>
+            <stop offset="1" stop-color="#020617" stop-opacity="0.12"/>
+          </linearGradient>
+        </defs>
+        <rect x="82" y="284" width="142" height="48" rx="15" fill="${badgeColor}"/>
+      </svg>
+    `,
+    texts,
+  } satisfies OgCard;
 }
 
 /**
  * 방송 썸네일과 오버레이를 합성한 PNG Response 생성
  */
-async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
+async function createPngResponse(card: OgCard, imageBuffer: Buffer | null) {
   const composites: OverlayOptions[] = [];
 
   if (imageBuffer) {
@@ -169,7 +210,8 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
     }
   }
 
-  composites.push({ input: Buffer.from(svg), left: 0, top: 0 });
+  composites.push({ input: Buffer.from(card.svg), left: 0, top: 0 });
+  composites.push(...(await createOgTextOverlays(card.texts)));
 
   const png = await sharp({
     create: {
@@ -206,7 +248,7 @@ export default async function Image({
   const id = Number(rawId);
 
   if (!Number.isFinite(id) || id <= 0) {
-    return createPngResponse(buildFallbackSvg(), null);
+    return createPngResponse(buildFallbackCard(), null);
   }
 
   const stream = await db.broadcast.findUnique({
@@ -232,7 +274,7 @@ export default async function Image({
   });
 
   if (!stream || stream.visibility !== "PUBLIC") {
-    return createPngResponse(buildFallbackSvg(), null);
+    return createPngResponse(buildFallbackCard(), null);
   }
 
   const isLive = stream.status === "CONNECTED";
@@ -253,7 +295,7 @@ export default async function Image({
   const imageBuffer = await fetchSafeOgImage(thumbUrl);
 
   return createPngResponse(
-    buildStreamOverlaySvg({
+    buildStreamOverlayCard({
       title: stream.title,
       username: stream.liveInput.user.username,
       badgeText,

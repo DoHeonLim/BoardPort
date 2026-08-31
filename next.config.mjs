@@ -5,9 +5,13 @@
  * History
  * 2026.08.23 Modified Next.js 16 및 Serwist 기반 PWA 빌드 구성으로 전환
  * 2026.08.28 Modified TypeScript CLI showConfig 출력 파싱 불안정을 Compiler API 경로로 우회
+ * 2026.08.31 Modified 동적 OG 이미지 함수에 Pretendard 한글 글꼴 파일 포함
+ * 2026.08.31 Modified 오프라인 안내 페이지의 로고 자산을 Serwist precache에 포함
  */
 
 import withSerwistInit from "@serwist/next";
+
+const pwaRevision = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
 
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
@@ -18,7 +22,15 @@ const withSerwist = withSerwistInit({
   additionalPrecacheEntries: [
     {
       url: "/offline",
-      revision: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+      revision: pwaRevision,
+    },
+    {
+      url: "/images/logo-symbol.png",
+      revision: pwaRevision,
+    },
+    {
+      url: "/images/logo-text.png",
+      revision: pwaRevision,
     },
   ],
   exclude: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
@@ -154,6 +166,16 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingIncludes: {
+    "/products/view/*/opengraph-image*": [
+      "./app/fonts/Pretendard-Bold.subset.woff2",
+    ],
+    "/products/view/*/og-image": ["./app/fonts/Pretendard-Bold.subset.woff2"],
+    "/posts/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.subset.woff2"],
+    "/posts/*/og-image": ["./app/fonts/Pretendard-Bold.subset.woff2"],
+    "/streams/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.subset.woff2"],
+    "/streams/*/og-image": ["./app/fonts/Pretendard-Bold.subset.woff2"],
+  },
   experimental: {
     // Next 16 CLI 경로가 큰 --showConfig 출력을 잘린 JSON으로 읽는 경우가 있어
     // 타입 검사를 생략하지 않고 현재 TypeScript 5.9 Compiler API로 실행한다.
