@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   실제 미존재·DB 실패 경계와 최신 조회수 overlay를 검증
+ * 2026.08.31  임도헌   Modified  서버 cache에서 문자열로 복원된 상세 날짜의 Date 정규화 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,6 +70,8 @@ describe("product detail lookup boundary", () => {
         id: 91,
         userId: 11,
         views: 3,
+        created_at: new Date("2026-08-20T01:00:00.000Z"),
+        refreshed_at: new Date("2026-08-27T02:30:00.000Z"),
         board_games: [],
       })
       .mockResolvedValueOnce({
@@ -82,5 +85,33 @@ describe("product detail lookup boundary", () => {
     const result = await getProductDetailViewData(91, null);
 
     expect(result.product?.views).toBe(42);
+  });
+
+  it("서버 cache에서 ISO 문자열로 복원된 상세 날짜를 Date로 정규화한다", async () => {
+    mocks.productFindUnique
+      .mockResolvedValueOnce({
+        id: 91,
+        userId: 11,
+        views: 3,
+        created_at: "2026-08-20T01:00:00.000Z",
+        refreshed_at: "2026-08-27T02:30:00.000Z",
+        board_games: [],
+      })
+      .mockResolvedValueOnce({
+        reservation_userId: null,
+        purchase_userId: null,
+        hidden_at: null,
+        views: 3,
+      });
+    const { getProductDetailViewData } = await import("./detail");
+
+    const result = await getProductDetailViewData(91, null);
+
+    expect(result.product?.created_at).toEqual(
+      new Date("2026-08-20T01:00:00.000Z")
+    );
+    expect(result.product?.refreshed_at).toEqual(
+      new Date("2026-08-27T02:30:00.000Z")
+    );
   });
 });

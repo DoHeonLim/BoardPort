@@ -9,6 +9,7 @@
  * 2026.03.16  임도헌   Modified  저장 직후 FAB가 즉시 갱신되도록 커스텀 이벤트 발행 추가
  * 2026.04.08  임도헌   Modified  상품 삭제 직후 최근 본 상품 목록에서도 즉시 제거할 수 있도록 삭제 유틸 추가
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 refreshed_at을 보존하는 최근 본 상품 스냅샷 변환 함수 추가
+ * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜도 안전하게 스냅샷으로 변환
  */
 
 "use client";
@@ -28,6 +29,13 @@ export const RECENT_VIEWED_PRODUCTS_UPDATED_EVENT =
  */
 export type RecentViewedProduct = ProductType;
 
+/** Date 또는 서버 cache의 ISO 문자열을 브라우저 저장소용 ISO 문자열로 통일한다. */
+function serializeProductDate(value: Date | string) {
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
+}
+
 /**
  * 상세 조회 결과를 브라우저 저장소용 최근 본 상품 스냅샷으로 변환
  *
@@ -44,8 +52,8 @@ export function createRecentViewedProductSnapshot(
     id: product.id,
     title: product.title,
     price: product.price,
-    created_at: product.created_at.toISOString(),
-    refreshed_at: product.refreshed_at.toISOString(),
+    created_at: serializeProductDate(product.created_at),
+    refreshed_at: serializeProductDate(product.refreshed_at),
     reservation_userId: product.reservation_userId,
     purchase_userId: product.purchase_userId,
     views: product.views,

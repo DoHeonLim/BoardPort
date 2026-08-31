@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   생성 시각과 끌어올리기 노출 시각을 독립적으로 보존하는지 검증
+ * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜 입력 회귀 검증
  */
 
 import { describe, expect, it } from "vitest";
@@ -75,5 +76,19 @@ describe("createRecentViewedProductSnapshot", () => {
       views: 12,
       _count: { product_likes: 3 },
     });
+  });
+
+  it("서버 cache를 거친 ISO 문자열 날짜도 다시 직렬화한다", () => {
+    const product = createProductDetailFixture();
+    const cachedProduct = {
+      ...product,
+      created_at: product.created_at.toISOString(),
+      refreshed_at: product.refreshed_at.toISOString(),
+    } as unknown as ProductDetailType;
+
+    const snapshot = createRecentViewedProductSnapshot(cachedProduct);
+
+    expect(snapshot.created_at).toBe("2026-08-20T01:00:00.000Z");
+    expect(snapshot.refreshed_at).toBe("2026-08-27T02:30:00.000Z");
   });
 });

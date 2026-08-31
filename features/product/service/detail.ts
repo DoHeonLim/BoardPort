@@ -27,6 +27,7 @@
  * 2026.06.18  임도헌   Modified  상세 캐시와 별도로 거래/숨김 상태를 최신 조회하도록 보강
  * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리해 최신 DB 값으로 덮어쓰도록 보강
+ * 2026.08.31  임도헌   Modified  Next 서버 cache에서 문자열로 복원된 상세 날짜를 Date로 정규화
  */
 import "server-only";
 
@@ -37,6 +38,11 @@ import { PRODUCT_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects
 import type { ProductDetailType } from "@/features/product/types";
 import { getProductLikeStatus } from "@/features/product/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
+
+/** Next 서버 cache를 거치며 직렬화된 날짜를 상세 도메인의 Date 계약으로 복원한다. */
+function restoreProductDetailDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
 
 /**
  * 제품 상세 정보 데이터 조회 로직
@@ -137,8 +143,11 @@ export async function getProductDetailViewData(
     };
   }
 
-  const productWithLiveState = {
+  const productWithLiveState: ProductDetailType = {
     ...product,
+    // unstable_cache 저장값은 ISO 문자열로 복원될 수 있으므로 클라이언트 경계 전에 Date 계약을 회복한다.
+    created_at: restoreProductDetailDate(product.created_at),
+    refreshed_at: restoreProductDetailDate(product.refreshed_at),
     reservation_userId: liveState.reservation_userId,
     purchase_userId: liveState.purchase_userId,
     hidden_at: liveState.hidden_at,
