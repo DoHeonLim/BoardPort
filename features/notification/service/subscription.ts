@@ -10,6 +10,7 @@
  * 2026.04.02  임도헌   Modified  푸시 구독 상태 타입을 notification/types 공용 정의로 분리
  * 2026.08.13  임도헌   Modified  endpoint 단일 소유권 이전과 기기 증명 기반 해제/복구 추가
  * 2026.08.13  임도헌   Modified  사용자별 기기 상한·동시성 잠금과 표시 직전 전달 권한 검증 추가
+ * 2026.09.01  임도헌   Fixed     PrismaPg가 트랜잭션 잠금의 void 반환값을 역직렬화하지 않도록 정수 열만 반환
  */
 import "server-only";
 import db from "@/lib/db";
@@ -50,20 +51,28 @@ export class PushSubscriptionLimitExceededError extends Error {
   }
 }
 
-/** 동일 Push endpoint의 소유권 변경을 transaction advisory lock으로 직렬화한다. */
+/**
+ * 동일 Push endpoint의 소유권 변경을 transaction advisory lock으로 직렬화한다.
+ * PrismaPg의 void 역직렬화 오류를 피하도록 잠금 함수의 결과 대신 정수 열만 조회한다.
+ */
 async function lockPushEndpoint(
   tx: Prisma.TransactionClient,
   endpoint: string
 ) {
   await tx.$queryRaw`
-    SELECT pg_advisory_xact_lock(hashtext(${`push-subscription:${endpoint}`}))
+    SELECT 1 AS "lockAcquired"
+    FROM pg_advisory_xact_lock(hashtext(${`push-subscription:${endpoint}`}))
   `;
 }
 
-/** 사용자별 기기 상한 검사를 transaction advisory lock으로 직렬화한다. */
+/**
+ * 사용자별 기기 상한 검사를 transaction advisory lock으로 직렬화한다.
+ * PrismaPg의 void 역직렬화 오류를 피하도록 잠금 함수의 결과 대신 정수 열만 조회한다.
+ */
 async function lockPushUser(tx: Prisma.TransactionClient, userId: number) {
   await tx.$queryRaw`
-    SELECT pg_advisory_xact_lock(hashtext(${`push-subscription-user:${userId}`}))
+    SELECT 1 AS "lockAcquired"
+    FROM pg_advisory_xact_lock(hashtext(${`push-subscription-user:${userId}`}))
   `;
 }
 

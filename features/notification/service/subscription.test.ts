@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.13  임도헌   Created   소유권 이전, legacy 차단, 현재 기기 해제 테스트 추가
+ * 2026.09.01  임도헌   Modified  트랜잭션 잠금 쿼리가 Prisma 지원 정수 타입만 반환하는지 검증 추가
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,7 +53,7 @@ describe("push subscription service", () => {
     mocks.db.$transaction.mockImplementation(async (callback) =>
       callback(mocks.db)
     );
-    mocks.db.$queryRaw.mockResolvedValue([{ pg_advisory_xact_lock: null }]);
+    mocks.db.$queryRaw.mockResolvedValue([{ lockAcquired: 1 }]);
     mocks.db.pushSubscription.findUnique.mockResolvedValue(null);
     mocks.db.pushSubscription.upsert.mockResolvedValue({ id: 1 });
     mocks.db.pushSubscription.updateMany.mockResolvedValue({ count: 1 });
@@ -98,11 +99,21 @@ describe("push subscription service", () => {
     });
   });
 
+  it("advisory lock은 Prisma가 역직렬화할 수 있는 정수 결과만 반환한다", async () => {
+    const { upsertSubscription } = await import("./subscription");
+
+    await upsertSubscription(22, device);
+
+    expect(mocks.db.$queryRaw).toHaveBeenCalledTimes(2);
+    for (const [query] of mocks.db.$queryRaw.mock.calls) {
+      expect(query.join(" ")).toContain('SELECT 1 AS "lockAcquired"');
+      expect(query.join(" ")).toContain("FROM pg_advisory_xact_lock");
+    }
+  });
+
   it("타 계정 endpoint의 기기 키를 증명하지 못하면 소유권을 이전하지 않는다", async () => {
-    const {
-      PushSubscriptionOwnershipMismatchError,
-      upsertSubscription,
-    } = await import("./subscription");
+    const { PushSubscriptionOwnershipMismatchError, upsertSubscription } =
+      await import("./subscription");
     mocks.db.pushSubscription.findUnique.mockResolvedValue({
       userId: 3,
       p256dh: "another_p256dh",
@@ -180,10 +191,8 @@ describe("push subscription service", () => {
   });
 
   it("legacy 기기 자동 복구도 활성 기기 상한을 넘기지 않는다", async () => {
-    const {
-      checkSubscriptionStatus,
-      MAX_ACTIVE_PUSH_SUBSCRIPTIONS_PER_USER,
-    } = await import("./subscription");
+    const { checkSubscriptionStatus, MAX_ACTIVE_PUSH_SUBSCRIPTIONS_PER_USER } =
+      await import("./subscription");
     mocks.db.pushSubscription.findUnique.mockResolvedValue({
       id: 10,
       userId: 7,
