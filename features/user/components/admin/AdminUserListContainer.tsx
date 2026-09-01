@@ -13,6 +13,7 @@
  * 2026.03.30  임도헌   Modified  role 칩 필터, 프로필 바로가기, ID 뱃지 문법 정리와 권한 변경 모달 흐름을 함께 보강
  * 2026.04.10  임도헌   Modified  유저 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  프로필 링크/관리 모달 프리로드를 줄이고 모바일 카드 렌더·배지 대비를 보강해 관리자 유저 페이지 초기 부하를 완화
+ * 2026.09.01  임도헌   Modified  중간 너비에서 유저 상태와 관리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
  */
 "use client";
 
@@ -180,7 +181,7 @@ export default function AdminUserListContainer({ data }: Props) {
         ))}
       </div>
 
-      <div className="space-y-4 md:hidden">
+      <div className="space-y-4 xl:hidden">
         {items.length === 0 ? (
           <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
             {hasActiveFilters
@@ -319,7 +320,7 @@ export default function AdminUserListContainer({ data }: Props) {
       </div>
 
       {/* Table Area */}
-      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm xl:block">
         <div className="overflow-x-auto min-h-[400px]">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">

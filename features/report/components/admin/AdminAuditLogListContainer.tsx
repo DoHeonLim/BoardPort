@@ -15,6 +15,7 @@
  * 2026.04.19  임도헌   Modified  액션/대상 타입 필터 칩에 공용 포커스 링을 적용해 관리자 목록 포커스 문법을 통일
  * 2026.04.28  임도헌   Modified  신고 제재 관련 감사 로그 사유를 운영자가 읽기 쉬운 한글 요약으로 포맷
  * 2026.04.28  임도헌   Modified  삭제 감사 로그의 OwnerID 옆에 유저명을 함께 표시
+ * 2026.09.01  임도헌   Modified  중간 너비에서 감사 상세 정보가 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
  */
 
 "use client";
@@ -148,7 +149,7 @@ export default function AdminAuditLogListContainer({
         </div>
       </div>
 
-      <div className="space-y-4 md:hidden">
+      <div className="space-y-4 xl:hidden">
         {data.items.length === 0 ? (
           <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
             {hasQuery
@@ -252,7 +253,7 @@ export default function AdminAuditLogListContainer({
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm xl:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">

@@ -9,6 +9,7 @@
  * 2026.03.30  임도헌   Modified  KPI/차트 패널에서 바로 관련 신고·유저 화면으로 이어지도록 액션 링크 보강
  * 2026.04.10  임도헌   Modified  신고 인사이트 헤더의 액션 링크와 KPI weight를 관리자 타이포 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  요약 링크 프리패치를 줄이고 차트 패널을 지연 로딩 래퍼로 분리
+ * 2026.09.01  임도헌   Modified  태블릿 인사이트 카드를 두 열로 배치해 좁은 카드에서 지표가 압축되지 않도록 조정
  */
 
 import Link from "next/link";
@@ -56,7 +57,7 @@ export default function ReportInsightHeader({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Link
           href="/admin/reports?status=PENDING"
           prefetch={false}

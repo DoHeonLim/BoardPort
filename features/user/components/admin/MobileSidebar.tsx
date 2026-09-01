@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/admin/MobileSidebar.tsx
- * Description : 모바일용 관리자 사이드바 (Sheet/Drawer)
+ * Description : 모바일·태블릿용 관리자 사이드바 (Sheet/Drawer)
  * Author : 임도헌
  *
  * History
@@ -11,6 +11,7 @@
  * 2026.04.10  임도헌   Modified  모바일 관리자 드로어의 섹션 라벨 크기를 공통 타이포 스케일로 정리
  * 2026.04.18  임도헌   Modified  닫기 아이콘 버튼에 접근 가능한 이름과 button 타입을 추가
  * 2026.04.28  임도헌   Modified  보드게임 카탈로그 관리 메뉴를 모바일 관리자 드로어에 추가
+ * 2026.09.01  임도헌   Modified  태블릿에서도 고정 사이드바 대신 관리자 드로어를 사용하도록 노출 범위 확장
  */
 "use client";
 
@@ -36,7 +37,7 @@ import AdminNavLink from "@/features/user/components/admin/AdminNavLink";
 import { cn } from "@/lib/utils";
 
 /**
- * 모바일 환경 관리자 네비게이션 드로어
+ * 모바일·태블릿 환경 관리자 네비게이션 드로어
  *
  * [기능]
  * 1. 햄버거 버튼 클릭 시 사이드바를 슬라이드 드로어 형태로 노출
@@ -166,7 +167,7 @@ export default function MobileSidebar({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="focus-ring-soft md:hidden p-2 -ml-2 text-muted hover:bg-surface-dim rounded-lg transition-colors"
+        className="focus-ring-soft lg:hidden p-2 -ml-2 text-muted hover:bg-surface-dim rounded-lg transition-colors"
         aria-label="관리자 메뉴 열기"
       >
         <Bars3Icon className="size-6" />

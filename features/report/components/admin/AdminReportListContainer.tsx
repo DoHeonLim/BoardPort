@@ -18,6 +18,7 @@
  * 2026.04.18  임도헌   Modified  초기 번들 부담을 줄이기 위해 처리 모달을 지연 로딩하고 내부 링크 프리패치를 제한
  * 2026.04.27  임도헌   Modified  신고 처리 모달이 대상 타입에 맞춰 조치 추천을 보정할 수 있도록 targetType 전달
  * 2026.04.28  임도헌   Modified  신고 처리 모달에 실제 조치 대상 유저 메타를 전달
+ * 2026.09.01  임도헌   Modified  중간 너비에서 신고 정보와 처리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
  */
 
 "use client";
@@ -188,7 +189,7 @@ export default function AdminReportListContainer({
         ))}
       </div>
 
-      <div className="space-y-4 md:hidden">
+      <div className="space-y-4 xl:hidden">
         {reports.length === 0 ? (
           <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
             {hasQuery
@@ -308,7 +309,7 @@ export default function AdminReportListContainer({
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm xl:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">
@@ -360,13 +361,13 @@ export default function AdminReportListContainer({
                                 href={targetHref}
                                 prefetch={false}
                                 target={isInternalTarget ? undefined : "_blank"}
-                              rel={
-                                isInternalTarget
-                                  ? undefined
-                                  : "noopener noreferrer"
-                              }
-                              className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
-                            >
+                                rel={
+                                  isInternalTarget
+                                    ? undefined
+                                    : "noopener noreferrer"
+                                }
+                                className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                              >
                                 <ArrowTopRightOnSquareIcon className="size-4" />
                               </Link>
                             )}
@@ -468,7 +469,9 @@ export default function AdminReportListContainer({
           }
           targetParentPreview={selectedReport?.targetParentPreview ?? null}
           targetResolvedUserId={selectedReport?.targetResolvedUserId ?? null}
-          targetResolvedUsername={selectedReport?.targetResolvedUsername ?? null}
+          targetResolvedUsername={
+            selectedReport?.targetResolvedUsername ?? null
+          }
           targetUrl={
             selectedReport ? getDirectTargetUrl(selectedReport, returnTo) : null
           }
