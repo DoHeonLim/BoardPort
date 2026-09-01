@@ -7,13 +7,38 @@
  * Date        Author   Status    Description
  * 2026.08.23  임도헌   Created   API·RSC·인증 HTML의 runtime cache 제외 경계 검증
  * 2026.08.30  임도헌   Modified  문서 탐색과 RSC·prefetch 요청의 서비스 워커 처리 경계 검증
+ * 2026.09.01  임도헌   Modified  구형 next-pwa 캐시와 현재 Serwist 캐시의 정리 경계 검증
  */
 
 import { describe, expect, it } from "vitest";
 import {
+  isLegacyPwaCacheName,
   isPwaDocumentNavigation,
   isPwaStaticAssetPath,
 } from "./pwaCachePolicy";
+
+describe("isLegacyPwaCacheName", () => {
+  it.each([
+    "workbox-precache-v2-https://boardport.life/",
+    "apis",
+    "others",
+    "next-image",
+    "next-data",
+    "cross-origin",
+    "start-url",
+    "static-image-assets",
+  ])("구형 next-pwa 캐시를 정리 대상으로 판정한다: %s", (cacheName) => {
+    expect(isLegacyPwaCacheName(cacheName)).toBe(true);
+  });
+
+  it.each([
+    "serwist-precache-v2-https://boardport.life/",
+    "serwist-runtime-https://boardport.life/",
+    "boardport-static-assets",
+  ])("현재 서비스 워커 캐시는 보존한다: %s", (cacheName) => {
+    expect(isLegacyPwaCacheName(cacheName)).toBe(false);
+  });
+});
 
 /**
  * Service Worker runtime cache가 공용 정적 자산만 허용하는지 검증한다.

@@ -5,11 +5,13 @@
  * History
  * 2026.08.23 Created next-pwa를 Serwist로 전환하고 기존 푸시 표시 보호 로직 연동
  * 2026.08.30 Modified 정적 자산·문서 탐색만 가로채 RSC 요청 취소의 no-response 오류 차단
+ * 2026.09.01 Modified 서비스 워커 활성화 시 구형 next-pwa 개인화 캐시 제거
  */
 
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { CacheFirst, ExpirationPlugin, NetworkOnly, Serwist } from "serwist";
 import {
+  isLegacyPwaCacheName,
   isPwaDocumentNavigation,
   isPwaStaticAssetPath,
 } from "@/features/notification/utils/pwaCachePolicy";
@@ -24,6 +26,22 @@ declare const self: ServiceWorkerGlobalScope;
 
 // 기존 보안 검증이 포함된 푸시 이벤트 핸들러를 메인 서비스 워커에 연결한다.
 self.importScripts("/pwa-push.js?guard=1");
+
+/**
+ * next-pwa가 남긴 API·RSC·개인화 이미지 캐시를 현재 서비스 워커 활성화 시 제거한다.
+ */
+async function deleteLegacyPwaCaches() {
+  const cacheNames = await self.caches.keys();
+  const legacyCacheNames = cacheNames.filter(isLegacyPwaCacheName);
+
+  await Promise.all(
+    legacyCacheNames.map((cacheName) => self.caches.delete(cacheName))
+  );
+}
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(deleteLegacyPwaCaches());
+});
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
