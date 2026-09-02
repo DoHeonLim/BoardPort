@@ -34,6 +34,7 @@
  * 2026.08.21  임도헌   Modified  사용자 목록·알림·상품 채팅 발신을 private topic으로 분리
  * 2026.08.22  임도헌   Modified  채팅 이미지 저장 전 MediaAsset 소유권과 CHAT_IMAGE 용도 검증 추가
  * 2026.08.26  임도헌   Modified  clientMessageId 멱등 저장과 DB commit 이후 Realtime·알림 실패 격리
+ * 2026.09.02  임도헌   Modified  이미지 메시지 삭제 시 MediaAsset 연결 해제와 Cloudflare 원본 정리 추가
  */
 
 import "server-only";
@@ -65,7 +66,11 @@ import type {
 } from "@/features/chat/types";
 import type { MessageType, Prisma } from "@/generated/prisma/client";
 import type { ChatMessageReactionKey } from "@/features/chat/constants";
-import { attachOwnedMediaAssets } from "@/features/media/service/assets";
+import {
+  attachOwnedMediaAssets,
+  deleteCloudflareImageAssetsById,
+  detachMissingMediaAssets,
+} from "@/features/media/service/assets";
 
 /** 브라우저가 생성한 메시지 요청 ID를 DB 고유 키에 사용해도 되는지 확인한다. */
 export function isValidClientMessageId(value: string): boolean {
@@ -614,6 +619,7 @@ export async function markMessagesAsRead(
  * [정책]
  * - TEXT / IMAGE 메시지만 삭제 가능
  * - 행(row)은 유지하고 payload/image를 비워 타임라인 문맥을 보존
+ * - IMAGE 메시지는 DB 트랜잭션에서 CHAT_IMAGE 연결을 해제한 뒤 Cloudflare 원본을 정리
  * - 삭제된 메시지는 실시간 이벤트로 같은 채팅방 참여자에게 즉시 반영
  *
  * @param {number} messageId - 삭제할 메시지 ID
@@ -646,6 +652,18 @@ export async function deleteMessage(
     }
 
     if (existing.deleted_at) {
+      const imageAssetIds =
+        existing.type === "IMAGE"
+          ? await db.$transaction((tx) =>
+              detachMissingMediaAssets(tx, {
+                ownerId: userId,
+                purpose: "CHAT_IMAGE",
+                linkedEntityId: String(messageId),
+                keepUrls: [],
+              })
+            )
+          : [];
+      await deleteCloudflareImageAssetsById(imageAssetIds);
       return { success: true, data: mapToChatMessage(existing) };
     }
 
@@ -654,19 +672,35 @@ export async function deleteMessage(
       return { success: false, error: "채팅방을 찾을 수 없습니다." };
     }
 
-    const deletedMessage = await db.productMessage.update({
-      where: { id: messageId },
-      data: {
-        payload: null,
-        image: null,
-        imageIsAnimated: false,
-        deleted_at: new Date(),
-        reactions: {
-          deleteMany: {},
-        },
-      },
-      include: MESSAGE_INCLUDE,
-    });
+    const { deletedMessage, imageAssetIds } = await db.$transaction(
+      async (tx) => {
+        const imageAssetIds =
+          existing.type === "IMAGE"
+            ? await detachMissingMediaAssets(tx, {
+                ownerId: userId,
+                purpose: "CHAT_IMAGE",
+                linkedEntityId: String(messageId),
+                keepUrls: [],
+              })
+            : [];
+        const deletedMessage = await tx.productMessage.update({
+          where: { id: messageId },
+          data: {
+            payload: null,
+            image: null,
+            imageIsAnimated: false,
+            deleted_at: new Date(),
+            reactions: {
+              deleteMany: {},
+            },
+          },
+          include: MESSAGE_INCLUDE,
+        });
+
+        return { deletedMessage, imageAssetIds };
+      }
+    );
+    await deleteCloudflareImageAssetsById(imageAssetIds);
 
     const chatMessage = mapToChatMessage(deletedMessage);
     const wasUnread = !existing.isRead;

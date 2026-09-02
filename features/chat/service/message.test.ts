@@ -1,11 +1,12 @@
 /**
  * File Name : features/chat/service/message.test.ts
- * Description : 상품 채팅 메시지 멱등 저장과 외부 실패 격리 회귀 테스트
+ * Description : 상품 채팅 메시지 저장·삭제와 외부 효과 회귀 테스트
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.08.26  임도헌   Created   clientMessageId 재사용과 Realtime 실패 후 DB 성공 유지 검증
+ * 2026.09.02  임도헌   Modified  이미지 메시지 삭제 시 MediaAsset 및 Cloudflare 정리 검증 추가
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,10 +23,14 @@ const mocks = vi.hoisted(() => {
     tx,
     db: {
       $transaction: vi.fn(),
-      productChatRoom: { findFirst: vi.fn() },
+      productChatRoom: { findFirst: vi.fn(), findUnique: vi.fn() },
       productMessage: { findUnique: vi.fn() },
       user: { findUnique: vi.fn() },
-      notification: { create: vi.fn(), update: vi.fn() },
+      notification: {
+        create: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+      },
     },
     validateUserStatus: vi.fn(),
     checkBlockRelation: vi.fn(),
@@ -34,6 +39,8 @@ const mocks = vi.hoisted(() => {
     canSendPushForType: vi.fn(),
     sendPush: vi.fn(),
     attachOwnedMediaAssets: vi.fn(),
+    detachMissingMediaAssets: vi.fn(),
+    deleteCloudflareImageAssetsById: vi.fn(),
   };
 });
 
@@ -57,6 +64,8 @@ vi.mock("@/features/notification/service/sender", () => ({
 }));
 vi.mock("@/features/media/service/assets", () => ({
   attachOwnedMediaAssets: mocks.attachOwnedMediaAssets,
+  detachMissingMediaAssets: mocks.detachMissingMediaAssets,
+  deleteCloudflareImageAssetsById: mocks.deleteCloudflareImageAssetsById,
 }));
 
 const persistedMessage = {
@@ -174,5 +183,83 @@ describe("createMessage", () => {
       data: { message: { id: 7 }, receiverId: 2 },
     });
     expect(mocks.tx.productChatRoom.update).toHaveBeenCalled();
+  });
+});
+
+describe("deleteMessage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.db.$transaction.mockImplementation(async (callback) =>
+      callback(mocks.tx)
+    );
+    mocks.db.productMessage.findUnique.mockResolvedValue({
+      ...persistedMessage,
+      payload: null,
+      image: "https://imagedelivery.net/account/chat-asset",
+      imageIsAnimated: true,
+      type: "IMAGE",
+    });
+    mocks.tx.productMessage.update.mockResolvedValue({
+      ...persistedMessage,
+      payload: null,
+      image: null,
+      imageIsAnimated: false,
+      type: "IMAGE",
+      deleted_at: new Date("2026-09-02T00:00:00.000Z"),
+    });
+    mocks.detachMissingMediaAssets.mockResolvedValue(["chat-asset"]);
+    mocks.deleteCloudflareImageAssetsById.mockResolvedValue(undefined);
+    mocks.db.productChatRoom.findUnique.mockResolvedValue({
+      users: [{ id: 1 }, { id: 2 }],
+    });
+    mocks.db.notification.updateMany.mockResolvedValue({ count: 1 });
+    mocks.realtimeSend.mockResolvedValue("ok");
+  });
+
+  it("이미지 메시지와 MediaAsset 연결을 함께 제거하고 Cloudflare 원본을 정리한다", async () => {
+    const { deleteMessage } = await import("./message");
+
+    const result = await deleteMessage(7, 1);
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { id: 7, image: null, deleted_at: expect.any(Date) },
+    });
+    expect(mocks.detachMissingMediaAssets).toHaveBeenCalledWith(mocks.tx, {
+      ownerId: 1,
+      purpose: "CHAT_IMAGE",
+      linkedEntityId: "7",
+      keepUrls: [],
+    });
+    expect(mocks.tx.productMessage.update).toHaveBeenCalled();
+    expect(mocks.deleteCloudflareImageAssetsById).toHaveBeenCalledWith([
+      "chat-asset",
+    ]);
+  });
+
+  it("이미 삭제된 이미지 메시지를 다시 요청해도 남은 MediaAsset을 정리한다", async () => {
+    const { deleteMessage } = await import("./message");
+    mocks.db.productMessage.findUnique.mockResolvedValue({
+      ...persistedMessage,
+      payload: null,
+      image: null,
+      imageIsAnimated: false,
+      type: "IMAGE",
+      deleted_at: new Date("2026-09-02T00:00:00.000Z"),
+    });
+
+    const result = await deleteMessage(7, 1);
+
+    expect(result).toMatchObject({ success: true, data: { id: 7 } });
+    expect(mocks.detachMissingMediaAssets).toHaveBeenCalledWith(mocks.tx, {
+      ownerId: 1,
+      purpose: "CHAT_IMAGE",
+      linkedEntityId: "7",
+      keepUrls: [],
+    });
+    expect(mocks.tx.productMessage.update).not.toHaveBeenCalled();
+    expect(mocks.deleteCloudflareImageAssetsById).toHaveBeenCalledWith([
+      "chat-asset",
+    ]);
   });
 });
