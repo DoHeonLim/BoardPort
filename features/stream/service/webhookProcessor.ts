@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.26  임도헌   Created   payload 중복 방지, provider 시각 조건부 갱신, 세션별 VOD 연결 추가
  * 2026.08.26  임도헌   Modified  중단 inbox cron 복구와 recording·connected 시작 시각 허용치 추가
+ * 2026.09.02  임도헌   Modified  처음 수신한 webhook을 저장과 동시에 선점해 DB와 애플리케이션의 시각 경합 제거
  */
 import "server-only";
 
@@ -59,12 +60,18 @@ function toCloudflarePayload(
   return payload as CloudflareStreamAssetPayload;
 }
 
-/** 인증된 webhook을 원문 해시로 생성하고 처리 가능한 delivery 한 건만 선점한다. */
+/**
+ * 인증된 webhook 요청을 원문 해시 기준으로 한 번만 선점한다.
+ * - 처음 수신한 요청은 DB 저장에 성공한 처리자가 즉시 처리권을 확보한다.
+ * - 동일 요청이 재전송되면 기존 완료 상태를 재사용하거나 재시도 가능 시각이 지난 작업만 다시 선점한다.
+ * - 처음 저장한 행의 DB 기본 시각과 요청 시작 시각을 비교하지 않아 분산 서버 간 시각 경합을 방지한다.
+ */
 export async function claimCloudflareWebhookEvent(
   input: CloudflareWebhookInput,
   now: Date = new Date()
 ): Promise<CloudflareWebhookClaim> {
   let event: { id: number; status: string; updated_at: Date };
+  let created = false;
 
   try {
     event = await db.cloudflareWebhookEvent.create({
@@ -77,9 +84,15 @@ export async function claimCloudflareWebhookEvent(
         liveInputUid: input.liveInputUid,
         assetUid: input.assetUid,
         eventAt: input.eventAt,
+        // unique insert에 성공한 요청이 최초 처리자이므로 DB 기본 시각과
+        // 요청 시작 시각을 다시 비교하지 않고 생성과 동시에 선점한다.
+        status: "PROCESSING",
+        attempts: 1,
+        available_at: now,
       },
       select: { id: true, status: true, updated_at: true },
     });
+    created = true;
   } catch (error) {
     if (!(
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -93,6 +106,10 @@ export async function claimCloudflareWebhookEvent(
     });
     if (!duplicate) throw error;
     event = duplicate;
+  }
+
+  if (created) {
+    return { claimed: true, eventId: event.id };
   }
 
   if (event.status === "PROCESSED" || event.status === "IGNORED") {

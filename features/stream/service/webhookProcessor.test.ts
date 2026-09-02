@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.26  임도헌   Created   역순 종료·terminal 동영상·세션 VOD 매칭 경계 검증
+ * 2026.09.02  임도헌   Modified  처음 수신한 webhook의 즉시 선점과 녹화 READY 처리 회귀 검증 보강
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,6 +20,8 @@ const mocks = vi.hoisted(() => {
   };
   return {
     tx,
+    eventCreate: vi.fn(),
+    eventFindUnique: vi.fn(),
     eventUpdate: vi.fn(),
     eventUpdateMany: vi.fn(),
     eventFindMany: vi.fn(),
@@ -34,6 +37,8 @@ vi.mock("@/lib/db", () => ({
   default: {
     $transaction: mocks.transaction,
     cloudflareWebhookEvent: {
+      create: mocks.eventCreate,
+      findUnique: mocks.eventFindUnique,
       update: mocks.eventUpdate,
       updateMany: mocks.eventUpdateMany,
       findMany: mocks.eventFindMany,
@@ -45,6 +50,7 @@ vi.mock("@/features/stream/service/webhookOutbox", () => ({
 }));
 
 import {
+  claimCloudflareWebhookEvent,
   processCloudflareWebhookInboxBatch,
   processClaimedCloudflareWebhookEvent,
   type CloudflareWebhookInput,
@@ -66,6 +72,40 @@ function createInput(
     ...overrides,
   };
 }
+
+describe("claimCloudflareWebhookEvent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("처음 수신한 webhook을 재시도 시각 비교 없이 저장과 동시에 선점한다", async () => {
+    const now = new Date("2026-09-02T09:40:46.000Z");
+    mocks.eventCreate.mockResolvedValue({
+      id: 3,
+      status: "PROCESSING",
+      updated_at: now,
+    });
+
+    const result = await claimCloudflareWebhookEvent(
+      createInput({
+        eventType: "live_input.connected",
+        liveInputUid: "live-input-1",
+      }),
+      now
+    );
+
+    expect(result).toEqual({ claimed: true, eventId: 3 });
+    expect(mocks.eventCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        status: "PROCESSING",
+        attempts: 1,
+        available_at: now,
+      }),
+      select: { id: true, status: true, updated_at: true },
+    });
+    expect(mocks.eventUpdateMany).not.toHaveBeenCalled();
+  });
+});
 
 describe("processClaimedCloudflareWebhookEvent", () => {
   beforeEach(() => {
@@ -123,6 +163,43 @@ describe("processClaimedCloudflareWebhookEvent", () => {
       })
     );
     expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("해제 이벤트를 방송 종료로 반영하고 상태 갱신 작업을 적재한다", async () => {
+    mocks.tx.liveInput.findUnique.mockResolvedValue({ id: 3 });
+    mocks.tx.broadcast.findFirst.mockResolvedValue({ id: 7 });
+    mocks.tx.broadcast.updateMany.mockResolvedValue({ count: 1 });
+    const eventAt = new Date("2026-09-02T09:46:37.476Z");
+
+    const result = await processClaimedCloudflareWebhookEvent(
+      16,
+      createInput({
+        eventType: "live_input.disconnected",
+        liveInputUid: "live-input-1",
+        eventAt,
+      })
+    );
+
+    expect(result).toBe("PROCESSED");
+    expect(mocks.tx.broadcast.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 7 }),
+        data: {
+          status: "ENDED",
+          ended_at: eventAt,
+          providerSessionEndedAt: eventAt,
+          lastProviderEventAt: eventAt,
+        },
+      })
+    );
+    expect(mocks.enqueue).toHaveBeenCalledWith(
+      mocks.tx,
+      16,
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "BROADCAST_REALTIME" }),
+        expect.objectContaining({ kind: "REVALIDATE_BROADCAST" }),
+      ])
+    );
   });
 
   it("방송 시작 알림 outbox는 Broadcast 단위 고유 키로 한 번만 적재한다", async () => {
@@ -238,6 +315,41 @@ describe("processClaimedCloudflareWebhookEvent", () => {
       orderBy: { providerSessionStartedAt: "desc" },
       select: { id: true },
     });
+  });
+
+  it("READY 녹화본을 해당 방송에 연결하고 다시보기 캐시를 갱신한다", async () => {
+    mocks.tx.broadcast.findFirst.mockResolvedValue({ id: 7 });
+    mocks.tx.$queryRaw.mockResolvedValue([{ id: 21 }]);
+    const eventAt = new Date("2026-09-02T09:48:00.000Z");
+
+    const result = await processClaimedCloudflareWebhookEvent(
+      17,
+      createInput({
+        eventType: "video.ready",
+        liveInputUid: "live-input-1",
+        assetUid: "video-2",
+        eventAt,
+        body: {
+          uid: "video-2",
+          created: "2026-09-02T09:45:48.000Z",
+          readyToStreamAt: "2026-09-02T09:48:00.000Z",
+          readyToStream: true,
+          status: { state: "ready" },
+          playback: { hls: "https://example.com/vod.m3u8" },
+          liveInput: "live-input-1",
+        },
+      })
+    );
+
+    expect(result).toBe("PROCESSED");
+    expect(mocks.tx.$queryRaw).toHaveBeenCalledOnce();
+    expect(mocks.enqueue).toHaveBeenCalledWith(mocks.tx, 17, [
+      {
+        dedupeKey: "stream-webhook:17:broadcast-cache",
+        kind: "REVALIDATE_BROADCAST",
+        payload: { broadcastId: 7 },
+      },
+    ]);
   });
 });
 
