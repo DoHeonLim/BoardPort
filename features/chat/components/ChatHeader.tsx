@@ -35,6 +35,7 @@
  * 2026.04.21  임도헌   Modified  데스크톱/모바일 액션 메뉴 항목을 공통 컴포넌트로 분리하고 주석 정합을 보강
  * 2026.05.30  임도헌   Modified  채팅 상세 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.02  임도헌   Modified  로그인 복귀 후 앱 뒤로가기가 방문 기록 대신 채팅의 안전한 returnTo를 사용하도록 보완
  */
 
 import Image from "next/image";
@@ -91,7 +92,7 @@ interface ChatHeaderProps {
  * 채팅방 상단 헤더
  *
  * [기능]
- * 1. 뒤로가기 및 상대방 프로필 표시 (상대가 나갔으면 비활성)
+ * 1. 검증된 returnTo 기반 뒤로가기 및 상대방 프로필 표시 (상대가 나갔으면 비활성)
  * 2. 거래 중인 제품 정보(제목, 가격, 상태) 요약 표시
  * 3. 검색 모드 전환, 검색어 입력, 결과 인디케이터 및 이전/다음 이동 제공
  * 4. 판매자 전용 옵션 메뉴 (예약자 지정, 판매완료 처리, 상태 되돌리기)
@@ -411,6 +412,7 @@ export default function ChatHeader({
           <div className="flex min-w-0 shrink-0 items-center gap-1 max-w-[40%] min-[400px]:max-w-[46%] md:max-w-none">
             <BackButton
               fallbackHref={returnTo}
+              preferFallback
               variant="appbar"
               className="size-10 px-0 shrink-0"
             />
