@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   서명·만료 상한과 환경변수 누락 시 fail-closed 동작 검증
  * 2026.08.21  임도헌   Modified  저장된 provider 썸네일의 signed 변환·접근 거부·일반 이미지 유지 검증
+ * 2026.09.02  임도헌   Modified  Cloudflare Images public variant 정규화 회귀 검증 추가
  */
 
 import { generateKeyPairSync, verify } from "node:crypto";
@@ -83,10 +84,8 @@ describe("createStreamPlaybackToken", () => {
   it("signing key가 없으면 원본 ID를 반환하지 않고 실패한다", async () => {
     vi.stubEnv("CLOUDFLARE_STREAM_SIGNING_KEY_ID", "");
     vi.stubEnv("CLOUDFLARE_STREAM_SIGNING_KEY_JWK", "");
-    const {
-      createStreamPlaybackToken,
-      StreamPlaybackConfigurationError,
-    } = await import("./playback");
+    const { createStreamPlaybackToken, StreamPlaybackConfigurationError } =
+      await import("./playback");
 
     expect(() => createStreamPlaybackToken("provider-uid")).toThrow(
       StreamPlaybackConfigurationError
@@ -142,9 +141,19 @@ describe("createStreamPlaybackToken", () => {
     ).toBeNull();
   });
 
-  it("Cloudflare Images 등 일반 썸네일 URL은 그대로 유지한다", async () => {
+  it("Cloudflare Images 썸네일에 public variant를 한 번만 붙인다", async () => {
     const { resolveStreamThumbnailUrl } = await import("./playback");
-    const imageUrl = "https://imagedelivery.net/account/image/public";
+    const baseUrl = "https://imagedelivery.net/account/image";
+
+    expect(resolveStreamThumbnailUrl(baseUrl, null)).toBe(`${baseUrl}/public`);
+    expect(resolveStreamThumbnailUrl(`${baseUrl}/public`, null)).toBe(
+      `${baseUrl}/public`
+    );
+  });
+
+  it("Cloudflare 외부의 일반 썸네일 URL은 그대로 유지한다", async () => {
+    const { resolveStreamThumbnailUrl } = await import("./playback");
+    const imageUrl = "https://images.example.com/stream-thumbnail.jpg";
 
     expect(resolveStreamThumbnailUrl(imageUrl, null)).toBe(imageUrl);
   });

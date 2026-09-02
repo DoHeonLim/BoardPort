@@ -7,10 +7,12 @@
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   원본 provider UID 대신 전달할 RS256 signed playback token 발급
  * 2026.08.21  임도헌   Modified  저장된 Cloudflare 원본 썸네일을 접근 범위에 따라 signed URL 또는 null로 정규화
+ * 2026.09.02  임도헌   Modified  사용자 업로드 Cloudflare Images 썸네일에 표시용 public variant 정규화
  */
 
 import "server-only";
 import { createPrivateKey, sign, type JsonWebKey } from "node:crypto";
+import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
 
 // Cloudflare 기본 signed token과 같은 1시간을 사용해 장시간 재생과 권한 회수 지연의 균형을 맞춘다.
 const DEFAULT_TOKEN_TTL_SECONDS = 60 * 60;
@@ -172,14 +174,17 @@ function isCloudflareStreamAssetUrl(value: string): boolean {
 /**
  * DB에 저장된 썸네일이 Cloudflare Stream 원본 URL이면 UID가 포함된 URL을 그대로
  * 반환하지 않는다. 접근이 허용된 provider ID가 있으면 새 signed URL로 교체하고,
- * 없으면 null로 숨긴다. 사용자가 업로드한 일반 이미지 URL은 그대로 유지한다.
+ * 없으면 null로 숨긴다. 사용자가 업로드한 Cloudflare Images URL에는 브라우저
+ * 표시용 public variant를 붙이고, 그 밖의 일반 이미지 URL은 그대로 유지한다.
  */
 export function resolveStreamThumbnailUrl(
   sourceUrl: string | null | undefined,
   authorizedProviderId: string | null
 ): string | null {
   if (!sourceUrl) return null;
-  if (!isCloudflareStreamAssetUrl(sourceUrl)) return sourceUrl;
+  if (!isCloudflareStreamAssetUrl(sourceUrl)) {
+    return toStreamThumbnailPublicUrl(sourceUrl);
+  }
   if (!authorizedProviderId) return null;
   return createStreamThumbnailUrl(authorizedProviderId);
 }

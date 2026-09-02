@@ -15,6 +15,7 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.27  임도헌   Modified  전체 화면 미리보기 썸네일의 Image sizes 명시
  * 2026.08.28  임도헌   Modified  미리보기 폴백 컴포넌트 함수 JSDoc 보강
+ * 2026.09.02  임도헌   Modified  라이브 플레이어 뒤의 미사용 썸네일 요청 제거 및 폴백 URL 정규화
  */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
@@ -36,7 +37,7 @@ export const metadata = {
 /**
  * 라이브 재생 전 또는 접근 불가 상태에 썸네일 폴백을 표시한다.
  *
- * @param props - 표시할 서명된 썸네일 URL
+ * @param props - 표시용으로 정규화된 썸네일 URL
  * @returns 전체 화면 썸네일 또는 방송 준비 안내
  */
 function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
@@ -109,16 +110,6 @@ export default async function LivePreviewPage(props: {
 
   return (
     <div className="h-screen w-screen bg-black relative overflow-hidden">
-      {row.thumbnail && (
-        <Image
-          src={row.thumbnail}
-          alt="Thumbnail"
-          fill
-          sizes="100vw"
-          className="object-cover -z-10"
-          priority
-        />
-      )}
       <iframe
         title="Live"
         src={src}
