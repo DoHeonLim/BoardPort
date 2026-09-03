@@ -42,6 +42,7 @@
  * 2026.05.15  임도헌   Modified  방송 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
  * 2026.08.21  임도헌   Modified  공용 방송 권한 판정 후에만 상세·채팅 데이터를 조회하고 제한 방송 metadata 비공개 처리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  제한 방송 metadata를 접근 권한에 따라 실제 제목 또는 일반 안내로 구분
  */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
@@ -91,12 +92,39 @@ export async function generateMetadata(props: {
     return { title: "방송을 찾을 수 없음" };
   }
 
-  // 로그인·언락 상태를 전달할 수 없는 metadata 요청에서는 제한 방송의
-  // 제목·설명·썸네일을 공개하지 않는다. 상세 페이지 권한과 별도 우회면을 막는다.
+  // 제한 방송은 현재 세션의 팔로우·언락 권한까지 확인한다. 허용된 사용자에게는
+  // 실제 제목을 제공하되, 비로그인 크롤러와 미허용 사용자에게는 내용을 감춘다.
   if (stream.visibility !== "PUBLIC") {
+    const session = await getSession();
+    const access = session?.id
+      ? await authorizeBroadcastAccess(id, session.id, session)
+      : null;
+
+    if (access?.allowed) {
+      const title = `${stream.title} - ${stream.user.username}`;
+      const description =
+        stream.description?.slice(0, 100) || "보드포트 라이브 스트리밍";
+
+      return {
+        title,
+        description,
+        robots: { index: false, follow: false },
+      };
+    }
+
+    const restrictedMetadata =
+      stream.visibility === "FOLLOWERS"
+        ? {
+            title: "팔로워 전용 방송",
+            description: "방송 진행자를 팔로우하면 시청할 수 있습니다.",
+          }
+        : {
+            title: "비공개 방송",
+            description: "비밀번호 확인 후 시청할 수 있습니다.",
+          };
+
     return {
-      title: "접근이 제한된 방송",
-      description: "시청 권한 확인이 필요한 BoardPort 방송입니다.",
+      ...restrictedMetadata,
       robots: { index: false, follow: false },
     };
   }

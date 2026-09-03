@@ -25,6 +25,7 @@
  * 2026.04.20  임도헌   Modified  팔로워 전용 CTA가 버튼 폭 안에서 자연스럽게 줄바꿈되도록 문구 배치를 정리
  * 2026.05.15  임도헌   Modified  비관리자 admin 접근 거부 안내 상태 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.03  임도헌   Modified  접근 사유별 행동 중심 제목과 간결한 팔로우 입장 CTA로 안내 맥락 구분
  */
 
 "use client";
@@ -133,6 +134,18 @@ export default function AccessDenied({
   const goContextList = () => router.push(contextListHref);
   const blockedFallbackLabel =
     contextListHref === "/" ? "홈으로 가기" : "목록으로 가기";
+  const title =
+    reason === "FOLLOWERS_ONLY"
+      ? "팔로우 후 시청할 수 있어요"
+      : reason === "PRIVATE"
+        ? "비밀번호가 필요한 방송입니다"
+        : reason === "BANNED"
+          ? "서비스 이용이 제한되었습니다"
+          : reason === "ADMIN_ONLY"
+            ? "관리자 권한이 필요합니다"
+            : reason === "UNKNOWN"
+              ? "접근 권한을 확인할 수 없습니다"
+              : "접근할 수 없습니다";
 
   const doFollow = async () => {
     if (!ownerId) return goProfileForFollow();
@@ -169,7 +182,7 @@ export default function AccessDenied({
           )}
         </div>
 
-        <h1 className="state-title">접근할 수 없습니다</h1>
+        <h1 className="state-title">{title}</h1>
 
         {reason === "BLOCKED" && (
           <>
@@ -209,14 +222,7 @@ export default function AccessDenied({
                   disabled={pending}
                   className="btn-primary min-h-[44px] w-full"
                 >
-                  {pending ? (
-                    "처리 중..."
-                  ) : (
-                    <span className="flex flex-col items-center leading-tight">
-                      <span>팔로우하고</span>
-                      <span>입장하기</span>
-                    </span>
-                  )}
+                  {pending ? "처리 중..." : "팔로우 후 입장"}
                 </button>
               ) : (
                 <button
