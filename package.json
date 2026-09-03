@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:migration": "node scripts/test-migrations.mjs",
+    "test:migration:docker": "node scripts/run-migration-test-docker.mjs",
     "test:migration:push": "node scripts/test-push-ownership-migration.mjs",
     "test:migration:realtime": "node scripts/test-realtime-authorization-migration.mjs",
     "test:migration:media": "node scripts/test-media-asset-migration.mjs",

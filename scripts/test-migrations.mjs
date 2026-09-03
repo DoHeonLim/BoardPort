@@ -6,10 +6,12 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.30  임도헌   Created   공통 로컬 DB URL로 전체 migration 통합 테스트 실행
+ * 2026.09.03  임도헌   Modified  Docker 실행기와 도메인별 테스트 대상 정의 공유
  */
 
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { migrationTestTargets } from "./migration-test-targets.mjs";
 
 const databaseUrl = process.env.MIGRATION_TEST_DATABASE_URL;
 if (!databaseUrl) {
@@ -29,55 +31,7 @@ if (!isLocalHost || !isDedicatedDatabase) {
   );
 }
 
-const migrationTests = [
-  {
-    name: "Push ownership",
-    envName: "PUSH_MIGRATION_TEST_DATABASE_URL",
-    script: "test-push-ownership-migration.mjs",
-  },
-  {
-    name: "Realtime authorization",
-    envName: "REALTIME_MIGRATION_TEST_DATABASE_URL",
-    script: "test-realtime-authorization-migration.mjs",
-  },
-  {
-    name: "MediaAsset ownership",
-    envName: "MEDIA_MIGRATION_TEST_DATABASE_URL",
-    script: "test-media-asset-migration.mjs",
-  },
-  {
-    name: "Auth session",
-    envName: "AUTH_SESSION_MIGRATION_TEST_DATABASE_URL",
-    script: "test-auth-session-migration.mjs",
-  },
-  {
-    name: "Report moderation",
-    envName: "REPORT_MODERATION_MIGRATION_TEST_DATABASE_URL",
-    script: "test-report-moderation-migration.mjs",
-  },
-  {
-    name: "Chat idempotency",
-    envName: "CHAT_IDEMPOTENCY_MIGRATION_TEST_DATABASE_URL",
-    script: "test-chat-idempotency-migration.mjs",
-  },
-  {
-    name: "Product trade",
-    envName: "PRODUCT_TRADE_MIGRATION_TEST_DATABASE_URL",
-    script: "test-product-trade-migration.mjs",
-  },
-  {
-    name: "Stream webhook",
-    envName: "STREAM_WEBHOOK_MIGRATION_TEST_DATABASE_URL",
-    script: "test-stream-webhook-migration.mjs",
-  },
-  {
-    name: "VOD pagination",
-    envName: "VOD_PAGINATION_MIGRATION_TEST_DATABASE_URL",
-    script: "test-vod-pagination-migration.mjs",
-  },
-];
-
-for (const migrationTest of migrationTests) {
+for (const migrationTest of migrationTestTargets) {
   console.log(`\n=== ${migrationTest.name} migration test ===`);
   execFileSync(process.execPath, [resolve("scripts", migrationTest.script)], {
     cwd: process.cwd(),

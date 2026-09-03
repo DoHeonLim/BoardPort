@@ -37,14 +37,15 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 
 `Unit, Type, Lint, Build` job은 Node 기반 단위 테스트와 파일별 jsdom 컴포넌트 테스트를 함께 실행하고 전체 source V8 coverage가 [`testing-strategy.md`](./testing-strategy.md)의 기준선 아래로 내려가면 실패합니다.
 
-로컬에서는 전용 PostgreSQL의 URL을 `MIGRATION_TEST_DATABASE_URL`로 전달해 전체 도메인 migration 통합 테스트를 한 번에 실행할 수 있습니다.
+로컬에서는 일회용 PostgreSQL 16 컨테이너로 전체 도메인 migration 통합 테스트를 한 번에 실행할 수 있습니다.
 
 ```bash
-MIGRATION_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/boardport_migration_test?schema=public" \
-npm run test:migration
+npm run test:migration:docker
 ```
 
-전체 실행기는 운영 DB 오지정을 막기 위해 localhost의 `boardport_migration_test`만 허용합니다. 개별 `test:migration:*` 명령은 특정 migration 실패를 재현하거나 CI 로그에서 실패 범위를 분리하기 위해 유지합니다.
+Docker 실행기는 컨테이너 생성·준비 확인·환경변수 주입·종료를 자동화합니다. 전체 실행기와 개별 테스트는 운영 DB 오지정을 막기 위해 localhost의 `boardport_migration_test`만 허용합니다. 개별 `test:migration:*` 명령은 특정 migration 실패를 재현하거나 CI 로그에서 실패 범위를 분리하기 위해 유지합니다.
+
+로컬에서 특정 도메인만 실행할 때는 `npm run test:migration:docker -- <target>` 형식을 사용합니다. 지원 target 목록과 수동 복구 방법은 [`database-deployment-runbook.md`](./database-deployment-runbook.md#2-로컬-docker-migration-통합-테스트)를 따릅니다.
 
 운영 DB migration은 Vercel Git 배포와 GitHub Actions의 실행 순서가 보장되지 않으므로 CI가 자동 적용하지 않습니다. migration이 포함된 릴리즈의 연결 경계·적용 순서·실패 복구는 [`database-deployment-runbook.md`](./database-deployment-runbook.md)를 따릅니다.
 

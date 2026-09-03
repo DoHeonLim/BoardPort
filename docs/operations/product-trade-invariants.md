@@ -18,14 +18,15 @@ DB migration은 legacy 행을 먼저 정규화한 뒤 CHECK constraint를 추가
 
 ## 로컬 PostgreSQL 검증
 
-전용 `boardport_migration_test` DB에만 아래 명령을 실행합니다.
+일회용 PostgreSQL 16 컨테이너의 생성·준비 확인·정리를 포함한 단축 명령을 실행합니다.
 
 ```bash
-PRODUCT_TRADE_MIGRATION_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/boardport_migration_test?schema=public" \
-npm run test:migration:product-trade
+npm run test:migration:docker -- product-trade
 ```
 
 이 테스트는 legacy 상태 정규화, 거래 상대 배타성, ID·시각 쌍, 판매자 본인 제외, 사용자 삭제 시 시각 정리를 실제 PostgreSQL 16에서 확인합니다.
+
+Docker 자동화의 전체 동작과 문제 해결 방법은 [`database-deployment-runbook.md`](./database-deployment-runbook.md#2-로컬-docker-migration-통합-테스트)를 따릅니다.
 
 ## 배포 확인
 
