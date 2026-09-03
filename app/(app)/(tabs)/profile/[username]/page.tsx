@@ -38,6 +38,7 @@
  * 2026.08.13  임도헌   Modified  프로필 리뷰 prefetch cache를 조회자별로 분리
  * 2026.08.21  임도헌   Modified  차단 관계에서는 최근 방송과 signed thumbnail 조회를 시작하지 않도록 보강
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  타인 프로필 뒤로가기가 정규화된 returnTo를 우선하도록 고정
  */
 
 import { Metadata } from "next";
@@ -169,6 +170,7 @@ export default async function UserProfilePage(props: {
       <div className="sticky top-0 z-30 flex h-[52px] items-center justify-between border-b border-border-subtle bg-background px-3 shadow-sm sm:border-none">
         <BackButton
           fallbackHref={returnTo}
+          preferFallback
           variant="appbar"
           className="border-border-subtle bg-surface px-0 shadow-sm backdrop-blur-none"
         />

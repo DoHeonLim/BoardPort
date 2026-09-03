@@ -24,6 +24,7 @@
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 채널/목록 React Query 캐시에서 삭제 항목을 즉시 제거
  * 2026.08.21  임도헌   Modified  원본 Live Input UID를 삭제 요청에서 제거하고 서버 소유권 판정만 사용
  * 2026.08.28  임도헌   Modified  녹화 삭제 함수 JSDoc 보강
+ * 2026.09.03  임도헌   Modified  다시보기 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
  */
 
 "use client";
@@ -215,6 +216,7 @@ export default function RecordingTopbar({
         <div className="flex items-center gap-3 min-w-0">
           <BackButton
             fallbackHref={backHref}
+            preferFallback
             variant="appbar"
             className="px-0"
           />

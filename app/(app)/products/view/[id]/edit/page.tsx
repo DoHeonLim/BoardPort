@@ -37,6 +37,7 @@
  * 2026.05.30  임도헌   Modified  제품 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.03  임도헌   Modified  상품 수정 뒤로가기가 편집 흐름별 취소 경로를 우선하도록 고정
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -102,6 +103,7 @@ export default async function EditPage(props: {
         <div className="mx-auto max-w-mobile h-full flex items-center gap-3 px-4">
           <BackButton
             fallbackHref={cancelHref}
+            preferFallback
             variant="appbar"
             className="px-0"
           />

@@ -32,6 +32,7 @@
  * 2026.05.30  임도헌   Modified  방송국 상단 액션바 높이와 좌우 여백을 압축
  * 2026.08.21  임도헌   Modified  차단 관계 선판정과 채널 라이브 권한 확인 후에만 signed URL 발급
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  방송국 뒤로가기가 정규화된 returnTo를 우선하도록 고정
  */
 
 import { Metadata } from "next";
@@ -185,6 +186,7 @@ export default async function ChannelPage(props: {
       <div className="sticky top-0 z-30 flex h-[52px] items-center justify-between border-b border-border-subtle bg-background px-3 shadow-sm sm:border-none">
         <BackButton
           fallbackHref={returnTo}
+          preferFallback
           variant="appbar"
           className="border-border-subtle bg-surface px-0 shadow-sm backdrop-blur-none"
         />

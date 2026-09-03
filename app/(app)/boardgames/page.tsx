@@ -18,6 +18,7 @@
  * 2026.05.05  임도헌   Modified  공개 목록 조회 서비스 직접 import 경로 반영
  * 2026.05.08  임도헌   Modified  TanStack Query 서버 프리패치 및 HydrationBoundary 적용
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  도감 직접 진입에서도 상품 목록으로 복귀하도록 뒤로가기 고정
  */
 
 import { Suspense } from "react";
@@ -96,7 +97,7 @@ export default async function BoardGamesPage(props: {
       <header className="border-b border-border-subtle pb-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <BackButton fallbackHref="/products" />
+            <BackButton fallbackHref="/products" preferFallback />
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-primary sm:text-2xl">
                 보드게임 도감

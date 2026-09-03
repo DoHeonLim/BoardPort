@@ -14,6 +14,7 @@
  * 2026.05.30  임도헌   Modified  모바일 상품 하위 페이지 앱바 높이와 간격을 압축
  * 2026.08.27  임도헌   Modified  상위 탭 레이아웃과 중복되던 main 랜드마크 제거
  * 2026.08.28  임도헌   Modified  경로별 제목 결정 함수 JSDoc 보강
+ * 2026.09.03  임도헌   Modified  판매·구매·찜 하위 화면의 뒤로가기를 프로필 복귀로 고정
  */
 
 import { usePathname } from "next/navigation";
@@ -67,6 +68,7 @@ export default function ProfileProductSectionLayout({
         >
           <BackButton
             fallbackHref="/profile"
+            preferFallback
             variant="appbar"
             className="px-0"
           />

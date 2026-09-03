@@ -14,6 +14,7 @@
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.27  임도헌   Modified  상위 탭 레이아웃과 중복되던 main 랜드마크 제거
  * 2026.08.28  임도헌   Modified  상품 등록 레이아웃 함수 JSDoc 보강
+ * 2026.09.03  임도헌   Modified  직접 진입에서도 뒤로가기가 상품 목록으로 복귀하도록 고정
  */
 
 import type { ReactNode } from "react";
@@ -43,7 +44,11 @@ export default function AddProductLayout({
         role="banner"
       >
         <div className="mx-auto flex h-full max-w-mobile items-center gap-2.5 px-3">
-          <BackButton fallbackHref="/products" variant="appbar" />
+          <BackButton
+            fallbackHref="/products"
+            preferFallback
+            variant="appbar"
+          />
           <h1 className="text-base font-medium text-primary">상품 등록</h1>
         </div>
       </header>

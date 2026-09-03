@@ -22,6 +22,7 @@
  * 2026.04.18  임도헌   Modified  푸시 토글을 지연 로딩하고 설정 폼은 서버 렌더링으로 분리해 초기 렌더 비용 완화
  * 2026.05.30  임도헌   Modified  알림 설정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 호환 클라이언트 지연 로딩 경계로 푸시 설정 분리
+ * 2026.09.03  임도헌   Modified  알림 설정 뒤로가기가 정규화된 returnTo를 우선하도록 고정
  */
 
 import Link from "next/link";
@@ -87,7 +88,7 @@ export default async function NotificationSettingsPage(props: {
       {/* 헤더 */}
       <header className="sticky top-0 z-30 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm">
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
-          <BackButton fallbackHref={returnTo} variant="appbar" />
+          <BackButton fallbackHref={returnTo} preferFallback variant="appbar" />
           <h1 className="text-lg font-bold text-primary">알림 설정</h1>
         </div>
       </header>

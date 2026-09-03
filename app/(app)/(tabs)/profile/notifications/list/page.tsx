@@ -20,6 +20,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/list/page.tsx 에서 app/(app)/(tabs)/profile/notifications/list/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  알림 센터 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  알림 센터 뒤로가기가 정규화된 returnTo를 우선하도록 고정
  */
 
 import { redirect } from "next/navigation";
@@ -91,7 +92,7 @@ export default async function NotificationListPage(props: {
     <div className="min-h-screen bg-background transition-colors pb-24">
       <header className="sticky top-0 z-30 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm">
         <div className="mx-auto flex h-full max-w-mobile items-center gap-3 px-4">
-          <BackButton fallbackHref={returnTo} variant="appbar" />
+          <BackButton fallbackHref={returnTo} preferFallback variant="appbar" />
           <h1 className="text-lg font-bold text-primary">알림 센터</h1>
         </div>
       </header>
