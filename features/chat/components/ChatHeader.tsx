@@ -36,6 +36,7 @@
  * 2026.05.30  임도헌   Modified  채팅 상세 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.02  임도헌   Modified  로그인 복귀 후 앱 뒤로가기가 방문 기록 대신 채팅의 안전한 returnTo를 사용하도록 보완
+ * 2026.09.03  임도헌   Modified  약속 수락 후 RSC refresh로 전달된 상품 상태를 헤더 로컬 상태에 동기화
  */
 
 import Image from "next/image";
@@ -134,6 +135,12 @@ export default function ChatHeader({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
+
+  // 약속 수락 이벤트의 router.refresh 결과를 헤더 메뉴에도 반영한다.
+  // 로컬 상태 액션 뒤에도 서버가 다시 전달한 값을 최종 상태로 사용한다.
+  useEffect(() => {
+    setProductState(product);
+  }, [product]);
 
   // 상대방 이탈 여부 체크 (Ghost User)
   const isGhost = !!counterparty.hasLeft;

@@ -52,6 +52,7 @@
  * 2026.06.17  임도헌   Modified  제품 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.03  임도헌   Modified  새 탭 직접 진입에서도 상세 헤더가 계산된 returnTo로 복귀하도록 보강
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -199,7 +200,11 @@ export default async function ProductDetailPage(props: {
       >
         <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-3">
           <div className="flex items-center gap-2">
-            <BackButton fallbackHref={returnTo} variant="appbar" />
+            <BackButton
+              fallbackHref={returnTo}
+              preferFallback
+              variant="appbar"
+            />
           </div>
 
           <div className="flex items-center gap-1">

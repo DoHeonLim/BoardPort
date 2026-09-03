@@ -26,6 +26,7 @@
  * 2026.05.15  임도헌   Modified  비관리자 admin 접근 거부 안내 상태 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.03  임도헌   Modified  접근 사유별 행동 중심 제목과 간결한 팔로우 입장 CTA로 안내 맥락 구분
+ * 2026.09.03  임도헌   Modified  팔로워 전용 CTA가 중간 화면 폭에서도 한 줄을 유지하도록 줄바꿈 방지
  */
 
 "use client";
@@ -220,7 +221,7 @@ export default function AccessDenied({
                 <button
                   onClick={doFollow}
                   disabled={pending}
-                  className="btn-primary min-h-[44px] w-full"
+                  className="btn-primary min-h-[44px] w-full whitespace-nowrap"
                 >
                   {pending ? "처리 중..." : "팔로우 후 입장"}
                 </button>
@@ -235,7 +236,7 @@ export default function AccessDenied({
               {viewerId ? (
                 <button
                   onClick={() => router.push(contextListHref)}
-                  className="btn-secondary min-h-[44px] w-full"
+                  className="btn-secondary min-h-[44px] w-full whitespace-nowrap"
                 >
                   목록으로
                 </button>
