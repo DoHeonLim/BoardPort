@@ -18,6 +18,7 @@
  * 2026.05.16  임도헌   Modified  신고 사유 검색 조건과 목록 후처리 타입 단언 축소
  * 2026.08.26  임도헌   Modified  신고 claim·DB 조치·감사 로그를 단일 transaction으로 묶고 outbox 멱등 재시도 적용
  * 2026.08.28  임도헌   Modified  신고 대상 미리보기와 소유자 조회 함수 JSDoc 보강
+ * 2026.09.04  임도헌   Modified  신고 대상 스냅샷 기반 제목·사용자명 검색과 삭제 후 표시 정보 유지
  */
 
 import "server-only";
@@ -213,7 +214,7 @@ export async function getReportsAdmin(
       where.status = status;
     }
 
-    // 신고자, 사유, 설명, 관리자 코멘트, 대상 ID를 하나의 검색 입력으로 결합
+    // 신고자, 대상 스냅샷, 사유, 설명, 관리자 코멘트, 대상 ID를 하나의 검색 입력으로 결합
     if (trimmedQuery) {
       const parsedTargetId = /^\d+$/.test(trimmedQuery)
         ? Number(trimmedQuery)
@@ -249,6 +250,24 @@ export async function getReportsAdmin(
             },
             {
               adminComment: {
+                contains: trimmedQuery,
+                mode: "insensitive",
+              },
+            },
+            {
+              targetPreview: {
+                contains: trimmedQuery,
+                mode: "insensitive",
+              },
+            },
+            {
+              targetOwnerUsername: {
+                contains: trimmedQuery,
+                mode: "insensitive",
+              },
+            },
+            {
+              targetParentPreview: {
                 contains: trimmedQuery,
                 mode: "insensitive",
               },
@@ -729,7 +748,29 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
 
   // 다양한 대상 타입을 최종 사용자 기준으로 환산해 최근 strike 누적과 유저명을 붙임
   const resolvedTargetUserIds = reports
-    .map((report) =>
+    .map(
+      (report) =>
+        report.targetOwnerId ??
+        getResolvedTargetUserIdFromMaps(report, {
+          userMetaMap,
+          productMetaMap,
+          postMetaMap,
+          commentMetaMap,
+          streamMetaMap,
+          productMessageMetaMap,
+          streamMessageMetaMap,
+          reviewMetaMap,
+        })
+    )
+    .filter((userId): userId is number => !!userId);
+  const [strikeMap, targetUserNameMap] = await Promise.all([
+    getRecentUserStrikeMap(resolvedTargetUserIds),
+    getUserNameMap(resolvedTargetUserIds),
+  ]);
+
+  return reports.map((report) => {
+    const targetResolvedUserId =
+      report.targetOwnerId ??
       getResolvedTargetUserIdFromMaps(report, {
         userMetaMap,
         productMetaMap,
@@ -739,27 +780,20 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
         productMessageMetaMap,
         streamMessageMetaMap,
         reviewMetaMap,
-      })
-    )
-    .filter((userId): userId is number => !!userId);
-  const [strikeMap, targetUserNameMap] = await Promise.all([
-    getRecentUserStrikeMap(resolvedTargetUserIds),
-    getUserNameMap(resolvedTargetUserIds),
-  ]);
-
-  return reports.map((report) => {
-    const targetResolvedUserId = getResolvedTargetUserIdFromMaps(report, {
-      userMetaMap,
-      productMetaMap,
-      postMetaMap,
-      commentMetaMap,
-      streamMetaMap,
-      productMessageMetaMap,
-      streamMessageMetaMap,
-      reviewMetaMap,
-    });
-    const targetPreview = getTargetPreviewFromMaps(report, {
-      userMetaMap,
+      });
+    const targetPreview =
+      report.targetPreview ??
+      getTargetPreviewFromMaps(report, {
+        userMetaMap,
+        productMetaMap,
+        postMetaMap,
+        commentMetaMap,
+        streamMetaMap,
+        productMessageMetaMap,
+        streamMessageMetaMap,
+        reviewMetaMap,
+      });
+    const liveTargetParentPreview = getTargetParentPreviewFromMaps(report, {
       productMetaMap,
       postMetaMap,
       commentMetaMap,
@@ -772,35 +806,37 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
     return {
       ...report,
       targetResolvedUserId,
-      targetResolvedUsername: targetResolvedUserId
-        ? (targetUserNameMap.get(targetResolvedUserId) ?? null)
-        : null,
+      targetResolvedUsername:
+        report.targetOwnerUsername ??
+        (targetResolvedUserId
+          ? (targetUserNameMap.get(targetResolvedUserId) ?? null)
+          : null),
       recentStrikeTotal: targetResolvedUserId
         ? (strikeMap.get(targetResolvedUserId) ?? 0)
         : 0,
       targetPreview,
       targetParentPostId: report.targetCommentId
-        ? (commentMetaMap.get(report.targetCommentId)?.postId ?? null)
+        ? (report.targetParentId ??
+          commentMetaMap.get(report.targetCommentId)?.postId ??
+          null)
         : null,
       targetParentProductId: report.targetReviewId
-        ? (reviewMetaMap.get(report.targetReviewId)?.productId ?? null)
+        ? (report.targetParentId ??
+          reviewMetaMap.get(report.targetReviewId)?.productId ??
+          null)
         : report.targetProductMessageId
-          ? (productMessageMetaMap.get(report.targetProductMessageId)
-              ?.productId ?? null)
+          ? (report.targetParentId ??
+            productMessageMetaMap.get(report.targetProductMessageId)
+              ?.productId ??
+            null)
           : null,
       targetParentStreamId: report.targetStreamMessageId
-        ? (streamMessageMetaMap.get(report.targetStreamMessageId)
-            ?.broadcastId ?? null)
+        ? (report.targetParentId ??
+          streamMessageMetaMap.get(report.targetStreamMessageId)?.broadcastId ??
+          null)
         : null,
-      targetParentPreview: getTargetParentPreviewFromMaps(report, {
-        productMetaMap,
-        postMetaMap,
-        commentMetaMap,
-        streamMetaMap,
-        productMessageMetaMap,
-        streamMessageMetaMap,
-        reviewMetaMap,
-      }),
+      targetParentPreview:
+        report.targetParentPreview ?? liveTargetParentPreview,
     };
   });
 }

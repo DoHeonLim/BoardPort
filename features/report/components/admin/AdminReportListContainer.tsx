@@ -19,6 +19,7 @@
  * 2026.04.27  임도헌   Modified  신고 처리 모달이 대상 타입에 맞춰 조치 추천을 보정할 수 있도록 targetType 전달
  * 2026.04.28  임도헌   Modified  신고 처리 모달에 실제 조치 대상 유저 메타를 전달
  * 2026.09.01  임도헌   Modified  중간 너비에서 신고 정보와 처리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
+ * 2026.09.04  임도헌   Modified  신고 목록에 대상 제목·사용자명과 작성자 식별 정보 표시
  */
 
 "use client";
@@ -163,7 +164,7 @@ export default function AdminReportListContainer({
 
   return (
     <div className="space-y-6">
-      <AdminSearchBar placeholder="신고자, 사유, 설명, 대상 ID 검색" />
+      <AdminSearchBar placeholder="대상명, 신고자, 사유, 설명, ID 검색" />
 
       {/* 탭 필터 */}
       <div className="flex gap-2 border-b border-border-subtle overflow-x-auto scrollbar-hide">
@@ -217,6 +218,14 @@ export default function AdminReportListContainer({
                       </span>
                     </div>
                     <div className="mt-3 flex flex-col gap-1.5">
+                      {report.targetPreview ? (
+                        <p
+                          className="line-clamp-2 text-sm font-bold leading-5 text-primary"
+                          title={report.targetPreview}
+                        >
+                          {report.targetPreview}
+                        </p>
+                      ) : null}
                       <div className="flex items-center gap-2">
                         <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-muted">
                           {targetLabel} #{getReportTargetId(report)}
@@ -241,6 +250,13 @@ export default function AdminReportListContainer({
                           </span>
                         )}
                       </div>
+                      {report.targetResolvedUsername &&
+                      getReportTargetType(report) !== "USER" ? (
+                        <p className="text-xs leading-5 text-muted">
+                          작성자 {report.targetResolvedUsername} #
+                          {report.targetResolvedUserId}
+                        </p>
+                      ) : null}
                       {targetParentLabel && report.targetParentPreview ? (
                         <p className="text-xs leading-5 text-muted">
                           {targetParentLabel}: {report.targetParentPreview}
@@ -316,7 +332,7 @@ export default function AdminReportListContainer({
               <tr>
                 <th className="px-6 py-4 w-20">상태</th>
                 <th className="px-6 py-4 w-32">사유</th>
-                <th className="px-6 py-4 w-40">대상</th>
+                <th className="px-6 py-4 w-64">대상</th>
                 <th className="px-6 py-4">설명</th>
                 <th className="px-6 py-4 w-32">신고자</th>
                 <th className="px-6 py-4 w-32">일시</th>
@@ -352,6 +368,14 @@ export default function AdminReportListContainer({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">
+                          {report.targetPreview ? (
+                            <span
+                              className="max-w-64 truncate font-bold text-primary"
+                              title={report.targetPreview}
+                            >
+                              {report.targetPreview}
+                            </span>
+                          ) : null}
                           <div className="flex items-center gap-2">
                             <span className="bg-surface-dim px-2 py-1 rounded text-xs font-mono text-muted">
                               {targetLabel} #{getReportTargetId(report)}
@@ -377,6 +401,13 @@ export default function AdminReportListContainer({
                               </span>
                             )}
                           </div>
+                          {report.targetResolvedUsername &&
+                          getReportTargetType(report) !== "USER" ? (
+                            <span className="text-xs leading-5 text-muted">
+                              작성자 {report.targetResolvedUsername} #
+                              {report.targetResolvedUserId}
+                            </span>
+                          ) : null}
                           {targetParentLabel && report.targetParentPreview ? (
                             <span className="text-xs leading-5 text-muted">
                               {targetParentLabel}: {report.targetParentPreview}

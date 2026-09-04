@@ -1417,6 +1417,13 @@ model Report {
   targetStreamMessageId  Int? // 라이브 방송 채팅 메시지
   targetReviewId         Int? // 리뷰
 
+  // 신고 접수 시점의 표시 정보. 원본 콘텐츠 삭제 후에도 관리자 감사 이력에서 대상을 식별하기 위해 유지
+  targetPreview       String?
+  targetOwnerId       Int?
+  targetOwnerUsername String?
+  targetParentId      Int?
+  targetParentPreview String?
+
   reason       ReportReason // 신고 사유 (Enum)
   description  String? // 상세 설명 (선택)
   adminComment String? // 관리자 처리 코멘트 (기각 사유, 조치 내용 등)

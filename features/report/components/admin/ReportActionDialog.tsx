@@ -25,6 +25,7 @@
  * 2026.06.19  임도헌   Modified  신고 처리 오버레이 레이어를 상향해 관리자 상단 영역까지 안정적으로 덮도록 보강
  * 2026.06.19  임도헌   Modified  데스크톱 신고 처리 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.04  임도헌   Modified  처리 전 대상 제목·사용자명을 주요 정보로 표시하고 ID를 보조 정보로 정리
  */
 
 import Link from "next/link";
@@ -311,9 +312,11 @@ export default function ReportActionDialog({
               신고 대상
             </p>
             <div className="mt-3 space-y-3">
-              {targetResolvedUserId ? (
+              {targetResolvedUserId && targetType !== "USER" ? (
                 <div className="rounded-lg border border-border-subtle bg-surface/70 px-3 py-2">
-                  <p className="text-xs font-bold text-muted">조치 대상 유저</p>
+                  <p className="text-xs font-bold text-muted">
+                    작성자·조치 대상
+                  </p>
                   <p className="mt-1 text-sm font-bold text-primary">
                     {targetResolvedUsername || "이름 없음"} #
                     {targetResolvedUserId}
@@ -323,8 +326,16 @@ export default function ReportActionDialog({
 
               {targetLabel && targetId ? (
                 <div>
+                  <p
+                    className="line-clamp-3 text-sm font-bold leading-6 text-primary"
+                    title={targetPreview?.trim() || undefined}
+                  >
+                    {targetPreview?.trim() || "대상 원문 요약이 없습니다."}
+                  </p>
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold text-muted">직접 대상</p>
+                    <p className="mt-1 text-xs font-medium text-muted">
+                      {targetLabel} #{targetId}
+                    </p>
                     {targetUrl ? (
                       <Link
                         href={targetUrl}
@@ -343,12 +354,6 @@ export default function ReportActionDialog({
                       </Link>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm font-medium text-primary">
-                    {targetLabel} #{targetId}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-muted">
-                    {targetPreview?.trim() || "대상 원문 요약이 없습니다."}
-                  </p>
                 </div>
               ) : null}
 

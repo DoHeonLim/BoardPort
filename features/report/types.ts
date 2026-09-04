@@ -13,6 +13,7 @@
  * 2026.04.28  임도헌   Modified  신고 처리 모달에서 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 확장
  * 2026.04.28  임도헌   Modified  삭제 감사 로그 OwnerID의 표시용 유저명 메타 추가
  * 2026.08.26  임도헌   Modified  신고 처리 멱등 재시도와 cache 재검증 결과 메타 추가
+ * 2026.09.04  임도헌   Modified  DB에 저장되는 신고 대상·상위 문맥 스냅샷 타입 반영
  */
 
 import type { Report } from "@/generated/prisma/client";
@@ -108,11 +109,9 @@ export interface AdminReportItem extends Report {
   /** 처리 모달에서 운영자가 확인할 수 있는 실제 조치 대상 유저명 */
   targetResolvedUsername?: string | null;
   recentStrikeTotal?: number;
-  targetPreview?: string | null;
   targetParentPostId?: number | null;
   targetParentProductId?: number | null;
   targetParentStreamId?: number | null;
-  targetParentPreview?: string | null;
 }
 
 /** 관리자 신고 목록 API 응답 */
