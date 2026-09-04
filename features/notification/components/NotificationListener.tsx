@@ -30,6 +30,7 @@
  * 2026.08.28  임도헌   Modified  알림 private 채널 구독 수명 주기 함수 JSDoc 보강
  * 2026.08.30  임도헌   Modified  실시간 이용 정지 후 403 안내 페이지로 이동하는 URL 생성 방식 보완
  * 2026.08.31  임도헌   Modified  짧은 화면 전환의 연결 해제를 지연하고 채널 중복 해제 제거
+ * 2026.09.04  임도헌   Modified  앱 부팅·화면 복귀·채널 재연결 시 정지 상태 복구와 구독 오류 재시도 추가
  */
 "use client";
 
@@ -42,6 +43,10 @@ import { getUnreadNotificationCount } from "@/features/notification/actions/coun
 import { queryKeys } from "@/lib/queryKeys";
 import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { createRealtimeVisibilityCleanup } from "@/features/realtime/utils/visibilityCleanup";
+import {
+  redirectToBannedPage,
+  refreshClientSessionStatus,
+} from "@/features/auth/utils/sessionStatus";
 
 type NotiPayload = {
   id?: number;
@@ -81,7 +86,9 @@ function getCurrentPath() {
  * - 새 알림 수신 시 Zustand 스토어의 `increment` 액션을 명시적으로 호출하여 뱃지 상태 동기화
  * - 사용자가 현재 보고 있는 화면(채팅방 등)과 동일한 컨텍스트의 알림 수신 시 토스트 알림 생략 처리(Flicker 방지)
  * - `sys_event` 수신 시 스트림 상세가 재사용하는 전역 브리지 이벤트를 먼저 발행
- * - `sys_event`(BAN) 수신 시 세션 쿠키 강제 갱신 및 비인가 페이지(`/403`) 리다이렉트 수행
+ * - `sys_event`(BAN) 수신 시 비인가 페이지(`/403`)로 즉시 이동
+ * - 앱 부팅·화면 복귀·채널 재연결 시 DB 상태를 재확인해 놓친 BAN 이벤트 복구
+ * - private 채널 인증·연결 오류 시 제한된 지수형 backoff로 재구독
  *
  * @param {number} userId - 로그인한 사용자 ID
  */
@@ -130,6 +137,53 @@ export default function NotificationListener({ userId }: { userId: number }) {
     let mounted = true;
     let activeChannel: ReturnType<typeof supabase.channel> | null = null;
     let authorizationController: AbortController | null = null;
+    const sessionStatusController = new AbortController();
+    let sessionStatusRequest: Promise<void> | null = null;
+    let sessionStatusRecheckRequested = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempts = 0;
+    let canReconnect = document.visibilityState !== "hidden";
+    let redirectStarted = false;
+    const intentionallyClosedChannels = new WeakSet<object>();
+
+    /** 중복 이동 없이 정지 안내 페이지로 전체 문서 전환 */
+    const redirectToBanned = (reason?: string) => {
+      if (!mounted || redirectStarted) return;
+      redirectStarted = true;
+      redirectToBannedPage(reason);
+    };
+
+    /** Realtime 이벤트 유실 여부와 무관하게 DB 최신 정지 상태 복구 */
+    const reconcileSessionStatus = (recheckAfterPending = false) => {
+      if (sessionStatusRequest) {
+        if (recheckAfterPending) sessionStatusRecheckRequested = true;
+        return sessionStatusRequest;
+      }
+
+      const request = refreshClientSessionStatus(sessionStatusController.signal)
+        .then((status) => {
+          if (status?.banned) redirectToBanned();
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+          console.error(
+            "[Notification] Session status reconciliation failed:",
+            error instanceof Error ? error.message : "UnknownError"
+          );
+        })
+        .finally(() => {
+          if (sessionStatusRequest === request) sessionStatusRequest = null;
+          if (mounted && sessionStatusRecheckRequested) {
+            sessionStatusRecheckRequested = false;
+            void reconcileSessionStatus();
+          }
+        });
+
+      sessionStatusRequest = request;
+      return request;
+    };
 
     const syncUnreadCount = async () => {
       const nextCount = await getUnreadNotificationCount();
@@ -149,8 +203,35 @@ export default function NotificationListener({ userId }: { userId: number }) {
       });
     };
 
-    /** 사용자 알림 private 채널을 생성하고 세션 JWT 인증 구독을 시작한다. */
-    const subscribe = () => {
+    /** 현재 알림 채널의 인증 요청과 WebSocket 객체 정리 */
+    const unsubscribe = () => {
+      if (!activeChannel) return;
+      const channel = activeChannel;
+      intentionallyClosedChannels.add(channel);
+      activeChannel = null;
+      authorizationController?.abort();
+      authorizationController = null;
+
+      // removeChannel이 구독 해제와 객체 제거를 함께 처리하므로 별도 unsubscribe를 중복 호출하지 않는다.
+      void supabase.removeChannel(channel);
+    };
+
+    /** 연결 오류가 반복돼도 최대 30초 간격으로 제한되는 재구독 예약 */
+    const scheduleReconnect = () => {
+      if (!mounted || !canReconnect || reconnectTimer) return;
+
+      const delayMs = Math.min(1000 * 2 ** reconnectAttempts, 30_000);
+      reconnectAttempts += 1;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (!mounted || !canReconnect) return;
+        unsubscribe();
+        subscribe();
+      }, delayMs);
+    };
+
+    /** 사용자 알림 private 채널 생성과 세션 JWT 인증 구독 시작 */
+    function subscribe() {
       if (activeChannel) return;
 
       const channel = supabase.channel(channelName, {
@@ -225,76 +306,111 @@ export default function NotificationListener({ userId }: { userId: number }) {
 
           // 실시간 정지(BAN) 처리
           if (p.type === "BAN") {
-            try {
-              // 1. 서버 세션 쿠키 갱신 (banned: true 설정)
-              await fetch("/api/auth/refresh", { method: "POST" });
-            } catch (e) {
-              console.error("Session refresh failed", e);
-            }
-
-            // 2. 갱신된 정지 상태를 인증 가드가 다시 확인하도록 403 페이지를 전체 문서로 이동
-            const bannedUrl = new URL("/403", window.location.origin);
-            bannedUrl.searchParams.set("reason", "BANNED");
-            bannedUrl.searchParams.set("banReason", p.reason || "");
-            window.location.assign(bannedUrl.href);
+            // 403 서버 화면이 DB에서 최신 사유·기간을 조회하므로 별도 fetch 완료를 기다리지 않고 즉시 이동
+            redirectToBanned(p.reason);
           }
         });
 
-      authorizationController = new AbortController();
+      const controller = new AbortController();
+      authorizationController = controller;
+      activeChannel = channel;
+
       void subscribePrivateRealtimeChannel(
         channel,
-        authorizationController.signal
-      );
-      activeChannel = channel;
-    };
+        controller.signal,
+        (status) => {
+          if (!mounted || intentionallyClosedChannels.has(channel)) return;
 
-    /** 알림 채널 인증과 WebSocket 채널 객체를 함께 정리한다. */
-    const unsubscribe = () => {
-      if (!activeChannel) return;
-      const channel = activeChannel;
-      activeChannel = null;
-      authorizationController?.abort();
-      authorizationController = null;
+          if (status === "SUBSCRIBED") {
+            reconnectAttempts = 0;
+            if (reconnectTimer) {
+              clearTimeout(reconnectTimer);
+              reconnectTimer = null;
+            }
+            // 최초 상태 조회와 join 사이에 발생한 정지도 놓치지 않도록 완료 후 재확인 허용
+            void reconcileSessionStatus(true);
+            return;
+          }
 
-      // removeChannel이 구독 해제와 객체 제거를 함께 처리하므로 별도 unsubscribe를 중복 호출하지 않는다.
-      void supabase.removeChannel(channel);
-    };
+          if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            scheduleReconnect();
+          }
+        }
+      ).then((authorized) => {
+        if (!authorized && mounted && activeChannel === channel) {
+          unsubscribe();
+          scheduleReconnect();
+        }
+      });
+    }
 
     const visibilityCleanup = createRealtimeVisibilityCleanup(unsubscribe);
 
     const handlePageHide = () => {
+      canReconnect = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
       visibilityCleanup.flush();
     };
 
     const handlePageShow = () => {
+      canReconnect = true;
       visibilityCleanup.cancel();
       subscribe();
       void syncUnreadCount();
+      void reconcileSessionStatus();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
+        canReconnect = false;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         // 빠른 Alt+Tab에서는 연결을 유지하고 장기 백그라운드일 때만 정리한다.
         visibilityCleanup.schedule();
         return;
       }
 
+      canReconnect = true;
       visibilityCleanup.cancel();
       subscribe();
       void syncUnreadCount();
+      void reconcileSessionStatus();
     };
 
+    /** 오프라인 동안 유실된 운영 이벤트를 네트워크 복구 직후 서버 상태로 보정 */
+    const handleOnline = () => {
+      if (!mounted) return;
+      canReconnect = document.visibilityState !== "hidden";
+      if (canReconnect) subscribe();
+      void reconcileSessionStatus(true);
+    };
+
+    void reconcileSessionStatus();
     subscribe();
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("online", handleOnline);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
+      canReconnect = false;
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       visibilityCleanup.cancel();
+      sessionStatusController.abort();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       unsubscribe();
     };
   }, [userId, increment, queryClient, setUnreadCount]);
