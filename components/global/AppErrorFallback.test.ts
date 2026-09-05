@@ -6,12 +6,17 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   오류 안내 연결과 재시도·복귀 액션 렌더링 검증
+ * 2026.09.05  임도헌   Modified  서버 재조회용 App Router 의존성을 격리한 정적 오류 화면 검증 유지
  */
 
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import AppErrorFallback from "./AppErrorFallback";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 describe("AppErrorFallback", () => {
   it("오류 안내와 재시도·안전한 복귀 액션을 렌더링한다", () => {

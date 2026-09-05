@@ -6,12 +6,15 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   오류 안내와 reset 재시도, 안전한 목록 복귀 경로를 제공하는 공용 fallback 추가
+ * 2026.09.05  임도헌   Modified  통제 환경 검증에서 확인한 운영 Console 오류 원문 출력 제거
+ * 2026.09.05  임도헌   Modified  reset 단독 호출의 서버 재조회 누락을 router refresh와 transition으로 보완
  */
 
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { startTransition, useEffect, useId, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
 /** Next.js route error boundary가 전달하는 공통 props */
@@ -32,7 +35,8 @@ interface AppErrorFallbackProps extends RouteErrorBoundaryProps {
  *
  * - 오류 화면 진입 시 제목으로 포커스를 옮겨 화면 전환을 보조기기에 전달
  * - 사용자에게 내부 오류 메시지를 노출하지 않고 digest만 문제 추적용으로 표시
- * - `reset`은 가장 가까운 Error Boundary segment를 다시 렌더링
+ * - 재시도는 서버 payload 갱신과 가장 가까운 Error Boundary reset을 같은 transition에서 실행
+ * - 운영 브라우저에는 오류 원문 출력 제외, 개발 환경에서만 상세 로그 기록
  *
  * @param props - 오류 객체, reset 함수와 화면별 안내·복귀 경로
  * @returns 접근 가능한 앱 오류 복구 화면
@@ -45,15 +49,28 @@ export default function AppErrorFallback({
   fallbackHref = "/products",
   fallbackLabel = "상품 목록으로",
 }: AppErrorFallbackProps) {
+  const router = useRouter();
   const titleId = useId();
   const descriptionId = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    // 운영 환경의 상세 오류 메시지는 숨기되 개발자 콘솔에는 원인을 남긴다.
-    console.error("App route error boundary:", error);
+    // 서버 오류의 응답 마스킹에만 의존하지 않도록 운영 브라우저의 원문 출력 제외.
+    // 클라이언트 오류도 포함하므로 상세 원인은 개발 환경에서만 기록.
+    if (process.env.NODE_ENV === "development") {
+      console.error("App route error boundary:", error);
+    }
     titleRef.current?.focus();
   }, [error]);
+
+  const retry = () => {
+    // reset만 호출하면 실패한 Server Component payload를 재사용해 복구되지 않는 문제 보완.
+    // 원인 해제 후 실제 서버 재조회와 오류 경계 초기화를 함께 요청.
+    startTransition(() => {
+      router.refresh();
+      reset();
+    });
+  };
 
   return (
     <div className="state-screen min-h-[60vh]">
@@ -88,7 +105,7 @@ export default function AppErrorFallback({
         <div className="state-actions">
           <button
             type="button"
-            onClick={reset}
+            onClick={retry}
             className="btn-primary min-h-[44px] w-full"
           >
             다시 시도
