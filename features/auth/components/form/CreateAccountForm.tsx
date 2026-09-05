@@ -24,6 +24,7 @@
  * 2026.04.13  임도헌   Modified  회원가입 입력 필드에 명시적 라벨을 추가해 접근성 문맥을 보강
  * 2026.05.12  임도헌   Modified  로그인 이동 링크가 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
  * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 로그인 링크에서 생략
+ * 2026.09.05  임도헌   Modified  제출 전 빈 필드 오류 노출을 막는 검증 시점 조정
  */
 "use client";
 
@@ -79,7 +80,7 @@ export default function CreateAccountForm({
     setFocus,
   } = useForm<FormData>({
     resolver: zodResolver(createAccountSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     reValidateMode: "onChange",
   });
 

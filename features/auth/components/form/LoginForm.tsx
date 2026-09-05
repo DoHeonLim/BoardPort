@@ -28,6 +28,7 @@
  * 2026.05.12  임도헌   Modified  보조 링크 클릭 시 input blur 검증으로 이동이 지연되지 않도록 처리
  * 2026.08.27  임도헌   Modified  화면 구성을 유지하면서 이메일·비밀번호 입력에 접근 가능한 숨김 label 추가
  * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 회원가입·비밀번호 찾기 링크에서 생략
+ * 2026.09.05  임도헌   Modified  명시적 라벨과 제출 후 검증 방식으로 인증 폼 접근성 보강
  */
 "use client";
 
@@ -73,7 +74,7 @@ export default function LoginForm({
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(loginSchema),
-    mode: "onBlur", // UX: 입력 중엔 에러 숨기고 포커스 이동 시 검증
+    mode: "onSubmit",
     reValidateMode: "onChange",
   });
 
@@ -146,7 +147,6 @@ export default function LoginForm({
         <Input
           {...register("email")}
           label="이메일 주소"
-          hideLabel
           type="email"
           placeholder="이메일 주소"
           autoComplete="email"
@@ -156,7 +156,6 @@ export default function LoginForm({
         <Input
           {...register("password")}
           label="비밀번호"
-          hideLabel
           type="password"
           passwordToggle
           placeholder="비밀번호"

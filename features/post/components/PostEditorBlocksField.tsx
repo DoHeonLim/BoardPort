@@ -14,6 +14,7 @@
  * 2026.05.30  임도헌   Modified  이미지/동영상 블록 드롭존에 제품 업로더와 같은 드래그 피드백 추가
  * 2026.08.27  임도헌   Modified  게시글 이미지 블록의 반응형 표시 폭을 Image sizes로 명시
  * 2026.08.28  임도헌   Modified  텍스트 블록 높이 조절 함수 JSDoc 보강
+ * 2026.09.05  임도헌   Modified  미디어 업로드 슬롯 키보드 동작과 포커스 표시 보강
  */
 
 import Image from "next/image";
@@ -111,6 +112,7 @@ export default function PostEditorBlocksField({
   onRemoveImageBlockAsset,
 }: PostEditorBlocksFieldProps) {
   const textAreaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
 
   /**
@@ -366,30 +368,40 @@ export default function PostEditorBlocksField({
                                 : "border-border"
                             }`}
                           >
-                            <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:bg-surface-dim sm:min-h-[180px]">
+                            <button
+                              type="button"
+                              onClick={() => videoInputRef.current?.click()}
+                              disabled={
+                                isVideoUploading ||
+                                isUploading ||
+                                isEditorLocked
+                              }
+                              className="focus-ring-soft flex min-h-[160px] w-full cursor-pointer flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[180px]"
+                            >
                               <FilmIcon className="size-6 text-brand" />
-                              <div className="space-y-1">
-                                <p className="text-sm font-medium text-primary">
+                              <span className="space-y-1">
+                                <span className="block text-sm font-medium text-primary">
                                   {dragOverBlockId === block.id
                                     ? "여기에 동영상을 놓으세요"
                                     : "이 위치에 동영상 첨부"}
-                                </p>
-                                <p className="text-xs text-muted">
+                                </span>
+                                <span className="block text-xs text-muted">
                                   mp4, mov, webm / 최대 80MB / 최대 60초
-                                </p>
-                              </div>
-                              <input
-                                type="file"
-                                accept="video/mp4,video/quicktime,video/webm"
-                                className="hidden"
-                                onChange={onVideoChange}
-                                disabled={
-                                  isVideoUploading ||
-                                  isUploading ||
-                                  isEditorLocked
-                                }
-                              />
-                            </label>
+                                </span>
+                              </span>
+                            </button>
+                            <input
+                              ref={videoInputRef}
+                              type="file"
+                              accept="video/mp4,video/quicktime,video/webm"
+                              className="hidden"
+                              onChange={onVideoChange}
+                              disabled={
+                                isVideoUploading ||
+                                isUploading ||
+                                isEditorLocked
+                              }
+                            />
                           </div>
                         )
                       ) : block.type === "EMBED" ? (
@@ -504,7 +516,7 @@ export default function PostEditorBlocksField({
                                 clearBlockDragOver();
                                 onImageBlockDrop(block.id, event);
                               }}
-                              className={`flex min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-center transition-all hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px] ${
+                              className={`focus-ring-soft flex min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-center transition-all hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px] ${
                                 dragOverBlockId === block.id
                                   ? "scale-[1.01] border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10"
                                   : "border-border bg-surface-dim/30"

@@ -1017,7 +1017,7 @@ export default function ProductForm({
           id="has_manual"
           type="checkbox"
           {...register("has_manual")}
-          className="h-5 w-5 shrink-0 rounded border-border accent-brand focus:ring-brand dark:accent-brand-light dark:focus:ring-brand-light"
+          className="h-5 w-5 shrink-0 rounded border-border accent-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:accent-brand-light dark:focus-visible:ring-brand-light/40"
         />
         <label
           htmlFor="has_manual"
