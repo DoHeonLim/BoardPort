@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   실제 미존재·DB 실패 경계와 최신 조회수 overlay를 검증
  * 2026.08.31  임도헌   Modified  서버 cache에서 문자열로 복원된 상세 날짜의 Date 정규화 검증
+ * 2026.09.05  임도헌   Modified  상세 본문이 남아 있어도 최신 DB에서 삭제된 상품의 미존재 판정 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,6 +47,16 @@ describe("product detail lookup boundary", () => {
     const { getProductDetail } = await import("./detail");
 
     await expect(getProductDetail(404)).resolves.toBeNull();
+  });
+
+  it("이전 상세 본문이 있어도 최신 DB에서 삭제됐으면 상품 미존재 반환", async () => {
+    mocks.productFindUnique
+      .mockResolvedValueOnce({ id: 91, views: 3, board_games: [] })
+      .mockResolvedValueOnce(null);
+    const { getProductDetailViewData } = await import("./detail");
+
+    const result = await getProductDetailViewData(91, null);
+    expect(result.product).toBeNull();
   });
 
   it("DB 상세 조회 실패를 cache 밖으로 전파한다", async () => {

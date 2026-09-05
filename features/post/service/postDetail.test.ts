@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   실제 미존재·DB 실패 경계와 최신 조회수 overlay를 검증
+ * 2026.09.05  임도헌   Modified  상세 본문이 남아 있어도 최신 DB에서 삭제된 게시글의 미존재 판정 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,5 +54,14 @@ describe("post detail lookup boundary", () => {
     const result = await getPostDetailViewData(91);
 
     expect(result?.views).toBe(42);
+  });
+
+  it("이전 상세 본문이 있어도 최신 DB에서 삭제됐으면 null 반환", async () => {
+    mocks.postFindUnique
+      .mockResolvedValueOnce({ id: 91, views: 3, board_games: [] })
+      .mockResolvedValueOnce(null);
+    const { getPostDetailViewData } = await import("./post");
+
+    await expect(getPostDetailViewData(91)).resolves.toBeNull();
   });
 });
