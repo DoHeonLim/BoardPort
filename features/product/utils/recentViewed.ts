@@ -10,6 +10,7 @@
  * 2026.04.08  임도헌   Modified  상품 삭제 직후 최근 본 상품 목록에서도 즉시 제거할 수 있도록 삭제 유틸 추가
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 refreshed_at을 보존하는 최근 본 상품 스냅샷 변환 함수 추가
  * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜도 안전하게 스냅샷으로 변환
+ * 2026.09.05  임도헌   Modified  서버 조회 결과로 삭제 기록 정리 및 조회 중 변경된 열람 기록 보존
  */
 
 "use client";
@@ -90,6 +91,39 @@ export function getRecentViewedProducts(): RecentViewedProduct[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * 성공한 서버 조회 결과와 현재 로컬 열람 기록 병합
+ *
+ * - 요청 ID 중 응답에 없는 상품 제거 및 남은 상품의 최신 스냅샷 반영
+ * - 조회 중 새로 추가한 항목·현재 열람 순서 보존, 로컬에서 제거한 항목 복원 방지
+ * - 동일 내용 재저장과 같은 탭 갱신 이벤트를 생략해 재조회 반복 방지
+ * @returns 새로 추가되어 아직 검증되지 않은 항목도 포함한 병합 기록.
+ * 호출자는 이번 응답으로 확인한 상품만 화면에 표시해야 함
+ */
+export function reconcileRecentViewedProducts(
+  requestedIds: number[],
+  verified: RecentViewedProduct[]
+) {
+  const requested = new Set(requestedIds);
+  const byId = new Map(verified.map((product) => [product.id, product]));
+  const next = getRecentViewedProducts().flatMap((product) => {
+    if (!requested.has(product.id)) return [product];
+    const fresh = byId.get(product.id);
+    return fresh ? [fresh] : [];
+  });
+  try {
+    const serialized = JSON.stringify(next);
+    if (
+      window.localStorage.getItem(RECENT_VIEWED_PRODUCTS_KEY) !== serialized
+    ) {
+      window.localStorage.setItem(RECENT_VIEWED_PRODUCTS_KEY, serialized);
+    }
+  } catch {
+    // 저장소를 사용할 수 없어도 검증된 화면 상태는 반환한다.
+  }
+  return next;
 }
 
 /**

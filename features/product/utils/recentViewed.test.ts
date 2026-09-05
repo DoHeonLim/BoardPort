@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * File Name : features/product/utils/recentViewed.test.ts
  * Description : 최근 본 상품 스냅샷 변환 회귀 테스트
@@ -7,11 +8,18 @@
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   생성 시각과 끌어올리기 노출 시각을 독립적으로 보존하는지 검증
  * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜 입력 회귀 검증
+ * 2026.09.05  임도헌   Modified  삭제 기록 정리·최신 이미지 갱신·조회 중 로컬 변경 보존 검증
  */
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { ProductDetailType } from "@/features/product/types";
-import { createRecentViewedProductSnapshot } from "./recentViewed";
+import {
+  createRecentViewedProductSnapshot,
+  saveRecentViewedProduct,
+  getRecentViewedProducts,
+  removeRecentViewedProduct,
+  reconcileRecentViewedProducts,
+} from "./recentViewed";
 
 /** 최근 본 상품 스냅샷 변환에 필요한 상세 상품 fixture 생성 */
 function createProductDetailFixture(): ProductDetailType {
@@ -90,5 +98,36 @@ describe("createRecentViewedProductSnapshot", () => {
 
     expect(snapshot.created_at).toBe("2026-08-20T01:00:00.000Z");
     expect(snapshot.refreshed_at).toBe("2026-08-27T02:30:00.000Z");
+  });
+});
+
+describe("최근 본 상품 서버 동기화", () => {
+  beforeEach(() => window.localStorage.clear());
+  const product = (id: number) => ({
+    ...createRecentViewedProductSnapshot(createProductDetailFixture()),
+    id,
+  });
+
+  it("삭제된 상품을 제거하고 남은 이미지와 열람 순서를 갱신한다", () => {
+    saveRecentViewedProduct(product(1));
+    saveRecentViewedProduct(product(2));
+    const fresh = {
+      ...product(1),
+      images: [{ url: "https://example.com/new.webp", order: 0 }],
+    };
+    expect(reconcileRecentViewedProducts([2, 1], [fresh])).toEqual([fresh]);
+    expect(getRecentViewedProducts()).toEqual([fresh]);
+  });
+
+  it("조회 중 추가한 항목을 보존하고 사용자가 제거한 항목을 되살리지 않는다", () => {
+    saveRecentViewedProduct(product(1));
+    saveRecentViewedProduct(product(2));
+    removeRecentViewedProduct(1);
+    saveRecentViewedProduct(product(3));
+    expect(
+      reconcileRecentViewedProducts([2, 1], [product(1), product(2)]).map(
+        (p) => p.id
+      )
+    ).toEqual([3, 2]);
   });
 });

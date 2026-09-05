@@ -19,10 +19,11 @@
  * 2026.05.29  임도헌   Modified  최근 본 상품 삭제 버튼이 카드 선닫힘 이벤트를 타지 않도록 전파 기준 보정
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.01  임도헌   Modified  태블릿·작은 데스크톱 모달의 카드 열 수를 화면 너비별로 조정
+ * 2026.09.05  임도헌   Modified  최초 표시·창 복귀·목록 열기 시 서버 검증으로 삭제 상품과 오래된 이미지 정리
  */
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { XMarkIcon, ClockIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
@@ -32,11 +33,13 @@ import {
   getRecentViewedProducts,
   RECENT_VIEWED_PRODUCTS_UPDATED_EVENT,
   removeRecentViewedProduct,
+  reconcileRecentViewedProducts,
   type RecentViewedProduct,
 } from "@/features/product/utils/recentViewed";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { useModalFocus } from "@/hooks/useModalFocus";
+import { getRecentProductsAction } from "@/features/product/actions/list";
 
 /**
  * 최근 본 상품 FAB 및 목록 시트/모달
@@ -47,6 +50,9 @@ import { useModalFocus } from "@/hooks/useModalFocus";
  * - 모바일은 Bottom Sheet, 데스크톱은 중앙 카드 모달로 전체 최근 본 상품 목록 제공
  * - 카드 클릭 시 현재 오버레이를 먼저 닫고 제품 상세 흐름으로 이어지도록 정리
  * - 각 카드 우상단 휴지통으로 최근 본 상품 항목을 개별 제거 가능
+ * - 최초 표시·창/탭 복귀·기록 변경·목록 열기 시 서버에서 노출 상태와 카드 정보 재조회
+ * - 서버 확인 전 로컬 이미지 표시 보류, 요청 실패 시 저장 기록 유지
+ * - 연속 조회의 이전 응답과 언마운트 후 응답 무시
  */
 export default function RecentViewedProductsFab() {
   const [products, setProducts] = useState<RecentViewedProduct[]>([]);
@@ -54,31 +60,61 @@ export default function RecentViewedProductsFab() {
   const [isDesktop, setIsDesktop] = useState(false);
   const desktopDialogRef = useRef<HTMLDivElement>(null);
 
-  const loadProducts = () => {
-    setProducts(getRecentViewedProducts());
-  };
+  const requestState = useRef({ version: 0 }).current;
+  // 관리자나 다른 브라우저에서 상품을 삭제해도 로컬 열람 기록은 남는다.
+  // 삭제된 이미지 URL을 다시 표시하지 않도록 서버에서 상품 상태를 확인한 뒤 렌더링한다.
+  const loadProducts = useCallback(async () => {
+    const version = ++requestState.version;
+    const ids = getRecentViewedProducts()
+      .slice(0, 8)
+      .map((product) => product.id);
+    // 최초 렌더링은 빈 목록으로 유지하고 검증된 서버 결과만 표시한다.
+    if (!ids.length) {
+      setProducts([]);
+      setIsOpen(false);
+      return;
+    }
+    try {
+      const fresh = await getRecentProductsAction(ids);
+      if (version !== requestState.version) return;
+      const next = reconcileRecentViewedProducts(ids, fresh);
+      const verifiedIds = new Set(fresh.map((product) => product.id));
+      setProducts(next.filter((product) => verifiedIds.has(product.id)));
+      if (!next.length) setIsOpen(false);
+    } catch {
+      // 요청 실패 시 기록과 직전 검증 화면을 유지하고 다음 복귀·목록 열기 때 재시도한다.
+    }
+  }, [requestState]);
 
   useEffect(() => {
     loadProducts();
 
     const handleFocus = () => loadProducts();
     const handleRecentViewedUpdated = () => loadProducts();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void loadProducts();
+    };
     window.addEventListener("focus", handleFocus);
     window.addEventListener("pageshow", handleFocus);
+    window.addEventListener("storage", handleRecentViewedUpdated);
+    document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener(
       RECENT_VIEWED_PRODUCTS_UPDATED_EVENT,
       handleRecentViewedUpdated
     );
 
     return () => {
+      requestState.version++;
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("pageshow", handleFocus);
+      window.removeEventListener("storage", handleRecentViewedUpdated);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener(
         RECENT_VIEWED_PRODUCTS_UPDATED_EVENT,
         handleRecentViewedUpdated
       );
     };
-  }, []);
+  }, [loadProducts, requestState]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 640px)");
@@ -122,7 +158,7 @@ export default function RecentViewedProductsFab() {
     event.stopPropagation();
 
     removeRecentViewedProduct(productId);
-    const next = getRecentViewedProducts();
+    const next = products.filter((product) => product.id !== productId);
     setProducts(next);
     if (next.length === 0) setIsOpen(false);
     toast.success("최근 본 상품에서 제거했습니다.");
@@ -149,7 +185,10 @@ export default function RecentViewedProductsFab() {
     <>
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setIsOpen(true);
+          void loadProducts();
+        }}
         title="최근 본 상품 열기"
         className="focus-ring-strong fixed right-4 z-40 flex size-12 items-center justify-center rounded-full transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300 hover:scale-[1.03] hover:shadow-lg active:scale-95 sm:right-8 sm:size-16 bottom-[calc(148px+env(safe-area-inset-bottom))] sm:bottom-[184px]"
       >
