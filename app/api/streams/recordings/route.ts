@@ -8,10 +8,11 @@
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 다시보기 목록 조회 API 분리
  * 2026.06.25  임도헌   Modified  URL viewerId fallback 제거 및 세션 기준 조회자 권한 고정
  * 2026.08.26  임도헌   Modified  정렬값 기반 불투명 복합 커서 검증 및 응답 적용
+ * 2026.09.05  임도헌   Modified  다시보기 추가 페이지에 최초 조회와 동일한 전용 페이지 크기 적용
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { STREAMS_PAGE_TAKE } from "@/lib/constants";
+import { RECORDINGS_PAGE_TAKE } from "@/lib/constants";
 import getSession from "@/lib/session";
 import { getRecordingsList } from "@/features/stream/service/list";
 import type { RecordingSort } from "@/features/stream/types";
@@ -20,7 +21,7 @@ import {
   encodeRecordingCursor,
 } from "@/features/stream/utils/recordingCursor";
 
-const TAKE = STREAMS_PAGE_TAKE;
+const TAKE = RECORDINGS_PAGE_TAKE;
 
 /**
  * 공백 검색 파라미터 정규화

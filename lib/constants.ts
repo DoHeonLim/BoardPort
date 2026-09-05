@@ -14,6 +14,7 @@
  * 2026.01.20  임도헌   Modified  인증 관련 에러 메시지 상수화
  * 2026.01.24  임도헌   Modified  도메인별 상수(AUTH, PRODUCT 등)를 각 Feature로 이관
  * 2026.06.04  임도헌   Modified  인증/프로필 공용 유저명 최대 길이 상수 추가
+ * 2026.09.05  임도헌   Modified  메인 다시보기 페이지 크기를 전용 상수 8개로 분리
  */
 
 // 패스워드 설정 (Auth/User 공용 - 여러 도메인에 걸쳐있어 Global 유지)
@@ -40,6 +41,8 @@ export const MAX_KEYWORD_PER_USER = 10;
 export const POSTS_PAGE_TAKE = 10;
 export const PRODUCTS_PAGE_TAKE = 10;
 export const STREAMS_PAGE_TAKE = 12;
+// 메인 다시보기의 최초 조회·추가 페이지 공통 크기, 라이브·채널 목록과 독립 조정
+export const RECORDINGS_PAGE_TAKE = 8;
 
 /**
  * 로그인 없이 접근 가능한 경로 목록 (`proxy.ts`의 인증 경계와 동기화)

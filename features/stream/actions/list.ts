@@ -25,11 +25,12 @@
  * 2026.08.21  임도헌   Modified  비로그인·차단 관계 채널 VOD Action에서 signed thumbnail 발급 전 조회 중단
  * 2026.08.26  임도헌   Modified  메인 다시보기 목록에 정렬값 기반 불투명 복합 커서 적용
  * 2026.08.27  임도헌   Modified  손상된 비어 있지 않은 다시보기 커서를 Server Action에서도 거부
+ * 2026.09.05  임도헌   Modified  다시보기 최초 조회에 전용 페이지 크기 적용, 라이브·채널 목록 기존 크기 유지
  */
 
 "use server";
 
-import { STREAMS_PAGE_TAKE } from "@/lib/constants";
+import { RECORDINGS_PAGE_TAKE, STREAMS_PAGE_TAKE } from "@/lib/constants";
 import {
   getChannelVods,
   getRecordingsList,
@@ -160,7 +161,7 @@ export async function getRecordingsListAction(
     throw new Error("유효하지 않은 다시보기 커서입니다.");
   }
 
-  // 다시보기 service는 TAKE + 1 규칙으로 다음 페이지 존재 여부를 판별
+  // 전용 페이지 크기 + 1 조회로 다음 페이지 존재 여부 판별
   const list = await getRecordingsList({
     sort,
     followingOnly,
@@ -168,11 +169,11 @@ export async function getRecordingsListAction(
     keyword: norm(searchParams.keyword),
     viewerId: userId,
     cursor: decodedCursor,
-    take: TAKE + 1,
+    take: RECORDINGS_PAGE_TAKE + 1,
   });
 
-  const hasMore = list.length > TAKE;
-  const trimmed = hasMore ? list.slice(0, TAKE) : list;
+  const hasMore = list.length > RECORDINGS_PAGE_TAKE;
+  const trimmed = hasMore ? list.slice(0, RECORDINGS_PAGE_TAKE) : list;
   const nextCursor = hasMore
     ? encodeRecordingCursor(sort, trimmed[trimmed.length - 1])
     : null;

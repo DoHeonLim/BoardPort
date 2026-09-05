@@ -7,11 +7,12 @@
  * Date        Author   Status    Description
  * 2026.06.25  임도헌   Created   URL viewerId를 신뢰하지 않는 세션 기준 조회 테스트 추가
  * 2026.08.26  임도헌   Modified  복합 커서 검증·전달·응답 회귀 테스트 추가
+ * 2026.09.05  임도헌   Modified  다시보기 전용 페이지 크기 기준 응답 개수와 다음 커서 검증
  */
 
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { STREAMS_PAGE_TAKE } from "@/lib/constants";
+import { RECORDINGS_PAGE_TAKE } from "@/lib/constants";
 import {
   decodeRecordingCursor,
   encodeRecordingCursor,
@@ -111,7 +112,7 @@ describe("GET /api/streams/recordings", () => {
       "http://localhost/api/streams/recordings?sort=popular"
     );
     const recordings = Array.from(
-      { length: STREAMS_PAGE_TAKE + 1 },
+      { length: RECORDINGS_PAGE_TAKE + 1 },
       (_, index) => ({
         vodId: 100 - index,
         readyAt: new Date(
@@ -126,9 +127,9 @@ describe("GET /api/streams/recordings", () => {
 
     const response = await GET(request);
     const body = await response.json();
-    const tail = recordings[STREAMS_PAGE_TAKE - 1];
+    const tail = recordings[RECORDINGS_PAGE_TAKE - 1];
 
-    expect(body.recordings).toHaveLength(STREAMS_PAGE_TAKE);
+    expect(body.recordings).toHaveLength(RECORDINGS_PAGE_TAKE);
     expect(decodeRecordingCursor(body.nextCursor, "popular")).toEqual({
       sort: "popular",
       readyAt: tail.readyAt,
