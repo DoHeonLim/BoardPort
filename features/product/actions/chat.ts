@@ -15,10 +15,10 @@
  * 2026.03.12  임도헌   Modified  채팅 진입 시 returnTo 복귀 경로를 함께 전달할 수 있도록 보강
  * 2026.04.02  임도헌   Modified  파일 설명과 액션 주석을 현재 서버 액션 톤으로 정리
  * 2026.04.04  임도헌   Modified  채팅방 생성/복귀 경로 정규화 단계의 인라인 주석 보강
+ * 2026.09.01  임도헌   Modified  `redirect()` 제어 신호 대신 안전한 채팅 이동 경로 반환
  */
 "use server";
 
-import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import { createChatRoom } from "@/features/chat/service/room";
 import { getProductChatUsers } from "@/features/product/service/chatUsers";
@@ -30,16 +30,17 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  *
  * [기능]
  * - 로그인 세션을 확인
- * - 채팅 service를 통해 기존 방을 찾거나 새 채팅방을 생성
- * - 필요 시 returnTo 복귀 경로를 포함해 채팅방으로 리다이렉트
+ * - 채팅 서비스를 통해 기존 방을 찾거나 새 채팅방을 생성
+ * - 클라이언트가 이동할 수 있도록 정규화한 returnTo 포함 채팅 경로를 반환
  *
  * @param {number} productId - 제품 ID
  * @param {string} [returnTo] - 채팅방 뒤로가기 fallback 경로
+ * @returns {Promise<string>} 안전한 복귀 경로를 포함한 채팅방 내부 URL
  */
 export const createChatRoomAction = async (
   productId: number,
   returnTo?: string
-) => {
+): Promise<string> => {
   // 로그인 세션 확인
   const session = await getSession();
   if (!session?.id) throw new Error("로그인이 필요합니다.");
@@ -49,9 +50,7 @@ export const createChatRoomAction = async (
 
   // 채팅 뒤로가기 fallback 경로 정규화
   const nextReturnTo = sanitizeCallbackUrl(returnTo ?? "/chat");
-  return redirect(
-    `/chats/${chatRoomId}?returnTo=${encodeURIComponent(nextReturnTo)}`
-  );
+  return `/chats/${chatRoomId}?returnTo=${encodeURIComponent(nextReturnTo)}`;
 };
 
 /**

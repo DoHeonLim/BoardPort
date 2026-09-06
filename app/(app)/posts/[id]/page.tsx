@@ -37,6 +37,9 @@
  * 2026.04.14  임도헌   Modified  제품 상세와 동일하게 가드 후 조회수 반영/화면 보정 순서로 조정
  * 2026.05.15  임도헌   Modified  게시글 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
  * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
+ * 2026.08.13  임도헌   Modified  게시글 댓글 prefetch cache를 조회자별로 분리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.27  임도헌   Modified  상세 본문 cache와 조회수를 분리해 최신 DB 조회수 기준으로 렌더링
  */
 
 export const dynamic = "force-dynamic";
@@ -53,17 +56,20 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import PostDetail from "@/features/post/components/postsDetail";
 import { incrementViews } from "@/features/common/service/view";
 import { getUserInfoById } from "@/features/user/service/profile";
-import { getCachedPost } from "@/features/post/service/post";
+import {
+  getCachedPost,
+  getPostDetailViewData,
+} from "@/features/post/service/post";
 import { getPostLikeStatus } from "@/features/post/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { getPostCommentsListAction } from "@/features/post/actions/comments";
 import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { id: string };
+/** 게시글 ID를 검증하고 공유·브라우저 메타데이터를 생성한다. */
+export async function generateMetadata(props: {
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) {
     return { title: "게시글을 찾을 수 없음" };
@@ -116,16 +122,14 @@ export async function generateMetadata({
  * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달
  * - `returnTo`가 없을 경우 게시글 목록(`/posts`)을 기본 복귀 경로로 사용
  *
- * @param {Object} params - URL 파라미터 (id: 게시글 ID)
- * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
+ * @param props - 게시글 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function PostDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function PostDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
   const rawReturnTo = searchParams?.returnTo;
@@ -136,7 +140,7 @@ export default async function PostDetailPage({
   const session = await getSession();
   const userId = session?.id ?? null;
   const isSharePreviewCrawler = isSocialCrawlerUserAgent(
-    headers().get("user-agent")
+    (await headers()).get("user-agent")
   );
 
   // 공유 미리보기 크롤러는 generateMetadata 수집만 필요하므로 본문 렌더링 생략
@@ -152,12 +156,12 @@ export default async function PostDetailPage({
   // QueryClient 초기화 및 데이터 병렬 조회
   const queryClient = getQueryClient();
   const [post, likeStatus, viewerInfo] = await Promise.all([
-    getCachedPost(id),
+    getPostDetailViewData(id),
     getPostLikeStatus(id, userId),
     getUserInfoById(userId),
     // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장함 (Prefetch)
     queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.posts.comments(id),
+      queryKey: queryKeys.posts.comments(id, userId),
       queryFn: () => getPostCommentsListAction(id),
       initialPageParam: undefined as number | undefined,
     }),

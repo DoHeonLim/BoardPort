@@ -16,6 +16,8 @@
  * 2026.03.12  임도헌   Modified  사용자 업로드 이미지의 애니메이션 메타 조회 필드 추가
  * 2026.04.02  임도헌   Modified  Prisma select 쿼리 상수를 selects.ts로 분리해 역할 정리
  * 2026.04.02  임도헌   Modified  Enum/정책/라벨 상수 설명 보강
+ * 2026.08.24  임도헌   Modified  상품 수정 완료 피드백 문구를 복귀 화면과 공유하도록 상수화
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 // =============================================================================
@@ -41,6 +43,9 @@ export const PRODUCT_OTHER_CATEGORY_ENG_NAME = "OTHER" as const;
 export const BUMP_COOLDOWN_HOURS = 24;
 /** 상품별 최대 끌어올리기 횟수 */
 export const MAX_BUMP_COUNT = 5;
+
+/** 상품 수정 완료 후 상세 화면에서 표시할 공용 성공 메시지 */
+export const PRODUCT_UPDATE_SUCCESS_MESSAGE = "상품 정보가 수정되었습니다.";
 
 // =============================================================================
 // 2. Display Maps (UI 표시용 라벨)
@@ -75,4 +80,3 @@ export const PRODUCT_STATUS_LABEL = {
   reserved: "예약 중",
   sold: "판매 완료",
 } as const;
-

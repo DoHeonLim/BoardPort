@@ -31,6 +31,7 @@
  * 2026.05.03  임도헌   Modified  카테고리 툴팁이 뒤 콘텐츠와 섞이지 않도록 불투명 surface 톤으로 보정
  * 2026.05.05  임도헌   Modified  카테고리 탭 상호작용 핸들러 JSDoc 보강
  * 2026.06.15  임도헌   Modified  게시글 카테고리 변경 시 검색어를 유지하도록 검색 조합 정책 통일
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에서는 카테고리 레일을 즉시 스크롤하도록 보강
  */
 
 import { useRef, useState } from "react";
@@ -44,6 +45,7 @@ import Link from "next/link";
 import { useFloating, offset, shift, flip } from "@floating-ui/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 
 interface IPostCategoryTabsProps {
   currentCategory?: string;
@@ -193,7 +195,7 @@ export default function PostCategoryTabs({
         (direction === "left" ? -scrollAmount : scrollAmount);
       scrollContainerRef.current.scrollTo({
         left: targetScroll,
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
       });
     }
   };

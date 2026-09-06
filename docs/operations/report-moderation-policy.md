@@ -21,8 +21,11 @@ BoardPort의 신고 처리는 단순히 신고 상태를 바꾸는 기능이 아
 ## 3. 처리 상태
 
 - `PENDING`: 처리 대기
+- `PROCESSING`: transaction 안에서 단일 처리자가 선점한 임시 상태
 - `RESOLVED`: 조치 완료
 - `DISMISSED`: 신고 기각
+
+`PROCESSING`은 외부에 장시간 유지하는 작업 상태가 아닙니다. 신고 claim과 최종 조치는 같은 transaction에서 commit되며, 실패하면 `PENDING`으로 함께 롤백됩니다.
 
 ## 4. 사유별 기본 추천 조치
 
@@ -60,6 +63,7 @@ USER 대상 신고는 삭제할 직접 콘텐츠가 없으므로 `DELETE_CONTENT
 - 관리자 ID
 - 대상 타입과 ID
 - 수행 액션
+- 재시도 가능한 신고 조치의 멱등 키
 - 사유
 - 조치 시각
 
@@ -75,3 +79,4 @@ USER 대상 신고는 삭제할 직접 콘텐츠가 없으므로 `DELETE_CONTENT
 ## 8. 관련 문서
 
 - [관리자 ECharts 설계](../design/admin-echarts-design.md)
+- [신고 처리 원자성·멱등성 운영 기준](./report-moderation-atomicity.md)

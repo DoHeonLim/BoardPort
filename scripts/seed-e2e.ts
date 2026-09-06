@@ -21,6 +21,8 @@
  * 2026.05.26  임도헌   Modified  상품 삭제/약속 수락/신고 처리 E2E 전용 seed 데이터 추가
  * 2026.05.26  임도헌   Modified  알림 설정 저장 E2E 반복 실행을 위해 seed 계정 preference 기본값 리셋
  * 2026.06.22  임도헌   Modified  지역 노출 정책 변경에 맞춰 E2E 계정/콘텐츠 지역 seed 보정
+ * 2026.08.23  임도헌   Modified  상품 수정 seed에 고유 이미지와 MediaAsset 소유권 상태 추가
+ * 2026.08.26  임도헌   Modified  상품·구매 문의자 복합 키 기준으로 seed 채팅방을 재사용
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -31,12 +33,16 @@ import { PrismaClient, RegionRange, Role } from "../generated/prisma/client";
 import {
   BoardGameLocaleSource,
   BoardGameLocaleStatus,
+  MediaAssetPurpose,
+  MediaAssetState,
 } from "../generated/prisma/enums";
 
 const E2E_PREFIX = "[E2E]";
 const E2E_PASSWORD = "BoardPort!234";
 const E2E_PRODUCT_IMAGE_URL =
   "https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/55cfdd12-033e-4c98-973d-aea323285d00";
+const E2E_MODAL_EDIT_PRODUCT_IMAGE_ID = "e2e-modal-edit-product-image-990001";
+const E2E_MODAL_EDIT_PRODUCT_IMAGE_URL = `https://imagedelivery.net/3o3hwIVwLhMgAkoMCda2JQ/${E2E_MODAL_EDIT_PRODUCT_IMAGE_ID}`;
 const E2E_CHAT_MESSAGE = `${E2E_PREFIX} 채팅 목록 회귀 메시지`;
 const E2E_APPOINTMENT_PRODUCT_TITLE = `${E2E_PREFIX} 약속 수락 상품`;
 const E2E_APPOINTMENT_MESSAGE = `${E2E_PREFIX} 약속 수락 회귀 제안`;
@@ -331,6 +337,43 @@ async function createProduct(
   });
 }
 
+/** 상품 수정 E2E가 운영 코드와 같은 이미지 소유권 검증을 통과하도록 상태를 준비한다. */
+async function upsertAttachedProductMediaAsset(
+  db: PrismaClient,
+  input: {
+    ownerId: number;
+    productId: number;
+    providerAssetId: string;
+    deliveryUrl: string;
+  }
+) {
+  const now = new Date();
+
+  await db.mediaAsset.upsert({
+    where: { providerAssetId: input.providerAssetId },
+    update: {
+      deliveryUrl: input.deliveryUrl,
+      purpose: MediaAssetPurpose.PRODUCT_IMAGE,
+      state: MediaAssetState.ATTACHED,
+      linkedEntityId: String(input.productId),
+      expires_at: now,
+      attached_at: now,
+      deleted_at: null,
+      ownerId: input.ownerId,
+    },
+    create: {
+      providerAssetId: input.providerAssetId,
+      deliveryUrl: input.deliveryUrl,
+      purpose: MediaAssetPurpose.PRODUCT_IMAGE,
+      state: MediaAssetState.ATTACHED,
+      linkedEntityId: String(input.productId),
+      expires_at: now,
+      attached_at: now,
+      ownerId: input.ownerId,
+    },
+  });
+}
+
 /** E2E 목록 테스트용 살아 있는 게시글 준비 */
 async function createPost(
   db: PrismaClient,
@@ -382,13 +425,12 @@ async function createChatRoomSeed(
     buyerId: number;
   }
 ) {
-  const existingRoom = await db.productChatRoom.findFirst({
+  const existingRoom = await db.productChatRoom.findUnique({
     where: {
-      productId: input.productId,
-      AND: [
-        { users: { some: { id: input.sellerId } } },
-        { users: { some: { id: input.buyerId } } },
-      ],
+      productId_buyerId: {
+        productId: input.productId,
+        buyerId: input.buyerId,
+      },
     },
     select: { id: true },
   });
@@ -398,6 +440,7 @@ async function createChatRoomSeed(
     (await db.productChatRoom.create({
       data: {
         productId: input.productId,
+        buyerId: input.buyerId,
         users: {
           connect: [{ id: input.sellerId }, { id: input.buyerId }],
         },
@@ -784,13 +827,19 @@ async function seedE2EData() {
       imageUrl: E2E_PRODUCT_IMAGE_URL,
       resetTradeState: true,
     });
-    await createProduct(db, {
+    const modalEditProduct = await createProduct(db, {
       title: E2E_MODAL_EDIT_PRODUCT_TITLE,
       sellerId: seller.id,
       categoryId: category.id,
-      imageUrl: E2E_PRODUCT_IMAGE_URL,
+      imageUrl: E2E_MODAL_EDIT_PRODUCT_IMAGE_URL,
       description: E2E_MODAL_EDIT_PRODUCT_DESCRIPTION,
       resetTradeState: true,
+    });
+    await upsertAttachedProductMediaAsset(db, {
+      ownerId: seller.id,
+      productId: modalEditProduct.id,
+      providerAssetId: E2E_MODAL_EDIT_PRODUCT_IMAGE_ID,
+      deliveryUrl: E2E_MODAL_EDIT_PRODUCT_IMAGE_URL,
     });
     await createChatRoomSeed(db, {
       productId: product.id,

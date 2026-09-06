@@ -14,6 +14,7 @@
  * 2026.04.04  임도헌   Modified  검증/에러 매핑/세션 저장 단계의 인라인 주석 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.06.27  임도헌   Modified  IP hash 기반 회원가입 단기 제출 제한 추가
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 headers API 호환 반영
  */
 "use server";
 
@@ -73,7 +74,7 @@ export async function submitCreateAccount(
 
   // 2. IP hash 기반 단기 제출 제한
   const signupLimit = await checkAndRecordSignupAttemptByIp(
-    getClientIpFromHeaders(headers())
+    getClientIpFromHeaders(await headers())
   );
 
   if (!signupLimit.allowed) {
@@ -103,6 +104,9 @@ export async function submitCreateAccount(
   return {
     success: true,
     // 온보딩 필요 여부를 반영한 인증 후 목적지 결정
-    redirectTo: await resolvePostAuthRedirectPath(result.data.userId, callbackUrl),
+    redirectTo: await resolvePostAuthRedirectPath(
+      result.data.userId,
+      callbackUrl
+    ),
   };
 }

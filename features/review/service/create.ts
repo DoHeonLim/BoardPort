@@ -25,12 +25,17 @@
  * 2026.03.07  임도헌   Modified  차단 관계에서는 리뷰 작성 불가하도록 가드 추가
  * 2026.04.03  임도헌   Modified  리뷰 생성 helper 주석 보강
  * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 리뷰 알림 본문 사전 축약 제거
+ * 2026.08.21  임도헌   Modified  리뷰 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  notificationRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { badgeChecks } from "@/features/user/service/badge";
 import { sendPushNotification } from "@/features/notification/service/sender";
@@ -213,20 +218,22 @@ export async function createReviewService(
           });
 
           // In-app realtime 전송
-          await supabase.channel(`user-${targetUserId}-notifications`).send({
-            type: "broadcast",
-            event: "notification",
-            payload: {
-              id: notification.id,
-              userId: targetUserId,
-              title: notification.title,
-              body: notification.body,
-              link: notification.link,
-              type: notification.type,
-              image: notification.image,
-              created_at: notification.created_at,
-            },
-          });
+          await supabase
+            .channel(notificationRealtimeTopic(targetUserId))
+            .send({
+              type: "broadcast",
+              event: "notification",
+              payload: {
+                id: notification.id,
+                userId: targetUserId,
+                title: notification.title,
+                body: notification.body,
+                link: notification.link,
+                type: notification.type,
+                image: notification.image,
+                created_at: notification.created_at,
+              },
+            });
 
           // Push 전송
           if (canSendPushForType(pref, "REVIEW")) {
@@ -271,7 +278,7 @@ export async function createReviewService(
           });
 
           // 실시간 브로드캐스트
-          await supabase.channel(`room-${room.id}`).send({
+          await supabase.channel(productChatRealtimeTopic(room.id)).send({
             type: "broadcast",
             event: "message",
             payload: mapToChatMessage(sysMsg),

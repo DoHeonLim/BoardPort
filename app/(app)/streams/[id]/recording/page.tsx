@@ -37,6 +37,9 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/recording/page.tsx 에서 app/(app)/streams/[id]/recording/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.06.07  임도헌   Modified  녹화본 좋아요 캐시를 시청자별로 분리하기 위해 viewerId 전달
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 목록/채널 캐시에서 현재 VOD를 즉시 제거할 수 있도록 vodId 전달
+ * 2026.08.13  임도헌   Modified  다시보기 댓글 prefetch cache를 조회자별로 분리
+ * 2026.08.21  임도헌   Modified  VOD 권한 판정 전에 실행되던 조회수·좋아요·댓글 조회 부수 효과 차단
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 export const dynamic = "force-dynamic";
 
@@ -49,14 +52,12 @@ import getSession from "@/lib/session";
 import RecordingTopbar from "@/features/stream/components/recording/RecordingTopbar";
 import RecordingDetail from "@/features/stream/components/recording/recordingDetail";
 import RecordingComment from "@/features/stream/components/recording/recordingComment";
-import { checkBroadcastAccess } from "@/features/stream/service/access";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
+import { authorizeVodAccess } from "@/features/stream/service/access";
 import { getVodDetail } from "@/features/stream/service/detail";
 import { getRecordingLikeStatus } from "@/features/stream/service/like";
+import { createStreamPlaybackToken } from "@/features/stream/service/playback";
 import { incrementViews } from "@/features/common/service/view";
-import { checkBlockRelation } from "@/features/user/service/block";
 import { getRecordingCommentsListAction } from "@/features/stream/actions/comments";
-import type { StreamVisibility } from "@/features/stream/types";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 /**
@@ -69,16 +70,14 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - 양방향 차단 가드 확인 및 방송 접근 권한(PRIVATE, FOLLOWERS) 세션 검증 처리
  * - TanStack Query를 활용한 VOD 댓글 목록 서버 프리패치(Prefetch) 및 HydrationBoundary 적용
  *
- * @param {Object} params - URL 파라미터 (id: 녹화본 ID)
- * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
+ * @param props - 녹화본 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function RecordingVodPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function RecordingVodPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const vodId = Number(params.id);
   if (!Number.isFinite(vodId) || vodId <= 0) return notFound();
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/streams");
@@ -94,7 +93,26 @@ export default async function RecordingVodPage({
     redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
 
-  // 2. 조회수 증가 및 무효화 선행
+  // 2. 최소 권한 조회를 먼저 수행해 조회수·좋아요·댓글 prefetch가
+  // PRIVATE/FOLLOWERS 접근 가드를 우회하는 side effect가 되지 않게 한다.
+  const access = await authorizeVodAccess(vodId, viewerId, session);
+  if (!access.subject || access.reason === "NOT_FOUND") return notFound();
+
+  if (!access.allowed) {
+    const reason = access.reason;
+    const subject = access.subject;
+    const accessParams =
+      reason === "BLOCKED"
+        ? `reason=BLOCKED&username=${encodeURIComponent(subject.ownerUsername)}`
+        : `reason=${reason}&username=${encodeURIComponent(subject.ownerUsername)}` +
+          `&sid=${subject.broadcastId}&uid=${subject.ownerId}`;
+
+    redirect(
+      `/403?${accessParams}&callbackUrl=${encodeURIComponent(detailHref)}`
+    );
+  }
+
+  // 3. 권한 확인 이후에만 조회수 증가
   try {
     await incrementViews({
       target: "VOD",
@@ -105,15 +123,15 @@ export default async function RecordingVodPage({
     console.warn("[RecordingPage] incrementViews failed:", e);
   }
 
-  // 3. QueryClient 초기화 및 데이터 병렬 로드 수행
+  // 4. QueryClient 초기화 및 데이터 병렬 로드 수행
   const queryClient = getQueryClient();
 
   const [base, like] = await Promise.all([
     getVodDetail(vodId),
-    getRecordingLikeStatus(vodId, viewerId),
+    getRecordingLikeStatus(vodId, viewerId, session),
     // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장 (Prefetch)
     queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.streams.vodComments(vodId),
+      queryKey: queryKeys.streams.vodComments(vodId, viewerId),
       queryFn: () => getRecordingCommentsListAction(vodId), // Limit 10 (기본값)
       initialPageParam: undefined as number | undefined,
     }),
@@ -121,56 +139,30 @@ export default async function RecordingVodPage({
 
   if (!base) return notFound();
 
-  const owner = base.broadcast.owner;
-  const isOwner = viewerId === owner.id;
+  const detail = {
+    ...base,
+    playbackId: createStreamPlaybackToken(access.subject.providerAssetId),
+  };
 
-  // 3. 차단 관계 확인 가드
-  // 소유자가 본인이 아닐 때, 양방향 차단을 검증하여 접근을 제한
-  if (!isOwner) {
-    const isBlocked = await checkBlockRelation(viewerId, owner.id);
-    if (isBlocked) {
-      redirect(
-        `/403?reason=BLOCKED&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(detailHref)}`
-      );
-    }
-    // 4. 접근 권한 체크 (PRIVATE / FOLLOWERS)
-    const isUnlocked = isBroadcastUnlockedFromSession(
-      session,
-      base.broadcast.id
-    );
-    const guard = await checkBroadcastAccess(
-      {
-        userId: owner.id,
-        visibility: base.broadcast.visibility as StreamVisibility,
-      },
-      viewerId,
-      { isPrivateUnlocked: isUnlocked }
-    );
-
-    if (!guard.allowed) {
-      redirect(
-        `/403?reason=${guard.reason}&username=${encodeURIComponent(owner.username)}&callbackUrl=${encodeURIComponent(detailHref)}&sid=${base.broadcast.id}&uid=${owner.id}`
-      );
-    }
-  }
+  const owner = detail.broadcast.owner;
+  const isOwner = access.role === "OWNER";
 
   // 5. 데이터 가공
-  const created = new Date((base.readyAt ?? base.createdAt) as Date);
-  const durationSec = Math.round(base.durationSec ?? 0);
-  const category = base.broadcast.category ?? null;
+  const created = new Date((detail.readyAt ?? detail.createdAt) as Date);
+  const durationSec = Math.round(detail.durationSec ?? 0);
+  const category = detail.broadcast.category ?? null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background transition-colors">
       {/* 상단바: 뒤로가기 및 작성자 정보 */}
       <RecordingTopbar
         vodId={vodId}
-        broadcastId={base.broadcast.id}
+        broadcastId={detail.broadcast.id}
         ownerId={owner.id}
         username={owner.username}
         avatar={owner.avatar}
         isOwner={isOwner}
         backHref={returnTo}
-        liveInputUid={base.broadcast.stream_id}
         categoryLabel={category?.kor_name ?? null}
         categoryIcon={category?.icon ?? null}
         preferHistoryBack={!!searchParams?.returnTo}
@@ -179,16 +171,16 @@ export default async function RecordingVodPage({
       <main className="flex-1 flex flex-col items-center gap-3 pb-20 px-page-x py-6 w-full max-w-mobile mx-auto">
         {/* 비디오 플레이어 및 메타 정보 */}
         <RecordingDetail
-          broadcast={base.broadcast}
+          broadcast={detail.broadcast}
           vodId={vodId}
           viewerId={viewerId}
-          uid={base.uid}
+          playbackId={detail.playbackId}
           duration={durationSec}
           created={created}
           isLiked={like.isLiked}
           likeCount={like.likeCount}
-          commentCount={base.counts.comments}
-          viewCount={base.views}
+          commentCount={detail.counts.comments}
+          viewCount={detail.views}
         />
 
         {/* 댓글 섹션 */}

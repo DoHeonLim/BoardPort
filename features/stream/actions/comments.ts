@@ -18,6 +18,7 @@
  * 2026.03.31  임도헌   Modified  Action 역할과 커서 조회/오류 반환 흐름 설명 보강
  * 2026.05.13  임도헌   Modified  댓글 조회 액션이 nextCursor를 함께 반환하도록 페이징 응답 구조 정리
  * 2026.05.16  임도헌   Modified  댓글 액션 에러 분기를 unknown-safe 방식으로 정리
+ * 2026.08.21  임도헌   Modified  모든 댓글 액션에 현재 세션의 VOD 접근 권한 적용
  */
 "use server";
 
@@ -28,6 +29,7 @@ import {
   deleteRecordingComment as deleteService,
 } from "@/features/stream/service/comment";
 import { streamCommentFormSchema } from "@/features/stream/schemas";
+import { StreamAccessError } from "@/features/stream/service/access";
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "";
@@ -50,7 +52,8 @@ export const getRecordingCommentsListAction = async (
 ) => {
   const session = await getSession();
   const viewerId = session?.id ?? null;
-  return getRecordingCommentsList(vodId, cursor, limit, viewerId);
+  if (!viewerId) return { comments: [], nextCursor: undefined };
+  return getRecordingCommentsList(vodId, cursor, limit, viewerId, session);
 };
 
 /**
@@ -81,7 +84,8 @@ export const createRecordingComment = async (formData: FormData) => {
     await createService(
       parsed.data.vodId,
       session.id,
-      parsed.data.payload.trim()
+      parsed.data.payload.trim(),
+      session
     );
 
     return { success: true as const };
@@ -91,6 +95,8 @@ export const createRecordingComment = async (formData: FormData) => {
     if (message === "BANNED_USER")
       return { success: false as const, error: "BANNED_USER" as const };
     if (message === "FORBIDDEN")
+      return { success: false as const, error: "FORBIDDEN" as const };
+    if (e instanceof StreamAccessError)
       return { success: false as const, error: "FORBIDDEN" as const };
     return { success: false as const, error: "CREATE_FAILED" as const };
   }
@@ -111,7 +117,7 @@ export const deleteRecordingComment = async (commentId: number) => {
   if (!session?.id) return { success: false, error: "NOT_LOGGED_IN" as const };
 
   try {
-    await deleteService(commentId, session.id);
+    await deleteService(commentId, session.id, session);
     return { success: true as const };
   } catch (e: unknown) {
     console.error("댓글 삭제 실패:", e);
@@ -121,6 +127,8 @@ export const deleteRecordingComment = async (commentId: number) => {
     if (message === "NOT_FOUND")
       return { success: false, error: "NOT_FOUND" as const };
     if (message === "FORBIDDEN")
+      return { success: false, error: "FORBIDDEN" as const };
+    if (e instanceof StreamAccessError)
       return { success: false, error: "FORBIDDEN" as const };
     return { success: false, error: "DELETE_FAILED" as const };
   }

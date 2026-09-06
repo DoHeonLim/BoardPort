@@ -28,11 +28,14 @@
  * 2026.04.02  임도헌   Modified  구독 훅 JSDoc 반환 설명 보강
  * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
  * 2026.05.18  임도헌   Modified  채팅방 내부 읽음 처리 후 TabBar 미읽음 query를 즉시 동기화
+ * 2026.08.21  임도헌   Modified  상품 채팅 topic 분리와 JWT 인증 private 구독 적용
+ * 2026.08.21  임도헌   Modified  재연결·탭 복귀 시 메시지 query를 DB 기준으로 재검증
+ * 2026.08.28  임도헌   Modified  메시지 재검증 함수 JSDoc 보강
  */
 
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import {
   ChatMessage,
   MessageDeletedPayload,
@@ -43,6 +46,7 @@ import type { AppointmentStatus } from "@/generated/prisma/enums";
 import { useNotificationStore } from "@/components/global/providers/NotificationStoreProvider";
 import { CHAT_EVENT } from "@/features/chat/constants";
 import { queryKeys } from "@/lib/queryKeys";
+import { productChatRealtimeTopic } from "@/features/realtime/topics";
 
 interface UseChatSubscriptionOptions {
   chatRoomId: string; // Supabase 채널 식별용 채팅방 ID
@@ -141,10 +145,22 @@ export default function useChatSubscription({
 
   // 읽음 처리 중복 호출 방지 플래그
   const readUpdateInFlightRef = useRef(false);
+  const hasSubscribedRef = useRef(false);
 
   useEffect(() => {
+    const authorizationController = new AbortController();
+    hasSubscribedRef.current = false;
+    /** 활성 메시지 query를 서버 상태 기준으로 다시 조회한다. */
+    const refetchMessages = () => {
+      void queryClient.refetchQueries({
+        queryKey: queryKeys.chats.messages(chatRoomId),
+        type: "active",
+      });
+    };
     const channel = supabase
-      .channel(`room-${chatRoomId}`)
+      .channel(productChatRealtimeTopic(chatRoomId), {
+        config: { private: true },
+      })
 
       /**
        * 1) 메시지 수신 브로드캐스트 핸들링
@@ -279,12 +295,28 @@ export default function useChatSubscription({
         if (payload?.id && payload?.status) {
           onAppointmentUpdateRef.current?.(payload.id, payload.status);
         }
-      })
-      .subscribe();
+      });
+
+    void subscribePrivateRealtimeChannel(
+      channel,
+      authorizationController.signal,
+      (status) => {
+        if (status !== "SUBSCRIBED") return;
+        if (hasSubscribedRef.current) refetchMessages();
+        hasSubscribedRef.current = true;
+      }
+    );
+    /** 탭이 다시 보이면 놓친 메시지를 서버에서 재검증한다. */
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetchMessages();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // 언마운트 또는 룸 변경 시 채널 구독 해제
     return () => {
-      supabase.removeChannel(channel);
+      authorizationController.abort();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void supabase.removeChannel(channel);
     };
   }, [
     chatRoomId,
@@ -292,5 +324,6 @@ export default function useChatSubscription({
     throttleReadUpdate,
     decrement,
     syncUnreadChatQueries,
+    queryClient,
   ]);
 }

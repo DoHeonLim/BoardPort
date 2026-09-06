@@ -26,9 +26,11 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.18  임도헌   Modified  모달 보조/닫기 버튼 톤을 공통 secondary modal 스타일로 통일
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 닫기 버튼을 제거해 닫기 동작 통일
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import BottomSheet from "@/components/global/BottomSheet";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -36,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { getProductChatUsersAction } from "@/features/product/actions/chat";
 import { ChatUser } from "@/features/chat/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface SelectUserModalProps {
   productId: number;
@@ -64,6 +67,7 @@ export default function SelectUserModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessingId, setIsProcessingId] = useState<number | null>(null); // 현재 처리 중인 유저 ID
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const quietButtonClass =
     "btn-secondary-modal inline-flex items-center justify-center text-sm font-medium";
 
@@ -90,15 +94,13 @@ export default function SelectUserModal({
     [productId]
   );
 
-  // 1. ESC 키 이벤트 리스너 (모달 닫기)
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onOpenChange]);
+  useModalFocus({
+    open: isOpen,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: () => onOpenChange(false),
+  });
 
   // 2. 모달 오픈 시 채팅 참여 유저 목록 로드 (Lazy Loading)
   useEffect(() => {
@@ -254,7 +256,7 @@ export default function SelectUserModal({
       <BottomSheet
         open={isOpen}
         title="예약자 선택"
-        description="이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다."
+        description="이 상품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다."
         onClose={() => onOpenChange(false)}
         contentClassName="pt-4"
       >
@@ -265,11 +267,13 @@ export default function SelectUserModal({
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center"
       aria-modal="true"
       role="dialog"
       aria-labelledby="select-user-title"
       aria-describedby="select-user-description"
+      tabIndex={-1}
     >
       {/* Overlay */}
       <div
@@ -298,7 +302,7 @@ export default function SelectUserModal({
               id="select-user-description"
               className="mt-1 text-sm leading-5 text-muted"
             >
-              이 제품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
+              이 상품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
             </p>
           </div>
           <button

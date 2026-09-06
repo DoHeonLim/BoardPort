@@ -13,6 +13,9 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 크롭 적용 CTA 위계 정리
  * 2026.06.19  임도헌   Modified  모바일 프로필 이미지 조정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.08.28  임도헌   Modified  아바타 크롭 모달 함수 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  좌표 슬라이더를 포인터 드래그·방향키 이동으로 전환하고 반응형 크롭 좌표 동기화
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,8 +29,10 @@ import {
   AVATAR_CROP_VIEWPORT_SIZE,
   type AvatarCropValues,
   getAvatarCropPreviewStyle,
+  moveAvatarCrop,
 } from "@/features/user/utils/avatarCrop";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface AvatarCropModalProps {
   open: boolean;
@@ -43,6 +48,12 @@ const DEFAULT_CROP: AvatarCropValues = {
   offsetYPercent: 0,
 };
 
+/**
+ * 아바타 확대·이동 값을 조절하고 원형 미리보기 기준 크롭 설정을 반환한다.
+ *
+ * @param props - 원본 이미지, 열림 상태와 크롭 완료 콜백
+ * @returns 모바일 BottomSheet 또는 데스크톱 크롭 대화상자
+ */
 export default function AvatarCropModal({
   open,
   imageUrl,
@@ -54,13 +65,16 @@ export default function AvatarCropModal({
   const [mounted, setMounted] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 1, height: 1 });
   const [crop, setCrop] = useState<AvatarCropValues>(DEFAULT_CROP);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+  const drag = useRef<{ id: number; x: number; y: number } | null>(null);
+  const [viewportSize, setViewportSize] = useState(AVATAR_CROP_VIEWPORT_SIZE);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 모달 오픈 시 배경 스크롤 잠금, ESC 닫기, 첫 포커스 진입을 함께 처리
+  // 모달을 다시 열면 이전 크롭 상태를 초기화한다.
   useEffect(() => {
     if (!open) return;
     setCrop(DEFAULT_CROP);
@@ -71,22 +85,21 @@ export default function AvatarCropModal({
     if (isMobile) return;
 
     lockBodyScroll();
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !loading) {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
       unlockBodyScroll();
     };
-  }, [isMobile, loading, onClose, open]);
+  }, [isMobile, open]);
+
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: () => {
+      if (!loading) onClose();
+    },
+  });
 
   useEffect(() => {
     if (!open || !imageUrl) return;
@@ -107,9 +120,39 @@ export default function AvatarCropModal({
     };
   }, [open, imageUrl]);
 
+  useEffect(() => {
+    const element = viewport;
+    if (!element) return;
+    const observer = new ResizeObserver(() =>
+      setViewportSize(element.clientWidth)
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [viewport]);
+
+  const move = (dx: number, dy: number) => {
+    if (loading) return;
+    setCrop((previous) =>
+      moveAvatarCrop(
+        imageSize.width,
+        imageSize.height,
+        previous,
+        dx,
+        dy,
+        viewportSize
+      )
+    );
+  };
+
   const previewStyle = useMemo(
-    () => getAvatarCropPreviewStyle(imageSize.width, imageSize.height, crop),
-    [crop, imageSize.height, imageSize.width]
+    () =>
+      getAvatarCropPreviewStyle(
+        imageSize.width,
+        imageSize.height,
+        crop,
+        viewportSize
+      ),
+    [crop, imageSize.height, imageSize.width, viewportSize]
   );
 
   if (!mounted || !open) return null;
@@ -118,10 +161,61 @@ export default function AvatarCropModal({
     <>
       <div className="mt-2 flex justify-center sm:mt-5">
         <div
-          className="relative overflow-hidden rounded-full border-4 border-border-subtle bg-surface-dim"
+          ref={setViewport}
+          tabIndex={loading ? -1 : 0}
+          role="group"
+          aria-label="프로필 사진 위치 조정"
+          aria-describedby="avatar-drag-help"
+          data-drag-ignore="true"
+          className="focus-ring-strong relative aspect-square w-full max-w-[320px] overflow-hidden rounded-full bg-surface-dim cursor-grab active:cursor-grabbing"
+          onPointerDown={(event) => {
+            if (loading || !event.isPrimary || event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.focus();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            drag.current = {
+              id: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+            };
+          }}
+          onPointerMove={(event) => {
+            const previous = drag.current;
+            if (!previous || previous.id !== event.pointerId) return;
+            move(event.clientX - previous.x, event.clientY - previous.y);
+            drag.current = {
+              id: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+            };
+          }}
+          onPointerUp={(event) => {
+            if (drag.current?.id === event.pointerId) {
+              drag.current = null;
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+          }}
+          onLostPointerCapture={() => {
+            drag.current = null;
+          }}
+          onKeyDown={(event) => {
+            const delta: Record<string, [number, number]> = {
+              ArrowLeft: [-5, 0],
+              ArrowRight: [5, 0],
+              ArrowUp: [0, -5],
+              ArrowDown: [0, 5],
+            };
+            if (delta[event.key]) {
+              event.preventDefault();
+              move(...delta[event.key]);
+            }
+          }}
           style={{
-            width: AVATAR_CROP_VIEWPORT_SIZE,
-            height: AVATAR_CROP_VIEWPORT_SIZE,
+            touchAction: "none",
           }}
         >
           <NextImage
@@ -136,6 +230,9 @@ export default function AvatarCropModal({
         </div>
       </div>
 
+      <p id="avatar-drag-help" className="mt-3 text-center text-sm text-muted">
+        사진을 드래그하거나 방향키로 위치를 조정하세요
+      </p>
       <div className="mt-6 space-y-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-primary">
@@ -143,6 +240,7 @@ export default function AvatarCropModal({
           </span>
           <input
             type="range"
+            disabled={loading}
             min="1"
             max="2.5"
             step="0.01"
@@ -153,49 +251,18 @@ export default function AvatarCropModal({
                 zoom: Number(e.target.value),
               }))
             }
-            className="w-full"
+            className="focus-ring-strong w-full accent-brand dark:accent-brand-light"
           />
         </label>
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-primary">
-            좌우 위치
-          </span>
-          <input
-            type="range"
-            min="-100"
-            max="100"
-            step="1"
-            value={crop.offsetXPercent}
-            onChange={(e) =>
-              setCrop((prev) => ({
-                ...prev,
-                offsetXPercent: Number(e.target.value),
-              }))
-            }
-            className="w-full"
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-primary">
-            상하 위치
-          </span>
-          <input
-            type="range"
-            min="-100"
-            max="100"
-            step="1"
-            value={crop.offsetYPercent}
-            onChange={(e) =>
-              setCrop((prev) => ({
-                ...prev,
-                offsetYPercent: Number(e.target.value),
-              }))
-            }
-            className="w-full"
-          />
-        </label>
+        <button
+          type="button"
+          disabled={loading}
+          className="focus-ring-soft rounded-lg px-3 py-2 text-sm text-primary"
+          onClick={() => setCrop(DEFAULT_CROP)}
+        >
+          가운데로 초기화
+        </button>
       </div>
     </>
   );

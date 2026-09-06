@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.25  임도헌   Created   방송 공개 범위와 연결 보드게임 직렬화 테스트 추가
+ * 2026.08.21  임도헌   Modified  목록 DTO의 원본 Live Input UID 제거 계약 반영
  */
 
 import { describe, expect, it } from "vitest";
@@ -14,7 +15,6 @@ import type { StreamVisibility } from "@/features/stream/types";
 
 const createBaseStream = (visibility: StreamVisibility = "PUBLIC") => ({
   id: 1,
-  stream_id: "live-input-id",
   title: "테스트 방송",
   description: null,
   thumbnail: null,

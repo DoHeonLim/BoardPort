@@ -11,63 +11,34 @@
  * 2026.05.15  임도헌   Modified  Windows 로컬 next/og 폰트 경로 오류 회피를 위한 sharp 기반 PNG 생성
  * 2026.05.15  임도헌   Modified  다시보기 OG 대표 이미지를 방송 카드와 동일하게 최신 ready VOD 썸네일 우선 사용
  * 2026.05.19  임도헌   Modified  상대 썸네일 URL 보정 기준을 NEXT_PUBLIC_APP_URL로 통일
+ * 2026.08.21  임도헌   Modified  제한 방송 OG 노출 차단 및 PUBLIC provider 썸네일 signed 변환
+ * 2026.08.22  임도헌   Modified  OG 썸네일 조회에 SSRF·응답 크기·픽셀 제한 경계 적용
+ * 2026.08.23  임도헌   Modified  상대 썸네일 URL을 공용 trusted origin과 로컬 fallback으로 보정
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.30  임도헌   Modified  Next.js 16에서 비동기로 전달되는 방송 경로 정보 처리 보완
+ * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
+ * 2026.09.01  임도헌   Modified  Vercel 서버 렌더러와 호환되는 OTF 한글 글꼴 적용
+ * 2026.09.01  임도헌   Modified  공백 없는 긴 방송 제목의 카드 영역 내 줄바꿈 보완
  */
 
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import db from "@/lib/db";
+import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
+import {
+  fetchSafeOgImage,
+  SAFE_OG_IMAGE_MAX_PIXELS,
+} from "@/lib/media/safeImageFetch";
+import { getTrustedAppBaseUrl } from "@/lib/env";
+import {
+  createOgTextOverlays,
+  splitOgTextLines,
+  type OgCard,
+  type OgTextSpec,
+} from "@/lib/media/ogText";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-
-function escapeSvgText(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/**
- * 고정 폭 방송 OG 카드용 텍스트 줄 분리
- */
-function splitLines(value: string, maxChars: number, maxLines: number) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of normalized.split(" ")) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length <= maxChars) {
-      current = next;
-      continue;
-    }
-    if (current) lines.push(current);
-    current = word;
-    if (lines.length === maxLines - 1) break;
-  }
-
-  if (current && lines.length < maxLines) lines.push(current);
-  if (normalized.length > lines.join(" ").length && lines.length) {
-    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, -1)}...`;
-  }
-  return lines.length ? lines : ["보드포트 등대방송"];
-}
-
-/**
- * 외부 방송 썸네일의 sharp 합성용 Buffer 조회
- */
-async function fetchImageBuffer(src: string | null) {
-  if (!src) return null;
-
-  try {
-    const response = await fetch(src);
-    if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 스트리밍 썸네일 URL의 외부 공유 이미지용 public URL 보정
@@ -84,10 +55,9 @@ function normalizeStreamThumbnailUrl(src: string | null | undefined) {
     return trimmed;
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (siteUrl && trimmed.startsWith("/")) {
+  if (trimmed.startsWith("/")) {
     try {
-      return new URL(trimmed, siteUrl).toString();
+      return new URL(trimmed, getTrustedAppBaseUrl()).toString();
     } catch {
       return null;
     }
@@ -99,20 +69,38 @@ function normalizeStreamThumbnailUrl(src: string | null | undefined) {
 /**
  * 잘못된 ID나 삭제된 방송을 위한 기본 BoardPort OG 이미지
  */
-function buildFallbackSvg() {
-  return `
-    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="630" fill="#020617"/>
-      <text x="600" y="292" text-anchor="middle" font-family="Arial, sans-serif" font-size="78" font-weight="700" fill="#ffffff">BoardPort</text>
-      <text x="600" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#93c5fd">등대방송</text>
-    </svg>
-  `;
+function buildFallbackCard() {
+  return {
+    svg: `
+      <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1200" height="630" fill="#020617"/>
+      </svg>
+    `,
+    texts: [
+      {
+        text: "BoardPort",
+        x: 600,
+        baseline: 292,
+        fontSize: 78,
+        color: "#ffffff",
+        anchor: "middle",
+      },
+      {
+        text: "등대방송",
+        x: 600,
+        baseline: 352,
+        fontSize: 30,
+        color: "#93c5fd",
+        anchor: "middle",
+      },
+    ],
+  } satisfies OgCard;
 }
 
 /**
- * 방송 정보 오버레이 SVG 생성
+ * 방송 정보 오버레이의 도형과 글꼴 텍스트 사양 생성
  */
-function buildStreamOverlaySvg({
+function buildStreamOverlayCard({
   title,
   username,
   badgeText,
@@ -125,43 +113,73 @@ function buildStreamOverlaySvg({
   badgeColor: string;
   hasImage: boolean;
 }) {
-  const titleText = splitLines(title, 18, 2)
-    .map(
-      (line, index) =>
-        `<text x="82" y="${392 + index * 58}" font-family="Arial, sans-serif" font-size="50" font-weight="700" fill="#ffffff">${escapeSvgText(line)}</text>`
-    )
-    .join("");
+  const texts: OgTextSpec[] = [
+    {
+      text: "BoardPort",
+      x: 1070,
+      baseline: 88,
+      fontSize: 30,
+      color: "#ffffff",
+      anchor: "end",
+    },
+    {
+      text: badgeText,
+      x: 153,
+      baseline: 317,
+      fontSize: 25,
+      color: "#ffffff",
+      anchor: "middle",
+    },
+    ...splitOgTextLines(title, 18, 2, "보드포트 등대방송").map(
+      (line, index) => ({
+        text: line,
+        x: 82,
+        baseline: 392 + index * 58,
+        fontSize: 50,
+        color: "#ffffff",
+      })
+    ),
+    {
+      text: `방송국: ${username}`,
+      x: 82,
+      baseline: 548,
+      fontSize: 30,
+      color: "#bfdbfe",
+    },
+  ];
 
-  return `
-    <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1200" height="630" fill="${hasImage ? "rgba(0,0,0,0.18)" : "#020617"}"/>
-      <rect x="0" y="0" width="1200" height="630" fill="url(#streamGradient)"/>
-      <defs>
-        <linearGradient id="streamGradient" x1="0" y1="630" x2="0" y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#020617" stop-opacity="0.95"/>
-          <stop offset="0.55" stop-color="#020617" stop-opacity="0.45"/>
-          <stop offset="1" stop-color="#020617" stop-opacity="0.12"/>
-        </linearGradient>
-      </defs>
-      <text x="1070" y="88" text-anchor="end" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">BoardPort</text>
-      <rect x="82" y="284" width="142" height="48" rx="15" fill="${badgeColor}"/>
-      <text x="153" y="317" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#ffffff">${badgeText}</text>
-      ${titleText}
-      <text x="82" y="548" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#bfdbfe">방송국: ${escapeSvgText(username)}</text>
-    </svg>
-  `;
+  return {
+    svg: `
+      <svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1200" height="630" fill="${hasImage ? "rgba(0,0,0,0.18)" : "#020617"}"/>
+        <rect x="0" y="0" width="1200" height="630" fill="url(#streamGradient)"/>
+        <defs>
+          <linearGradient id="streamGradient" x1="0" y1="630" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#020617" stop-opacity="0.95"/>
+            <stop offset="0.55" stop-color="#020617" stop-opacity="0.45"/>
+            <stop offset="1" stop-color="#020617" stop-opacity="0.12"/>
+          </linearGradient>
+        </defs>
+        <rect x="82" y="284" width="142" height="48" rx="15" fill="${badgeColor}"/>
+      </svg>
+    `,
+    texts,
+  } satisfies OgCard;
 }
 
 /**
  * 방송 썸네일과 오버레이를 합성한 PNG Response 생성
  */
-async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
-  const composites: sharp.OverlayOptions[] = [];
+async function createPngResponse(card: OgCard, imageBuffer: Buffer | null) {
+  const composites: OverlayOptions[] = [];
 
   if (imageBuffer) {
     try {
       // 방송 썸네일은 전체 배경으로 cover 합성
-      const thumbnail = await sharp(imageBuffer)
+      const thumbnail = await sharp(imageBuffer, {
+        limitInputPixels: SAFE_OG_IMAGE_MAX_PIXELS,
+        failOn: "warning",
+      })
         .resize(size.width, size.height, { fit: "cover", position: "centre" })
         .png()
         .toBuffer();
@@ -171,7 +189,8 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
     }
   }
 
-  composites.push({ input: Buffer.from(svg), left: 0, top: 0 });
+  composites.push({ input: Buffer.from(card.svg), left: 0, top: 0 });
+  composites.push(...(await createOgTextOverlays(card.texts)));
 
   const png = await sharp({
     create: {
@@ -194,13 +213,21 @@ async function createPngResponse(svg: string, imageBuffer: Buffer | null) {
 }
 
 /**
- * 방송 상세 공유 미리보기 이미지 생성 엔트리
+ * Next.js가 비동기로 전달하는 방송 ID를 해석해 공유 이미지를 생성
+ *
+ * @param params - 방송 ID를 담은 비동기 경로 정보
+ * @returns 방송 정보 또는 기본 안내 화면을 합성한 PNG 응답
  */
-export default async function Image({ params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id: rawId } = await params;
+  const id = Number(rawId);
 
   if (!Number.isFinite(id) || id <= 0) {
-    return createPngResponse(buildFallbackSvg(), null);
+    return createPngResponse(buildFallbackCard(), null);
   }
 
   const stream = await db.broadcast.findUnique({
@@ -209,33 +236,45 @@ export default async function Image({ params }: { params: { id: string } }) {
       title: true,
       thumbnail: true,
       status: true,
+      visibility: true,
       vodAssets: {
         where: { ready_at: { not: null } },
-        select: { thumbnail_url: true },
+        select: { provider_asset_id: true, thumbnail_url: true },
         orderBy: [{ ready_at: "desc" }, { id: "desc" }],
         take: 1,
       },
       liveInput: {
-        select: { user: { select: { username: true } } },
+        select: {
+          provider_uid: true,
+          user: { select: { username: true } },
+        },
       },
     },
   });
 
-  if (!stream) {
-    return createPngResponse(buildFallbackSvg(), null);
+  if (!stream || stream.visibility !== "PUBLIC") {
+    return createPngResponse(buildFallbackCard(), null);
   }
 
   const isLive = stream.status === "CONNECTED";
   const badgeText = isLive ? "LIVE" : "다시보기";
   const badgeColor = isLive ? "#ef4444" : "#2563eb";
-  // 다시보기 카드는 VOD 처리 완료 썸네일을 대표 이미지로 쓰므로 OG도 같은 우선순위 적용
-  const thumbUrl = normalizeStreamThumbnailUrl(
-    stream.vodAssets[0]?.thumbnail_url ?? stream.thumbnail
-  );
-  const imageBuffer = await fetchImageBuffer(thumbUrl);
+  // PUBLIC의 저장된 provider 썸네일도 원본 UID 대신 단기 token URL로 가져온다.
+  const latestVod = stream.vodAssets[0];
+  let thumbnailCandidate: string | null = null;
+  try {
+    thumbnailCandidate = resolveStreamThumbnailUrl(
+      latestVod?.thumbnail_url ?? stream.thumbnail,
+      latestVod?.provider_asset_id ?? stream.liveInput.provider_uid
+    );
+  } catch (error) {
+    console.warn("[StreamOG] signed thumbnail unavailable:", error);
+  }
+  const thumbUrl = normalizeStreamThumbnailUrl(thumbnailCandidate);
+  const imageBuffer = await fetchSafeOgImage(thumbUrl);
 
   return createPngResponse(
-    buildStreamOverlaySvg({
+    buildStreamOverlayCard({
       title: stream.title,
       username: stream.liveInput.user.username,
       badgeText,

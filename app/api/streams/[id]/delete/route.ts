@@ -11,6 +11,9 @@
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
  * 2026.03.05  임도헌   Modified  방송 목록 갱신용 레거시 `revalidateTag` 제거 및 클라이언트 Query Cache로 무효화 책임 위임
  * 2026.06.22  임도헌   Modified  삭제 후 방송국 경로 서버 캐시도 무효화해 새로고침/직접 진입 상태 보정
+ * 2026.08.21  임도헌   Modified  클라이언트 Live Input UID 검증을 제거하고 세션·DB 소유권만으로 삭제 판정
+ * 2026.08.22  임도헌   Modified  DB commit 완료 뒤 방송 외부 이미지/VOD 자산을 정리하도록 순서 보강
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,21 +21,24 @@ import db from "@/lib/db";
 import getSession from "@/lib/session";
 import { revalidatePath, revalidateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
-import { deleteBroadcastTx } from "@/features/stream/service/delete";
+import {
+  cleanupDeletedBroadcastAssets,
+  deleteBroadcastTx,
+} from "@/features/stream/service/delete";
 
 export const runtime = "nodejs";
 
 /**
  * DELETE /api/streams/[id]/delete
- * - `uid` 쿼리 파라미터로 Live Input UID 검증 (선택적)
  * - 세션 소유자와 방송 소유자 일치 여부 확인
  * - 방송 중(CONNECTED)일 경우 삭제 차단
  * - `deleteBroadcastTx` 서비스를 호출하여 DB 삭제 수행
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
     const session = await getSession();
     if (!session?.id) {
@@ -42,8 +48,6 @@ export async function DELETE(
       );
     }
 
-    const search = new URL(req.url).searchParams;
-    const uid = search.get("uid") || ""; // LiveInput.provider_uid (선택 검증)
     const idNum = Number(params.id);
 
     if (!Number.isFinite(idNum)) {
@@ -62,7 +66,6 @@ export async function DELETE(
         liveInput: {
           select: {
             userId: true,
-            provider_uid: true,
             user: { select: { username: true } },
           },
         },
@@ -76,15 +79,7 @@ export async function DELETE(
       );
     }
 
-    // 2. UID 교차 검증 (보안 강화)
-    if (uid && uid !== row.liveInput.provider_uid) {
-      return NextResponse.json(
-        { success: false, error: "잘못된 요청입니다.(uid 불일치)" },
-        { status: 400 }
-      );
-    }
-
-    // 3. 소유권 검증
+    // 2. 소유권 검증
     if (row.liveInput.userId !== session.id) {
       return NextResponse.json(
         { success: false, error: "삭제 권한이 없습니다." },
@@ -92,7 +87,7 @@ export async function DELETE(
       );
     }
 
-    // 4. 상태 검증 (방송 중 삭제 불가)
+    // 3. 상태 검증 (방송 중 삭제 불가)
     if (row.status?.toUpperCase() === "CONNECTED") {
       return NextResponse.json(
         { success: false, error: "방송 중에는 삭제할 수 없습니다." },
@@ -100,17 +95,19 @@ export async function DELETE(
       );
     }
 
-    // 5. 삭제 트랜잭션 실행
-    await db.$transaction(async (tx) => {
+    // 4. 삭제 트랜잭션 실행
+    const cleanup = await db.$transaction(async (tx) => {
       const res = await deleteBroadcastTx(tx, idNum);
       if (!res.success) {
         throw new Error(res.error || "삭제 실패");
       }
+      return res.cleanup;
     });
+    if (cleanup) await cleanupDeletedBroadcastAssets(cleanup);
 
-    // 6. 캐시 무효화 (상세 페이지 & 유저 방송 목록)
+    // 5. 캐시 무효화 (상세 페이지 & 유저 방송 목록)
     try {
-      revalidateTag(T.BROADCAST_DETAIL(row.id));
+      revalidateTag(T.BROADCAST_DETAIL(row.id), { expire: 0 });
       const username = row.liveInput.user.username;
       revalidatePath(`/profile/${encodeURIComponent(username)}/channel`);
       revalidatePath("/streams");

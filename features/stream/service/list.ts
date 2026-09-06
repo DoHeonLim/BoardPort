@@ -24,6 +24,8 @@
  * 2026.05.15  임도헌   Modified  전체 방송/다시보기 목록에서도 PRIVATE 항목을 노출하고 카드 진입 시 비밀번호로 접근 제어하도록 복구
  * 2026.05.15  임도헌   Modified  유저 채널 VOD 조회에 커서 기반 페이징을 적용해 무한스크롤 대응
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타용 좋아요/댓글 수와 현재 사용자 좋아요 여부 매핑 추가
+ * 2026.08.21  임도헌   Modified  목록 DTO 원본 provider UID 제거 및 접근 범위별 Cloudflare 썸네일 signed 변환
+ * 2026.08.26  임도헌   Modified  다시보기 최신·인기 정렬을 복합 커서 조건으로 변경해 동률 누락 방지
  */
 
 import "server-only";
@@ -36,11 +38,28 @@ import {
 } from "@/features/stream/selects";
 import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import { getBlockedUserIds } from "@/features/user/service/block";
+import { selectRecordingThumbnail } from "@/features/stream/utils/thumbnail";
+import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 import type {
   BroadcastSummary,
+  RecordingSort,
   StreamScope,
   VodForGrid,
 } from "@/features/stream/types";
+import type { DecodedRecordingCursor } from "@/features/stream/utils/recordingCursor";
+
+/** provider URL은 signed URL로 교체하고, 접근 불가 또는 설정 오류면 원본을 노출하지 않는다. */
+function getAccessScopedThumbnail(
+  sourceThumbnail: string | null | undefined,
+  authorizedProviderId: string | null
+) {
+  try {
+    return resolveStreamThumbnailUrl(sourceThumbnail, authorizedProviderId);
+  } catch (error) {
+    console.warn("[StreamList] signed thumbnail unavailable:", error);
+    return null;
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*                                1. Main List                                */
@@ -141,11 +160,21 @@ export async function getStreamsList(params: {
     take,
   });
 
-  return rows.map((b) =>
-    serializeStream(
+  return rows.map((b) => {
+    const isMine = b.liveInput.userId === viewerId;
+    const isFollowing = b.liveInput.user.followers.length > 0;
+    const canUseProviderThumbnail =
+      b.visibility === "PUBLIC" ||
+      isMine ||
+      (b.visibility === "FOLLOWERS" && isFollowing);
+
+    return serializeStream(
       {
         ...b,
-        stream_id: b.liveInput.provider_uid,
+        thumbnail: getAccessScopedThumbnail(
+          b.thumbnail,
+          canUseProviderThumbnail ? b.liveInput.provider_uid : null
+        ),
         userId: b.liveInput.userId,
         user: {
           id: b.liveInput.user.id,
@@ -155,11 +184,11 @@ export async function getStreamsList(params: {
         tags: b.tags,
       },
       {
-        isFollowing: b.liveInput.user.followers.length > 0,
-        isMine: b.liveInput.userId === viewerId,
+        isFollowing,
+        isMine,
       }
-    )
-  );
+    );
+  });
 }
 
 /**
@@ -172,12 +201,12 @@ export async function getStreamsList(params: {
  * - 카드에서 필요한 접근 제어 플래그와 메타데이터(길이, 조회수, 좋아요/댓글 수, 사용자 좋아요 여부)를 함께 반환
  */
 export async function getRecordingsList(params: {
-  sort: "latest" | "popular";
+  sort: RecordingSort;
   followingOnly?: boolean;
   category?: string;
   keyword?: string;
   viewerId: number;
-  cursor: number | null;
+  cursor: DecodedRecordingCursor | null;
   take: number;
 }): Promise<VodForGrid[]> {
   const {
@@ -198,7 +227,34 @@ export async function getRecordingsList(params: {
     { broadcast: { liveInput: { userId: { notIn: blockedIds } } } },
   ];
 
-  if (cursor) conditions.push({ id: { lt: cursor } });
+  if (cursor) {
+    conditions.push(
+      sort === "popular"
+        ? {
+            OR: [
+              { views: { lt: cursor.views } },
+              {
+                views: cursor.views,
+                ready_at: { lt: cursor.readyAt },
+              },
+              {
+                views: cursor.views,
+                ready_at: cursor.readyAt,
+                id: { lt: cursor.id },
+              },
+            ],
+          }
+        : {
+            OR: [
+              { ready_at: { lt: cursor.readyAt } },
+              {
+                ready_at: cursor.readyAt,
+                id: { lt: cursor.id },
+              },
+            ],
+          }
+    );
+  }
 
   if (category) {
     conditions.push({
@@ -266,6 +322,7 @@ export async function getRecordingsList(params: {
       ready_at: true,
       views: true,
       _count: { select: { recordingLikes: true, recordingComments: true } },
+      provider_asset_id: true,
       thumbnail_url: true,
       created_at: true,
       broadcastId: true,
@@ -282,6 +339,7 @@ export async function getRecordingsList(params: {
           board_games: { select: STREAM_BOARD_GAME_RELATION_SELECT },
           liveInput: {
             select: {
+              provider_uid: true,
               userId: true,
               user: {
                 select: {
@@ -327,13 +385,27 @@ export async function getRecordingsList(params: {
     const b = v.broadcast;
     const isMine = b.liveInput.userId === viewerId;
     const isFollowing = b.liveInput.user.followers.length > 0;
+    const canUseProviderThumbnail = b.visibility === "PUBLIC" || isMine;
+    const thumbnail = selectRecordingThumbnail({
+      visibility: b.visibility,
+      isOwner: isMine,
+      providerThumbnail:
+        viewerId > 0 && canUseProviderThumbnail
+          ? getAccessScopedThumbnail(v.thumbnail_url, v.provider_asset_id)
+          : null,
+      broadcastThumbnail: getAccessScopedThumbnail(
+        b.thumbnail,
+        canUseProviderThumbnail ? b.liveInput.provider_uid : null
+      ),
+      broadcastThumbnailAnimated: b.thumbnailAnimated,
+    });
 
     return {
       vodId: v.id,
       broadcastId: b.id,
       title: b.title,
-      thumbnail: v.thumbnail_url ?? b.thumbnail,
-      thumbnailAnimated: v.thumbnail_url ? false : (b.thumbnailAnimated ?? false),
+      // 제한 콘텐츠는 VOD asset UID가 포함될 수 있는 provider 썸네일을 목록에 노출하지 않는다.
+      ...thumbnail,
       visibility: b.visibility,
       user: {
         id: b.liveInput.user.id,
@@ -378,12 +450,22 @@ export async function getRecordingsList(params: {
  * @param {number} ownerId - 방송 소유자 ID
  * @param {number} take - 조회 개수 (Default: 6)
  * @param {boolean} includePrivate - 본인 프로필 여부에 따른 비공개 방송 포함 여부
+ * @param {number | null} viewerId - signed VOD 썸네일을 발급할 현재 로그인 사용자
  */
 export async function getRecentBroadcasts(
   ownerId: number,
   take: number = 6,
-  includePrivate: boolean = false
+  includePrivate: boolean = false,
+  viewerId: number | null = null
 ): Promise<BroadcastSummary[]> {
+  if (
+    viewerId &&
+    viewerId !== ownerId &&
+    (await getBlockedUserIds(viewerId)).includes(ownerId)
+  ) {
+    return [];
+  }
+
   const where: Prisma.BroadcastWhereInput = { liveInput: { userId: ownerId } };
   where.AND = [
     {
@@ -419,23 +501,37 @@ export async function getRecentBroadcasts(
     // getRecentBroadcasts는 Broadcast 중심 DTO지만, 종료 방송 카드는 최신 ready VOD로 이동
     // 따라서 대표 이미지도 Broadcast 업로드 썸네일보다 VOD 처리 완료 썸네일 우선
     const latestVod = b.vodAssets[0] ?? null;
+    const canUseProviderThumbnail = b.visibility === "PUBLIC" || includePrivate;
     const stream = serializeStream(
       {
         ...b,
-        stream_id: b.liveInput.provider_uid,
+        thumbnail: getAccessScopedThumbnail(
+          b.thumbnail,
+          canUseProviderThumbnail ? b.liveInput.provider_uid : null
+        ),
         userId: b.liveInput.userId,
         user: b.liveInput.user,
         tags: b.tags,
       },
       { isFollowing: false, isMine: includePrivate }
     );
+    const thumbnail = selectRecordingThumbnail({
+      visibility: b.visibility,
+      isOwner: includePrivate,
+      providerThumbnail:
+        latestVod && viewerId && canUseProviderThumbnail
+          ? getAccessScopedThumbnail(
+              latestVod.thumbnail_url,
+              latestVod.provider_asset_id
+            )
+          : null,
+      broadcastThumbnail: stream.thumbnail,
+      broadcastThumbnailAnimated: stream.thumbnailAnimated,
+    });
 
     return {
       ...stream,
-      thumbnail: latestVod?.thumbnail_url ?? stream.thumbnail,
-      thumbnailAnimated: latestVod?.thumbnail_url
-        ? false
-        : stream.thumbnailAnimated,
+      ...thumbnail,
       latestVodId: latestVod?.id ?? null,
     };
   });
@@ -471,7 +567,8 @@ export async function getChannelLive(
   return serializeStream(
     {
       ...b,
-      stream_id: b.liveInput.provider_uid,
+      // 채널 페이지에서 실제 접근 판정이 끝나기 전에는 provider URL을 숨긴다.
+      thumbnail: getAccessScopedThumbnail(b.thumbnail, null),
       userId: b.liveInput.userId,
       user: b.liveInput.user,
       tags: b.tags,
@@ -502,6 +599,14 @@ export async function getChannelVods(
   cursor: number | null = null,
   viewerId: number | null = null
 ): Promise<VodForGrid[]> {
+  if (
+    viewerId &&
+    viewerId !== ownerId &&
+    (await getBlockedUserIds(viewerId)).includes(ownerId)
+  ) {
+    return [];
+  }
+
   const vods = await db.vodAsset.findMany({
     where: {
       ready_at: { not: null },
@@ -516,6 +621,7 @@ export async function getChannelVods(
       ready_at: true,
       views: true,
       _count: { select: { recordingLikes: true, recordingComments: true } },
+      provider_asset_id: true,
       thumbnail_url: true,
       created_at: true,
       broadcast: {
@@ -530,6 +636,7 @@ export async function getChannelVods(
           board_games: { select: STREAM_BOARD_GAME_RELATION_SELECT },
           liveInput: {
             select: {
+              provider_uid: true,
               user: { select: { id: true, username: true, avatar: true } },
             },
           },
@@ -559,12 +666,26 @@ export async function getChannelVods(
 
   return vods.map((v) => {
     const b = v.broadcast;
+    const isOwner = b.liveInput.user.id === viewerId;
+    const canUseProviderThumbnail = b.visibility === "PUBLIC" || isOwner;
+    const thumbnail = selectRecordingThumbnail({
+      visibility: b.visibility,
+      isOwner,
+      providerThumbnail:
+        viewerId && canUseProviderThumbnail
+          ? getAccessScopedThumbnail(v.thumbnail_url, v.provider_asset_id)
+          : null,
+      broadcastThumbnail: getAccessScopedThumbnail(
+        b.thumbnail,
+        canUseProviderThumbnail ? b.liveInput.provider_uid : null
+      ),
+      broadcastThumbnailAnimated: b.thumbnailAnimated,
+    });
     return {
       vodId: v.id,
       broadcastId: b.id,
       title: b.title,
-      thumbnail: v.thumbnail_url ?? b.thumbnail,
-      thumbnailAnimated: v.thumbnail_url ? false : (b.thumbnailAnimated ?? false),
+      ...thumbnail,
       visibility: b.visibility,
       user: b.liveInput.user,
       href: `/streams/${v.id}/recording`,

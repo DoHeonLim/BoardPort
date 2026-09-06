@@ -15,22 +15,21 @@
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
  * 2026.01.23  임도헌   Modified  Service(upsertSubscription) 호출로 변경
  * 2026.03.07  임도헌   Modified  Welcome 푸시 이동 경로를 실제 알림 설정 페이지로 정정
+ * 2026.08.13  임도헌   Modified  업로드 경계에서 Push endpoint/키 payload 엄격 검증 추가
+ * 2026.08.13  임도헌   Modified  표시 보호 Worker 버전 검증과 소유권·기기 상한 오류 응답 추가
  */
 import { NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
-import { upsertSubscription } from "@/features/notification/service/subscription";
+import {
+  PushSubscriptionLimitExceededError,
+  PushSubscriptionOwnershipMismatchError,
+  upsertSubscription,
+} from "@/features/notification/service/subscription";
 import { sendPushNotification } from "@/features/notification/service/sender";
+import { parseGuardedPushSubscriptionDTO } from "@/features/notification/utils/subscription";
 
 export const runtime = "nodejs";
-
-type RawSubscription = {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-};
 
 /**
  * POST /api/push/subscribe
@@ -49,29 +48,21 @@ export async function POST(req: Request) {
     const userId = session.id;
 
     // 2. 요청 바디 검증
-    const body = (await req.json()) as RawSubscription;
-    if (
-      !body ||
-      !body.endpoint ||
-      !body.keys ||
-      !body.keys.p256dh ||
-      !body.keys.auth
-    ) {
+    const subscription = parseGuardedPushSubscriptionDTO(await req.json());
+    if (!subscription) {
       return NextResponse.json(
         { error: "Invalid subscription payload" },
         { status: 400 }
       );
     }
 
-    const { endpoint, keys } = body;
     const userAgent = req.headers.get("user-agent") ?? undefined;
 
     // 3. Service 호출 (구독 저장 & 설정 활성화)
     // - 기존 구독이 있으면 갱신, 없으면 생성 (Upsert)
     // - 최초 구독이거나 설정이 꺼져있었다면 welcomeNotiId 반환
     const result = await upsertSubscription(userId, {
-      endpoint,
-      keys,
+      ...subscription,
       userAgent,
     });
 
@@ -103,8 +94,21 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
+    if (error instanceof PushSubscriptionLimitExceededError) {
+      return NextResponse.json(
+        { error: "Push subscription device limit exceeded" },
+        { status: 429 }
+      );
+    }
+
+    if (error instanceof PushSubscriptionOwnershipMismatchError) {
+      return NextResponse.json(
+        { error: "Subscription ownership could not be verified" },
+        { status: 409 }
+      );
+    }
+
     console.error("Push subscription error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
-

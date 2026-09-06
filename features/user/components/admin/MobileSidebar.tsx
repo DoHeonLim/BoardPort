@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/admin/MobileSidebar.tsx
- * Description : 모바일용 관리자 사이드바 (Sheet/Drawer)
+ * Description : 모바일·태블릿용 관리자 사이드바 (Sheet/Drawer)
  * Author : 임도헌
  *
  * History
@@ -11,10 +11,14 @@
  * 2026.04.10  임도헌   Modified  모바일 관리자 드로어의 섹션 라벨 크기를 공통 타이포 스케일로 정리
  * 2026.04.18  임도헌   Modified  닫기 아이콘 버튼에 접근 가능한 이름과 button 타입을 추가
  * 2026.04.28  임도헌   Modified  보드게임 카탈로그 관리 메뉴를 모바일 관리자 드로어에 추가
+ * 2026.09.01  임도헌   Modified  태블릿에서도 고정 사이드바 대신 관리자 드로어를 사용하도록 노출 범위 확장
+ * 2026.09.06  임도헌   Modified  드로어 포커스 순환·배경 inert·닫힌 링크 제거와 트리거 복귀 적용
  */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useModalFocus } from "@/hooks/useModalFocus";
+import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -36,7 +40,7 @@ import AdminNavLink from "@/features/user/components/admin/AdminNavLink";
 import { cn } from "@/lib/utils";
 
 /**
- * 모바일 환경 관리자 네비게이션 드로어
+ * 모바일·태블릿 환경 관리자 네비게이션 드로어
  *
  * [기능]
  * 1. 햄버거 버튼 클릭 시 사이드바를 슬라이드 드로어 형태로 노출
@@ -51,6 +55,38 @@ export default function MobileSidebar({
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !mounted) return;
+    const trigger = triggerRef.current;
+    // 포털 밖 배경의 키보드·보조 기술 접근 차단과 기존 inert 상태 복원
+    const background = Array.from(document.body.children).filter(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement && element !== portalRef.current
+    );
+    const previous = background.map((element) => element.inert);
+    background.forEach((element) => {
+      element.inert = true;
+    });
+    lockBodyScroll();
+    return () => {
+      background.forEach((element, index) => {
+        element.inert = previous[index];
+      });
+      unlockBodyScroll();
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, [isOpen, mounted]);
+
+  useModalFocus({
+    open: isOpen && mounted,
+    containerRef: panelRef,
+    restoreFocus: false,
+    onClose: () => setIsOpen(false),
+  });
 
   // 포털 렌더링 준비
   // 드로어를 body 포털로 올리기 전에 hydration mismatch를 피하기 위한 mounted 상태
@@ -65,7 +101,7 @@ export default function MobileSidebar({
   // 드로어 및 백드롭 레이어
   // 본문보다 높은 레이어에서 열리고 배경 클릭만으로도 닫히는 모바일 네비게이션 구조
   const drawerContent = (
-    <>
+    <div ref={portalRef}>
       {/* Backdrop: 전체 화면을 덮어 배경 클릭 시 닫히도록 함 */}
       <div
         className={cn(
@@ -78,6 +114,11 @@ export default function MobileSidebar({
 
       {/* Side Drawer Body */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="관리자 메뉴"
+        tabIndex={-1}
         className={cn(
           "fixed inset-y-0 left-0 w-72 bg-surface border-r border-border-subtle z-[101] flex flex-col transition-transform duration-300 ease-out shadow-2xl",
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -157,7 +198,7 @@ export default function MobileSidebar({
           </Link>
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
@@ -166,14 +207,17 @@ export default function MobileSidebar({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="focus-ring-soft md:hidden p-2 -ml-2 text-muted hover:bg-surface-dim rounded-lg transition-colors"
+        className="focus-ring-soft lg:hidden p-2 -ml-2 text-muted hover:bg-surface-dim rounded-lg transition-colors"
+        ref={triggerRef}
         aria-label="관리자 메뉴 열기"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
       >
         <Bars3Icon className="size-6" />
       </button>
 
       {/* Portal: 실제 사이드바 레이어만 body로 전송 */}
-      {mounted && createPortal(drawerContent, document.body)}
+      {mounted && isOpen && createPortal(drawerContent, document.body)}
     </>
   );
 }

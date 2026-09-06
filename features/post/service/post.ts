@@ -43,6 +43,12 @@
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상을 현재 사용자 좋아요 여부 기준으로 표시하도록 isLiked 매핑 추가
  * 2026.05.23  임도헌   Modified  삭제된 게시글 알림 링크/이미지 정리 및 삭제 cursor 목록 페이지네이션 실패 방어
  * 2026.06.18  임도헌   Modified  게시글 장소 지역과 동네 피드 노출 지역(feedRegion)을 분리
+ * 2026.08.22  임도헌   Modified  게시글 이미지 연결·교체·삭제를 MediaAsset 소유권 기록 기준으로 보강
+ * 2026.08.26  임도헌   Modified  신고 처리 transaction이 재사용할 게시글 DB cleanup 경계 분리
+ * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
+ * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리하는 렌더 전용 조회 모델 추가
+ * 2026.08.27  임도헌   Modified  생성 시각이 같은 게시글도 안정적으로 페이지 순서를 유지하도록 id 보조 정렬 추가
+ * 2026.08.28  임도헌   Modified  게시글 피드 지역 조건 함수 JSDoc 보강
  */
 import "server-only";
 
@@ -67,6 +73,11 @@ import type {
   PostUpdateDTO,
   PostSearchParams,
 } from "@/features/post/types";
+import {
+  attachOwnedMediaAssets,
+  deleteCloudflareImageAssetsById,
+  detachMissingMediaAssets,
+} from "@/features/media/service/assets";
 
 const TAKE = POSTS_PAGE_TAKE;
 
@@ -92,9 +103,17 @@ function toFeedRegionPayload(source: RegionSource | null | undefined) {
   };
 }
 
-function buildPostFeedRegionWhere(user: RegionSource & {
-  regionRange: Parameters<typeof buildRegionWhere>[0]["regionRange"];
-}): FeedRegionWhere {
+/**
+ * 사용자 지역 범위를 게시글 피드 전용 지역 조건으로 변환한다.
+ *
+ * @param user - 사용자 지역과 조회 범위
+ * @returns 값이 존재하는 피드 지역 필드만 포함한 Prisma 조건
+ */
+function buildPostFeedRegionWhere(
+  user: RegionSource & {
+    regionRange: Parameters<typeof buildRegionWhere>[0]["regionRange"];
+  }
+): FeedRegionWhere {
   const regionWhere = buildRegionWhere(user);
 
   return {
@@ -248,13 +267,76 @@ async function removeAttachedPostVideo(
     .filter((assetUid): assetUid is string => Boolean(assetUid));
 }
 
-interface PostDeleteCleanupTarget {
+/** 게시글 DB 삭제와 연결 데이터 정리에 필요한 최소 조회 결과. */
+export interface PostDeleteCleanupTarget {
   id: number;
   tags: { name: string }[];
   video?: {
     providerAssetId?: string | null;
     uploadUid?: string | null;
   } | null;
+}
+
+/** 게시글 transaction commit 뒤 정리할 Cloudflare 자산 식별자. */
+export interface PostDeleteExternalCleanup {
+  assetUid: string | null;
+  imageAssetIds: string[];
+}
+
+/**
+ * 게시글과 연결 데이터를 주입받은 transaction 안에서 삭제하고 외부 정리 메타를 반환한다.
+ * Cloudflare 호출은 commit 이후 호출자가 수행한다.
+ */
+export async function hardDeletePostTx(
+  tx: Prisma.TransactionClient,
+  target: PostDeleteCleanupTarget
+): Promise<PostDeleteExternalCleanup> {
+  const tagNames = Array.from(new Set(target.tags.map((tag) => tag.name)));
+  const assetUid =
+    target.video?.providerAssetId ?? target.video?.uploadUid ?? null;
+  const imageAssets = await tx.mediaAsset.findMany({
+    where: {
+      purpose: "POST_IMAGE",
+      linkedEntityId: String(target.id),
+      state: "ATTACHED",
+    },
+    select: { providerAssetId: true },
+  });
+  const imageAssetIds = imageAssets.map((asset) => asset.providerAssetId);
+
+  if (imageAssetIds.length) {
+    await tx.mediaAsset.updateMany({
+      where: { providerAssetId: { in: imageAssetIds } },
+      data: { state: "ORPHANED", linkedEntityId: null },
+    });
+  }
+  if (tagNames.length) {
+    await tx.post.update({
+      where: { id: target.id },
+      data: { tags: { set: [] } },
+    });
+    await tx.postTag.updateMany({
+      where: { name: { in: tagNames }, count: { gt: 0 } },
+      data: { count: { decrement: 1 } },
+    });
+    await tx.postTag.deleteMany({
+      where: { name: { in: tagNames }, count: { lte: 0 } },
+    });
+  }
+
+  await tx.notification.updateMany({
+    where: {
+      OR: [
+        { link: `/posts/${target.id}` },
+        { link: { startsWith: `/posts/${target.id}?` } },
+      ],
+    },
+    data: { image: null, link: null },
+  });
+  await tx.postVideo.deleteMany({ where: { postId: target.id } });
+  await tx.post.delete({ where: { id: target.id } });
+
+  return { assetUid, imageAssetIds };
 }
 
 /**
@@ -267,52 +349,14 @@ interface PostDeleteCleanupTarget {
 export async function hardDeletePostWithCleanup(
   target: PostDeleteCleanupTarget
 ) {
-  const tagNames = Array.from(new Set(target.tags.map((tag) => tag.name)));
-  const assetUid = target.video?.providerAssetId ?? target.video?.uploadUid ?? null;
-
-  await db.$transaction(async (tx) => {
-    if (tagNames.length) {
-      // 공용 태그 사전은 row를 재사용하되, 현재 게시글과의 연결은 먼저 끊어 FK 정리와 count 보정을 분리
-      await tx.post.update({
-        where: { id: target.id },
-        data: { tags: { set: [] } },
-      });
-
-      await tx.postTag.updateMany({
-        where: { name: { in: tagNames }, count: { gt: 0 } },
-        data: { count: { decrement: 1 } },
-      });
-
-      await tx.postTag.deleteMany({
-        where: {
-          name: { in: tagNames },
-          count: { lte: 0 },
-        },
-      });
-    }
-
-    // 삭제된 게시글을 가리키는 알림은 더 이상 상세 이동/썸네일을 노출하지 않음
-    await tx.notification.updateMany({
-      where: {
-        OR: [
-          { link: `/posts/${target.id}` },
-          { link: { startsWith: `/posts/${target.id}?` } },
-        ],
-      },
-      data: {
-        image: null,
-        link: null,
-      },
-    });
-
-    // 게시글 첨부 동영상은 부모 콘텐츠와 함께 정리해 orphan record를 남기지 않음
-    await tx.postVideo.deleteMany({ where: { postId: target.id } });
-    await tx.post.delete({ where: { id: target.id } });
-  });
+  const { assetUid, imageAssetIds } = await db.$transaction((tx) =>
+    hardDeletePostTx(tx, target)
+  );
 
   if (assetUid) {
     await deleteCloudflareStreamAsset(assetUid);
   }
+  await deleteCloudflareImageAssetsById(imageAssetIds);
 }
 
 /**
@@ -347,16 +391,15 @@ async function syncPostBlocksFromDraft(
 
   // 블록 에디터 입력 우선
   // blocksJson이 비어 있더라도 최소 TEXT 블록 하나만 유지해 본문 구조를 새 포맷 기준으로 통일
-  const sourceBlocks =
-    draftBlocks?.length
-      ? draftBlocks
-      : [
-          {
-            id: "fallback-text-0",
-            type: "TEXT" as const,
-            textContent: description ?? "",
-          },
-        ];
+  const sourceBlocks = draftBlocks?.length
+    ? draftBlocks
+    : [
+        {
+          id: "fallback-text-0",
+          type: "TEXT" as const,
+          textContent: description ?? "",
+        },
+      ];
   const blocks: Prisma.PostBlockCreateManyInput[] = [];
   let nextOrder = 0;
   let nextImageIndex = 0;
@@ -486,45 +529,42 @@ async function buildWhere(
  *
  * @param {number} id - 게시글 ID
  * @returns {Promise<PostDetail | null>} 게시글 상세 정보 또는 null
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getPostDetail(id: number): Promise<PostDetail | null> {
-  try {
-    const post = await db.post.findUnique({
-      where: { id },
-      include: {
-        user: { select: { id: true, username: true, avatar: true } },
-        _count: { select: { comments: true, post_likes: true } },
-        images: { orderBy: { order: "asc" } },
-        tags: true,
-        video: true,
-        blocks: {
-          orderBy: { order: "asc" },
-          include: {
-            postImage: true,
-            postVideo: true,
-          },
-        },
-        board_games: {
-          select: POST_BOARD_GAME_RELATION_SELECT,
+  // findUnique의 null만 실제 미존재이며, DB 예외는 cache에 null로 저장하지 않고 상위로 전파한다.
+  const post = await db.post.findUnique({
+    where: { id },
+    include: {
+      user: { select: { id: true, username: true, avatar: true } },
+      _count: { select: { comments: true, post_likes: true } },
+      images: { orderBy: { order: "asc" } },
+      tags: true,
+      video: true,
+      blocks: {
+        orderBy: { order: "asc" },
+        include: {
+          postImage: true,
+          postVideo: true,
         },
       },
-    });
-    if (!post) return null;
+      board_games: {
+        select: POST_BOARD_GAME_RELATION_SELECT,
+      },
+    },
+  });
+  if (!post) return null;
 
-    return {
-      ...post,
-      board_games: post.board_games.flatMap(({ boardGame }) => {
-        const { locales, ...linkedBoardGame } = boardGame;
-        const locale = locales[0];
-        // 상세에서도 공개 전 보드게임 locale은 노출하지 않아 목록 조건과 정합성 유지
-        if (!locale) return [];
-        return [{ boardGame: { ...linkedBoardGame, locale } }];
-      }),
-    } as PostDetail;
-  } catch (e) {
-    console.error("[getPostDetail] Error:", e);
-    return null;
-  }
+  return {
+    ...post,
+    board_games: post.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 상세에서도 공개 전 보드게임 locale은 노출하지 않아 목록 조건과 정합성 유지
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  } as PostDetail;
 }
 
 /**
@@ -545,11 +585,43 @@ export const getCachedPost = (id: number) => {
 };
 
 /**
+ * 게시글 상세 화면에서 사용하는 최신 조회 모델을 반환한다.
+ *
+ * [캐시 분리 전략]
+ * - 제목·본문·첨부 관계는 1시간 상세 cache를 재사용한다.
+ * - 진입마다 달라지는 조회수와 실제 행 존재 여부는 DB에서 별도 조회한다.
+ * - 삭제 직후 오래된 본문 cache가 남아 있어도 live state가 없으면 미존재로 처리한다.
+ *
+ * @param id - 게시글 ID
+ * @returns 최신 조회수를 덮어쓴 게시글 상세 또는 실제 미존재 시 null
+ * @throws {Error} 본문 또는 최신 조회수 조회에 실패한 경우
+ */
+export async function getPostDetailViewData(
+  id: number
+): Promise<PostDetail | null> {
+  const [post, liveState] = await Promise.all([
+    getCachedPost(id),
+    db.post.findUnique({
+      where: { id },
+      select: { views: true },
+    }),
+  ]);
+
+  if (!post || !liveState) return null;
+
+  return {
+    ...post,
+    views: liveState.views,
+  };
+}
+
+/**
  * 게시글 목록 조회 및 페이징 로직
  *
  * [데이터 페칭 및 가공 전략]
  * - 검색 조건(Where) 적용 및 커서 기반 페이지네이션 구현
  * - 조회자 ID(viewerId) 기준 차단된 유저의 게시글 은닉 처리
+ * - 생성 시각 내림차순 뒤 ID 내림차순을 적용해 동률에서도 결정적인 순서 유지
  * - 다음 페이지 존재 여부(nextCursor) 판별을 위해 LIMIT + 1 조회 적용
  * - 첫 페이지 totalCount를 함께 반환해 무한스크롤 중에도 총 게시글 수 문구를 고정 표시
  *
@@ -586,7 +658,7 @@ export async function getPostsList(
     db.post.findMany({
       where,
       select: POST_SELECT,
-      orderBy: { created_at: "desc" },
+      orderBy: [{ created_at: "desc" }, { id: "desc" }],
       take: TAKE + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     }),
@@ -688,8 +760,14 @@ export async function createPost(
 
       // 첨부 이미지 저장
       if (data.photos.length) {
+        const ownedPhotoUrls = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "POST_IMAGE",
+          urls: data.photos,
+          linkedEntityId: String(newPost.id),
+        });
         await Promise.all(
-          data.photos.map((url, index) =>
+          ownedPhotoUrls.map((url, index) =>
             tx.postImage.create({
               data: {
                 url,
@@ -715,7 +793,12 @@ export async function createPost(
 
       // 동영상 draft 연결
       if (!data.removeVideo && data.videoDraftKey) {
-        await attachDraftVideoToPost(tx, userId, newPost.id, data.videoDraftKey);
+        await attachDraftVideoToPost(
+          tx,
+          userId,
+          newPost.id,
+          data.videoDraftKey
+        );
       }
 
       // 본문 블록 동기화
@@ -789,7 +872,9 @@ export async function updatePost(
     // 수정 폼의 현재 보드게임 선택값을 전체 교체 기준으로 정규화
     const boardGameIds = Array.from(new Set(data.boardGameIds ?? []));
     const nextTagSet = new Set(nextTags);
-    const removedTags = Array.from(prevTags).filter((tag) => !nextTagSet.has(tag));
+    const removedTags = Array.from(prevTags).filter(
+      (tag) => !nextTagSet.has(tag)
+    );
     const addedTags = nextTags.filter((tag) => !prevTags.has(tag));
 
     // 위치 업데이트 payload 구성
@@ -814,6 +899,7 @@ export async function updatePost(
         };
 
     // 수정 트랜잭션 실행
+    let staleImageAssetIds: string[] = [];
     const staleVideoAssetUids = await db.$transaction(async (tx) => {
       const removedAssetUids: string[] = [];
 
@@ -864,8 +950,14 @@ export async function updatePost(
 
       // 새 이미지 저장
       if (data.photos.length) {
+        const ownedPhotoUrls = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "POST_IMAGE",
+          urls: data.photos,
+          linkedEntityId: String(data.id),
+        });
         await Promise.all(
-          data.photos.map((url, index) =>
+          ownedPhotoUrls.map((url, index) =>
             tx.postImage.create({
               data: {
                 url,
@@ -877,6 +969,13 @@ export async function updatePost(
           )
         );
       }
+
+      staleImageAssetIds = await detachMissingMediaAssets(tx, {
+        ownerId: userId,
+        purpose: "POST_IMAGE",
+        linkedEntityId: String(data.id),
+        keepUrls: data.photos,
+      });
 
       if (boardGameIds.length) {
         // 기존 연결 삭제 이후 현재 선택값만 재삽입해 제거된 보드게임 잔존 방지
@@ -894,7 +993,12 @@ export async function updatePost(
         removedAssetUids.push(...(await removeAttachedPostVideo(tx, data.id)));
       } else if (data.videoDraftKey) {
         removedAssetUids.push(
-          ...(await attachDraftVideoToPost(tx, userId, data.id, data.videoDraftKey))
+          ...(await attachDraftVideoToPost(
+            tx,
+            userId,
+            data.id,
+            data.videoDraftKey
+          ))
         );
       }
 
@@ -906,9 +1010,12 @@ export async function updatePost(
     // 오래된 외부 동영상 자산 정리
     if (staleVideoAssetUids.length) {
       await Promise.allSettled(
-        staleVideoAssetUids.map((assetUid) => deleteCloudflareStreamAsset(assetUid))
+        staleVideoAssetUids.map((assetUid) =>
+          deleteCloudflareStreamAsset(assetUid)
+        )
       );
     }
+    await deleteCloudflareImageAssetsById(staleImageAssetIds);
 
     return { success: true, data: { postId: data.id } };
   } catch (error) {
@@ -964,8 +1071,7 @@ export async function deletePost(
     console.error("deletePost Error:", error);
     return {
       success: false,
-      error:
-        "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "게시글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

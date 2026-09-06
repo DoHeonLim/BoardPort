@@ -9,6 +9,7 @@
  * 2026.01.11  임도헌   Modified  상수 import
  * 2026.01.17  임도헌   Moved     components/search -> features/search/components
  * 2026.04.10  임도헌   Modified  상위 검색 모달 클라이언트 경계 아래에서만 사용되도록 use client 중복 선언을 제거
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import Select from "@/components/ui/Select";
@@ -32,7 +33,7 @@ export default function ConditionFilter({
 }: ConditionFilterProps) {
   return (
     <Select
-      label="제품 상태"
+      label="상품 상태"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="text-sm h-10"

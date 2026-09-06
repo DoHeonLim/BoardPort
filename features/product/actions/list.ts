@@ -22,17 +22,44 @@
  * 2026.03.11  임도헌   Modified  클라이언트가 전체 검색 결과 수를 표시할 수 있도록 totalCount 응답 전달
  * 2026.03.31  임도헌   Modified  무한 스크롤 조회와 viewer 필터 주석 톤 통일
  * 2026.04.02  임도헌   Modified  목록 액션 JSDoc 반환 설명 보강
+ * 2026.09.05  임도헌   Modified  최근 본 상품 ID 검증과 세션 기반 서버 재조회 액션 추가
  */
 
 "use server";
 
 import getSession from "@/lib/session";
-import { getProductsList } from "@/features/product/service/list";
+import {
+  getProductsList,
+  getRecentProducts,
+} from "@/features/product/service/list";
 import type {
   Paginated,
   ProductType,
   ProductSearchParams,
 } from "@/features/product/types";
+
+/**
+ * 최근 본 상품의 최신 카드 조회 경계
+ *
+ * - 최대 8개의 양의 정수 ID만 허용하고 중복 제거 후 현재 세션으로 조회
+ * - 브라우저의 제목·이미지 스냅샷을 조회 결과로 사용하지 않음
+ * @throws 입력·인증·DB 오류는 호출자에게 전달해 조회 실패와 삭제 결과를 구분
+ */
+export async function getRecentProductsAction(
+  ids: number[]
+): Promise<ProductType[]> {
+  if (
+    !Array.isArray(ids) ||
+    ids.length > 8 ||
+    ids.some((id) => !Number.isSafeInteger(id) || id <= 0)
+  ) {
+    throw new Error("잘못된 최근 본 상품 요청입니다.");
+  }
+  const session = await getSession();
+  if (!session.id) throw new Error("로그인이 필요합니다.");
+  if (!ids.length) return [];
+  return getRecentProducts([...new Set(ids)], session.id);
+}
 
 /**
  * 제품 목록 조회 Server Action (무한 스크롤 및 필터링)

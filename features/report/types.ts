@@ -12,6 +12,8 @@
  * 2026.04.27  임도헌   Modified  신고 기각 코멘트 payload와 승인 조치 payload 타입을 분리
  * 2026.04.28  임도헌   Modified  신고 처리 모달에서 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 확장
  * 2026.04.28  임도헌   Modified  삭제 감사 로그 OwnerID의 표시용 유저명 메타 추가
+ * 2026.08.26  임도헌   Modified  신고 처리 멱등 재시도와 cache 재검증 결과 메타 추가
+ * 2026.09.04  임도헌   Modified  DB에 저장되는 신고 대상·상위 문맥 스냅샷 타입 반영
  */
 
 import type { Report } from "@/generated/prisma/client";
@@ -29,10 +31,7 @@ export type ReportTargetType =
 
 /** 신고 승인 시 관리자가 선택하는 후속 조치 타입 */
 export type ReportResolutionAction =
-  | "WARN"
-  | "DELETE_CONTENT"
-  | "TEMP_BAN"
-  | "PERMA_BAN";
+  "WARN" | "DELETE_CONTENT" | "TEMP_BAN" | "PERMA_BAN";
 
 /** 신고 처리와 감사 로그에서 공통으로 사용하는 관리자 액션 키 */
 export type AdminActionType =
@@ -75,6 +74,12 @@ export interface ReportResolutionResult {
   targetUserId?: number | null;
   strike?: number;
   durationDays?: number;
+  /** 이미 완료된 같은 조치가 반복 실행 없이 성공으로 수렴했는지 여부 */
+  idempotent?: boolean;
+  /** transaction commit 뒤 Server Action이 재검증할 도메인 경로 */
+  revalidationPaths?: string[];
+  /** 상품 상세 cache tag를 정밀하게 재검증할 상품 ID */
+  productDetailId?: number;
 }
 
 /** strike 누적을 고려해 계산한 권장 조치 결과 */
@@ -104,11 +109,9 @@ export interface AdminReportItem extends Report {
   /** 처리 모달에서 운영자가 확인할 수 있는 실제 조치 대상 유저명 */
   targetResolvedUsername?: string | null;
   recentStrikeTotal?: number;
-  targetPreview?: string | null;
   targetParentPostId?: number | null;
   targetParentProductId?: number | null;
   targetParentStreamId?: number | null;
-  targetParentPreview?: string | null;
 }
 
 /** 관리자 신고 목록 API 응답 */

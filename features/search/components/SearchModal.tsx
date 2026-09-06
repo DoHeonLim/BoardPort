@@ -21,9 +21,10 @@
  * 2026.04.17  임도헌   Modified  모바일 검색 모달 상단 검색창과 닫기 버튼 톤을 탭 헤더 검색바와 같은 계열로 정리
  * 2026.04.26  임도헌   Modified  모바일/데스크톱 검색 모달에 dialog 의미와 스크린리더 제목을 보강
  * 2026.04.26  임도헌   Modified  닫기 버튼의 visible copy에서 단축키 설명을 제거해 액션 라벨만 남김
+ * 2026.08.27  임도헌   Modified  검색 입력 초기 포커스·Tab 순환·Escape·복귀 포커스를 공용 useModalFocus로 통일
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import SearchBar from "@/features/search/components/SearchBar";
 import SearchHistoryBox from "@/features/search/components/SearchHistoryBox";
 import PopularSearchesBox from "@/features/search/components/PopularSearchesBox";
@@ -34,6 +35,7 @@ import type {
 } from "@/features/search/types";
 import { createPortal } from "react-dom";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -74,28 +76,32 @@ export default function SearchModal({
   onClearHistory,
 }: SearchModalProps) {
   const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // SSR 방지 및 Portal 마운트 제어
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 모달 오픈 시 바디 스크롤 잠금 및 ESC 키 닫기 연동
+  // 모달 오픈 시 배경 문서의 스크롤만 잠근다.
   useEffect(() => {
     if (!isOpen) return;
 
     lockBodyScroll();
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       unlockBodyScroll();
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
+
+  useModalFocus({
+    open: isOpen,
+    enabled: mounted,
+    containerRef: dialogRef,
+    initialFocusRef: searchInputRef,
+    onClose,
+  });
 
   if (!isOpen || !mounted) return null;
 
@@ -105,10 +111,12 @@ export default function SearchModal({
   if (isMobile) {
     return createPortal(
       <div
+        ref={dialogRef}
         className="fixed inset-0 z-[100] flex flex-col bg-background"
         role="dialog"
         aria-modal="true"
         aria-label="검색"
+        tabIndex={-1}
       >
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border-subtle bg-background px-3 py-3 shrink-0">
@@ -122,7 +130,7 @@ export default function SearchModal({
           <SearchBar
             onSearch={onSearch}
             value={value}
-            autoFocus
+            inputRef={searchInputRef}
             compact
             className="min-w-0 flex-1"
           />
@@ -166,9 +174,11 @@ export default function SearchModal({
 
       {/* Modal Card */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="search-modal-title"
+        tabIndex={-1}
         className="relative flex h-fit max-h-[75vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()} // 내부 클릭 시 닫힘 방지
       >
@@ -180,6 +190,7 @@ export default function SearchModal({
           <SearchBar
             onSearch={onSearch}
             value={value}
+            inputRef={searchInputRef}
             compact
             className="mx-0"
           />

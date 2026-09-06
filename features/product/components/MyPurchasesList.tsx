@@ -23,6 +23,7 @@
  * 2026.04.17  임도헌   Modified  구매 목록의 무한 스크롤/리뷰 변경 반영 책임 설명 보강
  * 2026.04.17  임도헌   Modified  Lighthouse 대응: 첫 카드 LCP 이미지 우선 로드
  * 2026.04.17  임도헌   Modified  빈 상태 CTA 데스크톱 중앙 정렬 및 heading-order 대응
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 "use client";
@@ -78,7 +79,7 @@ export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
           <div className="state-icon-wrap">
             <ShoppingBagIcon className="size-10 text-muted/50" />
           </div>
-          <p className="state-title">구매한 제품이 없습니다</p>
+          <p className="state-title">구매한 상품이 없습니다</p>
           <p className="state-description">
             마음에 드는 게임을 둘러보고 첫 거래를 시작해보세요.
           </p>
@@ -87,7 +88,7 @@ export default function MyPurchasesList({ userId }: MyPurchasesListProps) {
               href="/products"
               className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center px-6 text-sm font-medium shadow-sm sm:w-auto"
             >
-              제품 둘러보기
+              상품 둘러보기
             </Link>
           </div>
         </div>

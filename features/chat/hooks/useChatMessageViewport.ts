@@ -6,12 +6,15 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   ChatMessagesList의 메시지 DOM 레지스트리, 초기 하단 정렬, 새 메시지 스크롤 정책, 모바일 키보드 감지를 훅으로 분리
+ * 2026.08.27  임도헌   Modified  메시지 검색 이동 시 모션 축소 설정을 기본 스크롤 정책에 반영
+ * 2026.08.28  임도헌   Modified  메시지 등록·스크롤·키보드 감지 함수 JSDoc 보강
  */
 
 "use client";
 
 import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/features/chat/types";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 
 interface UseChatMessageViewportOptions {
   messages: ChatMessage[];
@@ -45,6 +48,12 @@ export default function useChatMessageViewport({
   const messageElementMapRef = useRef(new Map<number, HTMLDivElement>());
   const BOTTOM_THRESHOLD_PX = 100;
 
+  /**
+   * 메시지 ID와 렌더링된 DOM 요소의 연결을 등록하거나 해제한다.
+   *
+   * @param messageId - 등록할 메시지 ID
+   * @param element - 메시지 DOM 요소 또는 해제를 위한 null
+   */
   const setMessageElement = useCallback(
     (messageId: number, element: HTMLDivElement | null) => {
       if (element) {
@@ -60,9 +69,15 @@ export default function useChatMessageViewport({
   /**
    * 특정 메시지 DOM으로 스크롤 이동
    * - 검색 결과 이전/다음 이동과 최초 매치 자동 포커스에 사용
+   *
+   * @param messageId - 이동할 메시지 ID
+   * @param behavior - 적용할 스크롤 동작
    */
   const scrollToMessageById = useCallback(
-    (messageId: number, behavior: ScrollBehavior = "smooth") => {
+    (
+      messageId: number,
+      behavior: ScrollBehavior = getMotionSafeScrollBehavior()
+    ) => {
       const targetElement = messageElementMapRef.current.get(messageId);
       if (!targetElement) return;
 
@@ -74,6 +89,11 @@ export default function useChatMessageViewport({
     []
   );
 
+  /**
+   * 마지막 메시지 또는 컨테이너 하단으로 이동하고 미확인 수를 초기화한다.
+   *
+   * @param behavior - 적용할 스크롤 동작
+   */
   const scrollToLatestMessage = useCallback(
     (behavior: ScrollBehavior = "auto") => {
       const container = containerRef.current;
@@ -137,6 +157,7 @@ export default function useChatMessageViewport({
     const element = containerRef.current;
     if (!element) return;
 
+    /** 현재 하단 거리를 계산해 자동 스크롤 기준과 미확인 수를 갱신한다. */
     const onScroll = () => {
       const distanceToBottom =
         element.scrollHeight - (element.scrollTop + element.clientHeight);
@@ -165,6 +186,7 @@ export default function useChatMessageViewport({
     }
 
     const viewport = window.visualViewport;
+    /** Visual Viewport 축소 폭으로 모바일 키보드의 열림 상태를 판정한다. */
     const detectKeyboard = () => {
       const keyboardHeight =
         window.innerHeight - viewport.height - viewport.offsetTop;

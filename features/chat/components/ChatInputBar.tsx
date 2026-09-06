@@ -40,6 +40,12 @@
  * 2026.04.14  임도헌   Modified  채팅 입력 textarea 포커스 시 브라우저 기본 사각형 outline이 노출되지 않도록 정리
  * 2026.04.14  임도헌   Modified  데스크톱에서 이미지 첨부 후 Enter 전송이 자연스럽도록 업로드 완료 뒤 textarea 포커스 복구
  * 2026.05.28  임도헌   Modified  모바일은 버튼 전송, 데스크톱은 Enter 전송 기준으로 IME 정책 정리
+ * 2026.08.22  임도헌   Modified  채팅 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
+ * 2026.08.26  임도헌   Modified  응답 유실 뒤 재전송에도 같은 clientMessageId를 재사용
+ * 2026.08.27  임도헌   Modified  채팅 이미지 미리보기의 고정 표시 폭을 Image sizes로 명시
+ * 2026.08.28  임도헌   Modified  채팅 입력·이미지 업로드 핸들러 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  채팅 입력 영역 이미지 드롭과 파일 선택 검증 경로 통합
+ * 2026.09.06  임도헌   Modified  이미지 드롭 안내와 드래그 진입 시 대상 영역 피드백 추가
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -60,8 +66,9 @@ interface ChatInputBarProps {
   isSubmitting: boolean;
   onSubmit: (
     text: string,
-    imageUrl?: string | null,
-    imageIsAnimated?: boolean
+    imageUrl: string | null,
+    imageIsAnimated: boolean,
+    clientMessageId: string
   ) => Promise<void> | void;
   onScheduleOpen?: () => void;
   autoFocus?: boolean;
@@ -91,6 +98,7 @@ export default function ChatInputBar({
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // 이미지 URL
   const [imageIsAnimated, setImageIsAnimated] = useState(false); // GIF 여부
   const [isUploading, setIsUploading] = useState(false); // 로딩
+  const [isImageDragOver, setIsImageDragOver] = useState(false);
   const [imageUploadMode, setImageUploadMode] =
     useState<ChatImageUploadMode>("optimized");
 
@@ -99,8 +107,16 @@ export default function ChatInputBar({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const originalImageFileRef = useRef<File | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const pendingSubmissionRef = useRef<{
+    fingerprint: string;
+    clientMessageId: string;
+  } | null>(null);
 
-  // 모바일 전송 탭 시 버튼으로 포커스가 이동하며 키보드가 닫히는 현상 방지
+  /**
+   * 모바일 액션 버튼을 누를 때 textarea 포커스가 먼저 빠지는 동작을 막는다.
+   *
+   * @param event - 액션 버튼에서 발생한 마우스 또는 포인터 이벤트
+   */
   const preventFocusSteal = (
     event:
       | React.MouseEvent<HTMLButtonElement>
@@ -109,20 +125,24 @@ export default function ChatInputBar({
     event.preventDefault();
   };
 
-  // 사진 선택 트리거 (ActionMenu에서 호출)
+  /** 액션 메뉴에서 이미지 파일 선택기를 열고 모바일 키보드를 정리한다. */
   const triggerPhotoSelect = () => {
     // 이미지 첨부는 미리보기 공간을 여는 흐름이라 모바일 키보드를 먼저 정리
     textareaRef.current?.blur();
     fileInputRef.current?.click();
   };
 
-  // 약속 제안은 별도 모달 입력 흐름으로 넘어가므로 키보드를 먼저 정리
+  /** 약속 제안 모달을 열기 전에 모바일 키보드를 닫는다. */
   const triggerAppointmentOpen = () => {
     textareaRef.current?.blur();
     onScheduleOpen?.();
   };
 
-  // 로컬 preview URL 수명 관리
+  /**
+   * 이전 객체 URL을 해제하고 현재 이미지 미리보기 URL을 교체한다.
+   *
+   * @param nextPreviewUrl - 새 미리보기 URL 또는 초기화를 위한 null
+   */
   const replacePreviewUrl = (nextPreviewUrl: string | null) => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
@@ -131,6 +151,7 @@ export default function ChatInputBar({
     setImagePreview(nextPreviewUrl);
   };
 
+  /** 포인터가 정밀한 데스크톱 환경에서만 textarea 포커스를 복구한다. */
   const focusTextareaOnDesktop = () => {
     if (typeof window === "undefined") return;
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
@@ -142,7 +163,12 @@ export default function ChatInputBar({
     });
   };
 
-  // 선택 원본과 업로드 모드에 맞춰 Cloudflare Images 업로드 수행
+  /**
+   * 선택한 이미지를 전송 모드에 맞게 가공해 Cloudflare Images에 업로드한다.
+   *
+   * @param file - 사용자가 선택한 원본 이미지
+   * @param mode - 최적화 또는 원본 업로드 모드
+   */
   const uploadSelectedImage = async (file: File, mode: ChatImageUploadMode) => {
     setIsUploading(true);
     setUploadedUrl(null);
@@ -152,7 +178,7 @@ export default function ChatInputBar({
       const uploadFile = await prepareChatImageForUpload(file, mode);
 
       // 1) CF Upload URL 발급
-      const res = await getUploadUrl();
+      const res = await getUploadUrl("CHAT_IMAGE");
       if (!res.success) throw new Error("URL 발급 실패");
 
       // 2) 실제 업로드
@@ -164,24 +190,30 @@ export default function ChatInputBar({
       });
       if (!uploadRes.ok) throw new Error("업로드 실패");
 
-      const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
-      const finalUrl = `https://imagedelivery.net/${CF_HASH}/${res.result.id}`;
-      setUploadedUrl(finalUrl);
+      setUploadedUrl(res.result.deliveryUrl);
     } finally {
       setIsUploading(false);
     }
   };
 
-  // 1. 이미지 선택 및 업로드 핸들러
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  /**
+   * 파일 입력에서 선택한 이미지의 크기·형식을 검증하고 미리보기와 업로드를 시작한다.
+   *
+   * @param e - 이미지 파일 입력 변경 이벤트
+   */
+  const selectImageFile = async (file?: File) => {
+    if (isUploading || isSubmitting || disabled) return;
+    if (file && !file.type.startsWith("image/")) {
+      toast.error("이미지 파일만 첨부할 수 있습니다.");
+      return;
+    }
     if (!file) return;
     let uploadSucceeded = false;
 
     // 용량 제한
     if (file.size > MAX_PHOTO_SIZE) {
       toast.error(`이미지 크기는 ${MAX_PHOTO_SIZE_MB}MB를 초과할 수 없습니다.`);
-      e.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -204,7 +236,7 @@ export default function ChatInputBar({
       setUploadedUrl(null);
       setImageIsAnimated(false);
       originalImageFileRef.current = null;
-      e.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
       if (!originalImageFileRef.current && fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -216,7 +248,7 @@ export default function ChatInputBar({
     }
   };
 
-  // 이미지 삭제
+  /** 선택 이미지와 업로드 결과, 파일 입력 상태를 모두 초기화한다. */
   const removeImage = () => {
     replacePreviewUrl(null);
     setUploadedUrl(null);
@@ -226,7 +258,7 @@ export default function ChatInputBar({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // 업로드 품질 전환
+  /** 선택한 원본 파일을 반대 화질 모드로 다시 업로드한다. */
   const toggleImageUploadMode = async () => {
     const originalFile = originalImageFileRef.current;
     if (!originalFile || isUploading) return;
@@ -242,22 +274,48 @@ export default function ChatInputBar({
     }
   };
 
-  // 2. 메시지 제출
+  /**
+   * 현재 텍스트와 이미지 정보를 멱등성 ID와 함께 제출하고 실패 시 입력을 복원한다.
+   *
+   * @param options - IME 조합 중 명시적 버튼 전송을 허용할지 여부
+   */
   const submit = async (options?: { allowComposing?: boolean }) => {
-    if ((!options?.allowComposing && isComposing) || isSubmitting || isUploading)
+    if (
+      (!options?.allowComposing && isComposing) ||
+      isSubmitting ||
+      isUploading
+    )
       return;
     const trimmed = text.trim();
     if (!trimmed && !uploadedUrl) return;
     const currentUrl = uploadedUrl;
     const currentPreview = imagePreview;
     const currentImageIsAnimated = imageIsAnimated;
+    const fingerprint = JSON.stringify([
+      trimmed,
+      currentUrl,
+      currentImageIsAnimated,
+    ]);
+    if (pendingSubmissionRef.current?.fingerprint !== fingerprint) {
+      pendingSubmissionRef.current = {
+        fingerprint,
+        clientMessageId: crypto.randomUUID().replaceAll("-", ""),
+      };
+    }
+    const clientMessageId = pendingSubmissionRef.current.clientMessageId;
 
     try {
       setText("");
       removeImage(); // 전송 시도 시 프리뷰 제거
       if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-      await onSubmit(trimmed, currentUrl, currentImageIsAnimated);
+      await onSubmit(
+        trimmed,
+        currentUrl,
+        currentImageIsAnimated,
+        clientMessageId
+      );
+      pendingSubmissionRef.current = null;
     } catch {
       setText(trimmed);
       setImagePreview(currentPreview);
@@ -283,6 +341,11 @@ export default function ChatInputBar({
     };
   }, []);
 
+  /**
+   * 데스크톱 Enter 입력은 전송하고 Shift+Enter 및 모바일 Enter는 줄바꿈으로 유지한다.
+   *
+   * @param e - textarea 키보드 이벤트
+   */
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const isDesktopInput =
       typeof window !== "undefined" &&
@@ -295,7 +358,44 @@ export default function ChatInputBar({
   };
 
   return (
-    <div className="w-full px-3 py-2 sm:px-4 flex flex-col gap-2">
+    <div
+      className={cn(
+        "w-full px-3 py-2 sm:px-4 flex flex-col gap-2 rounded-2xl ring-2 ring-inset ring-transparent transition-colors",
+        isImageDragOver &&
+          "ring-brand bg-brand/5 dark:ring-brand-light dark:bg-brand-light/10"
+      )}
+      onDragEnter={(event) => {
+        if (
+          event.dataTransfer.types.includes("Files") &&
+          !isUploading &&
+          !isSubmitting &&
+          !disabled
+        ) {
+          setIsImageDragOver(true);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (event.dataTransfer.types.includes("Files")) {
+          event.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDragLeave={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (
+          nextTarget instanceof Node &&
+          event.currentTarget.contains(nextTarget)
+        )
+          return;
+        setIsImageDragOver(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsImageDragOver(false);
+        void selectImageFile(event.dataTransfer.files[0]);
+      }}
+    >
       {/* 이미지 프리뷰 영역 */}
       {imagePreview && (
         <div className="flex items-start gap-3 px-1">
@@ -304,6 +404,7 @@ export default function ChatInputBar({
               src={imagePreview}
               alt="Preview"
               fill
+              sizes="80px"
               unoptimized={imageIsAnimated}
               className="object-cover"
             />
@@ -377,6 +478,19 @@ export default function ChatInputBar({
         </div>
       )}
 
+      <p
+        className={cn(
+          "hidden px-1 text-xs sm:block",
+          isImageDragOver
+            ? "font-medium text-brand dark:text-brand-light"
+            : "text-muted"
+        )}
+      >
+        {isImageDragOver
+          ? "여기에 이미지를 놓아 첨부하세요"
+          : "이미지를 채팅 입력 영역에 끌어 놓아 첨부할 수 있습니다"}
+      </p>
+
       <div className="flex items-end gap-2">
         {/* 사진 선택 버튼 */}
         <ChatActionMenu
@@ -390,7 +504,10 @@ export default function ChatInputBar({
           ref={fileInputRef}
           className="hidden"
           accept="image/*"
-          onChange={handleImageChange}
+          onChange={(event) => {
+            void selectImageFile(event.target.files?.[0]);
+            event.target.value = "";
+          }}
         />
 
         <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">

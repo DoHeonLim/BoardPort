@@ -28,10 +28,13 @@
  * 2026.06.17  임도헌   Modified  좋아요 낙관 반영 직전 목록/찜 목록 fetch 취소 및 pending opacity 제거
  * 2026.06.17  임도헌   Modified  계정 전환 시 이전 사용자의 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  * 2026.06.18  임도헌   Modified  다크모드에서 빠른 찜 해제 버튼의 중립 배경/경계 대비 보강
+ * 2026.08.13  임도헌   Modified  낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
+ * 2026.08.27  임도헌   Modified  목록·상세 재방문 시 새 서버 좋아요 상태를 기존 무기한 cache보다 우선하도록 동기화
+ * 2026.09.06  임도헌   Modified  기본 좋아요 버튼의 라이트·다크 포커스 링 보강
  */
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { dislikeProduct, likeProduct } from "@/features/product/actions/like";
 import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
@@ -42,10 +45,12 @@ import {
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
   isLikedScopeKey,
+  isProductListKeyForViewer,
   pickProductFromLists,
 } from "@/features/product/utils/productQueryCache";
 import { cn } from "@/lib/utils";
 import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
+import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 
 interface ProductLikeButtonProps {
   isLiked: boolean;
@@ -69,14 +74,14 @@ type ProductLikeCacheItem = {
  * 제품 좋아요 버튼 컴포넌트
  *
  * [상태 주입 및 캐시 제어 로직]
- * - 부모로부터 주입된 초기값(`initialIsLiked`, `initialLikeCount`)을 `useQuery`의 `initialData`로 설정하여 서버 상태 동기화(Hydration) 구성
+ * - 부모가 전달한 최신 상태를 기존 상세 cache보다 우선한 뒤 QueryClient와 동기화
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 상태 반전 및 피드백 제공
  * - 목록 카드 하트 색상이 현재 사용자 좋아요 여부를 의미하도록 list cache의 `isLiked`를 함께 갱신
  * - 좋아요 취소 시 찜한 목록(`LIKED` scope) 쿼리 캐시에 접근하여 해당 아이템을 목록에서 즉각 제거 처리
  * - 진행 중인 목록/찜 목록 fetch가 낙관 업데이트를 덮어쓰지 않도록 변경 직전 관련 쿼리 취소
  * - 좋아요 상태 query key에 viewer scope를 포함해 계정 전환/재로그인 후 stale 상태 노출 방지
  * - API 요청 에러 발생 시 `onError`에서 캡처된 이전 상태 스냅샷(`previous`)으로 안전한 롤백(Rollback) 처리
- * - `onSettled` 시점에는 실제 queryFn이 있는 목록/찜 목록만 무효화해 상세 initialData 캐시 refetch 경고를 방지
+ * - `onSettled` 시점에는 원격 queryFn이 있는 목록/찜 목록만 무효화해 로컬 상세 cache의 불필요한 재조회를 방지
  */
 export default function ProductLikeButton({
   isLiked: initialIsLiked,
@@ -93,15 +98,10 @@ export default function ProductLikeButton({
     likeCount: initialLikeCount,
   };
 
-  // 1. 상태 조회 및 하이드레이션
-  const { data } = useQuery({
+  // 1. 새 서버 상태를 우선 반영한 뒤 mutation이 갱신하는 cache를 구독
+  const data = useServerSnapshotQuery({
     queryKey,
-    queryFn: async () =>
-      queryClient.getQueryData<typeof initialLikeStatus>(queryKey) ??
-      initialLikeStatus,
-    initialData: initialLikeStatus,
-    staleTime: Infinity,
-    enabled: false,
+    snapshot: initialLikeStatus,
   });
 
   // 2. 상태 변경 (Mutation)
@@ -113,18 +113,22 @@ export default function ProductLikeButton({
     onMutate: async () => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey }),
-        queryClient.cancelQueries({ queryKey: queryKeys.products.lists() }),
         queryClient.cancelQueries({
-          predicate: (query) => isLikedScopeKey(query.queryKey),
+          predicate: (query) =>
+            isProductListKeyForViewer(query.queryKey, viewerId),
+        }),
+        queryClient.cancelQueries({
+          predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
         }),
       ]);
 
       const previousLikeStatus = queryClient.getQueryData(queryKey);
       const listQueries = queryClient.getQueriesData({
-        queryKey: queryKeys.products.lists(),
+        predicate: (query) =>
+          isProductListKeyForViewer(query.queryKey, viewerId),
       });
       const likedQueries = queryClient.getQueriesData({
-        predicate: (query) => isLikedScopeKey(query.queryKey),
+        predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
       });
 
       const nextLikeCount = data.isLiked
@@ -140,7 +144,10 @@ export default function ProductLikeButton({
 
       // 2) /products 목록 캐시 즉시 반영: 좋아요 수와 하트 강조 기준(isLiked)을 같이 갱신
       queryClient.setQueriesData(
-        { queryKey: queryKeys.products.lists() },
+        {
+          predicate: (query) =>
+            isProductListKeyForViewer(query.queryKey, viewerId),
+        },
         (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
           if (!oldData?.pages) return oldData;
           return {
@@ -167,7 +174,9 @@ export default function ProductLikeButton({
       // 3) 좋아요 취소 시 LIKED 목록에서 즉시 제거
       if (data.isLiked) {
         queryClient.setQueriesData(
-          { predicate: (query) => isLikedScopeKey(query.queryKey) },
+          {
+            predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
+          },
           (oldData: ProductInfiniteCache<{ id: number }> | undefined) => {
             if (!oldData?.pages) return oldData;
             return {
@@ -191,8 +200,12 @@ export default function ProductLikeButton({
         );
         if (snapshot) {
           queryClient.setQueriesData(
-            { predicate: (query) => isLikedScopeKey(query.queryKey) },
-            (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
+            {
+              predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
+            },
+            (
+              oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined
+            ) => {
               if (!oldData?.pages?.length) return oldData;
 
               const alreadyExists = oldData.pages.some((page) =>
@@ -245,9 +258,12 @@ export default function ProductLikeButton({
       );
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.products.lists() });
       queryClient.invalidateQueries({
-        predicate: (query) => isLikedScopeKey(query.queryKey),
+        predicate: (query) =>
+          isProductListKeyForViewer(query.queryKey, viewerId),
+      });
+      queryClient.invalidateQueries({
+        predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
       });
     },
   });
@@ -267,7 +283,7 @@ export default function ProductLikeButton({
               "disabled:cursor-not-allowed",
             ]
           : [
-              "flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
+              "focus-ring-strong flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
               "hover:bg-surface-dim disabled:cursor-not-allowed",
             ],
         variant === "quick-remove"

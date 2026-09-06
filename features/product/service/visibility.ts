@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.09  임도헌   Created   판매완료 상품만 숨길 수 있는 공개 노출 제어 로직 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 import "server-only";
 
@@ -43,7 +44,7 @@ export async function toggleProductHidden(
     });
 
     if (!product) {
-      return { success: false, error: "제품을 찾을 수 없습니다." };
+      return { success: false, error: "상품을 찾을 수 없습니다." };
     }
 
     if (product.userId !== userId) {

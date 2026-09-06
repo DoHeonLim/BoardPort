@@ -23,6 +23,8 @@
  * 2026.03.22  임도헌   Modified   뱃지 컬렉션 모달과 모션 규칙을 맞추기 위해 진입 transform 애니메이션 제거
  * 2026.04.08  임도헌   Modified   모바일에서는 공용 BottomSheet를 사용해 후기 전체 보기 흐름을 다른 프로필 오버레이와 통일
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.13  임도헌   Modified  리뷰 목록에 차단 필터 기준 조회자 ID 전달
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef, Suspense } from "react";
@@ -32,11 +34,13 @@ import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface ReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: number;
+  viewerId?: number | null;
 }
 
 /**
@@ -51,34 +55,32 @@ export default function ProfileReviewsModal({
   isOpen,
   onClose,
   userId,
+  viewerId = null,
 }: ReviewModalProps) {
   const isMobile = useIsMobile();
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // 접근성 & 이벤트 리스너
+  // 모바일은 BottomSheet가 담당하므로 데스크톱에서만 스크롤을 잠근다.
   useEffect(() => {
     if (!isOpen) return;
 
     if (isMobile) return;
 
-    // 초기 포커스 이동 (스크린 리더 접근성)
-    setTimeout(() => dialogRef.current?.focus(), 0);
-
-    // Body 스크롤 잠금
     lockBodyScroll();
-
-    // ESC 키 닫기
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       unlockBodyScroll();
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMobile, isOpen, onClose]);
+  }, [isMobile, isOpen]);
+
+  useModalFocus({
+    open: isOpen,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   if (!isOpen) return null;
 
@@ -88,7 +90,11 @@ export default function ProfileReviewsModal({
         <div className="size-6 mx-auto mt-10 border-2 border-brand border-t-transparent rounded-full animate-spin" />
       }
     >
-      <ReviewsList userId={userId} scrollParentRef={scrollAreaRef} />
+      <ReviewsList
+        userId={userId}
+        viewerId={viewerId}
+        scrollParentRef={scrollAreaRef}
+      />
     </Suspense>
   );
 

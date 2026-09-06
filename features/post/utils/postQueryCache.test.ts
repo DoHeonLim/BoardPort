@@ -6,13 +6,16 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   삭제된 게시글과 stale nextCursor 제거 기준 테스트 추가
+ * 2026.08.13  임도헌   Modified  게시글 목록 cache의 조회자 선택 경계 테스트 추가
  */
 
 import { describe, expect, it } from "vitest";
 import {
+  isPostListKeyForViewer,
   removePostFromInfiniteCache,
   type PostInfiniteCache,
 } from "@/features/post/utils/postQueryCache";
+import { queryKeys } from "@/lib/queryKeys";
 
 type TestPost = { id: number; title: string };
 
@@ -88,5 +91,17 @@ describe("removePostFromInfiniteCache", () => {
     const result = removePostFromInfiniteCache(createCache(), 20);
 
     expect(result?.pageParams).toEqual([undefined, 20]);
+  });
+});
+
+describe("post personalized cache predicates", () => {
+  it("현재 조회자의 게시글 목록 캐시만 선택한다", () => {
+    const viewerOne = queryKeys.posts.list({ category: "FREE" }, 1);
+    const viewerTwo = queryKeys.posts.list({ category: "FREE" }, 2);
+    const guest = queryKeys.posts.list({ category: "FREE" }, null);
+
+    expect(isPostListKeyForViewer(viewerOne, 1)).toBe(true);
+    expect(isPostListKeyForViewer(viewerTwo, 1)).toBe(false);
+    expect(isPostListKeyForViewer(guest, null)).toBe(true);
   });
 });

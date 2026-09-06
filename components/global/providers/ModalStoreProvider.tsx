@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.01  임도헌   Created
  * 2026.03.05  임도헌   Modified  주석 최신화
+ * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
  */
 "use client";
 
@@ -31,7 +32,9 @@ export const ModalStoreProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const storeRef = useRef<ReturnType<typeof createModalStore>>();
+  const storeRef = useRef<ReturnType<typeof createModalStore> | undefined>(
+    undefined
+  );
 
   // 최초 렌더링 시에만 스토어 인스턴스 생성
   if (!storeRef.current) {

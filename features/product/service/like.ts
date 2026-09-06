@@ -12,12 +12,15 @@
  * 2026.03.06  임도헌   Modified  동일 유저의 좋아요 토글 스팸 방지를 위한 알림 쿨다운(10분) 검증 로직 추가
  * 2026.03.06  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
- * 
+ * 2026.08.21  임도헌   Modified  상품 좋아요 알림 발신을 서버 전용 private topic으로 전환
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ *
  */
 import "server-only";
 
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import type { ServiceResult } from "@/lib/types";
 import type { ProductLikeResult } from "@/features/product/types";
 import { checkBlockRelation } from "@/features/user/service/block";
@@ -146,7 +149,7 @@ async function notifySellerOnLike(params: {
     },
   });
 
-  await supabase.channel(`user-${sellerId}-notifications`).send({
+  await supabase.channel(notificationRealtimeTopic(sellerId)).send({
     type: "broadcast",
     event: "notification",
     payload: {
@@ -220,7 +223,7 @@ export async function toggleProductLike(
       }),
     ]);
 
-    if (!product) return { success: false, error: "제품을 찾을 수 없습니다." };
+    if (!product) return { success: false, error: "상품을 찾을 수 없습니다." };
     if (!liker)
       return { success: false, error: "사용자 정보를 찾을 수 없습니다." };
 

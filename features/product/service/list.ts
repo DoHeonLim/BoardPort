@@ -22,6 +22,7 @@
  * 2026.05.18  임도헌   Modified  목록 카드 하트 색상용 현재 유저 좋아요 여부를 DTO에 포함
  * 2026.05.20  임도헌   Modified  refreshed_at 정렬 주석의 2차 기준을 실제 id 기준으로 정정
  * 2026.05.24  임도헌   Modified  삭제된 상품 cursor로 인한 목록 페이지네이션 실패 방어
+ * 2026.09.05  임도헌   Modified  최근 본 상품의 공개 상태·차단 필터와 최신 카드 정보 재조회 추가
  */
 import "server-only";
 import db from "@/lib/db";
@@ -37,6 +38,44 @@ import type {
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
+
+/**
+ * 최근 열람한 ID를 DB에서 조회해 현재 노출 가능한 카드만 반환
+ *
+ * - 삭제·숨김 상품과 정지·차단 사용자 상품 제외
+ * - 최신 이미지·거래 상태·좋아요를 조회하고 입력 ID의 열람 순서 유지
+ * - 이미 열람한 기록이므로 지역 검색 조건은 적용하지 않음
+ * @throws DB 오류를 빈 목록으로 바꾸지 않고 전달해 로컬 기록 오삭제 방지
+ */
+export async function getRecentProducts(
+  ids: number[],
+  viewerId: number
+): Promise<ProductType[]> {
+  const blockedIds = await getBlockedUserIds(viewerId);
+  const rows = await db.product.findMany({
+    where: {
+      id: { in: ids },
+      hidden_at: null,
+      user: { bannedAt: null },
+      userId: { notIn: blockedIds },
+    },
+    select: PRODUCT_SELECT,
+  });
+  const likes = rows.length
+    ? await db.productLike.findMany({
+        where: {
+          userId: viewerId,
+          productId: { in: rows.map((row) => row.id) },
+        },
+        select: { productId: true },
+      })
+    : [];
+  const likedIds = new Set(likes.map((like) => like.productId));
+  const byId = new Map(
+    rows.map((row) => [row.id, mapProductListRow(row, likedIds)])
+  );
+  return ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+}
 
 type ProductListRow = Prisma.ProductGetPayload<{
   select: typeof PRODUCT_SELECT;
@@ -236,7 +275,9 @@ export async function getProductsList(
         })
       : [];
   const likedProductIds = new Set(likedRows.map((row) => row.productId));
-  const products = pageRows.map((row) => mapProductListRow(row, likedProductIds));
+  const products = pageRows.map((row) =>
+    mapProductListRow(row, likedProductIds)
+  );
   const nextCursor = hasNext ? products[products.length - 1].id : null;
 
   return { products, nextCursor, totalCount };

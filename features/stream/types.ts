@@ -26,8 +26,14 @@
  * 2026.05.08  임도헌   Modified  서비스 상세 DTO와 목록 액션 응답 타입을 types.ts로 이동
  * 2026.05.16  임도헌   Modified  접근/상태 헬퍼를 utils/access.ts로 분리해 타입 파일 역할 정리
  * 2026.05.16  임도헌   Modified  live-status Realtime payload 공용 타입 추가
+ * 2026.08.21  임도헌   Modified  방송 상태 payload를 식별자-only 내부 타입으로 축소하며 공용 타입 제거
  * 2026.05.17  임도헌   Modified  Cloudflare Stream 웹훅 페이로드 타입 추가
  * 2026.05.18  임도헌   Modified  다시보기 카드 통계 메타 표시를 위한 likeCount/commentCount/isLiked 필드 추가
+ * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
+ * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 rate limit 실패 코드 추가
+ * 2026.08.26  임도헌   Modified  Cloudflare webhook provider 시각·Notifications 식별 필드 추가
+ * 2026.08.26  임도헌   Modified  다시보기 메인 목록의 정렬값 기반 불투명 커서 타입 추가
+ * 2026.08.27  임도헌   Modified  메인·채널별 커서 제네릭 응답 타입 설명 보강
  */
 
 import type { StreamChatMessage } from "@/features/chat/types";
@@ -49,14 +55,16 @@ export type ViewerRole = "OWNER" | "FOLLOWER" | "VISITOR";
 /** 방송 목록 조회 범위 */
 export type StreamScope = "all" | "following";
 
+/** 메인 다시보기 목록의 정렬값을 단일 문자열로 직렬화한 복합 커서 */
+export type RecordingListCursor = string;
+
 /** 방송 공개 범위 타입 */
 export type StreamVisibility =
   (typeof STREAM_VISIBILITY)[keyof typeof STREAM_VISIBILITY];
 
 /** 방송 상태 타입 */
 export type StreamStatus =
-  | (typeof STREAM_STATUS)[keyof typeof STREAM_STATUS]
-  | string;
+  (typeof STREAM_STATUS)[keyof typeof STREAM_STATUS] | string;
 
 /** VOD 상태 타입 */
 export type VodStatus = (typeof VOD_STATUS)[keyof typeof VOD_STATUS];
@@ -101,7 +109,8 @@ export interface UserInfo extends UserSummary {
 export interface BroadcastSummary {
   id: number; //Broadcast PK
   latestVodId?: number | null; // 가장 최근 VodAsset id
-  stream_id: string; // Cloudflare Live Input UID (iframe/임베드 식별용)
+  /** 권한 확인 뒤 서버가 발급한 단기 Cloudflare playback token */
+  playbackId?: string | null;
   title: string;
   thumbnail: string | null;
   thumbnailAnimated?: boolean;
@@ -163,7 +172,7 @@ export interface VodForPage extends VodForGrid {
 /** 방송 상세 페이지 조립용 DTO */
 export interface StreamDetailDTO {
   title: string;
-  stream_id: string;
+  playbackId: string | null;
   thumbnail: string | null;
   userId: number;
   user: {
@@ -186,7 +195,7 @@ export interface StreamDetailDTO {
 /** 녹화본 상세 페이지 조립용 DTO */
 export interface VodDetailDTO {
   vodId: number;
-  uid: string;
+  playbackId: string | null;
   durationSec: number | null;
   readyAt: Date | null;
   createdAt: Date;
@@ -196,7 +205,6 @@ export interface VodDetailDTO {
     id: number;
     title: string;
     visibility: StreamVisibility;
-    stream_id: string;
     owner: { id: number; username: string; avatar: string | null };
     category: {
       id: number;
@@ -217,10 +225,12 @@ export interface StreamsPage {
   nextCursor: number | null;
 }
 
-/** 다시보기 목록 액션 응답 */
-export interface RecordingsPage {
+/** 메인은 복합 문자열, 채널은 숫자 ID 커서를 선택해 사용하는 다시보기 목록 응답 */
+export interface RecordingsPage<
+  TCursor extends string | number = RecordingListCursor,
+> {
   recordings: VodForGrid[];
-  nextCursor: number | null;
+  nextCursor: TCursor | null;
 }
 
 /** 댓글 타입 */
@@ -250,15 +260,6 @@ export type CreateBroadcastResult =
 export interface StreamMetaUpdatePayload {
   title: string;
   description: string | null;
-}
-
-/** Supabase live-status 브로드캐스트 payload */
-export interface StreamRealtimeStatusPayload {
-  streamId?: string;
-  status?: string;
-  ownerId?: number;
-  token?: string;
-  ts?: number;
 }
 
 /** Cloudflare Stream 상태 필드 원본 형태 */
@@ -295,6 +296,11 @@ export interface CloudflareStreamAssetPayload {
   readyToStream?: boolean | null;
   readyToStreamAt?: string | null;
   created?: string | null;
+  modified?: string | null;
+  updated_at?: string | null;
+  ts?: number | null;
+  alert_correlation_id?: string | null;
+  alert_event?: string | null;
   status?: CloudflareStreamStatusValue;
   playback?: CloudflareStreamPlayback | null;
   thumbnail?: string | null;
@@ -327,14 +333,14 @@ export type UnlockErrorCode =
   | "NOT_PRIVATE_STREAM"
   | "NO_PASSWORD_SET"
   | "INVALID_PASSWORD"
+  | "RATE_LIMITED"
   | "BAD_REQUEST"
   | "MISSING_PASSWORD"
   | "INTERNAL_ERROR";
 
 /** 비공개 방송 잠금 해제 결과 */
 export type UnlockResult =
-  | { success: true }
-  | { success: false; error: UnlockErrorCode };
+  { success: true } | { success: false; error: UnlockErrorCode };
 
 /** 방송 채팅 메시지 전송 결과 */
 export type SendStreamMessageResult =
@@ -371,11 +377,7 @@ export type ToggleStreamChatMuteResult =
   | { success: true; targetId: number; muted: boolean }
   | {
       success: false;
-      error:
-        | "NOT_LOGGED_IN"
-        | "FORBIDDEN"
-        | "NOT_FOUND"
-        | "MUTE_FAILED";
+      error: "NOT_LOGGED_IN" | "FORBIDDEN" | "NOT_FOUND" | "MUTE_FAILED";
     };
 
 /** 방송 단위 채팅 금지 대상 시청자 요약 */
@@ -409,8 +411,7 @@ export type GetStreamKeyResult =
 
 /** 송출 키 재발급 결과 */
 export type RotateLiveInputKeyResult =
-  | { success: true; rtmpUrl: string; streamKey: string }
-  | ServiceFailure;
+  { success: true; rtmpUrl: string; streamKey: string } | ServiceFailure;
 
 // =============================================================================
 // 4. Admin Types
@@ -461,4 +462,3 @@ export interface AdminStreamInsights {
     averageBroadcastHours: number;
   };
 }
-

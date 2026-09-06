@@ -64,10 +64,11 @@ BoardPort의 접근 제어는 middleware 한 곳에만 의존하지 않고, 페�
 | -------------------- | --------------------------- | ---------------------------- | ----------------------------------------------------------------- |
 | 방송 생성/관리       | 로그인 사용자, 방송 소유자  | 세션, liveInput 소유자 확인  | Cloudflare Stream 연동                                            |
 | 라이브/VOD 목록 조회 | 로그인 사용자               | Route Handler 내부 세션 ID   | query `viewerId` fallback 제거. 비로그인 직접 호출은 빈 목록 반환 |
-| PUBLIC 상세/재생     | 로그인 사용자               | 세션, 차단 관계, 방송 상태   | `/streams`는 로그인 보호 페이지                                   |
-| FOLLOWERS 상세/재생  | 소유자 또는 팔로워          | 세션, 팔로우 관계            | 팔로우 후 query invalidation으로 목록/잠금 상태 수렴              |
-| PRIVATE 상세/재생    | 소유자 또는 unlock된 사용자 | 세션, private unlock session | 비밀번호 해제 상태는 session 기반으로 확인                        |
-| VOD 좋아요/댓글      | 로그인 사용자               | 세션, VOD 상태, 차단 관계    | 좋아요 상태는 viewer별 query key로 분리                           |
+| PUBLIC 상세/재생     | 로그인 사용자               | 공용 접근 서비스, 차단 관계, signed playback token | `/streams`는 로그인 보호 페이지                         |
+| FOLLOWERS 상세/재생  | 소유자 또는 팔로워          | 공용 접근 서비스, 팔로우 관계, signed playback token | 팔로우 취소 후 요청도 다시 판정                         |
+| PRIVATE 상세/재생    | 소유자 또는 unlock된 사용자 | 공용 접근 서비스, private unlock session, signed playback token | 비밀번호 해제 상태는 session 기반으로 확인 |
+| VOD 좋아요/댓글      | 접근 가능한 로그인 사용자   | 세션, 부모 방송 공개 범위, 차단 관계 | 조회·쓰기 모두 `authorizeVodAccess`를 재사용             |
+| 라이브 채팅 전송     | 접근 가능한 로그인 사용자   | 세션, 현재 방송 접근 판정, mute, rate limit | 전송 직전에 팔로우·unlock 변화를 다시 판정              |
 
 이 문서에서 PUBLIC은 비로그인 인터넷 공개가 아니라, 로그인한 BoardPort 앱 사용자에게 공개되는 범위를 의미합니다.
 
@@ -77,7 +78,7 @@ BoardPort의 접근 제어는 middleware 한 곳에만 의존하지 않고, 페�
 | --------------------------- | ------------------- | ---------------------------------------------- | -------------------------------------------------- |
 | 알림 목록 조회              | 본인                | 세션 userId                                    | 삭제된 콘텐츠 알림은 응답 단계에서 link/image 정리 |
 | 알림 설정 변경              | 본인                | 세션 userId                                    | In-App 설정과 Push 정책 분리                       |
-| Push subscription 등록/삭제 | 본인 브라우저 구독  | 세션, endpoint/userId unique 기준              | endpoint와 userId 조합으로 중복 구독 방지          |
+| Push subscription 등록/삭제 | 본인 브라우저 구독  | 세션, endpoint 전역 소유권, 구독 key proof      | 같은 endpoint의 교차 계정 active 상태를 차단       |
 | Push 발송                   | 서버 정책 통과 대상 | 알림 타입 설정, quiet hours, subscription 상태 | In-App 알림과 Web Push는 별도 정책으로 처리        |
 
 ### Report / Admin
@@ -114,5 +115,6 @@ BoardPort의 접근 제어는 middleware 한 곳에만 의존하지 않고, 페�
 - [Rate Limit / 남용 방지 운영 기준](./rate-limit-policy.md)
 - [신고 처리와 제재 운영 정책](./report-moderation-policy.md)
 - [보안 헤더 / CSP 운영 정책](./security-headers-csp-policy.md)
+- [Cloudflare Stream Signed Playback 전환 절차](./stream-signed-playback-runbook.md)
 - [직거래 약속 수락과 상품 상태 원자적 전환](../troubleshooting/troubleshooting-appointment-atomic-transition.md)
 - [게시글 동영상 Cloudflare 웹훅 상태 전환](../troubleshooting/troubleshooting-post-video-cloudflare-webhook.md)

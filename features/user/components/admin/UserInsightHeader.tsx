@@ -9,6 +9,7 @@
  * 2026.03.30  임도헌   Modified  회원 상태별 후속 관리 화면으로 이어지는 액션 링크를 인사이트 헤더에 추가
  * 2026.04.10  임도헌   Modified  유저 인사이트 헤더의 액션 링크와 KPI weight를 관리자 타이포 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  차트 영역을 지연 로딩 패널로 분리하고 인사이트 링크 prefetch를 비활성화해 초기 유저 관리 부하를 완화
+ * 2026.09.01  임도헌   Modified  태블릿 인사이트 카드를 두 열로 배치해 좁은 카드에서 지표가 압축되지 않도록 조정
  */
 
 import Link from "next/link";
@@ -56,7 +57,7 @@ export default function UserInsightHeader({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Link
           href="/admin/users"
           prefetch={false}

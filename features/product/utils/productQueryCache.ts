@@ -8,6 +8,7 @@
  * 2026.03.06  임도헌   Created   LIKED 스코프 판별 및 목록 캐시 스냅샷 추출 유틸 분리
  * 2026.05.16  임도헌   Modified  무한스크롤 캐시 shape 타입을 명시해 캐시 조작부 any 의존 완화
  * 2026.05.23  임도헌   Modified  삭제된 상품을 infinite cache와 nextCursor에서 제거하는 유틸 추가
+ * 2026.08.13  임도헌   Modified  상품 목록/찜 캐시 판별을 현재 조회자 범위로 제한
  */
 
 import type { Paginated } from "@/features/product/types";
@@ -18,6 +19,23 @@ export type ProductInfiniteCache<T extends { id: number }> = {
   pageParams?: unknown[];
 };
 
+/** nullable 조회자 ID를 상품 캐시에서 사용할 안정적인 scope로 변환한다. */
+const getViewerScope = (viewerId: number | null) => viewerId ?? "guest";
+
+/** products/list/{viewerId}/{filters} 구조에서 현재 조회자의 목록 키인지 판별 */
+export function isProductListKeyForViewer(
+  key: readonly unknown[],
+  viewerId: number | null
+) {
+  return (
+    Array.isArray(key) &&
+    key.length >= 4 &&
+    key[0] === "products" &&
+    key[1] === "list" &&
+    key[2] === getViewerScope(viewerId)
+  );
+}
+
 /**
  * products/userScope/LIKED/{userId} 구조의 Query Key인지 판별
  *
@@ -25,15 +43,20 @@ export type ProductInfiniteCache<T extends { id: number }> = {
  *   LIKED 스코프 캐시만 정확히 타겟팅
  * - 문자열 하드코딩을 컴포넌트마다 반복하지 않아 오타/누락 위험 Down
  */
-export function isLikedScopeKey(key: readonly unknown[]) {
-  return (
+export function isLikedScopeKey(
+  key: readonly unknown[],
+  viewerId?: number | null
+) {
+  const isLikedScope =
     Array.isArray(key) &&
     key.length >= 4 &&
     key[0] === "products" &&
     key[1] === "userScope" &&
     key[2] === "LIKED" &&
-    typeof key[3] === "number"
-  );
+    typeof key[3] === "number";
+
+  if (!isLikedScope || viewerId === null) return false;
+  return viewerId === undefined || key[3] === viewerId;
 }
 
 /**

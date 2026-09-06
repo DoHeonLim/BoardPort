@@ -21,6 +21,7 @@
  * 2026.04.28  임도헌   Modified  상품 검색 결과 없음 상태에서 보드게임 도감 탐색 진입점 추가
  * 2026.06.15  임도헌   Modified  상세조건 0건 상태를 순수 검색 0건과 구분해 안내
  * 2026.06.16  임도헌   Modified  키워드가 있는 조건 0건 상태에서도 키워드 알림 CTA를 유지
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 "use client";
 
@@ -73,7 +74,7 @@ export default function ProductEmptyState({
     ? hasActiveRefinements
       ? "조건에 맞는 상품이 없습니다."
       : "검색 결과가 없습니다."
-    : "등록된 제품이 없습니다.";
+    : "등록된 상품이 없습니다.";
   const description = hasSearchParams
     ? hasActiveRefinements
       ? keyword

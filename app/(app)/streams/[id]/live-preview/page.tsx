@@ -11,14 +11,21 @@
  * 2026.01.14  임도헌   Modified  Fallback 배경색 명시 (bg-black)
  * 2026.01.29  임도헌   Modified  주석 설명 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/live-preview/page.tsx 에서 app/(app)/streams/[id]/live-preview/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.21  임도헌   Modified  공용 권한 판정 뒤 signed playback token으로만 미리보기 재생
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.27  임도헌   Modified  전체 화면 미리보기 썸네일의 Image sizes 명시
+ * 2026.08.28  임도헌   Modified  미리보기 폴백 컴포넌트 함수 JSDoc 보강
+ * 2026.09.02  임도헌   Modified  라이브 플레이어 뒤의 미사용 썸네일 요청 제거 및 폴백 URL 정규화
+ */
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import db from "@/lib/db";
 import getSession from "@/lib/session";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
-import { checkBroadcastAccess } from "@/features/stream/service/access";
-import { StreamVisibility } from "@/features/stream/types";
+import { authorizeBroadcastAccess } from "@/features/stream/service/access";
+import {
+  createStreamPlaybackToken,
+  resolveStreamThumbnailUrl,
+} from "@/features/stream/service/playback";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,6 +34,12 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * 라이브 재생 전 또는 접근 불가 상태에 썸네일 폴백을 표시한다.
+ *
+ * @param props - 표시용으로 정규화된 썸네일 URL
+ * @returns 전체 화면 썸네일 또는 방송 준비 안내
+ */
 function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
   return (
     <div className="relative h-screen w-screen bg-black flex items-center justify-center">
@@ -35,6 +48,7 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
           src={thumbnailUrl}
           alt="Thumbnail"
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />
@@ -52,11 +66,10 @@ function ThumbnailFallback({ thumbnailUrl }: { thumbnailUrl?: string | null }) {
  * - 접근 권한을 체크하여 권한이 없으면 썸네일(Fallback)을 보여줌
  * - Cloudflare Player를 전체 화면으로 렌더링
  */
-export default async function LivePreviewPage({
-  params,
-}: {
-  params: { id: string };
+export default async function LivePreviewPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   noStore();
 
   const broadcastId = Number(params.id);
@@ -66,62 +79,37 @@ export default async function LivePreviewPage({
 
   const session = await getSession();
   const viewerId = session?.id ?? null;
+  if (!viewerId) return <ThumbnailFallback />;
 
-  // DB 직접 조회 (최소 필드)
+  const access = await authorizeBroadcastAccess(broadcastId, viewerId, session);
+  if (!access.allowed) return <ThumbnailFallback />;
+
+  // 접근 판정 이후 플레이어 표시용 최소 필드만 조회
   const row = await db.broadcast.findUnique({
     where: { id: broadcastId },
     select: {
       status: true,
-      visibility: true,
       thumbnail: true,
-      liveInput: {
-        select: {
-          provider_uid: true,
-          userId: true,
-        },
-      },
     },
   });
 
-  if (!row?.liveInput?.provider_uid)
-    return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
+  if (!row) return <ThumbnailFallback />;
+  const thumbnailUrl = resolveStreamThumbnailUrl(
+    row.thumbnail,
+    access.subject.liveInputUid
+  );
   if (row.status !== "CONNECTED")
-    return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
-
-  const ownerId = row.liveInput.userId;
-  const isOwner = !!viewerId && viewerId === ownerId;
-
-  // 권한 체크
-  if (!isOwner) {
-    const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
-    const guard = await checkBroadcastAccess(
-      { userId: ownerId, visibility: row.visibility as StreamVisibility },
-      viewerId,
-      { isPrivateUnlocked: isUnlocked }
-    );
-    if (!guard.allowed) {
-      return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
-    }
-  }
+    return <ThumbnailFallback thumbnailUrl={thumbnailUrl} />;
 
   const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
-  if (!DOMAIN) return <ThumbnailFallback thumbnailUrl={row?.thumbnail} />;
+  if (!DOMAIN) return <ThumbnailFallback thumbnailUrl={thumbnailUrl} />;
 
   const src = `${DOMAIN.replace(/\/+$/, "")}/${encodeURIComponent(
-    row.liveInput.provider_uid
+    createStreamPlaybackToken(access.subject.liveInputUid)
   )}/iframe?autoplay=1&muted=1&preload=auto`;
 
   return (
     <div className="h-screen w-screen bg-black relative overflow-hidden">
-      {row.thumbnail && (
-        <Image
-          src={row.thumbnail}
-          alt="Thumbnail"
-          fill
-          className="object-cover -z-10"
-          priority
-        />
-      )}
       <iframe
         title="Live"
         src={src}
@@ -135,4 +123,3 @@ export default async function LivePreviewPage({
     </div>
   );
 }
-

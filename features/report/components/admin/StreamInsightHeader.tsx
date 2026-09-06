@@ -9,6 +9,7 @@
  * 2026.03.30  임도헌   Modified  라이브 KPI와 카테고리 분포에서 실제 방송 목록 검색으로 이어지는 액션 링크 보강
  * 2026.04.10  임도헌   Modified  방송 인사이트 헤더의 액션 링크와 KPI weight를 관리자 타이포 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  차트 패널을 분리해 ECharts 번들을 지연 로드하고 링크 prefetch를 줄여 초기 관리자 번들 비용을 완화
+ * 2026.09.01  임도헌   Modified  태블릿 인사이트 카드를 두 열로 배치해 좁은 카드에서 지표가 압축되지 않도록 조정
  */
 
 import Link from "next/link";
@@ -56,7 +57,7 @@ export default function StreamInsightHeader({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Link
           href="/admin/streams"
           prefetch={false}

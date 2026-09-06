@@ -23,11 +23,16 @@
  * 2026.04.07  임도헌   Modified  방송 제목/설명 수정 실시간 동기화 브로드캐스트 추가
  * 2026.05.16  임도헌   Modified  채팅방 생성 에러 분기를 unknown-safe 방식으로 정리
  * 2026.05.16  임도헌   Modified  메시지 전송 사전 조회/카운트 헬퍼를 서비스 계층으로 분리
+ * 2026.08.21  임도헌   Modified  방송 채팅 topic 분리와 서버 전용 private 발신 적용
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  notificationRealtimeTopic,
+  streamChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { isUniqueConstraintError } from "@/lib/errors";
 import type { StreamChatMessage } from "@/features/chat/types";
@@ -188,7 +193,7 @@ export const createStreamMessage = async (
       },
     };
 
-    await supabase.channel(`room-${streamChatRoomId}`).send({
+    await supabase.channel(streamChatRealtimeTopic(streamChatRoomId)).send({
       type: "broadcast",
       event: "message",
       payload: message,
@@ -397,14 +402,16 @@ export const deleteStreamMessage = async (
       },
     });
 
-    await supabase.channel(`room-${existing.stream_chat_room.id}`).send({
-      type: "broadcast",
-      event: "message_deleted",
-      payload: {
-        messageId: deleted.id,
-        deleted_at: deleted.deleted_at!.toISOString(),
-      },
-    });
+    await supabase
+      .channel(streamChatRealtimeTopic(existing.stream_chat_room.id))
+      .send({
+        type: "broadcast",
+        event: "message_deleted",
+        payload: {
+          messageId: deleted.id,
+          deleted_at: deleted.deleted_at!.toISOString(),
+        },
+      });
 
     return {
       success: true,
@@ -455,7 +462,7 @@ export const kickStreamViewer = async (
       return { success: false, error: "FORBIDDEN" };
     }
 
-    await supabase.channel(`user-${targetId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetId)).send({
       type: "broadcast",
       event: "sys_event",
       payload: {
@@ -539,7 +546,7 @@ export const toggleStreamChatMute = async (
       });
     }
 
-    await supabase.channel(`user-${targetId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetId)).send({
       type: "broadcast",
       event: "sys_event",
       payload: {
@@ -605,13 +612,15 @@ export const updatePinnedChatNotice = async (
     });
 
     if (broadcast.chatRoom?.id) {
-      await supabase.channel(`room-${broadcast.chatRoom.id}`).send({
-        type: "broadcast",
-        event: "pinned_notice_updated",
-        payload: {
-          notice: updated.pinnedChatNotice ?? null,
-        },
-      });
+      await supabase
+        .channel(streamChatRealtimeTopic(broadcast.chatRoom.id))
+        .send({
+          type: "broadcast",
+          event: "pinned_notice_updated",
+          payload: {
+            notice: updated.pinnedChatNotice ?? null,
+          },
+        });
     }
 
     return { success: true, notice: updated.pinnedChatNotice ?? null };
@@ -638,7 +647,7 @@ export const broadcastStreamMetaUpdated = async (
     const room = await getStreamChatRoom(broadcastId);
     if (!room?.id) return;
 
-    await supabase.channel(`room-${room.id}`).send({
+    await supabase.channel(streamChatRealtimeTopic(room.id)).send({
       type: "broadcast",
       event: "stream_meta_updated",
       payload: {
@@ -650,4 +659,3 @@ export const broadcastStreamMetaUpdated = async (
     console.error("[broadcastStreamMetaUpdated] error:", e);
   }
 };
-

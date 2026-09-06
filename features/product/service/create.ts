@@ -20,6 +20,8 @@
  * 2026.05.03  임도헌   Modified  상품 생성 시 보드게임 카탈로그 연결 저장 추가
  * 2026.05.03  임도헌   Modified  상품-보드게임 연결 저장 정책 주석 보강
  * 2026.06.18  임도헌   Modified  거래 기준 지역 필수 정책에 맞춰 위치 저장/알림 지역을 필수값으로 정리
+ * 2026.08.22  임도헌   Modified  상품 이미지 저장 전 MediaAsset 소유자·용도 검증 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 import "server-only";
 
@@ -29,6 +31,7 @@ import { validateUserStatus } from "@/features/user/service/admin";
 import { checkAndSendKeywordAlert } from "@/features/notification/service/keyword";
 import type { ServiceResult } from "@/lib/types";
 import type { ProductDTO } from "@/features/product/types";
+import { attachOwnedMediaAssets } from "@/features/media/service/assets";
 
 /**
  * 신규 제품 생성
@@ -97,8 +100,14 @@ export const createProduct = async (
 
       // 이미지 순서와 애니메이션 메타 저장
       if (data.photos.length > 0) {
+        const ownedPhotoUrls = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "PRODUCT_IMAGE",
+          urls: data.photos,
+          linkedEntityId: String(newProduct.id),
+        });
         await tx.productImage.createMany({
-          data: data.photos.map((url, index) => ({
+          data: ownedPhotoUrls.map((url, index) => ({
             url,
             order: index,
             isAnimated: data.photosAnimated?.[index] ?? false,
@@ -154,7 +163,7 @@ export const createProduct = async (
     return {
       success: false,
       error:
-        "제품 등록에 실패했습니다. 필수 입력값과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요.",
+        "상품 등록에 실패했습니다. 필수 입력값과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요.",
     };
   }
 };

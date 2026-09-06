@@ -10,6 +10,7 @@
  * 2026.01.30  임도헌   Moved     app/products/view/[id]/actions/status.ts -> features/product/actions/status.ts
  * 2026.03.05  임도헌   Modified  상태 변경 시의 무거운 `revalidateTag` 호출 제거 및 클라이언트 Query Cache(`onOptimisticMove`)로 갱신 책임 위임
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -52,7 +53,7 @@ export async function updateProductStatusAction(
 
   const meta = result.data;
 
-  revalidateTag(T.PRODUCT_DETAIL(productId)); // 제품 상세 원본 갱신
+  revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 }); // 제품 상세 원본 갱신
   revalidatePath("/products");
   revalidatePath("/profile");
 

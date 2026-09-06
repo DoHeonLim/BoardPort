@@ -40,6 +40,10 @@
  * 2026.06.01  임도헌   Modified  프로필 수정 폼 간격을 작성형 폼 기준으로 정리
  * 2026.06.01  임도헌   Modified  취소 시 내부 히스토리는 back으로 복귀하고 직접 진입은 replace fallback 처리
  * 2026.06.04  임도헌   Modified  프로필 유저명 입력 길이 안내를 공용 상수 기준으로 정리
+ * 2026.08.22  임도헌   Modified  아바타 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
+ * 2026.08.27  임도헌   Modified  이메일·비밀번호·전화 인증 입력의 label과 실제 필드 연결 보강
+ * 2026.08.28  임도헌   Modified  아바타 적용·크롭 완료 함수 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  아바타 파일 선택과 드롭 검증 통합 및 키보드 진입 보강
  */
 "use client";
 
@@ -81,9 +85,12 @@ import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { editProfileAction } from "@/features/user/actions/profile";
 import { canUseBrowserBack } from "@/lib/navigationRefreshFlag";
 
-const ConfirmDialog = dynamic(() => import("@/components/global/ConfirmDialog"), {
-  loading: () => null,
-});
+const ConfirmDialog = dynamic(
+  () => import("@/components/global/ConfirmDialog"),
+  {
+    loading: () => null,
+  }
+);
 
 const AvatarCropModal = dynamic(
   () => import("@/features/user/components/profile/AvatarCropModal"),
@@ -96,8 +103,6 @@ interface ProfileEditFormProps {
   user: CurrentUserForEdit;
   returnTo: string;
 }
-
-const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
 
 /**
  * 프로필 편집 폼
@@ -220,11 +225,9 @@ export default function ProfileEditForm({
 
   // --- Handlers ---
 
-  const handleImageChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const selectAvatarFile = (nextFile?: File) => {
+    if (submitting) return;
     // 원본 파일은 바로 업로드하지 않고 크롭 모달에서 편집한 뒤 업로드 준비
-    const nextFile = event.target.files?.[0];
     if (!nextFile) return;
 
     if (!nextFile.type.startsWith("image/")) {
@@ -232,7 +235,6 @@ export default function ProfileEditForm({
         type: "manual",
         message: "이미지 파일만 업로드할 수 있습니다.",
       });
-      event.target.value = "";
       return;
     }
 
@@ -241,7 +243,6 @@ export default function ProfileEditForm({
         type: "manual",
         message: "이미지는 3MB 이하로 올려주세요.",
       });
-      event.target.value = "";
       return;
     }
 
@@ -250,9 +251,18 @@ export default function ProfileEditForm({
     setPendingImageName(nextFile.name);
     setCropModalOpen(true);
     clearErrors("avatar");
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    selectAvatarFile(event.target.files?.[0]);
     event.target.value = "";
   };
 
+  /**
+   * 크롭된 아바타 파일을 미리보기에 반영하고 전용 업로드 URL을 준비한다.
+   *
+   * @param nextFile - 업로드할 아바타 이미지 파일
+   */
   const applyAvatarFile = async (nextFile: File) => {
     // 크롭 결과 파일을 미리보기로 반영하고 Cloudflare direct upload URL을 예약
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
@@ -263,7 +273,7 @@ export default function ProfileEditForm({
 
     // Cloudflare Upload URL 요청
     const { getUploadUrl } = await import("@/lib/cloudflareImages");
-    const res = await getUploadUrl();
+    const res = await getUploadUrl("USER_AVATAR");
     if (!res.success) {
       URL.revokeObjectURL(url);
       setPreview(user.avatar ? user.avatar + "/public" : "");
@@ -278,9 +288,9 @@ export default function ProfileEditForm({
       return;
     }
 
-    const { id, uploadURL } = res.result;
+    const { uploadURL, deliveryUrl } = res.result;
     setUploadUrl(uploadURL);
-    setValue("avatar", `https://imagedelivery.net/${CF_HASH}/${id}`);
+    setValue("avatar", deliveryUrl);
     setValue("avatarAnimated", false);
   };
 
@@ -293,12 +303,16 @@ export default function ProfileEditForm({
     setCropModalOpen(false);
   };
 
+  /**
+   * 선택한 크롭 설정으로 새 아바타 파일을 생성해 폼 업로드 상태에 반영한다.
+   *
+   * @param crop - 사용자가 확정한 확대 및 위치 조절값
+   */
   const handleCropConfirm = async (crop: AvatarCropValues) => {
     setApplyingCrop(true);
     try {
-      const { createCroppedAvatarFile } = await import(
-        "@/features/user/utils/avatarCrop"
-      );
+      const { createCroppedAvatarFile } =
+        await import("@/features/user/utils/avatarCrop");
       const croppedFile = await createCroppedAvatarFile(
         cropSourceUrl,
         pendingImageName,
@@ -548,13 +562,25 @@ export default function ProfileEditForm({
         프로필 수정
       </h1>
 
+      <p className="mb-3 text-center text-sm text-muted">
+        사진을 선택하거나 아래 영역에 끌어 놓으세요
+      </p>
       {/* 아바타 업로드 영역 */}
       <div className="mb-6 flex flex-col items-center">
         <div className="relative group cursor-pointer">
-          <label
-            htmlFor="photo"
+          <button
+            type="button"
+            aria-label="프로필 사진 추가 또는 변경"
+            disabled={submitting}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              selectAvatarFile(event.dataTransfer.files[0]);
+            }}
             className={cn(
-              "relative flex size-24 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-border bg-surface-dim sm:size-28",
+              "focus-ring-strong relative flex size-24 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-border bg-surface-dim sm:size-28",
               "hover:border-brand/50 transition-colors",
               !preview && "text-muted"
             )}
@@ -571,7 +597,7 @@ export default function ProfileEditForm({
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
               <span className="text-white text-xs font-medium">변경</span>
             </div>
-          </label>
+          </button>
           <input
             ref={fileInputRef}
             onChange={handleImageChange}
@@ -630,7 +656,13 @@ export default function ProfileEditForm({
 
         {/* 이메일 */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-primary">이메일</label>
+          {user.needsEmailSetup ? (
+            <label htmlFor="email" className="text-sm font-medium text-primary">
+              이메일
+            </label>
+          ) : (
+            <p className="text-sm font-medium text-primary">이메일</p>
+          )}
           {user.needsEmailSetup ? (
             <Input
               id="email"
@@ -671,6 +703,7 @@ export default function ProfileEditForm({
               icon={<LockClosedIcon className="size-5" />}
             />
             <Input
+              label="비밀번호 확인"
               type="password"
               passwordToggle
               placeholder="비밀번호 확인"
@@ -685,7 +718,7 @@ export default function ProfileEditForm({
 
         {/* 전화번호 인증 */}
         <div className="space-y-3 border-t border-border-subtle pt-3">
-          <label className="text-sm font-medium text-primary">
+          <label htmlFor="phone" className="text-sm font-medium text-primary">
             전화번호 (선택)
           </label>
 
@@ -733,6 +766,8 @@ export default function ProfileEditForm({
             {phoneVerificationSent && !phoneVerified && (
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
+                  label="전화번호 인증번호"
+                  hideLabel
                   placeholder="인증번호 6자리 입력"
                   value={phoneToken}
                   onChange={(e) => setPhoneToken(e.target.value)}
@@ -760,7 +795,7 @@ export default function ProfileEditForm({
             )}
 
             <div className="text-xs text-muted leading-relaxed">
-   * 전화번호 변경은 인증 완료 시 즉시 저장
+              * 전화번호 변경은 인증 완료 시 즉시 저장
               <br />* 이미 인증된 번호는 삭제할 수 없습니다.
             </div>
           </div>

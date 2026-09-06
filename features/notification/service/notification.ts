@@ -16,11 +16,14 @@
  * 2026.05.16  임도헌   Modified  미읽음 알림 카운트 조회를 service 계층으로 분리
  * 2026.05.24  임도헌   Modified  삭제된 콘텐츠를 가리키는 오래된 알림 링크/이미지 응답 정규화 추가
  * 2026.06.19  임도헌   Modified  관리자 조치 인앱 알림은 명시 링크가 있을 때만 보기 링크를 저장하도록 정리
+ * 2026.08.21  임도헌   Modified  인앱 알림 발신을 서버 전용 private topic으로 전환
+ * 2026.08.26  임도헌   Modified  moderation outbox가 재시도 여부를 판단하도록 관리자 알림 처리 결과 반환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import {
   DIRECT_NOTIFICATION_FILTERS,
@@ -194,6 +197,8 @@ export async function getUnreadNotificationCountByUser(userId: number) {
 /**
  * 관리자 조치(삭제/정지) 시 대상 유저에게 알림을 발송
  * - DB 저장, 인앱 실시간 브로드캐스트, 웹 푸시를 포함
+ * - deliveryKey가 있으면 인앱 알림을 upsert해 outbox 재시도 중 중복 생성을 방지
+ * - 외부 발송 실패를 ServiceResult로 반환해 outbox가 완료 또는 재시도를 결정
  */
 export async function sendAdminActionNotification({
   targetUserId,
@@ -201,13 +206,15 @@ export async function sendAdminActionNotification({
   title,
   reason,
   link,
+  deliveryKey,
 }: {
   targetUserId: number;
   type: AdminNotificationType;
   title?: string;
   reason: string;
   link?: string;
-}) {
+  deliveryKey?: string;
+}): Promise<ServiceResult> {
   try {
     let notiTitle = "알림";
     let notiBody = "";
@@ -260,22 +267,30 @@ export async function sendAdminActionNotification({
       where: { userId: targetUserId },
     });
 
-    if (!isNotificationTypeEnabled(pref, "SYSTEM")) return;
+    if (!isNotificationTypeEnabled(pref, "SYSTEM")) {
+      return { success: true };
+    }
 
     // DB 알림 레코드 생성
-    const notification = await db.notification.create({
-      data: {
-        userId: targetUserId,
-        title: notiTitle,
-        body: notiBody,
-        type: "SYSTEM",
-        link: link ?? null,
-        isPushSent: false,
-      },
-    });
+    const notificationData = {
+      userId: targetUserId,
+      title: notiTitle,
+      body: notiBody,
+      type: "SYSTEM",
+      link: link ?? null,
+      isPushSent: false,
+      deliveryKey: deliveryKey ?? null,
+    };
+    const notification = deliveryKey
+      ? await db.notification.upsert({
+          where: { deliveryKey },
+          create: notificationData,
+          update: {},
+        })
+      : await db.notification.create({ data: notificationData });
 
     // 실시간 브로드캐스트
-    await supabase.channel(`user-${targetUserId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
       type: "broadcast",
       event: "notification",
       payload: {
@@ -290,7 +305,7 @@ export async function sendAdminActionNotification({
     });
 
     // 웹 푸시 발송
-    if (canSendPushForType(pref, "SYSTEM")) {
+    if (!notification.isPushSent && canSendPushForType(pref, "SYSTEM")) {
       const pushRes = await sendPushNotification({
         targetUserId,
         title: notiTitle,
@@ -306,8 +321,13 @@ export async function sendAdminActionNotification({
         });
       }
     }
+    return { success: true };
   } catch (error) {
     console.error("[sendAdminActionNotification] Error:", error);
+    return {
+      success: false,
+      error: "관리자 조치 알림 발송에 실패했습니다.",
+    };
   }
 }
 

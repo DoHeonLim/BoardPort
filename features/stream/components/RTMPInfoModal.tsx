@@ -28,6 +28,7 @@
  * 2026.04.07  임도헌   Modified  모바일에서는 BottomSheet를 사용해 송출 정보 확인 흐름을 하단 시트로 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 주요 CTA weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.27  임도헌   Modified  중첩 확인창을 고려한 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import React, {
@@ -55,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { deleteBroadcastAction } from "@/features/stream/actions/delete";
 import { rotateLiveInputKeyAction } from "@/features/stream/actions/key";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface RTMPInfoModalProps {
   open: boolean;
@@ -91,7 +93,6 @@ export default function RTMPInfoModal({
   // 패널 참조 (포커스 트랩 등에서 사용)
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFocusRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // 트래킹: 사용자가 "스트리밍 페이지로 이동"을 눌러 네비게이션 했는지 여부
   // 네비게이션했으면 닫기 시 브로드캐스트 삭제를 수행하지 않음
@@ -125,53 +126,14 @@ export default function RTMPInfoModal({
     return "•".repeat(len);
   }, [streamKeyState]);
 
-  // 열릴 때 첫 포커스 + 바디 스크롤 잠금
+  // 모바일은 BottomSheet가 담당하므로 데스크톱에서만 스크롤을 잠근다.
   useEffect(() => {
     if (!open) return;
     if (isMobile) return;
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const t = setTimeout(() => firstFocusRef.current?.focus(), 0);
     lockBodyScroll();
     return () => {
-      clearTimeout(t);
       unlockBodyScroll();
-      previousFocusRef.current?.focus?.();
     };
-  }, [open, isMobile]);
-
-  // ESC / Tab Trap -> Escape는 닫기 확인 로직(requestClose)으로 연결
-  useEffect(() => {
-    if (!open) return;
-    if (isMobile) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        requestClose();
-      }
-      // 간단 포커스 트랩
-      if (e.key === "Tab" && panelRef.current) {
-        const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-          'a, button, input, textarea, select, details,[tabindex]:not([tabindex="-1"])'
-        );
-        const list = Array.from(focusables).filter(
-          (el) => !el.hasAttribute("disabled")
-        );
-        if (list.length === 0) return;
-        const first = list[0];
-        const last = list[list.length - 1];
-        const active = document.activeElement as HTMLElement | null;
-
-        if (!e.shiftKey && active === last) {
-          e.preventDefault();
-          first.focus();
-        } else if (e.shiftKey && active === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isMobile]);
 
   const copy = async (text: string, which: "url" | "key") => {
@@ -265,6 +227,14 @@ export default function RTMPInfoModal({
 
     setCloseConfirmOpen(true);
   };
+
+  useModalFocus({
+    open,
+    enabled: !isMobile,
+    containerRef: panelRef,
+    initialFocusRef: firstFocusRef,
+    onClose: requestClose,
+  });
 
   if (!open) return null;
 
@@ -461,6 +431,7 @@ export default function RTMPInfoModal({
           ref={panelRef}
           role="dialog"
           aria-modal="true"
+          tabIndex={-1}
           className={cn(
             "relative mx-auto w-full max-w-[680px] overflow-y-auto rounded-xl border border-border-subtle bg-surface p-4 shadow-2xl",
             "max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-32px)] sm:rounded-2xl sm:p-6"

@@ -11,6 +11,7 @@
  * 2026.03.30  임도헌   Modified  action/targetType 빠른 필터와 실패 상태 안내 카드로 운영 추적 문맥을 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/logs/page.tsx 에서 app/(app)/admin/logs/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.18  임도헌   Modified  헤더 설명을 압축해 감사 로그 첫 페인트와 실패 상태 문구 길이를 함께 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import AdminAuditLogListContainer from "@/features/report/components/admin/AdminAuditLogListContainer";
@@ -24,11 +25,15 @@ export const dynamic = "force-dynamic";
  * - 관리자가 수행한 주요 액션(정지, 삭제, 권한 변경, 신고 처리 등)의 기록을 조회
  * - 검색·빠른 필터를 통해 누가, 언제, 무엇을, 왜 처리했는지 빠르게 추적
  */
-export default async function AdminLogsPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; q?: string; action?: string; targetType?: string };
+export default async function AdminLogsPage(props: {
+  searchParams: Promise<{
+    page?: string;
+    q?: string;
+    action?: string;
+    targetType?: string;
+  }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawPage = Number(searchParams.page);
   const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const query = searchParams.q || "";
@@ -52,9 +57,7 @@ export default async function AdminLogsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-primary">
-          감사 로그
-        </h2>
+        <h2 className="text-2xl font-bold text-primary">감사 로그</h2>
         <p className="mt-1 text-sm text-muted">
           관리자 활동 기록을 조회합니다.
         </p>
@@ -68,4 +71,3 @@ export default async function AdminLogsPage({
     </div>
   );
 }
-

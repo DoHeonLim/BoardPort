@@ -13,6 +13,8 @@
  * 2026.05.04  임도헌   Modified  상세 탐색 중 제품 메인으로 바로 복귀하는 헤더 액션 추가
  * 2026.05.05  임도헌   Modified  상세 보조 섹션 UI를 detail 컴포넌트로 분리
  * 2026.05.05  임도헌   Modified  상세/추천/연결 콘텐츠 조회 서비스 직접 import 경로 반영
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  도감 상세 직접 진입에서도 목록으로 복귀하도록 뒤로가기 고정
  */
 
 import Image from "next/image";
@@ -36,7 +38,7 @@ import {
 export const dynamic = "force-dynamic";
 
 interface BoardGameDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -45,9 +47,10 @@ interface BoardGameDetailPageProps {
  * @param props - URL params의 보드게임 id
  * @returns Next.js page metadata
  */
-export async function generateMetadata({
-  params,
-}: BoardGameDetailPageProps): Promise<Metadata> {
+export async function generateMetadata(
+  props: BoardGameDetailPageProps
+): Promise<Metadata> {
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id)) {
     return { title: "보드게임 정보" };
@@ -73,9 +76,10 @@ export async function generateMetadata({
  * - category/mechanic은 검수된 koName을 우선 표시하고, 없을 때만 BGG 원문명을 fallback으로 사용
  * - BGG 장문 description은 저장/번역/노출하지 않고 원문 링크로만 연결
  */
-export default async function BoardGameDetailPage({
-  params,
-}: BoardGameDetailPageProps) {
+export default async function BoardGameDetailPage(
+  props: BoardGameDetailPageProps
+) {
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id)) notFound();
 
@@ -113,7 +117,7 @@ export default async function BoardGameDetailPage({
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col px-4 pb-24 pt-4 sm:px-6 sm:pb-10">
       <header className="flex items-start justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="flex min-w-0 items-center gap-3">
-          <BackButton fallbackHref="/boardgames" />
+          <BackButton fallbackHref="/boardgames" preferFallback />
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-widest text-brand">
               보드게임 도감
@@ -260,6 +264,7 @@ export default async function BoardGameDetailPage({
           <TaxonomySection title="메커니즘" items={boardGame.mechanics} />
 
           <RelatedContentSection
+            boardGameId={boardGame.id}
             content={relatedContent}
             searchKeyword={boardGame.locale.title}
           />

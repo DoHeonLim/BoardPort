@@ -12,6 +12,12 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.14  임도헌   Modified  블록 유형 배지의 명도 대비를 높여 작성 페이지 접근성을 보강
  * 2026.05.30  임도헌   Modified  이미지/동영상 블록 드롭존에 제품 업로더와 같은 드래그 피드백 추가
+ * 2026.08.27  임도헌   Modified  게시글 이미지 블록의 반응형 표시 폭을 Image sizes로 명시
+ * 2026.08.28  임도헌   Modified  텍스트 블록 높이 조절 함수 JSDoc 보강
+ * 2026.09.05  임도헌   Modified  미디어 업로드 슬롯 키보드 동작과 포커스 표시 보강
+ * 2026.09.06  임도헌   Modified  블록별 초기 입력 대상과 접근 가능한 이름 명시
+ * 2026.09.06  임도헌   Modified  첨부 동영상 교체 버튼과 기존 카드 드롭 지원
+ * 2026.09.06  임도헌   Modified  이미지·동영상 첨부 안내에 클릭과 드롭 동작 명시
  */
 
 import Image from "next/image";
@@ -109,8 +115,14 @@ export default function PostEditorBlocksField({
   onRemoveImageBlockAsset,
 }: PostEditorBlocksFieldProps) {
   const textAreaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
 
+  /**
+   * 텍스트 블록 textarea 높이를 내용에 맞추되 최소 편집 높이를 유지한다.
+   *
+   * @param element - 높이를 다시 계산할 textarea 요소
+   */
   const resizeTextBlockTextarea = (element: HTMLTextAreaElement | null) => {
     if (!element) return;
 
@@ -128,7 +140,10 @@ export default function PostEditorBlocksField({
   /**
    * 미디어 블록 드롭 가능 상태 표시
    */
-  const markBlockDragOver = (event: DragEvent<HTMLElement>, blockId: string) => {
+  const markBlockDragOver = (
+    event: DragEvent<HTMLElement>,
+    blockId: string
+  ) => {
     event.preventDefault();
     if (isEditorLocked || isUploading || isVideoUploading) return;
     setDragOverBlockId(blockId);
@@ -274,6 +289,8 @@ export default function PostEditorBlocksField({
 
                       {block.type === "TEXT" ? (
                         <textarea
+                          data-block-input
+                          aria-label={`${index + 1}번째 텍스트 블록`}
                           ref={(element) => {
                             textAreaRefs.current[block.id] = element;
                             resizeTextBlockTextarea(element);
@@ -291,7 +308,51 @@ export default function PostEditorBlocksField({
                         // VIDEO 블록 상태 분기
                         // draft가 있으면 상태 카드, 없으면 이 위치 전용 업로드 슬롯 노출
                         videoState ? (
-                          <div className="rounded-xl border border-border bg-background">
+                          <div
+                            className="rounded-xl border border-border bg-background"
+                            onDragOver={(event) =>
+                              markBlockDragOver(event, block.id)
+                            }
+                            onDragLeave={clearBlockDragOver}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              clearBlockDragOver();
+                              if (
+                                !isEditorLocked &&
+                                !isUploading &&
+                                !isVideoUploading
+                              )
+                                void onVideoDrop(event);
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="focus-ring-strong m-3 rounded-lg border border-border px-3 py-2 text-sm text-primary"
+                              disabled={
+                                isEditorLocked ||
+                                isUploading ||
+                                isVideoUploading
+                              }
+                              onClick={() => videoInputRef.current?.click()}
+                            >
+                              동영상 교체
+                            </button>
+                            <p className="px-3 text-xs text-muted">
+                              새 동영상을 선택하거나 여기에 끌어 놓으세요
+                            </p>
+                            <input
+                              ref={videoInputRef}
+                              type="file"
+                              accept="video/mp4,video/quicktime,video/webm"
+                              className="hidden"
+                              disabled={
+                                isEditorLocked ||
+                                isUploading ||
+                                isVideoUploading
+                              }
+                              onChange={onVideoChange}
+                            />
                             <div className="flex items-start justify-between gap-4 px-4 py-4">
                               <div className="flex items-start gap-3">
                                 <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light">
@@ -356,30 +417,41 @@ export default function PostEditorBlocksField({
                                 : "border-border"
                             }`}
                           >
-                            <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:bg-surface-dim sm:min-h-[180px]">
+                            <button
+                              type="button"
+                              data-block-input
+                              onClick={() => videoInputRef.current?.click()}
+                              disabled={
+                                isVideoUploading ||
+                                isUploading ||
+                                isEditorLocked
+                              }
+                              className="focus-ring-soft flex min-h-[160px] w-full cursor-pointer flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[180px]"
+                            >
                               <FilmIcon className="size-6 text-brand" />
-                              <div className="space-y-1">
-                                <p className="text-sm font-medium text-primary">
+                              <span className="space-y-1">
+                                <span className="block text-sm font-medium text-primary">
                                   {dragOverBlockId === block.id
                                     ? "여기에 동영상을 놓으세요"
-                                    : "이 위치에 동영상 첨부"}
-                                </p>
-                                <p className="text-xs text-muted">
+                                    : "클릭 또는 드래그하여 동영상 첨부"}
+                                </span>
+                                <span className="block text-xs text-muted">
                                   mp4, mov, webm / 최대 80MB / 최대 60초
-                                </p>
-                              </div>
-                              <input
-                                type="file"
-                                accept="video/mp4,video/quicktime,video/webm"
-                                className="hidden"
-                                onChange={onVideoChange}
-                                disabled={
-                                  isVideoUploading ||
-                                  isUploading ||
-                                  isEditorLocked
-                                }
-                              />
-                            </label>
+                                </span>
+                              </span>
+                            </button>
+                            <input
+                              ref={videoInputRef}
+                              type="file"
+                              accept="video/mp4,video/quicktime,video/webm"
+                              className="hidden"
+                              onChange={onVideoChange}
+                              disabled={
+                                isVideoUploading ||
+                                isUploading ||
+                                isEditorLocked
+                              }
+                            />
                           </div>
                         )
                       ) : block.type === "EMBED" ? (
@@ -391,6 +463,8 @@ export default function PostEditorBlocksField({
                             </div>
                             <input
                               type="url"
+                              data-block-input
+                              aria-label={`${index + 1}번째 유튜브 URL`}
                               value={block.embedUrl ?? ""}
                               onChange={(event) =>
                                 onUpdateEmbedBlock(block.id, event.target.value)
@@ -435,6 +509,7 @@ export default function PostEditorBlocksField({
                                   src={imageBlockAssets[block.id]!.preview}
                                   alt={`${index + 1}번째 이미지 블록`}
                                   fill
+                                  sizes="(max-width: 768px) 100vw, 768px"
                                   unoptimized
                                   className="object-cover"
                                 />
@@ -475,6 +550,7 @@ export default function PostEditorBlocksField({
                           ) : (
                             <button
                               type="button"
+                              data-block-input
                               onClick={() =>
                                 imageInputRefs.current[block.id]?.click()
                               }
@@ -493,7 +569,7 @@ export default function PostEditorBlocksField({
                                 clearBlockDragOver();
                                 onImageBlockDrop(block.id, event);
                               }}
-                              className={`flex min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-center transition-all hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px] ${
+                              className={`focus-ring-soft flex min-h-[160px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-center transition-all hover:border-brand/30 hover:bg-surface-dim sm:min-h-[180px] ${
                                 dragOverBlockId === block.id
                                   ? "scale-[1.01] border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10"
                                   : "border-border bg-surface-dim/30"
@@ -504,7 +580,7 @@ export default function PostEditorBlocksField({
                                 <p className="text-sm font-medium text-primary">
                                   {dragOverBlockId === block.id
                                     ? "여기에 이미지를 놓으세요"
-                                    : "이 위치에 이미지 첨부"}
+                                    : "클릭 또는 드래그하여 이미지 첨부"}
                                 </p>
                                 <p className="text-xs text-muted">
                                   jpg, png, webp, gif / 최대 10MB / 게시글당{" "}

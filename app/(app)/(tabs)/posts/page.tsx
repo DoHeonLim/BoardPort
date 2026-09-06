@@ -43,6 +43,8 @@
  * 2026.05.17  임도헌   Modified  prefetch 데이터 타입을 InfiniteData로 명시
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.06.18  임도헌   Modified  게시글 목록 쿼리 키에 실제 지역값을 포함해 동네 변경 캐시 충돌 방지
+ * 2026.08.13  임도헌   Modified  게시글 목록 prefetch와 클라이언트 캐시를 조회자별로 분리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { Suspense } from "react";
@@ -76,10 +78,10 @@ import type {
 import type { RegionRange } from "@/generated/prisma/enums";
 
 interface PostsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     keyword?: string;
     category?: string;
-  };
+  }>;
 }
 
 export const metadata: Metadata = {
@@ -105,7 +107,8 @@ export const metadata: Metadata = {
  *
  * @param {PostsPageProps} props - URL 쿼리 파라미터 (keyword, category)
  */
-export default async function PostsPage({ searchParams }: PostsPageProps) {
+export default async function PostsPage(props: PostsPageProps) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   if (!session?.id) {
     redirect("/login?callbackUrl=/posts");
@@ -143,14 +146,14 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     : null;
 
   await queryClient.prefetchInfiniteQuery({
-    queryKey: queryKeys.posts.list(postListQueryKey),
+    queryKey: queryKeys.posts.list(postListQueryKey, userId),
     queryFn: () => getPostsListAction(null, params),
     initialPageParam: null as number | null,
   });
 
   // 데이터 여부 확인
   const prefetchData = queryClient.getQueryData<InfiniteData<PostsListPage>>(
-    queryKeys.posts.list(postListQueryKey)
+    queryKeys.posts.list(postListQueryKey, userId)
   );
   const isDataEmpty = prefetchData?.pages[0]?.posts.length === 0;
 
@@ -201,6 +204,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
                   key={`${JSON.stringify(searchParams)}-${JSON.stringify(postListScope)}`}
                   searchParams={params}
                   queryKeyExtra={postListScope}
+                  viewerId={userId}
                 />
               </Suspense>
             </HydrationBoundary>
@@ -212,4 +216,3 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     </div>
   );
 }
-

@@ -10,6 +10,8 @@
  * 2026.03.06  임도헌   Modified  삭제 확인 모달 연동을 위해 처리 결과를 클라이언트에서 소비 가능한 형태로 반환
  * 2026.04.02  임도헌   Modified  삭제 액션 반환 설명 JSDoc 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.01  임도헌   Modified  세션 만료를 `notFound()` 제어 신호 대신 클라이언트 처리 가능한 실패 결과로 반환
  */
 "use server";
 
@@ -17,7 +19,6 @@ import getSession from "@/lib/session";
 import { revalidateTag, revalidatePath } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { deletePost as deletePostService } from "@/features/post/service/post";
-import { notFound } from "next/navigation";
 
 /**
  * 게시글 삭제 Action
@@ -32,12 +33,14 @@ import { notFound } from "next/navigation";
  */
 export async function deletePostAction(postId: number) {
   const session = await getSession();
-  if (!session?.id) return notFound();
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." };
+  }
 
   const result = await deletePostService(session.id, postId);
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId));
+    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
     revalidatePath("/posts");
   }
 

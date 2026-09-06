@@ -31,16 +31,12 @@
  * 2026.05.16  임도헌   Modified  판매 탭 캐시 이동 payload와 무한스크롤 캐시 shape 타입 정리
  * 2026.05.30  임도헌   Modified  판매 내역 뷰 토글을 제품 목록 토글 톤과 통일
  * 2026.06.21  임도헌   Modified  판매 내역 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 "use client";
 
-import {
-  useCallback,
-  useRef,
-  useState,
-  Suspense,
-} from "react";
+import { useCallback, useRef, useState, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
@@ -122,7 +118,12 @@ export default function MySalesProductList({
    * - 탭 간 아이템 이동 시, Query Cache를 직접 조작
    */
   const onOptimisticMove = useCallback(
-    ({ from, to, product, modifiedProduct }: SalesMovePayload): (() => void) => {
+    ({
+      from,
+      to,
+      product,
+      modifiedProduct,
+    }: SalesMovePayload): (() => void) => {
       const fromKey = queryKeys.products.userScope(
         PRODUCT_STATUS_SCOPE_TYPE[from],
         userId
@@ -347,10 +348,10 @@ function SalesTabContent({
         </div>
         <p className="text-lg font-medium leading-relaxed text-primary">
           {type === "selling"
-            ? "판매 중인 제품이 없습니다"
+            ? "판매 중인 상품이 없습니다"
             : type === "reserved"
-              ? "예약 중인 제품이 없습니다"
-              : "판매 완료한 제품이 없습니다"}
+              ? "예약 중인 상품이 없습니다"
+              : "판매 완료한 상품이 없습니다"}
         </p>
       </div>
     );

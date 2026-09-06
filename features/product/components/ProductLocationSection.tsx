@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/components/ProductLocationSection.tsx
- * Description : 제품 폼 직거래 장소 섹션
+ * Description : 상품 폼 직거래 장소 섹션
  * Author : 임도헌
  *
  * History
@@ -8,8 +8,10 @@
  * 2026.04.21  임도헌   Created   ProductForm의 직거래 장소 선택/변경 UI를 별도 섹션으로 분리
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.06.18  임도헌   Modified  상품 거래 기준 지역을 필수 입력 UI로 정리
+ * 2026.08.30  임도헌   Modified  위치 선택 버튼의 오류 스타일과 안내 문구를 접근성 설명으로 연결
  */
 
+import { useId } from "react";
 import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { LocationData } from "@/features/map/types";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
@@ -34,6 +36,8 @@ export default function ProductLocationSection({
   onRemoveLocation,
   errorMessage,
 }: ProductLocationSectionProps) {
+  const errorMessageId = useId();
+
   return (
     <div className="flex flex-col gap-2 pt-2">
       <label className="flex items-center gap-1 text-sm font-medium text-primary">
@@ -81,15 +85,18 @@ export default function ProductLocationSection({
         <button
           type="button"
           onClick={onOpenMap}
-          className="focus-ring-soft flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted transition-colors hover:border-brand/30 hover:bg-surface-dim hover:text-primary aria-[invalid=true]:border-danger/60 aria-[invalid=true]:bg-danger/5 aria-[invalid=true]:text-danger"
-          aria-invalid={!!errorMessage}
+          className="focus-ring-soft flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-dim/30 text-muted transition-colors hover:border-brand/30 hover:bg-surface-dim hover:text-primary data-[invalid=true]:border-danger/60 data-[invalid=true]:bg-danger/5 data-[invalid=true]:text-danger"
+          data-invalid={!!errorMessage}
+          aria-describedby={errorMessage ? errorMessageId : undefined}
         >
           <MapPinIcon className="size-5" />
           <span className="text-sm">거래 기준 지역 선택하기</span>
         </button>
       )}
       {errorMessage && (
-        <p className="text-xs font-medium text-danger">{errorMessage}</p>
+        <p id={errorMessageId} className="text-xs font-medium text-danger">
+          {errorMessage}
+        </p>
       )}
     </div>
   );

@@ -11,6 +11,7 @@
  * 2026.04.02  임도헌   Modified  약속 지도 모달 컴포넌트 JSDoc 보강
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 하단 닫기 버튼을 제거해 길찾기 CTA 중심으로 정리
+ * 2026.08.27  임도헌   Modified  dialog 의미와 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef } from "react";
@@ -24,6 +25,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface Props {
   onClose: () => void;
@@ -52,22 +54,21 @@ export default function AppointmentMapModal({
     locationName
   )},${latitude},${longitude}`;
 
-  // 모달 제어 (ESC 닫기, 스크롤 잠금)
+  // 모달이 열린 동안 배경 문서 스크롤을 잠근다.
   useEffect(() => {
     lockBodyScroll();
 
-    dialogRef.current?.focus();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       unlockBodyScroll();
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, []);
+
+  useModalFocus({
+    open: !error,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   if (error) return null;
 
@@ -80,6 +81,7 @@ export default function AppointmentMapModal({
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
+        aria-modal="true"
         aria-label="약속 장소 상세 지도"
         className={cn(
           "relative w-full max-w-2xl bg-surface shadow-2xl flex flex-col overflow-hidden outline-none",

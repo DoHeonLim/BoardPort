@@ -10,7 +10,8 @@
  * 2026.04.10  임도헌   Modified   Pretendard subset 3-weight 정책에 맞춰 헤더 타이포를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/add/layout.tsx 에서 app/(app)/streams/add/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified   스트리밍 생성 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
-*/
+ * 2026.09.03  임도헌   Modified   직접 진입에서도 뒤로가기가 방송 목록으로 복귀하도록 고정
+ */
 
 import BackButton from "@/components/global/BackButton";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export default function AddStreamLayout({
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
           <BackButton
             fallbackHref="/streams"
+            preferFallback
             variant="appbar"
             className="px-0"
           />
@@ -45,4 +47,3 @@ export default function AddStreamLayout({
     </div>
   );
 }
-

@@ -36,6 +36,7 @@
  * 2026.05.18  임도헌   Modified  상세 메타에 댓글 수를 표시하도록 PostDetailMeta에 commentCount 전달
  * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시 분리를 위해 viewerId를 메타로 전달
  * 2026.06.21  임도헌   Modified  상세 메타에 관련 장소 또는 작성 동네 정보를 전달
+ * 2026.08.28  임도헌   Modified  정적 상세 조합을 서버 컴포넌트로 전환하고 상호작용 영역만 클라이언트 island로 유지
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
@@ -46,9 +47,7 @@
  * - index.tsx            : 위 컴포넌트들을 조합하고 댓글 섹션을 포함한 최종 컨테이너
  * ===============================================================================================
  */
-"use client";
-
-import { PostDetail as PostDetailType } from "@/features/post/types";
+import type { PostDetail as PostDetailType } from "@/features/post/types";
 import PostDetailTitle from "@/features/post/components/postsDetail/PostDetailTitle";
 import PostDetailBlocks from "@/features/post/components/postsDetail/PostDetailBlocks";
 import PostDetailTags from "@/features/post/components/postsDetail/PostDetailTags";
@@ -59,7 +58,10 @@ import PostDetailLocationSection from "@/features/post/components/postsDetail/Po
 import PostComment from "@/features/post/components/postComment";
 import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
 import { ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/outline";
-import { POST_CATEGORY, type PostCategoryType } from "@/features/post/constants";
+import {
+  POST_CATEGORY,
+  type PostCategoryType,
+} from "@/features/post/constants";
 
 interface UserLite {
   id: number;

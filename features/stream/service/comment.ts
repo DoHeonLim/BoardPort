@@ -14,11 +14,14 @@
  * 2026.05.13  임도헌   Modified  댓글 목록 페이징에서 마지막 페이지 이후 빈 추가 요청이 생기지 않도록 nextCursor 응답으로 보정
  * 2026.05.16  임도헌   Modified  댓글 목록 where 조건 타입 명시
  * 2026.06.21  임도헌   Modified  녹화본 댓글 작성 시 방송 주인에게 인앱/푸시 알림 전송 추가
+ * 2026.08.21  임도헌   Modified  댓글 조회·생성·삭제 전에 부모 방송 접근 권한 검증 추가
+ * 2026.08.21  임도헌   Modified  녹화본 댓글 알림 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   checkBlockRelation,
@@ -30,11 +33,17 @@ import {
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
 import { sendPushNotification } from "@/features/notification/service/sender";
+import {
+  authorizeVodAccess,
+  requireStreamAccess,
+  type StreamUnlockState,
+} from "@/features/stream/service/access";
 
 function normalizeNotificationText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/** 방송 소유자에게 녹화본 댓글 알림을 DB·private Realtime·Push로 전달한다. */
 async function notifyStreamerOnRecordingComment({
   vodId,
   recordingTitle,
@@ -80,7 +89,7 @@ async function notifyStreamerOnRecordingComment({
       },
     });
 
-    await supabase.channel(`user-${ownerId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(ownerId)).send({
       type: "broadcast",
       event: "notification",
       payload: {
@@ -135,8 +144,13 @@ export async function getRecordingCommentsList(
   vodId: number,
   cursor?: number,
   limit = 10,
-  viewerId?: number | null
+  viewerId?: number | null,
+  unlockState?: StreamUnlockState
 ) {
+  requireStreamAccess(
+    await authorizeVodAccess(vodId, viewerId ?? null, unlockState)
+  );
+
   const take = Math.max(1, Math.min(limit, 50));
   const where: Prisma.RecordingCommentWhereInput = {
     vodId,
@@ -189,8 +203,11 @@ export async function getRecordingCommentsList(
 export const createRecordingComment = async (
   vodId: number,
   userId: number,
-  payload: string
+  payload: string,
+  unlockState?: StreamUnlockState
 ) => {
+  requireStreamAccess(await authorizeVodAccess(vodId, userId, unlockState));
+
   // 정지 유저 체크
   const status = await validateUserStatus(userId);
   if (!status.success) throw new Error("BANNED_USER");
@@ -254,17 +271,21 @@ export const createRecordingComment = async (
  */
 export const deleteRecordingComment = async (
   commentId: number,
-  userId: number
+  userId: number,
+  unlockState?: StreamUnlockState
 ) => {
   const status = await validateUserStatus(userId);
   if (!status.success) throw new Error("BANNED_USER");
 
   const target = await db.recordingComment.findUnique({
     where: { id: commentId },
-    select: { userId: true },
+    select: { userId: true, vodId: true },
   });
 
   if (!target) throw new Error("NOT_FOUND");
+  requireStreamAccess(
+    await authorizeVodAccess(target.vodId, userId, unlockState)
+  );
   if (target.userId !== userId) throw new Error("FORBIDDEN");
 
   await db.recordingComment.delete({ where: { id: commentId } });

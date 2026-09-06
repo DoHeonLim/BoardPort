@@ -26,9 +26,10 @@
  * 2026.04.17  임도헌   Modified  탭 상단 검색바에 공통 입력 스타일 클래스를 적용
  * 2026.05.16  임도헌   Modified  검색 제출 로딩 표시 시간을 search 상수로 분리
  * 2026.06.15  임도헌   Modified  검색어가 있을 때 즉시 초기화할 수 있는 clear 버튼 추가
+ * 2026.08.27  임도헌   Modified  검색 모달이 초기 포커스를 명시적으로 지정할 수 있도록 inputRef 전달 지원
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Ref } from "react";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ interface SearchBarProps {
   value: string;
   className?: string;
   autoFocus?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
   compact?: boolean;
   onSearch: (keyword: string) => void;
 }
@@ -55,6 +57,7 @@ export default function SearchBar({
   value,
   className = "",
   autoFocus = false,
+  inputRef,
   compact = false,
   onSearch,
 }: SearchBarProps) {
@@ -87,6 +90,7 @@ export default function SearchBar({
       className={cn("relative flex-1 w-full", className)}
     >
       <input
+        ref={inputRef}
         type="text"
         name="search"
         placeholder={placeholder}

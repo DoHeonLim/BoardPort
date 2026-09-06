@@ -25,6 +25,9 @@
  * 2026.05.03  임도헌   Modified  제품 상세에 연결된 보드게임 카탈로그 정보 포함
  * 2026.05.08  임도헌   Modified  제품 상세 보드게임 relation select를 공용 상수로 교체
  * 2026.06.18  임도헌   Modified  상세 캐시와 별도로 거래/숨김 상태를 최신 조회하도록 보강
+ * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
+ * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리해 최신 DB 값으로 덮어쓰도록 보강
+ * 2026.08.31  임도헌   Modified  Next 서버 cache에서 문자열로 복원된 상세 날짜를 Date로 정규화
  */
 import "server-only";
 
@@ -36,6 +39,11 @@ import type { ProductDetailType } from "@/features/product/types";
 import { getProductLikeStatus } from "@/features/product/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
 
+/** Next 서버 cache를 거치며 직렬화된 날짜를 상세 도메인의 Date 계약으로 복원한다. */
+function restoreProductDetailDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
 /**
  * 제품 상세 정보 데이터 조회 로직
  *
@@ -45,46 +53,43 @@ import { checkBlockRelation } from "@/features/user/service/block";
  *
  * @param {number} id - 제품 ID
  * @returns {Promise<ProductDetailType | null>} 제품 상세 정보 반환
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getProductDetail(
   id: number
 ): Promise<ProductDetailType | null> {
-  try {
-    // 상세 본문에 필요한 연관 데이터 일괄 조회
-    const product = await db.product.findUnique({
-      where: { id },
-      include: {
-        user: { select: { id: true, username: true, avatar: true } },
-        images: {
-          orderBy: { order: "asc" },
-          select: { url: true, order: true, isAnimated: true },
-        },
-        category: {
-          select: { eng_name: true, kor_name: true, icon: true, parent: true },
-        },
-        search_tags: { select: { name: true } },
-        board_games: {
-          select: PRODUCT_BOARD_GAME_RELATION_SELECT,
-        },
-        _count: { select: { product_likes: true } },
+  // 상세 본문에 필요한 연관 데이터 일괄 조회
+  // findUnique의 null만 실제 미존재이며, DB 예외는 cache에 null로 저장하지 않고 상위로 전파한다.
+  const product = await db.product.findUnique({
+    where: { id },
+    include: {
+      user: { select: { id: true, username: true, avatar: true } },
+      images: {
+        orderBy: { order: "asc" },
+        select: { url: true, order: true, isAnimated: true },
       },
-    });
-    if (!product) return null;
+      category: {
+        select: { eng_name: true, kor_name: true, icon: true, parent: true },
+      },
+      search_tags: { select: { name: true } },
+      board_games: {
+        select: PRODUCT_BOARD_GAME_RELATION_SELECT,
+      },
+      _count: { select: { product_likes: true } },
+    },
+  });
+  if (!product) return null;
 
-    return {
-      ...product,
-      board_games: product.board_games.flatMap(({ boardGame }) => {
-        const { locales, ...linkedBoardGame } = boardGame;
-        const locale = locales[0];
-        // 상세에서도 공개 한국어 locale이 없는 카탈로그 연결은 숨김
-        if (!locale) return [];
-        return [{ boardGame: { ...linkedBoardGame, locale } }];
-      }),
-    } as ProductDetailType;
-  } catch (e) {
-    console.error("getProductById Error:", e);
-    return null;
-  }
+  return {
+    ...product,
+    board_games: product.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 상세에서도 공개 한국어 locale이 없는 카탈로그 연결은 숨김
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+  } as ProductDetailType;
 }
 
 /**
@@ -107,7 +112,7 @@ export const getCachedProduct = (id: number) => {
 
 /**
  * 상세 페이지/모달에서 공통으로 쓰는 상세 조회 모델.
- * 공통 본문은 캐시된 상세 데이터를 재사용하고, 자주 바뀌는 거래/숨김 상태와
+ * 공통 본문은 캐시된 상세 데이터를 재사용하고, 자주 바뀌는 거래/숨김/조회수 상태와
  * 개인화된 좋아요/차단 상태만 별도 조회
  */
 export async function getProductDetailViewData(
@@ -124,6 +129,7 @@ export async function getProductDetailViewData(
         reservation_userId: true,
         purchase_userId: true,
         hidden_at: true,
+        views: true,
       },
     }),
   ]);
@@ -137,11 +143,15 @@ export async function getProductDetailViewData(
     };
   }
 
-  const productWithLiveState = {
+  const productWithLiveState: ProductDetailType = {
     ...product,
+    // unstable_cache 저장값은 ISO 문자열로 복원될 수 있으므로 클라이언트 경계 전에 Date 계약을 회복한다.
+    created_at: restoreProductDetailDate(product.created_at),
+    refreshed_at: restoreProductDetailDate(product.refreshed_at),
     reservation_userId: liveState.reservation_userId,
     purchase_userId: liveState.purchase_userId,
     hidden_at: liveState.hidden_at,
+    views: liveState.views,
   };
 
   const isOwner = userId === productWithLiveState.userId;
@@ -165,18 +175,15 @@ export async function getProductDetailViewData(
  * - SEO 및 OpenGraph 메타 태그 생성에 필수적인 제목(title)과 설명(description) 필드만 선택적으로 조회
  *
  * @param {number} id - 제품 ID
+ * @returns 상품 메타데이터 또는 실제 미존재 시 null
+ * @throws {Error} 데이터베이스 메타데이터 조회에 실패한 경우
  */
 export async function getProductTitleById(id: number) {
-  try {
-    // 메타데이터 최소 필드 조회
-    return await db.product.findUnique({
-      where: { id },
-      select: { title: true, description: true, hidden_at: true },
-    });
-  } catch (e) {
-    console.error("[getProductTitleById] Error:", e);
-    return null;
-  }
+  // 메타데이터 최소 필드 조회. DB 장애는 "찾을 수 없음" 메타로 위장하지 않는다.
+  return db.product.findUnique({
+    where: { id },
+    select: { title: true, description: true, hidden_at: true },
+  });
 }
 
 /**

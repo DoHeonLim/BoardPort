@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/service/delete.ts
- * Description : 제품 삭제 비즈니스 로직
+ * Description : 상품 삭제 비즈니스 로직
  * Author : 임도헌
  *
  * History
@@ -19,62 +19,105 @@
  * 2026.04.04  임도헌   Modified  삭제 대상 조회/cleanup/메타 반환 단계의 인라인 주석 보강
  * 2026.05.23  임도헌   Modified  삭제된 상품을 가리키는 알림 이미지/링크 정리와 리뷰 FK cleanup 추가
  * 2026.05.24  임도헌   Modified  상품 삭제로 함께 제거되는 채팅방 알림 링크 정리 추가
+ * 2026.08.22  임도헌   Modified  상품 이미지 삭제를 URL 파싱 대신 MediaAsset의 provider ID 기준으로 전환
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.26  임도헌   Modified  신고 처리 transaction이 재사용할 상품 DB cleanup 경계 분리
  */
 import "server-only";
 
 import db from "@/lib/db";
 import { validateUserStatus } from "@/features/user/service/admin";
-import { extractCloudflareImageId } from "@/features/product/utils/image";
+import { deleteCloudflareImageAssetsById } from "@/features/media/service/assets";
 import type { ServiceResult } from "@/lib/types";
 import type { ProductDeleteMeta } from "@/features/product/types";
+import type { Prisma } from "@/generated/prisma/client";
 
-/**
- * Cloudflare Images 자산 삭제 best-effort 요청
- *
- * [동작]
- * - 제품 원본 이미지 URL에서 imageId를 추출한 뒤 Cloudflare Images API로 DELETE 요청 전송
- * - 계정 설정 누락, imageId 미추출, 404 응답은 조용히 무시
- * - 네트워크 오류나 비정상 응답은 로그만 남기고 제품 삭제 흐름은 계속 진행
- *
- * @param {string} imageUrl - 삭제 대상 제품 이미지 URL
- * @returns {Promise<void>} 반환값 없음
- */
-export async function deleteCloudflareImageAsset(
-  imageUrl: string
-): Promise<void> {
-  const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-  const imageId = extractCloudflareImageId(imageUrl);
-
-  if (!ACCOUNT_ID || !API_TOKEN || !imageId) return;
-
-  try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/images/v1/${imageId}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
-        },
-      }
-    );
-
-    if (!response.ok && response.status !== 404) {
-      console.warn(
-        `[deleteCloudflareImageAsset] unexpected status=${response.status} url=${imageUrl}`
-      );
-    }
-  } catch (error) {
-    console.error("[deleteCloudflareImageAsset] failed:", error);
-  }
-}
-
-type HardDeleteProductTarget = {
+/** 상품 DB 삭제와 연결 데이터 정리에 필요한 최소 조회 결과. */
+export type HardDeleteProductTarget = {
   id: number;
   search_tags: { name: string }[];
   images: { url: string }[];
   chat_rooms: { id: string }[];
 };
+
+/**
+ * 상품과 연결 데이터를 주입받은 transaction 안에서 삭제하고 외부 정리 대상 ID를 반환한다.
+ * Cloudflare 호출은 commit 이후 호출자가 수행한다.
+ */
+export async function hardDeleteProductTx(
+  tx: Prisma.TransactionClient,
+  target: HardDeleteProductTarget
+): Promise<string[]> {
+  const tagNames = target.search_tags.map((tag) => tag.name);
+  const imageUrls = target.images.map((image) => image.url);
+  const imageAssets = await tx.mediaAsset.findMany({
+    where: {
+      purpose: "PRODUCT_IMAGE",
+      linkedEntityId: String(target.id),
+      state: "ATTACHED",
+    },
+    select: { providerAssetId: true },
+  });
+  const imageAssetIds = imageAssets.map((asset) => asset.providerAssetId);
+  const chatRoomIds = target.chat_rooms.map((room) => room.id);
+  const notificationImageUrls = imageUrls.flatMap((url) => [
+    url,
+    `${url}/public`,
+  ]);
+
+  if (imageAssetIds.length > 0) {
+    await tx.mediaAsset.updateMany({
+      where: { providerAssetId: { in: imageAssetIds } },
+      data: { state: "ORPHANED", linkedEntityId: null },
+    });
+  }
+  if (tagNames.length > 0) {
+    await Promise.all(
+      tagNames.map((tag) =>
+        tx.searchTag.updateMany({
+          where: { name: tag, count: { gt: 0 } },
+          data: { count: { decrement: 1 } },
+        })
+      )
+    );
+  }
+
+  await tx.notification.updateMany({
+    where: {
+      OR: [
+        { link: `/products/view/${target.id}` },
+        { link: { startsWith: `/products/view/${target.id}?` } },
+        ...(notificationImageUrls.length
+          ? [{ image: { in: notificationImageUrls } }]
+          : []),
+      ],
+    },
+    data: { image: null, link: null },
+  });
+
+  if (chatRoomIds.length > 0) {
+    await tx.notification.updateMany({
+      where: {
+        OR: chatRoomIds.flatMap((roomId) => [
+          { link: `/chats/${roomId}` },
+          { link: { startsWith: `/chats/${roomId}?` } },
+        ]),
+      },
+      data: { link: null },
+    });
+  }
+
+  await tx.review.deleteMany({ where: { productId: target.id } });
+  await tx.product.delete({ where: { id: target.id } });
+
+  if (tagNames.length > 0) {
+    await tx.searchTag.deleteMany({
+      where: { name: { in: tagNames }, count: { lte: 0 } },
+    });
+  }
+
+  return imageAssetIds;
+}
 
 /**
  * 상품 하드 삭제 공통 cleanup
@@ -87,87 +130,21 @@ type HardDeleteProductTarget = {
 export async function hardDeleteProductWithCleanup(
   target: HardDeleteProductTarget
 ) {
-  // 태그/이미지 cleanup용 원시 목록 추출
-  const tagNames = target.search_tags.map((tag) => tag.name);
-  const imageUrls = target.images.map((image) => image.url);
-  const chatRoomIds = target.chat_rooms.map((room) => room.id);
-  const notificationImageUrls = imageUrls.flatMap((url) => [
-    url,
-    `${url}/public`,
-  ]);
-
-  await db.$transaction(async (tx) => {
-    // 연결된 태그 count 감소
-    if (tagNames.length > 0) {
-      await Promise.all(
-        tagNames.map((tag) =>
-          tx.searchTag.updateMany({
-            where: { name: tag, count: { gt: 0 } },
-            data: { count: { decrement: 1 } },
-          })
-        )
-      );
-    }
-
-    // 삭제된 상품을 가리키는 오래된 알림은 깨진 이미지/상세 링크를 남기지 않음
-    await tx.notification.updateMany({
-      where: {
-        OR: [
-          { link: `/products/view/${target.id}` },
-          { link: { startsWith: `/products/view/${target.id}?` } },
-          ...(notificationImageUrls.length
-            ? [{ image: { in: notificationImageUrls } }]
-            : []),
-        ],
-      },
-      data: {
-        image: null,
-        link: null,
-      },
-    });
-
-    if (chatRoomIds.length > 0) {
-      await tx.notification.updateMany({
-        where: {
-          OR: chatRoomIds.flatMap((roomId) => [
-            { link: `/chats/${roomId}` },
-            { link: { startsWith: `/chats/${roomId}?` } },
-          ]),
-        },
-        data: { link: null },
-      });
-    }
-
-    // Review는 Product FK가 필수 관계이므로 하드 삭제 전에 함께 정리
-    await tx.review.deleteMany({ where: { productId: target.id } });
-
-    // 상품 본문 하드 삭제
-    await tx.product.delete({ where: { id: target.id } });
-
-    // 사용처가 사라진 태그 정리
-    if (tagNames.length > 0) {
-      await tx.searchTag.deleteMany({
-        where: {
-          name: { in: tagNames },
-          count: { lte: 0 },
-        },
-      });
-    }
-  });
+  const imageAssetIds = await db.$transaction((tx) =>
+    hardDeleteProductTx(tx, target)
+  );
 
   // DB 삭제 이후 이미지 자산 best-effort 정리
-  await Promise.allSettled(
-    imageUrls.map((imageUrl) => deleteCloudflareImageAsset(imageUrl))
-  );
+  await deleteCloudflareImageAssetsById(imageAssetIds);
 }
 
 /**
- * 제품을 삭제
- * 소유자 권한을 검증한 후 DB에서 삭제하며, 삭제된 제품의 메타데이터를 반환
+ * 상품을 삭제
+ * 소유자 권한을 검증한 후 DB에서 삭제하며, 삭제된 상품의 메타데이터를 반환
  *
  * @param {number} userId - 요청자 ID
- * @param {number} productId - 삭제할 제품 ID
- * @returns {Promise<ServiceResult<ProductDeleteMeta>>} 삭제된 제품 정보(캐시 무효화용)
+ * @param {number} productId - 삭제할 상품 ID
+ * @returns {Promise<ServiceResult<ProductDeleteMeta>>} 삭제된 상품 정보(cache 무효화용)
  */
 export async function deleteProduct(
   userId: number,
@@ -194,7 +171,7 @@ export async function deleteProduct(
     });
 
     if (!product) {
-      return { success: false, error: "제품을 찾을 수 없습니다." };
+      return { success: false, error: "상품을 찾을 수 없습니다." };
     }
 
     if (product.userId !== userId) {
@@ -229,8 +206,7 @@ export async function deleteProduct(
     console.error("deleteProduct Service Error:", error);
     return {
       success: false,
-      error:
-        "제품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

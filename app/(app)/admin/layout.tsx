@@ -14,7 +14,8 @@
  * 2026.04.10  임도헌   Modified  관리자 셸 라벨과 로고 weight를 Pretendard subset 3-weight 정책에 맞춰 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/layout.tsx 에서 app/(app)/admin/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.28  임도헌   Modified  보드게임 카탈로그 관리 진입점 추가
-*/
+ * 2026.09.01  임도헌   Modified  태블릿 너비에서는 드로어를 사용하고 데스크톱부터 고정 사이드바를 노출하도록 전환 기준 조정
+ */
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -63,7 +64,7 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-screen w-full bg-background transition-colors">
       {/* 데스크톱 전용 사이드바 */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border-subtle bg-surface fixed inset-y-0 left-0 z-50">
+      <aside className="hidden lg:flex w-64 flex-col border-r border-border-subtle bg-surface fixed inset-y-0 left-0 z-50">
         <div className="h-16 flex items-center px-6 border-b border-border-subtle gap-3">
           <Logo variant="symbol" size={32} />
           <Link
@@ -151,7 +152,7 @@ export default async function AdminLayout({
       </aside>
 
       {/* 사이드바 폭을 고려한 메인 셸 */}
-      <main className="flex-1 md:ml-64 min-w-0 flex flex-col">
+      <main className="flex-1 lg:ml-64 min-w-0 flex flex-col">
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border-subtle bg-surface px-4 md:px-8">
           <div className="flex items-center gap-4">
             <MobileSidebar user={user} />
@@ -167,4 +168,3 @@ export default async function AdminLayout({
     </div>
   );
 }
-

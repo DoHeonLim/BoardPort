@@ -17,6 +17,7 @@
  * 2026.03.14  임도헌   Modified  SPA 전환 시 document.referrer가 비어도 내부 히스토리가 있으면 router.back()을 우선 사용하도록 보완
  * 2026.03.18  임도헌   Modified  공통 뒤로가기에서도 returnTo/fallbackHref를 정규화하고 referrer 파싱 예외를 방어
  * 2026.04.02  임도헌   Modified  appbar 변형의 보더·링 대비를 조정해 라이트모드 헤더 위에서도 윤곽이 흐려지지 않도록 정리
+ * 2026.09.02  임도헌   Modified  의미 기반 fallback을 브라우저 방문 기록보다 우선하는 선택지 추가
  */
 "use client";
 
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   fallbackHref?: string; // 히스토리 없을 때 이동할 안전 경로
+  preferFallback?: boolean; // 브라우저 기록보다 의미 기반 복귀 경로를 우선할지 여부
   useReturnTo?: boolean; // 현재 URL의 returnTo 쿼리를 우선 복귀 경로로 사용할지 여부
   variant?: "appbar" | "inline"; // appbar: 상단바(배경O), inline: 컨텐츠 내(배경X)
   label?: string;
@@ -35,6 +37,7 @@ type Props = {
 
 export default function BackButton({
   fallbackHref = "/",
+  preferFallback = false,
   useReturnTo = false,
   variant = "appbar",
   label = "뒤로가기",
@@ -42,8 +45,9 @@ export default function BackButton({
 }: Props) {
   const router = useRouter();
   const [canGoBack, setCanGoBack] = useState(false);
-  const [resolvedFallbackHref, setResolvedFallbackHref] =
-    useState(sanitizeCallbackUrl(fallbackHref));
+  const [resolvedFallbackHref, setResolvedFallbackHref] = useState(
+    sanitizeCallbackUrl(fallbackHref)
+  );
 
   useEffect(() => {
     // 히스토리 길이로 1차 판단
@@ -65,6 +69,11 @@ export default function BackButton({
   }, [fallbackHref, useReturnTo]);
 
   const handleClick = () => {
+    if (preferFallback) {
+      router.replace(resolvedFallbackHref);
+      return;
+    }
+
     let hasExternalReferrer = false;
     if (document.referrer) {
       try {

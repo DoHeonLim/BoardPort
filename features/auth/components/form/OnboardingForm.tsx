@@ -15,6 +15,8 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 온보딩 도움 문구와 지역 액션 타이포를 정리
  * 2026.05.12  임도헌   Modified  지역 선택 버튼이 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
  * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.28  임도헌   Modified  온보딩 제출 함수 JSDoc 보강
  */
 "use client";
 
@@ -23,11 +25,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import {
-  EnvelopeIcon,
-  MapPinIcon,
-  UserIcon,
-} from "@heroicons/react/24/solid";
+import { EnvelopeIcon, MapPinIcon, UserIcon } from "@heroicons/react/24/solid";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
@@ -77,10 +75,7 @@ export default function OnboardingForm({
         needsUsernameSetup: onboarding.needsUsernameSetup,
         needsLocationSetup: onboarding.needsLocationSetup,
       }),
-    [
-      onboarding.needsLocationSetup,
-      onboarding.needsUsernameSetup,
-    ]
+    [onboarding.needsLocationSetup, onboarding.needsUsernameSetup]
   );
 
   const {
@@ -113,10 +108,9 @@ export default function OnboardingForm({
   const locationError = errors.locationName?.message;
   const emailError = errors.email?.message;
   // 선택 이메일은 강제 온보딩 항목이 아니라 상단 요약에서는 제외
-  const summaryErrors =
-    onboarding.needsEmailSetup
-      ? { ...errors, email: undefined }
-      : errors;
+  const summaryErrors = onboarding.needsEmailSetup
+    ? { ...errors, email: undefined }
+    : errors;
 
   const handleLocationSelect = (location: LocationData) => {
     // hidden 필드를 한 번에 갱신한 뒤 최종 상태로 다시 검증해
@@ -145,6 +139,11 @@ export default function OnboardingForm({
     setIsLocationModalOpen(false);
   };
 
+  /**
+   * 필요한 온보딩 필드만 FormData로 구성해 완료 액션을 실행한다.
+   *
+   * @param data - 검증을 통과한 온보딩 입력값
+   */
   const onSubmit = (data: FormValues) => {
     startTransition(async () => {
       try {
@@ -184,7 +183,9 @@ export default function OnboardingForm({
           return;
         }
 
-        toast.success("항해 준비가 완료되었습니다. 바로 서비스를 이용해보세요.");
+        toast.success(
+          "항해 준비가 완료되었습니다. 바로 서비스를 이용해보세요."
+        );
         router.replace(next);
       } catch {
         toast.error("온보딩 저장 중 일시적인 오류가 발생했습니다.");
@@ -254,7 +255,7 @@ export default function OnboardingForm({
                     {locationName || "내 동네 선택하기"}
                   </p>
                   <p className="text-xs text-muted">
-                    제품, 게시글, 방송 노출 범위의 기준이 됩니다.
+                    상품, 게시글, 방송 노출 범위의 기준이 됩니다.
                   </p>
                 </div>
               </div>

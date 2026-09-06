@@ -12,14 +12,19 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/reset-password/page.tsx 에서 app/(public)/reset-password/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.13  임도헌   Modified  인증 공통 셸을 적용해 main 랜드마크와 상단 로고 우선 로드 패턴을 통일
  * 2026.04.17  임도헌   Modified  callbackUrl 정규화와 공통 셸 책임이 페이지 설명에 드러나도록 주석 보강
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 재설정 오류 복구 주소에서 생략
+ */
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AuthPageShell from "@/features/auth/components/AuthPageShell";
 import ResetPasswordForm from "@/features/auth/components/form/ResetPasswordForm";
 import { validatePasswordResetToken } from "@/features/auth/service/passwordReset";
-import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import {
+  buildAuthFlowHref,
+  sanitizeCallbackUrl,
+} from "@/features/auth/utils/redirect";
 
 /**
  * 비밀번호 재설정 페이지
@@ -27,17 +32,17 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - callbackUrl을 안전한 내부 경로로 정규화해 재설정 완료 후 로그인 복귀 맥락 유지
  * - `AuthPageShell` 아래에서 유효 토큰이면 재설정 폼, 아니면 재요청 링크를 렌더링
  */
-export default async function ResetPasswordPage({
-  searchParams,
-}: {
-  searchParams?: { token?: string; callbackUrl?: string };
+export default async function ResetPasswordPage(props: {
+  searchParams?: Promise<{ token?: string; callbackUrl?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const token = searchParams?.token?.trim();
-  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl ?? "/profile");
+  const callbackUrl = sanitizeCallbackUrl(
+    searchParams?.callbackUrl ?? "/profile"
+  );
+  const forgotPasswordHref = buildAuthFlowHref("/forgot-password", callbackUrl);
   if (!token) {
-    redirect(
-      `/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`
-    );
+    redirect(forgotPasswordHref);
   }
 
   const validation = await validatePasswordResetToken(token);
@@ -53,7 +58,7 @@ export default async function ResetPasswordPage({
         <div className="rounded-2xl border border-danger/20 bg-danger/5 px-4 py-5 text-sm text-danger">
           <p>{validation.error}</p>
           <Link
-            href={`/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+            href={forgotPasswordHref}
             className="focus-ring-soft mt-3 inline-flex rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
           >
             비밀번호 찾기 다시 요청하기
@@ -63,4 +68,3 @@ export default async function ResetPasswordPage({
     </AuthPageShell>
   );
 }
-

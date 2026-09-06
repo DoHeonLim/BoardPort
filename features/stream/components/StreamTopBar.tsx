@@ -27,6 +27,7 @@
  * 2026.05.28  임도헌   Modified  모바일 방송 정보 진입을 상단바 상태로 이관하고 상단 액션 밀도 축소
  * 2026.05.29  임도헌   Modified  상단 옵션 메뉴에 방송국 이동 액션 추가
  * 2026.05.29  임도헌   Modified  모바일 옵션 메뉴 판정과 모바일/데스크톱 채팅 진입점 분리
+ * 2026.09.03  임도헌   Modified  방송 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
@@ -202,6 +203,7 @@ export default function StreamTopbar({
         <div className="flex items-center gap-2">
           <BackButton
             fallbackHref={backFallbackHref}
+            preferFallback
             variant="appbar"
             className="h-10 w-10 rounded-lg px-0 lg:h-11 lg:w-11 lg:rounded-xl"
           />

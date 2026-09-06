@@ -28,6 +28,9 @@
  * 2026.05.30  임도헌   Modified  모달 상세 상단 닫기/액션바 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.06.01  임도헌   Modified  제품 모달 닫기 버튼의 배경과 hover 톤 조정
  * 2026.06.12  임도헌   Modified  채팅 왕복 후 모달 닫기 시 returnTo replace로 이전 히스토리 재진입 방지
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.24  임도헌   Modified  relay가 재오픈한 모달에서 편집 복귀 refresh 신호를 소비하도록 보강
+ * 2026.08.27  임도헌   Modified  인터셉트 상세의 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 "use client";
 
@@ -45,6 +48,7 @@ import {
   consumeNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -64,26 +68,17 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // Body 스크롤 잠금
+  // 인터셉트 상세가 열린 동안 배경 목록의 스크롤을 잠근다.
   useEffect(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
     lockBodyScroll();
     return () => {
       unlockBodyScroll();
-      previousFocusRef.current?.focus?.();
     };
   }, []);
 
-  // 초기 포커스 이동 (접근성)
   useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    // modal-edit 저장 후 기존 모달 상세로 back 복귀했거나 fallback으로 재오픈된 상세만
-    // 세션 플래그를 1회 소비해 최신 데이터로 다시 동기화.
+    // modal-edit 저장 후 목록 relay가 새로 연 모달만 단발성 신호를 소비해 최신화한다.
     if (
       !consumeNavigationRefresh(
         NAVIGATION_REFRESH_SCOPES.PRODUCT_MODAL,
@@ -92,6 +87,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     ) {
       return;
     }
+
     router.refresh();
   }, [props.product.id, router]);
 
@@ -101,6 +97,13 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
     router.replace(returnTo);
   };
 
+  useModalFocus({
+    open: true,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: handleOverlayClick,
+  });
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
@@ -109,7 +112,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="제품 상세"
+        aria-label="상품 상세"
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
@@ -125,6 +128,7 @@ export default function ProductDetailModalContainer(props: ProductDetailProps) {
           <CloseButton
             fallbackHref="/products"
             returnTo={returnTo}
+            closeOnEscape={false}
             className="bg-surface-dim/45 text-muted/80 hover:bg-surface-dim hover:text-primary active:bg-border/50 dark:bg-surface-dim/35 dark:hover:bg-surface-dim/70"
           />
           <div className="flex items-center gap-1">

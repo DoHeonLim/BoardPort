@@ -43,6 +43,8 @@
  * 2026.05.28  임도헌   Modified  모바일 플레이어와 정보 패널을 화면 폭에 맞게 정리
  * 2026.05.29  임도헌   Modified  셸 상태 기준으로 모바일 방송 정보 노출, 높이 제한, 스크롤 기준 정리
  * 2026.06.17  임도헌   Modified  팔로우 CTA가 pending 동안 선반영 상태를 유지하도록 opacity/text 처리 정리
+ * 2026.08.21  임도헌   Modified  원본 Live Input UID 대신 단기 playback token으로 라이브 재생
+ * 2026.09.02  임도헌   Modified  상태 오버레이 뒤에서 보이지 않는 썸네일 배경 요청 제거
  * ===============================================================================================
  * StreamDetail (방송 상세) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - StreamStatusOverlay.tsx: 상태에 따라 플레이어 위에 노출되는 공통 상태 오버레이
@@ -96,7 +98,7 @@ interface StreamDetailProps {
  * @returns 상세 화면에서 사용할 StreamStatus
  */
 function normalizeStreamStatus(status?: StreamStatus | string | null) {
-  return ((status?.toUpperCase?.() ?? "DISCONNECTED") as StreamStatus);
+  return (status?.toUpperCase?.() ?? "DISCONNECTED") as StreamStatus;
 }
 
 /**
@@ -106,7 +108,7 @@ function normalizeStreamStatus(status?: StreamStatus | string | null) {
  * - 모바일(기본 숨김)과 데스크톱(기본 펼침) 화면 크기에 따른 정보 패널 초기 상태 자동 구성
  * - Cloudflare iframe 기반 플레이어 위에는 `StreamStatusOverlay`만 배치하고, 모바일 정보 노출은 셸 상태로 제어
  * - 셸에서 동기화한 `live-status` 상태를 props로 받아 새로고침 없이 iframe 렌더 조건을 갱신
- * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 썸네일/검은 배경 fallback으로 전환해 상세 초기 비용 완화
+ * - 실제 라이브(CONNECTED) 상태에서만 iframe을 붙이고, 그 외 상태는 검은 배경과 상태 오버레이로 전환해 불필요한 미디어 요청 방지
  * - 모바일은 cross-origin iframe 터치 레이어와 충돌하지 않도록 별도 플레이어 버튼 없이 상세 정보 패널을 제어
  * - 정보 패널 안에서는 제목, 태그, 스트리머 행, 설명, 소유자 전용 송출 정보를 조건에 맞게 렌더링
  * - owner는 모바일에서도 방송 정보 패널을 열면 RTMP URL/스트림 키 확인 가능
@@ -180,20 +182,12 @@ export default function StreamDetail({
         )}
         onClick={handlePlayerClick}
       >
-        {/* CONNECTED일 때만 실제 플레이어를 붙이고, 나머지는 fallback 썸네일/배경으로 유지 */}
+        {/* CONNECTED일 때만 플레이어를 붙이고, 나머지는 상태 오버레이용 검은 배경 유지 */}
         {(() => {
           if (!shouldRenderLivePlayer) {
-            if (stream.thumbnail) {
-              return (
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${stream.thumbnail})` }}
-                  aria-hidden="true"
-                />
-              );
-            }
-
-            return <div className="absolute inset-0 bg-black" aria-hidden="true" />;
+            return (
+              <div className="absolute inset-0 bg-black" aria-hidden="true" />
+            );
           }
 
           const DOMAIN = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
@@ -209,7 +203,14 @@ export default function StreamDetail({
             muted: "1",
             preload: "auto",
           });
-          const src = `${DOMAIN}/${stream.stream_id}/iframe?${params.toString()}`;
+          if (!stream.playbackId) {
+            return (
+              <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-red-300">
+                재생 권한을 확인할 수 없습니다.
+              </div>
+            );
+          }
+          const src = `${DOMAIN}/${stream.playbackId}/iframe?${params.toString()}`;
           return (
             <iframe
               title={`Live stream player`}

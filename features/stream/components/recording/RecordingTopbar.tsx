@@ -22,6 +22,9 @@
  * 2026.04.24  임도헌   Modified  내 프로필 방송국에서 진입한 녹화 삭제도 back + refresh 복귀 대상으로 포함
  * 2026.04.24  임도헌   Modified  navigation refresh helper 기준으로 녹화 삭제 후 back 복귀 플래그 기록 중복을 정리
  * 2026.06.22  임도헌   Modified  녹화 삭제 후 채널/목록 React Query 캐시에서 삭제 항목을 즉시 제거
+ * 2026.08.21  임도헌   Modified  원본 Live Input UID를 삭제 요청에서 제거하고 서버 소유권 판정만 사용
+ * 2026.08.28  임도헌   Modified  녹화 삭제 함수 JSDoc 보강
+ * 2026.09.03  임도헌   Modified  다시보기 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
  */
 
 "use client";
@@ -83,7 +86,6 @@ interface RecordingTopbarProps {
   isOwner?: boolean;
   /** 뒤로가기/삭제 완료 후 돌아갈 내부 경로. 기본값은 다시보기 목록이다. */
   backHref?: string;
-  liveInputUid?: string | null;
   /** 방송 카테고리 표시용 라벨 */
   categoryLabel?: string | null;
   categoryIcon?: string | null;
@@ -107,7 +109,6 @@ export default function RecordingTopbar({
   avatar,
   isOwner,
   backHref = "/streams",
-  liveInputUid,
   categoryLabel,
   categoryIcon,
   preferHistoryBack = false,
@@ -152,28 +153,20 @@ export default function RecordingTopbar({
     });
   };
 
+  /** 녹화를 삭제하고 목록 캐시에서 제거한 뒤 안전한 진입 문맥으로 복귀한다. */
   const handleDelete = async () => {
-    if (!liveInputUid) {
-      toast.error("삭제할 녹화 정보를 찾을 수 없습니다.");
-      return;
-    }
-
     try {
       setIsDeleting(true);
-      const res = await fetch(
-        `/api/streams/${broadcastId}/delete?uid=${encodeURIComponent(liveInputUid)}`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        }
-      );
+      const res = await fetch(`/api/streams/${broadcastId}/delete`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
         toast.error(
-          data?.error ??
-            "녹화 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+          data?.error ?? "녹화 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
         );
         return;
       }
@@ -191,7 +184,10 @@ export default function RecordingTopbar({
       if (canReturnWithHistory) {
         // 삭제 후에는 기존 목록/채널/프로필 히스토리 엔트리로 돌아가고,
         // 복귀 화면에서만 1회 router.refresh()를 실행해 stale 목록 보정
-        markNavigationRefresh(NAVIGATION_REFRESH_SCOPES.RECORDING_LIST, backHref);
+        markNavigationRefresh(
+          NAVIGATION_REFRESH_SCOPES.RECORDING_LIST,
+          backHref
+        );
         router.back();
         return;
       }
@@ -220,6 +216,7 @@ export default function RecordingTopbar({
         <div className="flex items-center gap-3 min-w-0">
           <BackButton
             fallbackHref={backHref}
+            preferFallback
             variant="appbar"
             className="px-0"
           />
@@ -248,7 +245,9 @@ export default function RecordingTopbar({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              aria-label={isOwner ? "녹화 관리 메뉴 열기" : "다시보기 옵션 열기"}
+              aria-label={
+                isOwner ? "녹화 관리 메뉴 열기" : "다시보기 옵션 열기"
+              }
               aria-expanded={menuOpen}
               aria-haspopup={isMobile ? "dialog" : "menu"}
               className="appbar-icon-btn"
@@ -291,7 +290,8 @@ export default function RecordingTopbar({
                       role="menuitem"
                       className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
                     >
-                      <ExclamationTriangleIcon className="size-4" /> 다시보기 신고
+                      <ExclamationTriangleIcon className="size-4" /> 다시보기
+                      신고
                     </button>
                   </>
                 )}

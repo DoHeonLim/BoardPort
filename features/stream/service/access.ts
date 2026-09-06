@@ -13,11 +13,13 @@
  * 2026.01.23  임도헌   Merged    checkBroadcastAccess, unlockPrivateBroadcast, getViewerRole 통합 및 순수 함수화
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.05.08  임도헌   Modified  외부 사용이 없는 접근 제한 내부 타입 export 제거
+ * 2026.08.21  임도헌   Modified  방송·VOD의 차단/팔로우/PRIVATE 언락을 통합 판정하는 공용 권한 서비스 추가
  */
 
 import "server-only";
 import { compare } from "bcrypt";
 import db from "@/lib/db";
+import { checkBlockRelation } from "@/features/user/service/block";
 import type {
   StreamVisibility,
   ViewerRole,
@@ -33,8 +35,48 @@ const EXCLUSION = {
 type ExclusionReason = (typeof EXCLUSION)[keyof typeof EXCLUSION];
 
 type AccessResult =
-  | { allowed: true; reason: null }
-  | { allowed: false; reason: ExclusionReason };
+  { allowed: true; reason: null } | { allowed: false; reason: ExclusionReason };
+
+export type StreamUnlockState =
+  { unlockedBroadcastIds?: unknown } | null | undefined;
+
+export type StreamAccessDeniedReason =
+  "NOT_FOUND" | "BLOCKED" | ExclusionReason;
+
+export interface BroadcastAccessSubject {
+  broadcastId: number;
+  ownerId: number;
+  ownerUsername: string;
+  visibility: StreamVisibility;
+  liveInputUid: string;
+}
+
+export interface VodAccessSubject extends BroadcastAccessSubject {
+  vodId: number;
+  providerAssetId: string;
+}
+
+export type StreamAccessDecision<T> =
+  | { allowed: true; reason: null; role: ViewerRole; subject: T }
+  | {
+      allowed: false;
+      reason: StreamAccessDeniedReason;
+      role: ViewerRole;
+      subject: T | null;
+    };
+
+export class StreamAccessError extends Error {
+  constructor(public readonly reason: StreamAccessDeniedReason) {
+    super(`STREAM_ACCESS_${reason}`);
+    this.name = "StreamAccessError";
+  }
+}
+
+/** 서비스 계층에서 거부 결과를 놓치지 않도록 허용된 subject만 반환한다. */
+export function requireStreamAccess<T>(decision: StreamAccessDecision<T>): T {
+  if (!decision.allowed) throw new StreamAccessError(decision.reason);
+  return decision.subject;
+}
 
 function assertUnreachable(x: never): never {
   throw new Error(`Unreachable visibility case: ${String(x)}`);
@@ -126,6 +168,162 @@ export async function checkBroadcastAccess(
   return checkBroadcastAccessPure(stream, role, {
     isPrivateUnlocked: opts.isPrivateUnlocked,
   });
+}
+
+/** 현재 세션 상태에 PRIVATE 방송 해제 권한이 기록돼 있는지 확인한다. */
+function isUnlockedFromState(state: StreamUnlockState, broadcastId: number) {
+  const value = state?.unlockedBroadcastIds;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return (value as Record<string, unknown>)[String(broadcastId)] === true;
+}
+
+/** 조회가 끝난 방송 subject에 차단·팔로우·PRIVATE 정책을 일관되게 적용한다. */
+async function authorizeSubject<T extends BroadcastAccessSubject>(
+  subject: T,
+  viewerId: number | null,
+  unlockState?: StreamUnlockState
+): Promise<StreamAccessDecision<T>> {
+  if (viewerId === subject.ownerId) {
+    return { allowed: true, reason: null, role: "OWNER", subject };
+  }
+
+  const [role, isBlocked] = await Promise.all([
+    getViewerRole(viewerId, subject.ownerId),
+    viewerId
+      ? checkBlockRelation(viewerId, subject.ownerId)
+      : Promise.resolve(false),
+  ]);
+
+  if (isBlocked) {
+    return { allowed: false, reason: "BLOCKED", role, subject };
+  }
+
+  const access = checkBroadcastAccessPure(
+    { userId: subject.ownerId, visibility: subject.visibility },
+    role,
+    {
+      isPrivateUnlocked: isUnlockedFromState(unlockState, subject.broadcastId),
+    }
+  );
+
+  return access.allowed
+    ? { allowed: true, reason: null, role, subject }
+    : { allowed: false, reason: access.reason, role, subject };
+}
+
+/** Broadcast ID를 기준으로 모든 시청·상호작용 경로의 접근 권한을 판정한다. */
+export async function authorizeBroadcastAccess(
+  broadcastId: number,
+  viewerId: number | null,
+  unlockState?: StreamUnlockState
+): Promise<StreamAccessDecision<BroadcastAccessSubject>> {
+  if (!Number.isSafeInteger(broadcastId) || broadcastId <= 0) {
+    return {
+      allowed: false,
+      reason: "NOT_FOUND",
+      role: "VISITOR",
+      subject: null,
+    };
+  }
+
+  const broadcast = await db.broadcast.findUnique({
+    where: { id: broadcastId },
+    select: {
+      id: true,
+      visibility: true,
+      liveInput: {
+        select: {
+          provider_uid: true,
+          userId: true,
+          user: { select: { username: true } },
+        },
+      },
+    },
+  });
+
+  if (!broadcast) {
+    return {
+      allowed: false,
+      reason: "NOT_FOUND",
+      role: "VISITOR",
+      subject: null,
+    };
+  }
+
+  return authorizeSubject(
+    {
+      broadcastId: broadcast.id,
+      ownerId: broadcast.liveInput.userId,
+      ownerUsername: broadcast.liveInput.user.username,
+      visibility: broadcast.visibility,
+      liveInputUid: broadcast.liveInput.provider_uid,
+    },
+    viewerId,
+    unlockState
+  );
+}
+
+/** VodAsset ID를 부모 Broadcast 정책으로 해석해 시청·댓글·좋아요 권한을 판정한다. */
+export async function authorizeVodAccess(
+  vodId: number,
+  viewerId: number | null,
+  unlockState?: StreamUnlockState
+): Promise<StreamAccessDecision<VodAccessSubject>> {
+  if (!Number.isSafeInteger(vodId) || vodId <= 0) {
+    return {
+      allowed: false,
+      reason: "NOT_FOUND",
+      role: "VISITOR",
+      subject: null,
+    };
+  }
+
+  const vod = await db.vodAsset.findUnique({
+    where: { id: vodId },
+    select: {
+      id: true,
+      provider_asset_id: true,
+      broadcast: {
+        select: {
+          id: true,
+          visibility: true,
+          liveInput: {
+            select: {
+              provider_uid: true,
+              userId: true,
+              user: { select: { username: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!vod) {
+    return {
+      allowed: false,
+      reason: "NOT_FOUND",
+      role: "VISITOR",
+      subject: null,
+    };
+  }
+
+  return authorizeSubject(
+    {
+      vodId: vod.id,
+      providerAssetId: vod.provider_asset_id,
+      broadcastId: vod.broadcast.id,
+      ownerId: vod.broadcast.liveInput.userId,
+      ownerUsername: vod.broadcast.liveInput.user.username,
+      visibility: vod.broadcast.visibility,
+      liveInputUid: vod.broadcast.liveInput.provider_uid,
+    },
+    viewerId,
+    unlockState
+  );
 }
 
 /**

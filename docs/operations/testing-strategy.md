@@ -6,13 +6,16 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 
 ### Vitest
 
-빠르게 반복 가능한 순수 로직과 cache 변환은 Vitest로 검증합니다.
+빠르게 반복 가능한 순수 로직과 cache 변환은 기본 Node 환경의 Vitest로 검증합니다. 실제 DOM 의미 구조가 필요한 React 컴포넌트 테스트만 파일 단위 `jsdom` 환경을 사용해 기존 테스트 실행 비용을 유지합니다.
 
 - `returnTo` / callback URL 정규화
 - 상품/게시글 작성 폼 입력 스키마
 - TanStack Query infinite cache의 삭제 항목과 stale cursor 정리
 - 알림 타입 설정, Push 허용 여부, quiet hours 정책
 - DTO 변환, 상태 전이, fallback 계산 유틸
+- 공용 폼 필드의 label·도움말·검증 오류 ARIA 연결
+
+CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전체 source를 분모에 포함한 V8 coverage를 측정합니다. 2026-08-28 기준선은 Statements 11.50%, Branches 10.82%, Functions 10.00%, Lines 11.88%이며 CI 하한은 각각 11%, 10%, 9%, 11%입니다. 낮은 전체 수치를 숨기지 않고 시작점으로 기록하며, 단순 percentage를 맞추기 위한 의미 없는 테스트보다 인증·권한·상태 전이·cache·공용 UI처럼 회귀 영향이 큰 경로를 우선 보강합니다. 릴리즈 전에는 coverage 하락 여부와 새 핵심 로직의 회귀 테스트 포함 여부를 함께 리뷰합니다.
 
 ### Playwright
 
@@ -36,6 +39,7 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 ## 3. 현재 자동화 범위
 
 - Vitest 설정과 npm script 추가
+- React Testing Library·jsdom 기반 컴포넌트 접근성 테스트 환경과 V8 coverage 측정 추가
 - `sanitizeCallbackUrl()` 회귀 테스트
 - 로그인/회원가입/온보딩/SMS/비밀번호 재설정 폼 스키마 회귀 테스트
 - 상품/게시글 폼 스키마 회귀 테스트
@@ -46,6 +50,14 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 - 방송/VOD 접근 플래그, 썸네일 URL, 카드 직렬화 회귀 테스트
 - 보드게임 도감 필터 정규화와 목록 URL 생성 회귀 테스트
 - 신고 제재 추천 정책, 관리자 차트 집계, 신고/감사 로그 추적 URL 회귀 테스트
+- 신고 처리 단일 claim·멱등 재시도·post-commit outbox 회귀 테스트
+- PostgreSQL 16 기반 신고 처리 상태 제약·동시 claim·rollback migration 통합 테스트
+- 상품·구매 문의자별 채팅방 생성과 메시지 요청 ID 멱등성 회귀 테스트
+- PostgreSQL 16 기반 중복 채팅방 병합·메시지 요청 ID·PENDING 약속 단일 제약 migration 통합 테스트
+- 상품 예약·판매완료·판매중 복귀의 관찰 상태 기반 CAS와 commit 이후 실패 격리 회귀 테스트
+- PostgreSQL 16 기반 거래 상대 배타·ID/시각 쌍·판매자 제외 migration 통합 테스트
+- Cloudflare 웹훅 raw payload 중복 선점·provider 시각 순서·Broadcast 세션 VOD 매칭·outbox 재시도 회귀 테스트
+- PostgreSQL 16 기반 Stream webhook provider 시각 backfill·inbox/outbox 제약·migration 재실행 통합 테스트
 - Playwright 의존성과 script 준비
 - 로그인 전 메인, 로그인, 오프라인 공개 페이지 smoke 테스트
 - 비로그인 보호 경로의 로그인 redirect와 `callbackUrl` 보존 smoke 테스트
@@ -79,7 +91,7 @@ npm run install:e2e:deps
 npm run install:e2e
 ```
 
-로컬에서 Playwright 테스트를 실행할 때는 별도 터미널에서 `npm run dev:e2e`를 먼저 실행한 뒤 `npm run test:e2e`를 실행합니다. 개발 서버 lifecycle은 테스트 러너가 자동으로 관리하지 않고, 테스트 자체는 이미 떠 있는 `http://127.0.0.1:3000`을 대상으로 검증합니다.
+로컬에서 빠르게 Playwright 테스트를 반복할 때는 별도 터미널에서 `npm run dev:e2e`를 먼저 실행합니다. 배포 모드까지 확인하려면 `npm run build` 후 `npm run start:e2e`를 사용합니다. 서버 lifecycle은 테스트 러너가 자동으로 관리하지 않고, 테스트 자체는 이미 떠 있는 `http://127.0.0.1:3000`을 대상으로 검증합니다. GitHub E2E workflow는 항상 production build와 `next start` 조합을 사용합니다.
 
 `npm run test:e2e`는 실행 전 로컬 서버 연결을 확인합니다. 서버가 켜져 있지 않으면 Playwright 테스트를 시작하기 전에 실행 순서를 안내하고 종료합니다.
 

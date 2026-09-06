@@ -26,6 +26,9 @@
  * 2026.03.25  임도헌   Modified  인증 도움 링크와 소셜 섹션 위계를 다듬어 기본 로그인 흐름이 먼저 읽히도록 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 보조 링크 타이포 무게를 정리
  * 2026.05.12  임도헌   Modified  보조 링크 클릭 시 input blur 검증으로 이동이 지연되지 않도록 처리
+ * 2026.08.27  임도헌   Modified  화면 구성을 유지하면서 이메일·비밀번호 입력에 접근 가능한 숨김 label 추가
+ * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 회원가입·비밀번호 찾기 링크에서 생략
+ * 2026.09.05  임도헌   Modified  명시적 라벨과 제출 후 검증 방식으로 인증 폼 접근성 보강
  */
 "use client";
 
@@ -45,6 +48,7 @@ import { loginSchema, type LoginSchema } from "@/features/auth/schemas/login";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
+import { buildAuthFlowHref } from "@/features/auth/utils/redirect";
 
 type FormData = LoginSchema;
 
@@ -70,13 +74,15 @@ export default function LoginForm({
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(loginSchema),
-    mode: "onBlur", // UX: 입력 중엔 에러 숨기고 포커스 이동 시 검증
+    mode: "onSubmit",
     reValidateMode: "onChange",
   });
 
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const hasShownInitialErrorRef = useRef(false);
+  const forgotPasswordHref = buildAuthFlowHref("/forgot-password", callbackUrl);
+  const createAccountHref = buildAuthFlowHref("/create-account", callbackUrl);
 
   // 소셜 로그인 실패 등 URL에서 전달된 초기 인증 에러를 최초 1회만 토스트로 안내
   useEffect(() => {
@@ -140,6 +146,7 @@ export default function LoginForm({
       <div className="flex flex-col gap-form-gap">
         <Input
           {...register("email")}
+          label="이메일 주소"
           type="email"
           placeholder="이메일 주소"
           autoComplete="email"
@@ -148,6 +155,7 @@ export default function LoginForm({
         />
         <Input
           {...register("password")}
+          label="비밀번호"
           type="password"
           passwordToggle
           placeholder="비밀번호"
@@ -159,7 +167,7 @@ export default function LoginForm({
 
       <div className="-mt-0.5 text-right">
         <Link
-          href={`/forgot-password?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          href={forgotPasswordHref}
           onPointerDown={preventPointerDownFocus}
           className="focus-ring-soft rounded-md px-1 py-0.5 text-sm font-medium text-muted underline-offset-4 transition-colors hover:text-primary hover:underline"
         >
@@ -187,9 +195,7 @@ export default function LoginForm({
         <div className="pt-1 text-center text-sm text-muted">
           계정이 없으신가요?{" "}
           <Link
-            href={`/create-account?callbackUrl=${encodeURIComponent(
-              callbackUrl
-            )}`}
+            href={createAccountHref}
             onPointerDown={preventPointerDownFocus}
             className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
           >

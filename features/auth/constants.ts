@@ -12,6 +12,7 @@
  * 2026.04.02  임도헌   Modified  이메일 인증/비밀번호 재설정/인증 후 복귀 정책 상수 추가
  * 2026.05.16  임도헌   Modified  타입 전용 import를 명시해 런타임 의존성 제거
  * 2026.06.27  임도헌   Modified  SMS 인증번호 TTL, 재전송 쿨다운, 인증 IP 제한 상수 추가
+ * 2026.08.23  임도헌   Modified  로그인·SMS 검증·메일 요청·PRIVATE 방송 실패 제한 정책 추가
  */
 
 import type { EmailVerifyState } from "@/features/auth/types";
@@ -65,6 +66,22 @@ export const SIGNUP_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 /** 같은 IP에서 허용하는 회원가입 제출 수 */
 export const SIGNUP_RATE_LIMIT_MAX = 10;
 
+/** 로그인 실패 제한 정책값 */
+export const LOGIN_FAILURE_RATE_LIMIT_MAX = 5;
+export const LOGIN_FAILURE_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+/** SMS 인증번호 대입 실패 제한 정책값 */
+export const SMS_VERIFY_FAILURE_RATE_LIMIT_MAX = 5;
+export const SMS_VERIFY_FAILURE_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+/** PRIVATE 방송 비밀번호 대입 실패 제한 정책값 */
+export const PRIVATE_STREAM_PASSWORD_RATE_LIMIT_MAX = 5;
+export const PRIVATE_STREAM_PASSWORD_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+/** 이메일 발송형 인증 요청 제한 정책값 */
+export const AUTH_EMAIL_REQUEST_RATE_LIMIT_MAX = 5;
+export const AUTH_EMAIL_REQUEST_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
 /** 인증 관련 에러 메시지 모음 */
 export const AUTH_ERRORS = {
   NOT_LOGGED_IN: "로그인이 필요합니다.",
@@ -89,6 +106,7 @@ export const AUTH_ERRORS = {
 
   // Signup abuse control
   SIGNUP_RATE_LIMITED: "요청이 많습니다. 잠시 후 다시 시도해주세요.",
+  AUTH_RATE_LIMITED: "인증 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
 
   // GitHub
   GITHUB_TOKEN_FAILED: "GitHub 인증 토큰을 받아오지 못했습니다.",

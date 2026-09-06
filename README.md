@@ -16,7 +16,7 @@ BoardPort는 범용 중고거래 서비스에서 분리되기 쉬운 **상품 �
 | 개발 기간        | 2024.10 - 2026.07                                                                                                |
 | 핵심 사용자 흐름 | 도감 탐색 → 상품/콘텐츠 확인 → 채팅·약속 → 거래·후기 → 라이브/VOD                                                |
 | 담당 범위        | Frontend, Backend, Data Modeling, Realtime, Media, PWA, Admin, CI/CD                                             |
-| 핵심 스택        | Next.js 14 App Router, React 18, TypeScript, Prisma 7, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
+| 핵심 스택        | Next.js 16 App Router, React 19, TypeScript, Prisma 7, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
 
 ## Key Engineering Problems
 
@@ -153,11 +153,11 @@ BoardPort의 주요 도메인과 사용자 흐름을 한 번에 확인할 수 �
 
 | Category           | Technologies                                                                                          |
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
-| Frontend           | Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Framer Motion, Floating UI, Apache ECharts |
+| Frontend           | Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, Framer Motion, Floating UI, Apache ECharts |
 | State              | TanStack Query v5, Zustand                                                                            |
 | Backend / Data     | Server Actions, Route Handlers, Prisma 7, PostgreSQL, iron-session                                    |
 | Realtime / Media   | Supabase Realtime, Cloudflare Stream, Cloudflare Images                                               |
-| PWA / Notification | next-pwa, Web Push API, Service Worker                                                                |
+| PWA / Notification | Serwist, Web Push API, Service Worker                                                                 |
 | External APIs      | Kakao OAuth, Kakao Maps/Local API, CoolSMS, Resend                                                    |
 | Test / Delivery    | Vitest, Playwright, GitHub Actions, Vercel                                                            |
 
@@ -234,17 +234,17 @@ npm run test:e2e
 
 실제 값은 `.env` 또는 Vercel Environment Variables에 설정하고 저장소에는 커밋하지 않습니다.
 
-| Group          | Variables                                                                                                                                                                                       |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| App / Security | `NEXT_PUBLIC_APP_URL`, `COOKIE_PASSWORD`, `RATE_LIMIT_SALT`, `CRON_SECRET`                                                                                                                      |
-| Database       | `DATABASE_URL`, `DIRECT_URL`                                                                                                                                                                    |
-| Supabase       | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY`                                                                                                                                   |
-| OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`                                                                                      |
-| SMS            | `COOLSMS_API_KEY`, `COOLSMS_API_SECRET`, `COOLSMS_SENDER_NUMBER`                                                                                                                                |
-| Email          | `RESEND_API_KEY`                                                                                                                                                                                |
-| Cloudflare     | `NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`, `NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_WEBHOOK_SECRET` |
-| Push           | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                                                                                                                             |
-| Maps           | `NEXT_PUBLIC_KAKAO_MAP_API_KEY`                                                                                                                                                                 |
+| Group          | Variables                                                                                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| App / Security | `NEXT_PUBLIC_APP_URL`, `COOKIE_PASSWORD`, `RATE_LIMIT_SALT`, `CRON_SECRET`                                                                                                                                                                                               |
+| Database       | `DATABASE_URL`, `DIRECT_URL`                                                                                                                                                                                                                                             |
+| Supabase       | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLIC_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_REALTIME_SIGNING_KEY_JWK`                                                                                                                                                |
+| OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`                                                                                                                                                               |
+| SMS            | `COOLSMS_API_KEY`, `COOLSMS_API_SECRET`, `COOLSMS_SENDER_NUMBER`                                                                                                                                                                                                         |
+| Email          | `RESEND_API_KEY`                                                                                                                                                                                                                                                         |
+| Cloudflare     | `NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`, `NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_WEBHOOK_SECRET`, `CLOUDFLARE_STREAM_SIGNING_KEY_ID`, `CLOUDFLARE_STREAM_SIGNING_KEY_JWK` |
+| Push           | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                                                                                                                                                                                                                      |
+| Maps           | `NEXT_PUBLIC_KAKAO_MAP_API_KEY`                                                                                                                                                                                                                                          |
 
 </details>
 

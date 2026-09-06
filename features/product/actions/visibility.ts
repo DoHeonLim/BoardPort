@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.09  임도헌   Created   판매완료 상품 공개 노출 제어 액션 추가
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -34,7 +35,7 @@ export async function toggleProductHiddenAction(
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.PRODUCT_DETAIL(productId));
+  revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
   revalidatePath("/products");
   revalidatePath("/profile");
   revalidatePath(`/products/view/${productId}`);

@@ -1,5 +1,15 @@
 name: E2E
 
+# History
+# 2026.08.21: VOD signed playback용 임시 RSA key와 Next server 실패 로그 수집 추가
+# 2026.08.21: private Realtime JWT·서버 발신 secret 환경변수 추가
+# 2026.08.21: Realtime JWT 환경변수를 ES256 private JWK 기준으로 전환
+# 2026.08.23: E2E seed 전에 공유 테스트 DB migration 적용 추가
+# 2026.08.28: Next.js production build와 next start를 대상으로 E2E 실행
+# 2026.08.28: Production 로그인 rate limit 검증용 실행별 salt 추가
+# 2026.08.28: Production 병렬 조회를 재현하도록 PrismaPg Pool 크기 명시
+# 2026.08.30: Production 서비스 워커의 실제 offline 문서 fallback 검증 활성화
+
 # develop 통합 PR과 master 릴리즈 PR에서 seed 기반 회귀 확인
 on:
   pull_request:
@@ -25,12 +35,18 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
       DIRECT_URL: ${{ secrets.E2E_DIRECT_URL }}
+      DATABASE_POOL_MAX: "5"
       COOKIE_PASSWORD: ${{ secrets.E2E_COOKIE_PASSWORD }}
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      E2E_EXPECT_SERVICE_WORKER: "1"
       CRON_SECRET: ci-cron-secret
+      # Production 로그인은 별도 HMAC salt를 강제하므로 실행별 테스트 값을 주입
+      RATE_LIMIT_SALT: boardport-e2e-rate-limit-salt-${{ github.run_id }}-${{ github.run_attempt }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLIC_KEY: ${{ secrets.E2E_NEXT_PUBLIC_SUPABASE_PUBLIC_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+      SUPABASE_REALTIME_SIGNING_KEY_JWK: ${{ secrets.E2E_SUPABASE_REALTIME_SIGNING_KEY_JWK }}
       KAKAO_CLIENT_ID: ci-kakao-client-id
       KAKAO_CLIENT_SECRET: ci-kakao-client-secret
       KAKAO_REDIRECT_URI: http://127.0.0.1:3000/kakao/callback
@@ -46,8 +62,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ci-cloudflare-api-token
       CLOUDFLARE_WEBHOOK_SECRET: ci-cloudflare-webhook-secret
       CLOUDFLARE_STREAM_WEBHOOK_SECRET: ci-cloudflare-stream-webhook-secret
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BDQxa9WYcbzWsT2ehj226zkdh9l4lOFuMIQIGalUmPoZVOdvQIV9-bDDHbxPeO5mdi681SSOLtj-jFUZwju9e-s
-      VAPID_PRIVATE_KEY: 5PzSaFz9DSLMyg1yptrbwN6gzpYv3zmukFvvrU-hJ9g
       NEXT_PUBLIC_KAKAO_MAP_API_KEY: ci-kakao-map-api-key
     steps:
       - name: Checkout
@@ -60,6 +74,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      # E2E seed UID는 실제 Cloudflare 자산이 아니므로 Production private JWK를
+      # 복사하지 않고 workflow 실행마다 token 생성 전용 RSA key를 새로 만든다.
+      - name: Generate E2E signing keys
+        run: node scripts/generate-e2e-stream-signing-key.mjs
+
       - name: Validate E2E secrets
         run: |
           test -n "$DATABASE_URL"
@@ -67,11 +86,19 @@ jobs:
           test -n "$COOKIE_PASSWORD"
           test -n "$NEXT_PUBLIC_SUPABASE_URL"
           test -n "$NEXT_PUBLIC_SUPABASE_PUBLIC_KEY"
+          test -n "$SUPABASE_SECRET_KEY"
+          test -n "$SUPABASE_REALTIME_SIGNING_KEY_JWK"
           test -n "$NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH"
           test -n "$NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN"
+          test -n "$CLOUDFLARE_STREAM_SIGNING_KEY_ID"
+          test -n "$CLOUDFLARE_STREAM_SIGNING_KEY_JWK"
 
       - name: Install dependencies
         run: npm ci
+
+      # 앱 코드와 seed가 항상 같은 Prisma schema를 사용하도록 공유 테스트 DB를 먼저 갱신
+      - name: Apply E2E database migrations
+        run: npx prisma migrate deploy
 
       - name: Install Playwright system dependencies
         run: npm run install:e2e:deps
@@ -79,10 +106,14 @@ jobs:
       - name: Install Playwright browsers
         run: npm run install:e2e
 
-      # test:e2e는 이미 떠 있는 dev server를 대상으로 하므로 백그라운드에서 Next 실행
+      # 개발 서버의 느슨한 동작이 배포 오류를 가리지 않도록 실제 production 산출물을 생성
+      - name: Build E2E application
+        run: npm run build
+
+      # test:e2e는 이미 떠 있는 production server를 대상으로 하므로 백그라운드에서 Next 실행
       - name: Start E2E server
         run: |
-          npm run dev:e2e > /tmp/boardport-next.log 2>&1 &
+          npm run start:e2e > /tmp/boardport-next.log 2>&1 &
           echo $! > /tmp/boardport-next.pid
 
       # 서버 준비 전에 Playwright가 시작되지 않도록 health check 대기
@@ -118,5 +149,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: playwright-results
-          path: test-results
+          path: |
+            test-results
+            /tmp/boardport-next.log
           if-no-files-found: ignore

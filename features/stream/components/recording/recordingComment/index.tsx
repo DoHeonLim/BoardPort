@@ -15,6 +15,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.17  임도헌   Modified  댓글 섹션을 패널형 구조로 정리해 녹화 상세 페이지 톤 일관성 보강
  * 2026.03.21  임도헌   Modified  댓글 섹션 외곽선을 border-border-subtle 톤으로 낮춰 상세 카드 밀도를 정리
+ * 2026.08.13  임도헌   Modified  다시보기 댓글 작성 폼에 현재 조회자 ID 전달
  * ===============================================================================================
  * RecordingComment (녹화본 댓글) 기능을 구성하는 컴포넌트들을 분리해 모아둔 디렉토리
  *
@@ -50,7 +51,7 @@ export default function RecordingComment({
 }: RecordingCommentProps) {
   return (
     <div className="w-full rounded-2xl border border-border-subtle bg-surface p-4 shadow-sm sm:p-5">
-      <RecordingCommentForm vodId={vodId} />
+      <RecordingCommentForm vodId={vodId} viewerId={currentUserId} />
 
       <Suspense fallback={<CommentSkeleton />}>
         <RecordingCommentList vodId={vodId} currentUserId={currentUserId} />

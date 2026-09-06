@@ -9,6 +9,7 @@
  * 2026.04.14  임도헌   Modified  클라이언트 island의 책임과 부작용 범위가 드러나도록 함수 상단 JSDoc 설명을 보강
  * 2026.04.24  임도헌   Modified  navigation refresh helper로 제품 상세 refresh flag 소비 로직을 단순화
  * 2026.05.03  임도헌   Modified  최근 본 상품 스냅샷에도 연결 보드게임 정보를 함께 저장
+ * 2026.08.27  임도헌   Modified  최근 본 상품에 실제 끌어올리기 노출 시각을 저장하도록 공용 변환 함수 적용
  */
 
 "use client";
@@ -17,6 +18,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ProductDetailType } from "@/features/product/types";
 import {
+  createRecentViewedProductSnapshot,
   removeRecentViewedProduct,
   saveRecentViewedProduct,
 } from "@/features/product/utils/recentViewed";
@@ -48,27 +50,8 @@ export default function ProductDetailClientEffects({
       return;
     }
 
-    // 최근 본 상품의 브라우저 저장소 한정 보관을 위한 서버 본문과의 분리
-    saveRecentViewedProduct({
-      id: product.id,
-      title: product.title,
-      price: product.price,
-      created_at: product.created_at.toString(),
-      refreshed_at: product.created_at.toString(),
-      reservation_userId: product.reservation_userId,
-      purchase_userId: product.purchase_userId,
-      views: product.views,
-      bump_count: product.bump_count,
-      game_type: product.game_type,
-      region1: product.region1 ?? null,
-      region2: product.region2 ?? null,
-      region3: product.region3 ?? null,
-      images: product.images,
-      category: product.category,
-      _count: product._count,
-      search_tags: product.search_tags,
-      board_games: product.board_games,
-    });
+    // 최근 본 상품에는 카드 렌더링에 필요한 스냅샷만 브라우저 저장소에 보관
+    saveRecentViewedProduct(createRecentViewedProductSnapshot(product));
   }, [product]);
 
   // 일반 상세 detail-edit back 복귀 시에만 서버 payload 1회 재요청

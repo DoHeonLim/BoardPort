@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 게시글 댓글 조회 API 분리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,9 +14,9 @@ import getSession from "@/lib/session";
 import { getPostCommentsList } from "@/features/post/service/comment";
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -38,7 +39,8 @@ function parseNumberParam(value: string | null): number | undefined {
  * @param context - 게시글 ID route params
  * @returns 게시글 댓글 목록 응답
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const postId = Number(params.id);
 
   if (!Number.isFinite(postId) || postId <= 0) {

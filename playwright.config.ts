@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   브라우저 smoke/E2E 회귀 테스트용 Playwright 설정 추가
  * 2026.07.24  임도헌   Modified  CI/로컬 실행에서 PLAYWRIGHT_BASE_URL을 공통 기준으로 사용
+ * 2026.08.28  임도헌   Modified  CI production 서버와 로컬 선택 실행을 포괄하도록 설명 갱신
  */
 
 import { defineConfig, devices } from "@playwright/test";
@@ -22,7 +23,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   use: {
-    // CI/사용자 지정 주소를 우선하고 로컬 dev:e2e 주소를 fallback으로 사용
+    // CI/사용자 지정 주소를 우선하고 로컬 E2E 서버 주소를 fallback으로 사용
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
     // 실패 재시도 시에만 trace를 남겨 원인 분석 비용 절감
     trace: "on-first-retry",

@@ -17,15 +17,13 @@
  * 2026.05.26  임도헌   Modified  initialData 기반 likeStatus query에 local queryFn을 부여하고 목록 캐시만 재검증
  * 2026.06.07  임도헌   Modified  계정 전환 시 이전 사용자의 VOD 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  * 2026.06.17  임도헌   Modified  낙관 반영 직후 좋아요 버튼이 흐려 보이지 않도록 pending opacity 제거
+ * 2026.08.13  임도헌   Modified  목록 낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
+ * 2026.08.27  임도헌   Modified  재방문 시 새 서버 좋아요 상태를 기존 무기한 cache보다 우선하도록 동기화
  */
 
 "use client";
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   likeRecording,
   dislikeRecording,
@@ -42,6 +40,7 @@ import {
   restoreRecordingListSnapshots,
   updateRecordingListCaches,
 } from "@/features/stream/utils/recordingListCache";
+import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 
 interface RecordingLikeButtonProps {
   isLiked: boolean;
@@ -54,7 +53,7 @@ interface RecordingLikeButtonProps {
  * 녹화본(VOD) 좋아요 버튼 컴포넌트
  *
  * [기능]
- * - 부모로부터 주입된 초기값(`initialIsLiked`, `initialLikeCount`)을 `useQuery`의 `initialData`로 설정하여 서버 상태 동기화(Hydration) 구성
+ * - 부모가 전달한 최신 상태를 기존 상세 cache보다 우선한 뒤 QueryClient와 동기화
  * - `useMutation`의 `onMutate` 단계를 활용한 낙관적 업데이트(Optimistic Update)로 즉각적인 UI 상태 반전 및 피드백 제공
  * - 상세에서 좋아요를 바꾼 뒤 뒤로가도 목록 카드의 좋아요 수와 하트 상태가 유지되도록 다시보기 목록 캐시도 함께 갱신
  * - API 요청 에러 발생 시 `onError`에서 캡처된 이전 상태 스냅샷(`previous`)으로 안전한 롤백(Rollback) 처리
@@ -74,15 +73,10 @@ export default function RecordingLikeButton({
     likeCount: initialLikeCount,
   };
 
-  // 1. 상태 하이드레이션
-  const { data } = useQuery({
+  // 1. 새 서버 상태를 우선 반영한 뒤 mutation이 갱신하는 cache를 구독
+  const data = useServerSnapshotQuery({
     queryKey,
-    queryFn: async () =>
-      queryClient.getQueryData<typeof initialLikeStatus>(queryKey) ??
-      initialLikeStatus,
-    initialData: initialLikeStatus,
-    staleTime: Infinity,
-    enabled: false,
+    snapshot: initialLikeStatus,
   });
 
   // 2. 상태 변경 (Mutation)
@@ -97,10 +91,13 @@ export default function RecordingLikeButton({
     onMutate: async () => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey }),
-        cancelRecordingListQueries(queryClient),
+        cancelRecordingListQueries(queryClient, viewerId),
       ]);
       const previous = queryClient.getQueryData(queryKey);
-      const previousRecordingLists = getRecordingListSnapshots(queryClient);
+      const previousRecordingLists = getRecordingListSnapshots(
+        queryClient,
+        viewerId
+      );
 
       const nextState = {
         isLiked: !data.isLiked,
@@ -112,7 +109,12 @@ export default function RecordingLikeButton({
       queryClient.setQueryData(queryKey, nextState);
 
       // 상세에서 좋아요를 바꾼 뒤 뒤로갈 때 이전 목록 캐시도 같은 상태를 보여주도록 동기화
-      updateRecordingListCaches(queryClient, vodId, () => nextState);
+      updateRecordingListCaches(
+        queryClient,
+        vodId,
+        () => nextState,
+        viewerId
+      );
 
       return { previous, previousRecordingLists };
     },
@@ -123,7 +125,7 @@ export default function RecordingLikeButton({
       restoreRecordingListSnapshots(queryClient, context?.previousRecordingLists);
     },
     onSettled: () => {
-      invalidateRecordingListCaches(queryClient);
+      invalidateRecordingListCaches(queryClient, viewerId);
     },
   });
 

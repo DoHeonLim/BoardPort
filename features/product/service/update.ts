@@ -25,11 +25,18 @@
  * 2026.05.03  임도헌   Modified  상품 수정 시 보드게임 카탈로그 연결 교체 저장 추가
  * 2026.05.03  임도헌   Modified  상품-보드게임 연결 교체 정책 주석 보강
  * 2026.06.18  임도헌   Modified  거래 기준 지역 필수 정책에 맞춰 위치 삭제 저장 경로 제거
+ * 2026.08.21  임도헌   Modified  가격 인하 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
+ * 2026.08.22  임도헌   Modified  상품 이미지 교체 시 MediaAsset 소유권 검증과 제거 자산 정리 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 import "server-only";
 
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  notificationRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import { getBlockedUserIds } from "@/features/user/service/block";
 import { validateUserStatus } from "@/features/user/service/admin";
@@ -41,6 +48,11 @@ import type { ServiceResult } from "@/lib/types";
 import type { ProductDTO } from "@/features/product/types";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
+import {
+  attachOwnedMediaAssets,
+  deleteCloudflareImageAssetsById,
+  detachMissingMediaAssets,
+} from "@/features/media/service/assets";
 
 /**
  * 가격 인하 대상자에게 인앱/푸시 알림 일괄 전송
@@ -100,7 +112,7 @@ async function notifyPriceDrop(params: {
 
       // In-app Broadcast
       tasks.push(
-        supabase.channel(`user-${userId}-notifications`).send({
+        supabase.channel(notificationRealtimeTopic(userId)).send({
           type: "broadcast",
           event: "notification",
           payload: {
@@ -173,7 +185,7 @@ async function notifyPriceDropInChats(
       include: { user: { select: { id: true, username: true, avatar: true } } },
     });
 
-    await supabase.channel(`room-${room.id}`).send({
+    await supabase.channel(productChatRealtimeTopic(room.id)).send({
       type: "broadcast",
       event: "message",
       payload: mapToChatMessage(sysMsg),
@@ -208,13 +220,12 @@ export async function updateProduct(
         userId: true,
         price: true,
         title: true,
-        images: { take: 1, orderBy: { order: "asc" }, select: { url: true } },
         search_tags: { select: { name: true } },
       },
     });
 
     if (!existing) {
-      return { success: false, error: "제품을 찾을 수 없습니다." };
+      return { success: false, error: "상품을 찾을 수 없습니다." };
     }
     if (existing.userId !== userId) {
       return { success: false, error: "수정 권한이 없습니다." };
@@ -247,6 +258,7 @@ export async function updateProduct(
     const removedTags = prevTags.filter((tag) => !nextTags.includes(tag));
     const addedTags = nextTags.filter((tag) => !prevTags.includes(tag));
 
+    let staleImageAssetIds: string[] = [];
     // 2. 트랜잭션 업데이트
     await db.$transaction(async (tx) => {
       // 2-1. 기존 이미지 삭제 (전체 교체 방식)
@@ -289,8 +301,14 @@ export async function updateProduct(
 
       // 교체된 이미지와 애니메이션 메타 재저장
       if (data.photos.length > 0) {
+        const ownedPhotoUrls = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "PRODUCT_IMAGE",
+          urls: data.photos,
+          linkedEntityId: String(productId),
+        });
         await tx.productImage.createMany({
-          data: data.photos.map((url, index) => ({
+          data: ownedPhotoUrls.map((url, index) => ({
             url,
             order: index,
             isAnimated: data.photosAnimated?.[index] ?? false,
@@ -298,6 +316,13 @@ export async function updateProduct(
           })),
         });
       }
+
+      staleImageAssetIds = await detachMissingMediaAssets(tx, {
+        ownerId: userId,
+        purpose: "PRODUCT_IMAGE",
+        linkedEntityId: String(productId),
+        keepUrls: data.photos,
+      });
 
       if (boardGameIds.length > 0) {
         // 기존 연결을 비운 뒤 현재 선택값만 재삽입해 수정 폼과 DB 상태 일치
@@ -331,6 +356,8 @@ export async function updateProduct(
       }
     });
 
+    await deleteCloudflareImageAssetsById(staleImageAssetIds);
+
     // 가격 인하 시 좋아요/채팅 문맥 후처리
     if (isPriceDropped) {
       // 정지 유저를 제외한 찜 유저 조회
@@ -355,7 +382,7 @@ export async function updateProduct(
         productTitle: existing.title,
         oldPrice,
         newPrice: data.price,
-        image: toProductImagePublicUrl(existing.images[0]?.url),
+        image: toProductImagePublicUrl(data.photos[0]),
         recipients: recipientIds,
       });
 
@@ -372,7 +399,7 @@ export async function updateProduct(
     return {
       success: false,
       error:
-        "제품 수정에 실패했습니다. 변경한 항목과 이미지 상태를 확인한 뒤 다시 시도해주세요.",
+        "상품 수정에 실패했습니다. 변경한 항목과 이미지 상태를 확인한 뒤 다시 시도해주세요.",
     };
   }
 }

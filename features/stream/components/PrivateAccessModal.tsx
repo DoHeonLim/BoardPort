@@ -26,6 +26,10 @@
  * 2026.05.19  임도헌   Modified  비공개 방송 입장 비밀번호 입력에 current-password autocomplete를 명시해 브라우저 폼 경고 완화
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소 버튼을 제거해 입장 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  데스크톱 비공개 방송 입력과 입장 CTA를 한 줄 배치로 정리
+ * 2026.08.22  임도헌   Modified  PRIVATE 언락 성공 시 Realtime 권한 JWT 캐시를 폐기해 새 claim 즉시 반영
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.08.28  임도헌   Modified  비공개 방송 접근 제출 함수 JSDoc 보강
+ * 2026.08.30  임도헌   Modified  언락 후 활성 Realtime JWT 캐시만 갱신하는 전용 모듈 사용
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -36,8 +40,10 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { unlockErrorMessage } from "@/features/stream/utils/access";
 import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
+import { invalidateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 interface PrivateAccessModalProps {
@@ -53,6 +59,7 @@ interface PrivateAccessModalProps {
  *
  * - 비밀번호 검증 서버 액션(`unlockPrivateBroadcastAction`) 호출
  * - 성공 시 세션에 언락 정보 저장 및 대상 경로로 replace 복귀
+ * - 성공 시 기존 Realtime JWT를 폐기해 갱신된 PRIVATE 접근 권한 반영
  * - 에러 코드별 적절한 메시지 표시 또는 로그인 페이지 이동
  * - 403 안내 카드와 시각적 톤을 맞춰 게이트 전환 시 이질감을 줄임
  */
@@ -67,13 +74,14 @@ export default function PrivateAccessModal({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  const lastActiveElRef = useRef<HTMLElement | null>(null);
 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const targetHref = sanitizeCallbackUrl(redirectHref ?? `/streams/${streamId}`);
+  const targetHref = sanitizeCallbackUrl(
+    redirectHref ?? `/streams/${streamId}`
+  );
   const contextFallbackHref = (() => {
     const queryString = targetHref.split("?")[1] ?? "";
     const params = new URLSearchParams(queryString);
@@ -90,52 +98,28 @@ export default function PrivateAccessModal({
 
     if (isMobile) return;
 
-    // 열릴 때 현재 포커스 저장
-    lastActiveElRef.current = document.activeElement as HTMLElement | null;
     lockBodyScroll();
-    const t = setTimeout(() => inputRef.current?.focus(), 0);
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (!isPending) close();
-        return;
-      }
-      if (e.key === "Tab" && modalRef.current) {
-        const focusables = modalRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
-        );
-        const list = Array.from(focusables).filter(
-          (el) => !el.hasAttribute("disabled")
-        );
-        if (list.length === 0) return;
-
-        const first = list[0];
-        const last = list[list.length - 1];
-        const active = document.activeElement;
-
-        if (e.shiftKey && active === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && active === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      clearTimeout(t);
       unlockBodyScroll();
-      window.removeEventListener("keydown", onKeyDown);
-      // 닫을 때 포커스 복귀
-      lastActiveElRef.current?.focus?.();
-      lastActiveElRef.current = null;
     };
-  }, [open, isMobile, isPending, close]);
+  }, [open, isMobile]);
 
+  useModalFocus({
+    open,
+    enabled: !isMobile,
+    containerRef: modalRef,
+    initialFocusRef: inputRef,
+    onClose: () => {
+      if (!isPending) close();
+    },
+  });
+
+  /**
+   * 비밀번호를 검증해 비공개 방송을 해제하고 결과 코드에 맞는 경로로 이동한다.
+   *
+   * @param e - 비밀번호 입력 폼 제출 이벤트
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isPending) return;
@@ -182,6 +166,8 @@ export default function PrivateAccessModal({
         }
       }
 
+      // 다음 private join이 방금 저장된 unlocked_broadcast_ids claim으로 토큰을 다시 받게 한다.
+      invalidateRealtimeAccessToken();
       close();
       onSuccess?.();
       // 403/모달 게이트 화면을 히스토리에 남기지 않도록 replace 복귀
@@ -228,22 +214,18 @@ export default function PrivateAccessModal({
           비밀번호
         </label>
         {passwordInput}
-        {error && <p className="mt-2 text-xs font-medium text-danger">{error}</p>}
+        {error && (
+          <p className="mt-2 text-xs font-medium text-danger">{error}</p>
+        )}
       </div>
     </form>
   );
 
-  const footer = (
-    <div className="flex justify-end">
-      {submitButton}
-    </div>
-  );
+  const footer = <div className="flex justify-end">{submitButton}</div>;
 
   const desktopContent = (
     <form id={formId} onSubmit={handleSubmit} className="space-y-2">
-      <label className="block text-sm font-medium text-primary">
-        비밀번호
-      </label>
+      <label className="block text-sm font-medium text-primary">비밀번호</label>
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">{passwordInput}</div>
         {submitButton}
@@ -286,6 +268,7 @@ export default function PrivateAccessModal({
     >
       <div
         ref={modalRef}
+        tabIndex={-1}
         className={cn(
           "relative mx-2.5 w-full max-w-xl rounded-3xl border border-border-subtle bg-surface px-6 py-7 shadow-2xl sm:mx-4 sm:px-8 sm:py-9"
         )}

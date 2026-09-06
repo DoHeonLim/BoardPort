@@ -1,3 +1,24 @@
+# File Name : .github/workflows/ci.yml
+# Description : develop/master 품질 및 production build 검증
+# Author : 임도헌
+#
+# History
+# Date        Author   Status    Description
+# 2026.08.21  임도헌   Modified  PostgreSQL 기반 Push ownership migration 통합 검증 추가
+# 2026.08.21  임도헌   Modified  Realtime Authorization RLS migration 통합 검증 추가
+# 2026.08.21  임도헌   Modified  Realtime JWT placeholder를 ES256 private JWK 변수로 전환
+# 2026.08.22  임도헌   Modified  MediaAsset ownership migration PostgreSQL 통합 검증 추가
+# 2026.08.23  임도헌   Modified  sessionVersion migration PostgreSQL 통합 검증 추가
+# 2026.08.26  임도헌   Modified  신고 처리 멱등성과 동시 claim migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  채팅방·메시지·약속 멱등성 migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  상품 거래 상태 불변식 migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  Stream webhook inbox/outbox migration 통합 검증 추가
+# 2026.08.26  임도헌   Modified  다시보기 복합 커서 migration·다중 페이지 통합 검증 추가
+# 2026.08.28  임도헌   Modified  빈 PostgreSQL의 전체 migration·E2E seed·cleanup release smoke 추가
+# 2026.08.28  임도헌   Modified  schema drift·critical dependency audit·Git 이력 secret scan 추가
+# 2026.08.28  임도헌   Modified  jsdom 컴포넌트 접근성 테스트와 전체 source coverage 측정 추가
+# 2026.08.28  임도헌   Modified  보안 감사 설치 단계에서 애플리케이션 postinstall 실행 제외
+
 name: CI
 
 # develop은 통합 브랜치, master는 Vercel production branch 기준으로 검증
@@ -20,19 +41,140 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-database-smoke:
+    name: Full Migration and Seed Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: boardport_release_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_release_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/boardport_release_test?schema=public
+      RELEASE_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_release_test?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 기존 상태를 가정하지 않는 빈 DB에서 전체 migration 순서와 최종 schema를 검증
+      - name: Apply full migration chain
+        run: npx prisma migrate deploy --config prisma.release-migration-test.config.ts
+
+      - name: Confirm migration status
+        run: npx prisma migrate status --config prisma.release-migration-test.config.ts
+
+      # migration 적용 결과가 schema.prisma와 달라지면 exit code 2로 릴리즈 차단
+      - name: Check migrated schema drift
+        run: >-
+          npx prisma migrate diff
+          --config prisma.release-migration-test.config.ts
+          --from-config-datasource
+          --to-schema prisma/schema.prisma
+          --exit-code
+
+      # 실제 E2E fixture가 요구하는 관계·제약까지 생성하고 재실행 멱등성을 확인
+      - name: Seed E2E smoke data
+        id: seed
+        run: |
+          npm run seed:e2e
+          npm run seed:e2e
+
+      - name: Cleanup E2E smoke data
+        if: always() && steps.seed.outcome == 'success'
+        run: npm run cleanup:e2e
+
+  security:
+    name: Dependency and Secret Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # 전체 Git 이력을 검사하므로 shallow checkout을 사용하지 않는다.
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Scan Git history for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        # 의존성 트리 감사에는 Prisma Client 생성이 필요하지 않으며, 보안 job에
+        # 애플리케이션 DB 환경변수를 주입하지 않도록 lifecycle script를 실행하지 않는다.
+        run: npm ci --ignore-scripts
+
+      # Prisma CLI 경로의 알려진 high 3건은 추적하되 critical 신규 유입은 즉시 차단한다.
+      - name: Audit production dependencies
+        run: npm run audit:production
+
   quality:
     name: Unit, Type, Lint, Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: boardport_migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     # build/type check가 참조하는 런타임 env를 placeholder로 채워 외부 서비스 호출 없이 검증
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres?schema=public
+      PUSH_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      REALTIME_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      MEDIA_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      AUTH_SESSION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      REPORT_MODERATION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      CHAT_IDEMPOTENCY_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      PRODUCT_TRADE_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      STREAM_WEBHOOK_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
+      VOD_PAGINATION_MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boardport_migration_test?schema=public
       COOKIE_PASSWORD: ci-cookie-password-at-least-32-chars
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       CRON_SECRET: ci-cron-secret
+      RATE_LIMIT_SALT: ci-rate-limit-salt-at-least-32-chars
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_PUBLIC_KEY: ci-supabase-public-key
+      SUPABASE_SECRET_KEY: ci-supabase-secret-key
+      SUPABASE_REALTIME_SIGNING_KEY_JWK: ci-realtime-signing-key-placeholder
       KAKAO_CLIENT_ID: ci-kakao-client-id
       KAKAO_CLIENT_SECRET: ci-kakao-client-secret
       KAKAO_REDIRECT_URI: http://127.0.0.1:3000/kakao/callback
@@ -48,8 +190,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ci-cloudflare-api-token
       CLOUDFLARE_WEBHOOK_SECRET: ci-cloudflare-webhook-secret
       CLOUDFLARE_STREAM_WEBHOOK_SECRET: ci-cloudflare-stream-webhook-secret
-      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BDQxa9WYcbzWsT2ehj226zkdh9l4lOFuMIQIGalUmPoZVOdvQIV9-bDDHbxPeO5mdi681SSOLtj-jFUZwju9e-s
-      VAPID_PRIVATE_KEY: 5PzSaFz9DSLMyg1yptrbwN6gzpYv3zmukFvvrU-hJ9g
       NEXT_PUBLIC_KAKAO_MAP_API_KEY: ci-kakao-map-api-key
     steps:
       # GitHub runner에 저장소 코드를 내려받음
@@ -63,11 +203,42 @@ jobs:
           node-version: 22
           cache: npm
 
+      # build가 요구하는 VAPID key를 실행마다 생성해 private key를 저장소에 남기지 않음
+      - name: Generate CI signing keys
+        run: node scripts/generate-e2e-stream-signing-key.mjs
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run unit and component tests with coverage
+        run: npm run test:coverage
+
+      - name: Run Push ownership migration integration test
+        run: npm run test:migration:push
+
+      - name: Run Realtime authorization migration integration test
+        run: npm run test:migration:realtime
+
+      - name: Run MediaAsset ownership migration integration test
+        run: npm run test:migration:media
+
+      - name: Run auth session migration integration test
+        run: npm run test:migration:auth-session
+
+      - name: Run report moderation migration integration test
+        run: npm run test:migration:report-moderation
+
+      - name: Run chat idempotency migration integration test
+        run: npm run test:migration:chat-idempotency
+
+      - name: Run product trade migration integration test
+        run: npm run test:migration:product-trade
+
+      - name: Run Stream webhook migration integration test
+        run: npm run test:migration:stream-webhook
+
+      - name: Run VOD pagination migration integration test
+        run: npm run test:migration:vod-pagination
 
       - name: Run type check
         run: npx tsc --noEmit

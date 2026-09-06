@@ -17,6 +17,7 @@
  * 2026.03.22  임도헌   Modified  무한 스크롤 트리거 하단 여백을 줄여 댓글 리스트 끝 간격을 자연스럽게 조정
  * 2026.03.25  임도헌   Modified  댓글 empty state를 상태 전달 중심으로 단순화해 입력 유도 톤을 완화
  * 2026.04.03  임도헌   Modified  댓글 empty state를 게시글 댓글과 같은 2단 문구 리듬으로 맞춤
+ * 2026.08.13  임도헌   Modified  다시보기 댓글 목록 query에 현재 조회자 ID 전달
  */
 "use client";
 
@@ -44,7 +45,7 @@ export default function RecordingCommentList({
 }) {
   // Suspense 기반 훅 호출 (데이터 존재 보장)
   const { comments, isFetchingNextPage, hasNextPage, loadMore } =
-    useRecordingCommentsQuery(vodId);
+    useRecordingCommentsQuery(vodId, currentUserId);
   const triggerRef = useRef<HTMLDivElement>(null);
   const isVisible = usePageVisibility();
 

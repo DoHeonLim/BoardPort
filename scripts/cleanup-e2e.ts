@@ -11,6 +11,7 @@
  * 2026.05.26  임도헌   Modified  E2E 방송/VOD seed cleanup 기준 추가
  * 2026.05.26  임도헌   Modified  E2E 신고 처리 seed와 감사 로그 cleanup 기준 추가
  * 2026.06.26  임도헌   Modified  E2E 계정 간 팔로우 관계 cleanup 추가
+ * 2026.08.23  임도헌   Modified  E2E 전용 MediaAsset 소유권 데이터 cleanup 추가
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -155,6 +156,11 @@ async function cleanupE2EData() {
       },
     });
 
+    const mediaAssetResult = await db.mediaAsset.deleteMany({
+      // E2E 계정이 소유한 기존 backfill 자산까지 제거해 반복 실행 시 고립 기록을 남기지 않는다.
+      where: { ownerId: { in: e2eUserIds } },
+    });
+
     const productResult = await db.product.deleteMany({
       where: { title: { startsWith: E2E_PREFIX } },
     });
@@ -195,6 +201,7 @@ async function cleanupE2EData() {
     console.log(`- reports      : ${reportResult.count}`);
     console.log(`- audit logs   : ${auditLogResult.count}`);
     console.log(`- chat rooms   : ${chatRoomResult.count}`);
+    console.log(`- media assets : ${mediaAssetResult.count}`);
     console.log(`- products     : ${productResult.count}`);
     console.log(`- posts        : ${postResult.count}`);
     console.log(`- live inputs  : ${liveInputResult.count}`);
