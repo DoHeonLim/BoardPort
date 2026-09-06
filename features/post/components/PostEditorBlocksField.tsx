@@ -17,6 +17,7 @@
  * 2026.09.05  임도헌   Modified  미디어 업로드 슬롯 키보드 동작과 포커스 표시 보강
  * 2026.09.06  임도헌   Modified  블록별 초기 입력 대상과 접근 가능한 이름 명시
  * 2026.09.06  임도헌   Modified  첨부 동영상 교체 버튼과 기존 카드 드롭 지원
+ * 2026.09.06  임도헌   Modified  이미지·동영상 첨부 안내에 클릭과 드롭 동작 명시
  */
 
 import Image from "next/image";
@@ -432,7 +433,7 @@ export default function PostEditorBlocksField({
                                 <span className="block text-sm font-medium text-primary">
                                   {dragOverBlockId === block.id
                                     ? "여기에 동영상을 놓으세요"
-                                    : "이 위치에 동영상 첨부"}
+                                    : "클릭 또는 드래그하여 동영상 첨부"}
                                 </span>
                                 <span className="block text-xs text-muted">
                                   mp4, mov, webm / 최대 80MB / 최대 60초
@@ -579,7 +580,7 @@ export default function PostEditorBlocksField({
                                 <p className="text-sm font-medium text-primary">
                                   {dragOverBlockId === block.id
                                     ? "여기에 이미지를 놓으세요"
-                                    : "이 위치에 이미지 첨부"}
+                                    : "클릭 또는 드래그하여 이미지 첨부"}
                                 </p>
                                 <p className="text-xs text-muted">
                                   jpg, png, webp, gif / 최대 10MB / 게시글당{" "}

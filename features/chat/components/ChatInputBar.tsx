@@ -45,6 +45,7 @@
  * 2026.08.27  임도헌   Modified  채팅 이미지 미리보기의 고정 표시 폭을 Image sizes로 명시
  * 2026.08.28  임도헌   Modified  채팅 입력·이미지 업로드 핸들러 JSDoc 보강
  * 2026.09.06  임도헌   Modified  채팅 입력 영역 이미지 드롭과 파일 선택 검증 경로 통합
+ * 2026.09.06  임도헌   Modified  이미지 드롭 안내와 드래그 진입 시 대상 영역 피드백 추가
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -97,6 +98,7 @@ export default function ChatInputBar({
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null); // 이미지 URL
   const [imageIsAnimated, setImageIsAnimated] = useState(false); // GIF 여부
   const [isUploading, setIsUploading] = useState(false); // 로딩
+  const [isImageDragOver, setIsImageDragOver] = useState(false);
   const [imageUploadMode, setImageUploadMode] =
     useState<ChatImageUploadMode>("optimized");
 
@@ -357,11 +359,40 @@ export default function ChatInputBar({
 
   return (
     <div
-      className="w-full px-3 py-2 sm:px-4 flex flex-col gap-2"
-      onDragOver={(event) => event.preventDefault()}
+      className={cn(
+        "w-full px-3 py-2 sm:px-4 flex flex-col gap-2 rounded-2xl ring-2 ring-inset ring-transparent transition-colors",
+        isImageDragOver &&
+          "ring-brand bg-brand/5 dark:ring-brand-light dark:bg-brand-light/10"
+      )}
+      onDragEnter={(event) => {
+        if (
+          event.dataTransfer.types.includes("Files") &&
+          !isUploading &&
+          !isSubmitting &&
+          !disabled
+        ) {
+          setIsImageDragOver(true);
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (event.dataTransfer.types.includes("Files")) {
+          event.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDragLeave={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (
+          nextTarget instanceof Node &&
+          event.currentTarget.contains(nextTarget)
+        )
+          return;
+        setIsImageDragOver(false);
+      }}
       onDrop={(event) => {
         event.preventDefault();
         event.stopPropagation();
+        setIsImageDragOver(false);
         void selectImageFile(event.dataTransfer.files[0]);
       }}
     >
@@ -446,6 +477,19 @@ export default function ChatInputBar({
           </div>
         </div>
       )}
+
+      <p
+        className={cn(
+          "hidden px-1 text-xs sm:block",
+          isImageDragOver
+            ? "font-medium text-brand dark:text-brand-light"
+            : "text-muted"
+        )}
+      >
+        {isImageDragOver
+          ? "여기에 이미지를 놓아 첨부하세요"
+          : "이미지를 채팅 입력 영역에 끌어 놓아 첨부할 수 있습니다"}
+      </p>
 
       <div className="flex items-end gap-2">
         {/* 사진 선택 버튼 */}

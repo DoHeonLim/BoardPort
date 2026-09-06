@@ -13,6 +13,7 @@
  * 2026.08.28  임도헌   Modified  게시글 블록 서버 경계 분리에 맞춰 확대 상호작용의 클라이언트 island 책임 명시
  * 2026.08.28  임도헌   Modified  확대·이동·포인터 제어 함수 JSDoc 보강
  * 2026.09.06  임도헌   Modified  확대 레이어 포털과 중첩 모달 포커스·Escape 복귀 관리 적용
+ * 2026.09.06  임도헌   Modified  확대 이미지의 방향키 이동과 키보드 조작 안내 추가
  */
 
 "use client";
@@ -20,6 +21,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type PointerEvent,
@@ -38,6 +40,7 @@ import { useModalFocus } from "@/hooks/useModalFocus";
 const MIN_SCALE = 1;
 const MAX_SCALE = 3;
 const ZOOM_STEP = 0.25;
+const KEYBOARD_PAN_STEP = 32;
 
 interface ZoomableImageProps {
   src: string;
@@ -71,6 +74,7 @@ export function ImageZoomModal({
   onClose,
 }: ImageZoomModalProps) {
   const [scale, setScale] = useState(1);
+  const instructionsId = useId();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
@@ -163,6 +167,17 @@ export function ImageZoomModal({
     activePointersRef.current.clear();
     pinchDistanceRef.current = null;
   }, []);
+
+  /** 확대 이미지를 방향키 입력량만큼 빈 영역이 생기지 않는 범위에서 이동한다. */
+  const panWithKeyboard = useCallback(
+    (deltaX: number, deltaY: number) => {
+      if (scale <= MIN_SCALE) return;
+      setTranslate((current) =>
+        clampTranslate({ x: current.x + deltaX, y: current.y + deltaY }, scale)
+      );
+    },
+    [clampTranslate, scale]
+  );
 
   /**
    * 마우스 휠 방향을 확대 또는 축소 동작으로 변환한다.
@@ -314,7 +329,7 @@ export function ImageZoomModal({
   useEffect(() => {
     if (!open) return;
 
-    /** 키보드 입력을 모달 닫기와 확대·축소 동작으로 연결한다. */
+    /** 키보드 입력을 확대·축소와 확대 이미지 이동으로 연결한다. */
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "+" || event.key === "=") {
         zoomIn();
@@ -322,12 +337,27 @@ export function ImageZoomModal({
       }
       if (event.key === "-") {
         zoomOut();
+        return;
+      }
+
+      if (document.activeElement !== viewportRef.current) return;
+
+      const panDelta: Record<string, [number, number]> = {
+        ArrowLeft: [-KEYBOARD_PAN_STEP, 0],
+        ArrowRight: [KEYBOARD_PAN_STEP, 0],
+        ArrowUp: [0, -KEYBOARD_PAN_STEP],
+        ArrowDown: [0, KEYBOARD_PAN_STEP],
+      };
+      const delta = panDelta[event.key];
+      if (delta) {
+        event.preventDefault();
+        panWithKeyboard(...delta);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, closeZoom, zoomIn, zoomOut]);
+  }, [open, panWithKeyboard, zoomIn, zoomOut]);
 
   useEffect(() => {
     if (scale <= MIN_SCALE) {
@@ -356,6 +386,7 @@ export function ImageZoomModal({
       role="dialog"
       aria-modal="true"
       aria-label="이미지 확대 보기"
+      aria-describedby={instructionsId}
       tabIndex={-1}
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={(event) => {
@@ -414,7 +445,11 @@ export function ImageZoomModal({
 
       <div
         ref={viewportRef}
-        className="relative h-full max-h-[92vh] w-full max-w-[95vw] overflow-hidden"
+        role="group"
+        tabIndex={0}
+        aria-label="확대 이미지 이동 영역"
+        aria-describedby={instructionsId}
+        className="focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 relative h-full max-h-[92vh] w-full max-w-[95vw] overflow-hidden"
         onClick={(event) => event.stopPropagation()}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
@@ -447,6 +482,13 @@ export function ImageZoomModal({
           />
         </div>
       </div>
+
+      <p
+        id={instructionsId}
+        className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-3 py-2 text-center text-xs text-white"
+      >
+        +·− 키로 확대·축소하고, 확대 후 방향키로 사진을 이동할 수 있습니다
+      </p>
     </div>,
     document.body
   );

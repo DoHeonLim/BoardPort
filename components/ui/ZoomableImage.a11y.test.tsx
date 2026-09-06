@@ -40,7 +40,11 @@ it("중첩 이미지 모달의 초기 포커스·순환·Escape 단독 닫기와
   fireEvent.click(trigger);
   const close = screen.getByRole("button", { name: "이미지 확대 닫기" });
   await waitFor(() => expect(close).toHaveFocus());
-  fireEvent.keyDown(close, { key: "Tab" });
+  const viewport = screen.getByRole("group", {
+    name: "확대 이미지 이동 영역",
+  });
+  viewport.focus();
+  fireEvent.keyDown(viewport, { key: "Tab" });
   expect(screen.getByRole("button", { name: "이미지 확대" })).toHaveFocus();
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
   expect(
@@ -48,4 +52,26 @@ it("중첩 이미지 모달의 초기 포커스·순환·Escape 단독 닫기와
   ).not.toBeInTheDocument();
   expect(screen.getByRole("dialog", { name: "상품 상세" })).toBeInTheDocument();
   expect(trigger).toHaveFocus();
+});
+
+it("확대 후 이미지 이동 영역에서 방향키로 사진을 이동한다", async () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([
+    {},
+  ] as unknown as DOMRectList);
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(100);
+
+  render(<ImageZoomModal open src="/test.png" alt="상품" onClose={vi.fn()} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "이미지 확대" }));
+  const viewport = screen.getByRole("group", {
+    name: "확대 이미지 이동 영역",
+  });
+  viewport.focus();
+  fireEvent.keyDown(viewport, { key: "ArrowRight" });
+
+  expect(viewport.firstElementChild).toHaveStyle({
+    transform: "translate(12.5px, 0px) scale(1.25)",
+  });
+  expect(screen.getByText(/확대 후 방향키로 사진을 이동/)).toBeInTheDocument();
 });
