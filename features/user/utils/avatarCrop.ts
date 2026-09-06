@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.09  임도헌   Created   프로필 이미지 크롭 및 리사이즈 유틸 추가
  * 2026.03.12  임도헌   Modified  크롭 미리보기 스타일 계산과 정사각 JPG 출력 흐름 명확화
+ * 2026.09.06  임도헌   Modified  반응형 미리보기와 포인터 이동량의 저장 비율 변환 추가
  */
 
 const CROP_VIEWPORT_SIZE = 320;
@@ -114,17 +115,18 @@ export async function createCroppedAvatarFile(
 export function getAvatarCropPreviewStyle(
   imageWidth: number,
   imageHeight: number,
-  crop: AvatarCropValues
+  crop: AvatarCropValues,
+  viewportSize = CROP_VIEWPORT_SIZE
 ) {
   const baseScale = Math.max(
-    CROP_VIEWPORT_SIZE / imageWidth,
-    CROP_VIEWPORT_SIZE / imageHeight
+    viewportSize / imageWidth,
+    viewportSize / imageHeight
   );
   const finalScale = baseScale * crop.zoom;
   const displayedWidth = imageWidth * finalScale;
   const displayedHeight = imageHeight * finalScale;
-  const maxOffsetX = Math.max(0, (displayedWidth - CROP_VIEWPORT_SIZE) / 2);
-  const maxOffsetY = Math.max(0, (displayedHeight - CROP_VIEWPORT_SIZE) / 2);
+  const maxOffsetX = Math.max(0, (displayedWidth - viewportSize) / 2);
+  const maxOffsetY = Math.max(0, (displayedHeight - viewportSize) / 2);
   const offsetX = (crop.offsetXPercent / 100) * maxOffsetX;
   const offsetY = (crop.offsetYPercent / 100) * maxOffsetY;
 
@@ -137,3 +139,24 @@ export function getAvatarCropPreviewStyle(
 }
 
 export const AVATAR_CROP_VIEWPORT_SIZE = CROP_VIEWPORT_SIZE;
+
+/** 화면 이동량을 저장용 비율로 변환하고 이미지 밖 빈 영역 노출 방지 */
+export function moveAvatarCrop(
+  width: number,
+  height: number,
+  crop: AvatarCropValues,
+  dx: number,
+  dy: number,
+  viewport: number
+): AvatarCropValues {
+  const scale = Math.max(viewport / width, viewport / height) * crop.zoom;
+  const limitX = Math.max(0, (width * scale - viewport) / 2);
+  const limitY = Math.max(0, (height * scale - viewport) / 2);
+  const move = (value: number, delta: number, limit: number) =>
+    limit ? Math.max(-100, Math.min(100, value + (delta / limit) * 100)) : 0;
+  return {
+    ...crop,
+    offsetXPercent: move(crop.offsetXPercent, dx, limitX),
+    offsetYPercent: move(crop.offsetYPercent, dy, limitY),
+  };
+}

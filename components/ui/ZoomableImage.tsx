@@ -12,6 +12,7 @@
  * 2026.04.14  임도헌   Modified  게시글 상세 첫 이미지의 priority/fetchPriority/sizes 주입을 받을 수 있도록 미리보기 이미지 옵션 확장
  * 2026.08.28  임도헌   Modified  게시글 블록 서버 경계 분리에 맞춰 확대 상호작용의 클라이언트 island 책임 명시
  * 2026.08.28  임도헌   Modified  확대·이동·포인터 제어 함수 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  확대 레이어 포털과 중첩 모달 포커스·Escape 복귀 관리 적용
  */
 
 "use client";
@@ -24,6 +25,7 @@ import {
   type PointerEvent,
 } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
@@ -31,6 +33,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 3;
@@ -68,6 +71,8 @@ export function ImageZoomModal({
   onClose,
 }: ImageZoomModalProps) {
   const [scale, setScale] = useState(1);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -131,6 +136,13 @@ export function ImageZoomModal({
     activePointersRef.current.clear();
     pinchDistanceRef.current = null;
   }, [onClose]);
+
+  useModalFocus({
+    open,
+    containerRef: modalRef,
+    initialFocusRef: closeRef,
+    onClose: closeZoom,
+  });
 
   /** 현재 배율을 한 단계 확대한다. */
   const zoomIn = useCallback(() => {
@@ -304,10 +316,6 @@ export function ImageZoomModal({
 
     /** 키보드 입력을 모달 닫기와 확대·축소 동작으로 연결한다. */
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeZoom();
-        return;
-      }
       if (event.key === "+" || event.key === "=") {
         zoomIn();
         return;
@@ -342,10 +350,18 @@ export function ImageZoomModal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
-      onClick={closeZoom}
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="이미지 확대 보기"
+      tabIndex={-1}
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      onClick={(event) => {
+        event.stopPropagation();
+        closeZoom();
+      }}
     >
       <div className="absolute right-4 top-4 z-50 flex items-center gap-2">
         <button
@@ -354,7 +370,7 @@ export function ImageZoomModal({
             event.stopPropagation();
             zoomOut();
           }}
-          className="focus-ring-soft rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:text-white disabled:opacity-40"
+          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:text-white disabled:opacity-40"
           aria-label="이미지 축소"
           disabled={scale <= MIN_SCALE}
         >
@@ -366,7 +382,7 @@ export function ImageZoomModal({
             event.stopPropagation();
             zoomIn();
           }}
-          className="focus-ring-soft rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:text-white disabled:opacity-40"
+          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:text-white disabled:opacity-40"
           aria-label="이미지 확대"
           disabled={scale >= MAX_SCALE}
         >
@@ -378,7 +394,7 @@ export function ImageZoomModal({
             event.stopPropagation();
             resetZoom();
           }}
-          className="focus-ring-soft rounded-full bg-black/50 px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:text-white"
+          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-full bg-black/50 px-3 py-2 text-xs font-medium text-white/80 transition-colors hover:text-white"
         >
           원본
         </button>
@@ -388,8 +404,9 @@ export function ImageZoomModal({
             event.stopPropagation();
             closeZoom();
           }}
-          className="focus-ring-soft rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:text-white"
+          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:text-white"
           aria-label="이미지 확대 닫기"
+          ref={closeRef}
         >
           <XMarkIcon className="size-7" />
         </button>
@@ -430,7 +447,8 @@ export function ImageZoomModal({
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

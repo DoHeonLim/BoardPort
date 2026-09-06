@@ -15,6 +15,8 @@
  * 2026.08.27  임도헌   Modified  게시글 이미지 블록의 반응형 표시 폭을 Image sizes로 명시
  * 2026.08.28  임도헌   Modified  텍스트 블록 높이 조절 함수 JSDoc 보강
  * 2026.09.05  임도헌   Modified  미디어 업로드 슬롯 키보드 동작과 포커스 표시 보강
+ * 2026.09.06  임도헌   Modified  블록별 초기 입력 대상과 접근 가능한 이름 명시
+ * 2026.09.06  임도헌   Modified  첨부 동영상 교체 버튼과 기존 카드 드롭 지원
  */
 
 import Image from "next/image";
@@ -286,6 +288,8 @@ export default function PostEditorBlocksField({
 
                       {block.type === "TEXT" ? (
                         <textarea
+                          data-block-input
+                          aria-label={`${index + 1}번째 텍스트 블록`}
                           ref={(element) => {
                             textAreaRefs.current[block.id] = element;
                             resizeTextBlockTextarea(element);
@@ -303,7 +307,51 @@ export default function PostEditorBlocksField({
                         // VIDEO 블록 상태 분기
                         // draft가 있으면 상태 카드, 없으면 이 위치 전용 업로드 슬롯 노출
                         videoState ? (
-                          <div className="rounded-xl border border-border bg-background">
+                          <div
+                            className="rounded-xl border border-border bg-background"
+                            onDragOver={(event) =>
+                              markBlockDragOver(event, block.id)
+                            }
+                            onDragLeave={clearBlockDragOver}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              clearBlockDragOver();
+                              if (
+                                !isEditorLocked &&
+                                !isUploading &&
+                                !isVideoUploading
+                              )
+                                void onVideoDrop(event);
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="focus-ring-strong m-3 rounded-lg border border-border px-3 py-2 text-sm text-primary"
+                              disabled={
+                                isEditorLocked ||
+                                isUploading ||
+                                isVideoUploading
+                              }
+                              onClick={() => videoInputRef.current?.click()}
+                            >
+                              동영상 교체
+                            </button>
+                            <p className="px-3 text-xs text-muted">
+                              새 동영상을 선택하거나 여기에 끌어 놓으세요
+                            </p>
+                            <input
+                              ref={videoInputRef}
+                              type="file"
+                              accept="video/mp4,video/quicktime,video/webm"
+                              className="hidden"
+                              disabled={
+                                isEditorLocked ||
+                                isUploading ||
+                                isVideoUploading
+                              }
+                              onChange={onVideoChange}
+                            />
                             <div className="flex items-start justify-between gap-4 px-4 py-4">
                               <div className="flex items-start gap-3">
                                 <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light">
@@ -370,6 +418,7 @@ export default function PostEditorBlocksField({
                           >
                             <button
                               type="button"
+                              data-block-input
                               onClick={() => videoInputRef.current?.click()}
                               disabled={
                                 isVideoUploading ||
@@ -413,6 +462,8 @@ export default function PostEditorBlocksField({
                             </div>
                             <input
                               type="url"
+                              data-block-input
+                              aria-label={`${index + 1}번째 유튜브 URL`}
                               value={block.embedUrl ?? ""}
                               onChange={(event) =>
                                 onUpdateEmbedBlock(block.id, event.target.value)
@@ -498,6 +549,7 @@ export default function PostEditorBlocksField({
                           ) : (
                             <button
                               type="button"
+                              data-block-input
                               onClick={() =>
                                 imageInputRefs.current[block.id]?.click()
                               }

@@ -264,6 +264,7 @@ export default async function BoardGameDetailPage(
           <TaxonomySection title="메커니즘" items={boardGame.mechanics} />
 
           <RelatedContentSection
+            boardGameId={boardGame.id}
             content={relatedContent}
             searchKeyword={boardGame.locale.title}
           />

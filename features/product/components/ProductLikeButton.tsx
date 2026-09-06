@@ -30,6 +30,7 @@
  * 2026.06.18  임도헌   Modified  다크모드에서 빠른 찜 해제 버튼의 중립 배경/경계 대비 보강
  * 2026.08.13  임도헌   Modified  낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  * 2026.08.27  임도헌   Modified  목록·상세 재방문 시 새 서버 좋아요 상태를 기존 무기한 cache보다 우선하도록 동기화
+ * 2026.09.06  임도헌   Modified  기본 좋아요 버튼의 라이트·다크 포커스 링 보강
  */
 "use client";
 
@@ -117,8 +118,7 @@ export default function ProductLikeButton({
             isProductListKeyForViewer(query.queryKey, viewerId),
         }),
         queryClient.cancelQueries({
-          predicate: (query) =>
-            isLikedScopeKey(query.queryKey, viewerId),
+          predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
         }),
       ]);
 
@@ -175,8 +175,7 @@ export default function ProductLikeButton({
       if (data.isLiked) {
         queryClient.setQueriesData(
           {
-            predicate: (query) =>
-              isLikedScopeKey(query.queryKey, viewerId),
+            predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
           },
           (oldData: ProductInfiniteCache<{ id: number }> | undefined) => {
             if (!oldData?.pages) return oldData;
@@ -202,10 +201,11 @@ export default function ProductLikeButton({
         if (snapshot) {
           queryClient.setQueriesData(
             {
-              predicate: (query) =>
-                isLikedScopeKey(query.queryKey, viewerId),
+              predicate: (query) => isLikedScopeKey(query.queryKey, viewerId),
             },
-            (oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined) => {
+            (
+              oldData: ProductInfiniteCache<ProductLikeCacheItem> | undefined
+            ) => {
               if (!oldData?.pages?.length) return oldData;
 
               const alreadyExists = oldData.pages.some((page) =>
@@ -283,7 +283,7 @@ export default function ProductLikeButton({
               "disabled:cursor-not-allowed",
             ]
           : [
-              "flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
+              "focus-ring-strong flex flex-col items-center justify-center p-2 rounded-xl transition-colors active:scale-95",
               "hover:bg-surface-dim disabled:cursor-not-allowed",
             ],
         variant === "quick-remove"

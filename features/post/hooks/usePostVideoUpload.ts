@@ -8,6 +8,7 @@
  * 2026.03.31  임도헌   Created   PostForm의 Cloudflare Stream draft 업로드 로직과 상태 관리를 분리
  * 2026.03.31  임도헌   Modified  초기 video 복원, draftKey reset, direct upload 시작 흐름 설명 보강
  * 2026.04.02  임도헌   Modified  훅 반환/옵션 JSDoc 태그 형식 정리
+ * 2026.09.06  임도헌   Modified  교체 전송 성공 후 초안 교체 및 실패 시 기존 첨부 보존
  */
 "use client";
 
@@ -62,6 +63,7 @@ export function usePostVideoUpload({
   // clearVideo를 누르지 않고 뒤로 가기/새로고침한 경우를 위한 best-effort cleanup
   useEffect(() => {
     return () => {
+      uploadTokenRef.current += 1;
       const latestVideo = latestVideoStateRef.current;
       const draftKey = latestVideo?.draftKey;
       const uploadUid = latestVideo?.uploadUid ?? latestVideo?.providerAssetId;
@@ -78,7 +80,8 @@ export function usePostVideoUpload({
   // 동영상 draft 해제
   const clearVideo = () => {
     const currentDraftKey = videoState?.draftKey;
-    const currentUploadUid = videoState?.uploadUid ?? videoState?.providerAssetId;
+    const currentUploadUid =
+      videoState?.uploadUid ?? videoState?.providerAssetId;
     uploadTokenRef.current += 1;
     setValue("videoDraftKey", null, { shouldDirty: true });
     setValue("removeVideo", true, { shouldDirty: true });
@@ -104,17 +107,17 @@ export function usePostVideoUpload({
 
   // direct upload 시작
   const handleVideoFiles = async (selectedFiles: File[]) => {
+    if (isVideoUploading) return;
+    const previousVideo = videoState;
     const file = selectedFiles[0];
     if (!file) return;
 
     // 가장 최근 업로드 요청만 유효하게 취급
     const uploadToken = ++uploadTokenRef.current;
-    let createdDraft:
-      | {
-          draftKey: string;
-          uploadUid: string;
-        }
-      | null = null;
+    let createdDraft: {
+      draftKey: string;
+      uploadUid: string;
+    } | null = null;
     setIsVideoUploading(true);
 
     try {
@@ -131,25 +134,18 @@ export function usePostVideoUpload({
         return;
       }
 
-      if (uploadToken !== uploadTokenRef.current) return;
+      if (uploadToken !== uploadTokenRef.current) {
+        void removePostVideoDraftAction({
+          draftKey: session.data.draftKey,
+          uploadUid: session.data.uploadUid,
+        });
+        return;
+      }
 
-      // 업로드 시작 직후 draft 연결
-      // 게시글 저장은 먼저 허용하고 상세에서 PROCESSING 상태를 안내하는 흐름
       createdDraft = {
         draftKey: session.data.draftKey,
         uploadUid: session.data.uploadUid,
       };
-      setValue("videoDraftKey", session.data.draftKey, { shouldDirty: true });
-      setValue("removeVideo", false, { shouldDirty: true });
-      setVideoState({
-        provider: "CLOUDFLARE_STREAM",
-        providerAssetId: session.data.uploadUid,
-        uploadUid: session.data.uploadUid,
-        draftKey: session.data.draftKey,
-        status: "PROCESSING",
-      });
-      setVideoFileName(file.name);
-
       const uploadForm = new FormData();
       uploadForm.append("file", file);
 
@@ -162,25 +158,42 @@ export function usePostVideoUpload({
         throw new Error("Cloudflare Stream upload failed");
       }
 
-      if (uploadToken !== uploadTokenRef.current) return;
+      if (uploadToken !== uploadTokenRef.current) {
+        void removePostVideoDraftAction(createdDraft);
+        return;
+      }
+      // 새 업로드 성공 후에만 교체해 실패 시 기존 첨부 유지
+      // 파일 전송 이후 인코딩 완료 전에는 PROCESSING 상태로 저장 가능
+      setValue("videoDraftKey", session.data.draftKey, { shouldDirty: true });
+      setValue("removeVideo", false, { shouldDirty: true });
+      setVideoState({
+        provider: "CLOUDFLARE_STREAM",
+        providerAssetId: session.data.uploadUid,
+        uploadUid: session.data.uploadUid,
+        draftKey: session.data.draftKey,
+        status: "PROCESSING",
+      });
+      setVideoFileName(file.name);
+
+      if (
+        previousVideo?.draftKey &&
+        previousVideo.draftKey !== session.data.draftKey
+      ) {
+        void removePostVideoDraftAction({
+          draftKey: previousVideo.draftKey,
+          uploadUid: previousVideo.uploadUid,
+        });
+      }
       toast.success(
         "동영상 업로드를 시작했습니다. 처리 완료까지 잠시만 기다려주세요."
       );
     } catch (error) {
       console.error("[usePostVideoUpload] video upload error:", error);
-      if (uploadToken === uploadTokenRef.current) {
+      if (createdDraft) {
         void markPostVideoDraftFailedAction({
           draftKey: createdDraft?.draftKey,
           uploadUid: createdDraft?.uploadUid,
         });
-        setVideoState((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: "FAILED",
-              }
-            : prev
-        );
       }
       if (uploadToken === uploadTokenRef.current) {
         toast.error("동영상 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.");

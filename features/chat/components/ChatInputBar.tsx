@@ -44,6 +44,7 @@
  * 2026.08.26  임도헌   Modified  응답 유실 뒤 재전송에도 같은 clientMessageId를 재사용
  * 2026.08.27  임도헌   Modified  채팅 이미지 미리보기의 고정 표시 폭을 Image sizes로 명시
  * 2026.08.28  임도헌   Modified  채팅 입력·이미지 업로드 핸들러 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  채팅 입력 영역 이미지 드롭과 파일 선택 검증 경로 통합
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -198,15 +199,19 @@ export default function ChatInputBar({
    *
    * @param e - 이미지 파일 입력 변경 이벤트
    */
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const selectImageFile = async (file?: File) => {
+    if (isUploading || isSubmitting || disabled) return;
+    if (file && !file.type.startsWith("image/")) {
+      toast.error("이미지 파일만 첨부할 수 있습니다.");
+      return;
+    }
     if (!file) return;
     let uploadSucceeded = false;
 
     // 용량 제한
     if (file.size > MAX_PHOTO_SIZE) {
       toast.error(`이미지 크기는 ${MAX_PHOTO_SIZE_MB}MB를 초과할 수 없습니다.`);
-      e.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -229,7 +234,7 @@ export default function ChatInputBar({
       setUploadedUrl(null);
       setImageIsAnimated(false);
       originalImageFileRef.current = null;
-      e.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
       if (!originalImageFileRef.current && fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -351,7 +356,15 @@ export default function ChatInputBar({
   };
 
   return (
-    <div className="w-full px-3 py-2 sm:px-4 flex flex-col gap-2">
+    <div
+      className="w-full px-3 py-2 sm:px-4 flex flex-col gap-2"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void selectImageFile(event.dataTransfer.files[0]);
+      }}
+    >
       {/* 이미지 프리뷰 영역 */}
       {imagePreview && (
         <div className="flex items-start gap-3 px-1">
@@ -447,7 +460,10 @@ export default function ChatInputBar({
           ref={fileInputRef}
           className="hidden"
           accept="image/*"
-          onChange={handleImageChange}
+          onChange={(event) => {
+            void selectImageFile(event.target.files?.[0]);
+            event.target.value = "";
+          }}
         />
 
         <div className="flex-1 bg-surface-dim rounded-[20px] px-4 py-2 border border-transparent focus-within:border-brand/50 dark:focus-within:border-brand-light/50 focus-within:bg-surface transition-colors flex items-center">

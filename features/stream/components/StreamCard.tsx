@@ -54,6 +54,7 @@
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타를 좋아요/댓글/조회수 Heroicons 통계 문법으로 통일
  * 2026.06.22  임도헌   Modified  레일 카드 카테고리 배지가 남은 줄 전체를 차지하지 않도록 폭 계산 조정
  * 2026.09.03  임도헌   Modified  카드 이동과 팔로우 CTA를 분리하고 PRIVATE 사용자 노출 용어를 비공개로 통일
+ * 2026.09.06  임도헌   Modified  비공개 배지의 불투명 배경과 글자 대비 보강
  */
 
 "use client";
@@ -463,7 +464,7 @@ export default function StreamCard(props: StreamCardProps) {
                 </span>
               )}
               {showPrivate && (
-                <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
+                <span className="inline-flex items-center gap-1 rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-950 shadow-sm backdrop-blur-[2px]">
                   <LockClosedIcon className="size-3" aria-hidden="true" />
                   비공개
                 </span>

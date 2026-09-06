@@ -16,6 +16,7 @@
  * 2026.03.31  임도헌   Modified  캐러셀 확대 보기에도 공용 확대/축소 모달을 재사용하도록 정리
  * 2026.04.11  임도헌   Modified  상세 이미지 좌우 네비게이션을 투명 오버레이 톤으로 완화하고 border/blur 제거
  * 2026.04.14  임도헌   Modified  확대 모달은 필요 시에만 지연 로드하고 상세별 이미지 sizes/quality를 주입할 수 있게 조정
+ * 2026.09.06  임도헌   Modified  활성 이미지 확대 버튼과 사진 배경에 독립적인 위치 표시 보강
  */
 "use client";
 
@@ -148,8 +149,12 @@ export default function Carousel({
             key={index}
             className="min-w-full h-full relative flex items-center justify-center"
           >
-            <div
-              className="relative w-full h-full cursor-grab active:cursor-grabbing touch-pan-y"
+            <button
+              type="button"
+              tabIndex={index === currentIndex ? 0 : -1}
+              aria-hidden={index !== currentIndex}
+              aria-label={`${index + 1}번 이미지 확대 보기`}
+              className="focus-ring-strong-inset relative w-full h-full cursor-grab active:cursor-grabbing touch-pan-y"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
@@ -157,7 +162,10 @@ export default function Carousel({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
-              onClick={handleImageClick}
+              onClick={(event) => {
+                if (event.detail === 0) swipeTriggeredRef.current = false;
+                handleImageClick();
+              }}
             >
               <Image
                 src={`${image.url}/public`}
@@ -171,7 +179,7 @@ export default function Carousel({
                 quality={imageQuality}
                 unoptimized={!!image.isAnimated}
               />
-            </div>
+            </button>
           </div>
         ))}
       </div>
@@ -202,7 +210,7 @@ export default function Carousel({
           </button>
 
           {/* 인디케이터 (Dots) */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 rounded-full bg-slate-950 px-2 py-1">
             {images.map((_, index) => (
               <button
                 key={index}
@@ -211,10 +219,8 @@ export default function Carousel({
                   setCurrentIndex(index);
                 }}
                 className={cn(
-                  "focus-ring-soft flex size-6 items-center justify-center rounded-full transition-colors",
-                  index === currentIndex
-                    ? "scale-110"
-                    : "hover:bg-black/10"
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-white flex size-6 items-center justify-center rounded-full transition-colors",
+                  index === currentIndex ? "scale-110" : "hover:bg-black/10"
                 )}
                 aria-label={`${index + 1}번 이미지로 이동`}
                 aria-current={index === currentIndex}
@@ -223,8 +229,8 @@ export default function Carousel({
                   className={cn(
                     "block h-2 w-2 rounded-full shadow-sm",
                     index === currentIndex
-                      ? "bg-brand"
-                      : "bg-surface/85 hover:bg-surface"
+                      ? "bg-white ring-2 ring-white ring-offset-2 ring-offset-slate-950"
+                      : "bg-slate-400"
                   )}
                 />
               </button>

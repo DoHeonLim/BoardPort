@@ -43,6 +43,7 @@
  * 2026.08.22  임도헌   Modified  아바타 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  * 2026.08.27  임도헌   Modified  이메일·비밀번호·전화 인증 입력의 label과 실제 필드 연결 보강
  * 2026.08.28  임도헌   Modified  아바타 적용·크롭 완료 함수 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  아바타 파일 선택과 드롭 검증 통합 및 키보드 진입 보강
  */
 "use client";
 
@@ -224,11 +225,9 @@ export default function ProfileEditForm({
 
   // --- Handlers ---
 
-  const handleImageChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const selectAvatarFile = (nextFile?: File) => {
+    if (submitting) return;
     // 원본 파일은 바로 업로드하지 않고 크롭 모달에서 편집한 뒤 업로드 준비
-    const nextFile = event.target.files?.[0];
     if (!nextFile) return;
 
     if (!nextFile.type.startsWith("image/")) {
@@ -236,7 +235,6 @@ export default function ProfileEditForm({
         type: "manual",
         message: "이미지 파일만 업로드할 수 있습니다.",
       });
-      event.target.value = "";
       return;
     }
 
@@ -245,7 +243,6 @@ export default function ProfileEditForm({
         type: "manual",
         message: "이미지는 3MB 이하로 올려주세요.",
       });
-      event.target.value = "";
       return;
     }
 
@@ -254,6 +251,10 @@ export default function ProfileEditForm({
     setPendingImageName(nextFile.name);
     setCropModalOpen(true);
     clearErrors("avatar");
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    selectAvatarFile(event.target.files?.[0]);
     event.target.value = "";
   };
 
@@ -561,13 +562,25 @@ export default function ProfileEditForm({
         프로필 수정
       </h1>
 
+      <p className="mb-3 text-center text-sm text-muted">
+        사진을 선택하거나 아래 영역에 끌어 놓으세요
+      </p>
       {/* 아바타 업로드 영역 */}
       <div className="mb-6 flex flex-col items-center">
         <div className="relative group cursor-pointer">
-          <label
-            htmlFor="photo"
+          <button
+            type="button"
+            aria-label="프로필 사진 추가 또는 변경"
+            disabled={submitting}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              selectAvatarFile(event.dataTransfer.files[0]);
+            }}
             className={cn(
-              "relative flex size-24 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-border bg-surface-dim sm:size-28",
+              "focus-ring-strong relative flex size-24 flex-col items-center justify-center overflow-hidden rounded-full border-2 border-border bg-surface-dim sm:size-28",
               "hover:border-brand/50 transition-colors",
               !preview && "text-muted"
             )}
@@ -584,7 +597,7 @@ export default function ProfileEditForm({
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
               <span className="text-white text-xs font-medium">변경</span>
             </div>
-          </label>
+          </button>
           <input
             ref={fileInputRef}
             onChange={handleImageChange}

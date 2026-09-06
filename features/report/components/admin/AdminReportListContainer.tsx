@@ -20,6 +20,7 @@
  * 2026.04.28  임도헌   Modified  신고 처리 모달에 실제 조치 대상 유저 메타를 전달
  * 2026.09.01  임도헌   Modified  중간 너비에서 신고 정보와 처리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
  * 2026.09.04  임도헌   Modified  신고 목록에 대상 제목·사용자명과 작성자 식별 정보 표시
+ * 2026.09.06  임도헌   Modified  파란 카드 액션 버튼의 라이트모드 포커스를 흰 내부 링으로 구분
  */
 
 "use client";
@@ -276,7 +277,7 @@ export default function AdminReportListContainer({
                   </div>
                   <button
                     onClick={() => setSelectedReportId(report.id)}
-                    className="focus-ring-strong shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark"
+                    className="focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white dark:focus-visible:ring-brand-light shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark"
                   >
                     {report.status === "PENDING" ? "처리하기" : "내역보기"}
                   </button>

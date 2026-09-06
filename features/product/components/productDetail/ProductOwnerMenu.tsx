@@ -14,9 +14,11 @@
  * 2026.05.23  임도헌   Modified  삭제 성공 시 제품 infinite query 캐시와 stale cursor를 즉시 정리
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.28  임도헌   Modified  상품 복귀 문맥과 삭제 함수 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  소유자 메뉴의 키보드 탐색과 트리거 복귀 처리
  */
 "use client";
 
+import { useActionMenu } from "@/hooks/useActionMenu";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -130,6 +132,10 @@ export default function ProductOwnerMenu({
     if (isOpen) document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [isMobile, isOpen]);
+
+  const onMenuKeyDown = useActionMenu(menuRef, isOpen && !isMobile, () =>
+    setIsOpen(false)
+  );
 
   const handleEdit = () => {
     setIsOpen(false);
@@ -272,7 +278,15 @@ export default function ProductOwnerMenu({
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div
+      className="relative"
+      ref={menuRef}
+      onKeyDown={onMenuKeyDown}
+      onBlur={(event) => {
+        if (!isMobile && !event.currentTarget.contains(event.relatedTarget))
+          setIsOpen(false);
+      }}
+    >
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -293,6 +307,7 @@ export default function ProductOwnerMenu({
             type="button"
             onClick={handleEdit}
             role="menuitem"
+            tabIndex={-1}
             className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
           >
             <PencilSquareIcon className="size-4" />
@@ -303,6 +318,7 @@ export default function ProductOwnerMenu({
               type="button"
               onClick={handleToggleHidden}
               role="menuitem"
+              tabIndex={-1}
               className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
             >
               <EyeSlashIcon className="size-4" />
@@ -316,6 +332,7 @@ export default function ProductOwnerMenu({
               setConfirmOpen(true);
             }}
             role="menuitem"
+            tabIndex={-1}
             className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
           >
             <TrashIcon className="size-4" />
