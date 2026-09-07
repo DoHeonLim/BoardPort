@@ -66,3 +66,9 @@ Direct upload URL은 30분으로 발급하고 `expires_at`에도 같은 시각�
 - Sharp 입력 최대 2천만 pixel
 
 어느 조건이든 실패하면 route 오류 대신 텍스트 중심 기본 OG 이미지로 폴백한다.
+
+## 회원 탈퇴 이미지 정리
+
+탈퇴 시 남은 이미지 provider ID를 기존 `ModerationOutbox`의 `DELETE_IMAGE_ASSETS` 작업에 저장하고 같은 transaction에서 사용자를 삭제한다. 사용자 행 잠금으로 새 이미지 등록과 삭제 대상 조회의 경합을 막으며, outbox에는 사용자 FK가 없어 `MediaAsset` Cascade 삭제 후에도 재시도 대상 보존이 가능하다.
+
+commit 직후 기존 worker로 처리를 시도하며 Cloudflare 실패는 `PENDING`으로 돌아가 기존 일일 Cron에서 재시도한다. 404는 삭제 완료로 취급하고 최대 시도 초과 시 `FAILED`로 남는다. 탈퇴 이미지 작업은 `withdraw:<userId>:images` dedupe key로 식별한다. 이 변경의 보장 범위는 Cloudflare Images이며 Stream 동영상·Live Input 정리는 기존 경로를 유지한다.

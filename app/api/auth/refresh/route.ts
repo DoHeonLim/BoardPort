@@ -25,6 +25,7 @@ export async function POST() {
   const session = await getSession();
 
   if (!session?.id) {
+    if (session?.isInvalid) session.destroy();
     return noStoreJson({ ok: false, error: "Not logged in" }, 401);
   }
 

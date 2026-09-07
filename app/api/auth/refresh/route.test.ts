@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   session: {
     id: undefined as number | undefined,
+    isInvalid: undefined as boolean | undefined,
     role: undefined as "USER" | "ADMIN" | undefined,
     banned: undefined as boolean | undefined,
     save: vi.fn(),
@@ -32,6 +33,7 @@ import { POST } from "./route";
 
 beforeEach(() => {
   mocks.session.id = undefined;
+  mocks.session.isInvalid = undefined;
   mocks.session.role = undefined;
   mocks.session.banned = undefined;
   mocks.session.save.mockReset();
@@ -97,4 +99,10 @@ describe("POST /api/auth/refresh", () => {
     expect(response.status).toBe(401);
     expect(mocks.session.destroy).toHaveBeenCalledOnce();
   });
+});
+
+it("만료 세션은 401과 함께 쿠키 폐기", async () => {
+  mocks.session.isInvalid = true;
+  expect((await POST()).status).toBe(401);
+  expect(mocks.session.destroy).toHaveBeenCalledOnce();
 });

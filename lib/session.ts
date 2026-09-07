@@ -1,6 +1,6 @@
 /**
  * File Name : lib/session.ts
- * Description : 세션 추가
+ * Description : 암호화 세션 조회와 DB 버전 검증
  * Author : 임도헌
  *
  * History
@@ -12,10 +12,11 @@
  * 2026.05.19  임도헌   Modified  쿠키 기반 세션 헬퍼가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
  * 2026.08.23  임도헌   Modified  DB sessionVersion 불일치 세션을 요청 경계에서 폐기
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 cookies API 호환 반영
+ * 2026.09.07  임도헌   Modified  RSC 무효 세션의 읽기 전용 권한 폐기와 쿠키 삭제 경계 분리
  */
 
 import "server-only";
-import { getIronSession } from "iron-session";
+import { getIronSession, type IronSession } from "iron-session";
 import { cookies } from "next/headers";
 import db from "@/lib/db";
 import { getCookiePassword } from "@/lib/env";
@@ -39,7 +40,7 @@ export interface ISessionContent {
   unlockedBroadcastIds?: Record<string, true>;
 }
 
-/** 로그인·비밀번호 변경 직후 최신 DB 상태로 쿠키를 재발급할 때만 사용한다. */
+/** 쿠키 쓰기가 허용된 Action·Route Handler에서 세션을 재발급할 때 사용 */
 export async function getSessionForUpdate() {
   const cookieStore = await cookies();
   return getIronSession<ISessionContent>(cookieStore, {
@@ -49,10 +50,13 @@ export async function getSessionForUpdate() {
 }
 
 /**
- * 현재 요청의 암호화 세션을 읽고 로그인 세션의 DB sessionVersion을 검증한다.
- * 사용자가 없거나 버전이 다르면 기존 쿠키를 폐기한다.
+ * 암호화 세션 조회와 DB sessionVersion 검증
+ * 무효 세션의 요청 내 권한만 제거하고 쿠키 삭제는 Route Handler에 위임
+ * isInvalid는 쿠키에 저장되지 않는 요청 전용 상태
  */
-export default async function getSession() {
+export default async function getSession(): Promise<
+  IronSession<ISessionContent> & { readonly isInvalid?: boolean }
+> {
   const session = await getSessionForUpdate();
 
   if (!session.id) return session;
@@ -63,7 +67,13 @@ export default async function getSession() {
   });
 
   if (!user || session.sessionVersion !== user.sessionVersion) {
-    session.destroy();
+    // RSC의 cookies는 읽기 전용이므로 응답 쿠키를 수정하지 않고 권한만 폐기
+    delete session.id;
+    delete session.role;
+    delete session.banned;
+    delete session.sessionVersion;
+    delete session.unlockedBroadcastIds;
+    Object.defineProperty(session, "isInvalid", { value: true });
   }
 
   return session;

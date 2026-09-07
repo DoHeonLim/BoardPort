@@ -138,3 +138,46 @@ describe("moderation outbox", () => {
     expect(result).toEqual({ claimed: 1, completed: 0, failed: 1 });
   });
 });
+
+it("탈퇴 이미지 삭제 실패를 재시도하고 사용자 기록 없이 완료 처리", async () => {
+  vi.clearAllMocks();
+  mocks.db.$transaction.mockImplementation(async (callback) =>
+    callback(mocks.tx)
+  );
+  const job = {
+    ...notificationJob,
+    kind: "DELETE_IMAGE_ASSETS",
+    dedupeKey: "withdraw:7:images",
+    payload: { providerAssetIds: ["avatar-id"] },
+  };
+  mocks.tx.$queryRaw.mockResolvedValue([job]);
+  mocks.deleteImages
+    .mockRejectedValueOnce(new Error("Cloudflare 503"))
+    .mockResolvedValueOnce(undefined);
+  const { processModerationOutboxBatch } = await import("./moderationOutbox");
+  expect(await processModerationOutboxBatch()).toEqual({
+    claimed: 1,
+    completed: 0,
+    failed: 1,
+  });
+  expect(mocks.db.moderationOutbox.update).toHaveBeenLastCalledWith({
+    where: { id: job.id },
+    data: expect.objectContaining({
+      status: "PENDING",
+      lastError: "Cloudflare 503",
+    }),
+  });
+  mocks.tx.$queryRaw.mockResolvedValue([{ ...job, attempts: 2 }]);
+  expect(await processModerationOutboxBatch()).toEqual({
+    claimed: 1,
+    completed: 1,
+    failed: 0,
+  });
+  expect(mocks.deleteImages).toHaveBeenLastCalledWith(["avatar-id"], {
+    throwOnFailure: true,
+  });
+  expect(mocks.db.moderationOutbox.update).toHaveBeenLastCalledWith({
+    where: { id: job.id },
+    data: expect.objectContaining({ status: "COMPLETED" }),
+  });
+});

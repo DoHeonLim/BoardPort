@@ -52,14 +52,16 @@ describe("getSession", () => {
     expect(mocks.destroy).not.toHaveBeenCalled();
   });
 
-  it("사용자가 없거나 세션 버전이 다르면 기존 쿠키를 폐기한다", async () => {
+  it("세션 버전이 다르면 쿠키 쓰기 없이 요청 권한을 폐기한다", async () => {
     const session = { id: 7, sessionVersion: 2, destroy: mocks.destroy };
     mocks.getIronSession.mockResolvedValue(session);
     mocks.findUnique.mockResolvedValue({ sessionVersion: 3 });
     const { default: getSession } = await import("./session");
 
     await getSession();
-    expect(mocks.destroy).toHaveBeenCalledTimes(1);
+    expect(mocks.destroy).not.toHaveBeenCalled();
+    expect(session).not.toHaveProperty("id");
+    expect(session).toHaveProperty("isInvalid", true);
   });
 
   it("재발급용 세션 조회는 DB 버전 검증 전에 쿠키 객체를 반환한다", async () => {

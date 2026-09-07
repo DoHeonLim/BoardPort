@@ -20,6 +20,7 @@ import GlobalToaster from "@/components/global/GlobalToaster";
 import QueryProvider from "@/components/global/providers/QueryProvider";
 import { NotificationStoreProvider } from "@/components/global/providers/NotificationStoreProvider";
 import { ModalStoreProvider } from "@/components/global/providers/ModalStoreProvider";
+import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import ChatRoomsRealtimeBridge from "@/features/chat/components/ChatRoomsRealtimeBridge";
 import NotificationBootLoader from "@/features/notification/components/NotificationBootLoader";
@@ -40,6 +41,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
+  if (session.isInvalid) redirect("/api/auth/session-expired");
 
   return (
     <ThemeProvider

@@ -59,6 +59,7 @@ export default async function AccessDeniedPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const session = await getSession();
+  if (session.isInvalid) redirect("/api/auth/session-expired");
   const viewerId = session?.id ?? null;
 
   const reason = searchParams.reason ?? "UNKNOWN";
