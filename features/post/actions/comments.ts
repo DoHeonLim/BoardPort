@@ -18,6 +18,7 @@
  * 2026.03.31  임도헌   Modified  Action 역할과 댓글 조회/후속 처리 맥락이 보이도록 설명 보강
  * 2026.04.02  임도헌   Modified  댓글 액션 반환/파라미터 JSDoc 태그 형식 정리
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -86,7 +87,7 @@ export const createCommentAction = async (
   );
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(parsed.data.postId));
+    revalidateTag(T.POST_DETAIL(parsed.data.postId), { expire: 0 });
   }
   return result;
 };
@@ -112,7 +113,7 @@ export const deleteCommentAction = async (
   const result = await deleteService(session.id, commentId);
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId));
+    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
   }
   return result;
 };

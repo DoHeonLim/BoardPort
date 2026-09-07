@@ -8,6 +8,7 @@
  * 2026.05.26  임도헌   Created   상품 등록 필수 입력 validation 회귀 테스트 추가
  * 2026.05.26  임도헌   Modified  상품 삭제 후 목록 복귀와 삭제 상세 잔상 방지 회귀 테스트 추가
  * 2026.05.26  임도헌   Modified  상세 hydration과 반응형 action role 차이를 고려해 삭제 메뉴 오픈 안정화
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 import { expect, type Page, test } from "@playwright/test";
@@ -59,7 +60,7 @@ test.describe("seeded product crud regressions", () => {
 
     await loginWithEmail(page, E2E_BUYER, "/products/add");
 
-    await expect(page.getByPlaceholder("제품명을 입력해주세요")).toBeVisible();
+    await expect(page.getByPlaceholder("상품명을 입력해주세요")).toBeVisible();
     await page.getByRole("button", { name: "등록하기" }).click();
 
     await expect(page.getByText("제목을 입력해주세요.").first()).toBeVisible();
@@ -101,7 +102,7 @@ test.describe("seeded product crud regressions", () => {
 
     await deleteAction.click();
     await expect(
-      page.getByRole("alertdialog", { name: "제품을 삭제할까요?" })
+      page.getByRole("alertdialog", { name: "상품을 삭제할까요?" })
     ).toBeVisible();
     await page.getByRole("button", { name: "삭제" }).click();
 

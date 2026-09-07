@@ -16,30 +16,30 @@
  * 2026.03.28  임도헌   Modified  현재 대화 검색 하이라이트를 카드 표면에 적용할 수 있도록 searchHighlight 톤 지원 추가
  * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 약속 카드 배지/라벨/버튼 weight와 크기를 400/500/700 기준으로 정리
  * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 약속 카드의 지도 마운트 비용과 상호작용을 함께 경량화
+ * 2026.09.03  임도헌   Modified  약속 시각을 한국 시간대로 고정하고 만료 판정을 hydration 이후로 분리
  */
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import dynamic from "next/dynamic";
-import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { toast } from "sonner";
 import { CalendarDaysIcon, MapPinIcon } from "@heroicons/react/24/solid";
-import {
-  ArrowTopRightOnSquareIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import {
   acceptAppointmentAction,
   cancelAppointmentAction,
 } from "@/features/chat/actions/appointment";
+import { formatKoreanAppointmentDate } from "@/features/chat/utils/appointmentDate";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/features/chat/types";
 
 const AppointmentMapModal = dynamic(() => import("./AppointmentMapModal"), {
   ssr: false,
 });
+
+const subscribeToHydration = () => () => {};
 
 interface Props {
   message: ChatMessage;
@@ -66,6 +66,11 @@ export default function AppointmentBubble({
 }: Props) {
   const apt = message.appointment;
   const [isPending, startTransition] = useTransition();
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false
+  );
 
   // 로컬 낙관적 상태 추가
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
@@ -79,7 +84,7 @@ export default function AppointmentBubble({
   // 제안한 사람
   const isProposer = apt.proposerId === currentUserId;
   // 시간이 지났는지 체크
-  const isExpired = new Date(apt.meetDate) < new Date();
+  const isExpired = isHydrated && new Date(apt.meetDate).getTime() < Date.now();
 
   // 상대방이 나갔거나, 만료되었거나, 이미 처리된 상태면 액션 불가
   const isActionDisabled = isPending || isCounterpartyLeft;
@@ -87,9 +92,7 @@ export default function AppointmentBubble({
   // 서버 상태보다 낙관적 상태를 우선
   const status = optimisticStatus ?? apt.status; // "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELED"
 
-  const dateText = format(new Date(apt.meetDate), "M월 d일 (eee) a h:mm", {
-    locale: ko,
-  });
+  const dateText = formatKoreanAppointmentDate(apt.meetDate);
 
   // 수락 핸들러
   const handleAccept = () => {

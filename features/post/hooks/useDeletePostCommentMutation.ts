@@ -10,6 +10,7 @@
  * 2026.04.03  임도헌   Modified  댓글 삭제 성공 토스트를 녹화 댓글과 같은 문법으로 통일
  * 2026.04.09  임도헌   Modified  성공 결과가 화면에 바로 드러나는 댓글 삭제는 실패 토스트만 남기도록 정리
  * 2026.05.18  임도헌   Modified  댓글 삭제 시 상세 메타와 목록 카드 댓글 수 캐시 동기화 추가
+ * 2026.08.13  임도헌   Modified  목록 낙관 업데이트/롤백/무효화를 현재 조회자로 제한
  */
 "use client";
 
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import { deleteCommentAction } from "@/features/post/actions/comments";
 import { queryKeys } from "@/lib/queryKeys";
 import type { PostsPage } from "@/features/post/types";
+import { isPostListKeyForViewer } from "@/features/post/utils/postQueryCache";
 
 /**
  * 게시글 댓글 삭제 전용 Mutation 훅
@@ -33,10 +35,11 @@ import type { PostsPage } from "@/features/post/types";
  * - 실패 시 토스트 알림으로 사용자 피드백을 제공
  *
  * @param {number} postId - 삭제할 댓글이 속한 게시글 ID
+ * @param {number} viewerId - 댓글 필터 기준 조회자 ID
  */
-export function useDeletePostCommentMutation(postId: number) {
+export function useDeletePostCommentMutation(postId: number, viewerId: number) {
   const queryClient = useQueryClient();
-  const queryKey = queryKeys.posts.comments(postId);
+  const queryKey = queryKeys.posts.comments(postId, viewerId);
   const statsQueryKey = queryKeys.posts.stats(postId);
 
   return useMutation({
@@ -46,11 +49,15 @@ export function useDeletePostCommentMutation(postId: number) {
       return res;
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.posts.lists() });
+      await queryClient.cancelQueries({
+        predicate: (query) =>
+          isPostListKeyForViewer(query.queryKey, viewerId),
+      });
 
       const previousStats = queryClient.getQueryData(statsQueryKey);
       const previousLists = queryClient.getQueriesData<InfiniteData<PostsPage>>({
-        queryKey: queryKeys.posts.lists(),
+        predicate: (query) =>
+          isPostListKeyForViewer(query.queryKey, viewerId),
       });
 
       queryClient.setQueryData(
@@ -60,7 +67,10 @@ export function useDeletePostCommentMutation(postId: number) {
         })
       );
       queryClient.setQueriesData<InfiniteData<PostsPage>>(
-        { queryKey: queryKeys.posts.lists() },
+        {
+          predicate: (query) =>
+            isPostListKeyForViewer(query.queryKey, viewerId),
+        },
         (oldData) =>
           oldData
             ? {
@@ -98,7 +108,10 @@ export function useDeletePostCommentMutation(postId: number) {
       toast.error("댓글 삭제에 실패했습니다.");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.posts.lists() });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          isPostListKeyForViewer(query.queryKey, viewerId),
+      });
     },
   });
 }

@@ -15,6 +15,7 @@
  * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 대상 목록 조회 Action 추가
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.05.16  임도헌   Modified  채팅방 조회와 rate limit 카운트를 service 계층으로 이동
+ * 2026.08.21  임도헌   Modified  방송 접근 권한을 메시지 전송 시점에 재검증하도록 보강
  */
 
 "use server";
@@ -31,7 +32,7 @@ import {
   toggleStreamChatMute,
   updatePinnedChatNotice,
 } from "@/features/stream/service/chat";
-import { checkBlockRelation } from "@/features/user/service/block";
+import { authorizeBroadcastAccess } from "@/features/stream/service/access";
 import type {
   DeleteStreamMessageResult,
   GetMutedStreamViewerListResult,
@@ -74,16 +75,18 @@ export const sendStreamMessageAction = async (
 
     const { hostId, broadcastId } = context;
 
-    // 차단 관계 확인
-    // 내가 호스트를 차단했거나, 호스트가 나를 차단했으면 전송 불가
-    if (session.id !== hostId) {
-      const isBlocked = await checkBlockRelation(session.id, hostId);
-      if (isBlocked) {
-        // RATE_LIMITED 등 적절한 에러 코드로 리턴하거나 커스텀 에러 처리
-        // 여기서는 생성 실패로 처리
-        return { success: false, error: "CREATE_FAILED" };
-      }
+    // 열려 있던 화면에서도 팔로우·차단·PRIVATE 언락 상태가 바뀔 수 있으므로
+    // 실제 메시지를 쓰기 직전에 현재 세션 기준으로 다시 판정한다.
+    const access = await authorizeBroadcastAccess(
+      broadcastId,
+      session.id,
+      session
+    );
+    if (!access.allowed) {
+      return { success: false, error: "CREATE_FAILED" };
+    }
 
+    if (session.id !== hostId) {
       const isMuted = await isStreamViewerMuted(broadcastId, session.id);
       if (isMuted) {
         return { success: false, error: "MUTED" };
@@ -227,4 +230,3 @@ export const updatePinnedChatNoticeAction = async (
     return { success: false, error: "UPDATE_FAILED" };
   }
 };
-

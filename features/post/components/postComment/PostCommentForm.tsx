@@ -24,6 +24,7 @@
  * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
  * 2026.04.26  임도헌   Modified  댓글 등록 버튼의 다크모드 hover 색조를 primary CTA 톤과 맞춰 정리
  * 2026.05.30  임도헌   Modified  모바일 버튼 전송, 데스크톱 Enter 전송 기준으로 댓글 입력 정책 정리
+ * 2026.08.13  임도헌   Modified  댓글 생성 cache 갱신에 현재 조회자 ID 전달
  */
 "use client";
 
@@ -43,9 +44,15 @@ import { toast } from "sonner";
  * - IME(한글 등) 조합 중 Enter 전송 방지와 명시 버튼 전송 허용
  * - 작성 시도 즉시 입력창 초기화 후, 실패 시 입력값 복원(Rollback) 적용
  */
-export default function PostCommentForm({ postId }: { postId: number }) {
+export default function PostCommentForm({
+  postId,
+  viewerId,
+}: {
+  postId: number;
+  viewerId: number;
+}) {
   const { mutateAsync: createComment, isPending } =
-    useCreatePostCommentMutation(postId);
+    useCreatePostCommentMutation(postId, viewerId);
   const [text, setText] = useState("");
   const [isComposing, setIsComposing] = useState(false); // IME 입력 중 여부
   const textareaRef = useRef<HTMLTextAreaElement>(null);

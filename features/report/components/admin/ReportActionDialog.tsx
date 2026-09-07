@@ -24,6 +24,8 @@
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소/닫기 버튼을 제거해 처리 액션 중심으로 정리
  * 2026.06.19  임도헌   Modified  신고 처리 오버레이 레이어를 상향해 관리자 상단 영역까지 안정적으로 덮도록 보강
  * 2026.06.19  임도헌   Modified  데스크톱 신고 처리 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.04  임도헌   Modified  처리 전 대상 제목·사용자명을 주요 정보로 표시하고 ID를 보조 정보로 정리
  */
 
 import Link from "next/link";
@@ -52,6 +54,7 @@ import {
 import type { ReportReason } from "@/generated/prisma/client";
 import type { ReportResolutionAction } from "@/features/report/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { cn } from "@/lib/utils";
 
 interface ReportActionDialogProps {
@@ -180,20 +183,13 @@ export default function ReportActionDialog({
     setDeleteContent(effectiveRecommended.deleteContent);
   }, [effectiveRecommended, existingAdminComment, open]);
 
-  useEffect(() => {
-    if (!open || isMobile) return;
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") handleRequestClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleRequestClose, isMobile, open]);
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: handleRequestClose,
+  });
 
   if (!open || !mounted) return null;
 
@@ -316,9 +312,11 @@ export default function ReportActionDialog({
               신고 대상
             </p>
             <div className="mt-3 space-y-3">
-              {targetResolvedUserId ? (
+              {targetResolvedUserId && targetType !== "USER" ? (
                 <div className="rounded-lg border border-border-subtle bg-surface/70 px-3 py-2">
-                  <p className="text-xs font-bold text-muted">조치 대상 유저</p>
+                  <p className="text-xs font-bold text-muted">
+                    작성자·조치 대상
+                  </p>
                   <p className="mt-1 text-sm font-bold text-primary">
                     {targetResolvedUsername || "이름 없음"} #
                     {targetResolvedUserId}
@@ -328,8 +326,16 @@ export default function ReportActionDialog({
 
               {targetLabel && targetId ? (
                 <div>
+                  <p
+                    className="line-clamp-3 text-sm font-bold leading-6 text-primary"
+                    title={targetPreview?.trim() || undefined}
+                  >
+                    {targetPreview?.trim() || "대상 원문 요약이 없습니다."}
+                  </p>
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold text-muted">직접 대상</p>
+                    <p className="mt-1 text-xs font-medium text-muted">
+                      {targetLabel} #{targetId}
+                    </p>
                     {targetUrl ? (
                       <Link
                         href={targetUrl}
@@ -348,12 +354,6 @@ export default function ReportActionDialog({
                       </Link>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm font-medium text-primary">
-                    {targetLabel} #{targetId}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-muted">
-                    {targetPreview?.trim() || "대상 원문 요약이 없습니다."}
-                  </p>
                 </div>
               ) : null}
 

@@ -10,21 +10,27 @@
  * 2025.06.08  임도헌   Created   제품 상세 페이지 Not Found UI 공통 컴포넌트 적용
  * 2026.03.06  임도헌   Modified  전역 상태 화면 여백 리듬에 맞춰 상단 여백을 조정
  * 2026.04.12  임도헌   Moved     파일 경로를 app/products/view/[id]/not-found.tsx 에서 app/(app)/products/view/[id]/not-found.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.28  임도헌   Modified  상품 없음 컴포넌트 함수 JSDoc 보강
+ */
 "use client";
 
 import NotFound from "@/components/ui/NotFound";
 
+/**
+ * 삭제되었거나 존재하지 않는 상품 상세 경로의 안내 화면을 표시한다.
+ *
+ * @returns 상품 목록 복귀 경로가 포함된 Not Found 화면
+ */
 export default function ProductNotFound() {
   return (
     <div className="min-h-screen bg-background px-page-x py-10 sm:py-16">
       <NotFound
-        title="제품을 찾을 수 없습니다"
-        description="해당 제품이 삭제되었거나 존재하지 않는 경로입니다."
-        redirectText="제품 목록으로 돌아가기"
+        title="상품을 찾을 수 없습니다"
+        description="해당 상품이 삭제되었거나 존재하지 않는 경로입니다."
+        redirectText="상품 목록으로 돌아가기"
         redirectHref="/products"
       />
     </div>
   );
 }
-

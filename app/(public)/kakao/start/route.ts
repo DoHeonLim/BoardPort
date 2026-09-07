@@ -10,7 +10,8 @@
  * 2026.03.12  임도헌   Modified  callbackUrl 정규화와 state 생성 흐름을 GitHub OAuth 시작 라우트와 같은 기준으로 통일
  * 2026.03.14  임도헌   Modified  account_email scope를 명시해 동의한 카카오 계정 이메일을 프로필로 저장할 수 있도록 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/kakao/start/route.ts 에서 app/(public)/kakao/start/route.ts 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.30  임도헌   Modified  callbackUrl 쿼리 생략 시 기본 프로필 복귀 경로 유지
+ */
 
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
@@ -31,7 +32,7 @@ export function GET(request: Request) {
   const baseURL = "https://kauth.kakao.com/oauth/authorize";
   const requestUrl = new URL(request.url);
   const callbackUrl = sanitizeCallbackUrl(
-    requestUrl.searchParams.get("callbackUrl")
+    requestUrl.searchParams.get("callbackUrl") ?? "/profile"
   );
 
   // CSRF 방지용 state 생성
@@ -66,4 +67,3 @@ export function GET(request: Request) {
 
   return response;
 }
-

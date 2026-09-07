@@ -12,6 +12,7 @@
  * 2026.04.14  임도헌   Modified  자동 로드 정책에 맞춰 미리보기 카드를 정보 중심의 간소한 로딩 셸로 정리
  * 2026.04.26  임도헌   Modified  지도 열기 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
+ * 2026.09.07  임도헌   Modified  장소명과 지역명이 같을 때 부제를 숨기고 지도 카드 제목을 세로 중앙 정렬
  */
 
 "use client";
@@ -79,7 +80,11 @@ export default function ProductDetailLocationSection({
 
   useEffect(() => {
     if (!hasLocationData) return;
-    if (typeof window === "undefined" || !sectionRef.current || isNearViewport) {
+    if (
+      typeof window === "undefined" ||
+      !sectionRef.current ||
+      isNearViewport
+    ) {
       return;
     }
 
@@ -156,6 +161,11 @@ export default function ProductDetailLocationSection({
   }
 
   const regionString = formatNormalizedRegion({ region1, region2, region3 });
+  const regionDescription =
+    regionString.trim().replace(/\s+/g, " ") ===
+    locationName.trim().replace(/\s+/g, " ")
+      ? ""
+      : regionString;
   const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(
     locationName
   )},${latitude},${longitude}`;
@@ -172,7 +182,7 @@ export default function ProductDetailLocationSection({
           latitude={latitude}
           longitude={longitude}
           locationName={locationName}
-          regionString={regionString}
+          regionString={regionDescription}
         />
       ) : (
         <div
@@ -180,8 +190,12 @@ export default function ProductDetailLocationSection({
           onMouseEnter={() => void loadStaticMap()}
           onFocus={() => void loadStaticMap()}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
-            <div className="flex min-w-0 items-start gap-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+            <div
+              className={`flex min-w-0 gap-3 ${
+                regionDescription ? "items-start" : "items-center"
+              }`}
+            >
               <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
                 <MapPinIcon className="size-5" />
               </div>
@@ -189,9 +203,9 @@ export default function ProductDetailLocationSection({
                 <p className="font-bold text-primary break-words leading-snug">
                   {locationName}
                 </p>
-                {regionString && (
+                {regionDescription && (
                   <p className="mt-0.5 text-xs text-muted break-words">
-                    {regionString}
+                    {regionDescription}
                   </p>
                 )}
               </div>

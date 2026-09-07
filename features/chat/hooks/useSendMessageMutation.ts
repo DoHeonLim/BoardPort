@@ -9,6 +9,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.12  임도헌   Modified  첨부 이미지 애니메이션 메타(imageIsAnimated) 전달 지원
  * 2026.04.02  임도헌   Modified  메시지 전송 mutation 훅 JSDoc 반환 설명 보강
+ * 2026.08.26  임도헌   Modified  재전송 시 같은 DB 메시지로 수렴할 clientMessageId 전달
  */
 
 "use client";
@@ -20,6 +21,7 @@ interface SendMessageArgs {
   text?: string | null;
   imageUrl?: string | null;
   imageIsAnimated?: boolean;
+  clientMessageId: string;
 }
 
 /**
@@ -34,12 +36,18 @@ interface SendMessageArgs {
  */
 export function useSendMessageMutation(chatRoomId: string) {
   return useMutation({
-    mutationFn: async ({ text, imageUrl, imageIsAnimated }: SendMessageArgs) => {
+    mutationFn: async ({
+      text,
+      imageUrl,
+      imageIsAnimated,
+      clientMessageId,
+    }: SendMessageArgs) => {
       const res = await sendMessageAction(
         chatRoomId,
         text,
         imageUrl,
-        imageIsAnimated
+        imageIsAnimated,
+        clientMessageId
       );
       // Rate Limit(도배 방지) 또는 차단 등의 에러 처리
       if (!res || !res.success) {

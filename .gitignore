@@ -38,9 +38,10 @@ next-env.d.ts
 *.db
 *.db-journal
 
-# pwa
+# pwa (next-pwa / Serwist generated service workers)
 **/public/workbox-*.js
 **/public/sw.js
+**/public/swe-worker-*.js
 **/public/worker-*.js
 **/public/fallback-*.js
 

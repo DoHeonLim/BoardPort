@@ -11,6 +11,7 @@
  * 2026.03.14  임도헌   Modified  재설정 토큰 1회 소비 원자성 및 메일 발송 성공 후 이전 토큰 정리 순서 보강
  * 2026.03.18  임도헌   Modified  로그인 가드에서 비밀번호 찾기로 이어질 때 원래 callbackUrl을 재설정 링크와 재로그인 복귀까지 유지
  * 2026.04.04  임도헌   Modified  비밀번호 재설정 토큰 발급/소비 단계의 인라인 주석 보강
+ * 2026.08.23  임도헌   Modified  비밀번호 재설정 시 sessionVersion 증가로 기존 세션 폐기
  */
 
 import "server-only";
@@ -27,6 +28,8 @@ import {
 } from "@/features/auth/constants";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import type { ServiceResult } from "@/lib/types";
+import { getTrustedAppBaseUrl } from "@/lib/env";
+import { checkAndRecordPasswordResetRequest } from "@/features/auth/service/rateLimit";
 
 /**
  * 비밀번호 재설정 토큰 해시 생성
@@ -44,7 +47,7 @@ function hashPasswordResetToken(token: string): string {
  * @returns {string} 비밀번호 재설정 링크 생성에 사용할 앱 기본 URL
  */
 function getAppBaseUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return getTrustedAppBaseUrl();
 }
 
 /**
@@ -64,11 +67,20 @@ function getAppBaseUrl() {
  */
 export async function requestPasswordResetService(
   email: string,
-  callbackUrl: string = "/profile"
+  callbackUrl: string = "/profile",
+  options: { clientIp?: string | null } = {}
 ): Promise<ServiceResult<{ sent: boolean }>> {
   // 메일 발송과 링크 생성에 사용할 입력 정규화
   const normalizedEmail = email.trim().toLowerCase();
   const safeCallbackUrl = sanitizeCallbackUrl(callbackUrl);
+
+  const requestLimit = await checkAndRecordPasswordResetRequest(
+    options.clientIp ?? null,
+    normalizedEmail
+  );
+  if (!requestLimit.allowed) {
+    return { success: true, data: { sent: false } };
+  }
 
   // 계정 존재 여부와 이메일 인증 상태 확인
   const user = await db.user.findUnique({
@@ -228,7 +240,10 @@ export async function resetPasswordWithTokenService(
 
       await tx.user.update({
         where: { id: tokenRow.userId },
-        data: { password: hashedPassword },
+        data: {
+          password: hashedPassword,
+          sessionVersion: { increment: 1 },
+        },
       });
 
       await tx.passwordResetToken.deleteMany({

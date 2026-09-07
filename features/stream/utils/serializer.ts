@@ -12,6 +12,7 @@
  * 2026.01.23  임도헌   Moved     lib/stream/serializeStream -> utils/serializer
  * 2026.03.12  임도헌   Modified  스트림 카드용 썸네일 애니메이션 메타 직렬화 추가
  * 2026.05.03  임도헌   Modified  방송 목록 카드 표시용 연결 보드게임 locale 직렬화 추가
+ * 2026.08.21  임도헌   Modified  목록 DTO에서 원본 Cloudflare Live Input UID 직렬화 제거
  */
 
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
@@ -26,7 +27,6 @@ const CONNECTED = "CONNECTED";
 // DB 조회 결과(Raw) 타입 정의
 type RawRow = {
   id: number;
-  stream_id: string; // CF LiveInput UID
   title: string;
   description: string | null;
   thumbnail: string | null;
@@ -75,7 +75,6 @@ export function serializeStream(
 
   return {
     id: s.id,
-    stream_id: s.stream_id,
     title: s.title,
     thumbnail: s.thumbnail ?? null,
     thumbnailAnimated: s.thumbnailAnimated ?? false,

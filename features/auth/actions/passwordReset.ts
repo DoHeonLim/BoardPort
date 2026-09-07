@@ -8,9 +8,11 @@
  * 2026.03.14  임도헌   Created   비밀번호 찾기 요청과 토큰 기반 비밀번호 재설정 액션 추가
  * 2026.03.14  임도헌   Modified  함수별 JSDoc 보강 및 에러 처리 흐름 정리
  * 2026.03.18  임도헌   Modified  비밀번호 찾기 요청 시 callbackUrl을 함께 전달해 재설정 후 재로그인 복귀 문맥 유지
+ * 2026.08.23  임도헌   Modified  비밀번호 재설정 요청에 IP·이메일 제한 컨텍스트 전달
  */
 "use server";
 
+import { headers } from "next/headers";
 import {
   passwordResetRequestSchema,
   passwordResetSchema,
@@ -23,6 +25,7 @@ import {
 } from "@/features/auth/service/passwordReset";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import type { ActionState } from "@/features/auth/types";
+import { getClientIpFromHeaders } from "@/features/auth/service/rateLimit";
 
 /**
  * 비밀번호 찾기 메일 요청 액션
@@ -50,13 +53,16 @@ export async function requestPasswordResetAction(
   }
 
   try {
-    await requestPasswordResetService(parsed.data.email, callbackUrl);
+    await requestPasswordResetService(parsed.data.email, callbackUrl, {
+      clientIp: getClientIpFromHeaders(await headers()),
+    });
     return { success: true };
   } catch (error) {
     console.error("[requestPasswordResetAction]", error);
     return {
       success: false,
-      error: "비밀번호 재설정 메일 요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error:
+        "비밀번호 재설정 메일 요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

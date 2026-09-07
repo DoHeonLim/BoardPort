@@ -10,7 +10,8 @@
  * 2026.03.29  임도헌   Modified  최근 7일 방송 시작 추이, 라이브 카테고리 분포, 운영 KPI를 포함한 인사이트 헤더를 추가
  * 2026.03.30  임도헌   Modified  카테고리 검색과 목록 기준 안내를 보강해 인사이트에서 방송 목록 추적으로 이어지게 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/streams/page.tsx 에서 app/(app)/admin/streams/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 import {
   getStreamsAdminAction,
   getStreamsAdminInsightsAction,
@@ -27,11 +28,10 @@ export const dynamic = "force-dynamic";
  * - 실시간 라이브 현황과 최근 시작/종료 흐름을 함께 보여준다.
  * - 문제 방송은 검색된 목록에서 바로 추적하고 강제 종료할 수 있다.
  */
-export default async function AdminStreamsPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; q?: string };
+export default async function AdminStreamsPage(props: {
+  searchParams: Promise<{ page?: string; q?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawPage = Number(searchParams.page);
   const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const query = searchParams.q || "";
@@ -55,9 +55,7 @@ export default async function AdminStreamsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-primary">
-          실시간 방송 관리
-        </h2>
+        <h2 className="text-2xl font-bold text-primary">실시간 방송 관리</h2>
         <p className="mt-1 text-sm text-muted">
           현재 송출 중인 방송을 모니터링하고 강제 종료할 수 있습니다.
         </p>
@@ -75,4 +73,3 @@ export default async function AdminStreamsPage({
     </div>
   );
 }
-

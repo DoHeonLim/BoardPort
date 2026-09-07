@@ -8,6 +8,7 @@
  * 2026.03.30  임도헌   Created   게시글 동영상 direct upload 세션 생성 및 초안 정책 유틸 추가
  * 2026.03.31  임도헌   Modified  draft 정리와 업로드 실패 상태 반영 서비스 추가
  * 2026.04.02  임도헌   Modified  동영상 서비스와 정책 상수 배치를 정리하고 JSDoc 태그 형식을 보강
+ * 2026.08.26  임도헌   Modified  moderation outbox용 외부 동영상 삭제 실패 전파 옵션 추가
  */
 import "server-only";
 
@@ -39,24 +40,42 @@ interface PostVideoDraftLookup {
  *
  * [기능]
  * - 게시글 삭제 또는 draft 정리 시 남은 Stream 자산을 best-effort로 정리
- * - 외부 API 실패가 본문 삭제 흐름을 막지 않도록 내부에서 경고만 남김
+ * - 기본 호출은 외부 API 실패를 경고로 남기고, outbox 호출은 실패를 전파해 재시도
  *
  * @param {string} uid - 삭제할 Cloudflare Stream 자산 UID
+ * @param options - `throwOnFailure`가 true면 외부 삭제 실패를 호출자에게 전달
  * @returns {Promise<void>} 외부 자산 정리 시도만 수행
  */
-export async function deleteCloudflareStreamAsset(uid: string) {
-  if (!CF_ACCOUNT_ID || !CF_TOKEN) return;
+export async function deleteCloudflareStreamAsset(
+  uid: string,
+  options: { throwOnFailure?: boolean } = {}
+) {
+  if (!CF_ACCOUNT_ID || !CF_TOKEN) {
+    if (options.throwOnFailure) {
+      throw new Error("Cloudflare Stream 삭제 환경변수가 누락되었습니다.");
+    }
+    return;
+  }
 
   try {
-    await fetch(`${API_BASE}/accounts/${CF_ACCOUNT_ID}/stream/${uid}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${CF_TOKEN}`,
-      },
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${API_BASE}/accounts/${CF_ACCOUNT_ID}/stream/${uid}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${CF_TOKEN}`,
+        },
+        cache: "no-store",
+      }
+    );
+    if (!response.ok && response.status !== 404) {
+      throw new Error(
+        `Cloudflare Stream delete failed status=${response.status}`
+      );
+    }
   } catch (error) {
     console.warn("[deleteCloudflareStreamAsset] cleanup failed:", error);
+    if (options.throwOnFailure) throw error;
   }
 }
 

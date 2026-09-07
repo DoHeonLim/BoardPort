@@ -9,14 +9,19 @@
  * 2026.05.18  임도헌   Modified  탭 밖 채팅 상세까지 포함하도록 앱 전역 브리지 역할로 설명 보강
  * 2026.05.18  임도헌   Modified  초기 렌더 중 Server Action 재호출을 피하도록 마운트 직후 목록 invalidate 제거
  * 2026.05.18  임도헌   Modified  rooms_refresh 수신 시 미읽음 수 query를 비활성 상태까지 재검증하도록 보강
+ * 2026.08.21  임도헌   Modified  사용자별 목록 갱신 채널을 JWT 인증 private 구독으로 전환
+ * 2026.08.28  임도헌   Modified  채팅방 Realtime 구독 수명 주기 함수 JSDoc 보강
+ * 2026.08.31  임도헌   Modified  짧은 화면 전환에서는 연결을 유지하도록 hidden 정리 지연
  */
 "use client";
 
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { subscribePrivateRealtimeChannel, supabase } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryKeys";
 import { CHAT_EVENT } from "@/features/chat/constants";
+import { chatRoomsRealtimeTopic } from "@/features/realtime/topics";
+import { createRealtimeVisibilityCleanup } from "@/features/realtime/utils/visibilityCleanup";
 
 interface ChatRoomsRealtimeBridgeProps {
   userId: number;
@@ -39,6 +44,7 @@ export default function ChatRoomsRealtimeBridge({
 
   useEffect(() => {
     let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    let authorizationController: AbortController | null = null;
     const listQueryKey = queryKeys.chats.list(userId);
     const unreadQueryKey = queryKeys.chats.unreadCount(userId);
 
@@ -54,37 +60,56 @@ export default function ChatRoomsRealtimeBridge({
       });
     };
 
+    /** 사용자 전용 private 채널을 만들고 JWT 인증 구독을 시작한다. */
     const subscribe = () => {
       if (activeChannel) return;
 
       activeChannel = supabase
-        .channel(`user-${userId}-chat-rooms`)
-        .on("broadcast", { event: CHAT_EVENT.ROOMS_REFRESH }, refreshChatSummaries)
-        .subscribe();
+        .channel(chatRoomsRealtimeTopic(userId), {
+          config: { private: true },
+        })
+        .on(
+          "broadcast",
+          { event: CHAT_EVENT.ROOMS_REFRESH },
+          refreshChatSummaries
+        );
+      authorizationController = new AbortController();
+      void subscribePrivateRealtimeChannel(
+        activeChannel,
+        authorizationController.signal
+      );
     };
 
+    /** 진행 중인 인증과 사용자 채널을 함께 정리한다. */
     const unsubscribe = () => {
       if (!activeChannel) return;
 
+      authorizationController?.abort();
+      authorizationController = null;
       void supabase.removeChannel(activeChannel);
       activeChannel = null;
     };
 
+    const visibilityCleanup = createRealtimeVisibilityCleanup(unsubscribe);
+
     const handlePageHide = () => {
-      unsubscribe();
+      visibilityCleanup.flush();
     };
 
     const handlePageShow = () => {
+      visibilityCleanup.cancel();
       subscribe();
       refreshChatSummaries();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        unsubscribe();
+        // 빠른 Alt+Tab은 연결을 유지하고 장기 백그라운드에서만 채널을 해제한다.
+        visibilityCleanup.schedule();
         return;
       }
 
+      visibilityCleanup.cancel();
       subscribe();
       refreshChatSummaries();
     };
@@ -98,6 +123,7 @@ export default function ChatRoomsRealtimeBridge({
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      visibilityCleanup.cancel();
       unsubscribe();
     };
   }, [queryClient, userId]);

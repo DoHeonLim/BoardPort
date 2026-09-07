@@ -40,6 +40,9 @@
  * 2026.04.03  임도헌   Modified  방송 단위 채팅 금지 초기 상태를 상세 클라이언트 셸에 함께 주입
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/[id]/page.tsx 에서 app/(app)/streams/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.15  임도헌   Modified  방송 공유 미리보기용 OG 이미지 메타와 공유 크롤러 접근 분기 추가
+ * 2026.08.21  임도헌   Modified  공용 방송 권한 판정 후에만 상세·채팅 데이터를 조회하고 제한 방송 metadata 비공개 처리
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  제한 방송 metadata를 접근 권한에 따라 실제 제목 또는 일반 안내로 구분
  */
 
 export const dynamic = "force-dynamic"; // 개인화 및 실시간 상태 반영
@@ -49,8 +52,10 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
-import { getUserInfoById, getUserProfile } from "@/features/user/service/profile";
-import type { StreamVisibility } from "@/features/stream/types";
+import {
+  getUserInfoById,
+  getUserProfile,
+} from "@/features/user/service/profile";
 import StreamDetailClientShell from "@/features/stream/components/StreamDetailClientShell";
 import StreamBlockGuard from "@/features/stream/components/StreamBlockGuard";
 import {
@@ -58,26 +63,25 @@ import {
   getCachedBroadcastDetail,
 } from "@/features/stream/service/detail";
 import type { StreamDetailDTO } from "@/features/stream/types";
-import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
-import { checkBroadcastAccess } from "@/features/stream/service/access";
+import { authorizeBroadcastAccess } from "@/features/stream/service/access";
+import {
+  createStreamPlaybackToken,
+  resolveStreamThumbnailUrl,
+} from "@/features/stream/service/playback";
 import {
   getMutedStreamViewerIds,
   getInitialStreamMessages,
   getStreamChatRoom,
   isStreamViewerMuted,
 } from "@/features/stream/service/chat";
-import {
-  checkBlockRelation,
-  getBlockedUserIds,
-} from "@/features/user/service/block";
+import { getBlockedUserIds } from "@/features/user/service/block";
 import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 
-// 방송 상세 공유/브라우저 탭 메타데이터 생성
-export async function generateMetadata({
-  params,
-}: {
-  params: { id: string };
+/** 접근 제한 정보는 노출하지 않고 방송 공유·브라우저 메타데이터를 생성한다. */
+export async function generateMetadata(props: {
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) {
     return { title: "방송을 찾을 수 없음" };
@@ -86,6 +90,43 @@ export async function generateMetadata({
 
   if (!stream) {
     return { title: "방송을 찾을 수 없음" };
+  }
+
+  // 제한 방송은 현재 세션의 팔로우·언락 권한까지 확인한다. 허용된 사용자에게는
+  // 실제 제목을 제공하되, 비로그인 크롤러와 미허용 사용자에게는 내용을 감춘다.
+  if (stream.visibility !== "PUBLIC") {
+    const session = await getSession();
+    const access = session?.id
+      ? await authorizeBroadcastAccess(id, session.id, session)
+      : null;
+
+    if (access?.allowed) {
+      const title = `${stream.title} - ${stream.user.username}`;
+      const description =
+        stream.description?.slice(0, 100) || "보드포트 라이브 스트리밍";
+
+      return {
+        title,
+        description,
+        robots: { index: false, follow: false },
+      };
+    }
+
+    const restrictedMetadata =
+      stream.visibility === "FOLLOWERS"
+        ? {
+            title: "팔로워 전용 방송",
+            description: "방송 진행자를 팔로우하면 시청할 수 있습니다.",
+          }
+        : {
+            title: "비공개 방송",
+            description: "비밀번호 확인 후 시청할 수 있습니다.",
+          };
+
+    return {
+      ...restrictedMetadata,
+      robots: { index: false, follow: false },
+    };
   }
 
   const title = `${stream.title} - ${stream.user.username}`;
@@ -128,16 +169,14 @@ export async function generateMetadata({
  * - 채팅방 정보, 초기 메시지, 차단 목록, 소유자 프로필을 함께 로드해 상세 UI 초기 상태 구성
  * - returnTo 미지정 시 스트림 목록(`/streams`) 복귀 경로 사용
  *
- * @param {Object} params - URL 파라미터 (id: 방송 ID)
- * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
+ * @param props - 방송 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function StreamDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function StreamDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const broadcastId = Number(params.id);
   if (!Number.isFinite(broadcastId) || broadcastId <= 0) notFound();
   // 방송 상세 직접 진입 시에도 스트림 목록으로 자연스럽게 복귀하도록 기본 경로 고정
@@ -146,12 +185,9 @@ export default async function StreamDetailPage({
     returnTo
   )}`;
 
-  const [session, fetched] = await Promise.all([
-    getSession(),
-    getBroadcastDetail(broadcastId),
-  ]);
+  const session = await getSession();
   const isSharePreviewCrawler = isSocialCrawlerUserAgent(
-    headers().get("user-agent")
+    (await headers()).get("user-agent")
   );
 
   // 공유 미리보기 크롤러는 generateMetadata 수집만 필요하므로 본문 렌더링 생략
@@ -162,47 +198,46 @@ export default async function StreamDetailPage({
   if (!session?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(detailHref)}`);
   }
+
+  const access = await authorizeBroadcastAccess(
+    broadcastId,
+    session.id,
+    session
+  );
+  if (!access.subject || access.reason === "NOT_FOUND") notFound();
+
+  if (!access.allowed) {
+    const reason = access.reason;
+    const subject = access.subject;
+    const accessParams =
+      reason === "BLOCKED"
+        ? `reason=BLOCKED&username=${encodeURIComponent(subject.ownerUsername)}`
+        : `reason=${reason}&username=${encodeURIComponent(subject.ownerUsername)}` +
+          `&sid=${subject.broadcastId}&uid=${subject.ownerId}`;
+
+    redirect(
+      `/403?${accessParams}&callbackUrl=${encodeURIComponent(detailHref)}`
+    );
+  }
+
+  // 최소 권한 조회가 통과한 뒤에만 제목·설명·provider 식별자가 포함된 상세를 읽는다.
+  const fetched = await getBroadcastDetail(broadcastId);
   if (!fetched) notFound();
 
-  const initialBroadcast = fetched as StreamDetailDTO;
-  const ownerId = initialBroadcast.userId ?? null;
-  // 1. 차단 관계 확인 가드
-  // 소유자가 본인이 아닐 때, 양방향 차단 여부(내가 차단했거나, 나를 차단했거나)를 검사
-  if (session.id !== ownerId) {
-    const isBlocked = await checkBlockRelation(session.id, ownerId);
-    if (isBlocked) {
-      redirect(
-        `/403?reason=BLOCKED` +
-          `&username=${encodeURIComponent(initialBroadcast.user.username)}` +
-          `&callbackUrl=${encodeURIComponent(detailHref)}`
-      );
-    }
-  }
+  // 원본 provider UID는 access subject 안에서만 사용하고, 브라우저에는
+  // 짧은 수명의 signed playback token만 직렬화한다.
+  const initialBroadcast: StreamDetailDTO = {
+    ...fetched,
+    playbackId: createStreamPlaybackToken(access.subject.liveInputUid),
+    thumbnail: resolveStreamThumbnailUrl(
+      fetched.thumbnail,
+      access.subject.liveInputUid
+    ),
+  };
+  const ownerId = access.subject.ownerId;
+  const isOwner = access.role === "OWNER";
 
-  // 2. 공개 설정 권한 체크 (PRIVATE / FOLLOWERS)
-  const isOwner = session.id === ownerId;
-  if (!isOwner) {
-    const isUnlocked = isBroadcastUnlockedFromSession(session, broadcastId);
-    const guard = await checkBroadcastAccess(
-      {
-        userId: ownerId,
-        visibility: initialBroadcast.visibility as StreamVisibility,
-      },
-      session.id,
-      { isPrivateUnlocked: isUnlocked }
-    );
-
-    if (!guard.allowed) {
-      redirect(
-        `/403?reason=${guard.reason}` +
-          `&username=${encodeURIComponent(initialBroadcast.user.username)}` +
-          `&callbackUrl=${encodeURIComponent(detailHref)}` +
-          `&sid=${broadcastId}&uid=${ownerId}`
-      );
-    }
-  }
-
-  // 3. 채팅방 및 유저 정보 조회
+  // 2. 채팅방 및 유저 정보 조회
   const [streamChatRoom, user, ownerProfile] = await Promise.all([
     getStreamChatRoom(broadcastId),
     getUserInfoById(session.id),
@@ -249,4 +284,3 @@ export default async function StreamDetailPage({
     </>
   );
 }
-

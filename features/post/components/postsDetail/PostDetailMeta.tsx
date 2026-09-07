@@ -13,6 +13,8 @@
  * 2026.05.26  임도헌   Modified  initialData 기반 stats query에 local queryFn을 부여해 refetch 경고 방지
  * 2026.06.17  임도헌   Modified  좋아요 상태 캐시 분리를 위해 viewerId 전달
  * 2026.06.21  임도헌   Modified  관련 장소 또는 작성 동네 메타를 상세 화면에 표시
+ * 2026.08.27  임도헌   Modified  재방문 시 새 서버 댓글 수를 기존 무기한 cache보다 우선하도록 동기화
+ * 2026.09.07  임도헌   Modified  모바일 메타를 한 줄 우선 배치하고 지도 카드와 중복되는 장소 정보 생략
  */
 "use client";
 
@@ -23,9 +25,9 @@ import {
   MapPinIcon,
 } from "@heroicons/react/24/solid";
 import TimeAgo from "@/components/ui/TimeAgo";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
+import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 
 interface PostDetailMetaProps {
   postId: number;
@@ -42,6 +44,7 @@ interface PostDetailMetaProps {
   feedRegion1?: string | null;
   feedRegion2?: string | null;
   feedRegion3?: string | null;
+  hasLocationSection?: boolean;
 }
 
 /**
@@ -65,18 +68,13 @@ export default function PostDetailMeta({
   feedRegion1,
   feedRegion2,
   feedRegion3,
+  hasLocationSection = false,
 }: PostDetailMetaProps) {
-  const queryClient = useQueryClient();
   const statsQueryKey = queryKeys.posts.stats(postId);
   const initialStats = { commentCount };
-  const { data: stats } = useQuery({
+  const stats = useServerSnapshotQuery({
     queryKey: statsQueryKey,
-    queryFn: async () =>
-      queryClient.getQueryData<typeof initialStats>(statsQueryKey) ??
-      initialStats,
-    initialData: initialStats,
-    staleTime: Infinity,
-    enabled: false,
+    snapshot: initialStats,
   });
   const explicitLocationText = locationName
     ? formatNormalizedRegion({ region1, region2, region3 })
@@ -86,11 +84,14 @@ export default function PostDetailMeta({
     region2: feedRegion2,
     region3: feedRegion3,
   });
-  const locationText = explicitLocationText || feedRegionText;
+  // 지도 카드가 같은 장소를 충분히 설명하는 경우 하단 메타에서는 위치를 반복하지 않는다.
+  const locationText = hasLocationSection
+    ? ""
+    : explicitLocationText || feedRegionText;
   const locationLabel = explicitLocationText ? "관련 장소" : "작성 동네";
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex items-center justify-between gap-3">
       <PostLikeButton
         isLiked={isLiked}
         likeCount={likeCount}
@@ -98,10 +99,10 @@ export default function PostDetailMeta({
         viewerId={viewerId}
       />
 
-      <div className="flex flex-col gap-2 text-xs text-muted sm:items-end">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted">
         {locationText && (
           <div
-            className="flex max-w-full items-center gap-1"
+            className="flex min-w-0 max-w-full items-center gap-1"
             title={`${locationLabel}: ${locationText}`}
           >
             <MapPinIcon className="size-4 shrink-0" />
@@ -110,7 +111,7 @@ export default function PostDetailMeta({
           </div>
         )}
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <div className="flex items-center gap-1">
             <EyeIcon className="size-4" />
             <span>{views.toLocaleString()}</span>

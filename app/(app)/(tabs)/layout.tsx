@@ -14,12 +14,20 @@
  * 2026.05.12  임도헌   Modified  TabBar 신호 뱃지용 초기 미읽음 채팅 수 서버 주입
  * 2026.05.17  임도헌   Modified  채팅방 Realtime 구독을 탭 레이아웃 브리지 1개로 통합
  * 2026.05.18  임도헌   Modified  채팅 Realtime 브리지를 앱 전역 레이아웃으로 이동하고 탭바 초기값 주입만 유지
+ * 2026.08.27  임도헌   Modified  탭 하위 화면이 공유하는 단일 main 랜드마크 책임 명시
+ * 2026.08.28  임도헌   Modified  탭 레이아웃의 세션 주입 책임을 함수 JSDoc으로 보강
  */
 
 import TabBar from "@/components/global/TabBar";
 import getSession from "@/lib/session";
 import { getUnreadChatMessageCount } from "@/features/chat/service/room";
 
+/**
+ * 인증 세션과 초기 미읽음 채팅 수를 주입하는 탭 공통 레이아웃
+ *
+ * @param props - 탭 영역에 렌더링할 하위 콘텐츠
+ * @returns 단일 본문 랜드마크와 전역 탭바
+ */
 export default async function TabLayout({
   children,
 }: {
@@ -33,13 +41,7 @@ export default async function TabLayout({
   return (
     <>
       <main className="flex-1 w-full min-h-screen">{children}</main>
-      <TabBar
-        userId={session?.id}
-        initialUnreadChatCount={unreadChatCount}
-      />
+      <TabBar userId={session?.id} initialUnreadChatCount={unreadChatCount} />
     </>
   );
 }
-
-
-

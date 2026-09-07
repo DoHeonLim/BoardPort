@@ -10,7 +10,8 @@
  * 2026.03.30  임도헌   Modified  검색 기준 안내와 판매자 ID 노출 흐름에 맞춰 운영 추적 문맥을 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/products/page.tsx 에서 app/(app)/admin/products/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.18  임도헌   Modified  상품 관리 상단 안내 문구를 압축해 모바일 초기 LCP 텍스트 부담을 완화
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 
 import { redirect } from "next/navigation";
 import { getProductsAdminAction } from "@/features/product/actions/admin";
@@ -24,11 +25,10 @@ export const dynamic = "force-dynamic";
  * - 전체 등록된 상품을 최신순으로 조회
  * - 검색된 목록에서 판매자 추적 후 부적절한 상품을 강제로 삭제하고, 사유를 감사 로그에 기록
  */
-export default async function AdminProductsPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; q?: string };
+export default async function AdminProductsPage(props: {
+  searchParams: Promise<{ page?: string; q?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawPage = Number(searchParams.page);
   const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const query = searchParams.q || "";
@@ -45,9 +45,7 @@ export default async function AdminProductsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-primary">
-          상품 관리
-        </h2>
+        <h2 className="text-2xl font-bold text-primary">상품 관리</h2>
         <p className="mt-1 text-sm text-muted">
           전체 등록된 상품을 조회하고 부적절한 콘텐츠를 삭제할 수 있습니다.
         </p>
@@ -58,4 +56,3 @@ export default async function AdminProductsPage({
     </div>
   );
 }
-

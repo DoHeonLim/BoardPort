@@ -8,6 +8,7 @@
  * 2026.02.07  임도헌   Created   초기 구현
  * 2026.03.30  임도헌   Modified  방송 인사이트 조회 액션을 추가하고 관리자 페이지를 action 계층으로 통일
  * 2026.04.02  임도헌   Modified  관리자 스트림 액션 JSDoc 보강
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -81,7 +82,7 @@ export async function deleteStreamAdminAction(
   const res = await deleteStreamByAdmin(auth.adminId, broadcastId, reason);
 
   if (res.success && res.data) {
-    revalidateTag(T.BROADCAST_DETAIL(broadcastId));
+    revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
     revalidatePath("/admin/streams");
     revalidatePath("/streams"); // 유저 공개 목록 갱신
     revalidatePath(`/profile/${res.data.username}/channel`);

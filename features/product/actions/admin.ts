@@ -11,6 +11,7 @@
  * 2026.03.05  임도헌   Modified  개인화 캐시 태그 파편화 제거 및 `revalidatePath` 기반 클라이언트 동기화로 단순화
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  관리자 액션 JSDoc 보강
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -63,7 +64,7 @@ export async function deleteProductAdminAction(
 
   if (res.success && res.data) {
     // 관리자가 지워도 유저의 프로필 탭과 채팅방에서 즉시 사라지도록 동기화
-    revalidateTag(T.PRODUCT_DETAIL(productId));
+    revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
 
     revalidatePath("/admin/products");
     revalidatePath("/products");

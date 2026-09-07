@@ -13,9 +13,10 @@
  * 2026.02.06  임도헌   Modified  유저 세션에 역할과 정지 여부 추가
  * 2026.03.30  임도헌   Modified  관리자 레이아웃 재사용을 위해 verifyAdminAccess가 기본 프로필 정보도 반환하도록 확장
  * 2026.04.02  임도헌   Modified  세션 서비스 JSDoc 포맷 보강
+ * 2026.08.23  임도헌   Modified  세션 생성 시 DB sessionVersion 포함
  */
 import "server-only";
-import getSession from "@/lib/session";
+import getSession, { getSessionForUpdate } from "@/lib/session";
 import db from "@/lib/db";
 
 /**
@@ -33,13 +34,14 @@ import db from "@/lib/db";
  * @returns {Promise<void>} 반환값 없음
  */
 export async function saveUserSession(userId: number) {
-  const session = await getSession();
+  // 인증 직후에는 기존 쿠키 버전이 DB보다 낮을 수 있으므로 검증 전 객체를 최신 값으로 재발급한다.
+  const session = await getSessionForUpdate();
 
   // 최신 Role/Ban 상태 조회
   // 로그인 직후 세션에 stale 권한이 남지 않도록 DB 기준 최신 상태를 다시 읽어 저장
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { role: true, bannedAt: true },
+    select: { role: true, bannedAt: true, sessionVersion: true },
   });
 
   if (!user) {
@@ -49,6 +51,7 @@ export async function saveUserSession(userId: number) {
   session.id = userId;
   session.role = user.role; // "USER" | "ADMIN"
   session.banned = !!user.bannedAt; // 정지 여부 (Boolean 변환)
+  session.sessionVersion = user.sessionVersion;
 
   await session.save();
 }

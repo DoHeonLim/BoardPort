@@ -22,6 +22,7 @@
  * 2026.03.12  임도헌   Modified  방송 썸네일 저장 시 애니메이션 메타를 함께 기록
  * 2026.05.03  임도헌   Modified  방송 생성 시 보드게임 카탈로그 연결 저장 추가
  * 2026.05.03  임도헌   Modified  방송-보드게임 연결 저장 정책 주석 보강
+ * 2026.08.22  임도헌   Modified  방송 썸네일 저장 전 MediaAsset 소유자·용도 검증 추가
  */
 
 import "server-only";
@@ -33,6 +34,7 @@ import { validateUserStatus } from "@/features/user/service/admin";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
 import { StreamFormValues } from "@/features/stream/schemas";
 import type { CreateBroadcastResult } from "@/features/stream/types";
+import { attachOwnedMediaAssets } from "@/features/media/service/assets";
 
 /**
  * 방송 생성 함수
@@ -100,12 +102,13 @@ export const createBroadcast = async (
 
   // 방송 레코드 생성
   try {
-    const broadcast = await db.broadcast.create({
-      data: {
+    const broadcast = await db.$transaction(async (tx) => {
+      const created = await tx.broadcast.create({
+        data: {
         liveInputId: ensured.liveInputId,
         title: title.trim(),
         description: description?.trim() || null,
-        thumbnail: thumbnail || null,
+        thumbnail: null,
         thumbnailAnimated,
         visibility,
         password: passwordHash,
@@ -127,8 +130,22 @@ export const createBroadcast = async (
               })),
             }
           : undefined,
-      },
-      select: { id: true },
+        },
+        select: { id: true },
+      });
+      if (thumbnail) {
+        const [ownedThumbnailUrl] = await attachOwnedMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "STREAM_THUMBNAIL",
+          urls: [thumbnail],
+          linkedEntityId: String(created.id),
+        });
+        await tx.broadcast.update({
+          where: { id: created.id },
+          data: { thumbnail: ownedThumbnailUrl },
+        });
+      }
+      return created;
     });
 
     // 채팅방 생성 시도

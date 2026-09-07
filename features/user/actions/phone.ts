@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   Action 정의
  * 2026.06.27  임도헌   Modified  프로필 SMS 발송에 IP rate limit 컨텍스트 전달
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 headers API 호환 반영
  */
 "use server";
 
@@ -35,7 +36,7 @@ export async function sendProfilePhoneTokenAction(formData: FormData) {
 
   // 2. Service 호출 (중복 확인 및 SMS 발송)
   return await sendProfilePhoneTokenService(session.id, parsed.data, {
-    clientIp: getClientIpFromHeaders(headers()),
+    clientIp: getClientIpFromHeaders(await headers()),
   });
 }
 

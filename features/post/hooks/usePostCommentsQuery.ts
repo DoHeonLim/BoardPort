@@ -17,6 +17,7 @@
  * 2026.03.31  임도헌   Modified  커서 조회와 평탄화 반환 역할이 보이도록 설명 톤 통일
  * 2026.04.17  임도헌   Modified  댓글 무한스크롤 훅의 다음 커서 규칙과 반환 책임 설명 보강
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
+ * 2026.08.13  임도헌   Modified  댓글 query key를 게시글과 조회자 기준으로 분리
  */
 "use client";
 
@@ -76,13 +77,18 @@ async function fetchPostCommentsPage(url: string): Promise<PostComment[]> {
  * - 평탄화된 comments 배열과 페이지네이션 상태를 함께 반환
  *
  * @param {number} postId - 댓글을 조회할 게시글 ID
+ * @param {number} viewerId - 댓글 필터 기준 조회자 ID
  * @param {number} [pageSize=10] - 페이지당 로드할 댓글 수
  * @returns {object} 평탄화된 댓글 배열과 다음 페이지 로딩 상태, loadMore 제어값
  */
-export function usePostCommentsQuery(postId: number, pageSize = 10) {
+export function usePostCommentsQuery(
+  postId: number,
+  viewerId: number,
+  pageSize = 10
+) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
-      queryKey: queryKeys.posts.comments(postId),
+      queryKey: queryKeys.posts.comments(postId, viewerId),
       queryFn: async ({ pageParam }) => {
         // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
         return fetchPostCommentsPage(

@@ -9,6 +9,7 @@
  * 2026.01.28  임도헌   Modified  주석 보강
  * 2026.03.07  임도헌   Modified  정지 유저/차단 관계/존재 여부 가드 추가
  * 2026.05.16  임도헌   Modified  Prisma 에러 분기를 unknown-safe 방식으로 정리
+ * 2026.08.21  임도헌   Modified  좋아요 상태 조회·토글 전에 VOD 접근 권한 검증 추가
  */
 
 import "server-only";
@@ -16,6 +17,11 @@ import db from "@/lib/db";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { validateUserStatus } from "@/features/user/service/admin";
 import { checkBlockRelation } from "@/features/user/service/block";
+import {
+  authorizeVodAccess,
+  requireStreamAccess,
+  type StreamUnlockState,
+} from "@/features/stream/service/access";
 
 /**
  * 좋아요 상태 및 총 개수 조회
@@ -25,8 +31,11 @@ import { checkBlockRelation } from "@/features/user/service/block";
  */
 export async function getRecordingLikeStatus(
   vodId: number,
-  userId: number | null
+  userId: number | null,
+  unlockState?: StreamUnlockState
 ) {
+  requireStreamAccess(await authorizeVodAccess(vodId, userId, unlockState));
+
   const [likeCount, likedRow] = await Promise.all([
     db.recordingLike.count({ where: { vodId } }),
     userId
@@ -46,8 +55,11 @@ export async function getRecordingLikeStatus(
 export async function toggleRecordingLike(
   vodId: number,
   userId: number,
-  isLike: boolean
+  isLike: boolean,
+  unlockState?: StreamUnlockState
 ) {
+  requireStreamAccess(await authorizeVodAccess(vodId, userId, unlockState));
+
   const status = await validateUserStatus(userId);
   if (!status.success) throw new Error("BANNED_USER");
 

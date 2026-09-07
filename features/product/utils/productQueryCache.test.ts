@@ -6,13 +6,17 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   삭제된 상품과 stale nextCursor 제거 기준 테스트 추가
+ * 2026.08.13  임도헌   Modified  상품 목록·찜 cache의 조회자 선택 경계 테스트 추가
  */
 
 import { describe, expect, it } from "vitest";
 import {
+  isLikedScopeKey,
+  isProductListKeyForViewer,
   removeProductFromInfiniteCache,
   type ProductInfiniteCache,
 } from "@/features/product/utils/productQueryCache";
+import { queryKeys } from "@/lib/queryKeys";
 
 type TestProduct = { id: number; title: string };
 
@@ -88,5 +92,27 @@ describe("removeProductFromInfiniteCache", () => {
     const result = removeProductFromInfiniteCache(createCache(), 2);
 
     expect(result?.pageParams).toEqual([undefined, 2]);
+  });
+});
+
+describe("product personalized cache predicates", () => {
+  it("현재 조회자의 상품 목록 캐시만 선택한다", () => {
+    const viewerOne = queryKeys.products.list({ keyword: "체스" }, 1);
+    const viewerTwo = queryKeys.products.list({ keyword: "체스" }, 2);
+    const guest = queryKeys.products.list({ keyword: "체스" }, null);
+
+    expect(isProductListKeyForViewer(viewerOne, 1)).toBe(true);
+    expect(isProductListKeyForViewer(viewerTwo, 1)).toBe(false);
+    expect(isProductListKeyForViewer(guest, null)).toBe(true);
+  });
+
+  it("LIKED 목록은 로그인한 현재 사용자 캐시만 선택한다", () => {
+    const viewerOne = queryKeys.products.userScope("LIKED", 1);
+    const viewerTwo = queryKeys.products.userScope("LIKED", 2);
+
+    expect(isLikedScopeKey(viewerOne, 1)).toBe(true);
+    expect(isLikedScopeKey(viewerTwo, 1)).toBe(false);
+    expect(isLikedScopeKey(viewerOne, null)).toBe(false);
+    expect(isLikedScopeKey(viewerTwo)).toBe(true);
   });
 });

@@ -9,6 +9,7 @@
  * 2026.04.24  임도헌   Modified  프로필 방송국 썸네일을 최신 ready VOD 기준으로 맞추기 위해 vodAssets thumbnail_url 포함
  * 2026.05.03  임도헌   Modified  방송 카드에 연결 보드게임 칩을 표시할 수 있도록 보드게임 locale select 추가
  * 2026.05.08  임도헌   Modified  보드게임 relation select 공용화 및 팔로우 상태 확인용 select factory 추가
+ * 2026.08.21  임도헌   Modified  Live Input UID는 서버 썸네일 서명에만 사용하고 목록 DTO 직렬화에서는 제외
  */
 
 import { Prisma } from "@/generated/prisma/client";
@@ -27,7 +28,7 @@ export const BROADCAST_SUMMARY_SELECT = {
   ended_at: true,
   liveInput: {
     select: {
-      provider_uid: true, // stream_id
+      provider_uid: true,
       userId: true,
       user: { select: { id: true, username: true, avatar: true } },
     },
@@ -40,7 +41,7 @@ export const BROADCAST_SUMMARY_SELECT = {
   // 프로필 방송국도 다시보기 목록과 같은 대표 썸네일을 쓰도록 최신 ready VOD 1개만 함께 조회
   vodAssets: {
     where: { ready_at: { not: null } },
-    select: { id: true, thumbnail_url: true },
+    select: { id: true, provider_asset_id: true, thumbnail_url: true },
     orderBy: { id: "desc" },
     take: 1,
   },

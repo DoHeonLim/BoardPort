@@ -8,6 +8,7 @@
  * 2026.01.30  임도헌   Moved     features/review/actions.ts -> features/review/actions/create.ts
  * 2026.03.05  임도헌   Modified  Action 내 `revalidateTag` 부수 효과(리뷰 목록, 평점 등) 제거 및 클라이언트 Mutation 훅으로 상태 갱신 위임
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -61,7 +62,7 @@ export async function createReviewAction(
     const { productId } = result.meta;
 
     // 상품 상세 캐시 재검증
-    revalidateTag(T.PRODUCT_DETAIL(productId));
+    revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
   }
 
   return result;

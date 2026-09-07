@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.04.02  임도헌   Created   알림 타입, 필터, 목록 DTO, 푸시 상태 타입을 공용 정의로 분리
  * 2026.04.02  임도헌   Modified  알림 타입 alias 설명 보강
+ * 2026.08.13  임도헌   Modified  Push 기기 소유권 증명 DTO와 계정 불일치 상태 추가
  */
 
 /**
@@ -97,7 +98,21 @@ export type UpdatePreferencesDTO = {
  */
 export type SubscriptionStatusCheckResult =
   | { isValid: true; reason: "active" }
-  | { isValid: false; reason: "disabled_by_user" | "needs_reconnect" };
+  | {
+      isValid: false;
+      reason: "disabled_by_user" | "needs_reconnect" | "account_mismatch";
+    };
+
+/**
+ * PushManager가 반환한 브라우저 구독 식별자와 소유 증명 키
+ */
+export type PushSubscriptionDTO = {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+};
 
 /**
  * 다중 기기 웹 푸시 발송 결과 집계 값

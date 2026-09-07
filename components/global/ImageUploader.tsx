@@ -16,7 +16,7 @@
  * 2026.05.30  임도헌   Modified  모바일 폼 밀도 조정을 위한 compact 표시 옵션 추가
  */
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   PhotoIcon,
   ChevronDownIcon,
@@ -64,12 +64,16 @@ export default function ImageUploader({
   compact = false,
 }: ImageUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
 
-  const handleImageClick = (e: React.MouseEvent<HTMLLabelElement>) => {
+  const openFilePicker = () => {
     if (previews.length >= maxImages) {
-      e.preventDefault();
       toast.warning(`이미지는 최대 ${maxImages}개만 가능합니다.`);
+      return;
     }
+
+    inputRef.current?.click();
   };
 
   // 드래그 진입
@@ -137,14 +141,15 @@ export default function ImageUploader({
           )}
         >
           <div className={cn("flex flex-col", compact ? "gap-3" : "gap-4")}>
-            <label
-              htmlFor={previews.length >= maxImages ? undefined : "photo"}
-              onClick={handleImageClick}
+            <button
+              type="button"
+              onClick={openFilePicker}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              disabled={isUploading}
               className={cn(
-                "flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all",
+                "focus-ring-soft flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all disabled:cursor-not-allowed",
                 compact ? "h-28 sm:h-32" : "h-32",
                 isDragOver
                   ? "border-brand bg-brand/5 dark:border-brand-light dark:bg-brand-light/10 scale-[1.01]"
@@ -155,32 +160,35 @@ export default function ImageUploader({
               )}
             >
               {isUploading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent"></div>
-                  <div className="text-sm text-muted">이미지 업로드 중...</div>
-                </div>
+                <span className="flex flex-col items-center gap-2">
+                  <span className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+                  <span className="text-sm text-muted">
+                    이미지 업로드 중...
+                  </span>
+                </span>
               ) : (
-                <div className="flex flex-col items-center gap-2 text-muted transition-colors">
+                <span className="flex flex-col items-center gap-2 text-muted transition-colors">
                   <PhotoIcon
-                    aria-label="photo_input"
+                    aria-hidden="true"
                     className={cn(
                       compact ? "h-7 w-7 sm:h-8 sm:w-8" : "h-8 w-8",
                       isDragOver && "text-brand dark:text-brand-light"
                     )}
                   />
-                  <div className="text-sm font-medium">
+                  <span className="text-sm font-medium">
                     {previews.length >= maxImages
                       ? `최대 ${maxImages}장까지 업로드 가능합니다`
                       : isDragOver
                         ? "여기에 이미지를 놓으세요"
                         : "클릭 또는 드래그하여 사진 추가"}
-                  </div>
-                </div>
+                  </span>
+                </span>
               )}
-            </label>
+            </button>
 
             <input
-              id="photo"
+              ref={inputRef}
+              id={inputId}
               type="file"
               accept="image/*"
               multiple

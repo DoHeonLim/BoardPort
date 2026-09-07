@@ -15,6 +15,7 @@
  * 2026.03.13  임도헌   Modified  returnTo 쿼리를 정규화해 저장/취소 후 복귀 경로로 사용
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/edit/page.tsx 에서 app/(app)/(tabs)/profile/edit/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.25  임도헌   Modified  ProfileEditForm 서버 액션 prop 전달을 제거해 클라이언트 entry 직렬화 경고를 해소
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
@@ -27,11 +28,10 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - 세션 검증 후, 편집에 필요한 현재 유저 정보(`getCurrentUserForEdit`)를 조회
  * - `ProfileEditForm`에 초기값과 복귀 경로를 주입
  */
-export default async function EditProfilePage({
-  searchParams,
-}: {
-  searchParams?: { returnTo?: string };
+export default async function EditProfilePage(props: {
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/profile");
 
   const session = await getSession();
@@ -54,5 +54,3 @@ export default async function EditProfilePage({
 
   return <ProfileEditForm user={user} returnTo={returnTo} />;
 }
-
-

@@ -17,6 +17,7 @@
  * 2026.03.31  임도헌   Modified  상태 조회와 토글 액션 반환 맥락이 보이도록 설명 보강
  * 2026.04.02  임도헌   Modified  파일 설명과 좋아요 액션 주석을 현재 서버 액션 톤으로 정리
  * 2026.05.16  임도헌   Modified  좋아요 액션 에러 분기를 unknown-safe 방식으로 정리
+ * 2026.08.21  임도헌   Modified  좋아요 조회·토글에 현재 세션의 VOD 접근 권한 적용
  */
 "use server";
 
@@ -25,6 +26,7 @@ import {
   getRecordingLikeStatus as getStatusService,
   toggleRecordingLike,
 } from "@/features/stream/service/like";
+import { StreamAccessError } from "@/features/stream/service/access";
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "";
@@ -34,17 +36,15 @@ const getErrorMessage = (error: unknown) =>
  *
  * [기능]
  * - 녹화본 좋아요 상태 조회를 service 계층에 위임
- * - 비로그인 사용자 여부와 관계없이 현재 반응 상태와 총 개수를 함께 반환
+ * - 서버 세션의 조회자 기준으로 접근 권한과 현재 반응 상태를 함께 확인
  *
  * @param {number} vodId - 상태를 조회할 VOD ID
- * @param {number | null} userId - 현재 사용자 ID
  * @returns {ReturnType<typeof getStatusService>} 현재 좋아요 상태와 개수
  */
-export async function getRecordingLikeStatus(
-  vodId: number,
-  userId: number | null
-) {
-  return getStatusService(vodId, userId);
+export async function getRecordingLikeStatus(vodId: number) {
+  const session = await getSession();
+  if (!session?.id) return { isLiked: false, likeCount: 0 };
+  return getStatusService(vodId, session.id, session);
 }
 
 type LikeResult =
@@ -67,7 +67,12 @@ export async function likeRecording(vodId: number): Promise<LikeResult> {
   if (!session?.id) return { success: false, error: "NOT_LOGGED_IN" };
 
   try {
-    const { likeCount } = await toggleRecordingLike(vodId, session.id, true);
+    const { likeCount } = await toggleRecordingLike(
+      vodId,
+      session.id,
+      true,
+      session
+    );
     return { success: true, isLiked: true, likeCount };
   } catch (e: unknown) {
     console.error("likeRecording error:", e);
@@ -78,6 +83,8 @@ export async function likeRecording(vodId: number): Promise<LikeResult> {
       return { success: false, error: "FORBIDDEN" };
     if (message === "NOT_FOUND")
       return { success: false, error: "NOT_FOUND" };
+    if (e instanceof StreamAccessError)
+      return { success: false, error: "FORBIDDEN" };
     return { success: false, error: "FAILED" };
   }
 }
@@ -98,7 +105,12 @@ export async function dislikeRecording(vodId: number): Promise<LikeResult> {
   if (!session?.id) return { success: false, error: "NOT_LOGGED_IN" };
 
   try {
-    const { likeCount } = await toggleRecordingLike(vodId, session.id, false);
+    const { likeCount } = await toggleRecordingLike(
+      vodId,
+      session.id,
+      false,
+      session
+    );
     return { success: true, isLiked: false, likeCount };
   } catch (e: unknown) {
     console.error("dislikeRecording error:", e);
@@ -109,6 +121,8 @@ export async function dislikeRecording(vodId: number): Promise<LikeResult> {
       return { success: false, error: "FORBIDDEN" };
     if (message === "NOT_FOUND")
       return { success: false, error: "NOT_FOUND" };
+    if (e instanceof StreamAccessError)
+      return { success: false, error: "FORBIDDEN" };
     return { success: false, error: "FAILED" };
   }
 }

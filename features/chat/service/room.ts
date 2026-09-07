@@ -30,6 +30,9 @@
  * 2026.04.03  임도헌   Modified  차단/생성 실패 문구를 다른 채팅 서비스와 같은 정책 설명 톤으로 정리
  * 2026.04.04  임도헌   Modified  새 채팅방 재연결 시 사용자 채널 rooms_refresh로 목록 재동기화 지원
  * 2026.05.12  임도헌   Modified  TabBar 뱃지와 채팅방 목록 기준을 맞춘 전체 미읽음 메시지 집계 추가
+ * 2026.08.21  임도헌   Modified  채팅방 목록·상품 채팅 발신을 서버 전용 private topic으로 전환
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.26  임도헌   Modified  상품·구매자 DB 고유 키와 upsert로 다중 인스턴스 채팅방 중복 생성 차단
  */
 
 import "server-only";
@@ -43,9 +46,12 @@ import { validateUserStatus } from "@/features/user/service/admin";
 import { mapToChatMessage } from "@/features/chat/utils/converter";
 import type { ChatRoom, ChatUser } from "@/features/chat/types";
 import type { ServiceResult } from "@/lib/types";
-import { supabase } from "@/lib/supabase";
-
-const roomCreationLocks = new Set<string>();
+import { isUniqueConstraintError } from "@/lib/errors";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import {
+  chatRoomsRealtimeTopic,
+  productChatRealtimeTopic,
+} from "@/features/realtime/topics";
 
 /**
  * 사용자별 채팅방 목록을 다시 불러오게 하는 rooms_refresh 이벤트 브로드캐스트
@@ -58,7 +64,7 @@ async function broadcastChatRoomListRefresh(userIds: number[]) {
 
   await Promise.allSettled(
     uniqueUserIds.map((targetUserId) =>
-      supabase.channel(`user-${targetUserId}-chat-rooms`).send({
+      supabase.channel(chatRoomsRealtimeTopic(targetUserId)).send({
         type: "broadcast",
         event: CHAT_EVENT.ROOMS_REFRESH,
         payload: { userId: targetUserId },
@@ -68,77 +74,18 @@ async function broadcastChatRoomListRefresh(userIds: number[]) {
 }
 
 /**
- * 채팅방 생성 중복 요청을 식별하기 위한 잠금 키 생성
- * - 동일 상품에 대해 동일한 두 사용자 조합은 항상 같은 키를 사용
- * - 사용자 ID를 정렬하여 요청 방향과 무관하게 동일 키를 보장
- */
-function getRoomCreationLockKey(
-  productId: number,
-  requesterId: number,
-  ownerId: number
-) {
-  const [smallerId, largerId] = [requesterId, ownerId].sort((a, b) => a - b);
-  return `${productId}:${smallerId}:${largerId}`;
-}
-
-/**
  * 동일 상품에 대한 재사용 가능한 채팅방 탐색
- * - 현재 참여 중인 방
- * - 과거 메시지 이력이 남아 있는 방
- * - 약속 이력이 남아 있는 방
- * 중 하나라도 해당되면 복구 가능한 기존 방으로 간주
+ * 상품·구매 문의자 고유 키를 사용하므로 현재 참여 여부와 관계없이 같은 방을 조회
  *
  * @param {number} productId - 상품 ID
  * @param {number} userId - 방을 다시 열려는 사용자 ID
  * @returns {Promise<import("@prisma/client").ProductChatRoom | null>} 가장 최근에 갱신된 재사용 가능 방
  */
 async function findReusableRoom(productId: number, userId: number) {
-  return db.productChatRoom.findFirst({
-    where: {
-      productId,
-      OR: [
-        { users: { some: { id: userId } } },
-        { messages: { some: { userId } } },
-        {
-          appointments: {
-            some: {
-              OR: [{ proposerId: userId }, { receiverId: userId }],
-            },
-          },
-        },
-      ],
-    },
+  return db.productChatRoom.findUnique({
+    where: { productId_buyerId: { productId, buyerId: userId } },
     include: { users: { select: { id: true } } },
-    orderBy: { updated_at: "desc" },
   });
-}
-
-/**
- * 다른 요청에서 채팅방 생성이 진행 중일 때 기존 방이 생길 때까지 짧게 재조회
- * - In-Memory Lock으로 동시에 들어온 중복 생성 요청을 serialize한 뒤
- * - 선행 요청이 만든/복구한 방 ID를 후행 요청이 재사용하도록 보조
- *
- * @param {number} productId - 상품 ID
- * @param {number} userId - 요청자 ID
- * @param {number} [retries=5] - 최대 재시도 횟수
- * @param {number} [intervalMs=120] - 재시도 간격(ms)
- * @returns {Promise<string | null>} 생성/복구된 채팅방 ID 또는 null
- */
-async function waitForExistingRoom(
-  productId: number,
-  userId: number,
-  retries = 5,
-  intervalMs = 120
-) {
-  for (let attempt = 0; attempt < retries; attempt += 1) {
-    const room = await findReusableRoom(productId, userId);
-
-    if (room) return room.id;
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-
-  return null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -279,7 +226,9 @@ export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
  * @param {number} userId - 미읽음 집계를 조회하는 사용자 ID
  * @returns {Promise<number>} 전체 미읽음 채팅 메시지 수
  */
-export async function getUnreadChatMessageCount(userId: number): Promise<number> {
+export async function getUnreadChatMessageCount(
+  userId: number
+): Promise<number> {
   const blockedIds = await getBlockedUserIds(userId);
 
   return db.productMessage.count({
@@ -402,16 +351,15 @@ export async function getCounterpartyInChatRoom(
  *
  * 1. 상품 존재 여부 및 본인 상품인지 검증
  * 2. 상대방(판매자)의 이용 정지 여부 및 양방향 차단 관계를 확인
- * 3. `roomCreationLocks`(In-Memory Set)를 사용하여 동일 유저+상품 조합의 중복 생성 요청을 방어
+ * 3. 상품·구매자 DB 고유 키와 upsert로 다중 인스턴스의 중복 생성 요청을 방어
  * 4. 기존에 참여했다가 나간 방(Ghost Room)이 있다면, 유저를 다시 연결(connect)하고
  *    '대화가 다시 시작되었습니다' 시스템 메시지를 발송하여 복구
- * 5. 과거 메시지/약속 이력이 남아 있는 동일 상품의 기존 방도 재사용 대상으로 간주
- * 6. 방이 없으면 신규 생성
+ * 5. 방이 없으면 upsert하고, 동시 create 고유 키 충돌도 선행 요청의 방으로 수렴
  *
  * @param {number} userId - 요청자 ID
- * @param {number} productId - 제품 ID
+ * @param {number} productId - 상품 ID
  * @returns {Promise<string>} 생성된 또는 기존의 채팅방 ID
- * @throws {Error} 존재하지 않는 제품이거나 차단된 사용자인 경우
+ * @throws {Error} 존재하지 않는 상품이거나 차단된 사용자인 경우
  */
 export async function createChatRoom(
   userId: number,
@@ -429,9 +377,9 @@ export async function createChatRoom(
     select: { userId: true },
   });
 
-  if (!product) throw new Error("존재하지 않는 제품입니다.");
+  if (!product) throw new Error("존재하지 않는 상품입니다.");
   if (product.userId === userId)
-    throw new Error("자신의 제품에는 채팅할 수 없습니다.");
+    throw new Error("자신의 상품에는 채팅할 수 없습니다.");
 
   // 보안 체크
   const ownerStatus = await validateUserStatus(product.userId);
@@ -443,36 +391,22 @@ export async function createChatRoom(
     throw new Error("차단된 사용자와는 대화할 수 없습니다.");
   }
 
-  const lockKey = getRoomCreationLockKey(productId, userId, product.userId);
+  // 1. 상품·구매자 고유 키로 기존 방 탐색
+  const existingRoom = await findReusableRoom(productId, userId);
 
-  if (roomCreationLocks.has(lockKey)) {
-    const existingRoomId = await waitForExistingRoom(
-      productId,
-      userId
+  if (existingRoom) {
+    const amIInRoom = existingRoom.users.some((u) => u.id === userId);
+    const isSellerInRoom = existingRoom.users.some(
+      (u) => u.id === product.userId
     );
-    if (existingRoomId) return existingRoomId;
-    throw new Error("채팅방 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.");
-  }
 
-  roomCreationLocks.add(lockKey);
+    const connectData: { id: number }[] = [];
+    if (!amIInRoom) connectData.push({ id: userId });
+    if (!isSellerInRoom) connectData.push({ id: product.userId });
 
-  try {
-    // 1. 기존 방 탐색
-    // (내가 참여 중이거나, 내가 나갔던 흔적이 있는 방)
-    const existingRoom = await findReusableRoom(productId, userId);
-
-    if (existingRoom) {
-      const amIInRoom = existingRoom.users.some((u) => u.id === userId);
-      const isSellerInRoom = existingRoom.users.some(
-        (u) => u.id === product.userId
-      );
-
-      const connectData = [];
-      if (!amIInRoom) connectData.push({ id: userId });
-      if (!isSellerInRoom) connectData.push({ id: product.userId });
-
-      if (connectData.length > 0) {
-        await db.productChatRoom.update({
+    if (connectData.length > 0) {
+      const sysMsg = await db.$transaction(async (tx) => {
+        await tx.productChatRoom.update({
           where: { id: existingRoom.id },
           data: {
             users: { connect: connectData },
@@ -480,7 +414,7 @@ export async function createChatRoom(
           },
         });
 
-        const sysMsg = await db.productMessage.create({
+        return tx.productMessage.create({
           data: {
             type: "SYSTEM",
             userId,
@@ -491,21 +425,30 @@ export async function createChatRoom(
             user: { select: { id: true, username: true, avatar: true } },
           },
         });
+      });
 
-        await supabase.channel(`room-${existingRoom.id}`).send({
+      // DB 복구 성공과 Realtime 전달 실패를 분리한다.
+      await Promise.allSettled([
+        supabase.channel(productChatRealtimeTopic(existingRoom.id)).send({
           type: "broadcast",
           event: CHAT_EVENT.MESSAGE,
           payload: mapToChatMessage(sysMsg),
-        });
-
-        await broadcastChatRoomListRefresh([userId, product.userId]);
-      }
-      return existingRoom.id;
+        }),
+        broadcastChatRoomListRefresh([userId, product.userId]),
+      ]);
     }
+    return existingRoom.id;
+  }
 
-    // 2. 신규 생성
-    const room = await db.productChatRoom.create({
-      data: {
+  // 2. 동시 요청도 같은 상품·구매자 방으로 수렴
+  try {
+    const room = await db.productChatRoom.upsert({
+      where: { productId_buyerId: { productId, buyerId: userId } },
+      update: {
+        users: { connect: [{ id: product.userId }, { id: userId }] },
+      },
+      create: {
+        buyer: { connect: { id: userId } },
         users: { connect: [{ id: product.userId }, { id: userId }] },
         product: { connect: { id: productId } },
       },
@@ -513,8 +456,17 @@ export async function createChatRoom(
     });
 
     return room.id;
-  } finally {
-    roomCreationLocks.delete(lockKey);
+  } catch (error) {
+    // nested relation이 포함된 Prisma upsert가 create 경쟁에서 P2002를 반환해도 선행 방을 재사용한다.
+    if (!isUniqueConstraintError(error, ["productId", "buyerId"])) {
+      throw error;
+    }
+    const concurrentRoom = await db.productChatRoom.findUnique({
+      where: { productId_buyerId: { productId, buyerId: userId } },
+      select: { id: true },
+    });
+    if (!concurrentRoom) throw error;
+    return concurrentRoom.id;
   }
 }
 
@@ -572,7 +524,7 @@ export async function leaveChatRoom(
       });
 
       for (const apt of pendingApts) {
-        await supabase.channel(`room-${chatRoomId}`).send({
+        await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
           type: "broadcast",
           event: "appointment_update",
           payload: { id: apt.id, status: "CANCELED" },
@@ -609,7 +561,7 @@ export async function leaveChatRoom(
       });
 
       // 실시간 소켓으로 상대방 화면에 즉시 렌더링
-      await supabase.channel(`room-${chatRoomId}`).send({
+      await supabase.channel(productChatRealtimeTopic(chatRoomId)).send({
         type: "broadcast",
         event: "message",
         payload: mapToChatMessage(sysMsg),
@@ -636,4 +588,3 @@ export async function leaveChatRoom(
     return { success: false, error: "채팅방 나가기 중 문제가 발생했습니다." };
   }
 }
-

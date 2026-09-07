@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.05  임도헌   Created   상품/게시글/방송 관련 콘텐츠 UI 분리
  * 2026.06.19  임도헌   Modified  관련 방송 링크를 라이브/종료 상태에 따라 방송 상세 또는 VOD 상세로 분기
+ * 2026.09.06  임도헌   Modified  관련 콘텐츠 상세에 도감 returnTo 전달
  */
 
 import Image from "next/image";
@@ -17,6 +18,7 @@ import type { BoardGameRelatedContent } from "@/features/boardgame/types/public"
 interface RelatedContentSectionProps {
   content: BoardGameRelatedContent | null;
   searchKeyword: string;
+  boardGameId: number;
 }
 
 /**
@@ -29,7 +31,9 @@ interface RelatedContentSectionProps {
 export default function RelatedContentSection({
   content,
   searchKeyword,
+  boardGameId,
 }: RelatedContentSectionProps) {
+  const returnTo = `/boardgames/${boardGameId}`;
   const hasContent =
     !!content &&
     (content.products.length ||
@@ -55,9 +59,12 @@ export default function RelatedContentSection({
 
       {hasContent && content ? (
         <div className="mt-4 space-y-4">
-          <RelatedProductList products={content.products} />
-          <RelatedPostList posts={content.posts} />
-          <RelatedBroadcastList broadcasts={content.broadcasts} />
+          <RelatedProductList returnTo={returnTo} products={content.products} />
+          <RelatedPostList returnTo={returnTo} posts={content.posts} />
+          <RelatedBroadcastList
+            returnTo={returnTo}
+            broadcasts={content.broadcasts}
+          />
         </div>
       ) : (
         <p className="mt-4 rounded-xl bg-surface-dim px-4 py-3 text-sm text-muted">
@@ -77,8 +84,10 @@ export default function RelatedContentSection({
  */
 function RelatedProductList({
   products,
+  returnTo,
 }: {
   products: BoardGameRelatedContent["products"];
+  returnTo: string;
 }) {
   if (!products.length) return null;
 
@@ -87,7 +96,7 @@ function RelatedProductList({
       {products.map((product) => (
         <Link
           key={product.id}
-          href={`/products/view/${product.id}`}
+          href={`/products/view/${product.id}?returnTo=${encodeURIComponent(returnTo)}`}
           className="focus-ring-soft flex items-center gap-3 rounded-xl border border-border-subtle bg-surface-dim p-2.5 transition hover:border-brand/50 hover:bg-surface"
         >
           <div className="size-12 shrink-0 overflow-hidden rounded-lg bg-surface">
@@ -128,8 +137,10 @@ function RelatedProductList({
  */
 function RelatedPostList({
   posts,
+  returnTo,
 }: {
   posts: BoardGameRelatedContent["posts"];
+  returnTo: string;
 }) {
   if (!posts.length) return null;
 
@@ -138,7 +149,7 @@ function RelatedPostList({
       {posts.map((post) => (
         <Link
           key={post.id}
-          href={`/posts/${post.id}`}
+          href={`/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`}
           className="focus-ring-soft block rounded-xl border border-border-subtle bg-surface-dim p-3 transition hover:border-brand/50 hover:bg-surface"
         >
           <p className="truncate text-sm font-bold text-primary">
@@ -161,8 +172,10 @@ function RelatedPostList({
  */
 function RelatedBroadcastList({
   broadcasts,
+  returnTo,
 }: {
   broadcasts: BoardGameRelatedContent["broadcasts"];
+  returnTo: string;
 }) {
   if (!broadcasts.length) return null;
 
@@ -171,7 +184,7 @@ function RelatedBroadcastList({
       {broadcasts.map((broadcast) => (
         <Link
           key={broadcast.id}
-          href={getBroadcastHref(broadcast)}
+          href={`${getBroadcastHref(broadcast)}?returnTo=${encodeURIComponent(returnTo)}`}
           className="focus-ring-soft block rounded-xl border border-border-subtle bg-surface-dim p-3 transition hover:border-brand/50 hover:bg-surface"
         >
           <p className="truncate text-sm font-bold text-primary">

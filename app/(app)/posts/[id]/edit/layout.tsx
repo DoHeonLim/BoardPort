@@ -12,19 +12,22 @@
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 수정 헤더 타이틀 weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/edit/layout.tsx 에서 app/(app)/posts/[id]/edit/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  게시글 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
-*/
+ * 2026.09.03  임도헌   Modified  직접 진입에서도 뒤로가기가 게시글 상세로 복귀하도록 고정
+ */
 
 import type { ReactNode } from "react";
-import BackButton from "@/components/global/BackButton";
+import PostEditBackButton from "@/features/post/components/PostEditBackButton";
 import { cn } from "@/lib/utils";
 
-export default function EditPostLayout({
-  children,
-  params,
-}: {
+/** 게시글 수정 화면의 비동기 route params를 해석해 전용 레이아웃을 구성한다. */
+export default async function EditPostLayout(props: {
   children: ReactNode;
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
+
+  const { children } = props;
+
   const idNum = Number(params.id);
 
   return (
@@ -37,10 +40,8 @@ export default function EditPostLayout({
         )}
       >
         <div className="mx-auto max-w-3xl h-full flex items-center px-3 sm:px-4 gap-3">
-          <BackButton
-            fallbackHref={Number.isFinite(idNum) && idNum > 0 ? `/posts/${idNum}` : "/posts"}
-            variant="appbar"
-            className="px-0"
+          <PostEditBackButton
+            postId={Number.isFinite(idNum) && idNum > 0 ? idNum : 0}
           />
           <h1 className="text-base font-medium text-primary">게시글 수정</h1>
         </div>
@@ -50,4 +51,3 @@ export default function EditPostLayout({
     </div>
   );
 }
-

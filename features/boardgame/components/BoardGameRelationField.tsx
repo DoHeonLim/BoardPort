@@ -9,6 +9,7 @@
  * 2026.05.03  임도헌   Modified  검색 결과에 썸네일과 인원/시간 메타데이터 노출
  * 2026.05.03  임도헌   Modified  보드게임 연결 표시 helper 주석 보강
  * 2026.05.30  임도헌   Modified  모바일 폼에서 보드게임 연결 영역의 색 신호와 밀도 조정
+ * 2026.09.05  임도헌   Modified  검색 입력과 후보 항목의 키보드 포커스 표시 보강
  */
 
 import Image from "next/image";
@@ -124,7 +125,7 @@ export default function BoardGameRelationField({
                 type="button"
                 onClick={() => removeBoardGame(option.id)}
                 disabled={disabled}
-                className="rounded-full px-1 text-[11px] text-current/70 transition-colors hover:text-current focus:outline-none focus:ring-2 focus:ring-brand"
+                className="focus-ring-soft rounded-full px-1 text-[11px] text-current/70 transition-colors hover:text-current"
                 aria-label={`${option.locale.title || option.primaryName} 연결 해제`}
               >
                 제거
@@ -148,7 +149,7 @@ export default function BoardGameRelationField({
           }
           className={cn(
             "h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm text-primary outline-none transition-colors placeholder:text-muted sm:h-12",
-            "focus:border-brand focus:ring-2 focus:ring-brand/20",
+            "focus:border-brand focus:ring-2 focus:ring-brand/20 dark:focus:border-brand-light dark:focus:ring-brand-light/20",
             "disabled:cursor-not-allowed disabled:opacity-60"
           )}
         />
@@ -159,7 +160,7 @@ export default function BoardGameRelationField({
               <button
                 key={option.id}
                 type="button"
-                className="grid w-full grid-cols-[48px_minmax(0,1fr)] gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-dim focus:bg-surface-dim focus:outline-none"
+                className="focus-ring-soft grid w-full grid-cols-[48px_minmax(0,1fr)] gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-dim focus:bg-surface-dim"
                 onClick={() => addBoardGame(option.id)}
               >
                 <span className="relative block aspect-square overflow-hidden rounded-lg bg-surface-dim">

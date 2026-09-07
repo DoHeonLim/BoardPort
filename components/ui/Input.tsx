@@ -25,6 +25,8 @@
  * 2026.04.13  임도헌   Modified  비밀번호 토글 아이콘은 유지하면서 터치 영역만 44px로 확장해 모바일 접근성을 보강
  * 2026.04.18  임도헌   Modified  textarea는 자동 높이 조절을 기본 동작으로 삼고 커스텀 resize affordance를 제거해 표현과 동작을 일치시킴
  * 2026.05.30  임도헌   Modified  작성형 폼 compact 밀도를 위한 density 옵션 추가
+ * 2026.08.27  임도헌   Modified  label·필드·오류 ID 연결과 시각적 숨김 label 옵션으로 접근 가능한 이름·설명 보강
+ * 2026.08.28  임도헌   Modified  숫자 스피너 제거를 인라인 style 태그에서 필드 selector class로 전환
  */
 "use client";
 
@@ -40,14 +42,16 @@ import React, {
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 import { cn } from "@/lib/utils";
 
-interface IInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement> {
+interface IInputProps extends React.InputHTMLAttributes<
+  HTMLInputElement | HTMLTextAreaElement
+> {
   label?: string;
   errors?: string[];
   icon?: React.ReactNode;
   passwordToggle?: boolean;
   passwordToggleLabels?: { show?: string; hide?: string };
   density?: "default" | "compact";
+  hideLabel?: boolean;
 }
 
 /**
@@ -56,6 +60,7 @@ interface IInputProps
  * - input/textarea 단일 인터페이스 제공
  * - 비밀번호 표시 전환 지원
  * - number 스피너 억제와 textarea affordance 공통 처리
+ * - label과 오류 메시지를 자동 ID로 연결하고 기존 보조 설명 ID를 함께 유지
  *
  * @param {IInputProps} props - 라벨, 에러, 아이콘, 입력 타입을 포함한 필드 설정
  * @param {ForwardedRef<HTMLInputElement | HTMLTextAreaElement>} ref - 실제 input/textarea 참조
@@ -72,6 +77,10 @@ const Input = (
     passwordToggleLabels,
     id,
     density = "default",
+    label,
+    hideLabel = false,
+    "aria-describedby": describedByProp,
+    "aria-errormessage": errorMessageIdProp,
     ...rest
   }: IInputProps,
   ref: ForwardedRef<HTMLInputElement | HTMLTextAreaElement>
@@ -79,6 +88,12 @@ const Input = (
   const filteredErrors = errors.filter(Boolean);
   const autoId = useId();
   const inputId = id ?? (name ? `${name}-${autoId}` : `input-${autoId}`);
+  const hasErrors = filteredErrors.length > 0;
+  const errorMessageId = errorMessageIdProp ?? `${inputId}-error`;
+  const describedBy =
+    [describedByProp, hasErrors ? errorMessageId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const canToggle = passwordToggle && type === "password";
@@ -111,17 +126,18 @@ const Input = (
     resizeTextarea(textareaRef.current);
   }, [resizeTextarea, rest.defaultValue, rest.value, type]);
 
-  // 스피너 제거 스타일
-  const noSpinnerStyle = {
-    MozAppearance: "textfield", // Firefox
-  } as React.CSSProperties;
-
   if (type === "textarea") {
     return (
       <div className="flex flex-col gap-1.5 w-full">
-        {rest.label && (
-          <label className="text-sm font-medium text-primary">
-            {rest.label}
+        {label && (
+          <label
+            htmlFor={inputId}
+            className={cn(
+              "text-sm font-medium text-primary",
+              hideLabel && "sr-only"
+            )}
+          >
+            {label}
           </label>
         )}
         <div className="relative">
@@ -134,10 +150,12 @@ const Input = (
               density === "compact"
                 ? "min-h-28 sm:min-h-[120px]"
                 : "min-h-[120px]",
-              filteredErrors.length > 0 && "ring-2 ring-danger/50",
+              hasErrors && "ring-2 ring-danger/50",
               className
             )}
-            aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
+            aria-invalid={hasErrors ? "true" : "false"}
+            aria-describedby={describedBy}
+            aria-errormessage={hasErrors ? errorMessageId : undefined}
             onInput={(event) => {
               resizeTextarea(event.currentTarget);
               rest.onInput?.(event);
@@ -145,11 +163,18 @@ const Input = (
             {...rest}
           />
         </div>
-        {filteredErrors.map((error, index) => (
-          <span key={index} className="text-xs text-danger font-medium pl-1">
-            {error}
-          </span>
-        ))}
+        {hasErrors && (
+          <div id={errorMessageId} className="space-y-0.5 pl-1">
+            {filteredErrors.map((error, index) => (
+              <span
+                key={index}
+                className="block text-xs font-medium text-danger"
+              >
+                {error}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -157,20 +182,19 @@ const Input = (
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {/* Label */}
-      {rest.label && (
-        <label className="text-sm font-medium text-primary">{rest.label}</label>
+      {label && (
+        <label
+          htmlFor={inputId}
+          className={cn(
+            "text-sm font-medium text-primary",
+            hideLabel && "sr-only"
+          )}
+        >
+          {label}
+        </label>
       )}
 
       <div className="relative">
-        {/* Webkit 스피너 제거용 글로벌 스타일 (필요시 globals.css로 이동 가능) */}
-        <style jsx>{`
-          input[type="number"]::-webkit-inner-spin-button,
-          input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-          }
-        `}</style>
-
         {icon && (
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted">
             {icon}
@@ -182,17 +206,20 @@ const Input = (
           ref={ref as ForwardedRef<HTMLInputElement>}
           type={canToggle ? (revealed ? "text" : "password") : type}
           name={name}
-          aria-invalid={filteredErrors.length > 0 ? "true" : "false"}
+          aria-invalid={hasErrors ? "true" : "false"}
+          aria-describedby={describedBy}
+          aria-errormessage={hasErrors ? errorMessageId : undefined}
           className={cn(
             "input-primary w-full",
             density === "compact" ? "h-11 sm:h-input-md" : "h-input-md",
             icon ? "pl-11" : "pl-4",
             canToggle ? "pr-12" : "pr-4",
-            filteredErrors.length > 0 && "ring-2 ring-danger/50",
+            hasErrors && "ring-2 ring-danger/50",
+            type === "number" &&
+              "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
             "text-base md:text-sm",
             className
           )}
-          style={type === "number" ? noSpinnerStyle : undefined}
           // 스크롤로 숫자 변경되는 것 방지
           onWheel={(e) => type === "number" && e.currentTarget.blur()}
           {...rest}
@@ -206,8 +233,8 @@ const Input = (
             aria-pressed={revealed}
             aria-label={
               revealed
-                ? passwordToggleLabels?.hide ?? "비밀번호 숨기기"
-                : passwordToggleLabels?.show ?? "비밀번호 표시"
+                ? (passwordToggleLabels?.hide ?? "비밀번호 숨기기")
+                : (passwordToggleLabels?.show ?? "비밀번호 표시")
             }
           >
             {revealed ? (
@@ -219,14 +246,15 @@ const Input = (
         )}
       </div>
 
-      {filteredErrors.map((error, index) => (
-        <span
-          key={index}
-          className="text-xs text-danger font-medium pl-1"
-        >
-          {error}
-        </span>
-      ))}
+      {hasErrors && (
+        <div id={errorMessageId} className="space-y-0.5 pl-1">
+          {filteredErrors.map((error, index) => (
+            <span key={index} className="block text-xs font-medium text-danger">
+              {error}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

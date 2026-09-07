@@ -13,6 +13,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.03  임도헌   Modified  파일 헤더 오타 수정
  * 2026.04.17  임도헌   Modified  리뷰 무한스크롤 훅의 캐시/커서/반환 책임 설명 보강
+ * 2026.08.13  임도헌   Modified  차단 필터가 반영된 리뷰 cache를 조회자별로 분리
  */
 "use client";
 
@@ -32,18 +33,22 @@ export interface UseReviewPaginationResult {
  * 사용자 프로필 리뷰 목록 무한 스크롤 훅
  *
  * [기능]
- * - `queryKeys.reviews.user(userId)` 식별자를 통해 대상 사용자별 리뷰 쿼리 상태를 격리 보존
+ * - 대상 사용자와 조회자 ID를 함께 query key에 반영해 차단 필터 결과를 격리 보존
  * - `useSuspenseInfiniteQuery`로 프로필 리뷰 모달의 첫 렌더를 Suspense 경계와 맞춰 단순화
  * - 서버 액션(`getUserReviewsAction`)이 반환한 키셋 커서(`lastCreatedAt`, `lastId`)를 다음 페이지 기준으로 재사용
  * - 평탄화된 리뷰 배열(reviews)과 추가 데이터 로딩 상태를 함께 반환
  *
  * @param {number} userId - 리뷰를 조회할 대상 사용자 ID
+ * @param {number | null} viewerId - 차단 필터 기준 조회자 ID
  * @returns {UseReviewPaginationResult} 추출된 리뷰 배열 및 페이징 상태 객체
  */
-export function useReviewPagination(userId: number): UseReviewPaginationResult {
+export function useReviewPagination(
+  userId: number,
+  viewerId: number | null
+): UseReviewPaginationResult {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
-      queryKey: queryKeys.reviews.user(userId),
+      queryKey: queryKeys.reviews.user(userId, viewerId),
       queryFn: async ({ pageParam }) => {
         // 서버 액션 기반 리뷰 목록 패칭
         return await getUserReviewsAction(userId, pageParam as ReviewCursor);

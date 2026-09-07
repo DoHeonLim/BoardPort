@@ -23,6 +23,8 @@
  * 2026.05.08  임도헌   Modified  프로필 제품 목록 조회 범위 타입 import 경로를 product types로 정리
  * 2026.05.16  임도헌   Modified  제품 무한스크롤 캐시 shape 타입을 공용 유틸 타입으로 정리
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
+ * 2026.08.13  임도헌   Modified  상품 목록 query key에 현재 조회자 범위 추가
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 
 "use client";
@@ -51,6 +53,7 @@ type ProductMode = {
   mode: "product";
   searchParams?: ProductSearchParams;
   queryKeyExtra?: unknown;
+  viewerId: number;
 };
 
 /** [Mode 2] 프로필 탭 목록 (판매중, 판매완료, 구매내역 등) */
@@ -175,7 +178,7 @@ async function fetchProductsPage<T>(url: string): Promise<ProductsEnvelope<T>> {
   });
 
   if (!response.ok) {
-    throw new Error("제품 목록을 불러오지 못했습니다.");
+    throw new Error("상품 목록을 불러오지 못했습니다.");
   }
 
   return response.json();
@@ -205,6 +208,7 @@ export function useProductPagination<T extends { id: number }>(
   const searchParams = mode === "product" ? params.searchParams : undefined;
   const productQueryKeyExtra =
     mode === "product" ? params.queryKeyExtra : undefined;
+  const productViewerId = mode === "product" ? params.viewerId : null;
   const profileScope = mode === "profile" ? params.scope : undefined;
   const customFetcher = mode === "custom" ? params.fetcher : undefined;
 
@@ -215,10 +219,13 @@ export function useProductPagination<T extends { id: number }>(
    */
   const queryKey = useMemo(() => {
     if (mode === "product") {
-      return queryKeys.products.list({
-        ...(searchParams || {}),
-        __scope: productQueryKeyExtra,
-      });
+      return queryKeys.products.list(
+        {
+          ...(searchParams || {}),
+          __scope: productQueryKeyExtra,
+        },
+        productViewerId
+      );
     }
     if (mode === "profile" && profileScope) {
       return queryKeys.products.userScope(
@@ -228,7 +235,14 @@ export function useProductPagination<T extends { id: number }>(
     }
     if (mode === "custom") return params.queryKey;
     return ["products", "unreachable"];
-  }, [mode, searchParams, productQueryKeyExtra, profileScope, params]);
+  }, [
+    mode,
+    searchParams,
+    productQueryKeyExtra,
+    productViewerId,
+    profileScope,
+    params,
+  ]);
 
   /**
    * 무한 쿼리 인스턴스 생성

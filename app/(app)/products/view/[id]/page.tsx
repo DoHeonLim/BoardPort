@@ -50,6 +50,9 @@
  * 2026.05.15  임도헌   Modified  제품 공유 미리보기용 OG 이미지 메타와 소셜 크롤러 접근 분기 추가
  * 2026.05.30  임도헌   Modified  제품 상세 상단 액션바 높이와 좌우 여백을 압축
  * 2026.06.17  임도헌   Modified  제품 좋아요 상태 캐시를 조회자 기준으로 분리하도록 viewerId 전달
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.03  임도헌   Modified  새 탭 직접 진입에서도 상세 헤더가 계산된 returnTo로 복귀하도록 보강
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -76,18 +79,21 @@ export const dynamic = "force-dynamic";
  * 페이지의 메타데이터를 생성
  * 검색 엔진 최적화를 위해 별도의 가벼운 타이틀 조회 함수를 사용
  */
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) {
-    return { title: "제품을 찾을 수 없음" };
+    return { title: "상품을 찾을 수 없음" };
   }
   const product = await getProductTitleById(id);
 
   if (!product) {
-    return { title: "제품을 찾을 수 없음" };
+    return { title: "상품을 찾을 수 없음" };
   }
   if (product.hidden_at) {
-    return { title: "제품을 찾을 수 없음" };
+    return { title: "상품을 찾을 수 없음" };
   }
   // 본문 앞 100자 요약. 비어 있으면 공유 카드가 루트 기본 설명으로 떨어지지 않도록 고정 문구 사용
   const desc =
@@ -132,16 +138,14 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
  * - 가드를 통과한 실제 진입에 한해서만 조회수를 증가시키고 현재 렌더 값에 즉시 반영
  * - `returnTo`가 없을 경우 제품 목록(`/products`)을 기본 복귀 경로로 사용
  *
- * @param {Object} params - URL 파라미터 (id: 제품 ID)
- * @param {Object} searchParams - URL 쿼리 파라미터 (returnTo: 복귀 경로)
+ * @param props - 제품 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default async function ProductDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function ProductDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const id = Number(params.id);
   if (!Number.isFinite(id) || id <= 0) return notFound();
   // 상세 직접 진입 시 기본 복귀 경로를 제품 목록으로 고정
@@ -153,7 +157,7 @@ export default async function ProductDetailPage({
   const session = await getSession();
   const userId = session?.id ?? null;
   const isSharePreviewCrawler = isSocialCrawlerUserAgent(
-    headers().get("user-agent")
+    (await headers()).get("user-agent")
   );
 
   // 비로그인 사용자는 로그인으로 보내되, 공유 미리보기 크롤러는 로그인 리다이렉트 생략
@@ -196,7 +200,11 @@ export default async function ProductDetailPage({
       >
         <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-3">
           <div className="flex items-center gap-2">
-            <BackButton fallbackHref={returnTo} variant="appbar" />
+            <BackButton
+              fallbackHref={returnTo}
+              preferFallback
+              variant="appbar"
+            />
           </div>
 
           <div className="flex items-center gap-1">

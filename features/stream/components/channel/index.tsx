@@ -28,6 +28,9 @@
  * 2026.03.23  임도헌   Modified  채널 차단 안내 empty state의 점선 카드 보더를 구조 구분용 subtle 기준으로 정리
  * 2026.03.25  임도헌   Modified  프로필 메인과 탭바 하단 간격을 맞추기 위해 채널 페이지 bottom padding을 통일
  * 2026.05.15  임도헌   Modified  채널 다시보기 무한스크롤용 첫 페이지 커서 전달
+ * 2026.08.13  임도헌   Modified  채널 다시보기 목록에 현재 조회자 ID 전달
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 팔로우 CTA 스크롤 동작 조정
+ * 2026.09.03  임도헌   Modified  팔로워 전용 콘텐츠 CTA에서 팔로우를 완료하고 즉시 시청 상태로 전환
  * ===============================================================================================
  * User Channel (방송국) 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * - UserChannelHeader.tsx : 채널 헤더 (프로필, 팔로우 버튼, 채널 소개/owner 편집)
@@ -39,10 +42,12 @@
  */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { NoSymbolIcon } from "@heroicons/react/24/outline";
+import { toast } from "sonner";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import UserChannelHeader from "@/features/stream/components/channel/UserChannelHeader";
 import LiveNowHero from "@/features/stream/components/channel/LiveNowHero";
 import RecordingGrid from "@/features/stream/components/channel/RecordingGrid";
@@ -98,6 +103,7 @@ export default function UserChannelContainer({
   channelDescriptionAction?: ChannelDescriptionAction;
 }) {
   const router = useRouter();
+  const { toggle, isPending } = useFollowToggle();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const next = useMemo(
@@ -130,20 +136,32 @@ export default function UserChannelContainer({
 
   const recordingsMemo = useMemo(() => recordings ?? [], [recordings]);
 
-  /**
-   * 채널 내 팔로우 유도 CTA 클릭 시 헤더 팔로우 버튼으로 자연스러운 이동 유도
-   * - 라이브 히어로, 다시보기 empty state, 팔로워 잠금 카드가 같은 진입점을 공유
-   */
-  const focusFollowButton = () => {
-    const btn = document.getElementById("channel-follow-button");
-    if (btn) {
-      btn.scrollIntoView({ behavior: "smooth", block: "center" });
-      btn.focus();
+  /** 팔로워 전용 콘텐츠 CTA에서 관계 변경을 확정한 뒤 같은 화면의 잠금을 해제한다. */
+  const followAndUnlock = useCallback(async () => {
+    if (isMe || isFollowing || isPending(userInfo.id)) return;
+    if (!viewerId) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(next)}`);
       return;
     }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+    const result = await toggle(userInfo.id, false, { viewerId });
+    if (result?.success && result.isFollowing) {
+      setIsFollowing(true);
+      toast.success(`${userInfo.username}님을 팔로우했습니다.`);
+      // 제한 응답에는 signed playback token이 없으므로 서버 데이터를 다시 받아 즉시 재생한다.
+      router.refresh();
+    }
+  }, [
+    isMe,
+    isFollowing,
+    isPending,
+    next,
+    router,
+    toggle,
+    userInfo.id,
+    userInfo.username,
+    viewerId,
+  ]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-24 transition-colors">
@@ -183,17 +201,18 @@ export default function UserChannelContainer({
           <LiveNowHero
             stream={liveStream}
             role={role}
-            onFollow={focusFollowButton}
+            onFollow={followAndUnlock}
           />
 
           {/* VOD Section */}
           <RecordingGrid
             ownerId={userInfo.id}
+            viewerId={viewerId ?? null}
             recordings={recordingsMemo}
             initialNextCursor={recordingsNextCursor}
             role={role}
             isFollowing={isFollowing}
-            onFollow={focusFollowButton}
+            onFollow={followAndUnlock}
           />
         </div>
       )}

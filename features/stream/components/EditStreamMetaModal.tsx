@@ -10,9 +10,10 @@
  * 2026.06.01  임도헌   Modified  방송 정보 수정 입력 높이를 모바일 작성형 폼 기준으로 정리
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 저장 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  모바일 방송 정보 수정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import Input from "@/components/ui/Input";
 import { updateBroadcastMetaAction } from "@/features/stream/actions/update";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface EditStreamMetaModalProps {
   open: boolean;
@@ -53,6 +55,7 @@ export default function EditStreamMetaModal({
   const [description, setDescription] = useState(initialDescription ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -64,6 +67,15 @@ export default function EditStreamMetaModal({
     setDescription(initialDescription ?? "");
     setFieldErrors({});
   }, [initialDescription, initialTitle, open]);
+
+  useModalFocus({
+    open,
+    enabled: mounted && !isMobile,
+    containerRef: dialogRef,
+    onClose: () => {
+      if (!isPending) onClose();
+    },
+  });
 
   if (!open || !mounted) return null;
 
@@ -161,9 +173,11 @@ export default function EditStreamMetaModal({
       />
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-stream-meta-title"
+        tabIndex={-1}
         className={cn(
           "relative flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border-subtle bg-surface shadow-2xl",
           "sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"

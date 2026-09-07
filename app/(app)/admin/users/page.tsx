@@ -10,7 +10,8 @@
  * 2026.03.29  임도헌   Modified  최근 30일 가입 추이와 USER/ADMIN/BANNED 분포 인사이트 헤더를 추가
  * 2026.03.30  임도헌   Modified  role 칩 필터와 목록 기준 안내를 함께 노출해 인사이트·리스트 문맥을 보강
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/users/page.tsx 에서 app/(app)/admin/users/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 import AdminScopeNotice from "@/features/report/components/admin/AdminScopeNotice";
 import AdminErrorState from "@/features/report/components/admin/AdminErrorState";
 import {
@@ -28,11 +29,10 @@ export const dynamic = "force-dynamic";
  * - 회원 유입과 상태 분포를 상단에서 먼저 읽게 구성
  * - 아래 리스트에서 검색, role 필터, 권한 변경, 이용 정지 액션을 수행
  */
-export default async function AdminUsersPage({
-  searchParams,
-}: {
-  searchParams: { query?: string; role?: string; page?: string };
+export default async function AdminUsersPage(props: {
+  searchParams: Promise<{ query?: string; role?: string; page?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawPage = Number(searchParams.page);
   const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const filter = {
@@ -59,9 +59,7 @@ export default async function AdminUsersPage({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-primary">
-          유저 관리
-        </h2>
+        <h2 className="text-2xl font-bold text-primary">유저 관리</h2>
         <p className="mt-1 text-sm text-muted">
           전체 회원을 조회하고 권한 및 상태를 관리하세요.
         </p>
@@ -79,4 +77,3 @@ export default async function AdminUsersPage({
     </div>
   );
 }
-

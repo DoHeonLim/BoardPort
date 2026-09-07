@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 채널 다시보기 추가 페이지 조회 API 분리
+ * 2026.08.21  임도헌   Modified  비로그인·차단 관계 직접 요청에서 채널 VOD와 signed thumbnail 반환 차단
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,6 +15,7 @@ import getSession from "@/lib/session";
 import { getViewerRole } from "@/features/stream/service/access";
 import { getChannelVods } from "@/features/stream/service/list";
 import { isBroadcastUnlockedFromSession } from "@/features/stream/utils/session";
+import { checkBlockRelation } from "@/features/user/service/block";
 import type { ViewerRole, VodForGrid } from "@/features/stream/types";
 
 const TAKE = STREAMS_PAGE_TAKE;
@@ -76,12 +78,21 @@ export async function GET(request: NextRequest) {
   }
 
   const session = await getSession();
-  const role = (await getViewerRole(session?.id ?? null, ownerId)) as ViewerRole;
+  const viewerId = session?.id ?? null;
+  if (!viewerId) {
+    return NextResponse.json({ recordings: [], nextCursor: null });
+  }
+
+  if (await checkBlockRelation(viewerId, ownerId)) {
+    return NextResponse.json({ recordings: [], nextCursor: null });
+  }
+
+  const role = (await getViewerRole(viewerId, ownerId)) as ViewerRole;
   const list = await getChannelVods(
     ownerId,
     TAKE + 1,
     parseNullableNumberParam(searchParams.get("cursor")),
-    session?.id ?? null
+    viewerId
   );
   const withAccess = applyChannelVodAccess(list, session, role);
   const hasMore = withAccess.length > TAKE;

@@ -22,6 +22,7 @@
  * 2026.04.17  임도헌   Modified  Suspense 무한스크롤 훅의 캐시 분리/반환 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.06.18  임도헌   Modified  게시글 피드 지역 스코프를 queryKeyExtra로 분리한다는 설명으로 최신화
+ * 2026.08.13  임도헌   Modified  게시글 목록 query key에 현재 조회자 범위 추가
  */
 "use client";
 
@@ -40,6 +41,7 @@ import type {
 interface UsePostPaginationParams {
   searchParams: PostSearchParams;
   queryKeyExtra?: unknown;
+  viewerId: number;
 }
 
 /** 훅 반환 타입 */
@@ -110,13 +112,17 @@ async function fetchPostsPage(url: string): Promise<PostsPage> {
 export function usePostPagination({
   searchParams,
   queryKeyExtra,
+  viewerId,
 }: UsePostPaginationParams): UsePostPaginationResult {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
-      queryKey: queryKeys.posts.list({
-        ...searchParams,
-        __scope: queryKeyExtra,
-      }),
+      queryKey: queryKeys.posts.list(
+        {
+          ...searchParams,
+          __scope: queryKeyExtra,
+        },
+        viewerId
+      ),
       queryFn: async ({ pageParam }) => {
         // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
         return fetchPostsPage(

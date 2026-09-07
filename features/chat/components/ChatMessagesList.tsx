@@ -59,6 +59,7 @@
  * 2026.05.18  임도헌   Modified  채팅방 진입 직후 목록/TabBar 미읽음 캐시를 읽음 상태와 즉시 동기화
  * 2026.05.28  임도헌   Modified  입력바와 메시지 리스트 사이의 불필요한 하단 여백 제거
  * 2026.06.07  임도헌   Modified  채팅방 확인만으로도 TabBar 미읽음 수가 즉시 차감되도록 보강
+ * 2026.08.26  임도헌   Modified  입력창이 생성한 clientMessageId를 메시지 mutation에 전달
  */
 "use client";
 
@@ -217,13 +218,11 @@ export default function ChatMessagesList({
         if (!oldRooms) return oldRooms;
 
         clearedUnreadCount =
-          oldRooms.find((room) => room.id === productChatRoomId)
-            ?.unreadCount ?? 0;
+          oldRooms.find((room) => room.id === productChatRoomId)?.unreadCount ??
+          0;
 
         return oldRooms.map((room) =>
-          room.id === productChatRoomId
-            ? { ...room, unreadCount: 0 }
-            : room
+          room.id === productChatRoomId ? { ...room, unreadCount: 0 } : room
         );
       }
     );
@@ -411,12 +410,18 @@ export default function ChatMessagesList({
    * 메시지 전송 핸들러
    */
   const onSubmit = async (
-    text?: string | null,
-    imageUrl?: string | null,
-    imageIsAnimated?: boolean
+    text: string,
+    imageUrl: string | null,
+    imageIsAnimated: boolean,
+    clientMessageId: string
   ) => {
     try {
-      const resData = await sendMessage({ text, imageUrl, imageIsAnimated });
+      const resData = await sendMessage({
+        text,
+        imageUrl,
+        imageIsAnimated,
+        clientMessageId,
+      });
       if (resData?.message) {
         prepareOwnMessageScroll();
         addMessage(resData.message);
@@ -525,9 +530,7 @@ export default function ChatMessagesList({
                   isOwnMessage={isOwn}
                   currentUserId={user.id}
                   isCounterpartyLeft={isCounterpartyLeft}
-                  searchHighlight={getSearchHighlightToneForMessage(
-                    message.id
-                  )}
+                  searchHighlight={getSearchHighlightToneForMessage(message.id)}
                 />
               </div>
             );

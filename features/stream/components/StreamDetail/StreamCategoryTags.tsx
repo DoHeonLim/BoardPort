@@ -11,12 +11,10 @@
  * 2026.01.13  임도헌   Modified  [Rule 5.1] 시맨틱 뱃지 스타일 적용
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.03.20  임도헌   Modified  스트림 상세 카드 톤에 맞춰 카테고리/태그 pill의 반경과 대비를 더 부드럽게 정리
+ * 2026.08.28  임도헌   Modified  태그 정규화를 정적 계산으로 단순화해 서버 컴포넌트 렌더링 허용
+ * 2026.09.06  임도헌   Modified  다크모드 카테고리 배지 전경 대비 보강
  */
-
-"use client";
-
-import { useMemo } from "react";
-import { StreamCategory, StreamTag } from "@/features/stream/types";
+import type { StreamCategory, StreamTag } from "@/features/stream/types";
 import { cn } from "@/lib/utils";
 
 interface StreamCategoryTagsProps {
@@ -38,10 +36,9 @@ export default function StreamCategoryTags({
   inline = false,
   compact = true,
 }: StreamCategoryTagsProps) {
-  const normalizedTags = useMemo(() => {
-    const arr = (tags ?? []).map((t) => (t?.name ?? "").trim()).filter(Boolean);
-    return Array.from(new Set(arr)); //중복 제거
-  }, [tags]);
+  const normalizedTags = Array.from(
+    new Set((tags ?? []).map((tag) => tag.name.trim()).filter(Boolean))
+  );
 
   const categoryLabel = category
     ? `${category.icon ? `${category.icon} ` : ""}${category.kor_name}`
@@ -59,7 +56,7 @@ export default function StreamCategoryTags({
         <span
           className={cn(
             "rounded-full font-medium transition-colors",
-            "bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-brand-light",
+            "bg-brand/10 text-brand dark:bg-brand-light/20 dark:text-blue-200",
             sizeClass
           )}
           title={categoryLabel}

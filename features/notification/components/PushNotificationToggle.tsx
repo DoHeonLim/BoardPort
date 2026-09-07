@@ -17,6 +17,7 @@
  * 2026.03.27  임도헌   Modified  토글은 상태만 담당하고 설치/재연결 안내는 부모 섹션이 아래에 쌓아 주도록 구조 정리
  * 2026.04.02  임도헌   Modified  푸시 상태 타입 import를 notification/types 공용 정의로 정리
  * 2026.04.17  임도헌   Modified  토글의 실제 책임(상태 라벨/스위치) 기준으로 주석과 a11y 설명 최신화
+ * 2026.09.06  임도헌   Modified  스위치 포커스 링 강도와 배경 간격 보강
  */
 
 "use client";
@@ -106,16 +107,16 @@ export function PushNotificationToggle({
     : effectiveStatus === "ios_install_required"
       ? "설치 필요"
       : effectiveStatus === "needs_reconnect"
-      ? "재연결 필요"
-      : effectiveStatus === "permission_denied"
-        ? "권한 필요"
-        : effectiveStatus === "unsupported"
-          ? "미지원"
-          : effectiveStatus === "private_mode"
-            ? "프라이빗 모드"
-        : isSubscribed
-          ? "켜짐"
-          : "꺼짐";
+        ? "재연결 필요"
+        : effectiveStatus === "permission_denied"
+          ? "권한 필요"
+          : effectiveStatus === "unsupported"
+            ? "미지원"
+            : effectiveStatus === "private_mode"
+              ? "프라이빗 모드"
+              : isSubscribed
+                ? "켜짐"
+                : "꺼짐";
 
   const statusClassName =
     effectiveStatus === "ios_install_required" ||
@@ -145,7 +146,7 @@ export function PushNotificationToggle({
           // 프로필/설정 페이지 모두 같은 이름으로 읽히도록 고정 라벨 사용
           aria-label="푸시 알림 받기"
           className={cn(
-            "focus-ring-soft relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
+            "focus-ring-strong ring-offset-2 ring-offset-surface relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
             isSubscribed
               ? "bg-brand"
               : effectiveStatus === "needs_reconnect"

@@ -13,6 +13,7 @@
  * 2026.04.26  임도헌   Modified  위치 섹션 제목 아이콘을 위치 카드 아이콘과 같은 다크모드 톤으로 정리
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.06.18  임도헌   Modified  게시글 관련 장소 문구로 도메인 표현 정리
+ * 2026.09.07  임도헌   Modified  장소명과 정규화 지역명이 같을 때 중복 부제를 숨기고 카드 제목을 세로 중앙 정렬
  */
 "use client";
 
@@ -79,7 +80,11 @@ export default function PostDetailLocationSection({
 
   useEffect(() => {
     if (!hasLocationData) return;
-    if (typeof window === "undefined" || !sectionRef.current || isNearViewport) {
+    if (
+      typeof window === "undefined" ||
+      !sectionRef.current ||
+      isNearViewport
+    ) {
       return;
     }
 
@@ -152,15 +157,17 @@ export default function PostDetailLocationSection({
   if (!hasLocationData) return null;
 
   const regionString = formatNormalizedRegion({ region1, region2, region3 });
+  const regionDescription =
+    regionString.trim().replace(/\s+/g, " ") ===
+    locationName.trim().replace(/\s+/g, " ")
+      ? ""
+      : regionString;
   const mapLink = `https://map.kakao.com/link/map/${encodeURIComponent(
     locationName
   )},${latitude},${longitude}`;
 
   return (
-    <section
-      ref={sectionRef}
-      className="border-t border-border-subtle pt-4"
-    >
+    <section ref={sectionRef} className="border-t border-border-subtle pt-4">
       <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-primary">
         <MapPinIcon className="size-4 text-brand dark:text-brand-light" />
         게시글 관련 장소
@@ -171,7 +178,7 @@ export default function PostDetailLocationSection({
           latitude={latitude}
           longitude={longitude}
           locationName={locationName}
-          regionString={regionString}
+          regionString={regionDescription}
         />
       ) : (
         <div
@@ -179,8 +186,10 @@ export default function PostDetailLocationSection({
           onMouseEnter={() => void loadStaticMap()}
           onFocus={() => void loadStaticMap()}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
-            <div className="flex min-w-0 items-start gap-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+            <div
+              className={`flex min-w-0 gap-3 ${regionDescription ? "items-start" : "items-center"}`}
+            >
               <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
                 <MapPinIcon className="size-5" />
               </div>
@@ -188,9 +197,9 @@ export default function PostDetailLocationSection({
                 <p className="font-bold text-primary break-words leading-snug">
                   {locationName}
                 </p>
-                {regionString && (
+                {regionDescription && (
                   <p className="mt-0.5 text-xs text-muted break-words">
-                    {regionString}
+                    {regionDescription}
                   </p>
                 )}
               </div>

@@ -11,7 +11,8 @@
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 작성 헤더 타이틀 weight를 500 기준으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/add/layout.tsx 에서 app/(app)/posts/add/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  모바일 작성 헤더 높이와 좌우 여백을 압축
-*/
+ * 2026.09.03  임도헌   Modified  직접 진입에서도 뒤로가기가 게시글 목록으로 복귀하도록 고정
+ */
 
 import type { ReactNode } from "react";
 import BackButton from "@/components/global/BackButton";
@@ -28,7 +29,12 @@ export default function AddPostLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="mx-auto flex h-full max-w-3xl items-center gap-2.5 px-3">
-          <BackButton fallbackHref="/posts" variant="appbar" className="px-0" />
+          <BackButton
+            fallbackHref="/posts"
+            preferFallback
+            variant="appbar"
+            className="px-0"
+          />
           <h1 className="text-base font-medium text-primary">게시글 작성</h1>
         </div>
       </header>
@@ -37,4 +43,3 @@ export default function AddPostLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

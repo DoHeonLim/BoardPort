@@ -12,9 +12,13 @@
  * 2026.04.24  임도헌   Modified  내 판매 목록도 전용 refresh relay를 통해 back + 1회 refresh 복귀를 사용하도록 조정
  * 2026.04.24  임도헌   Modified  returnTo 문맥 분류와 navigation refresh helper로 삭제/숨김 복귀 분기 중복을 정리
  * 2026.05.23  임도헌   Modified  삭제 성공 시 제품 infinite query 캐시와 stale cursor를 즉시 정리
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.28  임도헌   Modified  상품 복귀 문맥과 삭제 함수 JSDoc 보강
+ * 2026.09.06  임도헌   Modified  소유자 메뉴의 키보드 탐색과 트리거 복귀 처리
  */
 "use client";
 
+import { useActionMenu } from "@/hooks/useActionMenu";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,7 +57,15 @@ interface ProductOwnerMenuProps {
 
 type ProductReturnContext = "products" | "my-sales" | "chats" | "other";
 
-function getProductReturnContext(rawReturnTo: string | null): ProductReturnContext {
+/**
+ * 상품 상세 진입 경로를 삭제·숨김 후 복귀 정책에 사용하는 문맥으로 분류한다.
+ *
+ * @param rawReturnTo - 상세 화면에 전달된 원본 복귀 경로
+ * @returns 상품 목록·내 판매·채팅 또는 기타 문맥
+ */
+function getProductReturnContext(
+  rawReturnTo: string | null
+): ProductReturnContext {
   if (rawReturnTo?.startsWith("/products")) return "products";
   if (rawReturnTo?.startsWith("/profile/my-sales")) return "my-sales";
   if (rawReturnTo?.startsWith("/chats/")) return "chats";
@@ -87,20 +99,14 @@ export default function ProductOwnerMenu({
   const [isPending, startTransition] = useTransition();
 
   const rawReturnTo = searchParams.get("returnTo");
-  const returnTo = rawReturnTo
-    ? sanitizeCallbackUrl(rawReturnTo)
-    : "/products";
+  const returnTo = rawReturnTo ? sanitizeCallbackUrl(rawReturnTo) : "/products";
   const returnContext = getProductReturnContext(rawReturnTo);
-  const nextAfterDelete =
-    returnContext !== "chats" ? returnTo : "/products";
+  const nextAfterDelete = returnContext !== "chats" ? returnTo : "/products";
   const hasBackHistory = canUseBrowserBack();
   // 모달 상세는 목록 위에 열린 상태가 정상 문맥이므로 제품 목록 returnTo에서만 back 복귀 허용
   const canGoBackToProductsListModal =
-    isModalContext &&
-    returnContext === "products" &&
-    hasBackHistory;
-  const canGoBackToMySales =
-    returnContext === "my-sales" && hasBackHistory;
+    isModalContext && returnContext === "products" && hasBackHistory;
+  const canGoBackToMySales = returnContext === "my-sales" && hasBackHistory;
   // rawReturnTo가 있어야 내부 문맥에서 온 복귀로 판단하고 history 재사용 허용
   // full-page 상세 삭제는 모바일 퍼스트 기준으로 back UX 우선
   const canGoBackAfterDelete =
@@ -126,6 +132,10 @@ export default function ProductOwnerMenu({
     if (isOpen) document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [isMobile, isOpen]);
+
+  const onMenuKeyDown = useActionMenu(menuRef, isOpen && !isMobile, () =>
+    setIsOpen(false)
+  );
 
   const handleEdit = () => {
     setIsOpen(false);
@@ -198,16 +208,17 @@ export default function ProductOwnerMenu({
     });
   };
 
+  /** 상품을 삭제하고 관련 목록 캐시를 정리한 뒤 진입 문맥에 맞게 복귀한다. */
   const handleDelete = () => {
     startTransition(async () => {
       const result = await deleteProductAction(productId);
 
       if (!result.success) {
-        toast.error(result.error ?? "제품 삭제에 실패했습니다.");
+        toast.error(result.error ?? "상품 삭제에 실패했습니다.");
         return;
       }
 
-      toast.success("제품이 삭제되었습니다.");
+      toast.success("상품이 삭제되었습니다.");
       setConfirmOpen(false);
       setIsOpen(false);
       removeRecentViewedProduct(productId);
@@ -216,8 +227,7 @@ export default function ProductOwnerMenu({
           predicate: (query) =>
             Array.isArray(query.queryKey) &&
             query.queryKey[0] === "products" &&
-            (query.queryKey[1] === "list" ||
-              query.queryKey[1] === "userScope"),
+            (query.queryKey[1] === "list" || query.queryKey[1] === "userScope"),
         },
         (oldData: ProductInfiniteCache<{ id: number }> | undefined) =>
           removeProductFromInfiniteCache(oldData, productId)
@@ -268,7 +278,15 @@ export default function ProductOwnerMenu({
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div
+      className="relative"
+      ref={menuRef}
+      onKeyDown={onMenuKeyDown}
+      onBlur={(event) => {
+        if (!isMobile && !event.currentTarget.contains(event.relatedTarget))
+          setIsOpen(false);
+      }}
+    >
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -289,6 +307,7 @@ export default function ProductOwnerMenu({
             type="button"
             onClick={handleEdit}
             role="menuitem"
+            tabIndex={-1}
             className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
           >
             <PencilSquareIcon className="size-4" />
@@ -299,6 +318,7 @@ export default function ProductOwnerMenu({
               type="button"
               onClick={handleToggleHidden}
               role="menuitem"
+              tabIndex={-1}
               className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
             >
               <EyeSlashIcon className="size-4" />
@@ -312,6 +332,7 @@ export default function ProductOwnerMenu({
               setConfirmOpen(true);
             }}
             role="menuitem"
+            tabIndex={-1}
             className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
           >
             <TrashIcon className="size-4" />
@@ -361,8 +382,8 @@ export default function ProductOwnerMenu({
 
       <ConfirmDialog
         open={confirmOpen}
-        title="제품을 삭제할까요?"
-        description="삭제한 제품은 되돌릴 수 없습니다."
+        title="상품을 삭제할까요?"
+        description="삭제한 상품은 되돌릴 수 없습니다."
         confirmLabel="삭제"
         cancelLabel="취소"
         onConfirm={handleDelete}

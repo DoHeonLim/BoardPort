@@ -79,7 +79,7 @@ export async function syncMechanicTaxonomies(
     }
   >();
 
-  // 메커니즘 CSV는 별도 검수 원장이므로 CATEGORY 후보 제외, MECHANIC만 동기화
+  // 메커니즘 CSV는 별도 검수 데이터이므로 CATEGORY 후보 제외, MECHANIC만 동기화
   items.forEach((item) => {
     collectTaxonomyCandidates(
       taxonomyCandidates,
@@ -109,7 +109,7 @@ export async function syncCategoryTaxonomies(
     }
   >();
 
-  // 카테고리 CSV는 별도 검수 원장이므로 MECHANIC 후보 제외, CATEGORY만 동기화
+  // 카테고리 CSV는 별도 검수 데이터이므로 MECHANIC 후보 제외, CATEGORY만 동기화
   items.forEach((item) => {
     collectTaxonomyCandidates(
       taxonomyCandidates,

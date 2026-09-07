@@ -20,6 +20,7 @@
  * 2026.03.27  임도헌   Modified  녹화 댓글 전송 버튼에 다크 밀집 화면용 아이콘 전용 quiet-dark 버튼 변형 적용
  * 2026.04.20  임도헌   Modified  댓글 입력 포커스가 내부 textarea 기본 outline으로 보이지 않도록 외곽 패널 중심으로 정리
  * 2026.05.30  임도헌   Modified  모바일 버튼 전송, 데스크톱 Enter 전송 기준으로 녹화 댓글 입력 정책 정리
+ * 2026.08.13  임도헌   Modified  다시보기 댓글 생성 cache를 현재 조회자로 제한
  */
 "use client";
 
@@ -38,9 +39,15 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
  * - IME(한글 등) 조합 중 Enter 전송 방지와 명시 버튼 전송 허용
  * - 작성 시도 즉시 입력창 비움 처리(Optimistic Clear) 후, 실패 시 입력값 복원(Rollback) 수행
  */
-export default function RecordingCommentForm({ vodId }: { vodId: number }) {
+export default function RecordingCommentForm({
+  vodId,
+  viewerId,
+}: {
+  vodId: number;
+  viewerId: number;
+}) {
   const { mutateAsync: createComment, isPending: isLoading } =
-    useCreateRecordingCommentMutation(vodId);
+    useCreateRecordingCommentMutation(vodId, viewerId);
   const [text, setText] = useState("");
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

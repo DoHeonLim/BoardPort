@@ -15,6 +15,7 @@
  * 2026.03.07  임도헌   Modified  검색 기록 낙관적 업데이트와 삭제에도 키워드 소문자 정규화 규칙을 적용
  * 2026.04.02  임도헌   Modified  검색 기록 타입/정규화 유틸/최대 개수 상수를 search 도메인 공용 파일로 분리
  * 2026.04.17  임도헌   Modified  검색 기록 훅의 정규화/낙관 업데이트/반환 책임 설명 보강
+ * 2026.08.13  임도헌   Modified  최근 검색 기록 cache를 사용자별로 분리
  */
 
 "use client";
@@ -40,12 +41,16 @@ import {
  * - 추가 실패 시 이전 캐시 스냅샷으로 롤백하고, 삭제/전체 삭제는 성공 후 서버 상태와 다시 동기화
  * - 훅은 UI가 바로 쓰기 쉬운 `history`, `addHistory`, `removeHistory`, `clearHistory`만 노출
  *
+ * @param {number} userId - 검색 기록 소유자 ID
  * @param {SearchHistoryItem[]} [initialHistory=[]] - 서버에서 미리 주입한 초기 검색 기록
  * @returns {object} 검색 기록 배열과 추가/삭제/전체 삭제 제어 함수
  */
-export function useSearchHistory(initialHistory: SearchHistoryItem[] = []) {
+export function useSearchHistory(
+  userId: number,
+  initialHistory: SearchHistoryItem[] = []
+) {
   const queryClient = useQueryClient();
-  const queryKey = queryKeys.search.history();
+  const queryKey = queryKeys.search.history(userId);
 
   // 검색 기록 서버 상태 주입
   const { data: history } = useQuery({

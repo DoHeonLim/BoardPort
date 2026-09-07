@@ -19,6 +19,7 @@
  * 2026.03.27  임도헌   Modified  모바일 댓글 옵션을 Bottom Sheet로 통일해 상세 상단 액션과 터치 경험을 맞춤
  * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 댓글 작성자 라벨 weight를 500 기준으로 정리
+ * 2026.08.13  임도헌   Modified  댓글 상세 cache와 삭제 mutation을 조회자 범위로 연결
  */
 "use client";
 
@@ -72,7 +73,7 @@ export default function PostCommentItem({
 }: CommentItemProps) {
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
-  const commentsQueryKey = queryKeys.posts.comments(postId);
+  const commentsQueryKey = queryKeys.posts.comments(postId, currentUser.id);
 
   // UI 상태 관리
   const [menuOpen, setMenuOpen] = useState(false);
@@ -140,7 +141,11 @@ export default function PostCommentItem({
           {/* 액션 영역 */}
           <div className="flex items-center">
             {isOwner ? (
-              <CommentDeleteButton postId={postId} commentId={comment.id} />
+              <CommentDeleteButton
+                postId={postId}
+                commentId={comment.id}
+                viewerId={currentUser.id}
+              />
             ) : (
               <div className="relative" ref={menuRef}>
                 <button

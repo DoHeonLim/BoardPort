@@ -10,6 +10,7 @@
  * 2026.03.30  임도헌   Modified  신고 인사이트 조회 액션을 추가하고 관리자 페이지를 action 계층으로 통일
  * 2026.04.03  임도헌   Modified  관리자 신고 목록 필터 타입 import를 report/types 공용 정의로 정리
  * 2026.04.27  임도헌   Modified  기각 처리도 관리자 코멘트 payload를 전달할 수 있도록 입력 타입 확장
+ * 2026.08.26  임도헌   Modified  신고 경유 콘텐츠 삭제도 도메인 상세·목록 cache 재검증 적용
  */
 
 "use server";
@@ -21,6 +22,8 @@ import {
 } from "@/features/report/service/admin";
 import { verifyAdminAccess } from "@/features/auth/service/authSession";
 import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
+import * as T from "@/lib/cacheTags";
 import type { ServiceResult } from "@/lib/types";
 import type {
   AdminReportInsights,
@@ -76,7 +79,7 @@ export async function getReportInsightsAction(): Promise<
  * [기능]
  * - 관리자 권한 검증 후 신고를 승인(RESOLVED)하거나 기각(DISMISSED) 처리
  * - 승인 시 조치 유형(`resolution`) payload를 Service 계층으로 전달
- * - 처리 성공 시 목록 페이지 리밸리데이션
+ * - 처리 성공 시 신고 목록과 삭제 대상 도메인의 목록·상세 cache 재검증
  *
  * @param reportId - 대상 신고 ID
  * @param status - 변경할 상태
@@ -103,8 +106,14 @@ export async function updateReportAction(
   );
 
   if (result.success) {
-    // 관리자 신고 목록 재검증
-    revalidatePath("/admin/reports");
+    const paths = new Set(result.data?.revalidationPaths ?? ["/admin/reports"]);
+    paths.add("/admin/reports");
+    paths.forEach((path) => revalidatePath(path));
+    if (result.data?.productDetailId) {
+      revalidateTag(T.PRODUCT_DETAIL(result.data.productDetailId), {
+        expire: 0,
+      });
+    }
   }
   return result;
 }

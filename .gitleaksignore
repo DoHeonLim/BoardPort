@@ -1,0 +1,6 @@
+# 2026.06.02 두 커밋에 포함됐던 동일한 폐기된 CI/E2E용 VAPID 테스트 key.
+# 현재 workflow는 실행별 임시 key를 생성하며, 아래 fingerprint만 과거 이력 기준선에서 제외한다.
+c59494e2885a4dc07fffc945fde16811db32a902:.github/workflows/ci.yml:generic-api-key:52
+c59494e2885a4dc07fffc945fde16811db32a902:.github/workflows/e2e.yml:generic-api-key:50
+3c707a71402f15e557a8977bfc3fcf8a7ecb9931:.github/workflows/ci.yml:generic-api-key:52
+3c707a71402f15e557a8977bfc3fcf8a7ecb9931:.github/workflows/e2e.yml:generic-api-key:50

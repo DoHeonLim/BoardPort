@@ -76,6 +76,17 @@
  * 2026.04.29  임도헌   Modified  보드게임 카탈로그 도메인 모델/필드 주석 보강
  * 2026.06.27  임도헌   Modified  SMS 인증번호 만료 시각 및 인증 rate limit 이벤트 모델 추가
  * 2026.06.29  임도헌   Modified  SMS 로그인 토큰의 인증 전 User 점유를 막기 위해 userId optional 처리
+ * 2026.08.13  임도헌   Modified  브라우저 Push endpoint의 전역 단일 소유권 제약 추가
+ * 2026.08.13  임도헌   Modified  Push 소유권 재검증과 1회 자동 복구 상태 필드 추가
+ * 2026.08.21  임도헌   Modified  구버전 Push 쓰기를 차단하는 배포 전환 제약 설명 보완
+ * 2026.08.22  임도헌   Modified  Cloudflare Images 업로드 소유권과 콘텐츠 연결 상태를 관리하는 MediaAsset 추가
+ * 2026.08.23  임도헌   Modified  비밀번호 변경 후 기존 세션 폐기용 sessionVersion 추가
+ * 2026.08.26  임도헌   Modified  신고 처리 멱등 키와 post-commit moderation outbox 추가
+ * 2026.08.26  임도헌   Modified  상품 채팅방·메시지·대기 약속의 DB 멱등성 제약 추가
+ * 2026.08.26  임도헌   Modified  상품 거래 상대·시각 쌍과 판매자 제외 DB 불변식 추가
+ * 2026.08.26  임도헌   Modified  Cloudflare webhook inbox·outbox와 provider 세션 순서 필드 추가
+ * 2026.08.26  임도헌   Modified  다시보기 최신·인기 복합 커서 정렬 인덱스 추가
+ * 2026.08.28  임도헌   Modified  PostgreSQL 식별자 제한에 맞춘 방송 세션 인덱스 이름 고정
  */
 generator client {
   provider = "prisma-client"
@@ -105,6 +116,21 @@ enum RegionRange {
   ALL // 전국
 }
 
+enum MediaAssetPurpose {
+  USER_AVATAR
+  PRODUCT_IMAGE
+  POST_IMAGE
+  CHAT_IMAGE
+  STREAM_THUMBNAIL
+}
+
+enum MediaAssetState {
+  PENDING
+  ATTACHED
+  ORPHANED
+  DELETED
+}
+
 /// 사용자 정보 모델
 model User {
   id                 Int       @id @default(autoincrement())
@@ -124,6 +150,7 @@ model User {
   role               Role      @default(USER) // 유저 역할
   bannedAt           DateTime? // 관리자에 의한 이용 정지 (Null이면 정상, 값이 있으면 정지된 시간)
   bannedUntil        DateTime? // 정지 만료 시점
+  sessionVersion     Int       @default(1) // 비밀번호 변경 시 증가하여 기존 암호화 쿠키 세션 폐기
 
   latitude     Float?
   longitude    Float?
@@ -137,6 +164,7 @@ model User {
   tokens                    SMSToken[] // SMS 인증 토큰 목록
   products                  Product[]                @relation("Seller") // 판매 등록한 상품들
   product_chat_rooms        ProductChatRoom[] // 참여 중인 상품 채팅방
+  buyer_chat_rooms          ProductChatRoom[]        @relation("ProductChatBuyer") // 구매 문의자로 생성한 상품 채팅방
   product_messages          ProductMessage[] // 상품 채팅 메시지
   product_message_reactions ProductMessageReaction[] // 채팅 메시지 반응
   product_likes             ProductLike[] // 찜한 상품 목록
@@ -174,8 +202,32 @@ model User {
   admin_logs                 AuditLog[]         @relation("AdminActions") // 내가 수행한 관리 활동 로그(관리자용)
   keyword_alerts             KeywordAlert[]
   reviewed_boardgame_locales BoardGameLocale[]  @relation("BoardGameLocaleReviewer") // 보드게임 한국어 표시 정보 검수 이력
+  media_assets               MediaAsset[] // 발급받은 Cloudflare Images 업로드 소유권 기록
 
   @@index([username]) // 유저 검색 최적화
+}
+
+/// Cloudflare Images direct upload 발급·소유·연결 상태 관리
+model MediaAsset {
+  id              String            @id @default(cuid())
+  provider        String            @default("CLOUDFLARE_IMAGES")
+  providerAssetId String            @unique
+  deliveryUrl     String
+  purpose         MediaAssetPurpose
+  state           MediaAssetState   @default(PENDING)
+  linkedEntityId  String?
+  expires_at      DateTime
+  attached_at     DateTime?
+  deleted_at      DateTime?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  owner   User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId Int
+
+  @@index([ownerId, purpose, state])
+  @@index([purpose, linkedEntityId])
+  @@index([state, expires_at])
 }
 
 // -----------------------------------------------------------------------------
@@ -296,9 +348,10 @@ model Product {
   chat_rooms ProductChatRoom[] // 이 상품에 대한 채팅방들
 
   // --- Transaction State (거래 상태) ---
-  // 판매중: reservation_userId == null && purchase_userId == null
-  // 예약중: reservation_userId != null
-  // 판매완료: purchase_userId != null
+  // 판매중: 예약·구매 ID와 시각이 모두 null
+  // 예약중: reservation_userId/reservation_at만 함께 존재
+  // 판매완료: purchase_userId/purchased_at만 함께 존재
+  // 위 불변식과 판매자 본인 제외는 PostgreSQL CHECK constraint로 migration에서 관리
 
   reservation_at     DateTime? // 예약 시점
   reservation_user   User?     @relation("ReservationUser", fields: [reservation_userId], references: [id], onDelete: SetNull)
@@ -499,16 +552,17 @@ model PostImage {
 
 /// 게시글 첨부 동영상
 model PostVideo {
-  id              Int             @id @default(autoincrement())
-  provider        String          @default("CLOUDFLARE_STREAM") // 비디오 인프라 공급자
-  providerAssetId String?         @unique // Cloudflare Stream 비디오 UID
-  uploadUid       String?         @unique // direct upload 식별자
-  draftKey        String?         @unique // 게시글 생성 전 업로드 초안을 식별하는 키
-  status          PostVideoStatus @default(UPLOADING)
-  thumbnailUrl    String?
-  durationSec     Int?
-  created_at      DateTime        @default(now())
-  updated_at      DateTime        @updatedAt
+  id                  Int             @id @default(autoincrement())
+  provider            String          @default("CLOUDFLARE_STREAM") // 비디오 인프라 공급자
+  providerAssetId     String?         @unique // Cloudflare Stream 비디오 UID
+  uploadUid           String?         @unique // direct upload 식별자
+  draftKey            String?         @unique // 게시글 생성 전 업로드 초안을 식별하는 키
+  status              PostVideoStatus @default(UPLOADING)
+  thumbnailUrl        String?
+  durationSec         Int?
+  lastProviderEventAt DateTime? // READY/FAILED 역순 이벤트 차단 기준
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
 
   user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
@@ -604,8 +658,11 @@ model ProductChatRoom {
 
   product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId    Int
+  buyer        User          @relation("ProductChatBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId      Int // 상품 소유자가 아닌 채팅방 생성 요청자
   appointments Appointment[]
 
+  @@unique([productId, buyerId]) // 상품별 구매 문의자는 하나의 채팅방만 재사용
   @@index([updated_at]) // 채팅방 목록 정렬 (최신 대화순)
   @@index([productId])
 }
@@ -633,6 +690,7 @@ model ProductMessage {
   image           String? // Cloudflare 이미지 URL 저장 필드
   imageIsAnimated Boolean   @default(false) // 채팅 이미지 애니메이션 여부 (GIF 등)
   deleted_at      DateTime?
+  clientMessageId String? // 클라이언트 재전송에도 같은 메시지로 수렴시키는 요청 ID
 
   // 메시지 타입 및 약속 연결
   type          MessageType  @default(TEXT)
@@ -652,6 +710,7 @@ model ProductMessage {
 
   reactions ProductMessageReaction[]
 
+  @@unique([userId, clientMessageId]) // 발신자별 요청 ID 중복 저장 방지(null 시스템 메시지는 제외)
   // [Optimization] 메시지 내역 조회 & 안 읽은 메시지 카운트
   @@index([productChatRoomId, created_at])
   @@index([productChatRoomId, isRead, userId]) // 안 읽은 개수 집계용
@@ -707,7 +766,7 @@ model Appointment {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  @@index([chatRoomId])
+  @@index([chatRoomId]) // PENDING 단일 제약은 PostgreSQL partial unique index로 migration에서 관리
   @@index([proposerId])
   @@index([receiverId])
 }
@@ -731,8 +790,9 @@ model Notification {
   isRead     Boolean  @default(false)
   created_at DateTime @default(now())
 
-  isPushSent Boolean   @default(false) // 푸시 발송 성공 여부
-  sentAt     DateTime? // 발송 시간
+  isPushSent  Boolean   @default(false) // 푸시 발송 성공 여부
+  sentAt      DateTime? // 발송 시간
+  deliveryKey String?   @unique // outbox 재시도 시 같은 인앱 알림 중복 생성을 막는 전달 키
 
   @@index([userId, created_at]) // 내 알림함
   @@index([userId, isRead]) // 안 읽은 알림 필터
@@ -745,16 +805,21 @@ model PushSubscription {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int
 
-  endpoint  String // 브라우저 엔드포인트
+  endpoint  String  @unique // 하나의 브라우저 구독은 현재 계정 하나만 소유
   p256dh    String // 암호화 키
   auth      String // 인증 키
   userAgent String?
 
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  last_used  DateTime? // 마지막 발송 성공 시간
-  isActive   Boolean   @default(true) // 구독 활성 상태
+  created_at                      DateTime  @default(now())
+  updated_at                      DateTime  @updatedAt
+  last_used                       DateTime? // 마지막 발송 성공 시간
+  isActive                        Boolean   @default(false) // 보호 검증을 통과한 등록 경로만 명시적으로 활성화
+  requires_ownership_verification Boolean   @default(true) // 표시 보호 SW+브라우저 소유 키를 확인하기 전에는 fail-closed
+  allows_automatic_reactivation   Boolean   @default(false) // migration 당시 활성 기기만 보호 검증 후 1회 자동 복구
 
+  // 구 Prisma client의 compound selector 소스 호환만 위해 유지한다. 구 코드의
+  // isActive=true 쓰기는 DB CHECK가 거부하므로 무중단 기능 호환을 의미하지 않는다.
+  // 모든 인스턴스가 endpoint 단일 upsert로 전환된 후 contract migration으로 제거한다.
   @@unique([endpoint, userId], name: "endpoint_userId")
   @@index([userId, isActive])
 }
@@ -858,7 +923,7 @@ model LiveInput {
 
   // CF 설정 동기화
   deleteAfterDays     Int?
-  requireSignedURLs   Boolean @default(false)
+  requireSignedURLs   Boolean @default(true) // 2026.08.21: 원본 UID 재생을 막는 signed playback 기본 정책
   hideLiveViewerCount Boolean @default(false)
 
   status String? // 현재 연결 상태 캐시 (CONNECTED / DISCONNECTED)
@@ -898,6 +963,11 @@ model Broadcast {
   started_at DateTime? // 방송 시작 시간
   ended_at   DateTime? // 방송 종료 시간
 
+  // Cloudflare가 보낸 세션 시각으로 지연·역순 Live Input 이벤트와 녹화본 연결을 판별
+  providerSessionStartedAt DateTime?
+  providerSessionEndedAt   DateTime?
+  lastProviderEventAt      DateTime?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -914,6 +984,7 @@ model Broadcast {
   @@index([liveInputId, id]) // 유저 채널 목록
   @@index([status, id]) // 라이브 중인 방송 목록
   @@index([started_at])
+  @@index([liveInputId, providerSessionStartedAt, providerSessionEndedAt], map: "Broadcast_liveInputId_providerSessionStartedAt_providerSess_idx")
   @@index([streamCategoryId])
 }
 
@@ -1094,12 +1165,14 @@ model VodAsset {
   broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
   broadcastId Int // 원본 방송 ID
 
-  provider_asset_id String    @unique // Cloudflare Video UID
-  playback_hls      String?
-  playback_dash     String?
-  thumbnail_url     String?
-  duration_sec      Int? // 영상 길이 (초)
-  ready_at          DateTime? // 처리 완료 시간
+  provider_asset_id   String    @unique // Cloudflare Video UID
+  playback_hls        String?
+  playback_dash       String?
+  thumbnail_url       String?
+  duration_sec        Int? // 영상 길이 (초)
+  ready_at            DateTime? // 처리 완료 시간
+  providerCreatedAt   DateTime? // Cloudflare 녹화 세션 생성 시각
+  lastProviderEventAt DateTime? // 마지막으로 반영한 provider 이벤트 시각
 
   views Int @default(0) // 조회수
 
@@ -1110,8 +1183,56 @@ model VodAsset {
   recordingComments RecordingComment[] // 녹화본 댓글
 
   @@index([broadcastId])
-  @@index([ready_at])
-  @@index([views])
+  @@index([ready_at(sort: Desc), id(sort: Desc)]) // 최신 다시보기 복합 커서 정렬
+  @@index([views(sort: Desc), ready_at(sort: Desc), id(sort: Desc)]) // 인기 다시보기 복합 커서 정렬
+}
+
+/// 인증을 통과한 Cloudflare webhook 원문과 처리 상태를 보존하는 inbox
+model CloudflareWebhookEvent {
+  id              Int       @id @default(autoincrement())
+  source          String // STREAM 또는 DESTINATION
+  eventType       String
+  providerEventId String?
+  payloadHash     String    @unique // source와 raw body를 함께 해시한 중복 방지 키
+  payload         Json
+  liveInputUid    String?
+  assetUid        String?
+  eventAt         DateTime
+  status          String    @default("PENDING") // PENDING, PROCESSING, PROCESSED, IGNORED, FAILED
+  attempts        Int       @default(0)
+  available_at    DateTime  @default(now())
+  processed_at    DateTime?
+  lastError       String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  outboxJobs StreamWebhookOutbox[]
+
+  @@index([status, available_at])
+  @@index([eventType, eventAt])
+  @@index([liveInputUid, eventAt])
+  @@index([assetUid])
+}
+
+/// Cloudflare webhook DB 반영 이후 실행할 알림·Realtime·캐시 갱신 작업
+model StreamWebhookOutbox {
+  id           Int       @id @default(autoincrement())
+  dedupeKey    String    @unique
+  kind         String
+  payload      Json
+  status       String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  attempts     Int       @default(0)
+  available_at DateTime  @default(now())
+  processed_at DateTime?
+  lastError    String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  webhookEvent   CloudflareWebhookEvent @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+  webhookEventId Int
+
+  @@index([status, available_at])
+  @@index([webhookEventId])
 }
 
 /// 방송 태그
@@ -1296,11 +1417,18 @@ model Report {
   targetStreamMessageId  Int? // 라이브 방송 채팅 메시지
   targetReviewId         Int? // 리뷰
 
+  // 신고 접수 시점의 표시 정보. 원본 콘텐츠 삭제 후에도 관리자 감사 이력에서 대상을 식별하기 위해 유지
+  targetPreview       String?
+  targetOwnerId       Int?
+  targetOwnerUsername String?
+  targetParentId      Int?
+  targetParentPreview String?
+
   reason       ReportReason // 신고 사유 (Enum)
   description  String? // 상세 설명 (선택)
   adminComment String? // 관리자 처리 코멘트 (기각 사유, 조치 내용 등)
 
-  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  status     String   @default("PENDING") // PENDING, PROCESSING, RESOLVED, DISMISSED
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -1333,11 +1461,29 @@ model AuditLog {
   targetId   Int // 대상의 PK
 
   // 상세 내용
-  reason String? // 처리 사유 (관리자 코멘트)
+  reason         String? // 처리 사유 (관리자 코멘트)
+  idempotencyKey String? @unique // 신고 처리처럼 재시도 가능한 관리자 조치의 중복 실행 방지 키
 
   created_at DateTime @default(now())
 
   @@index([adminId])
   @@index([targetType, targetId])
   @@index([action])
+}
+
+/// 신고 처리 transaction commit 뒤 실행할 알림·실시간 신호·외부 자산 정리 작업
+model ModerationOutbox {
+  id           Int       @id @default(autoincrement())
+  dedupeKey    String    @unique
+  kind         String
+  payload      Json
+  status       String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  attempts     Int       @default(0)
+  available_at DateTime  @default(now())
+  processed_at DateTime?
+  lastError    String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@index([status, available_at])
 }
