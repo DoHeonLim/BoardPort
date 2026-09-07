@@ -37,6 +37,8 @@
  * 2026.06.17  임도헌   Modified  게시글 좋아요 상태 캐시 분리를 위해 viewerId를 메타로 전달
  * 2026.06.21  임도헌   Modified  상세 메타에 관련 장소 또는 작성 동네 정보를 전달
  * 2026.08.28  임도헌   Modified  정적 상세 조합을 서버 컴포넌트로 전환하고 상호작용 영역만 클라이언트 island로 유지
+ * 2026.09.07  임도헌   Modified  본문 섹션 간격과 하단 메타·댓글 경계를 분리해 메타 영역의 중첩 여백 제거
+ * 2026.09.07  임도헌   Modified  본문만 있는 게시글에서 메타 경계선과 내용 사이의 하단 여백 보강
  * ===============================================================================================
  * PostDetail (게시글 상세) 페이지를 구성하는 UI 요소 모음
  *
@@ -109,6 +111,12 @@ export default function PostDetail({
   const editHref = `/posts/${post.id}/edit?returnTo=${encodeURIComponent(
     detailReturnTo
   )}&flow=detail-edit`;
+  const hasLocationSection = Boolean(
+    post.latitude && post.longitude && post.locationName
+  );
+  const hasContentAfterBlocks = Boolean(
+    post.tags.length || post.board_games?.length || hasLocationSection
+  );
 
   return (
     <div className="relative min-h-screen bg-background transition-colors pb-20">
@@ -128,42 +136,50 @@ export default function PostDetail({
         preferHistoryBack={hasExplicitReturnTo}
       />
 
-      <main className="mx-auto flex w-full max-w-mobile flex-col gap-8 px-page-x py-6">
-        {/* 작은 모바일 화면에서는 카테고리 칩을 본문으로 내려 작성자 영역 과밀 완화 */}
-        {categoryLabel && (
-          <div className="sm:hidden -mb-4">
-            <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-medium text-brand dark:bg-brand-light/20 dark:text-gray-100">
-              {categoryLabel}
-            </span>
-          </div>
-        )}
+      <main className="mx-auto flex w-full max-w-mobile flex-col px-page-x py-6">
+        {/* 후속 섹션이 모두 null이면 gap이 생기지 않으므로 본문 아래에 최소 여백 확보 */}
+        <div
+          className={`flex flex-col gap-6 ${
+            hasContentAfterBlocks ? "" : "pb-4"
+          }`}
+        >
+          {/* 작은 모바일 화면에서는 카테고리 칩을 본문으로 내려 작성자 영역 과밀 완화 */}
+          {categoryLabel && (
+            <div className="sm:hidden -mb-4">
+              <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-medium text-brand dark:bg-brand-light/20 dark:text-gray-100">
+                {categoryLabel}
+              </span>
+            </div>
+          )}
 
-        {/* 2. 제목 */}
-        <PostDetailTitle title={post.title} />
+          {/* 2. 제목 */}
+          <PostDetailTitle title={post.title} />
 
-        {/* 3. 본문/미디어 영역 */}
-        <PostDetailBlocks blocks={post.blocks ?? []} />
+          {/* 3. 본문/미디어 영역 */}
+          <PostDetailBlocks blocks={post.blocks ?? []} />
 
-        {/* 4. 태그 */}
-        <PostDetailTags tags={post.tags} />
+          {/* 4. 태그 */}
+          <PostDetailTags tags={post.tags} />
 
-        <LinkedBoardGameChips
-          items={post.board_games?.map(({ boardGame }) => boardGame) ?? []}
-          variant="cards"
-        />
+          <LinkedBoardGameChips
+            items={post.board_games?.map(({ boardGame }) => boardGame) ?? []}
+            variant="cards"
+            headingLevel="h2"
+          />
 
-        {/* 5. 지도 (장소) */}
-        <PostDetailLocationSection
-          latitude={post.latitude ?? null}
-          longitude={post.longitude ?? null}
-          locationName={post.locationName ?? null}
-          region1={post.region1 ?? null}
-          region2={post.region2 ?? null}
-          region3={post.region3 ?? null}
-        />
+          {/* 5. 지도 (장소) */}
+          <PostDetailLocationSection
+            latitude={post.latitude ?? null}
+            longitude={post.longitude ?? null}
+            locationName={post.locationName ?? null}
+            region1={post.region1 ?? null}
+            region2={post.region2 ?? null}
+            region3={post.region3 ?? null}
+          />
+        </div>
 
         {/* 6. 메타 정보 (하단 반응 섹션) */}
-        <div className="border-t border-border-subtle pt-4">
+        <div className="border-t border-border-subtle py-2">
           <PostDetailMeta
             postId={post.id}
             isLiked={isLiked}
@@ -179,11 +195,12 @@ export default function PostDetail({
             feedRegion1={post.feedRegion1 ?? null}
             feedRegion2={post.feedRegion2 ?? null}
             feedRegion3={post.feedRegion3 ?? null}
+            hasLocationSection={hasLocationSection}
           />
         </div>
 
         {/* 7. 댓글 섹션 */}
-        <section className="border-t border-border-subtle pt-6">
+        <section className="border-t border-border-subtle pt-4">
           <h2 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
             <ChatBubbleLeftEllipsisIcon className="size-5 text-brand" />
             항해 로그

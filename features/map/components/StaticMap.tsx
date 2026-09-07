@@ -12,6 +12,7 @@
  * 2026.03.23  임도헌   Modified  정적 지도 로딩/오류/뷰어 셸 보더를 구조선 기준으로 border-border-subtle에 맞춰 정리
  * 2026.03.29  임도헌   Modified  위치 메타와 외부 지도 액션을 하나의 카드 셸로 통합해 상세 문법과 정합성 보강
  * 2026.04.14  임도헌   Modified  지도 전체를 링크로 감싸지 않고 외부 이동 액션을 분리해 접근성 이름 충돌 가능성을 줄임
+ * 2026.09.07  임도헌   Modified  지역 부제가 없는 지도 헤더의 장소명과 외부 이동 버튼 세로 정렬 보정
  */
 
 "use client";
@@ -136,8 +137,10 @@ export default function StaticMap({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
-      <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
-        <div className="flex min-w-0 items-start gap-3">
+      <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+        <div
+          className={`flex min-w-0 gap-3 ${regionString ? "items-start" : "items-center"}`}
+        >
           <div className="rounded-full bg-brand/10 p-2 text-brand dark:bg-brand-light/10 dark:text-brand-light shrink-0">
             <MapPinIcon className="size-5" />
           </div>

@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.03  임도헌   Created   상품/게시글/방송 상세의 연결 보드게임 표시 컴포넌트 추가
  * 2026.05.04  임도헌   Modified  게시글 상세에서 사용할 수 있는 카드형 표시 variant 추가
+ * 2026.09.07  임도헌   Modified  상세 화면 문서 구조에 맞춰 카드형 제목 레벨 선택 지원
  */
 
 import Link from "next/link";
@@ -18,6 +19,7 @@ interface LinkedBoardGameChipsProps {
   title?: string;
   compact?: boolean;
   variant?: "chips" | "cards";
+  headingLevel?: "h2" | "h3";
 }
 
 /**
@@ -31,13 +33,24 @@ export default function LinkedBoardGameChips({
   title = "연결된 보드게임",
   compact = false,
   variant = "chips",
+  headingLevel = "h3",
 }: LinkedBoardGameChipsProps) {
   if (!items.length) return null;
 
   if (variant === "cards") {
+    const Heading = headingLevel;
+
     return (
       <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold text-primary">{title}</h3>
+        <Heading
+          className={
+            headingLevel === "h2"
+              ? "text-sm font-bold text-primary"
+              : "text-sm font-semibold text-primary"
+          }
+        >
+          {title}
+        </Heading>
         <div className="grid gap-2">
           {items.map((item) => (
             <Link
