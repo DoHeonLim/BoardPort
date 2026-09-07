@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.03  임도헌   Created   허용 사용자에게만 실제 방송 제목을 제공하는 정책 검증
+ * 2026.09.07  임도헌   Modified  방송 DB 실패를 미존재 메타데이터로 변환하지 않는 오류 전파 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -111,5 +112,14 @@ describe("stream generateMetadata", () => {
 
     expect(metadata.title).toBe("비공개 방송");
     expect(mocks.authorizeBroadcastAccess).not.toHaveBeenCalled();
+  });
+
+  it("방송 상세 조회 실패를 미존재 메타데이터로 변환하지 않는다", async () => {
+    const databaseError = new Error("metadata query failed");
+    mocks.getCachedBroadcastDetail.mockRejectedValue(databaseError);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ id: "230" }) })
+    ).rejects.toBe(databaseError);
   });
 });

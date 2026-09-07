@@ -20,6 +20,7 @@
  * 2026.05.08  임도헌   Modified  방송/녹화 상세 보드게임 relation select를 공용 상수로 교체
  * 2026.05.08  임도헌   Modified  상세 DTO 타입을 features/stream/types.ts로 이동
  * 2026.08.21  임도헌   Modified  상세 DTO에서 원본 Cloudflare UID를 제거하고 playback token 주입 자리만 제공
+ * 2026.09.07  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  */
 
 import "server-only";
@@ -38,68 +39,66 @@ import type { StreamDetailDTO, VodDetailDTO } from "@/features/stream/types";
  *
  * @param {number} id - 방송 ID
  * @returns {Promise<StreamDetailDTO | null>} 방송 상세 데이터
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getBroadcastDetail(
   id: number
 ): Promise<StreamDetailDTO | null> {
-  try {
-    const b = await db.broadcast.findUnique({
-      where: { id },
-      select: {
-        title: true,
-        thumbnail: true,
-        description: true,
-        pinnedChatNotice: true,
-        started_at: true,
-        status: true,
-        visibility: true,
-        liveInput: {
-          select: {
-            userId: true,
-            user: { select: { id: true, username: true, avatar: true } },
-          },
-        },
-        category: { select: { kor_name: true, icon: true } },
-        tags: { select: { name: true } },
-        board_games: {
-          select: STREAM_BOARD_GAME_RELATION_SELECT,
+  const b = await db.broadcast.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      thumbnail: true,
+      description: true,
+      pinnedChatNotice: true,
+      started_at: true,
+      status: true,
+      visibility: true,
+      liveInput: {
+        select: {
+          userId: true,
+          user: { select: { id: true, username: true, avatar: true } },
         },
       },
-    });
-
-    if (!b || !b.liveInput) return null;
-
-    return {
-      title: b.title,
-      playbackId: null,
-      thumbnail: b.thumbnail ?? null,
-      userId: b.liveInput.userId,
-      user: {
-        id: b.liveInput.user.id,
-        username: b.liveInput.user.username,
-        avatar: b.liveInput.user.avatar,
+      category: { select: { kor_name: true, icon: true } },
+      tags: { select: { name: true } },
+      board_games: {
+        select: STREAM_BOARD_GAME_RELATION_SELECT,
       },
-      category: b.category
-        ? { kor_name: b.category.kor_name, icon: b.category.icon }
-        : null,
-      tags: b.tags ?? [],
-      board_games: b.board_games.flatMap(({ boardGame }) => {
-        const { locales, ...linkedBoardGame } = boardGame;
-        const locale = locales[0];
-        // 공개 한국어 locale이 있는 보드게임 연결만 방송 상세에 노출
-        if (!locale) return [];
-        return [{ boardGame: { ...linkedBoardGame, locale } }];
-      }),
-      started_at: b.started_at ?? null,
-      description: b.description ?? null,
-      pinnedChatNotice: b.pinnedChatNotice ?? null,
-      status: b.status,
-      visibility: b.visibility,
-    };
-  } catch (error) {
-    console.error("[getBroadcastDetail] failed:", error);
-    return null;
-  }
+    },
+  });
+
+  // findUnique의 null과 필수 liveInput 관계 부재만 실제 미존재로 처리한다.
+  // DB 예외는 cache에 null로 저장하지 않고 상위 오류 경계까지 전파한다.
+  if (!b || !b.liveInput) return null;
+
+  return {
+    title: b.title,
+    playbackId: null,
+    thumbnail: b.thumbnail ?? null,
+    userId: b.liveInput.userId,
+    user: {
+      id: b.liveInput.user.id,
+      username: b.liveInput.user.username,
+      avatar: b.liveInput.user.avatar,
+    },
+    category: b.category
+      ? { kor_name: b.category.kor_name, icon: b.category.icon }
+      : null,
+    tags: b.tags ?? [],
+    board_games: b.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 공개 한국어 locale이 있는 보드게임 연결만 방송 상세에 노출
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+    started_at: b.started_at ?? null,
+    description: b.description ?? null,
+    pinnedChatNotice: b.pinnedChatNotice ?? null,
+    status: b.status,
+    visibility: b.visibility,
+  };
 }
 
 /**
@@ -129,6 +128,7 @@ export const getCachedBroadcastDetail = (id: number) => {
  *
  * @param {number} vodId - VOD ID
  * @returns {Promise<VodDetailDTO | null>} 녹화본 상세 데이터
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getVodDetail(
   vodId: number
