@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.26  임도헌   Created   legacy 중복 병합·요청 ID·PENDING 단일 제약을 실제 PostgreSQL로 검증
  * 2026.08.26  임도헌   Modified  운영과 같은 SQL 문장별 commit 경계로 migration 실행
+ * 2026.09.07  임도헌   Modified  prisma/config의 테스트 전용 설정 경로 적용
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -29,7 +30,7 @@ if (
 
 const prismaCli = resolve("node_modules/prisma/build/index.js");
 const prismaConfig = resolve(
-  "prisma.chat-idempotency-migration-test.config.ts"
+  "prisma/config/chat-idempotency-migration-test.config.ts"
 );
 const migrationFile = resolve(
   "prisma/migrations/20260826200000_add_chat_idempotency/migration.sql"

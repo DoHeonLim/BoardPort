@@ -6,33 +6,46 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.23  임도헌   Created   기존 사용자 기본값과 세션 버전 증가를 실제 PostgreSQL로 검증
+ * 2026.09.07  임도헌   Modified  prisma/config의 테스트 전용 설정 경로 적용
  */
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const databaseUrl = process.env.AUTH_SESSION_MIGRATION_TEST_DATABASE_URL;
-if (!databaseUrl) throw new Error("AUTH_SESSION_MIGRATION_TEST_DATABASE_URL is required.");
+if (!databaseUrl)
+  throw new Error("AUTH_SESSION_MIGRATION_TEST_DATABASE_URL is required.");
 const parsedUrl = new URL(databaseUrl);
 if (
   !["127.0.0.1", "localhost", "::1"].includes(parsedUrl.hostname) ||
   parsedUrl.pathname !== "/boardport_migration_test"
 ) {
-  throw new Error("Auth session migration test must use the local boardport_migration_test database.");
+  throw new Error(
+    "Auth session migration test must use the local boardport_migration_test database."
+  );
 }
 
 const prismaCli = resolve("node_modules/prisma/build/index.js");
-const prismaConfig = resolve("prisma.auth-session-migration-test.config.ts");
+const prismaConfig = resolve(
+  "prisma/config/auth-session-migration-test.config.ts"
+);
 const migrationFile = resolve(
   "prisma/migrations/20260823190000_add_user_session_version/migration.sql"
 );
 
 function execute(args, input) {
-  execFileSync(process.execPath, [prismaCli, "db", "execute", "--config", prismaConfig, ...args], {
-    cwd: process.cwd(),
-    env: { ...process.env, AUTH_SESSION_MIGRATION_TEST_DATABASE_URL: databaseUrl },
-    input,
-    stdio: [input === undefined ? "inherit" : "pipe", "inherit", "inherit"],
-  });
+  execFileSync(
+    process.execPath,
+    [prismaCli, "db", "execute", "--config", prismaConfig, ...args],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        AUTH_SESSION_MIGRATION_TEST_DATABASE_URL: databaseUrl,
+      },
+      input,
+      stdio: [input === undefined ? "inherit" : "pipe", "inherit", "inherit"],
+    }
+  );
 }
 
 const setupSql = String.raw`
@@ -65,5 +78,6 @@ try {
   execute(["--stdin"], assertionSql);
   console.log("Auth session migration integration test passed.");
 } finally {
-  if (setupCompleted) execute(["--stdin"], 'DROP TABLE IF EXISTS "User" CASCADE;');
+  if (setupCompleted)
+    execute(["--stdin"], 'DROP TABLE IF EXISTS "User" CASCADE;');
 }

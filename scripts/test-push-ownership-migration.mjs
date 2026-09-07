@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   중복 정리, 상태 CHECK와 구버전 쓰기 차단을 실제 DB에서 검증
+ * 2026.09.07  임도헌   Modified  prisma/config의 테스트 전용 설정 경로 적용
  */
 
 import { execFileSync } from "node:child_process";
@@ -31,7 +32,7 @@ if (!isLocalHost || !isDedicatedDatabase) {
 }
 
 const prismaCli = resolve("node_modules/prisma/build/index.js");
-const prismaConfig = resolve("prisma.push-migration-test.config.ts");
+const prismaConfig = resolve("prisma/config/push-migration-test.config.ts");
 const migrationFile = resolve(
   "prisma/migrations/20260813090000_enforce_push_endpoint_ownership/migration.sql"
 );

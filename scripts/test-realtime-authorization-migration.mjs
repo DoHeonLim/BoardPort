@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   topic별 SELECT 허용과 클라이언트 INSERT 거절을 실제 RLS로 검증
  * 2026.08.22  임도헌   Modified  전용 helper schema USAGE와 public data 차단을 함께 검증
+ * 2026.09.07  임도헌   Modified  prisma/config의 테스트 전용 설정 경로 적용
  */
 
 import { execFileSync } from "node:child_process";
@@ -30,7 +31,7 @@ if (!isLocalHost || !isDedicatedDatabase) {
 }
 
 const prismaCli = resolve("node_modules/prisma/build/index.js");
-const prismaConfig = resolve("prisma.realtime-migration-test.config.ts");
+const prismaConfig = resolve("prisma/config/realtime-migration-test.config.ts");
 const migrationFiles = [
   resolve(
     "prisma/migrations/20260821180000_secure_realtime_channels/migration.sql"

@@ -55,11 +55,11 @@ docker ps -a --filter "name=boardport-migration-test"
 
 ```bash
 RELEASE_MIGRATION_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/boardport_release_test?schema=public" \
-npx prisma migrate deploy --config prisma.release-migration-test.config.ts
+npx prisma migrate deploy --config prisma/config/release-migration-test.config.ts
 
 RELEASE_MIGRATION_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/boardport_release_test?schema=public" \
 npx prisma migrate diff \
-  --config prisma.release-migration-test.config.ts \
+  --config prisma/config/release-migration-test.config.ts \
   --from-config-datasource \
   --to-schema prisma/schema.prisma \
   --exit-code

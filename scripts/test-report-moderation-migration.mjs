@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.26  임도헌   Created   동시 claim·rollback·고유 키·상태 제약을 실제 PostgreSQL로 검증
  * 2026.09.04  임도헌   Modified  신고 대상 스냅샷 백필과 원본 삭제 후 식별 정보 유지 검증 추가
+ * 2026.09.07  임도헌   Modified  prisma/config의 테스트 전용 설정 경로 적용
  */
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -28,7 +29,7 @@ if (
 
 const prismaCli = resolve("node_modules/prisma/build/index.js");
 const prismaConfig = resolve(
-  "prisma.report-moderation-migration-test.config.ts"
+  "prisma/config/report-moderation-migration-test.config.ts"
 );
 const migrationFile = resolve(
   "prisma/migrations/20260826120000_add_report_moderation_idempotency/migration.sql"
