@@ -55,6 +55,7 @@
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 팔로우 CTA 스크롤 동작 조정
  * 2026.08.28  임도헌   Modified  로그인·팔로우·판매 탭 함수 JSDoc 보강
+ * 2026.09.08  임도헌   Modified  타인 프로필 최근 작성 게시글 미리보기 추가
  */
 
 "use client";
@@ -101,6 +102,8 @@ import type {
   UserProfile as UserProfileType,
 } from "@/features/user/types";
 import type { BroadcastSummary } from "@/features/stream/types";
+import type { PostDetail } from "@/features/post/types";
+import ProfilePostPreview from "@/features/user/components/profile/ProfilePostPreview";
 
 // 리뷰 모달 동적 로딩
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
@@ -125,6 +128,7 @@ interface Props {
   userBadges: Badge[];
   previewReviews: import("@/features/user/types").ProfileReview[];
   myStreams?: BroadcastSummary[];
+  recentPosts: PostDetail[];
   viewerId?: number;
 }
 
@@ -134,12 +138,13 @@ interface Props {
  * [주요 섹션]
  * 1. ProfileHeader: 기본 정보 및 팔로우 액션
  * 2. 방송국 (Rail): 해당 유저의 최근 방송 목록 (팔로우 상태 잠금 UI + channel returnTo 유지)
- * 3. 받은 거래 후기 및 뱃지
- * 4. 판매 목록: 판매 중 / 판매 완료 탭과 무한 스크롤 리스트
+ * 3. 최근 작성 게시글 미리보기와 전체 목록 진입
+ * 4. 받은 거래 후기 및 뱃지
+ * 5. 판매 목록: 판매 중 / 판매 완료 탭과 무한 스크롤 리스트
  *
  * [차단]
  * 1. 차단된 유저일 경우: 프로필 헤더와 차단 안내 UI(해제 버튼 포함)만 표시
- * 2. 정상 유저일 경우: 방송국, 리뷰/뱃지, 판매 목록(탭/무한스크롤) 등 전체 콘텐츠 표시
+ * 2. 정상 유저일 경우: 방송국, 작성글, 리뷰/뱃지, 판매 목록 등 전체 콘텐츠 표시
  * 3. 팔로우 상태 관리 및 방송국 레일 내 잠금 UI와 연동
  */
 export default function UserProfile({
@@ -149,6 +154,7 @@ export default function UserProfile({
   userBadges,
   previewReviews,
   myStreams,
+  recentPosts,
   viewerId,
 }: Props) {
   const router = useRouter();
@@ -356,7 +362,15 @@ export default function UserProfile({
             )}
           </section>
 
-          {/* 4. 사회적 신뢰 정보: 후기와 뱃지를 같은 밀도로 묶어 노출 */}
+          {/* 4. 최근 작성 게시글 */}
+          <ProfilePostPreview
+            posts={recentPosts}
+            username={user.username}
+            isOwner={false}
+            returnTo={next}
+          />
+
+          {/* 5. 사회적 신뢰 정보: 후기와 뱃지를 같은 밀도로 묶어 노출 */}
           <div className="grid grid-cols-1 gap-6">
             <section>
               <div className="flex items-center justify-between mb-2">
@@ -389,7 +403,7 @@ export default function UserProfile({
             </section>
           </div>
 
-          {/* 5. 판매 목록: 탭과 뷰 토글은 즉시 반응하고 실제 목록은 Suspense 경계 아래에서 교체 */}
+          {/* 6. 판매 목록: 탭과 뷰 토글은 즉시 반응하고 실제 목록은 Suspense 경계 아래에서 교체 */}
           <section>
             <h2 className="text-sm font-bold text-primary mb-3">판매 목록</h2>
             <div className="panel p-4 bg-surface">
@@ -461,7 +475,7 @@ export default function UserProfile({
             </div>
           </section>
 
-          {/* 6. 리뷰 전체보기 모달 */}
+          {/* 7. 리뷰 전체보기 모달 */}
           {isReviewModalOpen && (
             <ProfileReviewsModal
               isOpen={isReviewModalOpen}

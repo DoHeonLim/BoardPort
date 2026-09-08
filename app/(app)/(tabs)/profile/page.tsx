@@ -40,6 +40,7 @@
  * 2026.05.30  임도헌   Modified   내 프로필 상단 액션바 높이를 모바일 서브 헤더 기준으로 재정렬
  * 2026.08.13  임도헌   Modified  내 프로필 리뷰 prefetch cache에 조회자 범위 추가
  * 2026.08.21  임도헌   Modified  최근 방송 signed thumbnail 발급에 현재 세션 ID 전달
+ * 2026.09.08  임도헌   Modified  내 프로필 최근 작성 게시글 미리보기 추가
  */
 
 import { redirect } from "next/navigation";
@@ -60,6 +61,7 @@ import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { getUnreadNotificationCount } from "@/features/notification/actions/count";
 import RecordingListRefreshRelay from "@/features/stream/components/RecordingListRefreshRelay";
+import { getPostsList } from "@/features/post/service/post";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +70,7 @@ export const dynamic = "force-dynamic";
  *
  * [기능]
  * - 세션 검증을 통한 로그인 여부 확인 및 비인가 사용자 리다이렉트 처리
- * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록, 안 읽은 알림 수의 서버 사이드 병렬 로드(Promise.all) 적용
+ * - 프로필 코어 정보, 평점, 뱃지, 최근 방송·작성글, 안 읽은 알림 수의 서버 사이드 병렬 로드(Promise.all) 적용
  * - 유저의 리뷰 목록에 대한 TanStack Query 기반 서버 프리패치(Prefetch) 적용
  * - 첫 화면 렌더링에 필요한 데이터는 서버에서 한 번에 준비하고, 하단 무거운 UI는 `MyProfile` 내부에서 지연 로드
  * - 상단 액션바를 flat 헤더 톤으로 유지하고 삼성 인터넷 다크모드 안내문을 조건부 노출
@@ -89,25 +91,34 @@ export default async function ProfilePage() {
   const queryClient = getQueryClient();
 
   // 2. 프로필 첫 화면에 필요한 데이터 병렬 로딩
-  const [averageRating, badgesPair, streams, unreadCount, previewReviews] =
-    await Promise.all([
-      getUserAverageRating(user.id),
-      (async () => {
-        const [badges, badgesEarned] = await Promise.all([
-          getAllBadges(),
-          getUserBadges(user.id),
-        ]);
-        return { badges, userBadges: badgesEarned };
-      })(),
-      getRecentBroadcasts(user.id, 6, true, userId),
-      getUnreadNotificationCount(),
-      getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
-      queryClient.prefetchInfiniteQuery({
-        queryKey: queryKeys.reviews.user(user.id, user.id),
-        queryFn: () => getUserReviewsAction(user.id, null),
-        initialPageParam: null as number | null,
-      }),
-    ]);
+  const [
+    averageRating,
+    badgesPair,
+    streams,
+    unreadCount,
+    previewReviews,
+    recentPosts,
+  ] = await Promise.all([
+    getUserAverageRating(user.id),
+    (async () => {
+      const [badges, badgesEarned] = await Promise.all([
+        getAllBadges(),
+        getUserBadges(user.id),
+      ]);
+      return { badges, userBadges: badgesEarned };
+    })(),
+    getRecentBroadcasts(user.id, 6, true, userId),
+    getUnreadNotificationCount(),
+    getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
+    getPostsList({ authorId: user.id }, userId, null, 2).then(
+      (res) => res.posts
+    ),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.reviews.user(user.id, user.id),
+      queryFn: () => getUserReviewsAction(user.id, null),
+      initialPageParam: null as number | null,
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
@@ -141,6 +152,7 @@ export default async function ProfilePage() {
             userBadges={badgesPair.userBadges}
             previewReviews={previewReviews}
             myStreams={streams}
+            recentPosts={recentPosts}
             viewerId={user.id}
           />
         </HydrationBoundary>

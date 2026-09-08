@@ -23,6 +23,7 @@
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.06.18  임도헌   Modified  게시글 피드 지역 스코프를 queryKeyExtra로 분리한다는 설명으로 최신화
  * 2026.08.13  임도헌   Modified  게시글 목록 query key에 현재 조회자 범위 추가
+ * 2026.09.08  임도헌   Modified  프로필 작성자별 게시글 API 범위 추가
  */
 "use client";
 
@@ -68,6 +69,9 @@ function buildPostsApiUrl(
   if (cursor) params.set("cursor", String(cursor));
   if (searchParams.keyword) params.set("keyword", searchParams.keyword);
   if (searchParams.category) params.set("category", searchParams.category);
+  if (searchParams.authorId) {
+    params.set("authorId", String(searchParams.authorId));
+  }
 
   const queryString = params.toString();
   return queryString ? `/api/posts?${queryString}` : "/api/posts";

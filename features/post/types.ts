@@ -23,6 +23,7 @@
  * 2026.05.03  임도헌   Modified  게시글 목록 카드에서 연결 보드게임 요약을 표시할 수 있도록 타입 설명 보강
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상 기준 분리를 위한 isLiked 필드 추가
  * 2026.06.18  임도헌   Modified  동네 피드 노출 기준 feedRegion 필드 추가
+ * 2026.09.08  임도헌   Modified  프로필 작성 게시글 조회용 authorId 검색 범위 추가
  */
 
 import { LocationData } from "@/features/map/types";
@@ -52,13 +53,13 @@ export type PostActionFailureResponse<K extends string = string> = {
 
 /** Action 응답 타입 */
 export type PostActionResponse<K extends string = string> =
-  | PostActionSuccessResponse
-  | PostActionFailureResponse<K>;
+  PostActionSuccessResponse | PostActionFailureResponse<K>;
 
 /** 게시글 검색 파라미터 */
 export interface PostSearchParams {
   keyword?: string;
   category?: string;
+  authorId?: number;
 }
 
 /** 게시글 생성 DTO */
@@ -106,11 +107,7 @@ export interface PostTag {
 }
 
 /** 게시글 동영상 처리 상태 */
-export type PostVideoStatus =
-  | "UPLOADING"
-  | "PROCESSING"
-  | "READY"
-  | "FAILED";
+export type PostVideoStatus = "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
 
 /** 저장된 게시글 본문 블록 타입 */
 export type PostBlockType = "TEXT" | "IMAGE" | "VIDEO" | "EMBED";

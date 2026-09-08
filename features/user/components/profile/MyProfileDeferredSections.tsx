@@ -8,6 +8,7 @@
  * 2026.04.16  임도헌   Created
  * 2026.04.16  임도헌   Modified   MyProfile 하단 섹션을 지연 렌더링 전용 컴포넌트로 분리
  * 2026.05.12  임도헌   Modified   내 방송국 StreamCard에 카테고리/태그/보드게임 메타 전달
+ * 2026.09.08  임도헌   Modified   내 최근 작성 게시글 미리보기 추가
  */
 
 import type { CSSProperties } from "react";
@@ -25,6 +26,8 @@ import {
   UserMinusIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
+import ProfilePostPreview from "@/features/user/components/profile/ProfilePostPreview";
+import type { PostDetail } from "@/features/post/types";
 
 // content-visibility를 통한 첫 화면 밖 섹션의 레이아웃/페인트 비용 후순위 처리
 const DEFERRED_SECTION_STYLE: CSSProperties = {
@@ -34,6 +37,7 @@ const DEFERRED_SECTION_STYLE: CSSProperties = {
 
 type MyProfileDeferredSectionsProps = {
   myStreams?: BroadcastSummary[];
+  recentPosts: PostDetail[];
   previewReviews: ProfileReview[];
   returnTo: string;
   user: UserProfile;
@@ -47,12 +51,13 @@ type MyProfileDeferredSectionsProps = {
  * 내 프로필 하단 섹션 묶음
  *
  * [분리 목적]
- * - 거래 정보, 방송국, 후기/뱃지, 계정 액션처럼 첫 화면 아래에 있는 UI를 별도 청크로 분리
+ * - 거래 정보, 방송국, 작성글, 후기/뱃지, 계정 액션처럼 첫 화면 아래에 있는 UI를 별도 청크로 분리
  * - 상위 `MyProfile`은 초기 맥락이 중요한 영역만 즉시 렌더링하고, 이 컴포넌트는 스크롤 도달 시점까지 비용을 늦춘다
  * - 모달 오픈/returnTo 같은 상호작용은 부모에서 주입받아 상태 소유권을 단순하게 유지
  */
 export default function MyProfileDeferredSections({
   myStreams,
+  recentPosts,
   previewReviews,
   returnTo,
   user,
@@ -171,7 +176,15 @@ export default function MyProfileDeferredSections({
         )}
       </section>
 
-      {/* 4-3. 신뢰 정보 및 획득 내역 */}
+      {/* 4-3. 최근 작성 게시글 */}
+      <ProfilePostPreview
+        posts={recentPosts}
+        username={user.username}
+        isOwner
+        returnTo={returnTo}
+      />
+
+      {/* 4-4. 신뢰 정보 및 획득 내역 */}
       <div className="grid grid-cols-1 gap-6" style={DEFERRED_SECTION_STYLE}>
         <section>
           <div className="mb-2 flex items-center justify-between">
@@ -202,7 +215,7 @@ export default function MyProfileDeferredSections({
         </section>
       </div>
 
-      {/* 4-4. 계정 액션 */}
+      {/* 4-5. 계정 액션 */}
       <div
         className="mt-2 border-t border-border-subtle pt-6"
         style={DEFERRED_SECTION_STYLE}

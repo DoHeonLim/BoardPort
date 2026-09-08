@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 게시글 목록 조회 API 분리
+ * 2026.09.08  임도헌   Modified  프로필 작성자별 게시글 조회 파라미터 추가
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -31,10 +32,17 @@ function parseNullableNumberParam(value: string | null): number | null {
  * @param searchParams - 요청 URL query
  * @returns 게시글 목록 service에 전달할 검색 조건
  */
-function parsePostSearchParams(searchParams: URLSearchParams): PostSearchParams {
+function parsePostSearchParams(
+  searchParams: URLSearchParams
+): PostSearchParams {
+  const authorId = parseNullableNumberParam(searchParams.get("authorId"));
   return {
     keyword: searchParams.get("keyword") ?? undefined,
     category: searchParams.get("category") ?? undefined,
+    authorId:
+      authorId && Number.isSafeInteger(authorId) && authorId > 0
+        ? authorId
+        : undefined,
   };
 }
 

@@ -49,6 +49,7 @@
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리하는 렌더 전용 조회 모델 추가
  * 2026.08.27  임도헌   Modified  생성 시각이 같은 게시글도 안정적으로 페이지 순서를 유지하도록 id 보조 정렬 추가
  * 2026.08.28  임도헌   Modified  게시글 피드 지역 조건 함수 JSDoc 보강
+ * 2026.09.08  임도헌   Modified  프로필 작성자별 목록 필터를 기존 공개·지역 정책에 결합
  */
 import "server-only";
 
@@ -489,6 +490,7 @@ async function buildWhere(
 ): Promise<Prisma.PostWhereInput> {
   const keyword = params?.keyword;
   const category = params?.category;
+  const authorId = params?.authorId;
 
   // DB에 저장된 유저의 범위 설정값 가져오기
   const user = await db.user.findUnique({
@@ -515,6 +517,7 @@ async function buildWhere(
           }
         : {},
       category ? { category } : {},
+      authorId ? { userId: authorId } : {},
       regionCondition,
     ],
   };
@@ -628,14 +631,19 @@ export async function getPostDetailViewData(
  * @param {PostSearchParams | undefined} params - 검색 조건
  * @param {number} viewerId - 조회자 ID
  * @param {number | null} cursor - 페이지네이션 커서
+ * @param {number} take - 한 페이지에서 조회할 게시글 수
  * @returns {Promise<PostsPage>} 게시글 목록 페이지 데이터
  */
 export async function getPostsList(
   params: PostSearchParams | undefined,
   viewerId: number,
-  cursor: number | null = null
+  cursor: number | null = null,
+  take: number = TAKE
 ): Promise<PostsPage> {
   const where = await buildWhere(params, viewerId);
+  const pageTake = Number.isFinite(take)
+    ? Math.max(1, Math.min(TAKE, Math.trunc(take)))
+    : TAKE;
 
   // 차단 유저 필터링
   const blockedIds = await getBlockedUserIds(viewerId);
@@ -659,14 +667,14 @@ export async function getPostsList(
       where,
       select: POST_SELECT,
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
-      take: TAKE + 1,
+      take: pageTake + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     }),
     db.post.count({ where }),
   ]);
 
-  const hasNextPage = rows.length > TAKE;
-  const pageRows = hasNextPage ? rows.slice(0, TAKE) : rows;
+  const hasNextPage = rows.length > pageTake;
+  const pageRows = hasNextPage ? rows.slice(0, pageTake) : rows;
 
   const likedPostIds =
     viewerId > 0 && pageRows.length > 0
