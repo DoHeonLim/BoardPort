@@ -18,6 +18,7 @@
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 헤더 스켈레톤 분기 기준을 일치시켜 640~767px 구간 mismatch 정리
  * 2026.06.01  임도헌   Modified  모바일 게시글 목록 헤더와 뷰 토글 압축 밀도에 맞춘 스켈레톤 조정
  * 2026.06.21  임도헌   Modified  실제 뷰 토글 버튼 크기(모바일 36px, sm 이상 44px)에 맞춰 로딩 스켈레톤 정렬
+ * 2026.09.08  임도헌   Modified  게시글 수·정렬·보기 전환 도구 행 스켈레톤 반영
  */
 import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import Skeleton from "@/components/ui/Skeleton";
@@ -64,10 +65,14 @@ export default function Loading() {
 
       {/* List Skeleton */}
       <div className="px-page-x py-6">
-        <div className="flex justify-end mb-4">
-          <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
-            <Skeleton className="size-9 rounded-lg sm:size-11" />
-            <Skeleton className="size-9 rounded-lg sm:size-11" />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
+          <Skeleton className="h-5 w-24 rounded-md" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-28 rounded-xl sm:h-11" />
+            <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
+              <Skeleton className="size-9 rounded-lg sm:size-11" />
+              <Skeleton className="size-9 rounded-lg sm:size-11" />
+            </div>
           </div>
         </div>
         <PostListSkeleton viewMode="list" />

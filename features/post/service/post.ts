@@ -50,6 +50,7 @@
  * 2026.08.27  임도헌   Modified  생성 시각이 같은 게시글도 안정적으로 페이지 순서를 유지하도록 id 보조 정렬 추가
  * 2026.08.28  임도헌   Modified  게시글 피드 지역 조건 함수 JSDoc 보강
  * 2026.09.08  임도헌   Modified  프로필 작성자별 목록 필터를 기존 공개·지역 정책에 결합
+ * 2026.09.08  임도헌   Modified  최신·조회·좋아요·댓글 게시글 정렬 기준 추가
  */
 import "server-only";
 
@@ -73,6 +74,7 @@ import type {
   PostCreateDTO,
   PostUpdateDTO,
   PostSearchParams,
+  PostSort,
 } from "@/features/post/types";
 import {
   attachOwnedMediaAssets,
@@ -81,6 +83,31 @@ import {
 } from "@/features/media/service/assets";
 
 const TAKE = POSTS_PAGE_TAKE;
+
+/** 정렬별 주 기준 뒤에 생성 시각과 ID를 적용해 동률 순서를 고정한다. */
+function getPostListOrderBy(
+  sort: PostSort
+): Prisma.PostOrderByWithRelationInput[] {
+  switch (sort) {
+    case "views":
+      return [{ views: "desc" }, { created_at: "desc" }, { id: "desc" }];
+    case "likes":
+      return [
+        { post_likes: { _count: "desc" } },
+        { created_at: "desc" },
+        { id: "desc" },
+      ];
+    case "comments":
+      return [
+        { comments: { _count: "desc" } },
+        { created_at: "desc" },
+        { id: "desc" },
+      ];
+    case "latest":
+    default:
+      return [{ created_at: "desc" }, { id: "desc" }];
+  }
+}
 
 type PostListRow = Prisma.PostGetPayload<{
   select: typeof POST_SELECT;
@@ -624,7 +651,7 @@ export async function getPostDetailViewData(
  * [데이터 페칭 및 가공 전략]
  * - 검색 조건(Where) 적용 및 커서 기반 페이지네이션 구현
  * - 조회자 ID(viewerId) 기준 차단된 유저의 게시글 은닉 처리
- * - 생성 시각 내림차순 뒤 ID 내림차순을 적용해 동률에서도 결정적인 순서 유지
+ * - 선택한 정렬 기준 뒤 생성 시각과 ID 내림차순을 적용해 동률에서도 결정적인 순서 유지
  * - 다음 페이지 존재 여부(nextCursor) 판별을 위해 LIMIT + 1 조회 적용
  * - 첫 페이지 totalCount를 함께 반환해 무한스크롤 중에도 총 게시글 수 문구를 고정 표시
  *
@@ -641,6 +668,7 @@ export async function getPostsList(
   take: number = TAKE
 ): Promise<PostsPage> {
   const where = await buildWhere(params, viewerId);
+  const sort = params?.sort ?? "latest";
   const pageTake = Number.isFinite(take)
     ? Math.max(1, Math.min(TAKE, Math.trunc(take)))
     : TAKE;
@@ -666,7 +694,7 @@ export async function getPostsList(
     db.post.findMany({
       where,
       select: POST_SELECT,
-      orderBy: [{ created_at: "desc" }, { id: "desc" }],
+      orderBy: getPostListOrderBy(sort),
       take: pageTake + 1,
       ...(cursor && { skip: 1, cursor: { id: cursor } }),
     }),

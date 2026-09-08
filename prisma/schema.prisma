@@ -515,6 +515,7 @@ model Post {
   @@index([category, created_at]) // 카테고리별 최신순
   @@index([userId, created_at]) // 유저별 작성글
   @@index([created_at]) // 전체 최신순
+  @@index([views(sort: Desc), created_at(sort: Desc), id(sort: Desc)]) // 조회순 목록과 동률 보조 정렬
   @@index([title]) // 제목 검색
   @@index([latitude, longitude]) // "내 주변 게시글" 검색용
   @@index([region1, region2]) // 명시 장소 기반 조회용
@@ -613,6 +614,7 @@ model PostLike {
   postId Int
 
   @@id(name: "id", [userId, postId])
+  @@index([postId]) // 게시글별 좋아요 집계 및 정렬
 }
 
 /// 게시글 태그 (Many-to-Many via implicit relation)

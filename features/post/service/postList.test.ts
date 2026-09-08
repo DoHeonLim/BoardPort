@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.27  임도헌   Created   생성 시각 동률 게시글의 ID 보조 정렬 계약 검증
  * 2026.09.08  임도헌   Modified  프로필 작성자 필터와 기존 공개 정책 결합 검증
+ * 2026.09.08  임도헌   Modified  조회·좋아요·댓글 정렬과 동률 기준 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,6 +73,37 @@ describe("getPostsList ordering", () => {
       })
     );
   });
+
+  it.each([
+    ["views", [{ views: "desc" }, { created_at: "desc" }, { id: "desc" }]],
+    [
+      "likes",
+      [
+        { post_likes: { _count: "desc" } },
+        { created_at: "desc" },
+        { id: "desc" },
+      ],
+    ],
+    [
+      "comments",
+      [
+        { comments: { _count: "desc" } },
+        { created_at: "desc" },
+        { id: "desc" },
+      ],
+    ],
+  ] as const)(
+    "%s 정렬은 생성 시각과 ID로 동률을 결정한다",
+    async (sort, orderBy) => {
+      const { getPostsList } = await import("./post");
+
+      await getPostsList({ sort }, -1);
+
+      expect(mocks.postFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy })
+      );
+    }
+  );
 
   it("프로필 목록은 작성자 조건과 정지 사용자 은닉 조건을 함께 적용한다", async () => {
     const { getPostsList } = await import("./post");

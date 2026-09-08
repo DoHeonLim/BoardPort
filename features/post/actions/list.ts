@@ -21,6 +21,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.02  임도헌   Modified  서버 액션 JSDoc 태그 형식 정리
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.09.08  임도헌   Modified  게시글 목록 정렬 조건 위임 책임을 주석에 반영
  */
 "use server";
 
@@ -33,7 +34,7 @@ import getSession from "@/lib/session";
  *
  * [데이터 페칭 전략 및 권한 로직]
  * - 클라이언트 `useSuspenseInfiniteQuery` 연동을 위한 데이터 페치 로직
- * - 검색 조건(키워드, 카테고리) 및 사용자 위치 설정(RegionRange) 기반 필터링 쿼리 적용
+ * - 검색·카테고리·정렬 조건 및 사용자 위치 설정(RegionRange) 기반 목록 쿼리 적용
  * - 세션 검증을 통한 정지/차단 유저 콘텐츠 완벽 은닉 처리
  *
  * @param {number | null} cursor - 무한 스크롤 커서 (마지막 게시글 ID)

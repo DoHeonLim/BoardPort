@@ -24,6 +24,7 @@
  * 2026.05.18  임도헌   Modified  게시글 목록 카드 하트 색상 기준 분리를 위한 isLiked 필드 추가
  * 2026.06.18  임도헌   Modified  동네 피드 노출 기준 feedRegion 필드 추가
  * 2026.09.08  임도헌   Modified  프로필 작성 게시글 조회용 authorId 검색 범위 추가
+ * 2026.09.08  임도헌   Modified  게시글 목록 정렬 타입과 검색 조건 추가
  */
 
 import { LocationData } from "@/features/map/types";
@@ -60,7 +61,11 @@ export interface PostSearchParams {
   keyword?: string;
   category?: string;
   authorId?: number;
+  sort?: PostSort;
 }
+
+/** 게시글 목록 정렬 방식 */
+export type PostSort = "latest" | "views" | "likes" | "comments";
 
 /** 게시글 생성 DTO */
 export interface PostCreateDTO {
