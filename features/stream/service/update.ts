@@ -1,12 +1,13 @@
 /**
  * File Name : features/stream/service/update.ts
- * Description : 라이브 방송 표시 정보와 사용자 썸네일 수정 비즈니스 로직
+ * Description : 방송·녹화본 표시 정보와 사용자 썸네일 수정 비즈니스 로직
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.04.07  임도헌   Created   라이브 중 호스트가 제목/설명만 빠르게 수정할 수 있는 서비스 추가
  * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 이전 MediaAsset 정리 추가
+ * 2026.09.08  임도헌   Modified  녹화본별 제목·사용자 썸네일 수정과 자산 정리 추가
  */
 
 import "server-only";
@@ -14,7 +15,10 @@ import "server-only";
 import db from "@/lib/db";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
-import type { StreamMetaUpdateValues } from "@/features/stream/schemas";
+import type {
+  RecordingMetaUpdateValues,
+  StreamMetaUpdateValues,
+} from "@/features/stream/schemas";
 import {
   attachOwnedMediaAssets,
   deleteCloudflareImageAssetsById,
@@ -168,6 +172,131 @@ export async function updateBroadcastMeta(
       success: false,
       error:
         "방송 정보 수정에 실패했습니다. 입력값과 썸네일을 확인한 뒤 다시 시도해주세요.",
+    };
+  }
+}
+
+/**
+ * 녹화본 전용 제목과 사용자 썸네일 수정
+ *
+ * - 부모 방송 소유자만 수정 허용
+ * - Cloudflare 자동 썸네일은 보존하고 사용자 override만 교체·제거
+ * - 교체·제거한 VOD_THUMBNAIL 자산은 transaction 이후 외부 저장소에서 정리
+ */
+export async function updateRecordingMeta(
+  userId: number,
+  vodId: number,
+  data: RecordingMetaUpdateValues
+): Promise<
+  ServiceResult<{
+    vodId: number;
+    broadcastId: number;
+    username: string;
+    title: string;
+    thumbnail: string | null;
+    thumbnailAnimated: boolean;
+  }>
+> {
+  try {
+    const status = await validateUserStatus(userId);
+    if (!status.success) return status;
+
+    const existing = await db.vodAsset.findUnique({
+      where: { id: vodId },
+      select: {
+        id: true,
+        custom_thumbnail_url: true,
+        thumbnailAnimated: true,
+        broadcast: {
+          select: {
+            id: true,
+            liveInput: {
+              select: {
+                userId: true,
+                user: { select: { username: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!existing?.broadcast?.liveInput) {
+      return { success: false, error: "녹화본을 찾을 수 없습니다." };
+    }
+    if (existing.broadcast.liveInput.userId !== userId) {
+      return { success: false, error: "녹화본 수정 권한이 없습니다." };
+    }
+
+    let staleThumbnailAssetIds: string[] = [];
+    const updated = await db.$transaction(async (tx) => {
+      let nextThumbnail = existing.custom_thumbnail_url;
+      let nextThumbnailAnimated = existing.thumbnailAnimated;
+
+      if (data.thumbnail !== undefined) {
+        if (data.thumbnail) {
+          const [ownedThumbnailUrl] = await attachOwnedMediaAssets(tx, {
+            ownerId: userId,
+            purpose: "VOD_THUMBNAIL",
+            urls: [data.thumbnail],
+            linkedEntityId: String(vodId),
+          });
+          nextThumbnail = ownedThumbnailUrl;
+          nextThumbnailAnimated = data.thumbnailAnimated ?? false;
+        } else {
+          nextThumbnail = null;
+          nextThumbnailAnimated = false;
+        }
+
+        staleThumbnailAssetIds = await detachMissingMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "VOD_THUMBNAIL",
+          linkedEntityId: String(vodId),
+          keepUrls: nextThumbnail ? [nextThumbnail] : [],
+        });
+      }
+
+      return tx.vodAsset.update({
+        where: { id: vodId },
+        data: {
+          title: data.title.trim(),
+          ...(data.thumbnail !== undefined
+            ? {
+                custom_thumbnail_url: nextThumbnail,
+                thumbnailAnimated: nextThumbnailAnimated,
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          title: true,
+          custom_thumbnail_url: true,
+          thumbnailAnimated: true,
+        },
+      });
+    });
+
+    if (staleThumbnailAssetIds.length > 0) {
+      await deleteCloudflareImageAssetsById(staleThumbnailAssetIds);
+    }
+
+    return {
+      success: true,
+      data: {
+        vodId: updated.id,
+        broadcastId: existing.broadcast.id,
+        username: existing.broadcast.liveInput.user.username,
+        title: updated.title ?? data.title.trim(),
+        thumbnail: updated.custom_thumbnail_url,
+        thumbnailAnimated: updated.thumbnailAnimated,
+      },
+    };
+  } catch (error) {
+    console.error("[updateRecordingMeta] failed:", error);
+    return {
+      success: false,
+      error:
+        "녹화본 정보 수정에 실패했습니다. 입력값과 썸네일을 확인한 뒤 다시 시도해주세요.",
     };
   }
 }

@@ -18,7 +18,6 @@
  * 2026.04.02  임도헌   Modified  스트림 공용 타입/헬퍼 설명 보강
  * 2026.04.03  임도헌   Modified  호스트 전용 스트림 채팅 메시지 삭제 결과 타입과 placeholder 상태를 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 강제 퇴장 결과 타입 추가
- * 2026.09.08  임도헌   Modified  방송 상세 사용자 썸네일과 수정 결과 타입 확장
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 채팅 금지 토글 결과 타입 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 고정 공지 수정 결과 타입 추가
  * 2026.04.07  임도헌   Modified  스트림 제목/설명 실시간 동기화 payload 타입 추가
@@ -33,6 +32,7 @@
  * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
  * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 rate limit 실패 코드 추가
  * 2026.08.26  임도헌   Modified  Cloudflare webhook provider 시각·Notifications 식별 필드 추가
+ * 2026.09.08  임도헌   Modified  방송·녹화본 사용자 썸네일과 수정 결과 타입 확장
  * 2026.08.26  임도헌   Modified  다시보기 메인 목록의 정렬값 기반 불투명 커서 타입 추가
  * 2026.08.27  임도헌   Modified  메인·채널별 커서 제네릭 응답 타입 설명 보강
  */
@@ -199,6 +199,9 @@ export interface StreamDetailDTO {
 /** 녹화본 상세 페이지 조립용 DTO */
 export interface VodDetailDTO {
   vodId: number;
+  title: string;
+  customThumbnail: string | null;
+  thumbnailAnimated: boolean;
   playbackId: string | null;
   durationSec: number | null;
   readyAt: Date | null;
@@ -264,6 +267,13 @@ export type CreateBroadcastResult =
 export interface StreamMetaUpdatePayload {
   title: string;
   description: string | null;
+  thumbnail?: string | null;
+  thumbnailAnimated?: boolean;
+}
+
+/** 녹화본 전용 표시 정보 수정 결과 */
+export interface RecordingMetaUpdatePayload {
+  title: string;
   thumbnail?: string | null;
   thumbnailAnimated?: boolean;
 }
@@ -361,6 +371,21 @@ export type SendStreamMessageResult =
         | "RATE_LIMITED"
         | "CREATE_FAILED";
     };
+
+/** 녹화본 전용 제목·사용자 썸네일 수정 결과 */
+export type UpdateRecordingMetaResult =
+  | {
+      success: true;
+      data: {
+        vodId: number;
+        broadcastId: number;
+        username: string;
+        title: string;
+        thumbnail: string | null;
+        thumbnailAnimated: boolean;
+      };
+    }
+  | (ServiceFailure & { fieldErrors?: Record<string, string[]> });
 
 /** 방송 채팅 메시지 삭제 결과 */
 export type DeleteStreamMessageResult =

@@ -25,6 +25,7 @@
  * 2026.08.21  임도헌   Modified  원본 Live Input UID를 삭제 요청에서 제거하고 서버 소유권 판정만 사용
  * 2026.08.28  임도헌   Modified  녹화 삭제 함수 JSDoc 보강
  * 2026.09.03  임도헌   Modified  다시보기 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
+ * 2026.09.08  임도헌   Modified  소유자 녹화 정보 수정 메뉴와 목록 cache 갱신 추가
  */
 
 "use client";
@@ -41,6 +42,7 @@ import {
   ExclamationTriangleIcon,
   ShareIcon,
   TrashIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import BackButton from "@/components/global/BackButton";
@@ -53,10 +55,19 @@ import {
   markNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
-import { removeRecordingFromListCaches } from "@/features/stream/utils/recordingListCache";
+import {
+  invalidateRecordingListCaches,
+  removeRecordingFromListCaches,
+  updateRecordingListCaches,
+} from "@/features/stream/utils/recordingListCache";
+import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
+  { ssr: false }
+);
+const EditRecordingMetaModal = dynamic(
+  () => import("@/features/stream/components/recording/EditRecordingMetaModal"),
   { ssr: false }
 );
 
@@ -83,6 +94,8 @@ interface RecordingTopbarProps {
   ownerId: number;
   username: string;
   avatar: string | null;
+  title: string;
+  customThumbnail?: string | null;
   isOwner?: boolean;
   /** 뒤로가기/삭제 완료 후 돌아갈 내부 경로. 기본값은 다시보기 목록이다. */
   backHref?: string;
@@ -107,6 +120,8 @@ export default function RecordingTopbar({
   ownerId,
   username,
   avatar,
+  title,
+  customThumbnail,
   isOwner,
   backHref = "/streams",
   categoryLabel,
@@ -119,6 +134,7 @@ export default function RecordingTopbar({
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -260,16 +276,28 @@ export default function RecordingTopbar({
                 className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-border-subtle bg-background shadow-xl"
               >
                 {isOwner ? (
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setDeleteConfirmOpen(true);
-                    }}
-                    role="menuitem"
-                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
-                  >
-                    <TrashIcon className="size-4" /> 녹화 삭제
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setEditOpen(true);
+                      }}
+                      role="menuitem"
+                      className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
+                    >
+                      <PencilSquareIcon className="size-4" /> 녹화 정보 수정
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setDeleteConfirmOpen(true);
+                      }}
+                      role="menuitem"
+                      className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
+                    >
+                      <TrashIcon className="size-4" /> 녹화 삭제
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
@@ -313,17 +341,30 @@ export default function RecordingTopbar({
       >
         <div className="space-y-2 pt-2">
           {isOwner ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                setDeleteConfirmOpen(true);
-              }}
-              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-            >
-              <TrashIcon className="size-5 shrink-0" />
-              녹화 삭제
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setEditOpen(true);
+                }}
+                className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+              >
+                <PencilSquareIcon className="size-5 shrink-0" />
+                녹화 정보 수정
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setDeleteConfirmOpen(true);
+                }}
+                className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+              >
+                <TrashIcon className="size-5 shrink-0" />
+                녹화 삭제
+              </button>
+            </>
           ) : (
             <>
               <button
@@ -362,6 +403,34 @@ export default function RecordingTopbar({
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmOpen(false)}
         loading={isDeleting}
+      />
+
+      <EditRecordingMetaModal
+        open={editOpen}
+        vodId={vodId}
+        initialTitle={title}
+        initialThumbnail={customThumbnail}
+        onClose={() => setEditOpen(false)}
+        onSaved={(next) => {
+          updateRecordingListCaches(
+            queryClient,
+            vodId,
+            () => ({
+              title: next.title,
+              ...(next.thumbnail
+                ? {
+                    thumbnail: toStreamThumbnailPublicUrl(next.thumbnail),
+                    thumbnailAnimated: next.thumbnailAnimated ?? false,
+                  }
+                : {}),
+            }),
+            ownerId
+          );
+          if (next.thumbnail === null) {
+            // 사용자 이미지를 제거하면 목록을 다시 조회해 provider·방송 fallback을 복원한다.
+            invalidateRecordingListCaches(queryClient, ownerId);
+          }
+        }}
       />
 
       <ConfirmDialog

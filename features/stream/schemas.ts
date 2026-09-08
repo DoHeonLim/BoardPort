@@ -13,6 +13,7 @@
  * 2026.03.08  임도헌   Modified  requiredTrimmedString/requiredNumber 공통 유틸 적용으로 빈값 검증과 카테고리 숫자 처리 통일
  * 2026.03.12  임도헌   Modified  썸네일 애니메이션 메타 저장용 thumbnailAnimated 필드 추가
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 검증 필드 추가
+ * 2026.09.08  임도헌   Modified  녹화본 전용 제목·썸네일 수정 스키마 추가
  */
 
 import { z } from "zod";
@@ -118,6 +119,24 @@ export const streamMetaUpdateSchema = z.object({
 });
 
 export type StreamMetaUpdateValues = z.infer<typeof streamMetaUpdateSchema>;
+
+/** 녹화본 전용 제목과 선택적 사용자 썸네일 변경 스키마 */
+export const recordingMetaUpdateSchema = z.object({
+  title: requiredTrimmedString("녹화본 제목을 입력해주세요.")
+    .min(5, "5자 이상 적어주세요.")
+    .max(50, "제목은 최대 50자입니다."),
+  // undefined는 기존 이미지 유지, null은 사용자 썸네일 제거를 의미한다.
+  thumbnail: z
+    .string()
+    .url("올바른 썸네일 URL이 아닙니다.")
+    .nullable()
+    .optional(),
+  thumbnailAnimated: z.boolean().optional(),
+});
+
+export type RecordingMetaUpdateValues = z.infer<
+  typeof recordingMetaUpdateSchema
+>;
 
 /**
  * 녹화본(VOD) 댓글 작성 스키마

@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/service/update.test.ts
- * Description : 방송 표시 정보와 사용자 썸네일 교체·제거 경계 회귀 테스트
+ * Description : 방송·녹화본 표시 정보와 사용자 썸네일 관리 회귀 테스트
  * Author : 임도헌
  *
  * History
@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   validateUserStatus: vi.fn(),
   broadcastFindUnique: vi.fn(),
   broadcastUpdate: vi.fn(),
+  vodFindUnique: vi.fn(),
+  vodUpdate: vi.fn(),
   notificationUpdateMany: vi.fn(),
   transaction: vi.fn(),
   attachOwnedMediaAssets: vi.fn(),
@@ -23,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 const tx = {
   broadcast: { update: mocks.broadcastUpdate },
+  vodAsset: { update: mocks.vodUpdate },
   notification: { updateMany: mocks.notificationUpdateMany },
 };
 
@@ -30,6 +33,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({
   default: {
     broadcast: { findUnique: mocks.broadcastFindUnique },
+    vodAsset: { findUnique: mocks.vodFindUnique },
     $transaction: mocks.transaction,
   },
 }));
@@ -203,5 +207,126 @@ describe("updateBroadcastMeta", () => {
     });
     expect(mocks.transaction).not.toHaveBeenCalled();
     expect(mocks.attachOwnedMediaAssets).not.toHaveBeenCalled();
+  });
+});
+
+const existingVod = {
+  id: 21,
+  custom_thumbnail_url: "https://imagedelivery.net/account/old-vod-image",
+  thumbnailAnimated: false,
+  broadcast: {
+    id: 10,
+    liveInput: {
+      userId: 7,
+      user: { username: "captain" },
+    },
+  },
+};
+
+describe("updateRecordingMeta", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.validateUserStatus.mockResolvedValue({ success: true });
+    mocks.vodFindUnique.mockResolvedValue(existingVod);
+    mocks.vodUpdate.mockResolvedValue({
+      id: 21,
+      title: "수정한 녹화본 제목",
+      custom_thumbnail_url: "https://imagedelivery.net/account/new-vod-image",
+      thumbnailAnimated: true,
+    });
+    mocks.attachOwnedMediaAssets.mockResolvedValue([
+      "https://imagedelivery.net/account/new-vod-image",
+    ]);
+    mocks.detachMissingMediaAssets.mockResolvedValue(["old-vod-image"]);
+    mocks.deleteCloudflareImageAssetsById.mockResolvedValue(undefined);
+    mocks.transaction.mockImplementation(
+      (callback: (client: typeof tx) => unknown) => callback(tx)
+    );
+  });
+
+  it("녹화본 제목과 사용자 썸네일을 부모 방송과 분리해 갱신한다", async () => {
+    const { updateRecordingMeta } = await import("./update");
+
+    const result = await updateRecordingMeta(7, 21, {
+      title: "수정한 녹화본 제목",
+      thumbnail: "https://imagedelivery.net/account/new-vod-image",
+      thumbnailAnimated: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mocks.attachOwnedMediaAssets).toHaveBeenCalledWith(tx, {
+      ownerId: 7,
+      purpose: "VOD_THUMBNAIL",
+      urls: ["https://imagedelivery.net/account/new-vod-image"],
+      linkedEntityId: "21",
+    });
+    expect(mocks.detachMissingMediaAssets).toHaveBeenCalledWith(tx, {
+      ownerId: 7,
+      purpose: "VOD_THUMBNAIL",
+      linkedEntityId: "21",
+      keepUrls: ["https://imagedelivery.net/account/new-vod-image"],
+    });
+    expect(mocks.vodUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 21 },
+        data: {
+          title: "수정한 녹화본 제목",
+          custom_thumbnail_url:
+            "https://imagedelivery.net/account/new-vod-image",
+          thumbnailAnimated: true,
+        },
+      })
+    );
+    expect(mocks.deleteCloudflareImageAssetsById).toHaveBeenCalledWith([
+      "old-vod-image",
+    ]);
+  });
+
+  it("사용자 썸네일 제거 시 provider 자동 썸네일 필드를 건드리지 않는다", async () => {
+    mocks.vodUpdate.mockResolvedValue({
+      id: 21,
+      title: "수정한 녹화본 제목",
+      custom_thumbnail_url: null,
+      thumbnailAnimated: false,
+    });
+    const { updateRecordingMeta } = await import("./update");
+
+    await updateRecordingMeta(7, 21, {
+      title: "수정한 녹화본 제목",
+      thumbnail: null,
+    });
+
+    expect(mocks.vodUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ thumbnail_url: expect.anything() }),
+      })
+    );
+    expect(mocks.detachMissingMediaAssets).toHaveBeenCalledWith(tx, {
+      ownerId: 7,
+      purpose: "VOD_THUMBNAIL",
+      linkedEntityId: "21",
+      keepUrls: [],
+    });
+  });
+
+  it("부모 방송 소유자가 아니면 녹화본 수정 transaction을 시작하지 않는다", async () => {
+    mocks.vodFindUnique.mockResolvedValue({
+      ...existingVod,
+      broadcast: {
+        ...existingVod.broadcast,
+        liveInput: { ...existingVod.broadcast.liveInput, userId: 99 },
+      },
+    });
+    const { updateRecordingMeta } = await import("./update");
+
+    const result = await updateRecordingMeta(7, 21, {
+      title: "수정한 녹화본 제목",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "녹화본 수정 권한이 없습니다.",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 });

@@ -122,4 +122,39 @@ describe("stream detail lookup boundary", () => {
 
     await expect(getVodDetail(91)).rejects.toBe(databaseError);
   });
+
+  it("녹화본 사용자 제목과 썸네일을 부모 방송과 분리해 반환한다", async () => {
+    mocks.vodAssetFindUnique.mockResolvedValue({
+      id: 21,
+      title: "사용자 지정 녹화본",
+      custom_thumbnail_url: "https://imagedelivery.net/account/vod-image",
+      thumbnailAnimated: true,
+      duration_sec: 120,
+      ready_at: new Date("2026-09-08T09:00:00.000Z"),
+      created_at: new Date("2026-09-08T08:00:00.000Z"),
+      views: 3,
+      _count: { recordingLikes: 1, recordingComments: 2 },
+      broadcast: {
+        id: 10,
+        title: "부모 방송 제목",
+        visibility: "PUBLIC",
+        liveInput: {
+          user: { id: 7, username: "captain", avatar: null },
+        },
+        category: null,
+        tags: [],
+        board_games: [],
+      },
+    });
+    const { getVodDetail } = await import("./detail");
+
+    const result = await getVodDetail(21);
+
+    expect(result).toMatchObject({
+      title: "사용자 지정 녹화본",
+      customThumbnail: "https://imagedelivery.net/account/vod-image",
+      thumbnailAnimated: true,
+      broadcast: { title: "부모 방송 제목" },
+    });
+  });
 });

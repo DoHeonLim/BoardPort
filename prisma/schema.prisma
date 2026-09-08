@@ -122,6 +122,7 @@ enum MediaAssetPurpose {
   POST_IMAGE
   CHAT_IMAGE
   STREAM_THUMBNAIL
+  VOD_THUMBNAIL
 }
 
 enum MediaAssetState {
@@ -1165,14 +1166,17 @@ model VodAsset {
   broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
   broadcastId Int // 원본 방송 ID
 
-  provider_asset_id   String    @unique // Cloudflare Video UID
-  playback_hls        String?
-  playback_dash       String?
-  thumbnail_url       String?
-  duration_sec        Int? // 영상 길이 (초)
-  ready_at            DateTime? // 처리 완료 시간
-  providerCreatedAt   DateTime? // Cloudflare 녹화 세션 생성 시각
-  lastProviderEventAt DateTime? // 마지막으로 반영한 provider 이벤트 시각
+  provider_asset_id    String    @unique // Cloudflare Video UID
+  playback_hls         String?
+  playback_dash        String?
+  thumbnail_url        String? // Cloudflare Stream이 제공하는 자동 썸네일
+  title                String? // 사용자 지정 녹화본 제목, null이면 부모 방송 제목 사용
+  custom_thumbnail_url String? // 사용자 지정 썸네일, null이면 자동·방송 썸네일 사용
+  thumbnailAnimated    Boolean   @default(false) // 사용자 지정 썸네일 애니메이션 여부
+  duration_sec         Int? // 영상 길이 (초)
+  ready_at             DateTime? // 처리 완료 시간
+  providerCreatedAt    DateTime? // Cloudflare 녹화 세션 생성 시각
+  lastProviderEventAt  DateTime? // 마지막으로 반영한 provider 이벤트 시각
 
   views Int @default(0) // 조회수
 

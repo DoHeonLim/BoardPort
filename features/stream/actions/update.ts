@@ -9,6 +9,7 @@
  * 2026.04.07  임도헌   Modified  저장 후 스트림 채팅방 브로드캐스트로 실시간 메타 동기화 추가
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 관련 화면 갱신 추가
+ * 2026.09.08  임도헌   Modified  녹화본 전용 제목·썸네일 수정 액션 추가
  */
 "use server";
 
@@ -16,12 +17,20 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import getSession from "@/lib/session";
 import * as T from "@/lib/cacheTags";
 import {
+  recordingMetaUpdateSchema,
   streamMetaUpdateSchema,
+  type RecordingMetaUpdateValues,
   type StreamMetaUpdateValues,
 } from "@/features/stream/schemas";
 import { broadcastStreamMetaUpdated } from "@/features/stream/service/chat";
-import { updateBroadcastMeta } from "@/features/stream/service/update";
-import type { UpdateBroadcastMetaResult } from "@/features/stream/types";
+import {
+  updateBroadcastMeta,
+  updateRecordingMeta,
+} from "@/features/stream/service/update";
+import type {
+  UpdateBroadcastMetaResult,
+  UpdateRecordingMetaResult,
+} from "@/features/stream/types";
 
 /**
  * 방송 표시 정보 수정 액션
@@ -83,4 +92,39 @@ export async function updateBroadcastMetaAction(
       thumbnailAnimated: result.data.thumbnailAnimated,
     },
   };
+}
+
+/** 녹화본 전용 제목과 사용자 썸네일 수정 액션 */
+export async function updateRecordingMetaAction(
+  vodId: number,
+  rawData: RecordingMetaUpdateValues
+): Promise<UpdateRecordingMetaResult> {
+  const session = await getSession();
+  if (!session?.id) {
+    return { success: false, error: "로그인이 필요합니다." };
+  }
+  if (!Number.isFinite(vodId) || vodId <= 0) {
+    return { success: false, error: "잘못된 녹화본 ID입니다." };
+  }
+
+  const parsed = recordingMetaUpdateSchema.safeParse(rawData);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "입력값이 올바르지 않습니다.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const result = await updateRecordingMeta(session.id, vodId, parsed.data);
+  if (!result.success) return result;
+
+  revalidateTag(T.BROADCAST_DETAIL(result.data.broadcastId), { expire: 0 });
+  revalidatePath("/streams");
+  revalidatePath(`/streams/${vodId}/recording`);
+  revalidatePath("/profile");
+  revalidatePath(`/profile/${result.data.username}`);
+  revalidatePath(`/profile/${result.data.username}/channel`);
+
+  return result;
 }

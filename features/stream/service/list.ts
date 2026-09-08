@@ -26,6 +26,7 @@
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타용 좋아요/댓글 수와 현재 사용자 좋아요 여부 매핑 추가
  * 2026.08.21  임도헌   Modified  목록 DTO 원본 provider UID 제거 및 접근 범위별 Cloudflare 썸네일 signed 변환
  * 2026.08.26  임도헌   Modified  다시보기 최신·인기 정렬을 복합 커서 조건으로 변경해 동률 누락 방지
+ * 2026.09.08  임도헌   Modified  녹화본 사용자 제목 검색과 썸네일 우선순위 적용
  */
 
 import "server-only";
@@ -38,7 +39,10 @@ import {
 } from "@/features/stream/selects";
 import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import { getBlockedUserIds } from "@/features/user/service/block";
-import { selectRecordingThumbnail } from "@/features/stream/utils/thumbnail";
+import {
+  selectRecordingThumbnail,
+  selectRecordingTitle,
+} from "@/features/stream/utils/thumbnail";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 import type {
   BroadcastSummary,
@@ -270,6 +274,7 @@ export async function getRecordingsList(params: {
   if (keyword) {
     conditions.push({
       OR: [
+        { title: { contains: keyword, mode: "insensitive" } },
         { broadcast: { title: { contains: keyword, mode: "insensitive" } } },
         {
           broadcast: {
@@ -324,6 +329,9 @@ export async function getRecordingsList(params: {
       _count: { select: { recordingLikes: true, recordingComments: true } },
       provider_asset_id: true,
       thumbnail_url: true,
+      title: true,
+      custom_thumbnail_url: true,
+      thumbnailAnimated: true,
       created_at: true,
       broadcastId: true,
       broadcast: {
@@ -389,6 +397,8 @@ export async function getRecordingsList(params: {
     const thumbnail = selectRecordingThumbnail({
       visibility: b.visibility,
       isOwner: isMine,
+      customThumbnail: getAccessScopedThumbnail(v.custom_thumbnail_url, null),
+      customThumbnailAnimated: v.thumbnailAnimated,
       providerThumbnail:
         viewerId > 0 && canUseProviderThumbnail
           ? getAccessScopedThumbnail(v.thumbnail_url, v.provider_asset_id)
@@ -403,7 +413,7 @@ export async function getRecordingsList(params: {
     return {
       vodId: v.id,
       broadcastId: b.id,
-      title: b.title,
+      title: selectRecordingTitle(v.title, b.title),
       // 제한 콘텐츠는 VOD asset UID가 포함될 수 있는 provider 썸네일을 목록에 노출하지 않는다.
       ...thumbnail,
       visibility: b.visibility,
@@ -518,6 +528,11 @@ export async function getRecentBroadcasts(
     const thumbnail = selectRecordingThumbnail({
       visibility: b.visibility,
       isOwner: includePrivate,
+      customThumbnail: getAccessScopedThumbnail(
+        latestVod?.custom_thumbnail_url,
+        null
+      ),
+      customThumbnailAnimated: latestVod?.thumbnailAnimated,
       providerThumbnail:
         latestVod && viewerId && canUseProviderThumbnail
           ? getAccessScopedThumbnail(
@@ -531,6 +546,7 @@ export async function getRecentBroadcasts(
 
     return {
       ...stream,
+      title: selectRecordingTitle(latestVod?.title, stream.title),
       ...thumbnail,
       latestVodId: latestVod?.id ?? null,
     };
@@ -623,6 +639,9 @@ export async function getChannelVods(
       _count: { select: { recordingLikes: true, recordingComments: true } },
       provider_asset_id: true,
       thumbnail_url: true,
+      title: true,
+      custom_thumbnail_url: true,
+      thumbnailAnimated: true,
       created_at: true,
       broadcast: {
         select: {
@@ -671,6 +690,8 @@ export async function getChannelVods(
     const thumbnail = selectRecordingThumbnail({
       visibility: b.visibility,
       isOwner,
+      customThumbnail: getAccessScopedThumbnail(v.custom_thumbnail_url, null),
+      customThumbnailAnimated: v.thumbnailAnimated,
       providerThumbnail:
         viewerId && canUseProviderThumbnail
           ? getAccessScopedThumbnail(v.thumbnail_url, v.provider_asset_id)
@@ -684,7 +705,7 @@ export async function getChannelVods(
     return {
       vodId: v.id,
       broadcastId: b.id,
-      title: b.title,
+      title: selectRecordingTitle(v.title, b.title),
       ...thumbnail,
       visibility: b.visibility,
       user: b.liveInput.user,
