@@ -18,6 +18,7 @@
  * 2026.04.02  임도헌   Modified  스트림 공용 타입/헬퍼 설명 보강
  * 2026.04.03  임도헌   Modified  호스트 전용 스트림 채팅 메시지 삭제 결과 타입과 placeholder 상태를 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 강제 퇴장 결과 타입 추가
+ * 2026.09.08  임도헌   Modified  방송 상세 사용자 썸네일과 수정 결과 타입 확장
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 채팅 금지 토글 결과 타입 추가
  * 2026.04.03  임도헌   Modified  스트림 호스트 전용 고정 공지 수정 결과 타입 추가
  * 2026.04.07  임도헌   Modified  스트림 제목/설명 실시간 동기화 payload 타입 추가
@@ -174,6 +175,9 @@ export interface StreamDetailDTO {
   title: string;
   playbackId: string | null;
   thumbnail: string | null;
+  /** 수정 화면에 표시할 사용자 업로드 원본 URL, 자동 썸네일이면 null */
+  customThumbnail: string | null;
+  thumbnailAnimated: boolean;
   userId: number;
   user: {
     id: number;
@@ -256,10 +260,12 @@ export type CreateBroadcastResult =
     }
   | (ServiceFailure & { fieldErrors?: Record<string, string[]> });
 
-/** 방송 제목/설명 실시간 동기화 payload */
+/** 방송 표시 정보 수정 결과 및 실시간 제목·설명 동기화 payload */
 export interface StreamMetaUpdatePayload {
   title: string;
   description: string | null;
+  thumbnail?: string | null;
+  thumbnailAnimated?: boolean;
 }
 
 /** Cloudflare Stream 상태 필드 원본 형태 */
@@ -318,7 +324,7 @@ export interface CloudflareVideoListResponse {
   [key: string]: unknown;
 }
 
-/** 방송 제목/설명 수정 결과 */
+/** 방송 표시 정보 수정 결과 */
 export type UpdateBroadcastMetaResult =
   | {
       success: true;

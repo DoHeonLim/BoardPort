@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/actions/update.ts
- * Description : 방송 메타 정보 수정 서버 액션
+ * Description : 방송 표시 정보 수정 서버 액션
  * Author : 임도헌
  *
  * History
@@ -8,6 +8,7 @@
  * 2026.04.07  임도헌   Created   방송 상세 상단 메뉴에서 제목/설명만 수정하는 서버 액션 추가
  * 2026.04.07  임도헌   Modified  저장 후 스트림 채팅방 브로드캐스트로 실시간 메타 동기화 추가
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 관련 화면 갱신 추가
  */
 "use server";
 
@@ -23,10 +24,10 @@ import { updateBroadcastMeta } from "@/features/stream/service/update";
 import type { UpdateBroadcastMetaResult } from "@/features/stream/types";
 
 /**
- * 방송 제목/설명 수정 액션
+ * 방송 표시 정보 수정 액션
  *
  * - 로그인 세션 확인
- * - 제목/설명 스키마 검증
+ * - 제목·설명·선택적 사용자 썸네일 스키마 검증
  * - 수정 서비스 위임
  * - 상세/목록/채널 캐시 무효화
  */
@@ -64,6 +65,8 @@ export async function updateBroadcastMetaAction(
   revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
   revalidatePath("/streams");
   revalidatePath(`/streams/${broadcastId}`);
+  revalidatePath("/profile");
+  revalidatePath(`/profile/${result.data.username}`);
   revalidatePath(`/profile/${result.data.username}/channel`);
   await broadcastStreamMetaUpdated(
     broadcastId,
@@ -76,6 +79,8 @@ export async function updateBroadcastMetaAction(
     data: {
       title: result.data.title,
       description: result.data.description,
+      thumbnail: result.data.thumbnail,
+      thumbnailAnimated: result.data.thumbnailAnimated,
     },
   };
 }

@@ -97,9 +97,7 @@ export const streamFormSchema = z
 
 export type StreamFormValues = z.infer<typeof streamFormSchema>;
 
-/**
- * 라이브 중 메타 정보(제목/설명)만 빠르게 수정하는 스키마
- */
+/** 라이브 방송의 표시 정보와 선택적 사용자 썸네일 변경 스키마 */
 export const streamMetaUpdateSchema = z.object({
   title: requiredTrimmedString("제목을 입력해주세요.")
     .min(5, "5자 이상 적어주세요.")
@@ -110,6 +108,13 @@ export const streamMetaUpdateSchema = z.object({
     .max(500, "설명은 최대 500자입니다.")
     .optional()
     .or(z.literal("")),
+  // undefined는 기존 이미지 유지, null은 사용자 썸네일 제거를 의미한다.
+  thumbnail: z
+    .string()
+    .url("올바른 썸네일 URL이 아닙니다.")
+    .nullable()
+    .optional(),
+  thumbnailAnimated: z.boolean().optional(),
 });
 
 export type StreamMetaUpdateValues = z.infer<typeof streamMetaUpdateSchema>;

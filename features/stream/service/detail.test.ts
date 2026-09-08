@@ -8,7 +8,7 @@
  * 2026.09.07  임도헌   Created   실제 미존재와 DB 실패를 구분하고 방송 cache 밖 오류 전파를 검증
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   broadcastFindUnique: vi.fn(),
@@ -29,6 +29,68 @@ vi.mock("next/cache", () => ({
 describe("stream detail lookup boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("현재 계정의 Cloudflare Images 썸네일만 사용자 수정 대상으로 구분한다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH", "account");
+    mocks.broadcastFindUnique.mockResolvedValue({
+      title: "라이브 방송",
+      thumbnail: "https://imagedelivery.net/account/user-image",
+      thumbnailAnimated: true,
+      description: null,
+      pinnedChatNotice: null,
+      started_at: null,
+      status: "DISCONNECTED",
+      visibility: "PUBLIC",
+      liveInput: {
+        userId: 7,
+        user: { id: 7, username: "captain", avatar: null },
+      },
+      category: null,
+      tags: [],
+      board_games: [],
+    });
+    const { getBroadcastDetail } = await import("./detail");
+
+    const result = await getBroadcastDetail(10);
+
+    expect(result).toMatchObject({
+      thumbnail: "https://imagedelivery.net/account/user-image",
+      customThumbnail: "https://imagedelivery.net/account/user-image",
+      thumbnailAnimated: true,
+    });
+  });
+
+  it("Cloudflare Stream 자동 썸네일은 사용자 수정 대상에서 제외한다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH", "account");
+    mocks.broadcastFindUnique.mockResolvedValue({
+      title: "라이브 방송",
+      thumbnail:
+        "https://customer.example.com/provider-id/thumbnails/thumbnail.jpg",
+      thumbnailAnimated: false,
+      description: null,
+      pinnedChatNotice: null,
+      started_at: null,
+      status: "CONNECTED",
+      visibility: "PUBLIC",
+      liveInput: {
+        userId: 7,
+        user: { id: 7, username: "captain", avatar: null },
+      },
+      category: null,
+      tags: [],
+      board_games: [],
+    });
+    const { getBroadcastDetail } = await import("./detail");
+
+    const result = await getBroadcastDetail(10);
+
+    expect(result?.customThumbnail).toBeNull();
+    expect(result?.thumbnail).toContain("thumbnails/thumbnail.jpg");
   });
 
   it("실제로 존재하지 않는 방송만 null로 반환한다", async () => {

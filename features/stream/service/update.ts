@@ -1,11 +1,12 @@
 /**
  * File Name : features/stream/service/update.ts
- * Description : 라이브 방송 메타 정보(제목/설명) 수정 비즈니스 로직
+ * Description : 라이브 방송 표시 정보와 사용자 썸네일 수정 비즈니스 로직
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.04.07  임도헌   Created   라이브 중 호스트가 제목/설명만 빠르게 수정할 수 있는 서비스 추가
+ * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 이전 MediaAsset 정리 추가
  */
 
 import "server-only";
@@ -14,13 +15,20 @@ import db from "@/lib/db";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
 import type { StreamMetaUpdateValues } from "@/features/stream/schemas";
+import {
+  attachOwnedMediaAssets,
+  deleteCloudflareImageAssetsById,
+  detachMissingMediaAssets,
+} from "@/features/media/service/assets";
+import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
 
 /**
- * 라이브 방송 제목/설명 수정
+ * 라이브 방송 표시 정보 수정
  *
  * - 요청자 이용 가능 상태 확인
  * - 방송 소유권 확인
- * - 제목과 설명만 갱신
+ * - 제목·설명과 명시적으로 변경한 사용자 썸네일 갱신
+ * - 교체·제거한 MediaAsset과 기존 알림 이미지 정리
  */
 export async function updateBroadcastMeta(
   userId: number,
@@ -31,6 +39,8 @@ export async function updateBroadcastMeta(
     broadcastId: number;
     title: string;
     description: string | null;
+    thumbnail: string | null;
+    thumbnailAnimated: boolean;
     username: string;
   }>
 > {
@@ -42,6 +52,8 @@ export async function updateBroadcastMeta(
       where: { id: broadcastId },
       select: {
         id: true,
+        thumbnail: true,
+        thumbnailAnimated: true,
         liveInput: {
           select: {
             userId: true,
@@ -59,23 +71,85 @@ export async function updateBroadcastMeta(
       return { success: false, error: "방송 수정 권한이 없습니다." };
     }
 
-    const updated = await db.broadcast.update({
-      where: { id: broadcastId },
-      data: {
-        title: data.title.trim(),
-        description: data.description?.trim() || null,
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        liveInput: {
-          select: {
-            user: { select: { username: true } },
+    let staleThumbnailAssetIds: string[] = [];
+    const updated = await db.$transaction(async (tx) => {
+      let nextThumbnail = existing.thumbnail;
+      let nextThumbnailAnimated = existing.thumbnailAnimated;
+
+      // 필드가 생략되면 제목·설명만 수정하고 기존 사용자/자동 썸네일은 유지한다.
+      if (data.thumbnail !== undefined) {
+        if (data.thumbnail) {
+          const [ownedThumbnailUrl] = await attachOwnedMediaAssets(tx, {
+            ownerId: userId,
+            purpose: "STREAM_THUMBNAIL",
+            urls: [data.thumbnail],
+            linkedEntityId: String(broadcastId),
+          });
+          nextThumbnail = ownedThumbnailUrl;
+          nextThumbnailAnimated = data.thumbnailAnimated ?? false;
+        } else {
+          nextThumbnail = null;
+          nextThumbnailAnimated = false;
+        }
+
+        staleThumbnailAssetIds = await detachMissingMediaAssets(tx, {
+          ownerId: userId,
+          purpose: "STREAM_THUMBNAIL",
+          linkedEntityId: String(broadcastId),
+          keepUrls: nextThumbnail ? [nextThumbnail] : [],
+        });
+
+        const previousNotificationImages = existing.thumbnail
+          ? [
+              existing.thumbnail,
+              toStreamThumbnailPublicUrl(existing.thumbnail),
+            ].filter((value): value is string => !!value)
+          : [];
+        if (previousNotificationImages.length > 0) {
+          await tx.notification.updateMany({
+            where: {
+              link: `/streams/${broadcastId}`,
+              image: { in: [...new Set(previousNotificationImages)] },
+            },
+            data: {
+              image: nextThumbnail
+                ? toStreamThumbnailPublicUrl(nextThumbnail)
+                : null,
+            },
+          });
+        }
+      }
+
+      return tx.broadcast.update({
+        where: { id: broadcastId },
+        data: {
+          title: data.title.trim(),
+          description: data.description?.trim() || null,
+          ...(data.thumbnail !== undefined
+            ? {
+                thumbnail: nextThumbnail,
+                thumbnailAnimated: nextThumbnailAnimated,
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          thumbnail: true,
+          thumbnailAnimated: true,
+          liveInput: {
+            select: {
+              user: { select: { username: true } },
+            },
           },
         },
-      },
+      });
     });
+
+    if (staleThumbnailAssetIds.length > 0) {
+      await deleteCloudflareImageAssetsById(staleThumbnailAssetIds);
+    }
 
     return {
       success: true,
@@ -83,6 +157,8 @@ export async function updateBroadcastMeta(
         broadcastId: updated.id,
         title: updated.title,
         description: updated.description,
+        thumbnail: updated.thumbnail,
+        thumbnailAnimated: updated.thumbnailAnimated,
         username: updated.liveInput.user.username,
       },
     };
@@ -91,7 +167,7 @@ export async function updateBroadcastMeta(
     return {
       success: false,
       error:
-        "방송 정보 수정에 실패했습니다. 제목과 설명을 확인한 뒤 다시 시도해주세요.",
+        "방송 정보 수정에 실패했습니다. 입력값과 썸네일을 확인한 뒤 다시 시도해주세요.",
     };
   }
 }
