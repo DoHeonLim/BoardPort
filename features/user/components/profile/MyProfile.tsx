@@ -54,6 +54,7 @@
  * 2026.04.16  임도헌   Modified   profile Lighthouse 대응으로 하단 섹션 지연 로드 분리 및 진입 라벨/a11y 주석 정리
  * 2026.05.17  임도헌   Modified   차단 유저 목록 상태 타입을 BlockedUserSummary로 명시
  * 2026.06.18  임도헌   Modified   정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
+ * 2026.08.13  임도헌   Modified  내 프로필 리뷰 목록에 현재 조회자 ID 전달
  */
 "use client";
 
@@ -350,6 +351,7 @@ export default function MyProfile({
           isOpen={modals.review}
           onClose={() => closeModal("review")}
           userId={user.id}
+          viewerId={user.id}
         />
       )}
       {modals.badge && (

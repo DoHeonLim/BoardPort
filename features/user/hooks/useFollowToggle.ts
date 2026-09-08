@@ -26,6 +26,8 @@
  * 2026.05.16  임도헌   Modified  팔로우/스트림 캐시 갱신 타입을 명시해 any 캐스팅 제거
  * 2026.06.17  임도헌   Modified  서버 성공 후 팔로워 전용 접근 상태를 동기화하는 책임을 주석에 명확히 반영
  * 2026.06.25  임도헌   Modified  기본 팔로잉 스트림 seed key를 조회자별 캐시 스코프와 일치하도록 정리
+ * 2026.08.13  임도헌   Modified  팔로우 관련 cache 갱신과 무효화를 현재 조회자로 제한
+ * 2026.08.28  임도헌   Modified  팔로우 토글 함수 JSDoc 보강
  */
 
 "use client";
@@ -67,6 +69,14 @@ export function useFollowToggle() {
     [pendingIds]
   );
 
+  /**
+   * 팔로우 상태를 서버에서 전환하고 조회자 범위의 관련 캐시를 결과에 맞게 동기화한다.
+   *
+   * @param userId - 팔로우 상태를 변경할 사용자 ID
+   * @param isFollowingNow - 요청 직전 팔로우 여부
+   * @param opts - 조회자 ID, 새로고침과 로그인 유도 설정
+   * @returns 서버 팔로우 처리 결과 또는 중복 요청일 때 undefined
+   */
   const toggle = useCallback(
     async (
       userId: number,
@@ -95,7 +105,7 @@ export function useFollowToggle() {
         // 헤더 통계 갱신
         // profile/channel 상단 카운트와 버튼 상태를 같은 기준으로 즉시 동기화
         queryClient.setQueryData(
-          queryKeys.users.followStats(userId),
+          queryKeys.users.followStats(userId, opts?.viewerId ?? null),
           (old: FollowStatsCache | undefined) => {
             if (!old) return old;
             return {
@@ -110,7 +120,7 @@ export function useFollowToggle() {
           // viewer 자신의 followingCount 동기화
           // 모달 안 토글 후에도 헤더 숫자가 늦게 남지 않도록 즉시 반영
           queryClient.setQueryData(
-            queryKeys.users.followStats(opts.viewerId),
+            queryKeys.users.followStats(opts.viewerId, opts.viewerId),
             (old: FollowStatsCache | undefined) => {
               if (!old) return old;
               return {
@@ -121,8 +131,13 @@ export function useFollowToggle() {
           );
         }
 
+        const viewerScope = opts?.viewerId ?? "guest";
         queryClient.setQueriesData(
-          { queryKey: queryKeys.follows.all },
+          {
+            predicate: (query) =>
+              query.queryKey[0] === "follows" &&
+              query.queryKey[3] === viewerScope,
+          },
           (oldData: InfiniteData<FollowListPage> | undefined) => {
             if (!oldData?.pages) return oldData;
             return {
@@ -145,6 +160,7 @@ export function useFollowToggle() {
           InfiniteData<StreamsPage>
         >({
           queryKey: queryKeys.streams.lists(),
+          predicate: (query) => query.queryKey[3] === viewerScope,
         });
         const targetUserStreams = new Map<number, BroadcastSummary>();
 
@@ -220,10 +236,8 @@ export function useFollowToggle() {
           // 기본 팔로잉 탭 seed도 실제 스트림 목록과 같은 조회자별 query key에만 기록한다.
           const defaultFollowingKey = queryKeys.streams.list(
             "following",
-            {
-              ...DEFAULT_STREAM_LIST_FILTERS,
-              viewerId: opts.viewerId,
-            }
+            DEFAULT_STREAM_LIST_FILTERS,
+            opts.viewerId
           );
 
           queryClient.setQueryData<InfiniteData<StreamsPage>>(
@@ -267,8 +281,12 @@ export function useFollowToggle() {
           queryClient.invalidateQueries({ queryKey: defaultFollowingKey });
         }
 
-        // 3. 모달 리스트 데이터 갱신을 위해 무효화 처리를 수행
-        queryClient.invalidateQueries({ queryKey: queryKeys.follows.all });
+        // 3. 현재 조회자의 팔로우 모달만 무효화해 다른 계정 캐시를 건드리지 않는다.
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "follows" &&
+            query.queryKey[3] === viewerScope,
+        });
         return res;
       } catch (e) {
         console.error("Toggle Follow Error:", e);

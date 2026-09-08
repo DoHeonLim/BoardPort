@@ -13,14 +13,26 @@
  * 2026.04.02  임도헌   Modified  Cloudflare 이미지 ID 파싱을 stream image utils로 분리하고 삭제 helper 설명 보강
  * 2026.05.16  임도헌   Modified  방송 삭제 액션의 사전 조회용 메타 헬퍼 추가
  * 2026.05.24  임도헌   Modified  삭제된 방송을 가리키는 알림 링크/이미지 정리 추가
+ * 2026.08.22  임도헌   Modified  방송 썸네일 삭제를 MediaAsset provider ID 기준으로 전환
+ * 2026.08.26  임도헌   Modified  moderation outbox용 외부 방송 자산 삭제 실패 전파 옵션 추가
  */
 
 import "server-only";
 import db from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { extractCloudflareImageId } from "@/features/stream/utils/image";
+import {
+  deleteCloudflareImageAssetsById,
+  getLinkedMediaAssetIds,
+} from "@/features/media/service/assets";
 
-type DeleteResult = { success: true } | { success: false; error: string };
+/** 방송 transaction commit 뒤 정리할 Cloudflare VOD·썸네일 식별자. */
+export type BroadcastAssetCleanup = {
+  vodAssetIds: string[];
+  thumbnailAssetIds: string[];
+};
+type DeleteResult =
+  | { success: true; cleanup?: BroadcastAssetCleanup }
+  | { success: false; error: string };
 type BroadcastDeleteMeta = {
   ownerId: number;
 };
@@ -54,12 +66,21 @@ export async function getBroadcastIdsByLiveInput(
 
   return broadcasts.map((broadcast) => broadcast.id);
 }
-/** Cloudflare Stream VOD 자산 best-effort 삭제 */
-async function deleteCloudflareVodAsset(providerAssetId: string): Promise<void> {
+/** Cloudflare Stream VOD를 삭제하며 outbox 호출에서는 실패를 재시도 대상으로 전파한다. */
+async function deleteCloudflareVodAsset(
+  providerAssetId: string,
+  throwOnFailure: boolean = false
+): Promise<void> {
   const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
   const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 
-  if (!ACCOUNT_ID || !API_TOKEN || !providerAssetId) return;
+  if (!providerAssetId) return;
+  if (!ACCOUNT_ID || !API_TOKEN) {
+    if (throwOnFailure) {
+      throw new Error("Cloudflare Stream 삭제 환경변수가 누락되었습니다.");
+    }
+    return;
+  }
 
   try {
     const response = await fetch(
@@ -73,45 +94,32 @@ async function deleteCloudflareVodAsset(providerAssetId: string): Promise<void> 
     );
 
     if (!response.ok && response.status !== 404) {
-      console.warn(
-        `[deleteCloudflareVodAsset] unexpected status=${response.status} asset=${providerAssetId}`
+      throw new Error(
+        `Cloudflare Stream delete failed status=${response.status} asset=${providerAssetId}`
       );
     }
   } catch (error) {
     console.error("[deleteCloudflareVodAsset] failed:", error);
+    if (throwOnFailure) throw error;
   }
 }
 
-/** 방송 썸네일 Cloudflare Images 자산 best-effort 삭제 */
-async function deleteCloudflareThumbnailAsset(
-  thumbnailUrl: string | null
+/** DB transaction commit 뒤 외부 방송 자산을 정리하고 선택적으로 실패를 전파한다. */
+export async function cleanupDeletedBroadcastAssets(
+  cleanup: BroadcastAssetCleanup,
+  options: { throwOnFailure?: boolean } = {}
 ): Promise<void> {
-  if (!thumbnailUrl) return;
-
-  const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-  const imageId = extractCloudflareImageId(thumbnailUrl);
-
-  if (!ACCOUNT_ID || !API_TOKEN || !imageId) return;
-
-  try {
-    const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/images/v1/${imageId}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
-        },
-      }
-    );
-
-    if (!response.ok && response.status !== 404) {
-      console.warn(
-        `[deleteCloudflareThumbnailAsset] unexpected status=${response.status} thumbnail=${thumbnailUrl}`
-      );
-    }
-  } catch (error) {
-    console.error("[deleteCloudflareThumbnailAsset] failed:", error);
+  const results = await Promise.allSettled([
+    ...cleanup.vodAssetIds.map((assetId) =>
+      deleteCloudflareVodAsset(assetId, options.throwOnFailure)
+    ),
+    deleteCloudflareImageAssetsById(cleanup.thumbnailAssetIds, options),
+  ]);
+  if (
+    options.throwOnFailure &&
+    results.some((result) => result.status === "rejected")
+  ) {
+    throw new Error("일부 Cloudflare 방송 자산 삭제에 실패했습니다.");
   }
 }
 
@@ -147,8 +155,18 @@ export async function hardDeleteBroadcastWithCleanup(
   target: HardDeleteBroadcastTarget
 ) {
   const vodAssetIds = target.vodAssets.map((item) => item.provider_asset_id);
+  const thumbnailAssetIds = await getLinkedMediaAssetIds({
+    purpose: "STREAM_THUMBNAIL",
+    linkedEntityId: String(target.id),
+  });
 
   await db.$transaction(async (tx) => {
+    if (thumbnailAssetIds.length > 0) {
+      await tx.mediaAsset.updateMany({
+        where: { providerAssetId: { in: thumbnailAssetIds } },
+        data: { state: "ORPHANED", linkedEntityId: null },
+      });
+    }
     await tx.notification.updateMany({
       where: buildBroadcastNotificationCleanupWhere(
         target.id,
@@ -162,7 +180,7 @@ export async function hardDeleteBroadcastWithCleanup(
 
   await Promise.allSettled([
     ...vodAssetIds.map((assetId) => deleteCloudflareVodAsset(assetId)),
-    deleteCloudflareThumbnailAsset(target.thumbnail),
+    deleteCloudflareImageAssetsById(thumbnailAssetIds),
   ]);
 }
 
@@ -197,6 +215,25 @@ export async function deleteBroadcastTx(
       return { success: false, error: "이미 삭제된 방송입니다." };
     }
 
+    const thumbnailAssets = await tx.mediaAsset.findMany({
+      where: {
+        purpose: "STREAM_THUMBNAIL",
+        linkedEntityId: String(broadcastId),
+        state: "ATTACHED",
+      },
+      select: { providerAssetId: true },
+    });
+    if (thumbnailAssets.length > 0) {
+      await tx.mediaAsset.updateMany({
+        where: {
+          providerAssetId: {
+            in: thumbnailAssets.map((asset) => asset.providerAssetId),
+          },
+        },
+        data: { state: "ORPHANED", linkedEntityId: null },
+      });
+    }
+
     await tx.notification.updateMany({
       where: buildBroadcastNotificationCleanupWhere(
         broadcastId,
@@ -207,20 +244,22 @@ export async function deleteBroadcastTx(
     await tx.vodAsset.deleteMany({ where: { broadcastId } });
     await tx.broadcast.delete({ where: { id: broadcastId } });
 
-    void Promise.allSettled([
-      ...broadcast.vodAssets.map((asset) =>
-        deleteCloudflareVodAsset(asset.provider_asset_id)
-      ),
-      deleteCloudflareThumbnailAsset(broadcast.thumbnail),
-    ]);
-
-    return { success: true };
+    return {
+      success: true,
+      cleanup: {
+        vodAssetIds: broadcast.vodAssets.map(
+          (asset) => asset.provider_asset_id
+        ),
+        thumbnailAssetIds: thumbnailAssets.map(
+          (asset) => asset.providerAssetId
+        ),
+      },
+    };
   } catch (e) {
     console.error("[deleteBroadcastTx] failed:", e);
     return {
       success: false,
-      error:
-        "방송 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "방송 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
@@ -234,5 +273,11 @@ export async function deleteBroadcastTx(
 export async function deleteBroadcast(
   broadcastId: number
 ): Promise<DeleteResult> {
-  return await db.$transaction((tx) => deleteBroadcastTx(tx, broadcastId));
+  const result = await db.$transaction((tx) =>
+    deleteBroadcastTx(tx, broadcastId)
+  );
+  if (result.success && result.cleanup) {
+    await cleanupDeletedBroadcastAssets(result.cleanup);
+  }
+  return result.success ? { success: true } : result;
 }

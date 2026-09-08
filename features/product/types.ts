@@ -29,6 +29,7 @@
  * 2026.05.08  임도헌   Modified  프로필/마이페이지 제품 목록 조회 범위 타입을 product types로 이동
  * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제의 좋아요 캐시 분리를 위한 ProductCard viewerId prop 추가
  * 2026.06.18  임도헌   Modified  상품 거래 기준 지역 필수화에 맞춰 ProductDTO location을 필수값으로 정리
+ * 2026.08.27  임도헌   Modified  상세 상품의 실제 노출 기준 시각을 최근 본 상품 스냅샷까지 보존하도록 refreshed_at 계약 명시
  */
 
 import {
@@ -131,8 +132,7 @@ export type ProductFormFailure<FieldKey extends string = string> = {
 
 /** 폼 Action 응답 */
 export type ProductFormResponse<FieldKey extends string = string> =
-  | ProductFormSuccess
-  | ProductFormFailure<FieldKey>;
+  ProductFormSuccess | ProductFormFailure<FieldKey>;
 
 /** 상품 폼 서버 액션 시그니처 */
 export type ProductFormAction = (
@@ -250,6 +250,7 @@ export interface ProductDetailType extends ProductFullDetails {
     username: string;
   };
   created_at: Date;
+  refreshed_at: Date;
   reservation_userId: number | null;
   purchase_userId: number | null;
   views: number;

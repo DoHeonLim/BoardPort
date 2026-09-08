@@ -12,7 +12,8 @@
  * 2026.03.08  임도헌   Modified  OAuth 시작 시 callbackUrl 쿠키 보존 추가
  * 2026.03.12  임도헌   Modified  callbackUrl 정규화와 state 생성 흐름을 현재 OAuth 시작 기준으로 명확화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/github/start/route.ts 에서 app/(public)/github/start/route.ts 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.30  임도헌   Modified  callbackUrl 쿼리 생략 시 기본 프로필 복귀 경로 유지
+ */
 
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
@@ -33,7 +34,7 @@ export function GET(request: Request) {
   const baseURL = "https://github.com/login/oauth/authorize";
   const requestUrl = new URL(request.url);
   const callbackUrl = sanitizeCallbackUrl(
-    requestUrl.searchParams.get("callbackUrl")
+    requestUrl.searchParams.get("callbackUrl") ?? "/profile"
   );
 
   // CSRF 방지용 state 생성
@@ -67,4 +68,3 @@ export function GET(request: Request) {
 
   return response;
 }
-

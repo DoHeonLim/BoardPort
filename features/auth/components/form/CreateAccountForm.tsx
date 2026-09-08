@@ -23,6 +23,8 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 가입 화면 보조 링크 타이포 무게를 정리
  * 2026.04.13  임도헌   Modified  회원가입 입력 필드에 명시적 라벨을 추가해 접근성 문맥을 보강
  * 2026.05.12  임도헌   Modified  로그인 이동 링크가 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
+ * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 로그인 링크에서 생략
+ * 2026.09.05  임도헌   Modified  제출 전 빈 필드 오류 노출을 막는 검증 시점 조정
  */
 "use client";
 
@@ -51,6 +53,7 @@ import { submitCreateAccount } from "@/features/auth/actions/register";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { preventPointerDownFocus } from "@/lib/preventPointerDownFocus";
+import { buildAuthFlowHref } from "@/features/auth/utils/redirect";
 
 type FormData = CreateAccountSchema;
 
@@ -77,12 +80,13 @@ export default function CreateAccountForm({
     setFocus,
   } = useForm<FormData>({
     resolver: zodResolver(createAccountSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     reValidateMode: "onChange",
   });
 
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const loginHref = buildAuthFlowHref("/login", callbackUrl);
 
   const onSubmit = (data: FormData) => {
     startTransition(async () => {
@@ -196,7 +200,7 @@ export default function CreateAccountForm({
       <div className="mt-4 text-center text-sm text-muted">
         이미 선원이신가요?{" "}
         <Link
-          href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          href={loginHref}
           onPointerDown={preventPointerDownFocus}
           className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
         >

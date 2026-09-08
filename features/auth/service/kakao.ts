@@ -10,6 +10,7 @@
  * 2026.04.02  임도헌   Modified  카카오 닉네임 helper JSDoc 보강
  * 2026.04.04  임도헌   Modified  OAuth 유저 생성 재시도 단계의 인라인 주석 보강
  * 2026.06.04  임도헌   Modified  Kakao 자동 생성 유저명 길이와 충돌 회피 기준을 공용 상수로 통일
+ * 2026.07.31  임도헌   Modified  동의·유효 상태의 카카오 이메일만 정규화해 저장
  */
 
 import "server-only";
@@ -18,6 +19,7 @@ import { AUTH_ERRORS } from "@/features/auth/constants";
 import db from "@/lib/db";
 import { USERNAME_MAX_LENGTH } from "@/lib/constants";
 import { isUniqueConstraintError } from "@/lib/errors";
+import { normalizeOptionalEmail } from "@/features/auth/utils/email";
 import type { KakaoProfile } from "@/features/auth/types";
 
 const KAKAO_AUTO_USERNAME_SUFFIX_REGEX = /^[0-9a-f]{4}$/i;
@@ -184,8 +186,11 @@ export async function findOrCreateKakaoUser(
     ? null
     : account?.profile?.profile_image_url || null;
 
-  // 이메일 미동의 계정의 null 처리
-  const email = account?.email || null;
+  // 선택 동의가 끝났고 카카오가 유효하다고 확인한 이메일만 저장
+  const email =
+    account?.email_needs_agreement !== true && account?.is_email_valid === true
+      ? normalizeOptionalEmail(account.email)
+      : null;
 
   // 카카오 닉네임 기반 기본 유저명 구성
   const baseUsername = buildKakaoBaseUsername(nickname);
@@ -201,6 +206,8 @@ export async function findOrCreateKakaoUser(
         kakao_id: kakaoIdStr,
         avatar,
         email: emailData,
+        // provider 인증 여부와 별개로 BoardPort 이메일 인증은 기존 자체 절차 유지
+        emailVerified: false,
       },
       select: { id: true },
     });

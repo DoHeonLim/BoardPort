@@ -22,6 +22,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 SMS 인증 안내와 액션 링크 타이포를 정리
  * 2026.05.12  임도헌   Modified  토큰 단계 보조 액션이 blur 검증으로 한 번 막히지 않도록 처리
  * 2026.05.19  임도헌   Modified  서버 액션 예외 처리와 SMS 자동완성 힌트 보강
+ * 2026.08.27  임도헌   Modified  휴대폰 번호·인증번호 입력에 접근 가능한 숨김 label 추가
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
@@ -173,6 +174,8 @@ export default function SmsForm({
         <div className="flex flex-col gap-form-gap">
           <Input
             {...register("phone")}
+            label="휴대폰 번호"
+            hideLabel
             type="tel"
             placeholder="휴대폰 번호 (- 없이 입력)"
             autoComplete="tel"
@@ -193,6 +196,8 @@ export default function SmsForm({
           </div>
           <Input
             {...register("token")}
+            label="인증번호"
+            hideLabel
             type="number"
             placeholder="인증번호 6자리"
             autoComplete="one-time-code"
@@ -211,8 +216,8 @@ export default function SmsForm({
             isPending
               ? "처리 중..."
               : phase === "phone"
-              ? "인증번호 받기"
-              : "인증하기"
+                ? "인증번호 받기"
+                : "인증하기"
           }
           disabled={isPending}
         />

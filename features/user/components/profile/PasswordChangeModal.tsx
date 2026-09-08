@@ -30,6 +30,7 @@
  * 2026.06.01  임도헌   Modified  비밀번호 변경 모달 입력 높이를 모바일 작성형 폼 기준으로 정리
  * 2026.06.19  임도헌   Modified  submit Button 패턴을 유지하면서 완료 버튼의 최소 너비와 높이 기준 보정
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 비밀번호 변경 CTA 위계 정리
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -56,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 type PasswordChangeModalProps = {
   isOpen: boolean;
@@ -105,29 +107,25 @@ export default function PasswordChangeModal({
     onClose();
   };
 
-  // 1. 접근성 및 이벤트 리스너 설정
+  // 모바일은 BottomSheet가 담당하므로 데스크톱에서만 스크롤을 잠근다.
   useEffect(() => {
     if (!isOpen) return;
     if (isMobile) return;
 
-    // 초기 포커스 이동
-    dialogRef.current?.focus();
-
-    // ESC 키로 닫기
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") doClose();
-    };
-    window.addEventListener("keydown", handleKey);
-
-    // Body 스크롤 잠금
     lockBodyScroll();
 
     return () => {
-      window.removeEventListener("keydown", handleKey);
       unlockBodyScroll();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isMobile, submitting]);
+  }, [isOpen, isMobile]);
+
+  useModalFocus({
+    open: isOpen,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: doClose,
+  });
 
   // 2. 폼 제출 핸들러
   const onInvalid = (formErrors: typeof errors) => {

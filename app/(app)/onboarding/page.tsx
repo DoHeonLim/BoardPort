@@ -11,29 +11,29 @@
  * 2026.03.25  임도헌   Modified  소셜 자동 생성 닉네임 보완 강제를 query flag(setupUsername)로 받아 폼 상태에 반영
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 온보딩 헤더 타이포 계층을 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/onboarding/page.tsx 에서 app/(app)/onboarding/page.tsx 로 변경 (라우트 그룹 개편)
-*/
+ */
 
 import { redirect } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import getSession from "@/lib/session";
 import OnboardingForm from "@/features/auth/components/form/OnboardingForm";
-import {
-  getAuthOnboardingState,
-} from "@/features/auth/service/onboarding";
+import { getAuthOnboardingState } from "@/features/auth/service/onboarding";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
-export default async function OnboardingPage({
-  searchParams,
-}: {
-  searchParams?: { next?: string; setupUsername?: string };
+/** 소셜 가입 사용자의 필수 프로필 입력과 안전한 복귀 경로를 처리한다. */
+export default async function OnboardingPage(props: {
+  searchParams?: Promise<{ next?: string; setupUsername?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const session = await getSession();
   const next = sanitizeCallbackUrl(searchParams?.next ?? "/profile");
   const safeNext = next.startsWith("/onboarding") ? "/profile" : next;
   const forceUsernameSetup = searchParams?.setupUsername === "1";
 
   if (!session?.id) {
-    redirect(`/login?callbackUrl=${encodeURIComponent(`/onboarding?next=${encodeURIComponent(safeNext)}`)}`);
+    redirect(
+      `/login?callbackUrl=${encodeURIComponent(`/onboarding?next=${encodeURIComponent(safeNext)}`)}`
+    );
   }
 
   const onboarding = await getAuthOnboardingState(session.id, {
@@ -87,4 +87,3 @@ export default async function OnboardingPage({
     </div>
   );
 }
-

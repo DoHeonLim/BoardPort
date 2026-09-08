@@ -7,28 +7,46 @@
  * Date        Author   Status    Description
  * 2026.02.23  임도헌   Created    ProfileEditForm에서 분리하여 독립 컴포넌트화
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.13  임도헌   Modified  탈퇴 성공 시 사용자 Query cache를 비운 뒤 홈으로 이동
+ * 2026.08.21  임도헌   Modified  탈퇴 완료 후 다른 탭에도 인증 cache 초기화 신호 전파
+ * 2026.08.22  임도헌   Modified  탈퇴 성공 시 삭제 계정의 Realtime JWT 캐시 폐기
+ * 2026.08.28  임도헌   Modified  회원 탈퇴 실행 함수 JSDoc 보강
+ * 2026.08.30  임도헌   Modified  탈퇴 후 Realtime JWT 발급까지 비활성화해 삭제 계정 재요청 차단
  */
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import { withdrawAction } from "@/features/user/actions/withdraw";
+import { finalizeClientAuthExit } from "@/features/auth/utils/authContextReset";
+import { deactivateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
 }
 
+/** 회원 탈퇴 확인과 성공 후 모든 탭의 인증 상태 및 Realtime JWT 발급을 정리한다. */
 export default function WithdrawalModal({ isOpen, onClose }: Props) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
+  /** 회원 탈퇴를 실행하고 성공 시 모든 탭의 인증 상태와 사용자 캐시를 정리한다. */
   const handleWithdraw = () => {
     startTransition(async () => {
       try {
         const res = await withdrawAction();
-        if (res && !res.success) {
+        if (!res.success) {
           toast.error(res.error);
+          return;
         }
+
+        toast.success("회원 탈퇴가 완료되었습니다.");
+        deactivateRealtimeAccessToken();
+        finalizeClientAuthExit(queryClient, router);
       } catch {
         toast.error("탈퇴 처리에 실패했습니다.");
       }

@@ -16,16 +16,21 @@
  * 2026.04.27  임도헌   Modified  신고 기각 코멘트 payload와 승인 조치 payload를 구분해 서버 검증 흐름 보강
  * 2026.04.28  임도헌   Modified  신고 처리 모달이 실제 조치 대상 유저명을 표시할 수 있도록 대상 유저 메타 조회 추가
  * 2026.05.16  임도헌   Modified  신고 사유 검색 조건과 목록 후처리 타입 단언 축소
+ * 2026.08.26  임도헌   Modified  신고 claim·DB 조치·감사 로그를 단일 transaction으로 묶고 outbox 멱등 재시도 적용
+ * 2026.08.28  임도헌   Modified  신고 대상 미리보기와 소유자 조회 함수 JSDoc 보강
+ * 2026.09.04  임도헌   Modified  신고 대상 스냅샷 기반 제목·사용자명 검색과 삭제 후 표시 정보 유지
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { createAuditLog } from "@/features/report/service/audit";
-import { sendAdminActionNotification } from "@/features/notification/service/notification";
-import { deleteProductByAdmin } from "@/features/product/service/admin";
-import { deletePostByAdmin } from "@/features/post/service/admin";
-import { deleteStreamByAdmin } from "@/features/stream/service/admin";
-import { banUserByAdmin } from "@/features/user/service/admin";
+import { hardDeleteProductTx } from "@/features/product/service/delete";
+import { hardDeletePostTx } from "@/features/post/service/post";
+import { deleteBroadcastTx } from "@/features/stream/service/delete";
+import {
+  enqueueModerationOutboxJobs,
+  processModerationOutboxBatch,
+  type ModerationOutboxJob,
+} from "@/features/report/service/moderationOutbox";
 import type { ServiceResult } from "@/lib/types";
 import type {
   AdminReportInsights,
@@ -33,6 +38,7 @@ import type {
   AdminReportItem,
   ReportFilter,
   ReportResolutionInput,
+  ReportResolutionResult,
   ReportStatusInput,
 } from "@/features/report/types";
 import type { Prisma, ReportReason } from "@/generated/prisma/client";
@@ -53,9 +59,8 @@ export async function getReportInsights(
   now: Date = new Date()
 ): Promise<ServiceResult<AdminReportInsights>> {
   try {
-    const { buildRecentGroupedDayBuckets, countItemsByKey } = await import(
-      "@/features/report/utils/analytics"
-    );
+    const { buildRecentGroupedDayBuckets, countItemsByKey } =
+      await import("@/features/report/utils/analytics");
 
     const fourteenDaysAgo = new Date(now);
     fourteenDaysAgo.setDate(now.getDate() - 13);
@@ -164,7 +169,8 @@ export async function getReportInsights(
         reasonItems,
         summary: {
           pendingCount,
-          strikeTargetCount: new Set(strikeLogs.map((log) => log.targetId)).size,
+          strikeTargetCount: new Set(strikeLogs.map((log) => log.targetId))
+            .size,
           averageProcessingHours:
             processedReports.length > 0
               ? processedReports.reduce((acc, report) => {
@@ -208,7 +214,7 @@ export async function getReportsAdmin(
       where.status = status;
     }
 
-    // 신고자, 사유, 설명, 관리자 코멘트, 대상 ID를 하나의 검색 입력으로 결합
+    // 신고자, 대상 스냅샷, 사유, 설명, 관리자 코멘트, 대상 ID를 하나의 검색 입력으로 결합
     if (trimmedQuery) {
       const parsedTargetId = /^\d+$/.test(trimmedQuery)
         ? Number(trimmedQuery)
@@ -244,6 +250,24 @@ export async function getReportsAdmin(
             },
             {
               adminComment: {
+                contains: trimmedQuery,
+                mode: "insensitive",
+              },
+            },
+            {
+              targetPreview: {
+                contains: trimmedQuery,
+                mode: "insensitive",
+              },
+            },
+            {
+              targetOwnerUsername: {
+                contains: trimmedQuery,
+                mode: "insensitive",
+              },
+            },
+            {
+              targetParentPreview: {
                 contains: trimmedQuery,
                 mode: "insensitive",
               },
@@ -303,9 +327,11 @@ export async function getReportsAdmin(
 }
 
 /**
- * 신고 상태 변경 (처리/기각)
- * - 신고의 상태를 업데이트하고 관리자 코멘트를 저장
- * - 변경 이력을 Audit Log에 기록
+ * 신고 승인·기각을 원자적이고 멱등하게 처리한다.
+ * - PENDING 신고를 PROCESSING으로 조건부 선점해 단일 처리자만 허용
+ * - 신고 상태, strike, DB 제재·삭제, 감사 로그, outbox enqueue를 하나의 transaction으로 처리
+ * - 동일 `(reportId, status, action)` 재시도는 완료된 감사 로그를 기준으로 성공에 수렴
+ * - commit 뒤 outbox를 즉시 처리하고 실패 작업은 운영 cron 재시도 대상으로 유지
  *
  * @param adminId - 처리 담당 관리자 ID
  * @param reportId - 대상 신고 ID
@@ -318,180 +344,327 @@ export async function updateReportStatus(
   reportId: number,
   status: "RESOLVED" | "DISMISSED",
   resolution?: ReportStatusInput
-): Promise<ServiceResult> {
+): Promise<ServiceResult<ReportResolutionResult>> {
+  const trimmedComment = resolution?.adminComment?.trim() ?? "";
+  if (trimmedComment.length < 5) {
+    return { success: false, error: "처리 사유는 5자 이상 입력해주세요." };
+  }
+  if (
+    status === "RESOLVED" &&
+    (!resolution || !isReportResolutionInput(resolution))
+  ) {
+    return { success: false, error: "승인 시 조치 유형을 선택해주세요." };
+  }
+  if (
+    status === "RESOLVED" &&
+    isReportResolutionInput(resolution) &&
+    (!Number.isInteger(resolution.strike) || resolution.strike < 0)
+  ) {
+    return { success: false, error: "strike 값이 올바르지 않습니다." };
+  }
+
+  const actionKey = buildReportActionIdempotencyKey(
+    reportId,
+    status,
+    resolution
+  );
+
   try {
-    const report = await db.report.findUnique({
-      where: { id: reportId },
-      select: {
-        id: true,
-        status: true,
-        reason: true,
-        targetUserId: true,
-        targetProductId: true,
-        targetPostId: true,
-        targetCommentId: true,
-        targetStreamId: true,
-        targetProductMessageId: true,
-        targetStreamMessageId: true,
-        targetReviewId: true,
-      },
-    });
+    const result = await db.$transaction(
+      async (tx) => {
+        const [completedAction, report] = await Promise.all([
+          tx.auditLog.findUnique({
+            where: { idempotencyKey: actionKey },
+            select: { id: true },
+          }),
+          tx.report.findUnique({
+            where: { id: reportId },
+            select: {
+              id: true,
+              status: true,
+              reason: true,
+              targetUserId: true,
+              targetProductId: true,
+              targetPostId: true,
+              targetCommentId: true,
+              targetStreamId: true,
+              targetProductMessageId: true,
+              targetStreamMessageId: true,
+              targetReviewId: true,
+            },
+          }),
+        ]);
+        if (!report)
+          throw new ReportModerationError("신고 내역을 찾을 수 없습니다.");
+        if (completedAction) {
+          const revalidation = buildIdempotentRevalidationMeta(report);
+          return {
+            reportId,
+            status,
+            action:
+              status === "RESOLVED" && isReportResolutionInput(resolution)
+                ? resolution.action
+                : undefined,
+            idempotent: true,
+            ...revalidation,
+          } satisfies ReportResolutionResult;
+        }
+        if (report.status !== "PENDING") {
+          throw new ReportModerationError(
+            "이미 다른 조치로 처리된 신고입니다."
+          );
+        }
 
-    if (!report)
-      return { success: false, error: "신고 내역을 찾을 수 없습니다." };
-
-    const trimmedComment = resolution?.adminComment?.trim() ?? "";
-    if (trimmedComment.length < 5) {
-      return {
-        success: false,
-        error: "처리 사유는 5자 이상 입력해주세요.",
-      };
-    }
-
-    if (report.status !== "PENDING") {
-      return {
-        success: false,
-        error: "이미 처리된 신고입니다.",
-      };
-    }
-
-    if (
-      status === "RESOLVED" &&
-      (!resolution || !isReportResolutionInput(resolution))
-    ) {
-      return {
-        success: false,
-        error: "승인 시 조치 유형을 선택해주세요.",
-      };
-    }
-
-    const targetUserId = await resolveReportTargetUserId(report);
-
-    let finalAdminComment = trimmedComment;
-
-    if (status === "RESOLVED" && isReportResolutionInput(resolution)) {
-      // strike 가산 이력은 별도 감사 로그로 남겨 최근 누적 계산 기준으로 재사용
-      if (targetUserId && resolution.strike > 0) {
-        await createAuditLog({
-          adminId,
-          action: "ADD_STRIKE",
-          targetType: "USER",
-          targetId: targetUserId,
-          reason: buildStrikeAuditReason(
-            trimmedComment,
-            resolution.action,
-            resolution.strike,
-            resolution.durationDays
-          ),
+        // 하나의 transaction 안에서 PENDING 행을 선점해 동시 실행자 중 한 명만 조치한다.
+        const claim = await tx.report.updateMany({
+          where: { id: reportId, status: "PENDING" },
+          data: { status: "PROCESSING" },
         });
-      }
+        if (claim.count !== 1) {
+          throw new ReportModerationError(
+            "다른 관리자가 신고를 처리하고 있습니다."
+          );
+        }
 
-      // 조치 요약 문자열은 모달 확인, 사용자 알림, 감사 로그 문맥을 함께 맞추기 위한 기준
-      const currentStrikeTotal = targetUserId
-        ? await getRecentUserStrikeTotal(targetUserId)
-        : 0;
-      const strikeText =
-        resolution.strike > 0
-          ? `strike ${resolution.strike}회 / 누적 ${currentStrikeTotal}회`
-          : targetUserId
-            ? `strike 없음 / 누적 ${currentStrikeTotal}회`
-            : "strike 없음";
-      const durationText =
-        resolution.action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN
-          ? ` / 기간: ${resolution.durationDays ?? 0}일`
-          : resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
-            ? " / 기간: 영구"
-            : "";
+        const targetUserId = await resolveReportTargetUserId(tx, report);
+        const outboxJobs: ModerationOutboxJob[] = [];
+        const revalidationPaths = new Set<string>(["/admin/reports"]);
+        let productDetailId: number | undefined;
+        let finalAdminComment = trimmedComment;
+        let strikeTotal = 0;
 
-      // 삭제 조치는 콘텐츠 타입에 따라 각 도메인 관리자 서비스로 위임
-      if (
-        resolution.action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT ||
-        resolution.deleteContent
-      ) {
-        const deleteResult = await deleteReportTargetContent(
-          adminId,
-          report,
-          trimmedComment
-        );
-        if (!deleteResult.success) return deleteResult;
-      }
+        if (status === "RESOLVED" && isReportResolutionInput(resolution)) {
+          if (
+            !targetUserId &&
+            (resolution.strike > 0 ||
+              resolution.action === REPORT_RESOLUTION_ACTIONS.WARN ||
+              resolution.action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN ||
+              resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN)
+          ) {
+            throw new ReportModerationError(
+              "신고 대상의 조치 유저를 찾을 수 없습니다."
+            );
+          }
+          if (targetUserId && resolution.strike > 0) {
+            await tx.auditLog.create({
+              data: {
+                adminId,
+                action: "ADD_STRIKE",
+                targetType: "USER",
+                targetId: targetUserId,
+                reason: buildStrikeAuditReason(
+                  trimmedComment,
+                  resolution.action,
+                  resolution.strike,
+                  resolution.durationDays
+                ),
+              },
+            });
+          }
 
-      // 경고는 콘텐츠 삭제 없이 사용자 알림과 운영 이력만 남기는 경로
-      if (resolution.action === REPORT_RESOLUTION_ACTIONS.WARN && targetUserId) {
-        await createAuditLog({
-          adminId,
-          action: "WARN_USER",
-          targetType: "USER",
-          targetId: targetUserId,
-          reason: buildModerationActionReason(
-            trimmedComment,
-            resolution.action,
-            resolution.strike,
-            currentStrikeTotal
-          ),
+          strikeTotal = targetUserId
+            ? await getRecentUserStrikeTotalTx(tx, targetUserId)
+            : 0;
+          const strikeText =
+            resolution.strike > 0
+              ? `strike ${resolution.strike}회 / 누적 ${strikeTotal}회`
+              : targetUserId
+                ? `strike 없음 / 누적 ${strikeTotal}회`
+                : "strike 없음";
+          const durationText =
+            resolution.action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN
+              ? ` / 기간: ${resolution.durationDays ?? 0}일`
+              : resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
+                ? " / 기간: 영구"
+                : "";
+
+          if (
+            resolution.action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT ||
+            resolution.deleteContent
+          ) {
+            const deletion = await deleteReportTargetContentTx(
+              tx,
+              adminId,
+              report,
+              trimmedComment,
+              actionKey
+            );
+            deletion.outboxJobs.forEach((job) => outboxJobs.push(job));
+            deletion.revalidationPaths.forEach((path) =>
+              revalidationPaths.add(path)
+            );
+            productDetailId = deletion.productDetailId;
+          }
+
+          if (
+            resolution.action === REPORT_RESOLUTION_ACTIONS.WARN &&
+            targetUserId
+          ) {
+            await tx.auditLog.create({
+              data: {
+                adminId,
+                action: "WARN_USER",
+                targetType: "USER",
+                targetId: targetUserId,
+                reason: buildModerationActionReason(
+                  trimmedComment,
+                  resolution.action,
+                  resolution.strike,
+                  strikeTotal
+                ),
+              },
+            });
+            outboxJobs.push(
+              buildAdminNotificationJob(actionKey, "warn", {
+                targetUserId,
+                type: "WARN_USER",
+                reason: `${trimmedComment} (${strikeText})`,
+              })
+            );
+          }
+
+          if (
+            (resolution.action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN ||
+              resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN) &&
+            targetUserId
+          ) {
+            const durationDays =
+              resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
+                ? 0
+                : (resolution.durationDays ?? 3);
+            const bannedUntil = await banReportTargetUserTx(
+              tx,
+              adminId,
+              targetUserId,
+              `${trimmedComment} (${strikeText})`,
+              durationDays
+            );
+            outboxJobs.push(
+              buildAdminNotificationJob(actionKey, "ban", {
+                targetUserId,
+                type: "BAN_USER",
+                reason: `${trimmedComment} (${strikeText})`,
+                link: "/profile",
+              }),
+              {
+                dedupeKey: `${actionKey}:ban-realtime`,
+                kind: "BAN_REALTIME",
+                payload: {
+                  targetUserId,
+                  reason: trimmedComment,
+                  until: bannedUntil.toISOString(),
+                },
+              }
+            );
+          }
+
+          finalAdminComment = `${trimmedComment}\n[조치] ${resolution.action} / ${strikeText}${durationText}`;
+        }
+
+        await tx.report.update({
+          where: { id: reportId },
+          data: { status, adminComment: finalAdminComment },
         });
+        await tx.auditLog.create({
+          data: {
+            adminId,
+            action: status === "RESOLVED" ? "RESOLVE_REPORT" : "DISMISS_REPORT",
+            targetType: "REPORT",
+            targetId: reportId,
+            reason: finalAdminComment,
+            idempotencyKey: actionKey,
+          },
+        });
+        await enqueueModerationOutboxJobs(tx, outboxJobs);
 
-        void sendAdminActionNotification({
+        return {
+          reportId,
+          status,
+          action:
+            status === "RESOLVED" && isReportResolutionInput(resolution)
+              ? resolution.action
+              : undefined,
           targetUserId,
-          type: "WARN_USER",
-          reason: `${trimmedComment} (${strikeText})`,
-        });
-      }
-
-      // 정지는 유저 서비스 경로를 재사용해 알림과 실시간 강제 퇴장을 함께 처리
-      if (
-        (resolution.action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN ||
-          resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN) &&
-        targetUserId
-      ) {
-        const durationDays =
-          resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
-            ? 0
-            : (resolution.durationDays ?? 3);
-
-        const banResult = await banUserByAdmin(
-          adminId,
-          targetUserId,
-          `${trimmedComment} (${strikeText})`,
-          durationDays
-        );
-        if (!banResult.success) return banResult;
-      }
-
-      finalAdminComment = `${trimmedComment}\n[조치] ${resolution.action} / ${strikeText}${durationText}`;
-    }
-
-    // 신고 상태와 관리자 기록 선저장을 통한 이후 감사 로그/알림 기준 정렬
-    await db.report.update({
-      where: { id: reportId },
-      data: {
-        status,
-        adminComment: finalAdminComment,
-        updated_at: new Date(),
+          strike: strikeTotal,
+          durationDays:
+            status === "RESOLVED" && isReportResolutionInput(resolution)
+              ? resolution.durationDays
+              : undefined,
+          revalidationPaths: [...revalidationPaths],
+          productDetailId,
+        } satisfies ReportResolutionResult;
       },
-    });
+      { isolationLevel: "Serializable" }
+    );
 
-    // 실제 처리 결과의 별도 감사 로그 기록 및 운영 추적/strike 집계 가능 상태 유지
-    const actionType =
-      status === "RESOLVED" ? "RESOLVE_REPORT" : "DISMISS_REPORT";
-    await createAuditLog({
-      adminId,
-      action: actionType,
-      targetType: "REPORT",
-      targetId: reportId,
-      reason: finalAdminComment,
+    // commit된 외부 효과를 즉시 한 번 처리하고 실패 건은 cron 재시도 대상으로 남긴다.
+    await processModerationOutboxBatch().catch((error) => {
+      console.error("[updateReportStatus Outbox Error]:", error);
     });
-
-    return { success: true };
+    return { success: true, data: result };
   } catch (error) {
     console.error("[updateReportStatus Error]:", error);
     return {
       success: false,
-      error: "신고 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error:
+        error instanceof ReportModerationError
+          ? error.message
+          : "신고 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
 
+/** 사용자에게 그대로 전달할 수 있는 신고 처리 도메인 오류. */
+class ReportModerationError extends Error {}
+
+/** commit 후 응답이 끊긴 조치 재시도에서도 관련 목록·상세 cache를 다시 정리한다. */
+function buildIdempotentRevalidationMeta(report: {
+  targetProductId: number | null;
+  targetPostId: number | null;
+  targetCommentId: number | null;
+  targetStreamId: number | null;
+  targetProductMessageId: number | null;
+  targetStreamMessageId: number | null;
+  targetReviewId: number | null;
+}): Pick<ReportResolutionResult, "revalidationPaths" | "productDetailId"> {
+  const paths = new Set<string>(["/admin/reports"]);
+  let productDetailId: number | undefined;
+
+  if (report.targetProductId) {
+    paths.add("/products");
+    paths.add(`/products/view/${report.targetProductId}`);
+    paths.add("/profile");
+    paths.add("/chat");
+    productDetailId = report.targetProductId;
+  }
+  if (report.targetPostId || report.targetCommentId) {
+    paths.add("/posts");
+    if (report.targetPostId) paths.add(`/posts/${report.targetPostId}`);
+  }
+  if (report.targetStreamId || report.targetStreamMessageId) {
+    paths.add("/streams");
+    if (report.targetStreamId) paths.add(`/streams/${report.targetStreamId}`);
+  }
+  if (report.targetProductMessageId) paths.add("/chat");
+  if (report.targetReviewId) paths.add("/products");
+
+  return { revalidationPaths: [...paths], productDetailId };
+}
+
+/** 같은 신고와 조치 조합이 항상 같은 멱등 키를 사용하도록 정규화한다. */
+export function buildReportActionIdempotencyKey(
+  reportId: number,
+  status: "RESOLVED" | "DISMISSED",
+  resolution?: ReportStatusInput
+): string {
+  const action =
+    status === "RESOLVED" && isReportResolutionInput(resolution)
+      ? resolution.action
+      : "DISMISS";
+  return `report:${reportId}:${status}:${action}`;
+}
+
+/** 승인 조치 payload와 기각 사유 payload를 구분한다. */
 function isReportResolutionInput(
   input: ReportStatusInput | undefined
 ): input is ReportResolutionInput {
@@ -524,13 +697,26 @@ function buildModerationActionReason(
   return `${reason} (action: ${action}, strike: ${strike}, total: ${total})`;
 }
 
-/**
- * 최근 strike 누적 단건 조회
- * 신고 처리 모달의 "누적 strike" 요약 계산에 사용
- */
-async function getRecentUserStrikeTotal(userId: number) {
-  const strikeMap = await getRecentUserStrikeMap([userId]);
-  return strikeMap.get(userId) ?? 0;
+/** 신고 처리 transaction이 방금 추가한 strike까지 포함해 최근 누적을 계산한다. */
+async function getRecentUserStrikeTotalTx(
+  tx: Prisma.TransactionClient,
+  userId: number
+): Promise<number> {
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - REPORT_STRIKE_POLICY.WINDOW_DAYS);
+  const logs = await tx.auditLog.findMany({
+    where: {
+      action: "ADD_STRIKE",
+      targetType: "USER",
+      targetId: userId,
+      created_at: { gte: windowStart },
+    },
+    select: { reason: true },
+  });
+  return logs.reduce((total, log) => {
+    const strike = Number(log.reason?.match(/strike=(\d+)/)?.[1] ?? 0);
+    return total + strike;
+  }, 0);
 }
 
 /**
@@ -562,7 +748,29 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
 
   // 다양한 대상 타입을 최종 사용자 기준으로 환산해 최근 strike 누적과 유저명을 붙임
   const resolvedTargetUserIds = reports
-    .map((report) =>
+    .map(
+      (report) =>
+        report.targetOwnerId ??
+        getResolvedTargetUserIdFromMaps(report, {
+          userMetaMap,
+          productMetaMap,
+          postMetaMap,
+          commentMetaMap,
+          streamMetaMap,
+          productMessageMetaMap,
+          streamMessageMetaMap,
+          reviewMetaMap,
+        })
+    )
+    .filter((userId): userId is number => !!userId);
+  const [strikeMap, targetUserNameMap] = await Promise.all([
+    getRecentUserStrikeMap(resolvedTargetUserIds),
+    getUserNameMap(resolvedTargetUserIds),
+  ]);
+
+  return reports.map((report) => {
+    const targetResolvedUserId =
+      report.targetOwnerId ??
       getResolvedTargetUserIdFromMaps(report, {
         userMetaMap,
         productMetaMap,
@@ -572,27 +780,20 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
         productMessageMetaMap,
         streamMessageMetaMap,
         reviewMetaMap,
-      })
-    )
-    .filter((userId): userId is number => !!userId);
-  const [strikeMap, targetUserNameMap] = await Promise.all([
-    getRecentUserStrikeMap(resolvedTargetUserIds),
-    getUserNameMap(resolvedTargetUserIds),
-  ]);
-
-  return reports.map((report) => {
-    const targetResolvedUserId = getResolvedTargetUserIdFromMaps(report, {
-      userMetaMap,
-      productMetaMap,
-      postMetaMap,
-      commentMetaMap,
-      streamMetaMap,
-      productMessageMetaMap,
-      streamMessageMetaMap,
-      reviewMetaMap,
-    });
-    const targetPreview = getTargetPreviewFromMaps(report, {
-      userMetaMap,
+      });
+    const targetPreview =
+      report.targetPreview ??
+      getTargetPreviewFromMaps(report, {
+        userMetaMap,
+        productMetaMap,
+        postMetaMap,
+        commentMetaMap,
+        streamMetaMap,
+        productMessageMetaMap,
+        streamMessageMetaMap,
+        reviewMetaMap,
+      });
+    const liveTargetParentPreview = getTargetParentPreviewFromMaps(report, {
       productMetaMap,
       postMetaMap,
       commentMetaMap,
@@ -605,33 +806,37 @@ async function attachStrikeSummary(reports: AdminReportItem[]) {
     return {
       ...report,
       targetResolvedUserId,
-      targetResolvedUsername: targetResolvedUserId
-        ? (targetUserNameMap.get(targetResolvedUserId) ?? null)
-        : null,
+      targetResolvedUsername:
+        report.targetOwnerUsername ??
+        (targetResolvedUserId
+          ? (targetUserNameMap.get(targetResolvedUserId) ?? null)
+          : null),
       recentStrikeTotal: targetResolvedUserId
         ? (strikeMap.get(targetResolvedUserId) ?? 0)
         : 0,
       targetPreview,
       targetParentPostId: report.targetCommentId
-        ? (commentMetaMap.get(report.targetCommentId)?.postId ?? null)
+        ? (report.targetParentId ??
+          commentMetaMap.get(report.targetCommentId)?.postId ??
+          null)
         : null,
       targetParentProductId: report.targetReviewId
-        ? (reviewMetaMap.get(report.targetReviewId)?.productId ?? null)
+        ? (report.targetParentId ??
+          reviewMetaMap.get(report.targetReviewId)?.productId ??
+          null)
         : report.targetProductMessageId
-          ? (productMessageMetaMap.get(report.targetProductMessageId)?.productId ?? null)
+          ? (report.targetParentId ??
+            productMessageMetaMap.get(report.targetProductMessageId)
+              ?.productId ??
+            null)
           : null,
       targetParentStreamId: report.targetStreamMessageId
-        ? (streamMessageMetaMap.get(report.targetStreamMessageId)?.broadcastId ?? null)
+        ? (report.targetParentId ??
+          streamMessageMetaMap.get(report.targetStreamMessageId)?.broadcastId ??
+          null)
         : null,
-      targetParentPreview: getTargetParentPreviewFromMaps(report, {
-        productMetaMap,
-        postMetaMap,
-        commentMetaMap,
-        streamMetaMap,
-        productMessageMetaMap,
-        streamMessageMetaMap,
-        reviewMetaMap,
-      }),
+      targetParentPreview:
+        report.targetParentPreview ?? liveTargetParentPreview,
     };
   });
 }
@@ -655,30 +860,56 @@ function getResolvedTargetUserIdFromMaps(
     userMetaMap: Map<number, { username: string }>;
     productMetaMap: Map<number, { userId: number; title: string }>;
     postMetaMap: Map<number, { userId: number; title: string }>;
-    commentMetaMap: Map<number, { userId: number; payload: string; postId: number }>;
+    commentMetaMap: Map<
+      number,
+      { userId: number; payload: string; postId: number }
+    >;
     streamMetaMap: Map<number, { userId: number; title: string }>;
-    productMessageMetaMap: Map<number, { userId: number; payload: string | null; productId: number | null }>;
-    streamMessageMetaMap: Map<number, { userId: number; payload: string; broadcastId: number }>;
-    reviewMetaMap: Map<number, { userId: number; payload: string; productId: number }>;
+    productMessageMetaMap: Map<
+      number,
+      { userId: number; payload: string | null; productId: number | null }
+    >;
+    streamMessageMetaMap: Map<
+      number,
+      { userId: number; payload: string; broadcastId: number }
+    >;
+    reviewMetaMap: Map<
+      number,
+      { userId: number; payload: string; productId: number }
+    >;
   }
 ) {
   if (report.targetUserId) return report.targetUserId;
   if (report.targetProductId)
     return maps.productMetaMap.get(report.targetProductId)?.userId ?? null;
-  if (report.targetPostId) return maps.postMetaMap.get(report.targetPostId)?.userId ?? null;
+  if (report.targetPostId)
+    return maps.postMetaMap.get(report.targetPostId)?.userId ?? null;
   if (report.targetCommentId)
     return maps.commentMetaMap.get(report.targetCommentId)?.userId ?? null;
   if (report.targetStreamId)
     return maps.streamMetaMap.get(report.targetStreamId)?.userId ?? null;
   if (report.targetProductMessageId)
-    return maps.productMessageMetaMap.get(report.targetProductMessageId)?.userId ?? null;
+    return (
+      maps.productMessageMetaMap.get(report.targetProductMessageId)?.userId ??
+      null
+    );
   if (report.targetStreamMessageId)
-    return maps.streamMessageMetaMap.get(report.targetStreamMessageId)?.userId ?? null;
+    return (
+      maps.streamMessageMetaMap.get(report.targetStreamMessageId)?.userId ??
+      null
+    );
   if (report.targetReviewId)
     return maps.reviewMetaMap.get(report.targetReviewId)?.userId ?? null;
   return null;
 }
 
+/**
+ * 신고 대상 유형에 맞는 제목·본문·사용자명을 사전 조회 맵에서 찾는다.
+ *
+ * @param report - 대상별 ID가 포함된 신고 정보
+ * @param maps - 신고 대상 유형별 표시 메타 맵
+ * @returns 관리자 목록에 표시할 대상 요약 또는 null
+ */
 function getTargetPreviewFromMaps(
   report: {
     targetUserId: number | null;
@@ -694,27 +925,54 @@ function getTargetPreviewFromMaps(
     userMetaMap: Map<number, { username: string }>;
     productMetaMap: Map<number, { userId: number; title: string }>;
     postMetaMap: Map<number, { userId: number; title: string }>;
-    commentMetaMap: Map<number, { userId: number; payload: string; postId: number }>;
+    commentMetaMap: Map<
+      number,
+      { userId: number; payload: string; postId: number }
+    >;
     streamMetaMap: Map<number, { userId: number; title: string }>;
-    productMessageMetaMap: Map<number, { userId: number; payload: string | null; productId: number | null }>;
-    streamMessageMetaMap: Map<number, { userId: number; payload: string; broadcastId: number }>;
-    reviewMetaMap: Map<number, { userId: number; payload: string; productId: number }>;
+    productMessageMetaMap: Map<
+      number,
+      { userId: number; payload: string | null; productId: number | null }
+    >;
+    streamMessageMetaMap: Map<
+      number,
+      { userId: number; payload: string; broadcastId: number }
+    >;
+    reviewMetaMap: Map<
+      number,
+      { userId: number; payload: string; productId: number }
+    >;
   }
 ) {
   if (report.targetUserId) {
-    return maps.userMetaMap.get(report.targetUserId)?.username ?? `유저 #${report.targetUserId}`;
+    return (
+      maps.userMetaMap.get(report.targetUserId)?.username ??
+      `유저 #${report.targetUserId}`
+    );
   }
   if (report.targetProductId) {
-    return maps.productMetaMap.get(report.targetProductId)?.title ?? `상품 #${report.targetProductId}`;
+    return (
+      maps.productMetaMap.get(report.targetProductId)?.title ??
+      `상품 #${report.targetProductId}`
+    );
   }
   if (report.targetPostId) {
-    return maps.postMetaMap.get(report.targetPostId)?.title ?? `게시글 #${report.targetPostId}`;
+    return (
+      maps.postMetaMap.get(report.targetPostId)?.title ??
+      `게시글 #${report.targetPostId}`
+    );
   }
   if (report.targetCommentId) {
-    return maps.commentMetaMap.get(report.targetCommentId)?.payload ?? `댓글 #${report.targetCommentId}`;
+    return (
+      maps.commentMetaMap.get(report.targetCommentId)?.payload ??
+      `댓글 #${report.targetCommentId}`
+    );
   }
   if (report.targetStreamId) {
-    return maps.streamMetaMap.get(report.targetStreamId)?.title ?? `방송 #${report.targetStreamId}`;
+    return (
+      maps.streamMetaMap.get(report.targetStreamId)?.title ??
+      `방송 #${report.targetStreamId}`
+    );
   }
   if (report.targetProductMessageId) {
     return (
@@ -729,11 +987,21 @@ function getTargetPreviewFromMaps(
     );
   }
   if (report.targetReviewId) {
-    return maps.reviewMetaMap.get(report.targetReviewId)?.payload ?? `리뷰 #${report.targetReviewId}`;
+    return (
+      maps.reviewMetaMap.get(report.targetReviewId)?.payload ??
+      `리뷰 #${report.targetReviewId}`
+    );
   }
   return null;
 }
 
+/**
+ * 댓글·메시지·리뷰 신고가 속한 상위 게시글·상품·방송 제목을 찾는다.
+ *
+ * @param report - 간접 신고 대상 ID
+ * @param maps - 대상과 상위 콘텐츠의 사전 조회 메타 맵
+ * @returns 상위 콘텐츠 요약 또는 null
+ */
 function getTargetParentPreviewFromMaps(
   report: {
     targetCommentId: number | null;
@@ -744,40 +1012,61 @@ function getTargetParentPreviewFromMaps(
   maps: {
     productMetaMap: Map<number, { userId: number; title: string }>;
     postMetaMap: Map<number, { userId: number; title: string }>;
-    commentMetaMap: Map<number, { userId: number; payload: string; postId: number }>;
+    commentMetaMap: Map<
+      number,
+      { userId: number; payload: string; postId: number }
+    >;
     streamMetaMap: Map<number, { userId: number; title: string }>;
-    productMessageMetaMap: Map<number, { userId: number; payload: string | null; productId: number | null }>;
-    streamMessageMetaMap: Map<number, { userId: number; payload: string; broadcastId: number }>;
-    reviewMetaMap: Map<number, { userId: number; payload: string; productId: number }>;
+    productMessageMetaMap: Map<
+      number,
+      { userId: number; payload: string | null; productId: number | null }
+    >;
+    streamMessageMetaMap: Map<
+      number,
+      { userId: number; payload: string; broadcastId: number }
+    >;
+    reviewMetaMap: Map<
+      number,
+      { userId: number; payload: string; productId: number }
+    >;
   }
 ) {
   if (report.targetCommentId) {
-    const parentPostId = maps.commentMetaMap.get(report.targetCommentId)?.postId;
+    const parentPostId = maps.commentMetaMap.get(
+      report.targetCommentId
+    )?.postId;
     return parentPostId
       ? (maps.postMetaMap.get(parentPostId)?.title ?? `게시글 #${parentPostId}`)
       : null;
   }
 
   if (report.targetReviewId) {
-    const parentProductId = maps.reviewMetaMap.get(report.targetReviewId)?.productId;
+    const parentProductId = maps.reviewMetaMap.get(
+      report.targetReviewId
+    )?.productId;
     return parentProductId
-      ? (maps.productMetaMap.get(parentProductId)?.title ?? `상품 #${parentProductId}`)
+      ? (maps.productMetaMap.get(parentProductId)?.title ??
+          `상품 #${parentProductId}`)
       : null;
   }
 
   if (report.targetProductMessageId) {
-    const parentProductId =
-      maps.productMessageMetaMap.get(report.targetProductMessageId)?.productId;
+    const parentProductId = maps.productMessageMetaMap.get(
+      report.targetProductMessageId
+    )?.productId;
     return parentProductId
-      ? (maps.productMetaMap.get(parentProductId)?.title ?? `상품 #${parentProductId}`)
+      ? (maps.productMetaMap.get(parentProductId)?.title ??
+          `상품 #${parentProductId}`)
       : null;
   }
 
   if (report.targetStreamMessageId) {
-    const parentStreamId =
-      maps.streamMessageMetaMap.get(report.targetStreamMessageId)?.broadcastId;
+    const parentStreamId = maps.streamMessageMetaMap.get(
+      report.targetStreamMessageId
+    )?.broadcastId;
     return parentStreamId
-      ? (maps.streamMetaMap.get(parentStreamId)?.title ?? `방송 #${parentStreamId}`)
+      ? (maps.streamMetaMap.get(parentStreamId)?.title ??
+          `방송 #${parentStreamId}`)
       : null;
   }
 
@@ -844,40 +1133,56 @@ async function getUserNameMap(userIds: number[]) {
   return new Map(rows.map((row) => [row.id, row.username]));
 }
 
-async function getProductOwnerMap(reports: { targetProductId: number | null }[]) {
+/** 신고된 상품 ID별 소유자와 제목을 조회한다. */
+async function getProductOwnerMap(
+  reports: { targetProductId: number | null }[]
+) {
   const ids = reports
     .map((report) => report.targetProductId)
     .filter((id): id is number => !!id);
-  if (ids.length === 0) return new Map<number, { userId: number; title: string }>();
+  if (ids.length === 0)
+    return new Map<number, { userId: number; title: string }>();
 
   const rows = await db.product.findMany({
     where: { id: { in: [...new Set(ids)] } },
     select: { id: true, userId: true, title: true },
   });
 
-  return new Map(rows.map((row) => [row.id, { userId: row.userId, title: row.title }]));
+  return new Map(
+    rows.map((row) => [row.id, { userId: row.userId, title: row.title }])
+  );
 }
 
+/** 신고된 게시글 ID별 소유자와 제목을 조회한다. */
 async function getPostOwnerMap(reports: { targetPostId: number | null }[]) {
   const ids = reports
     .map((report) => report.targetPostId)
     .filter((id): id is number => !!id);
-  if (ids.length === 0) return new Map<number, { userId: number; title: string }>();
+  if (ids.length === 0)
+    return new Map<number, { userId: number; title: string }>();
 
   const rows = await db.post.findMany({
     where: { id: { in: [...new Set(ids)] } },
     select: { id: true, userId: true, title: true },
   });
 
-  return new Map(rows.map((row) => [row.id, { userId: row.userId, title: row.title }]));
+  return new Map(
+    rows.map((row) => [row.id, { userId: row.userId, title: row.title }])
+  );
 }
 
-async function getCommentOwnerMap(reports: { targetCommentId: number | null }[]) {
+/** 신고된 댓글 ID별 작성자와 본문, 상위 게시글 ID를 조회한다. */
+async function getCommentOwnerMap(
+  reports: { targetCommentId: number | null }[]
+) {
   const ids = reports
     .map((report) => report.targetCommentId)
     .filter((id): id is number => !!id);
   if (ids.length === 0)
-    return new Map<number, { userId: number; payload: string; postId: number }>();
+    return new Map<
+      number,
+      { userId: number; payload: string; postId: number }
+    >();
 
   const rows = await db.comment.findMany({
     where: { id: { in: [...new Set(ids)] } },
@@ -892,11 +1197,13 @@ async function getCommentOwnerMap(reports: { targetCommentId: number | null }[])
   );
 }
 
+/** 신고된 방송 ID별 소유자와 제목을 조회한다. */
 async function getStreamOwnerMap(reports: { targetStreamId: number | null }[]) {
   const ids = reports
     .map((report) => report.targetStreamId)
     .filter((id): id is number => !!id);
-  if (ids.length === 0) return new Map<number, { userId: number; title: string }>();
+  if (ids.length === 0)
+    return new Map<number, { userId: number; title: string }>();
 
   const rows = await db.broadcast.findMany({
     where: { id: { in: [...new Set(ids)] } },
@@ -911,6 +1218,7 @@ async function getStreamOwnerMap(reports: { targetStreamId: number | null }[]) {
   );
 }
 
+/** 신고된 거래 메시지 ID별 작성자와 본문, 상위 상품 ID를 조회한다. */
 async function getProductMessageOwnerMap(
   reports: { targetProductMessageId: number | null }[]
 ) {
@@ -918,7 +1226,10 @@ async function getProductMessageOwnerMap(
     .map((report) => report.targetProductMessageId)
     .filter((id): id is number => !!id);
   if (ids.length === 0)
-    return new Map<number, { userId: number; payload: string | null; productId: number | null }>();
+    return new Map<
+      number,
+      { userId: number; payload: string | null; productId: number | null }
+    >();
 
   const rows = await db.productMessage.findMany({
     where: { id: { in: [...new Set(ids)] } },
@@ -942,6 +1253,7 @@ async function getProductMessageOwnerMap(
   );
 }
 
+/** 신고된 방송 메시지 ID별 작성자와 본문, 상위 방송 ID를 조회한다. */
 async function getStreamMessageOwnerMap(
   reports: { targetStreamMessageId: number | null }[]
 ) {
@@ -949,7 +1261,10 @@ async function getStreamMessageOwnerMap(
     .map((report) => report.targetStreamMessageId)
     .filter((id): id is number => !!id);
   if (ids.length === 0)
-    return new Map<number, { userId: number; payload: string; broadcastId: number }>();
+    return new Map<
+      number,
+      { userId: number; payload: string; broadcastId: number }
+    >();
 
   const rows = await db.streamMessage.findMany({
     where: { id: { in: [...new Set(ids)] } },
@@ -973,12 +1288,16 @@ async function getStreamMessageOwnerMap(
   );
 }
 
+/** 신고된 리뷰 ID별 작성자와 본문, 상위 상품 ID를 조회한다. */
 async function getReviewOwnerMap(reports: { targetReviewId: number | null }[]) {
   const ids = reports
     .map((report) => report.targetReviewId)
     .filter((id): id is number => !!id);
   if (ids.length === 0)
-    return new Map<number, { userId: number; payload: string; productId: number }>();
+    return new Map<
+      number,
+      { userId: number; payload: string; productId: number }
+    >();
 
   const rows = await db.review.findMany({
     where: { id: { in: [...new Set(ids)] } },
@@ -993,20 +1312,24 @@ async function getReviewOwnerMap(reports: { targetReviewId: number | null }[]) {
   );
 }
 
-async function resolveReportTargetUserId(report: {
-  targetUserId: number | null;
-  targetProductId: number | null;
-  targetPostId: number | null;
-  targetCommentId: number | null;
-  targetStreamId: number | null;
-  targetProductMessageId: number | null;
-  targetStreamMessageId: number | null;
-  targetReviewId: number | null;
-}) {
+/** 직접·간접 신고 대상에서 실제 제재 대상 유저 ID를 transaction 안에서 조회한다. */
+async function resolveReportTargetUserId(
+  tx: Prisma.TransactionClient,
+  report: {
+    targetUserId: number | null;
+    targetProductId: number | null;
+    targetPostId: number | null;
+    targetCommentId: number | null;
+    targetStreamId: number | null;
+    targetProductMessageId: number | null;
+    targetStreamMessageId: number | null;
+    targetReviewId: number | null;
+  }
+) {
   if (report.targetUserId) return report.targetUserId;
 
   if (report.targetProductId) {
-    const product = await db.product.findUnique({
+    const product = await tx.product.findUnique({
       where: { id: report.targetProductId },
       select: { userId: true },
     });
@@ -1014,7 +1337,7 @@ async function resolveReportTargetUserId(report: {
   }
 
   if (report.targetPostId) {
-    const post = await db.post.findUnique({
+    const post = await tx.post.findUnique({
       where: { id: report.targetPostId },
       select: { userId: true },
     });
@@ -1022,7 +1345,7 @@ async function resolveReportTargetUserId(report: {
   }
 
   if (report.targetCommentId) {
-    const comment = await db.comment.findUnique({
+    const comment = await tx.comment.findUnique({
       where: { id: report.targetCommentId },
       select: { userId: true },
     });
@@ -1030,7 +1353,7 @@ async function resolveReportTargetUserId(report: {
   }
 
   if (report.targetStreamId) {
-    const broadcast = await db.broadcast.findUnique({
+    const broadcast = await tx.broadcast.findUnique({
       where: { id: report.targetStreamId },
       select: { liveInput: { select: { userId: true } } },
     });
@@ -1038,7 +1361,7 @@ async function resolveReportTargetUserId(report: {
   }
 
   if (report.targetProductMessageId) {
-    const message = await db.productMessage.findUnique({
+    const message = await tx.productMessage.findUnique({
       where: { id: report.targetProductMessageId },
       select: { userId: true },
     });
@@ -1046,7 +1369,7 @@ async function resolveReportTargetUserId(report: {
   }
 
   if (report.targetStreamMessageId) {
-    const message = await db.streamMessage.findUnique({
+    const message = await tx.streamMessage.findUnique({
       where: { id: report.targetStreamMessageId },
       select: { userId: true },
     });
@@ -1054,7 +1377,7 @@ async function resolveReportTargetUserId(report: {
   }
 
   if (report.targetReviewId) {
-    const review = await db.review.findUnique({
+    const review = await tx.review.findUnique({
       where: { id: report.targetReviewId },
       select: { userId: true },
     });
@@ -1064,7 +1387,72 @@ async function resolveReportTargetUserId(report: {
   return null;
 }
 
-async function deleteReportTargetContent(
+type AdminNotificationJobPayload = Extract<
+  ModerationOutboxJob,
+  { kind: "ADMIN_NOTIFICATION" }
+>["payload"];
+
+/** 관리자 조치 알림에 outbox와 Notification이 공유할 고유 전달 키를 부여한다. */
+function buildAdminNotificationJob(
+  actionKey: string,
+  suffix: string,
+  payload: Omit<AdminNotificationJobPayload, "deliveryKey">
+): ModerationOutboxJob {
+  const dedupeKey = `${actionKey}:notification:${suffix}`;
+  return {
+    dedupeKey,
+    kind: "ADMIN_NOTIFICATION",
+    payload: { ...payload, deliveryKey: dedupeKey },
+  };
+}
+
+/** 신고 승인에 따른 계정 정지 DB 변경과 감사 로그를 같은 transaction에 기록한다. */
+async function banReportTargetUserTx(
+  tx: Prisma.TransactionClient,
+  adminId: number,
+  targetUserId: number,
+  reason: string,
+  durationDays: number
+): Promise<Date> {
+  const user = await tx.user.findUnique({
+    where: { id: targetUserId },
+    select: { role: true },
+  });
+  if (!user)
+    throw new ReportModerationError("조치 대상 유저를 찾을 수 없습니다.");
+  if (user.role === "ADMIN") {
+    throw new ReportModerationError("관리자는 정지할 수 없습니다.");
+  }
+
+  const bannedUntil =
+    durationDays === 0
+      ? new Date("9999-12-31T23:59:59.999Z")
+      : new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+  await tx.user.update({
+    where: { id: targetUserId },
+    data: { bannedAt: new Date(), bannedUntil },
+  });
+  await tx.auditLog.create({
+    data: {
+      adminId,
+      action: "BAN_USER",
+      targetType: "USER",
+      targetId: targetUserId,
+      reason: `${reason} (${durationDays === 0 ? "영구 정지" : `${durationDays}일 정지`})`,
+    },
+  });
+  return bannedUntil;
+}
+
+interface ReportContentDeletionResult {
+  outboxJobs: ModerationOutboxJob[];
+  revalidationPaths: string[];
+  productDetailId?: number;
+}
+
+/** 신고 대상 콘텐츠의 DB 삭제·감사 로그를 transaction 안에서 처리한다. */
+async function deleteReportTargetContentTx(
+  tx: Prisma.TransactionClient,
   adminId: number,
   report: {
     targetProductId: number | null;
@@ -1075,112 +1463,291 @@ async function deleteReportTargetContent(
     targetStreamMessageId: number | null;
     targetReviewId: number | null;
   },
-  reason: string
-): Promise<ServiceResult> {
+  reason: string,
+  actionKey: string
+): Promise<ReportContentDeletionResult> {
   if (report.targetProductId) {
-    const result = await deleteProductByAdmin(adminId, report.targetProductId, reason);
-    return result.success ? { success: true } : result;
+    const product = await tx.product.findUnique({
+      where: { id: report.targetProductId },
+      select: {
+        id: true,
+        title: true,
+        userId: true,
+        search_tags: { select: { name: true } },
+        images: { select: { url: true } },
+        chat_rooms: { select: { id: true } },
+      },
+    });
+    if (!product) throw new ReportModerationError("이미 삭제된 상품입니다.");
+    const imageAssetIds = await hardDeleteProductTx(tx, product);
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_PRODUCT",
+        targetType: "PRODUCT",
+        targetId: product.id,
+        reason: `Title: ${product.title} / OwnerID: ${product.userId} / Reason: ${reason}`,
+      },
+    });
+    const outboxJobs: ModerationOutboxJob[] = [
+      buildAdminNotificationJob(actionKey, "delete-product", {
+        targetUserId: product.userId,
+        type: "DELETE_PRODUCT",
+        title: product.title,
+        reason,
+        link: "/profile/my-sales",
+      }),
+    ];
+    if (imageAssetIds.length) {
+      outboxJobs.push({
+        dedupeKey: `${actionKey}:delete-product-images`,
+        kind: "DELETE_IMAGE_ASSETS",
+        payload: { providerAssetIds: imageAssetIds },
+      });
+    }
+    return {
+      outboxJobs,
+      revalidationPaths: [
+        "/products",
+        "/profile",
+        `/products/view/${product.id}`,
+        "/chat",
+      ],
+      productDetailId: product.id,
+    };
   }
 
   if (report.targetPostId) {
-    return await deletePostByAdmin(adminId, report.targetPostId, reason);
+    const post = await tx.post.findUnique({
+      where: { id: report.targetPostId },
+      select: {
+        id: true,
+        title: true,
+        userId: true,
+        user: { select: { username: true } },
+        tags: { select: { name: true } },
+        video: { select: { providerAssetId: true, uploadUid: true } },
+      },
+    });
+    if (!post) throw new ReportModerationError("이미 삭제된 게시글입니다.");
+    const cleanup = await hardDeletePostTx(tx, post);
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_POST",
+        targetType: "POST",
+        targetId: post.id,
+        reason: `Title: ${post.title} / OwnerID: ${post.userId} / Reason: ${reason}`,
+      },
+    });
+    const outboxJobs: ModerationOutboxJob[] = [
+      buildAdminNotificationJob(actionKey, "delete-post", {
+        targetUserId: post.userId,
+        type: "DELETE_POST",
+        title: post.title,
+        reason,
+        link: "/profile",
+      }),
+    ];
+    if (cleanup.imageAssetIds.length) {
+      outboxJobs.push({
+        dedupeKey: `${actionKey}:delete-post-images`,
+        kind: "DELETE_IMAGE_ASSETS",
+        payload: { providerAssetIds: cleanup.imageAssetIds },
+      });
+    }
+    if (cleanup.assetUid) {
+      outboxJobs.push({
+        dedupeKey: `${actionKey}:delete-post-video`,
+        kind: "DELETE_POST_VIDEO",
+        payload: { providerAssetId: cleanup.assetUid },
+      });
+    }
+    return {
+      outboxJobs,
+      revalidationPaths: [
+        "/posts",
+        `/posts/${post.id}`,
+        `/profile/${post.user.username}`,
+      ],
+    };
   }
 
   if (report.targetStreamId) {
-    return await deleteStreamByAdmin(adminId, report.targetStreamId, reason);
+    const broadcast = await tx.broadcast.findUnique({
+      where: { id: report.targetStreamId },
+      select: {
+        id: true,
+        title: true,
+        liveInput: {
+          select: { userId: true, user: { select: { username: true } } },
+        },
+      },
+    });
+    if (!broadcast) throw new ReportModerationError("이미 종료된 방송입니다.");
+    const deleted = await deleteBroadcastTx(tx, broadcast.id);
+    if (!deleted.success) throw new ReportModerationError(deleted.error);
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_STREAM",
+        targetType: "STREAM",
+        targetId: broadcast.id,
+        reason: `Force ended stream: ${broadcast.title} / Owner: ${broadcast.liveInput.userId} / Reason: ${reason}`,
+      },
+    });
+    const outboxJobs: ModerationOutboxJob[] = [
+      buildAdminNotificationJob(actionKey, "delete-stream", {
+        targetUserId: broadcast.liveInput.userId,
+        type: "DELETE_STREAM",
+        title: broadcast.title,
+        reason,
+        link: `/profile/${broadcast.liveInput.user.username}/channel`,
+      }),
+    ];
+    if (deleted.cleanup) {
+      outboxJobs.push({
+        dedupeKey: `${actionKey}:delete-stream-assets`,
+        kind: "DELETE_BROADCAST_ASSETS",
+        payload: deleted.cleanup,
+      });
+    }
+    return {
+      outboxJobs,
+      revalidationPaths: [
+        "/streams",
+        `/streams/${broadcast.id}`,
+        `/profile/${broadcast.liveInput.user.username}/channel`,
+      ],
+    };
   }
 
   if (report.targetCommentId) {
-    const comment = await db.comment.findUnique({
+    const comment = await tx.comment.findUnique({
       where: { id: report.targetCommentId },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, postId: true },
     });
-    if (!comment) return { success: false, error: "이미 삭제된 댓글입니다." };
-
-    await db.comment.delete({ where: { id: comment.id } });
-    await createAuditLog({
-      adminId,
-      action: "DELETE_COMMENT",
-      targetType: "COMMENT",
-      targetId: comment.id,
-      reason,
+    if (!comment) throw new ReportModerationError("이미 삭제된 댓글입니다.");
+    await tx.comment.delete({ where: { id: comment.id } });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_COMMENT",
+        targetType: "COMMENT",
+        targetId: comment.id,
+        reason,
+      },
     });
-    void sendAdminActionNotification({
-      targetUserId: comment.userId,
-      type: "DELETE_COMMENT",
-      reason,
-    });
-    return { success: true };
+    return {
+      outboxJobs: [
+        buildAdminNotificationJob(actionKey, "delete-comment", {
+          targetUserId: comment.userId,
+          type: "DELETE_COMMENT",
+          reason,
+        }),
+      ],
+      revalidationPaths: ["/posts", `/posts/${comment.postId}`],
+    };
   }
 
   if (report.targetReviewId) {
-    const review = await db.review.findUnique({
+    const review = await tx.review.findUnique({
       where: { id: report.targetReviewId },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, productId: true },
     });
-    if (!review) return { success: false, error: "이미 삭제된 리뷰입니다." };
-
-    await db.review.delete({ where: { id: review.id } });
-    await createAuditLog({
-      adminId,
-      action: "DELETE_REVIEW",
-      targetType: "REVIEW",
-      targetId: review.id,
-      reason,
+    if (!review) throw new ReportModerationError("이미 삭제된 리뷰입니다.");
+    await tx.review.delete({ where: { id: review.id } });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_REVIEW",
+        targetType: "REVIEW",
+        targetId: review.id,
+        reason,
+      },
     });
-    void sendAdminActionNotification({
-      targetUserId: review.userId,
-      type: "DELETE_REVIEW",
-      reason,
-    });
-    return { success: true };
+    return {
+      outboxJobs: [
+        buildAdminNotificationJob(actionKey, "delete-review", {
+          targetUserId: review.userId,
+          type: "DELETE_REVIEW",
+          reason,
+        }),
+      ],
+      revalidationPaths: ["/products", `/products/view/${review.productId}`],
+      productDetailId: review.productId,
+    };
   }
 
   if (report.targetProductMessageId) {
-    const message = await db.productMessage.findUnique({
+    const message = await tx.productMessage.findUnique({
       where: { id: report.targetProductMessageId },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, productChatRoomId: true },
     });
-    if (!message) return { success: false, error: "이미 삭제된 메시지입니다." };
-
-    await db.productMessage.delete({ where: { id: message.id } });
-    await createAuditLog({
-      adminId,
-      action: "DELETE_MESSAGE",
-      targetType: "MESSAGE",
-      targetId: message.id,
-      reason,
+    if (!message) throw new ReportModerationError("이미 삭제된 메시지입니다.");
+    await tx.productMessage.delete({ where: { id: message.id } });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_MESSAGE",
+        targetType: "MESSAGE",
+        targetId: message.id,
+        reason,
+      },
     });
-    void sendAdminActionNotification({
-      targetUserId: message.userId,
-      type: "DELETE_MESSAGE",
-      reason,
-    });
-    return { success: true };
+    return {
+      outboxJobs: [
+        buildAdminNotificationJob(actionKey, "delete-product-message", {
+          targetUserId: message.userId,
+          type: "DELETE_MESSAGE",
+          reason,
+        }),
+      ],
+      revalidationPaths: [
+        "/chat",
+        ...(message.productChatRoomId
+          ? [`/chats/${message.productChatRoomId}`]
+          : []),
+      ],
+    };
   }
 
   if (report.targetStreamMessageId) {
-    const message = await db.streamMessage.findUnique({
+    const message = await tx.streamMessage.findUnique({
       where: { id: report.targetStreamMessageId },
-      select: { id: true, userId: true },
+      select: {
+        id: true,
+        userId: true,
+        stream_chat_room: { select: { broadcastId: true } },
+      },
     });
-    if (!message) return { success: false, error: "이미 삭제된 메시지입니다." };
-
-    await db.streamMessage.delete({ where: { id: message.id } });
-    await createAuditLog({
-      adminId,
-      action: "DELETE_MESSAGE",
-      targetType: "MESSAGE",
-      targetId: message.id,
-      reason,
+    if (!message) throw new ReportModerationError("이미 삭제된 메시지입니다.");
+    await tx.streamMessage.delete({ where: { id: message.id } });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_MESSAGE",
+        targetType: "MESSAGE",
+        targetId: message.id,
+        reason,
+      },
     });
-    void sendAdminActionNotification({
-      targetUserId: message.userId,
-      type: "DELETE_MESSAGE",
-      reason,
-    });
-    return { success: true };
+    return {
+      outboxJobs: [
+        buildAdminNotificationJob(actionKey, "delete-stream-message", {
+          targetUserId: message.userId,
+          type: "DELETE_MESSAGE",
+          reason,
+        }),
+      ],
+      revalidationPaths: [
+        "/streams",
+        `/streams/${message.stream_chat_room.broadcastId}`,
+      ],
+    };
   }
 
-  return { success: false, error: "이 신고 대상은 삭제 조치를 지원하지 않습니다." };
+  throw new ReportModerationError(
+    "이 신고 대상은 삭제 조치를 지원하지 않습니다."
+  );
 }

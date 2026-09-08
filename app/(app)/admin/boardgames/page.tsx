@@ -10,6 +10,7 @@
  * 2026.04.29  임도헌   Modified  BGG API 미사용 및 장문 데이터 제외 범위 주석 정리
  * 2026.05.02  임도헌   Modified  메커니즘/분류 한국어명 CSV import 흐름 안내 추가
  * 2026.05.03  임도헌   Modified  검증된 카테고리 CSV import 흐름 안내 추가
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import { redirect } from "next/navigation";
@@ -29,11 +30,10 @@ export const dynamic = "force-dynamic";
  * - 공개 상태 관리
  * - BGG API 직접 호출과 장문 description import는 제외
  */
-export default async function AdminBoardGamesPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; q?: string };
+export default async function AdminBoardGamesPage(props: {
+  searchParams: Promise<{ page?: string; q?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawPage = Number(searchParams.page);
   const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const query = searchParams.q || "";

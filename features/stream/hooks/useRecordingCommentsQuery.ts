@@ -17,6 +17,7 @@
  * 2026.03.31  임도헌   Modified  커서 조회와 평탄화 반환 역할이 보이도록 설명 톤 통일
  * 2026.05.13  임도헌   Modified  댓글 페이징 응답의 nextCursor를 사용해 불필요한 빈 추가 요청을 방지
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
+ * 2026.08.13  임도헌   Modified  다시보기 댓글 query key를 조회자별로 분리
  */
 "use client";
 
@@ -82,12 +83,17 @@ async function fetchRecordingCommentsPage(
  * - 평탄화된 comments 배열과 페이지네이션 상태를 함께 반환
  *
  * @param {number} vodId - 대상 녹화본(VOD) ID
+ * @param {number} viewerId - 댓글 필터 기준 조회자 ID
  * @param {number} [pageSize=10] - 페이지당 로드할 댓글 수
  */
-export function useRecordingCommentsQuery(vodId: number, pageSize = 10) {
+export function useRecordingCommentsQuery(
+  vodId: number,
+  viewerId: number,
+  pageSize = 10
+) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
-      queryKey: queryKeys.streams.vodComments(vodId),
+      queryKey: queryKeys.streams.vodComments(vodId, viewerId),
       queryFn: async ({ pageParam }) => {
         // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
         return fetchRecordingCommentsPage(

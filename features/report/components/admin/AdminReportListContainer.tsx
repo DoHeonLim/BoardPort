@@ -18,6 +18,9 @@
  * 2026.04.18  임도헌   Modified  초기 번들 부담을 줄이기 위해 처리 모달을 지연 로딩하고 내부 링크 프리패치를 제한
  * 2026.04.27  임도헌   Modified  신고 처리 모달이 대상 타입에 맞춰 조치 추천을 보정할 수 있도록 targetType 전달
  * 2026.04.28  임도헌   Modified  신고 처리 모달에 실제 조치 대상 유저 메타를 전달
+ * 2026.09.01  임도헌   Modified  중간 너비에서 신고 정보와 처리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
+ * 2026.09.04  임도헌   Modified  신고 목록에 대상 제목·사용자명과 작성자 식별 정보 표시
+ * 2026.09.06  임도헌   Modified  파란 카드 액션 버튼의 라이트모드 포커스를 흰 내부 링으로 구분
  */
 
 "use client";
@@ -162,7 +165,7 @@ export default function AdminReportListContainer({
 
   return (
     <div className="space-y-6">
-      <AdminSearchBar placeholder="신고자, 사유, 설명, 대상 ID 검색" />
+      <AdminSearchBar placeholder="대상명, 신고자, 사유, 설명, ID 검색" />
 
       {/* 탭 필터 */}
       <div className="flex gap-2 border-b border-border-subtle overflow-x-auto scrollbar-hide">
@@ -188,7 +191,7 @@ export default function AdminReportListContainer({
         ))}
       </div>
 
-      <div className="space-y-4 md:hidden">
+      <div className="space-y-4 xl:hidden">
         {reports.length === 0 ? (
           <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
             {hasQuery
@@ -216,6 +219,14 @@ export default function AdminReportListContainer({
                       </span>
                     </div>
                     <div className="mt-3 flex flex-col gap-1.5">
+                      {report.targetPreview ? (
+                        <p
+                          className="line-clamp-2 text-sm font-bold leading-5 text-primary"
+                          title={report.targetPreview}
+                        >
+                          {report.targetPreview}
+                        </p>
+                      ) : null}
                       <div className="flex items-center gap-2">
                         <span className="rounded-full bg-surface-dim px-2 py-1 text-xs font-mono text-muted">
                           {targetLabel} #{getReportTargetId(report)}
@@ -240,6 +251,13 @@ export default function AdminReportListContainer({
                           </span>
                         )}
                       </div>
+                      {report.targetResolvedUsername &&
+                      getReportTargetType(report) !== "USER" ? (
+                        <p className="text-xs leading-5 text-muted">
+                          작성자 {report.targetResolvedUsername} #
+                          {report.targetResolvedUserId}
+                        </p>
+                      ) : null}
                       {targetParentLabel && report.targetParentPreview ? (
                         <p className="text-xs leading-5 text-muted">
                           {targetParentLabel}: {report.targetParentPreview}
@@ -259,7 +277,7 @@ export default function AdminReportListContainer({
                   </div>
                   <button
                     onClick={() => setSelectedReportId(report.id)}
-                    className="focus-ring-strong shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark"
+                    className="focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white dark:focus-visible:ring-brand-light shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-dark"
                   >
                     {report.status === "PENDING" ? "처리하기" : "내역보기"}
                   </button>
@@ -308,14 +326,14 @@ export default function AdminReportListContainer({
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm xl:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">
               <tr>
                 <th className="px-6 py-4 w-20">상태</th>
                 <th className="px-6 py-4 w-32">사유</th>
-                <th className="px-6 py-4 w-40">대상</th>
+                <th className="px-6 py-4 w-64">대상</th>
                 <th className="px-6 py-4">설명</th>
                 <th className="px-6 py-4 w-32">신고자</th>
                 <th className="px-6 py-4 w-32">일시</th>
@@ -351,6 +369,14 @@ export default function AdminReportListContainer({
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">
+                          {report.targetPreview ? (
+                            <span
+                              className="max-w-64 truncate font-bold text-primary"
+                              title={report.targetPreview}
+                            >
+                              {report.targetPreview}
+                            </span>
+                          ) : null}
                           <div className="flex items-center gap-2">
                             <span className="bg-surface-dim px-2 py-1 rounded text-xs font-mono text-muted">
                               {targetLabel} #{getReportTargetId(report)}
@@ -360,13 +386,13 @@ export default function AdminReportListContainer({
                                 href={targetHref}
                                 prefetch={false}
                                 target={isInternalTarget ? undefined : "_blank"}
-                              rel={
-                                isInternalTarget
-                                  ? undefined
-                                  : "noopener noreferrer"
-                              }
-                              className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
-                            >
+                                rel={
+                                  isInternalTarget
+                                    ? undefined
+                                    : "noopener noreferrer"
+                                }
+                                className="focus-ring-soft rounded text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                              >
                                 <ArrowTopRightOnSquareIcon className="size-4" />
                               </Link>
                             )}
@@ -376,6 +402,13 @@ export default function AdminReportListContainer({
                               </span>
                             )}
                           </div>
+                          {report.targetResolvedUsername &&
+                          getReportTargetType(report) !== "USER" ? (
+                            <span className="text-xs leading-5 text-muted">
+                              작성자 {report.targetResolvedUsername} #
+                              {report.targetResolvedUserId}
+                            </span>
+                          ) : null}
                           {targetParentLabel && report.targetParentPreview ? (
                             <span className="text-xs leading-5 text-muted">
                               {targetParentLabel}: {report.targetParentPreview}
@@ -468,7 +501,9 @@ export default function AdminReportListContainer({
           }
           targetParentPreview={selectedReport?.targetParentPreview ?? null}
           targetResolvedUserId={selectedReport?.targetResolvedUserId ?? null}
-          targetResolvedUsername={selectedReport?.targetResolvedUsername ?? null}
+          targetResolvedUsername={
+            selectedReport?.targetResolvedUsername ?? null
+          }
           targetUrl={
             selectedReport ? getDirectTargetUrl(selectedReport, returnTo) : null
           }

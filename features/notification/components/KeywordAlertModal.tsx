@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.16  임도헌   Created   NotificationListContainer 상단 키워드 버튼에서 여는 전용 관리 모달 추가
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -16,6 +17,7 @@ import BottomSheet from "@/components/global/BottomSheet";
 import KeywordAlertManager from "@/features/notification/components/KeywordAlertManager";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import type { RegionRange } from "@/generated/prisma/enums";
 
 interface KeywordAlertModalProps {
@@ -55,19 +57,20 @@ export default function KeywordAlertModal({
   useEffect(() => {
     if (!isOpen || isMobile) return;
 
-    setTimeout(() => dialogRef.current?.focus(), 0);
     lockBodyScroll();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       unlockBodyScroll();
-      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMobile, isOpen, onClose]);
+  }, [isMobile, isOpen]);
+
+  useModalFocus({
+    open: isOpen,
+    enabled: isMounted && !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   if (!isOpen) return null;
 

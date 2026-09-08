@@ -13,11 +13,13 @@
  * 2026.03.07  임도헌   Modified  키워드 알림 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  push 성공 판정 기준을 res.data.sent로 정정
  * 2026.05.16  임도헌   Modified  키워드 알림 병렬 작업 타입을 unknown으로 정리
+ * 2026.08.21  임도헌   Modified  사용자 알림 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { MAX_KEYWORD_PER_USER } from "@/lib/constants";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import { getBlockedUserIds } from "@/features/user/service/block";
@@ -155,7 +157,7 @@ export async function checkAndSendKeywordAlert({
 
     // In-App Broadcast
     tasks.push(
-      supabase.channel(`user-${userId}-notifications`).send({
+      supabase.channel(notificationRealtimeTopic(userId)).send({
         type: "broadcast",
         event: "notification",
         payload: {

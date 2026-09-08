@@ -12,6 +12,7 @@
  * 2026.02.24  임도헌   Modified  카카오 프로필 정보(KakaoProfile) 타입 추가
  * 2026.03.07  임도헌   Modified  타입 섹션 구조 정리
  * 2026.04.02  임도헌   Modified  온보딩 상태 타입(AuthOnboardingState)을 service 내부 선언에서 도메인 공용 타입으로 이동
+ * 2026.07.31  임도헌   Modified  카카오 선택 이메일의 동의·유효성·인증 상태 필드 추가
  */
 
 // =============================================================================
@@ -71,6 +72,9 @@ export interface KakaoProfile {
   id: number; // 카카오 고유 식별자
   kakao_account?: {
     email?: string;
+    email_needs_agreement?: boolean;
+    is_email_valid?: boolean;
+    is_email_verified?: boolean;
     profile?: {
       nickname?: string;
       profile_image_url?: string;

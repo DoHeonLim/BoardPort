@@ -12,6 +12,7 @@
  * 2026.03.21  임도헌   Modified  방송국 전용 소개글 저장을 채널 페이지 액션으로 분리
  * 2026.04.03  임도헌   Modified  프로필 정보 조회 액션과 위치 설정 액션 설명 보강
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  비밀번호 설정·변경 후 현재 세션 버전 재발급
  */
 "use server";
 
@@ -37,6 +38,7 @@ import type {
   ChannelDescriptionActionState,
 } from "@/features/user/types";
 import type { LocationData } from "@/features/map/types";
+import { saveUserSession } from "@/features/auth/service/authSession";
 
 /**
  * 프로필 수정 Action
@@ -108,6 +110,10 @@ export async function editProfileAction(
       };
     }
     return { success: false, errors: { formErrors: [result.error!] } };
+  }
+
+  if (current.needsPasswordSetup && parsed.data.password) {
+    await saveUserSession(session.id);
   }
 
   // 프로필/채널 화면 재검증
@@ -209,6 +215,9 @@ export async function changePasswordAction(
     }
     return { success: false, errors: { _: [result.error!] } };
   }
+
+  // 다른 기기의 이전 세션은 폐기하되 현재 기기는 갱신된 버전으로 계속 사용한다.
+  await saveUserSession(session.id);
 
   return { success: true };
 }

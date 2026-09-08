@@ -10,11 +10,14 @@
  * 2025.12.21  임도헌   Modified  isActive=true && pushEnabled!=false 일 때만 유효(true)로 판단
  * 2026.01.04  임도헌   Modified  Prisma Route Handler runtime=nodejs 명시
  * 2026.01.23  임도헌   Modified  Service(checkSubscriptionStatus) 호출로 변경
+ * 2026.08.13  임도헌   Modified  endpoint+키 소유 증명으로 계정 전환 누출 차단
+ * 2026.08.13  임도헌   Modified  표시 보호 Worker 버전을 확인한 기기만 legacy 구독 복구 허용
  */
 
 import { NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import { checkSubscriptionStatus } from "@/features/notification/service/subscription";
+import { parseGuardedPushSubscriptionDTO } from "@/features/notification/utils/subscription";
 
 export const runtime = "nodejs";
 
@@ -36,8 +39,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const { endpoint } = await req.json();
-    if (!endpoint || typeof endpoint !== "string") {
+    const subscription = parseGuardedPushSubscriptionDTO(await req.json());
+    if (!subscription) {
       return NextResponse.json(
         { isValid: false, reason: "needs_reconnect" },
         { status: 400 }
@@ -45,7 +48,7 @@ export async function POST(req: Request) {
     }
 
     // Service 호출: 해당 endpoint가 활성 상태인지 검사
-    const result = await checkSubscriptionStatus(session.id, endpoint);
+    const result = await checkSubscriptionStatus(session.id, subscription);
 
     return NextResponse.json(result);
   } catch (error) {
@@ -53,4 +56,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ isValid: false, reason: "needs_reconnect" });
   }
 }
-

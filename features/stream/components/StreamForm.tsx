@@ -32,6 +32,7 @@
  * 2026.05.15  임도헌   Modified   비공개 방송 입장 비밀번호 필드의 브라우저 자동완성 경고를 줄이기 위해 new-password 힌트 추가
  * 2026.05.16  임도헌   Modified   방송 카테고리 parentId 타입을 StreamCategory에 반영해 any 의존 제거
  * 2026.05.30  임도헌   Modified   모바일 방송 생성 폼의 입력 밀도 조정
+ * 2026.08.22  임도헌   Modified   방송 썸네일 전용 업로드 용도와 MediaAsset delivery URL 사용
  */
 "use client";
 
@@ -56,7 +57,6 @@ import TagInput from "@/components/ui/TagInput";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import { streamFormSchema, StreamFormValues } from "@/features/stream/schemas";
 import type { StreamCategory } from "@/features/stream/types";
-import { buildStreamImageDeliveryUrl } from "@/features/stream/utils/image";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { cn } from "@/lib/utils";
@@ -211,7 +211,7 @@ export default function StreamForm({
         if (!CF_HASH) {
           throw new Error("Cloudflare 환경변수가 설정되지 않았습니다.");
         }
-        const res = await getUploadUrl();
+        const res = await getUploadUrl("STREAM_THUMBNAIL");
         if (!res.success) {
           throw new Error(res.error ?? "Failed to get upload URL");
         }
@@ -225,7 +225,7 @@ export default function StreamForm({
         });
         if (!uploadResp.ok) throw new Error("이미지 업로드 실패");
 
-        thumbnail = buildStreamImageDeliveryUrl(CF_HASH, res.result.id);
+        thumbnail = res.result.deliveryUrl;
         thumbnailAnimated = files[0]?.type === "image/gif";
       }
 

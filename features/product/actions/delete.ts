@@ -11,6 +11,7 @@
  * 2026.02.22  임도헌   Modified  상품 삭제 시 관련된 모든 유저의 채팅방 목록 캐시 무효화 추가
  * 2026.03.05  임도헌   Modified  삭제 시의 복잡한 개인화 캐시 `revalidateTag` 의존성 제거, 공통 상세 정보 캐시 무효화만 남겨 최적화
  * 2026.04.02  임도헌   Modified  파일 설명과 삭제 액션 주석을 현재 서버 액션 톤으로 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -44,7 +45,7 @@ export async function deleteProductAction(
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.PRODUCT_DETAIL(productId)); // 상세 캐시는 무효화
+  revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 }); // 상세 캐시는 무효화
   revalidatePath("/products");
   revalidatePath("/profile");
 

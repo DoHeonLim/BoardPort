@@ -26,6 +26,7 @@
    2026.05.30  임도헌 - 다크모드 border 토큰 대비를 낮춰 모바일 밀집 화면 경계선 톤 정리
    2026.06.19  임도헌 - 모달 보조 버튼 공통 클래스에 inline-flex 정렬을 추가해 버튼 크기/정렬 기준 통일
    2026.06.19  임도헌 - 모바일 Empty State 상단 여백을 줄여 필터 직후 빈 상태 피드백이 더 빨리 보이도록 조정
+   2026.08.27  임도헌 - 사용자 모션 축소 설정에 맞춰 전역 애니메이션·전환·부드러운 스크롤을 최소화
  */
 
 @tailwind base;
@@ -37,6 +38,7 @@
   scrollbar-width: thin;
   scrollbar-color: #4338ca #ffffff;
 }
+
 .scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -362,5 +364,23 @@ input::-webkit-credentials-auto-fill-button {
     max-width: 100% !important;
     min-height: 0 !important;
     margin: 0 auto !important;
+  }
+}
+
+/* 전정기관 민감 사용자는 비필수 움직임과 부드러운 스크롤을 최소화 */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-delay: -0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

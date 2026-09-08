@@ -11,26 +11,26 @@
  * 2026.01.14  임도헌   Modified  [UI] 라운딩 및 배경색 조정
  * 2026.01.17  임도헌   Moved     components/stream -> features/stream/components
  * 2026.03.21  임도헌   Modified  플레이어 폴백 카드 보더를 subtle 톤으로 맞춰 녹화 상세 패널 기준과 통일
+ * 2026.08.21  임도헌   Modified  권한 확인 후 발급된 단기 playback token으로만 iframe 재생
+ * 2026.08.28  임도헌   Modified  정적 Cloudflare iframe 셸을 서버 컴포넌트로 전환
  */
-
-"use client";
 
 import { cn } from "@/lib/utils";
 
 interface RecordingVideoProps {
-  uid: string;
+  playbackId: string | null;
 }
 
 /**
  * 녹화 영상을 재생하는 iframe 플레이어
  * - Cloudflare Stream URL을 사용하여 영상을 로드
- * - 환경 변수가 설정되지 않았거나 UID가 없는 경우 안내 메시지를 표시
+ * - 환경 변수가 설정되지 않았거나 signed playback token이 없는 경우 안내 메시지를 표시
  */
-export default function RecordingVideo({ uid }: RecordingVideoProps) {
+export default function RecordingVideo({ playbackId }: RecordingVideoProps) {
   const domain = process.env.NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN;
 
   // 환경변수 누락 가드 (빌드/환경 오설정 대비)
-  if (!domain) {
+  if (!domain || !playbackId) {
     return (
       <div className="flex justify-center w-full">
         <div className="grid w-full aspect-video place-items-center rounded-xl border border-border-subtle bg-surface-dim">
@@ -40,7 +40,7 @@ export default function RecordingVideo({ uid }: RecordingVideoProps) {
     );
   }
 
-  const src = `${domain}/${uid}/iframe`;
+  const src = `${domain}/${playbackId}/iframe`;
 
   return (
     <div className="flex justify-center w-full">
@@ -51,9 +51,9 @@ export default function RecordingVideo({ uid }: RecordingVideoProps) {
         )}
       >
         <iframe
-          key={uid} // uid 변경 시 리마운트 보장
+          key={playbackId} // token 변경 시 리마운트 보장
           src={src}
-          title={`Recording player • ${uid}`}
+          title="Recording player"
           loading="lazy"
           className="w-full h-full"
           // 표준 허용 목록 정리 (세미콜론 끝 제거)

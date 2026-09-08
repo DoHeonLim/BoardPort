@@ -13,11 +13,13 @@
  * 2026.03.10  임도헌   Modified  신고 승인 후 강제 정지 전용 banUserByAdmin 경로 추가
  * 2026.04.03  임도헌   Modified  관리자 유저 목록 필터 타입을 user/types 공용 정의로 이동
  * 2026.05.16  임도헌   Modified  관리자 유저 목록 select를 selects.ts로 분리
+ * 2026.08.21  임도헌   Modified  이용 정지 시스템 이벤트를 서버 전용 private topic으로 전환
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { createAuditLog } from "@/features/report/service/audit";
 import { sendAdminActionNotification } from "@/features/notification/service/notification";
 import type { Role, Prisma } from "@/generated/prisma/client";
@@ -336,7 +338,7 @@ export async function toggleUserBan(
     });
 
     // 현재 세션 강제 종료용 실시간 신호
-    await supabase.channel(`user-${targetUserId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
       type: "broadcast",
       event: "sys_event",
       payload: {
@@ -417,7 +419,7 @@ export async function banUserByAdmin(
       link: "/profile",
     });
 
-    await supabase.channel(`user-${targetUserId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
       type: "broadcast",
       event: "sys_event",
       payload: {

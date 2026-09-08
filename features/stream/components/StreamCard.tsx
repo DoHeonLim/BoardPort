@@ -53,6 +53,8 @@
  * 2026.05.15  임도헌   Modified  모바일 터치 환경에서 썸네일 미리보기 버튼으로 라이브 프리뷰를 켤 수 있도록 보강
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타를 좋아요/댓글/조회수 Heroicons 통계 문법으로 통일
  * 2026.06.22  임도헌   Modified  레일 카드 카테고리 배지가 남은 줄 전체를 차지하지 않도록 폭 계산 조정
+ * 2026.09.03  임도헌   Modified  카드 이동과 팔로우 CTA를 분리하고 PRIVATE 사용자 노출 용어를 비공개로 통일
+ * 2026.09.06  임도헌   Modified  비공개 배지의 불투명 배경과 글자 대비 보강
  */
 
 "use client";
@@ -97,9 +99,7 @@ interface StreamCardProps {
   showReplayBadge?: boolean;
   streamer: { username: string; avatar?: string | null };
   startedAt?:
-    | Date
-    | string
-    | null /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */;
+    Date | string | null /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */;
   category?: StreamCategory | null;
   tags?: { name: string }[];
   boardGames?: Array<{ boardGame: BoardGameRelationOption }>;
@@ -115,8 +115,8 @@ interface StreamCardProps {
   isFollowersOnly?: boolean /** FOLLOWERS 타입 여부(형식) — 전달 안 되면 visibility로 판정 */;
   followersOnlyLocked?: boolean /** 비팔로워라 접근 잠금일 때 true (오버레이/CTA 트리거) */;
   visibility?: StreamVisibility /** visibility가 있으면 배지/잠금 보조 판별에 사용 가능 */;
-  // 옵션: 언락 이후에도 '비밀' 배지를 계속 보여주고 싶다면 명시적으로 true 전달
-  isPrivateType?: boolean /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비밀' 배지를 유지하고 싶을 때 사용) */;
+  // 옵션: 언락 이후에도 '비공개' 배지를 계속 보여주고 싶다면 명시적으로 true 전달
+  isPrivateType?: boolean /** visibility === "PRIVATE" 타입 표시(언락 후에도 '비공개' 배지를 유지하고 싶을 때 사용) */;
   onRequestFollow?: () => void; // 팔로우 CTA 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
@@ -134,7 +134,7 @@ interface StreamCardProps {
  * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 좋아요, 댓글, 조회수 등)를 렌더링
  * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공
  * 4. 데스크톱 hover/focus 또는 모바일 미리보기 버튼으로 라이브 미리보기(iframe)를 로드
- * 5. 클릭 시 권한에 따라 상세 페이지 이동, 비밀번호 모달 열기, 팔로우 요청 등을 수행
+ * 5. 카드 클릭은 상세 이동, 명시적 CTA는 팔로우 요청, 비공개 카드는 비밀번호 모달 열기를 수행
  * 6. 작은 화면에서는 태그/시간/좋아요/댓글/조회수 메타를 2단으로 분리해 카드 밀도 완화
  *
  * [권한]
@@ -268,9 +268,7 @@ export default function StreamCard(props: StreamCardProps) {
    *
    * @param e - 카드 링크 내부 버튼 클릭 이벤트
    */
-  const handleTouchPreviewToggle = (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
+  const handleTouchPreviewToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (!shouldPreview) return;
@@ -299,17 +297,8 @@ export default function StreamCard(props: StreamCardProps) {
     (isHoveredOrFocused || isTouchPreviewActive) &&
     !previewError;
 
-  /**
-   * 잠긴 방송 카드 클릭 시 follow/password 흐름 진입
-   *
-   * @param e - 카드 링크 클릭 이벤트
-   */
+  /** 비공개 방송 카드 클릭 시 비밀번호 입력 흐름으로 전환한다. */
   const handleStreamClick = (e: React.MouseEvent) => {
-    if (followersOnlyLocked) {
-      e.preventDefault();
-      onRequestFollow?.();
-      return;
-    }
     if (requiresPassword) {
       e.preventDefault();
       setIsModalOpen(true);
@@ -321,13 +310,12 @@ export default function StreamCard(props: StreamCardProps) {
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key !== "Enter" && e.key !== " ") return;
-      if (followersOnlyLocked || requiresPassword) {
+      if (requiresPassword) {
         e.preventDefault();
-        if (followersOnlyLocked) onRequestFollow?.();
-        else setIsModalOpen(true);
+        setIsModalOpen(true);
       }
     },
-    [followersOnlyLocked, requiresPassword, onRequestFollow]
+    [requiresPassword]
   );
 
   // 배지: 타입별 개별 노출
@@ -338,9 +326,11 @@ export default function StreamCard(props: StreamCardProps) {
   const showPrivate =
     typeof isPrivateType === "boolean" ? isPrivateType : requiresPassword;
 
-  const ariaLabel = lockMask
-    ? `${title} 접근 제한 상태`
-    : undefined;
+  const ariaLabel = followersOnlyLocked
+    ? `${title} 팔로워 전용 방송 상세보기`
+    : requiresPassword
+      ? `${title} 비공개 방송 비밀번호 입력`
+      : undefined;
 
   const statusDescriptionId = lockMask
     ? `stream-card-status-${vodIdForRecording ?? id}`
@@ -349,7 +339,7 @@ export default function StreamCard(props: StreamCardProps) {
   const statusDescription = followersOnlyLocked
     ? "팔로워 전용 방송입니다. 팔로우 후 시청할 수 있습니다."
     : requiresPassword
-      ? "비밀 방송입니다. 비밀번호 입력 후 시청할 수 있습니다."
+      ? "비공개 방송입니다. 비밀번호 입력 후 시청할 수 있습니다."
       : null;
 
   // 태그 포맷팅 (#태그1 #태그2)
@@ -381,7 +371,7 @@ export default function StreamCard(props: StreamCardProps) {
         onKeyDown={handleKeyDown}
         aria-label={ariaLabel}
         aria-describedby={statusDescriptionId}
-        aria-disabled={lockMask || undefined}
+        aria-haspopup={requiresPassword ? "dialog" : undefined}
         prefetch={false}
       >
         {statusDescriptionId && statusDescription ? (
@@ -474,9 +464,9 @@ export default function StreamCard(props: StreamCardProps) {
                 </span>
               )}
               {showPrivate && (
-                <span className="inline-flex items-center gap-1 rounded bg-accent-dark/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-[2px]">
+                <span className="inline-flex items-center gap-1 rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-950 shadow-sm backdrop-blur-[2px]">
                   <LockClosedIcon className="size-3" aria-hidden="true" />
-                  비밀
+                  비공개
                 </span>
               )}
             </div>
@@ -501,7 +491,9 @@ export default function StreamCard(props: StreamCardProps) {
               type="button"
               onClick={handleTouchPreviewToggle}
               aria-label={
-                isTouchPreviewActive ? "라이브 미리보기 닫기" : "라이브 미리보기"
+                isTouchPreviewActive
+                  ? "라이브 미리보기 닫기"
+                  : "라이브 미리보기"
               }
               className={cn(
                 "absolute bottom-2 right-2 z-20 hidden size-11 items-center justify-center rounded-full border border-white/20 text-white shadow-sm backdrop-blur-[2px] transition-colors",
@@ -517,32 +509,6 @@ export default function StreamCard(props: StreamCardProps) {
                 <PlayIcon className="ml-0.5 size-5" aria-hidden="true" />
               )}
             </button>
-          )}
-
-          {/* 잠금 오버레이 */}
-          {followersOnlyLocked && (
-            <div
-              className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[1px] z-20"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRequestFollow?.();
-              }}
-            >
-              <div className="p-4 text-center">
-                <p className="mb-3 text-sm font-medium text-white/90">
-                  팔로워 전용 방송입니다
-                </p>
-                {onRequestFollow && (
-                  <button
-                    type="button"
-                    className="btn-primary min-h-[44px] border border-border-subtle bg-surface px-4 text-xs text-primary hover:bg-surface-dim dark:bg-surface dark:text-primary dark:hover:bg-surface-dim"
-                  >
-                    팔로우하기
-                  </button>
-                )}
-              </div>
-            </div>
           )}
         </div>
 
@@ -577,7 +543,6 @@ export default function StreamCard(props: StreamCardProps) {
                 />
               </div>
             )}
-
           </div>
 
           {/* 하단 메타 정보 */}
@@ -623,8 +588,7 @@ export default function StreamCard(props: StreamCardProps) {
                           typeof commentCount === "number") && (
                           <span className="text-border shrink-0">|</span>
                         )}
-                      {!isLive &&
-                        typeof likeCount === "number" && (
+                      {!isLive && typeof likeCount === "number" && (
                         <span className="inline-flex shrink-0 items-center gap-1">
                           {/* 다시보기 카드의 빨간 하트는 전체 좋아요 수가 아니라 현재 사용자 좋아요 여부를 의미 */}
                           <HeartIcon
@@ -679,6 +643,33 @@ export default function StreamCard(props: StreamCardProps) {
             )}
         </div>
       </Link>
+
+      {/* 링크와 분리된 명시적 팔로우 CTA: 카드 탐색만으로 관계가 변경되지 않게 한다. */}
+      {followersOnlyLocked && (
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-[1px]",
+            isGridLayout
+              ? "aspect-[16/8.7] sm:aspect-[16/8.85] lg:aspect-[16/9]"
+              : "aspect-video"
+          )}
+        >
+          <div className="p-4 text-center">
+            <p className="mb-3 text-sm font-medium text-white/90">
+              팔로워 전용 방송입니다
+            </p>
+            {onRequestFollow && (
+              <button
+                type="button"
+                onClick={onRequestFollow}
+                className="btn-primary pointer-events-auto min-h-[44px] border border-border-subtle bg-surface px-4 text-xs text-primary hover:bg-surface-dim dark:bg-surface dark:text-primary dark:hover:bg-surface-dim"
+              >
+                팔로우하기
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 공용 비밀번호 모달 */}
       {isModalOpen && (

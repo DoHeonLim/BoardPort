@@ -16,6 +16,7 @@
  * 2026.04.10  임도헌   Modified  상품 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  강제 삭제 모달을 지연 로드해 관리자 목록 초기 번들 비용을 완화
  * 2026.04.18  임도헌   Modified  모바일 카드 링크 프리패치와 대비·접근성 이름을 정리해 상품 관리 Lighthouse 병목을 완화
+ * 2026.09.01  임도헌   Modified  중간 너비에서 주요 관리 열이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
  */
 "use client";
 
@@ -95,7 +96,7 @@ export default function AdminProductListContainer({
         <AdminSearchBar placeholder="상품명, 판매자 또는 ID 검색" />
       </div>
 
-      <div className="space-y-4 md:hidden">
+      <div className="space-y-4 xl:hidden">
         {items.length === 0 ? (
           <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
             {hasQuery
@@ -213,7 +214,7 @@ export default function AdminProductListContainer({
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm md:block">
+      <div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm xl:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">

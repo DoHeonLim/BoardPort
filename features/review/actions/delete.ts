@@ -10,6 +10,7 @@
  * 2026.03.05  임도헌   Modified  레거시 `revalidateTag` 파편화 코드 제거 및 `invalidateQueries`를 활용한 클라이언트 캐시 무효화로 대체
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -45,7 +46,7 @@ export async function deleteReviewAction(
 
   if (result.success && result.meta) {
     const { productId } = result.meta;
-    revalidateTag(T.PRODUCT_DETAIL(productId));
+    revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
   }
   return result;
 }
@@ -72,7 +73,7 @@ export async function deleteAllProductReviewsAction(
 
   if (result.success && result.meta) {
     const { productId } = result.meta;
-    revalidateTag(T.PRODUCT_DETAIL(productId));
+    revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
   }
   return result;
 }

@@ -12,11 +12,14 @@
  * 2026.01.19  임도헌   Moved     lib/notification -> features/notification/lib
  * 2026.01.23  임도헌   Modified  lib/sendLiveStartNotifications -> service/live 이동 및 경로 수정
  * 2026.03.07  임도헌   Modified  push 전송 조건 분기 수정(canSendPushForType 부정 조건 제거)
+ * 2026.08.21  임도헌   Modified  라이브 시작 알림 발신을 서버 전용 private topic으로 전환
+ * 2026.08.26  임도헌   Modified  webhook outbox 재시도용 deliveryKey 기반 알림 upsert 지원
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import {
   canSendPushForType,
   isNotificationTypeEnabled,
@@ -28,21 +31,23 @@ type Params = {
   broadcastId: number; // Broadcast id
   broadcastTitle: string;
   broadcastThumbnail?: string | null;
+  deliveryKeyPrefix?: string; // outbox 재시도 시 사용자별 인앱 알림 중복을 막는 접두사
 };
 
 /**
  * 팔로워들에게 방송 시작 알림을 전송
  * - 알림 설정(ON/OFF) 및 방해 금지 시간을 체크
- * - DB 알림 생성, In-App 브로드캐스트, 웹 푸시를 병렬로 처리
+ * - 사용자별 DB 알림, In-App 브로드캐스트, 웹 푸시를 순차 처리
  *
  * @param params - 방송 정보 및 스트리머 ID
- * @returns 생성된 알림 및 발송된 푸시 개수
+ * @returns 처리한 알림 및 발송된 푸시 개수
  */
 export async function sendLiveStartNotifications({
   broadcasterId,
   broadcastId,
   broadcastTitle,
   broadcastThumbnail,
+  deliveryKeyPrefix,
 }: Params) {
   // 1. 방송자 정보 조회
   const broadcaster = await db.user.findUnique({
@@ -89,22 +94,30 @@ export async function sendLiveStartNotifications({
     if (!isNotificationTypeEnabled(pref, "STREAM")) continue;
 
     // 4-2. DB 알림 생성
-    const notification = await db.notification.create({
-      data: {
-        userId: followerId,
-        title,
-        body,
-        image: imageUrl,
-        type: "STREAM",
-        link,
-        isPushSent: false,
-      },
-    });
+    const notificationData = {
+      userId: followerId,
+      title,
+      body,
+      image: imageUrl,
+      type: "STREAM" as const,
+      link,
+      isPushSent: false,
+    };
+    const notification = deliveryKeyPrefix
+      ? await db.notification.upsert({
+          where: { deliveryKey: `${deliveryKeyPrefix}:${followerId}` },
+          update: {},
+          create: {
+            ...notificationData,
+            deliveryKey: `${deliveryKeyPrefix}:${followerId}`,
+          },
+        })
+      : await db.notification.create({ data: notificationData });
     created += 1;
 
     // 4-3. In-App Realtime 알림 전송 (접속 중인 경우 토스트 표시)
     try {
-      await supabase.channel(`user-${followerId}-notifications`).send({
+      await supabase.channel(notificationRealtimeTopic(followerId)).send({
         type: "broadcast",
         event: "notification",
         payload: {

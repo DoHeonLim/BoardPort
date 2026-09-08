@@ -40,15 +40,12 @@
  * 2026.04.20  임도헌   Modified  썸네일/제목 링크가 기본 outline 대신 공용 포커스 톤을 따르도록 정리
  * 2026.05.03  임도헌   Modified  프로필 구매 카드에 연결 보드게임 배지 표시 추가
  * 2026.05.05  임도헌   Modified  구매 내역 카드 helper와 리뷰 삭제 핸들러 JSDoc 보강
+ * 2026.08.27  임도헌   Modified  반응형 썸네일 표시 폭을 Image sizes로 명시
  */
 
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -228,8 +225,7 @@ export default function MyPurchasesProductItem({
         toggleModal("viewMine", false); // 상세 모달도 같이 닫기
       } else {
         toast.error(
-          res.error ??
-            "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+          res.error ?? "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
         );
       }
     } catch (e) {
@@ -281,6 +277,7 @@ export default function MyPurchasesProductItem({
               fill
               src={thumbUrl}
               alt={product.title}
+              sizes="(min-width: 640px) 112px, 96px"
               className="object-cover transition-transform group-hover:scale-105"
               priority={prioritizeImage}
               unoptimized={!!product.images[0]?.isAnimated}

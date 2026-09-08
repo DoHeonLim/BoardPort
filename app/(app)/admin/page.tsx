@@ -11,15 +11,16 @@
  * 2026.04.10  임도헌   Modified  빠른 이동 칩 weight를 관리자 공통 타이포 정책에 맞춰 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/admin/page.tsx 에서 app/(app)/admin/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.18  임도헌   Modified  차트 구간을 지연 로드해 초기 렌더 부담을 줄이고 관리자 대시보드 접근성 보강 작업을 반영
+ * 2026.08.23  임도헌   Modified  Next.js 16 호환 클라이언트 지연 로딩 경계로 관리자 차트 분리
  */
 
 import Link from "next/link";
-import nextDynamic from "next/dynamic";
 import { getAdminDashboardAction } from "@/features/admin/actions/dashboard";
 import { calculateTrend } from "@/features/report/utils/analytics";
 import DashboardStatCard from "@/features/report/components/admin/dashboard/DashboardStatCard";
 import RecentReportsWidget from "@/features/report/components/admin/dashboard/RecentReportsWidget";
 import RecentLogsWidget from "@/features/report/components/admin/dashboard/RecentLogsWidget";
+import AdminOverviewChartsLoader from "@/features/report/components/admin/dashboard/AdminOverviewChartsLoader";
 import {
   UsersIcon,
   ExclamationTriangleIcon,
@@ -29,31 +30,6 @@ import {
 } from "@heroicons/react/24/outline";
 
 export const dynamic = "force-dynamic";
-
-const AdminOverviewCharts = nextDynamic(
-  () => import("@/features/report/components/admin/dashboard/AdminOverviewCharts"),
-  {
-    ssr: false,
-    loading: () => <AdminOverviewChartsFallback />,
-  }
-);
-
-function AdminOverviewChartsFallback() {
-  return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.7fr_1fr]">
-      <div className="rounded-2xl border border-border-subtle bg-surface p-6 shadow-sm">
-        <div className="h-6 w-40 rounded-full bg-surface-dim" />
-        <div className="mt-3 h-4 w-full max-w-xl rounded-full bg-surface-dim/80" />
-        <div className="mt-6 h-[280px] rounded-2xl border border-border-subtle bg-surface-dim/30" />
-      </div>
-      <div className="rounded-2xl border border-border-subtle bg-surface p-6 shadow-sm">
-        <div className="h-6 w-32 rounded-full bg-surface-dim" />
-        <div className="mt-3 h-4 w-full rounded-full bg-surface-dim/80" />
-        <div className="mt-6 h-[280px] rounded-2xl border border-border-subtle bg-surface-dim/30" />
-      </div>
-    </div>
-  );
-}
 
 /**
  * 대시보드 페이지
@@ -144,7 +120,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* 운영 판단용 차트 패널 */}
-      <AdminOverviewCharts
+      <AdminOverviewChartsLoader
         labels={labels}
         activitySeries={activitySeries}
         reportStatusSummary={{
@@ -162,4 +138,3 @@ export default async function AdminDashboard() {
     </div>
   );
 }
-

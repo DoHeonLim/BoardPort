@@ -1,11 +1,12 @@
 /**
- * File Name : prisma.config
+ * File Name : prisma.config.ts
  * Description : Prisma CLI 설정 파일 (Prisma 7용)
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2025.11.28  임도헌   Created   Prisma 7 orm 설정 도입 (schema/migrations/datasource)
+ * 2026.09.07  임도헌   Modified  기본 CLI 자동 탐색 설정만 프로젝트 루트에 유지
  */
 
 import dotenv from "dotenv";

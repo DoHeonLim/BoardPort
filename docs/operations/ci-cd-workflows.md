@@ -13,12 +13,43 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 
 검증 항목:
 
-- `npm run test`
+- 빈 PostgreSQL에서 전체 `prisma migrate deploy` → E2E seed 2회 → cleanup
+- 적용된 빈 DB와 `schema.prisma` 사이 migration drift 검사
+- 전체 Git 이력 Gitleaks secret scan
+- `npm run audit:production` critical 취약점 차단
+- `npm run test:coverage`
+- `npm run test:migration:push`
+- `npm run test:migration:realtime`
+- `npm run test:migration:media`
+- `npm run test:migration:auth-session`
+- `npm run test:migration:report-moderation`
+- `npm run test:migration:chat-idempotency`
+- `npm run test:migration:product-trade`
+- `npm run test:migration:stream-webhook`
+- `npm run test:migration:vod-pagination`
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm run build`
 
-기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
+`Full Migration and Seed Smoke` job은 전용 `RELEASE_MIGRATION_TEST_DATABASE_URL`만 읽는 Prisma config로 빈 `boardport_release_test` DB에 전체 migration 이력을 처음부터 적용합니다. 적용된 DB와 `schema.prisma`를 비교해 drift가 있으면 차단하고, E2E seed를 두 번 실행해 최종 schema와 seed 멱등성을 확인한 뒤 cleanup을 검증합니다. 도메인별 Migration 통합 테스트는 별도 `boardport_migration_test` DB에서 순차 실행합니다. 기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
+
+`Dependency and Secret Audit` job은 전체 Git 이력을 Gitleaks로 검사하고 production dependency audit을 실행합니다. 이 job은 의존성 트리만 검사하므로 `npm ci --ignore-scripts`를 사용해 Prisma Client 생성과 애플리케이션 DB 환경 변수 의존성을 제외합니다. 현재 Prisma CLI 경로의 알려진 high 3건은 [`dependency-security-upgrade.md`](./dependency-security-upgrade.md)에 추적하며, 자동 수정이 Prisma 6.12 강제 다운그레이드를 제안하므로 적용하지 않습니다. CI는 이 기준선을 숨기지 않으면서 critical 취약점이 새로 유입되면 실패하도록 설정합니다.
+
+`Unit, Type, Lint, Build` job은 Node 기반 단위 테스트와 파일별 jsdom 컴포넌트 테스트를 함께 실행하고 전체 source V8 coverage가 [`testing-strategy.md`](./testing-strategy.md)의 기준선 아래로 내려가면 실패합니다.
+
+로컬에서는 일회용 PostgreSQL 16 컨테이너로 전체 도메인 migration 통합 테스트를 한 번에 실행할 수 있습니다.
+
+```bash
+npm run test:migration:docker
+```
+
+Docker 실행기는 컨테이너 생성·준비 확인·환경변수 주입·종료를 자동화합니다. 전체 실행기와 개별 테스트는 운영 DB 오지정을 막기 위해 localhost의 `boardport_migration_test`만 허용합니다. 개별 `test:migration:*` 명령은 특정 migration 실패를 재현하거나 CI 로그에서 실패 범위를 분리하기 위해 유지합니다.
+
+로컬에서 특정 도메인만 실행할 때는 `npm run test:migration:docker -- <target>` 형식을 사용합니다. 지원 target 목록과 수동 복구 방법은 [`database-deployment-runbook.md`](./database-deployment-runbook.md#2-로컬-docker-migration-통합-테스트)를 따릅니다.
+
+운영 DB migration은 Vercel Git 배포와 GitHub Actions의 실행 순서가 보장되지 않으므로 CI가 자동 적용하지 않습니다. migration이 포함된 릴리즈의 연결 경계·적용 순서·실패 복구는 [`database-deployment-runbook.md`](./database-deployment-runbook.md)를 따릅니다.
+
+`develop`에서 `master`로 승격할 때의 환경변수 대조, 외부 서비스 확인, Production smoke와 rollback 판단은 [`release-runbook.md`](./release-runbook.md)를 기준으로 수행합니다.
 
 ## 2. Playwright E2E
 
@@ -27,28 +58,32 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 실행 순서:
 
 - 의존성 설치
+- 공유 테스트 DB migration 적용
 - Playwright Linux 의존성 설치
 - Playwright Chromium 설치
-- `npm run dev:e2e` 서버 실행
+- `npm run build`로 production 산출물 생성
+- `npm run start:e2e`로 production 서버 실행
 - `npm run seed:e2e`
 - `E2E_SEEDED=1 npm run test:e2e -- --project=chromium`
 - `npm run cleanup:e2e`
 
-E2E는 공유 테스트 DB를 사용하므로 workflow concurrency를 `e2e-shared-db`로 고정해 동시에 여러 E2E가 seed/cleanup을 수행하지 않도록 제한합니다.
+E2E는 공유 테스트 DB를 사용하므로 workflow concurrency를 `e2e-shared-db`로 고정해 동시에 여러 E2E가 seed/cleanup을 수행하지 않도록 제한합니다. CI에서는 개발 서버가 허용하는 동작에 기대지 않도록 `next build` 결과를 `next start`로 실행해 실제 배포 모드와 같은 경계를 검증합니다. Production 모드 로그인에서 요구하는 `RATE_LIMIT_SALT`는 GitHub 실행 ID와 재시도 번호를 조합한 테스트 전용 값으로 매 실행마다 주입합니다.
 
 ## 3. E2E Secrets
 
 GitHub Actions에서 E2E를 실행하려면 아래 secrets를 설정합니다.
 
-| Secret | 설명 |
-| ------ | ---- |
-| `E2E_DATABASE_URL` | E2E 앱 런타임용 DB 연결 문자열 |
-| `E2E_DIRECT_URL` | E2E seed/cleanup용 직접 DB 연결 문자열 |
-| `E2E_COOKIE_PASSWORD` | iron-session 쿠키 암호화 키 |
-| `E2E_NEXT_PUBLIC_SUPABASE_URL` | E2E Supabase URL |
-| `E2E_NEXT_PUBLIC_SUPABASE_PUBLIC_KEY` | E2E Supabase anon key |
-| `E2E_NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH` | E2E 이미지 delivery hash |
-| `E2E_NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN` | E2E Stream/VOD 재생 도메인 |
+| Secret                                     | 설명                                                                          |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `E2E_DATABASE_URL`                         | E2E 앱 런타임용 DB 연결 문자열                                                |
+| `E2E_DIRECT_URL`                           | E2E seed/cleanup용 직접 DB 연결 문자열                                        |
+| `E2E_COOKIE_PASSWORD`                      | iron-session 쿠키 암호화 키                                                   |
+| `E2E_NEXT_PUBLIC_SUPABASE_URL`             | E2E Supabase URL                                                              |
+| `E2E_NEXT_PUBLIC_SUPABASE_PUBLIC_KEY`      | E2E Supabase publishable key                                                  |
+| `E2E_SUPABASE_SECRET_KEY`                  | private Broadcast 서버 발신용 E2E Supabase secret key                         |
+| `E2E_SUPABASE_REALTIME_SIGNING_KEY_JWK`    | BoardPort Realtime 단기 JWT 서명용 E2E Supabase ES256 private JWK의 base64 값 |
+| `E2E_NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH`  | E2E 이미지 delivery hash                                                      |
+| `E2E_NEXT_PUBLIC_CLOUDFLARE_STREAM_DOMAIN` | E2E Stream/VOD 재생 도메인                                                    |
 
 ## 4. CD
 
@@ -62,6 +97,8 @@ GitHub Actions에서 별도 deploy job을 두지 않는 이유:
 
 `master` production 배포를 CI 통과 후에만 허용하려면 GitHub branch protection 또는 ruleset에서 필수 check를 설정합니다. 기본 권장 check:
 
+- `Full Migration and Seed Smoke`
+- `Dependency and Secret Audit`
 - `Unit, Type, Lint, Build`
 - `Playwright Chromium`
 

@@ -31,6 +31,7 @@
  * 2026.03.28  임도헌   Modified  적은 수의 항목에서도 과하게 비지 않도록 높이를 max-height 기반으로 조정하고 섹션/빈 상태 가독성 개선
  * 2026.03.28  임도헌   Modified  팔로워 모달의 비맞팔 섹션 라벨을 추천 대신 설명형 문구로 바꿔 기준을 명확화
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
+ * 2026.08.27  임도헌   Modified  포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -40,6 +41,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import type { FollowListUser } from "@/features/user/types";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 type FollowListError =
   | { stage: "first"; message: string }
@@ -109,31 +111,26 @@ export default function FollowListModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const previouslyFocused = useRef<HTMLElement | null>(null);
 
   /**
-   * 접근성(A11y) 및 모달 인터랙션 설정
-   * - 모달 열림 시 포커스를 이동하고, 기존 페이지의 스크롤을 막음.
-   * - ESC 키를 눌렀을 때 모달을 닫고 이전 포커스를 복원
+   * 모달이 열려 있는 동안 배경 문서 스크롤을 잠금
    */
   useEffect(() => {
     if (!isOpen) return;
-    previouslyFocused.current = document.activeElement as HTMLElement | null;
-    setTimeout(() => dialogRef.current?.focus(), 0);
 
     lockBodyScroll();
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       unlockBodyScroll();
-      window.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused.current?.focus?.();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
+
+  useModalFocus({
+    open: isOpen,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   // 하단 스크롤 도달 시 다음 페이지 데이터 로딩을 위한 옵저버 연결
   useInfiniteScroll({

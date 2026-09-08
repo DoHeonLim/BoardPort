@@ -18,6 +18,7 @@
  * 2026.03.28  임도헌   Modified   뱃지 조건 주석을 사용자 친화 용어로 정리하고 최근 거래 기준 계산을 보강
  * 2026.03.30  임도헌   Modified   게시글 카테고리 라벨 단순화에 맞춰 후기/공략 기준으로 뱃지 조건 주석을 정리
  * 2026.05.26  임도헌   Modified   EARLY_SAILOR 기준일을 2027-01-01 이전 가입으로 조정
+ * 2026.08.21  임도헌   Modified   뱃지 알림 발신을 서버 전용 private topic으로 전환
  */
 
 import "server-only";
@@ -25,7 +26,8 @@ import "server-only";
 import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { getBadgeKoreanName } from "@/features/user/utils/badge";
 import { sendPushNotification } from "@/features/notification/service/sender";
 import {
@@ -148,7 +150,7 @@ async function awardBadge(userId: number, badgeName: string) {
     });
 
     // 4) Broadcast (In-App)
-    await supabase.channel(`user-${userId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(userId)).send({
       type: "broadcast",
       event: "notification",
       payload: {

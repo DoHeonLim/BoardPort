@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.03.08  임도헌   Created   첫 번째 필드 에러 탐색 및 포커스/스크롤 이동 유틸 추가
  * 2026.03.12  임도헌   Modified  재귀 에러 경로 탐색과 첫 필드 포커스/스크롤 이동 역할 명확화
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 클라이언트 필드 오류 스크롤 동작 조정
  */
 
 import type {
@@ -15,6 +16,7 @@ import type {
   FieldValues,
   UseFormSetFocus,
 } from "react-hook-form";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 
 /**
  * name 기준 입력 요소 스크롤 이동
@@ -34,7 +36,7 @@ function scrollFieldIntoView(fieldName: string) {
   if (!target) return;
 
   target.scrollIntoView({
-    behavior: "smooth",
+    behavior: getMotionSafeScrollBehavior(),
     block: "center",
     inline: "nearest",
   });

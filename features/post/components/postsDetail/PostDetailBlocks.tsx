@@ -12,9 +12,8 @@
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 임베드 카드 타이틀 weight를 500 기준으로 정리
  * 2026.04.14  임도헌   Modified  첫 이미지 블록에 우선 로드 힌트를 부여하고 유튜브 임베드는 썸네일 클릭 시점까지 지연
  * 2026.04.14  임도헌   Modified  첫 번째 미디어(이미지/임베드 썸네일)를 LCP 우선 자원으로 간주해 preload 힌트 전달
+ * 2026.08.28  임도헌   Modified  블록 순서 조합은 서버에서 처리하고 이미지 확대·임베드만 클라이언트 island로 유지
  */
-"use client";
-
 import ZoomableImage from "@/components/ui/ZoomableImage";
 import type { PostBlock } from "@/features/post/types";
 import PostDetailDescription from "@/features/post/components/postsDetail/PostDetailDescription";

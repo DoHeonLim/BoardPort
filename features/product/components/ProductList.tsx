@@ -36,6 +36,7 @@
  * 2026.04.13  임도헌   Modified  첫 화면 대표 카드 1장만 priority를 사용하도록 이미지 우선순위를 조정
  * 2026.05.09  임도헌   Modified  좁은 폭에서 헤더 액션과 뷰 토글이 겹치지 않도록 줄바꿈 허용
  * 2026.06.04  임도헌   Modified  모바일 하단 고정 UI와 마지막 상품 카드가 겹치지 않도록 목록 여백 보강
+ * 2026.08.13  임도헌   Modified  상품 목록 query에 현재 조회자 ID 전달
  */
 
 "use client";
@@ -62,6 +63,7 @@ import { cn } from "@/lib/utils";
 type ProductListProps = {
   searchParams?: ProductSearchParams;
   queryKeyExtra?: unknown;
+  viewerId: number;
   headerAction?: ReactNode;
 };
 
@@ -78,6 +80,7 @@ type ProductListProps = {
 export default function ProductList({
   searchParams,
   queryKeyExtra,
+  viewerId,
   headerAction,
 }: ProductListProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -95,6 +98,7 @@ export default function ProductList({
       mode: "product",
       searchParams: searchParams || {},
       queryKeyExtra,
+      viewerId,
     });
 
   // 무한 스크롤 옵저버 연결

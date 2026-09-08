@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.16  임도헌   Created   types.ts에 섞여 있던 접근 메시지와 상태 판별 헬퍼 분리
+ * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 반복 시도 제한 안내 추가
  */
 
 import { STREAM_VISIBILITY, VOD_STATUS } from "@/features/stream/constants";
@@ -22,6 +23,7 @@ export const unlockErrorMessage: Record<UnlockErrorCode, string> = {
   NOT_PRIVATE_STREAM: "비공개 스트림이 아닙니다.",
   NO_PASSWORD_SET: "비밀번호가 설정되지 않았습니다.",
   INVALID_PASSWORD: "비밀번호가 올바르지 않습니다.",
+  RATE_LIMITED: "비밀번호 입력 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
   BAD_REQUEST: "요청이 올바르지 않습니다.",
   MISSING_PASSWORD: "비밀번호를 입력해주세요.",
   INTERNAL_ERROR: "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",

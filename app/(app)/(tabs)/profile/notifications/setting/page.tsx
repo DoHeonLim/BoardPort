@@ -21,41 +21,21 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/notifications/setting/page.tsx 에서 app/(app)/(tabs)/profile/notifications/setting/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.18  임도헌   Modified  푸시 토글을 지연 로딩하고 설정 폼은 서버 렌더링으로 분리해 초기 렌더 비용 완화
  * 2026.05.30  임도헌   Modified  알림 설정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
+ * 2026.08.23  임도헌   Modified  Next.js 16 호환 클라이언트 지연 로딩 경계로 푸시 설정 분리
+ * 2026.09.03  임도헌   Modified  알림 설정 뒤로가기가 정규화된 returnTo를 우선하도록 고정
  */
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import getSession from "@/lib/session";
 import db from "@/lib/db";
 import BackButton from "@/components/global/BackButton";
 import NotificationSettingsClient from "@/features/notification/components/NotificationSettingsClient";
+import NotificationPushSectionLoader from "@/features/notification/components/NotificationPushSectionLoader";
 import { getUserLocation } from "@/features/user/service/profile";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-
-const NotificationPushSection = dynamic(
-  () => import("@/features/notification/components/NotificationPushSection"),
-  {
-    ssr: false,
-    loading: () => (
-      <section className="space-y-2">
-        <h2 className="px-1 text-sm font-bold text-primary">푸시 알림</h2>
-        <div className="panel flex items-center justify-between p-4">
-          <div className="space-y-1">
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-dim/70" />
-            <div className="h-3 w-32 animate-pulse rounded bg-surface-dim/50" />
-          </div>
-          <div className="h-6 w-11 animate-pulse rounded-full bg-surface-dim/70" />
-        </div>
-        <p className="px-1 text-xs leading-relaxed text-muted">
-          전체 푸시를 끄면 기기 알림은 오지 않습니다.
-        </p>
-      </section>
-    ),
-  }
-);
 
 /**
  * 알림 수신 설정 페이지
@@ -63,11 +43,10 @@ const NotificationPushSection = dynamic(
  * - 방해 금지 시간 설정 제공
  * - 키워드 알림은 요약 정보와 알림 센터 빠른 관리 진입점 제공
  */
-export default async function NotificationSettingsPage({
-  searchParams,
-}: {
-  searchParams?: { returnTo?: string; saveError?: string };
+export default async function NotificationSettingsPage(props: {
+  searchParams?: Promise<{ returnTo?: string; saveError?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/profile");
 
   const session = await getSession();
@@ -109,13 +88,13 @@ export default async function NotificationSettingsPage({
       {/* 헤더 */}
       <header className="sticky top-0 z-30 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm">
         <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
-          <BackButton fallbackHref={returnTo} variant="appbar" />
+          <BackButton fallbackHref={returnTo} preferFallback variant="appbar" />
           <h1 className="text-lg font-bold text-primary">알림 설정</h1>
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-mobile space-y-6 px-page-x py-6">
-        <NotificationPushSection />
+        <NotificationPushSectionLoader />
         <NotificationSettingsClient
           prefs={prefs}
           returnTo={returnTo}
@@ -159,5 +138,3 @@ export default async function NotificationSettingsPage({
     </div>
   );
 }
-
-

@@ -18,7 +18,8 @@
  * 2026.03.14  임도헌   Modified  로그인 직후 최소 프로필/지역 누락 계정은 onboarding으로 보내도록 최종 복귀 경로 공통화
  * 2026.03.25  임도헌   Modified  GitHub 자동 생성 닉네임 계정은 첫 로그인 시 닉네임 온보딩도 함께 노출
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(auth)/github/complete/route.ts 에서 app/(public)/github/complete/route.ts 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.08.30  임도헌   Modified  OAuth 실패 복귀 시 기본 프로필 callbackUrl 쿼리 생략
+ */
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -29,7 +30,10 @@ import {
 } from "@/features/auth/service/github";
 import { saveUserSession } from "@/features/auth/service/authSession";
 import { resolvePostAuthRedirectPath } from "@/features/auth/service/onboarding";
-import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import {
+  buildAuthFlowHref,
+  sanitizeCallbackUrl,
+} from "@/features/auth/utils/redirect";
 import db from "@/lib/db";
 
 /**
@@ -53,9 +57,8 @@ export async function GET(request: NextRequest) {
 
   // 에러 발생 시 로그인 화면으로 복귀시키는 공통 헬퍼
   const returnToLogin = (errorType: string) => {
-    const url = new URL("/login", request.url);
+    const url = new URL(buildAuthFlowHref("/login", callbackUrl), request.url);
     url.searchParams.set("error", errorType);
-    url.searchParams.set("callbackUrl", callbackUrl);
     const res = NextResponse.redirect(url);
     res.cookies.delete("gh_oauth_state"); // 쿠키 정리
     res.cookies.delete("gh_oauth_callback_url");
@@ -115,4 +118,3 @@ export async function GET(request: NextRequest) {
     return returnToLogin("github_login_failed");
   }
 }
-

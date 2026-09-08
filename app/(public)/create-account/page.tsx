@@ -20,6 +20,7 @@
  * 2026.04.13  임도헌   Modified  회원가입 페이지의 주 콘텐츠를 main 랜드마크로 감싸 접근성 탐색을 보강
  * 2026.04.13  임도헌   Modified  모바일 Lighthouse 대응으로 상단 로고 우선 로드를 적용
  * 2026.04.13  임도헌   Modified  인증 공통 셸로 헤더 구조를 통일해 auth 페이지 간 레이아웃 중복을 제거
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  */
 
 import AuthPageShell from "@/features/auth/components/AuthPageShell";
@@ -33,15 +34,15 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - callbackUrl 쿼리를 안전하게 정규화해 회원가입 완료 후 복귀 경로로 사용
  * - 회원가입 폼(`CreateAccountForm`)을 렌더링
  *
- * @param {Object} [props.searchParams] - URL 쿼리 파라미터
- * @param {string} [props.searchParams.callbackUrl] - 회원가입 완료 후 복귀할 내부 경로
+ * @param props - 회원가입 완료 후 복귀 경로를 담은 Promise 기반 라우트 속성
  */
-export default function CreateAccountPage({
-  searchParams,
-}: {
-  searchParams?: { callbackUrl?: string };
+export default async function CreateAccountPage(props: {
+  searchParams?: Promise<{ callbackUrl?: string }>;
 }) {
-  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl ?? "/profile");
+  const searchParams = await props.searchParams;
+  const callbackUrl = sanitizeCallbackUrl(
+    searchParams?.callbackUrl ?? "/profile"
+  );
 
   return (
     <AuthPageShell
@@ -52,4 +53,3 @@ export default function CreateAccountPage({
     </AuthPageShell>
   );
 }
-

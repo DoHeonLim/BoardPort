@@ -19,6 +19,7 @@
  * 2026.03.03  임도헌   Modified  Context 제거 및 useDeleteRecordingCommentMutation 도입
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.03  임도헌   Modified  댓글 삭제 확인 문구를 게시글 댓글과 같은 파괴 액션 문법으로 정리
+ * 2026.08.13  임도헌   Modified  다시보기 댓글 삭제 cache를 현재 조회자로 제한
  */
 "use client";
 
@@ -39,12 +40,14 @@ import { cn } from "@/lib/utils";
 export default function RecordingCommentDeleteButton({
   vodId,
   commentId,
+  viewerId,
 }: {
   vodId: number;
   commentId: number;
+  viewerId: number;
 }) {
   const { mutateAsync: deleteComment, isPending } =
-    useDeleteRecordingCommentMutation(vodId);
+    useDeleteRecordingCommentMutation(vodId, viewerId);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const handleDelete = async () => {

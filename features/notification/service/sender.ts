@@ -18,15 +18,26 @@
  * 2026.05.16  임도헌   Modified  푸시 payload 타입을 명시해 any 제거
  * 2026.05.18  임도헌   Modified  만료/해지된 Push 구독 정리는 expected cleanup으로 로깅 레벨 조정
  * 2026.05.19  임도헌   Modified  Web Push/DB 접근 service가 클라이언트 번들에 포함되지 않도록 server-only 가드 추가
+ * 2026.08.13  임도헌   Modified  지연된 발송 결과가 로그아웃/소유권 이전 row를 덮어쓰지 않도록 CAS 보강
+ * 2026.08.13  임도헌   Modified  표시 보호 payload, provider 검증, timeout과 기기별 발송 상한 추가
+ * 2026.08.21  임도헌   Modified  최대 Push TTL을 24시간으로 고정하고 일반 전송 오류 집계 정합성 보완
  */
 
 import "server-only";
 import webPush from "web-push";
 import db from "@/lib/db";
-import type { NotificationType, SendPushResult } from "@/features/notification/types";
+import type {
+  NotificationType,
+  SendPushResult,
+} from "@/features/notification/types";
+import { isTrustedPushEndpoint } from "@/features/notification/utils/subscription";
 import type { ServiceResult } from "@/lib/types";
 
 export type { SendPushResult } from "@/features/notification/types";
+
+const PUSH_REQUEST_TIMEOUT_MS = 10_000;
+const MAX_PUSH_SUBSCRIPTIONS_PER_DELIVERY = 10;
+const MAX_PUSH_TTL_SECONDS = 60 * 60 * 24;
 
 // Web Push 에러 타입 정의 (라이브러리 응답 구조 매핑)
 interface WebPushError extends Error {
@@ -63,6 +74,8 @@ interface SendNotificationProps {
 }
 
 type WebPushPayload = {
+  version: 1;
+  recipientUserId: number;
   title: string;
   body: string;
   link?: string;
@@ -92,6 +105,7 @@ if (!VAPID_PUB || !VAPID_PRIV) {
 }
 
 // 타입 가드 함수
+/** web-push 전송 오류에서 HTTP 상태를 읽을 수 있는지 판별한다. */
 function isWebPushError(error: unknown): error is WebPushError {
   return (
     typeof error === "object" &&
@@ -102,6 +116,7 @@ function isWebPushError(error: unknown): error is WebPushError {
 }
 
 /* ---------- 타입별 기본 정책 ---------- */
+/** 알림 유형과 URL에 맞는 기본 Push 중복 제거 tag를 반환한다. */
 function defaultTagByType(type: NotificationType, url?: string) {
   switch (type) {
     case "CHAT": {
@@ -131,6 +146,7 @@ function defaultTagByType(type: NotificationType, url?: string) {
   }
 }
 
+/** 알림 유형별 기본 아이콘·클릭 경로·표시 정책을 구성한다. */
 function defaultsFor(type: NotificationType) {
   // 긴급도/TTL은 UX 관점에서 합리적 기본치로 설정
   // CHAT   : 실시간성이 중요 → high / 1시간
@@ -159,6 +175,7 @@ function defaultsFor(type: NotificationType) {
 }
 
 /* ---------- 4KB payload 보호 ---------- */
+/** provider 제한을 넘지 않도록 Push payload를 직렬화하고 가변 텍스트를 축약한다. */
 function ensureMaxPayload(json: WebPushPayload): string {
   const text = JSON.stringify(json);
   // Node에서 문자열 길이는 코드 유닛 기준이라 대략 체크, 여유 버퍼를 둠(3800B)
@@ -174,7 +191,8 @@ function ensureMaxPayload(json: WebPushPayload): string {
     let body = clone.body;
     // 120자 단위로 줄이면서 한도 맞추기
     while (body.length > 0) {
-      body = body.slice(0, Math.max(0, body.length - 120)) + "…";
+      const nextLength = Math.max(0, body.length - 120);
+      body = nextLength === 0 ? "" : `${body.slice(0, nextLength)}…`;
       clone.body = body;
       const t = JSON.stringify(clone);
       bytes = encoder.encode(t);
@@ -185,9 +203,14 @@ function ensureMaxPayload(json: WebPushPayload): string {
   // 그래도 크면 이미지 제거 후 최종 시도
   delete clone.image;
   const final = JSON.stringify(clone);
-  return final.length <= MAX_BYTES
+  return encoder.encode(final).byteLength <= MAX_BYTES
     ? final
-    : JSON.stringify({ title: json.title, body: "..." });
+    : JSON.stringify({
+        version: json.version,
+        recipientUserId: json.recipientUserId,
+        title: json.title.slice(0, 120),
+        body: "...",
+      });
 }
 
 /**
@@ -229,6 +252,8 @@ export async function sendPushNotification({
     // - 하나의 유저가 여러 브라우저/디바이스에서 구독할 수 있으므로 N개 가능
     const subs = await db.pushSubscription.findMany({
       where: { userId: targetUserId, isActive: true },
+      orderBy: [{ updated_at: "desc" }, { id: "desc" }],
+      take: MAX_PUSH_SUBSCRIPTIONS_PER_DELIVERY,
     });
 
     if (!subs.length) {
@@ -250,7 +275,16 @@ export async function sendPushNotification({
     const resolvedTag = tag ?? defaultTagByType(type, url);
     const resolvedTopic = (topic ?? resolvedTag).slice(0, 32); // 일부 구현체는 topic 길이에 제한이 있어 32자로 방어
     const resolvedUrgency = urgency ?? policy.urgency;
-    const resolvedTTL = ttlSeconds ?? policy.ttlSeconds;
+    // 운영 drain 시간이 호출부별 임의 TTL에 의해 무한히 늘어나지 않도록
+    // Web Push 보관 기간은 전 도메인에서 24시간을 넘기지 않는다.
+    const requestedTTL =
+      ttlSeconds !== undefined && Number.isFinite(ttlSeconds)
+        ? ttlSeconds
+        : policy.ttlSeconds;
+    const resolvedTTL = Math.min(
+      MAX_PUSH_TTL_SECONDS,
+      Math.max(0, Math.trunc(requestedTTL))
+    );
 
     // 4) Web Push payload 구성
     //    - body: 실제 표시될 메시지
@@ -263,6 +297,8 @@ export async function sendPushNotification({
     //    - Web Push payload는 대략 4KB 제한이 있어, 초과 시 body를 줄이고
     //      그래도 크면 image 제거 → 최종적으로 안전한 크기로 줄이는 역할
     const payload = ensureMaxPayload({
+      version: 1,
+      recipientUserId: targetUserId,
       title,
       body: message,
       link: url,
@@ -289,6 +325,28 @@ export async function sendPushNotification({
     //    - TTL/urgency/topic은 HTTP 헤더/프로토콜 레벨에서 사용됨
     await Promise.all(
       subs.map(async (sub) => {
+        // 발송을 시작할 때 읽은 구독 snapshot이다. 원격 요청이 끝나기 전에
+        // 로그아웃 또는 다른 계정으로 endpoint 소유권 이전이 일어날 수 있으므로,
+        // 후속 DB 변경은 이 snapshot이 아직 활성 row와 정확히 일치할 때만 허용한다.
+        const activeSubscriptionSnapshot = {
+          id: sub.id,
+          userId: sub.userId,
+          endpoint: sub.endpoint,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+          isActive: true,
+        } as const;
+
+        // 과거 느슨한 검증으로 저장됐을 수 있는 임의 URL도 발송 직전에
+        // 제거해 Web Push 클라이언트가 서버 측 요청 수단이 되지 않도록 한다.
+        if (!isTrustedPushEndpoint(sub.endpoint)) {
+          results.removed += 1;
+          await db.pushSubscription.deleteMany({
+            where: activeSubscriptionSnapshot,
+          });
+          return;
+        }
+
         try {
           await webPush.sendNotification(
             {
@@ -312,17 +370,19 @@ export async function sendPushNotification({
               //        네트워크 레벨에서 collapse(중복 합치기) 처리될 수 있음
               //        - 예: 동일 방송/채팅방에 대한 여러 알림을 하나로 묶는 용도
               topic: resolvedTopic,
+
+              // Push 제공자 지연이 전체 서버 요청을 무기한 점유하지 않도록 제한
+              timeout: PUSH_REQUEST_TIMEOUT_MS,
             }
           );
 
           results.sent += 1;
 
-          // 성공 시 마지막 사용 시간 갱신
-          // - last_used: 이 구독이 실제로 사용된 최근 시각
-          // - isActive : 비정상 오류로 false가 된 구독을 복구하는 용도
-          await db.pushSubscription.update({
-            where: { id: sub.id },
-            data: { last_used: new Date(), isActive: true },
+          // 성공 시에도 로그아웃으로 비활성화된 row를 되살리지 않고,
+          // 동일 소유권 snapshot이 유지된 경우에만 마지막 사용 시간을 갱신한다.
+          await db.pushSubscription.updateMany({
+            where: activeSubscriptionSnapshot,
+            data: { last_used: new Date() },
           });
         } catch (err: unknown) {
           // Type Guard 적용
@@ -330,17 +390,17 @@ export async function sendPushNotification({
             // 410 Gone, 404 Not Found -> 구독 만료
             if (err.statusCode === 410 || err.statusCode === 404) {
               results.removed += 1;
-              await db.pushSubscription.deleteMany({ where: { id: sub.id } });
+              await db.pushSubscription.deleteMany({
+                where: activeSubscriptionSnapshot,
+              });
               console.info("WebPush subscription expired and removed:", {
                 status: err.statusCode,
                 endpoint: sub.endpoint,
               });
             } else {
-              // 그 외 에러 (403, 429, 500 등) -> 일시 비활성
-              results.disabled += 1;
-              await db.pushSubscription
-                .update({ where: { id: sub.id }, data: { isActive: false } })
-                .catch(() => {});
+              // 401/403은 VAPID 설정, 429/5xx는 provider 상태처럼 구독 자체와
+              // 무관할 수 있다. 만료가 확정된 404/410 외에는 활성 상태를
+              // 바꾸지 않아 일시 장애가 영구적인 사용자 재연결로 번지지 않게 한다.
               console.error("WebPush error:", {
                 status: err.statusCode,
                 body: err.body,
@@ -348,9 +408,9 @@ export async function sendPushNotification({
               });
             }
           } else {
-            // 알 수 없는 에러
+            // socket timeout/DNS 오류 같은 transport 예외는 endpoint 만료를
+            // 증명하지 않으므로 구독은 유지하고 전송 오류로만 집계한다.
             console.error("Unknown Push error:", err);
-            results.disabled += 1;
           }
           results.errors += 1;
         }

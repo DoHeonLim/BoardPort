@@ -23,6 +23,7 @@
  * 2026.03.19  임도헌   Modified  채널 상단 정보량을 줄이기 위해 섹션 설명과 여백을 한 단계 압축
  * 2026.03.25  임도헌   Modified  라이브 empty state의 세로 밀도를 소폭 낮춰 첫 화면 비어 보임을 완화
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 팔로우 CTA weight를 500 기준으로 정리
+ * 2026.08.21  임도헌   Modified  채널 라이브도 권한 확인 후 발급된 단기 playback token으로만 재생
  */
 
 "use client";
@@ -94,6 +95,7 @@ export default function LiveNowHero({ stream, role, onFollow }: Props) {
 
 /* -------------------- Media 영역 -------------------- */
 
+/** 라이브 카드의 접근 상태에 맞춰 재생 화면 또는 보호 썸네일을 렌더링한다. */
 function HeroMedia({
   stream,
   role,
@@ -148,7 +150,7 @@ function HeroMedia({
           </Link>
           <div className="absolute inset-0 z-0">
             <PlayableLive
-              liveInputUid={stream.stream_id}
+              playbackId={stream.playbackId}
               thumbnail={stream.thumbnail ?? undefined}
             />
           </div>
@@ -212,11 +214,12 @@ function HeroMeta({ stream }: { stream: BroadcastSummary }) {
 
 /* -------------------- Sub components -------------------- */
 
+/** 접근 가능한 라이브 방송을 서명된 playback ID로 재생한다. */
 function PlayableLive({
-  liveInputUid,
+  playbackId,
   thumbnail,
 }: {
-  liveInputUid?: string | null;
+  playbackId?: string | null;
   thumbnail?: string;
 }) {
   const [mount, setMount] = useState(false);
@@ -243,7 +246,7 @@ function PlayableLive({
     return () => obs.disconnect();
   }, []);
 
-  const canEmbed = !!DOMAIN && !!liveInputUid;
+  const canEmbed = !!DOMAIN && !!playbackId;
   if (!canEmbed) return <FallbackBG thumbnail={thumbnail} />;
 
   // 자동재생(음소거) 파라미터 부여
@@ -252,7 +255,7 @@ function PlayableLive({
     muted: "1",
     preload: "auto",
   });
-  const src = `${DOMAIN}/${liveInputUid}/iframe?${params.toString()}`;
+  const src = `${DOMAIN}/${playbackId}/iframe?${params.toString()}`;
 
   return (
     <div ref={holderRef} className="absolute inset-0">

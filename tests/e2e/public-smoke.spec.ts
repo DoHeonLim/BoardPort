@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   메인, 로그인, 오프라인 공개 페이지 진입 smoke 테스트 추가
+ * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로의 인증 화면 쿼리 생략 검증 추가
  */
 
 import { expect, test } from "@playwright/test";
@@ -17,10 +18,9 @@ test.describe("public smoke", () => {
     await expect(
       page.getByRole("heading", { name: /보드게임과 TRPG의/ })
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "로그인하기" })).toHaveAttribute(
-      "href",
-      "/login"
-    );
+    await expect(
+      page.getByRole("link", { name: "로그인하기" })
+    ).toHaveAttribute("href", "/login");
     await expect(
       page.getByRole("link", { name: "새로운 선원으로 등록" })
     ).toHaveAttribute("href", "/create-account");
@@ -41,6 +41,30 @@ test.describe("public smoke", () => {
     await expect(
       page.getByRole("link", { name: "회원가입 하기" })
     ).toHaveAttribute("href", "/create-account?callbackUrl=%2F");
+  });
+
+  test("기본 프로필 복귀 경로는 인증 화면 링크의 쿼리에서 생략한다", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+
+    await expect(
+      page.getByRole("link", { name: "회원가입 하기" })
+    ).toHaveAttribute("href", "/create-account");
+    await expect(
+      page.getByRole("link", { name: "비밀번호를 잊으셨나요?" })
+    ).toHaveAttribute("href", "/forgot-password");
+    await expect(
+      page.getByRole("link", { name: "카카오로 계속하기" })
+    ).toHaveAttribute("href", "/kakao/start");
+    await expect(
+      page.getByRole("link", { name: "SMS로 계속하기" })
+    ).toHaveAttribute("href", "/sms");
+
+    await page.goto("/create-account");
+    await expect(
+      page.getByRole("link", { name: "항해 시작하기" })
+    ).toHaveAttribute("href", "/login");
   });
 
   test("오프라인 fallback 페이지가 재시도 경로를 제공한다", async ({

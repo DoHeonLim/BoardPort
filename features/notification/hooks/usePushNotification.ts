@@ -23,6 +23,10 @@
  * 2026.04.17  임도헌   Modified  푸시 구독 훅의 초기 점검/재연결/해제 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.04.26  임도헌   Modified  초기 자동 점검의 Service Worker ready 타임아웃을 콘솔 오류/토스트로 노출하지 않도록 완화
  * 2026.05.16  임도헌   Modified  push 에러 처리 타입을 unknown-safe 방식으로 정리
+ * 2026.08.13  임도헌   Modified  구독 키 소유 증명과 계정 불일치 기기 정리 추가
+ * 2026.08.13  임도헌   Modified  표시 보호 Worker 확인 후 구독하고 서버 해제 성공 뒤에만 전역 OFF 처리
+ * 2026.08.23  임도헌   Modified  Serwist 자동 등록 및 수동 복구 경로 기준으로 설명 갱신
+ * 2026.08.28  임도헌   Modified  푸시 초기 점검과 소유권 충돌 처리 함수 JSDoc 보강
  */
 
 "use client";
@@ -30,6 +34,11 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { PushNotificationStatus } from "@/features/notification/types";
+import {
+  PUSH_DISPLAY_GUARD_VERSION,
+  probePushDisplayGuard,
+  waitForPushDisplayGuard,
+} from "@/features/notification/utils/pushDisplayGuard";
 
 export type { PushNotificationStatus } from "@/features/notification/types";
 
@@ -38,15 +47,24 @@ interface PushSubscriptionData {
   keys: { p256dh: string; auth: string };
 }
 
+/** 브라우저 PushSubscription을 표시 보호 버전이 포함된 API DTO로 변환한다. */
+function serializeGuardedSubscription(subscription: PushSubscription) {
+  return {
+    ...subscription.toJSON(),
+    displayGuardVersion: PUSH_DISPLAY_GUARD_VERSION,
+  };
+}
+
 type CheckSubscriptionResponse = {
   isValid: boolean;
-  reason?: "active" | "disabled_by_user" | "needs_reconnect";
+  reason?:
+    "active" | "disabled_by_user" | "needs_reconnect" | "account_mismatch";
 };
 
 /**
  * 브라우저 환경 지원 여부 확인
  * - Service Worker, Push API, Notification API가 모두 있어야 함
- * - 개발 모드(Development)에서는 next-pwa가 비활성화될 수 있으므로 false 처리
+ * - 개발 모드(Development)에서는 Serwist가 비활성화될 수 있으므로 false 처리
  */
 function checkSupport() {
   try {
@@ -72,7 +90,7 @@ function checkSupport() {
  * Service Worker 준비 상태 대기 헬퍼
  *
  * 1. 현재 등록된 SW가 있는지 확인
- * 2. 없으면 수동 등록(`/sw.js`)을 시도 (next-pwa 자동 등록 실패 대비)
+ * 2. 없으면 수동 등록(`/sw.js`)을 시도 (Serwist 자동 등록 실패 대비)
  * 3. `navigator.serviceWorker.ready`를 타임아웃과 함께 기다림
  *
  * @param label - 로깅용 라벨 (check, subscribe 등)
@@ -82,9 +100,9 @@ function checkSupport() {
 async function waitForServiceWorkerReady(
   label: string,
   timeoutMs = 10000,
-  options: { logError?: boolean } = {}
+  options: { logError?: boolean; requirePushDisplayGuard?: boolean } = {}
 ): Promise<ServiceWorkerRegistration> {
-  const { logError = true } = options;
+  const { logError = true, requirePushDisplayGuard = false } = options;
 
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
     throw new Error("SERVICE_WORKER_NOT_SUPPORTED");
@@ -121,10 +139,27 @@ async function waitForServiceWorkerReady(
       )
     );
 
-    const registration = (await Promise.race([
+    let registration = (await Promise.race([
       readyPromise,
       timeoutPromise,
     ])) as ServiceWorkerRegistration;
+
+    if (requirePushDisplayGuard) {
+      const activeWorker = registration.active;
+      const guardAlreadyReady =
+        activeWorker && (await probePushDisplayGuard(activeWorker));
+
+      if (!guardAlreadyReady) {
+        // importScripts 자원까지 HTTP cache를 우회해 최신 표시 보호 Worker를
+        // 설치한다. skipWaiting 뒤 registration.active가 바뀔 때까지 handshake한다.
+        registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none",
+        });
+        await registration.update();
+        await waitForPushDisplayGuard(registration, timeoutMs);
+      }
+    }
 
     return registration;
   } catch (e: unknown) {
@@ -135,12 +170,14 @@ async function waitForServiceWorkerReady(
   }
 }
 
+/** Service Worker 준비 대기 중 발생한 timeout 오류인지 판별한다. */
 function isServiceWorkerReadyTimeout(error: unknown) {
   return (
     error instanceof Error && error.message === "SERVICE_WORKER_READY_TIMEOUT"
   );
 }
 
+/** 알 수 없는 Push 오류를 사용자에게 표시할 문자열로 정규화한다. */
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "오류 발생";
 }
@@ -189,6 +226,7 @@ export function usePushNotification() {
     let mounted = true;
     const controller = new AbortController();
 
+    /** 브라우저 권한·구독·서버 소유권을 확인해 초기 푸시 상태를 동기화한다. */
     const check = async () => {
       try {
         // 2-1. Private(Incognito) 모드 감지
@@ -217,6 +255,7 @@ export function usePushNotification() {
         // 2-2. Service Worker 준비
         const registration = await waitForServiceWorkerReady("check", 10000, {
           logError: false,
+          requirePushDisplayGuard: true,
         });
         if (!mounted) return;
 
@@ -235,7 +274,7 @@ export function usePushNotification() {
         const res = await fetch("/api/push/check-subscription", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: current.endpoint }),
+          body: JSON.stringify(serializeGuardedSubscription(current)),
           signal: controller.signal,
         });
 
@@ -254,8 +293,9 @@ export function usePushNotification() {
             return;
           }
 
-          if (reason === "disabled_by_user") {
-            // 전역 OFF 상태 시 로컬 구독도 정리해 상태 일치 유지
+          if (reason === "disabled_by_user" || reason === "account_mismatch") {
+            // 전역 OFF 또는 이전 계정 소유 기기는 원격/로컬 상태를
+            // 같이 정리해 다음 계정으로 알림이 노출되는 것을 막는다.
             try {
               await current.unsubscribe();
             } catch (unsubErr) {
@@ -365,12 +405,39 @@ export function usePushNotification() {
       }
 
       // 3. 브라우저 구독 생성
-      const registration = await waitForServiceWorkerReady("subscribe");
+      const registration = await waitForServiceWorkerReady("subscribe", 10000, {
+        requirePushDisplayGuard: true,
+      });
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
         toast.error("VAPID 공개키 설정 오류");
         return;
       }
+
+      /**
+       * 다른 계정이 소유한 로컬 구독을 폐기하고 재연결 필요 상태로 전환한다.
+       *
+       * @param current - 소유권이 충돌한 현재 브라우저 Push 구독
+       */
+      const handleOwnershipConflict = async (current: PushSubscription) => {
+        // DB 소유 키와 현재 브라우저 키가 다르면 임의로
+        // 덮어쓰지 않고 로컬 구독을 폐기한다. 다음 시도는
+        // PushManager가 새 소유 키/endpoint를 발급하도록 유도한다.
+        try {
+          await current.unsubscribe();
+        } catch (cleanupError) {
+          console.warn(
+            "[push] conflicting local subscription cleanup failed:",
+            cleanupError
+          );
+        }
+
+        clearLocalState();
+        setStatus("needs_reconnect");
+        toast.error(
+          "기존 알림 연결을 새로 설정해야 합니다. 다시 한 번 시도해주세요."
+        );
+      };
 
       // 기존 구독 재사용 시도
       const existing = await registration.pushManager.getSubscription();
@@ -380,8 +447,12 @@ export function usePushNotification() {
         const resReuse = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(reused),
+          body: JSON.stringify(serializeGuardedSubscription(existing)),
         });
+        if (resReuse.status === 409) {
+          await handleOwnershipConflict(existing);
+          return;
+        }
         if (!resReuse.ok) {
           throw new Error(`서버 동기화 실패(${resReuse.status})`);
         }
@@ -408,10 +479,15 @@ export function usePushNotification() {
       const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(serializeGuardedSubscription(newSub)),
       });
 
       if (!res.ok) {
+        if (res.status === 409) {
+          await handleOwnershipConflict(newSub);
+          return;
+        }
+
         // 서버 저장 실패 시 브라우저 구독도 롤백
         await newSub.unsubscribe().catch(() => {});
         throw new Error(`서버 등록 실패(${res.status})`);
@@ -446,10 +522,16 @@ export function usePushNotification() {
       if (!isSupported) return;
 
       // 1. 서버 전역 OFF
-      await fetch("/api/push/unsubscribe", {
+      const response = await fetch("/api/push/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      }).catch(() => {});
+      });
+
+      // 서버가 모든 기기의 구독과 재검증 자격을 실제로 끈 뒤에만
+      // 이 브라우저를 성공 상태로 전환한다.
+      if (!response.ok) {
+        throw new Error(`서버 구독 해제 실패(${response.status})`);
+      }
 
       // 2. 로컬 상태 정리 (UX 우선)
       setStatus("disabled");

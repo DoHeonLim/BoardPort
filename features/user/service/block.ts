@@ -12,11 +12,13 @@
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.03.07  임도헌   Modified  차단/차단 해제 실패 문구를 구체화(v1.2)
  * 2026.03.07  임도헌   Modified  정지 유저 차단/차단 해제 mutation 가드 추가
+ * 2026.08.21  임도헌   Modified  차단 시스템 이벤트를 서버 전용 private topic으로 전환
  */
 import "server-only";
 
 import db from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
+import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import { unfollowUserService } from "@/features/user/service/follow";
 import { validateUserStatus } from "@/features/user/service/admin";
 import type { ServiceResult } from "@/lib/types";
@@ -66,7 +68,7 @@ export async function blockUserService(
 
     // 3. 실시간 강제 퇴장 신호 전송 (System Event)
     // 차단 당한 유저(blockedId)의 개인 채널로 'sys_event'를 보냄
-    await supabase.channel(`user-${blockedId}-notifications`).send({
+    await supabase.channel(notificationRealtimeTopic(blockedId)).send({
       type: "broadcast",
       event: "sys_event",
       payload: {

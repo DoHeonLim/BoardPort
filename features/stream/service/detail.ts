@@ -19,6 +19,8 @@
  * 2026.05.03  임도헌   Modified  방송/녹화 상세에 연결된 보드게임 카탈로그 정보 포함
  * 2026.05.08  임도헌   Modified  방송/녹화 상세 보드게임 relation select를 공용 상수로 교체
  * 2026.05.08  임도헌   Modified  상세 DTO 타입을 features/stream/types.ts로 이동
+ * 2026.08.21  임도헌   Modified  상세 DTO에서 원본 Cloudflare UID를 제거하고 playback token 주입 자리만 제공
+ * 2026.09.07  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  */
 
 import "server-only";
@@ -33,73 +35,70 @@ import type { StreamDetailDTO, VodDetailDTO } from "@/features/stream/types";
  *
  * [데이터 가공 전략]
  * - 화면 표시에 필요한 최소한의 필드(제목, 카테고리, 태그, 시간, fallback 썸네일 등)만 선택적 조회
- * - 방송 소유자의 정보 및 CF Live Input UID 연동 데이터 조인 반환
+ * - 방송 소유자 정보는 반환하되 원본 CF Live Input UID는 클라이언트 DTO에서 제외
  *
  * @param {number} id - 방송 ID
  * @returns {Promise<StreamDetailDTO | null>} 방송 상세 데이터
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getBroadcastDetail(
   id: number
 ): Promise<StreamDetailDTO | null> {
-  try {
-    const b = await db.broadcast.findUnique({
-      where: { id },
-      select: {
-        title: true,
-        thumbnail: true,
-        description: true,
-        pinnedChatNotice: true,
-        started_at: true,
-        status: true,
-        visibility: true,
-        liveInput: {
-          select: {
-            userId: true,
-            provider_uid: true,
-            user: { select: { id: true, username: true, avatar: true } },
-          },
-        },
-        category: { select: { kor_name: true, icon: true } },
-        tags: { select: { name: true } },
-        board_games: {
-          select: STREAM_BOARD_GAME_RELATION_SELECT,
+  const b = await db.broadcast.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      thumbnail: true,
+      description: true,
+      pinnedChatNotice: true,
+      started_at: true,
+      status: true,
+      visibility: true,
+      liveInput: {
+        select: {
+          userId: true,
+          user: { select: { id: true, username: true, avatar: true } },
         },
       },
-    });
-
-    if (!b || !b.liveInput) return null;
-
-    return {
-      title: b.title,
-      stream_id: b.liveInput.provider_uid,
-      thumbnail: b.thumbnail ?? null,
-      userId: b.liveInput.userId,
-      user: {
-        id: b.liveInput.user.id,
-        username: b.liveInput.user.username,
-        avatar: b.liveInput.user.avatar,
+      category: { select: { kor_name: true, icon: true } },
+      tags: { select: { name: true } },
+      board_games: {
+        select: STREAM_BOARD_GAME_RELATION_SELECT,
       },
-      category: b.category
-        ? { kor_name: b.category.kor_name, icon: b.category.icon }
-        : null,
-      tags: b.tags ?? [],
-      board_games: b.board_games.flatMap(({ boardGame }) => {
-        const { locales, ...linkedBoardGame } = boardGame;
-        const locale = locales[0];
-        // 공개 한국어 locale이 있는 보드게임 연결만 방송 상세에 노출
-        if (!locale) return [];
-        return [{ boardGame: { ...linkedBoardGame, locale } }];
-      }),
-      started_at: b.started_at ?? null,
-      description: b.description ?? null,
-      pinnedChatNotice: b.pinnedChatNotice ?? null,
-      status: b.status,
-      visibility: b.visibility,
-    };
-  } catch (error) {
-    console.error("[getBroadcastDetail] failed:", error);
-    return null;
-  }
+    },
+  });
+
+  // findUnique의 null과 필수 liveInput 관계 부재만 실제 미존재로 처리한다.
+  // DB 예외는 cache에 null로 저장하지 않고 상위 오류 경계까지 전파한다.
+  if (!b || !b.liveInput) return null;
+
+  return {
+    title: b.title,
+    playbackId: null,
+    thumbnail: b.thumbnail ?? null,
+    userId: b.liveInput.userId,
+    user: {
+      id: b.liveInput.user.id,
+      username: b.liveInput.user.username,
+      avatar: b.liveInput.user.avatar,
+    },
+    category: b.category
+      ? { kor_name: b.category.kor_name, icon: b.category.icon }
+      : null,
+    tags: b.tags ?? [],
+    board_games: b.board_games.flatMap(({ boardGame }) => {
+      const { locales, ...linkedBoardGame } = boardGame;
+      const locale = locales[0];
+      // 공개 한국어 locale이 있는 보드게임 연결만 방송 상세에 노출
+      if (!locale) return [];
+      return [{ boardGame: { ...linkedBoardGame, locale } }];
+    }),
+    started_at: b.started_at ?? null,
+    description: b.description ?? null,
+    pinnedChatNotice: b.pinnedChatNotice ?? null,
+    status: b.status,
+    visibility: b.visibility,
+  };
 }
 
 /**
@@ -129,6 +128,7 @@ export const getCachedBroadcastDetail = (id: number) => {
  *
  * @param {number} vodId - VOD ID
  * @returns {Promise<VodDetailDTO | null>} 녹화본 상세 데이터
+ * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
 export async function getVodDetail(
   vodId: number
@@ -137,7 +137,6 @@ export async function getVodDetail(
     where: { id: vodId },
     select: {
       id: true,
-      provider_asset_id: true,
       duration_sec: true,
       ready_at: true,
       created_at: true,
@@ -150,7 +149,6 @@ export async function getVodDetail(
           visibility: true,
           liveInput: {
             select: {
-              provider_uid: true,
               user: { select: { id: true, username: true, avatar: true } },
             },
           },
@@ -166,11 +164,11 @@ export async function getVodDetail(
     },
   });
 
-  if (!vod?.broadcast?.liveInput?.provider_uid) return null;
+  if (!vod?.broadcast?.liveInput) return null;
 
   return {
     vodId: vod.id,
-    uid: vod.provider_asset_id,
+    playbackId: null,
     durationSec: vod.duration_sec,
     readyAt: vod.ready_at,
     createdAt: vod.created_at,
@@ -183,7 +181,6 @@ export async function getVodDetail(
       id: vod.broadcast.id,
       title: vod.broadcast.title,
       visibility: vod.broadcast.visibility,
-      stream_id: vod.broadcast.liveInput.provider_uid,
       owner: {
         id: vod.broadcast.liveInput.user.id,
         username: vod.broadcast.liveInput.user.username,

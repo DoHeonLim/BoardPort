@@ -52,6 +52,10 @@
  * 2026.05.16  임도헌   Modified  제품 폼 값 타입명을 PascalCase 기준으로 정리
  * 2026.05.30  임도헌   Modified  모바일 상품 폼의 필드 높이와 섹션 간격을 압축해 작성 밀도 조정
  * 2026.06.18  임도헌   Modified  거래 기준 지역 필수화에 맞춰 위치 검증/에러 이동 UX 보강
+ * 2026.08.22  임도헌   Modified  상품 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.08.24  임도헌   Modified  Next.js 16 모달 편집 복귀를 목록 relay로 고정하고 목적 경로 전환 후 성공 피드백 표시
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 폼 오류·이미지 섹션 스크롤 동작 조정
  */
 
 /**
@@ -89,8 +93,10 @@ import {
   COMPLETENESS_DISPLAY,
   CONDITION_DISPLAY,
   PRODUCT_OTHER_CATEGORY_ENG_NAME,
+  PRODUCT_UPDATE_SUCCESS_MESSAGE,
 } from "@/features/product/constants";
 import { getUploadUrl } from "@/lib/cloudflareImages";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import { toast } from "sonner";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -107,6 +113,7 @@ import {
   markNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
+import { markNavigationSuccessToast } from "@/lib/navigationToast";
 import {
   stripProductImagePublicVariant,
   toProductImagePublicUrl,
@@ -153,7 +160,7 @@ const CF_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_ACCOUNT_HASH;
  * - RHF + Zod 기반 검증과 필드 상태를 관리
  * - 이미지 업로드/정렬/애니메이션 메타를 통합 관리
  * - 대분류/소분류, 거래 장소, 태그 등 부가 입력 흐름을 함께 조정
- * - 저장 성공 후 create/edit 진입 맥락에 맞춰 back 또는 replace 복귀 경로를 분기
+ * - 저장 성공 후 create/edit 진입 맥락에 맞춰 back·목록 relay·replace 복귀 경로를 분기
  * - 지도 선택 모달은 첫 화면 번들을 줄이기 위해 필요 시점에만 지연 로드
  */
 export default function ProductForm({
@@ -179,24 +186,17 @@ export default function ProductForm({
   const action = mode === "create" ? createProductAction : updateProductAction;
 
   /**
-   * 모달 편집 저장 후 기존 모달 상세 문맥으로 복귀
+   * 모달 편집 종료 후 목록 문맥을 복원하고 인터셉트 모달을 다시 연다.
    *
    * @param productId - 저장된 상품 id
    */
   const returnToModalEditOrigin = (productId: number) => {
-    if (canResumeEditHistory) {
-      router.back();
-      return;
-    }
-
-    if (returnTo) {
-      router.replace(
-        `/products?openProductId=${productId}&returnTo=${encodeURIComponent(returnTo)}`
-      );
-      return;
-    }
-
-    router.replace(`/products/view/${productId}`);
+    const modalReturnTo = returnTo ?? "/products";
+    // Next.js 16은 back 시 Parallel Route 대신 canonical 상세를 복원할 수 있으므로
+    // 목록 relay가 returnTo를 복원한 뒤 인터셉트 모달을 다시 열도록 항상 위임한다.
+    router.replace(
+      `/products?openProductId=${productId}&returnTo=${encodeURIComponent(modalReturnTo)}`
+    );
   };
 
   /**
@@ -451,7 +451,7 @@ export default function ProductForm({
       shouldDirty: true,
       shouldValidate: true,
     });
-    toast.success("선택한 보드게임명을 제품명에 반영했습니다.");
+    toast.success("선택한 보드게임명을 상품명에 반영했습니다.");
   };
 
   /**
@@ -537,7 +537,7 @@ export default function ProductForm({
     setIsImageFormOpen(true);
     imageSectionRef.current?.focus();
     imageSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
+      behavior: getMotionSafeScrollBehavior(),
       block: "center",
       inline: "nearest",
     });
@@ -587,12 +587,12 @@ export default function ProductForm({
       // 1) 새로 추가한 파일만 Cloudflare에 업로드
       if (newFiles.length > 0) {
         const uploadPromises = newFiles.map(async (file) => {
-          const res = await getUploadUrl();
+          const res = await getUploadUrl("PRODUCT_IMAGE");
           if (!res.success) {
             throw new Error(res.error || "Failed to get upload URL");
           }
 
-          const { uploadURL, id } = res.result;
+          const { uploadURL, deliveryUrl } = res.result;
           const cloudflareForm = new FormData();
           cloudflareForm.append("file", file);
 
@@ -602,7 +602,7 @@ export default function ProductForm({
           });
 
           if (!response.ok) throw new Error("Failed to upload image");
-          return `https://imagedelivery.net/${CF_HASH}/${id}`;
+          return deliveryUrl;
         });
         const urls = await Promise.all(uploadPromises);
         uploadedPhotoUrls.push(...urls);
@@ -675,21 +675,23 @@ export default function ProductForm({
 
         if (mode === "create") {
           toast.success(
-            "제품이 등록되었습니다. 상세 페이지에서 바로 거래를 이어갈 수 있습니다."
+            "상품이 등록되었습니다. 상세 페이지에서 바로 거래를 이어갈 수 있습니다."
           );
           router.replace(detailHref);
         } else if (mode === "edit") {
-          toast.success(
-            "제품 정보가 수정되었습니다. 변경 내용이 상세 페이지에 반영됩니다."
-          );
           if (isModalEditFlow) {
-            // 모달 상세는 1회 refresh 플래그를 남기고 이전 히스토리로 복귀
+            // refresh와 성공 피드백을 각각 단발성 신호로 남긴 뒤 모달 상세로 복귀한다.
             markNavigationRefresh(
               NAVIGATION_REFRESH_SCOPES.PRODUCT_MODAL,
               productId
             );
+            markNavigationSuccessToast(
+              `/products/view/${productId}`,
+              PRODUCT_UPDATE_SUCCESS_MESSAGE
+            );
             returnToModalEditOrigin(productId);
           } else {
+            toast.success(PRODUCT_UPDATE_SUCCESS_MESSAGE);
             // 일반 상세도 동일하게 1회 refresh 플래그를 남기고 복귀
             returnToDetailEditOrigin(productId, detailHref);
           }
@@ -705,8 +707,8 @@ export default function ProductForm({
           toast.error(
             result.error ??
               (mode === "create"
-                ? "제품 등록에 실패했습니다. 필수 입력값과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요."
-                : "제품 수정에 실패했습니다. 변경한 항목을 확인한 뒤 다시 시도해주세요.")
+                ? "상품 등록에 실패했습니다. 필수 입력값과 이미지 업로드 상태를 확인한 뒤 다시 시도해주세요."
+                : "상품 수정에 실패했습니다. 변경한 항목을 확인한 뒤 다시 시도해주세요.")
           );
         }
       }
@@ -714,8 +716,8 @@ export default function ProductForm({
       console.error("upload error:", err);
       toast.error(
         mode === "create"
-          ? "제품 등록 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
-          : "제품 수정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+          ? "상품 등록 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          : "상품 수정 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
       );
     } finally {
       setIsUploading(false);
@@ -735,7 +737,7 @@ export default function ProductForm({
 
     if (formErrors.location) {
       locationSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
+        behavior: getMotionSafeScrollBehavior(),
         block: "center",
         inline: "nearest",
       });
@@ -852,7 +854,7 @@ export default function ProductForm({
               {selectedBoardGameForAutofill.locale.title} 기준으로 입력 보조
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted">
-              제품명과 검색 태그만 보조로 채우고, 상세 설명과 제품 상태는 직접
+              상품명과 검색 태그만 보조로 채우고, 상세 설명과 상품 상태는 직접
               입력합니다.
             </p>
           </div>
@@ -863,7 +865,7 @@ export default function ProductForm({
               disabled={isUploading}
               className="focus-ring-soft inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-bold text-primary transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-60"
             >
-              제품명 채우기
+              상품명 채우기
             </button>
             <button
               type="button"
@@ -880,10 +882,10 @@ export default function ProductForm({
       <div className="grid grid-cols-1 gap-form-gap md:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] md:items-start">
         <div className="md:order-1">
           <Input
-            label="제품명"
+            label="상품명"
             type="text"
             required
-            placeholder="제품명을 입력해주세요"
+            placeholder="상품명을 입력해주세요"
             density="compact"
             {...register("title")}
             errors={[errors.title?.message ?? ""]}
@@ -927,7 +929,7 @@ export default function ProductForm({
         label="상세 설명"
         type="textarea"
         required
-        placeholder="제품의 상태, 특이사항 등을 자세히 적어주세요."
+        placeholder="상품의 상태, 특이사항 등을 자세히 적어주세요."
         density="compact"
         {...register("description")}
         errors={[errors.description?.message ?? ""]}
@@ -937,7 +939,7 @@ export default function ProductForm({
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-medium text-primary">게임 정보</h2>
           <p className="text-xs leading-snug text-muted sm:leading-relaxed">
-            플레이 조건과 제품 상태를 함께 정리해 구매 판단을 돕습니다.
+            플레이 조건과 상품 상태를 함께 정리해 구매 판단을 돕습니다.
           </p>
         </div>
         {selectedBoardGameForAutofill && (
@@ -984,7 +986,7 @@ export default function ProductForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-form-gap">
         <Select
-          label="제품 상태"
+          label="상품 상태"
           density="compact"
           {...register("condition")}
           errors={[errors.condition?.message ?? ""]}
@@ -1015,7 +1017,7 @@ export default function ProductForm({
           id="has_manual"
           type="checkbox"
           {...register("has_manual")}
-          className="h-5 w-5 shrink-0 rounded border-border accent-brand focus:ring-brand dark:accent-brand-light dark:focus:ring-brand-light"
+          className="h-5 w-5 shrink-0 rounded border-border accent-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 dark:accent-brand-light dark:focus-visible:ring-brand-light/40"
         />
         <label
           htmlFor="has_manual"

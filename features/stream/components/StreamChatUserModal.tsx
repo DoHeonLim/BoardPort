@@ -23,6 +23,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 운영 안내와 액션 버튼 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  스트림 채팅 유저 모달에 dialog 의미와 제목/닫기 라벨, ESC 닫기 흐름을 보강
+ * 2026.08.27  임도헌   Modified  중첩 확인·신고 모달을 고려한 포커스 관리를 공용 useModalFocus로 통일
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -47,6 +48,7 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
@@ -118,22 +120,13 @@ export default function StreamChatUserModal({
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen || !targetUser || !mounted || isConfirmOpen || reportOpen) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isConfirmOpen, isOpen, mounted, onClose, reportOpen, targetUser]);
+  useModalFocus({
+    open: isOpen && !!targetUser,
+    enabled: mounted,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose,
+  });
 
   if (!isOpen || !targetUser || !mounted) return null;
   const isMe = viewerId === targetUser.id;

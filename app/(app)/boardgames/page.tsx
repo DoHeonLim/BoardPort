@@ -17,6 +17,8 @@
  * 2026.05.05  임도헌   Modified  목록 카드/필터/페이지네이션 UI를 전용 컴포넌트로 분리
  * 2026.05.05  임도헌   Modified  공개 목록 조회 서비스 직접 import 경로 반영
  * 2026.05.08  임도헌   Modified  TanStack Query 서버 프리패치 및 HydrationBoundary 적용
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.03  임도헌   Modified  도감 직접 진입에서도 상품 목록으로 복귀하도록 뒤로가기 고정
  */
 
 import { Suspense } from "react";
@@ -40,7 +42,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "보드게임 도감",
-  description: "BoardPort에서 거래와 기록에 연결되는 보드게임 정보를 찾아보세요.",
+  description:
+    "BoardPort에서 거래와 기록에 연결되는 보드게임 정보를 찾아보세요.",
 };
 
 /**
@@ -52,28 +55,27 @@ export const metadata: Metadata = {
  * - TanStack Query 서버 프리패치로 목록 복귀와 필터 전환 시 캐시 identity 유지
  * - 하단 탭을 추가하지 않고 항구/검색에서 진입하는 보조 탐색면으로 사용
  */
-export default async function BoardGamesPage({
-  searchParams,
-}: {
-  searchParams: {
+export default async function BoardGamesPage(props: {
+  searchParams: Promise<{
     page?: string;
     q?: string;
     players?: string;
     playTime?: string;
     weight?: string;
     sort?: string;
-  };
+  }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawPage = Number(searchParams.page);
   const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
   const filters = parseBoardGameCatalogFilters(searchParams);
   const limit = BOARDGAME_CATALOG_PAGE_SIZE;
   const hasActiveFilters = Boolean(
     filters.query ||
-      filters.players ||
-      filters.playTime ||
-      filters.weight ||
-      (filters.sort && filters.sort !== "rank")
+    filters.players ||
+    filters.playTime ||
+    filters.weight ||
+    (filters.sort && filters.sort !== "rank")
   );
   const filterFormKey = [
     filters.query ?? "",
@@ -95,7 +97,7 @@ export default async function BoardGamesPage({
       <header className="border-b border-border-subtle pb-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <BackButton fallbackHref="/products" />
+            <BackButton fallbackHref="/products" preferFallback />
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-primary sm:text-2xl">
                 보드게임 도감

@@ -21,6 +21,7 @@
  * 2026.04.20  임도헌   Modified  앱 셸(sm) 기준과 데스크톱 헤더 노출 기준을 맞춰 640~767px 구간 레이아웃 mismatch 정리
  * 2026.06.14  임도헌   Modified  긴 필터 요약을 말줄임 대신 가로 스크롤로 확인할 수 있게 조정
  * 2026.06.15  임도헌   Modified  검색어만 적용된 상태도 요약 X 버튼으로 바로 해제할 수 있게 조정
+ * 2026.08.13  임도헌   Modified  데스크톱 검색 기록 cache에 현재 사용자 ID 전달
  */
 "use client";
 
@@ -97,6 +98,7 @@ export default function ProductDesktopHeader({
     removeHistory,
     clearHistory,
   } = useProductHeaderState({
+    userId,
     categories,
     filters,
     keyword,

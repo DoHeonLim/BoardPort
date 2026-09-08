@@ -33,7 +33,8 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/chats/[id]/page.tsx 에서 app/(app)/chats/[id]/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  채팅 상세 최적화 대응으로 배경 장식을 제거하고 앱 셸을 단순화
  * 2026.05.28  임도헌   Modified  모바일 키보드 오픈 시 visualViewport 높이를 기준으로 채팅 셸 보정
-*/
+ * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ */
 
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
@@ -64,16 +65,15 @@ import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
  * - HydrationBoundary 기반 초기 메시지 캐시 전달
  * - 진입 시점 읽음 처리
  *
- * @param {{ params: { id: string }; searchParams?: { returnTo?: string } }} props - 라우트 파라미터와 복귀 경로 쿼리
+ * @param props - 채팅방 ID와 복귀 경로를 담은 Promise 기반 라우트 속성
  * @returns {Promise<JSX.Element>} 제품 채팅방 상세 화면
  */
-export default async function ChatRoom({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { returnTo?: string };
+export default async function ChatRoom(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnTo?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const chatRoomId = params.id;
   const returnTo = sanitizeCallbackUrl(searchParams?.returnTo ?? "/chat");
   const detailHref = `/chats/${chatRoomId}?returnTo=${encodeURIComponent(
@@ -167,4 +167,3 @@ function MessageSkeleton() {
     </div>
   );
 }
-

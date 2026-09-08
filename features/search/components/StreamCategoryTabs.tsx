@@ -24,6 +24,8 @@
  * 2026.04.20  임도헌   Modified  키보드 포커스가 브라우저 기본 outline으로 보이지 않도록 스트림 카테고리 탭과 화살표 버튼에 공용 포커스 유틸을 적용
  * 2026.04.20  임도헌   Modified  좌측 화살표가 첫 탭 보더를 침범하지 않도록 버튼 위치와 레일 시작 여백을 함께 조정
  * 2026.04.20  임도헌   Modified  스트림 페이지 헤더가 sm 구간부터 데스크톱 제어를 사용하도록 바뀐 흐름에 맞춰 화살표 표시 breakpoint를 sm으로 조정
+ * 2026.08.27  임도헌   Modified  모션 축소 설정에서는 카테고리 레일을 즉시 스크롤하도록 보강
+ * 2026.08.28  임도헌   Modified  카테고리 링크와 스크롤 함수 JSDoc 보강
  */
 "use client";
 
@@ -33,6 +35,7 @@ import { useSearchParams } from "next/navigation";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { STREAM_CATEGORY } from "@/features/stream/constants";
 import { cn } from "@/lib/utils";
+import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 
 interface StreamCategoryTabsProps {
   currentCategory?: string;
@@ -54,6 +57,12 @@ export default function StreamCategoryTabs({
   const searchParam = useSearchParams();
   const scrollContainerRef = useRef<HTMLElement>(null);
 
+  /**
+   * 기존 검색 조건을 유지하면서 선택 카테고리만 반영한 경로를 만든다.
+   *
+   * @param nextCategory - 이동할 스트리밍 카테고리
+   * @returns 카테고리 쿼리가 반영된 스트리밍 목록 경로
+   */
   const buildHref = useMemo(() => {
     return (nextCategory?: string) => {
       const params = new URLSearchParams(searchParam?.toString() ?? "");
@@ -66,6 +75,11 @@ export default function StreamCategoryTabs({
     };
   }, [searchParam]);
 
+  /**
+   * 데스크톱 카테고리 레일을 지정한 방향으로 이동한다.
+   *
+   * @param direction - 이동할 가로 방향
+   */
   const scroll = (direction: "left" | "right") => {
     if (!scrollContainerRef.current) return;
 
@@ -76,7 +90,7 @@ export default function StreamCategoryTabs({
 
     scrollContainerRef.current.scrollTo({
       left: targetScroll,
-      behavior: "smooth",
+      behavior: getMotionSafeScrollBehavior(),
     });
   };
 

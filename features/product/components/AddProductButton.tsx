@@ -15,6 +15,7 @@
  * 2026.04.13  임도헌   Modified  최근 본 상품 FAB를 idle 이후 지연 로딩해 products 초기 평가 비용을 완화
  * 2026.04.17  임도헌   Modified  메인 FAB와 최근 본 상품 진입점의 지연 노출 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.04.26  임도헌   Modified  다크모드 FAB 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  */
 "use client";
 
@@ -71,8 +72,8 @@ export default function AddProductButton() {
       <Link
         href="/products/add"
         prefetch={false}
-        title="새 제품 추가"
-        aria-label="제품 추가"
+        title="새 상품 추가"
+        aria-label="상품 추가"
         className={cn(
           "focus-ring-strong fixed z-40 flex items-center justify-center rounded-full transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
           "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",

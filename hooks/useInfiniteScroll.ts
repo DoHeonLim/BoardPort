@@ -13,6 +13,7 @@
  * 2026.02.28  임도헌   Modified  TanStack Query(fetchNextPage) 연동을 위해 onLoadMore 반환 타입(unknown) 확장
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.06.13  임도헌   Modified  hasMore/isLoading 변경 시 sentinel 재관찰되도록 effect 의존성 보강
+ * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
  */
 
 "use client";
@@ -21,7 +22,7 @@ import { useEffect, useRef } from "react";
 
 interface UseInfiniteScrollProps {
   /** 관찰 대상 요소의 Ref (스크롤 트리거) */
-  triggerRef: React.RefObject<HTMLElement>;
+  triggerRef: React.RefObject<HTMLElement | null>;
   /** 더 불러올 데이터가 있는지 여부 */
   hasMore: boolean;
   /** 현재 데이터 로딩 중인지 여부 */
@@ -119,15 +120,7 @@ export function useInfiniteScroll({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [
-    enabled,
-    hasMore,
-    isLoading,
-    triggerRef,
-    rootRef,
-    rootMargin,
-    threshold,
-  ]);
+  }, [enabled, hasMore, isLoading, triggerRef, rootRef, rootMargin, threshold]);
 }
 
 export default useInfiniteScroll;

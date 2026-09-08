@@ -17,6 +17,7 @@
  * 2026.04.02  임도헌   Modified  파일 설명과 수정 액션 주석을 현재 서버 액션 톤으로 정리
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
  * 2026.05.16  임도헌   Modified  기존 첨부 동영상 유지 여부 조회를 post service 헬퍼로 이동
+ * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  */
 "use server";
 
@@ -217,7 +218,7 @@ export async function updatePostAction(
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.POST_DETAIL(result.data.postId)); // 상세 본문 갱신
+  revalidateTag(T.POST_DETAIL(result.data.postId), { expire: 0 }); // 상세 본문 갱신
   revalidatePath("/posts");
   boardGameIds.forEach((boardGameId) => {
     revalidatePath(`/boardgames/${boardGameId}`);

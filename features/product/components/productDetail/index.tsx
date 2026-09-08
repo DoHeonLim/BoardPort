@@ -20,6 +20,7 @@
  * 2026.05.03  임도헌   Modified  상품 상세에 연결된 보드게임 카탈로그 칩 노출
  * 2026.05.06  임도헌   Modified  게시글/방송 상세와 동일한 도감 이동 카드 표시로 통일
  * 2026.06.18  임도헌   Modified  예약/판매완료 거래 상태를 상세 헤더에 전달
+ * 2026.08.13  임도헌   Modified  상품 태그 검색 기록에 현재 조회자 ID 전달
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
@@ -129,7 +130,10 @@ export default function ProductDetailContainer({
             region3={product.region3 ?? null}
           />
 
-          <ProductDetailTags tags={product.search_tags} />
+          <ProductDetailTags
+            tags={product.search_tags}
+            viewerId={viewerId}
+          />
         </div>
       </div>
 

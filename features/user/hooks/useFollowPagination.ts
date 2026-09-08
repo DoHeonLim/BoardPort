@@ -16,6 +16,7 @@
  * 2026.03.01  임도헌   Modified   useInfiniteQuery 도입, 수동 상태(useState) 및 병합 로직 제거
  * 2026.03.05  임도헌   Modified   주석 최신화
  * 2026.04.17  임도헌   Modified   팔로우 무한스크롤 훅의 캐시 분리/에러 stage 반환 책임 설명 보강
+ * 2026.08.13  임도헌   Modified  팔로우 목록 query key에 현재 조회자 범위 추가
  */
 
 "use client";
@@ -32,6 +33,7 @@ type Fetcher = (
 interface UseFollowPaginationParams {
   username: string;
   type: "followers" | "following"; // 캐시 식별자(Query Key) 분리용
+  viewerId: number | null;
   fetcher: Fetcher;
   enabled: boolean; // 모달 오픈 여부 (지연 로딩 트리거)
 }
@@ -40,7 +42,7 @@ interface UseFollowPaginationParams {
  * 팔로워 및 팔로잉 목록 공용 무한 스크롤 페이징 훅
  *
  * [기능]
- * - `username`과 `type`(followers/following)을 함께 queryKey에 반영해 모달별 캐시를 분리
+ * - `username`, `type`, `viewerId`를 함께 queryKey에 반영해 개인화된 모달 캐시를 분리
  * - `enabled`가 켜진 시점에만 `useInfiniteQuery`를 활성화해 팔로우 모달을 지연 로딩
  * - 서버 fetcher가 돌려준 `nextCursor`를 그대로 다음 페이지 커서로 이어 붙임
  * - 데이터가 전혀 없는 상태의 실패는 `first`, 추가 로드 중 실패는 `more` stage로 나눠 상위 UI가 다른 UX를 그릴 수 있게 함
@@ -51,11 +53,12 @@ interface UseFollowPaginationParams {
 export function useFollowPagination({
   username,
   type,
+  viewerId,
   fetcher,
   enabled,
 }: UseFollowPaginationParams) {
   // 모달별/유저별 고유 캐시 키 구성
-  const queryKey = queryKeys.follows.list(username, type);
+  const queryKey = queryKeys.follows.list(username, type, viewerId);
 
   const {
     data,

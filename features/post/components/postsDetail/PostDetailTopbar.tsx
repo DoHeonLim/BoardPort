@@ -24,6 +24,7 @@
  * 2026.04.03  임도헌   Modified  작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.06  임도헌   Modified  작성자용 수정/삭제를 상단 owner 관리 메뉴로 통합
  * 2026.05.30  임도헌   Modified  게시글 상세 상단바 높이와 좌우 여백을 압축
+ * 2026.09.03  임도헌   Modified  게시글 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
  */
 "use client";
 
@@ -130,6 +131,7 @@ export default function PostDetailTopbar({
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <BackButton
             fallbackHref={backHref ?? "/posts"}
+            preferFallback
             variant="appbar"
             className="px-0"
           />

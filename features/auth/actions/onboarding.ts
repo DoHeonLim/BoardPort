@@ -10,6 +10,7 @@
  * 2026.03.25  임도헌   Modified  소셜 자동 생성 닉네임 보완은 hidden flag(forceUsernameSetup)로 현재 상태에 반영
  * 2026.04.02  임도헌   Modified  온보딩 액션 JSDoc 보강
  * 2026.04.04  임도헌   Modified  상태 재계산/동적 스키마/중복 역매핑 흐름의 인라인 주석 보강
+ * 2026.07.31  임도헌   Modified  선택 이메일의 FormData null 처리와 저장값 정규화
  */
 "use server";
 
@@ -23,6 +24,7 @@ import {
   type OnboardingSchema,
 } from "@/features/auth/schemas/onboarding";
 import { getAuthOnboardingState } from "@/features/auth/service/onboarding";
+import { normalizeOptionalEmail } from "@/features/auth/utils/email";
 import type { ActionState } from "@/features/auth/types";
 
 /**
@@ -66,7 +68,9 @@ export async function completeOnboardingAction(
     username: current.needsUsernameSetup
       ? formData.get("username")
       : current.username,
-    email: current.needsEmailSetup ? formData.get("email") : current.email,
+    email: current.needsEmailSetup
+      ? (formData.get("email") ?? "")
+      : current.email,
     locationName: current.needsLocationSetup
       ? formData.get("locationName")
       : current.locationName,
@@ -111,7 +115,7 @@ export async function completeOnboardingAction(
     username: usernameForDb,
   };
 
-  const normalizedEmail = parsed.data.email?.trim() || null;
+  const normalizedEmail = normalizeOptionalEmail(parsed.data.email);
 
   // 선택 이메일 보완 시 검증 상태 초기화
   if (current.needsEmailSetup && normalizedEmail) {

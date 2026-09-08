@@ -14,9 +14,11 @@
  * 2026.03.23  임도헌   Modified  데스크톱 옵션 메뉴 셸과 내부 구분선을 구조 구분용 border-border-subtle 기준으로 정리
  * 2026.04.03  임도헌   Modified  판매자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.14  임도헌   Modified  버튼 type 명시와 주석 정리로 상세 상단 옵션 메뉴의 안전성을 보강
+ * 2026.09.06  임도헌   Modified  데스크톱 메뉴 방향키·Tab·Escape와 포커스 이탈 처리
  */
 "use client";
 
+import { useActionMenu } from "@/hooks/useActionMenu";
 import { useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -78,6 +80,10 @@ export default function ProductOptionMenu({
     return () => document.removeEventListener("mousedown", onClick);
   }, [isMobile, isOpen]);
 
+  const onMenuKeyDown = useActionMenu(menuRef, isOpen && !isMobile, () =>
+    setIsOpen(false)
+  );
+
   const handleBlock = () => {
     startTransition(async () => {
       // 현재 상세 URL의 returnTo를 정제해 차단 후 안전한 내부 경로로만 복귀
@@ -103,7 +109,15 @@ export default function ProductOptionMenu({
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div
+      className="relative"
+      ref={menuRef}
+      onKeyDown={onMenuKeyDown}
+      onBlur={(event) => {
+        if (!isMobile && !event.currentTarget.contains(event.relatedTarget))
+          setIsOpen(false);
+      }}
+    >
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -127,6 +141,7 @@ export default function ProductOptionMenu({
               setBlockConfirmOpen(true);
             }}
             role="menuitem"
+            tabIndex={-1}
             className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/10 dark:hover:bg-danger/20"
           >
             <UserMinusIcon className="size-4" />
@@ -139,6 +154,7 @@ export default function ProductOptionMenu({
               setReportOpen(true);
             }}
             role="menuitem"
+            tabIndex={-1}
             className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
           >
             <ExclamationTriangleIcon className="size-4" />

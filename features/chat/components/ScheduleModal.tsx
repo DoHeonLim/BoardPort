@@ -15,6 +15,7 @@
  * 2026.05.12  임도헌   Modified  약속 모달을 닫은 뒤 다음 제안이 빈 입력값으로 시작되도록 드래프트 초기화
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 약속 제안 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  모바일 약속 입력 UI를 공용 BottomSheet로 분기해 모달 문법 통일
+ * 2026.08.27  임도헌   Modified  지도 선택 중첩 상태를 고려한 데스크톱 포커스 관리를 공용 useModalFocus로 통일
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -28,6 +29,7 @@ import BottomSheet from "@/components/global/BottomSheet";
 import LocationPicker from "@/features/map/components/LocationPicker";
 import type { LocationData } from "@/features/map/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -75,21 +77,15 @@ export default function ScheduleModal({
     resetDraft();
   }, [isOpen, resetDraft]);
 
-  useEffect(() => {
-    if (!isOpen || showMap) return;
-    if (isMobile) return;
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isPending) handleClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [handleClose, isMobile, isOpen, isPending, showMap]);
+  useModalFocus({
+    open: isOpen,
+    enabled: !isMobile,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: () => {
+      if (!isPending) handleClose();
+    },
+  });
 
   if (!isOpen) return null;
 

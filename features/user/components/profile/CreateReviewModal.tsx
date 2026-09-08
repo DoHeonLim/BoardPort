@@ -19,6 +19,7 @@
  * 2026.04.06  임도헌   Modified  모바일 키보드가 열려도 textarea와 하단 액션 버튼이 덜 가려지도록 시트형 배치 적용
  * 2026.04.26  임도헌   Modified  리뷰 작성 모달에 dialog 의미와 별점 radiogroup, 후기 입력 라벨을 추가해 접근성을 보강
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 후기 작성 CTA 위계 정리
+ * 2026.08.27  임도헌   Modified  포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,6 +27,7 @@ import UserAvatar from "@/components/global/UserAvatar";
 import { StarIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface CreateReviewModalProps {
   isOpen: boolean;
@@ -68,20 +70,14 @@ export default function CreateReviewModal({
     if (!isOpen) resetForm();
   }, [isOpen, resetForm]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const timer = window.setTimeout(() => dialogRef.current?.focus(), 0);
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isSubmitting) onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, isSubmitting, onClose]);
+  useModalFocus({
+    open: isOpen,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onClose: () => {
+      if (!isSubmitting) onClose();
+    },
+  });
 
   if (!isOpen) return null;
 
@@ -127,7 +123,10 @@ export default function CreateReviewModal({
       >
         {/* 헤더 */}
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-border-subtle bg-surface">
-          <h2 id="create-review-title" className="text-lg font-bold text-primary">
+          <h2
+            id="create-review-title"
+            className="text-lg font-bold text-primary"
+          >
             거래 후기 작성
           </h2>
           <button

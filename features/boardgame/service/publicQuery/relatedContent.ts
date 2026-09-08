@@ -9,6 +9,7 @@
  * 2026.05.03  임도헌   Modified  관련 상품 썸네일에 Cloudflare Images public variant 정규화 적용
  * 2026.05.05  임도헌   Modified  상품/게시글/방송 역방향 연결 콘텐츠 조회 분리
  * 2026.06.19  임도헌   Modified  종료 방송 관련 콘텐츠가 ready VOD 상세로 이동하도록 최신 VOD id 포함
+ * 2026.08.21  임도헌   Modified  공개 관련 방송의 저장된 Cloudflare 썸네일을 signed token URL로 변환
  */
 
 import "server-only";
@@ -16,6 +17,29 @@ import db from "@/lib/db";
 import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import type { ServiceResult } from "@/lib/types";
 import type { BoardGameRelatedContent } from "@/features/boardgame/types/public";
+import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
+
+/** 연관 방송의 공개 범위와 provider ID를 기준으로 안전한 썸네일을 선택한다. */
+function getRelatedBroadcastThumbnail(broadcast: {
+  thumbnail: string | null;
+  liveInput: { provider_uid: string };
+  vodAssets: Array<{
+    provider_asset_id: string;
+    thumbnail_url: string | null;
+  }>;
+}) {
+  const vod = broadcast.vodAssets[0];
+
+  try {
+    return resolveStreamThumbnailUrl(
+      vod?.thumbnail_url ?? broadcast.thumbnail,
+      vod?.provider_asset_id ?? broadcast.liveInput.provider_uid
+    );
+  } catch (error) {
+    console.warn("[BoardGameRelated] signed thumbnail unavailable:", error);
+    return null;
+  }
+}
 
 /**
  * 보드게임 상세 연결 콘텐츠 조회
@@ -83,9 +107,14 @@ export async function getBoardGameRelatedContent(
               status: true,
               thumbnail: true,
               started_at: true,
+              liveInput: { select: { provider_uid: true } },
               vodAssets: {
                 where: { ready_at: { not: null } },
-                select: { id: true, thumbnail_url: true },
+                select: {
+                  id: true,
+                  provider_asset_id: true,
+                  thumbnail_url: true,
+                },
                 orderBy: { ready_at: "desc" },
                 take: 1,
               },
@@ -117,7 +146,7 @@ export async function getBoardGameRelatedContent(
           title: broadcast.title,
           status: broadcast.status,
           vodIdForRecording: broadcast.vodAssets[0]?.id ?? null,
-          thumbnail: broadcast.vodAssets[0]?.thumbnail_url ?? broadcast.thumbnail,
+          thumbnail: getRelatedBroadcastThumbnail(broadcast),
           startedAt: broadcast.started_at,
         })),
       },
