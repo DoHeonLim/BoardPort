@@ -40,6 +40,7 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.03  임도헌   Modified  타인 프로필 뒤로가기가 정규화된 returnTo를 우선하도록 고정
  * 2026.09.08  임도헌   Modified  공개 가능한 최근 작성 게시글 미리보기 추가
+ * 2026.09.09  임도헌   Modified  리뷰·공개 상품 초기 목록을 service에서 직접 조회해 세션 재검증 제거
  */
 
 import { Metadata } from "next";
@@ -56,11 +57,10 @@ import {
   getUserProfile,
   resolveUserIdByUsername,
 } from "@/features/user/service/profile";
-import { getUserReviewsAction } from "@/features/user/actions/review";
 import { getUserReviews } from "@/features/user/service/review";
 import { getUserAverageRating } from "@/features/user/service/metric";
 import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
-import { getUserProductsAction } from "@/features/user/actions/product";
+import { getUserProductsList } from "@/features/product/service/userList";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { getPostsList } from "@/features/post/service/post";
@@ -160,22 +160,20 @@ export default async function UserProfilePage(props: {
     // TanStack Query Prefetch
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.reviews.user(userProfile.id, viewerId),
-      queryFn: () => getUserReviewsAction(userProfile.id, null),
+      // 서버 렌더에서 확인한 조회자를 전달해 리뷰 Action의 세션 재검증 방지
+      queryFn: () => getUserReviews(userProfile.id, null, 10, viewerId),
       initialPageParam: null as number | null,
     }),
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
       queryFn: () =>
-        getUserProductsAction(
-          { type: "SELLING", userId: userProfile.id },
-          null
-        ),
+        getUserProductsList({ type: "SELLING", userId: userProfile.id }, null),
       initialPageParam: null as number | null,
     }),
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
       queryFn: () =>
-        getUserProductsAction({ type: "SOLD", userId: userProfile.id }, null),
+        getUserProductsList({ type: "SOLD", userId: userProfile.id }, null),
       initialPageParam: null as number | null,
     }),
   ]);

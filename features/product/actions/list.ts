@@ -1,6 +1,6 @@
 /**
  * File Name : features/product/actions/list.ts
- * Description : 제품 목록 조회 서버 액션 (무한 스크롤)
+ * Description : 최근 본 상품 조회 서버 액션
  * Author : 임도헌
  *
  * History
@@ -24,20 +24,14 @@
  * 2026.04.02  임도헌   Modified  목록 액션 JSDoc 반환 설명 보강
  * 2026.09.05  임도헌   Modified  최근 본 상품 ID 검증과 세션 기반 서버 재조회 액션 추가
  * 2026.09.08  임도헌   Modified  상품 목록 정렬 조건 위임 책임을 주석에 반영
+ * 2026.09.09  임도헌   Removed   미사용 상품 목록 조회 액션 제거 및 최근 본 상품 조회 책임으로 정리
  */
 
 "use server";
 
 import getSession from "@/lib/session";
-import {
-  getProductsList,
-  getRecentProducts,
-} from "@/features/product/service/list";
-import type {
-  Paginated,
-  ProductType,
-  ProductSearchParams,
-} from "@/features/product/types";
+import { getRecentProducts } from "@/features/product/service/list";
+import type { ProductType } from "@/features/product/types";
 
 /**
  * 최근 본 상품의 최신 카드 조회 경계
@@ -61,25 +55,3 @@ export async function getRecentProductsAction(
   if (!ids.length) return [];
   return getRecentProducts([...new Set(ids)], session.id);
 }
-
-/**
- * 제품 목록 조회 Server Action (무한 스크롤 및 필터링)
- *
- * [기능]
- * - 클라이언트 무한 스크롤의 데이터 페칭 진입점 역할
- * - 로그인 세션 기준 viewerId를 주입해 차단/정지 유저 필터링을 함께 적용
- * - 현재 검색·필터·정렬 조건(params)을 그대로 유지한 채 service 계층에 위임
- *
- * @param {number | null} cursor - 마지막 아이템 ID 커서
- * @param {ProductSearchParams} params - 검색 파라미터 (keyword, region, category 등)
- * @returns {Promise<Paginated<ProductType>>} 페이징된 제품 목록과 다음 커서/전체 개수
- */
-export const getProductsAction = async (
-  cursor: number | null,
-  params: ProductSearchParams
-): Promise<Paginated<ProductType>> => {
-  const session = await getSession();
-  const viewerId = session?.id ?? -1; // 비로그인 시 -1 (필터링 없음)
-
-  return getProductsList(params, viewerId, cursor);
-};

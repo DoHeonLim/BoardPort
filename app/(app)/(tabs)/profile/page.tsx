@@ -41,6 +41,7 @@
  * 2026.08.13  임도헌   Modified  내 프로필 리뷰 prefetch cache에 조회자 범위 추가
  * 2026.08.21  임도헌   Modified  최근 방송 signed thumbnail 발급에 현재 세션 ID 전달
  * 2026.09.08  임도헌   Modified  내 프로필 최근 작성 게시글 미리보기 추가
+ * 2026.09.09  임도헌   Modified  검증된 사용자 ID로 알림·리뷰 service를 직접 조회해 세션 재검증 제거
  */
 
 import { redirect } from "next/navigation";
@@ -54,12 +55,11 @@ import MyProfile from "@/features/user/components/profile/MyProfile";
 import ProfileSettingMenu from "@/features/user/components/profile/ProfileSettingMenu";
 import NotificationBell from "@/components/global/NotificationBell";
 import { getUserProfile } from "@/features/user/service/profile";
-import { getUserReviewsAction } from "@/features/user/actions/review";
 import { getUserReviews } from "@/features/user/service/review";
 import { getUserAverageRating } from "@/features/user/service/metric";
 import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import RecordingListRefreshRelay from "@/features/stream/components/RecordingListRefreshRelay";
 import { getPostsList } from "@/features/post/service/post";
 
@@ -108,14 +108,15 @@ export default async function ProfilePage() {
       return { badges, userBadges: badgesEarned };
     })(),
     getRecentBroadcasts(user.id, 6, true, userId),
-    getUnreadNotificationCount(),
+    getUnreadNotificationCountOrZero(userId),
     getUserReviews(user.id, null, 2, user.id).then((res) => res.reviews),
     getPostsList({ authorId: user.id }, userId, null, 2).then(
       (res) => res.posts
     ),
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.reviews.user(user.id, user.id),
-      queryFn: () => getUserReviewsAction(user.id, null),
+      // 서버 렌더에서 검증된 조회자를 직접 전달해 Server Action의 세션 재검증 방지
+      queryFn: () => getUserReviews(user.id, null, 10, userId),
       initialPageParam: null as number | null,
     }),
   ]);

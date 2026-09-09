@@ -9,12 +9,13 @@
  * 2026.08.27  임도헌   Created   생성 시각과 끌어올리기 노출 시각을 독립적으로 보존하는지 검증
  * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜 입력 회귀 검증
  * 2026.09.05  임도헌   Modified  삭제 기록 정리·최신 이미지 갱신·조회 중 로컬 변경 보존 검증
+ * 2026.09.09  임도헌   Modified  서버 공용 스냅샷 변환 유틸 분리 경로 반영
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ProductDetailType } from "@/features/product/types";
+import { createRecentViewedProductSnapshot } from "@/features/product/utils/recentViewedSnapshot";
 import {
-  createRecentViewedProductSnapshot,
   saveRecentViewedProduct,
   getRecentViewedProducts,
   removeRecentViewedProduct,

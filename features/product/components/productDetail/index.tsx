@@ -21,6 +21,7 @@
  * 2026.05.06  임도헌   Modified  게시글/방송 상세와 동일한 도감 이동 카드 표시로 통일
  * 2026.06.18  임도헌   Modified  예약/판매완료 거래 상태를 상세 헤더에 전달
  * 2026.08.13  임도헌   Modified  상품 태그 검색 기록에 현재 조회자 ID 전달
+ * 2026.09.09  임도헌   Modified  최근 본 상품 스냅샷을 서버에서 구성해 클라이언트 전달 DTO 축소
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
@@ -46,6 +47,7 @@ import ProductDetailActions from "@/features/product/components/productDetail/Pr
 import ProductDetailClientEffects from "@/features/product/components/productDetail/ProductDetailClientEffects";
 import ProductDetailLocationSection from "@/features/product/components/productDetail/ProductDetailLocationSection";
 import LinkedBoardGameChips from "@/features/boardgame/components/LinkedBoardGameChips";
+import { createRecentViewedProductSnapshot } from "@/features/product/utils/recentViewedSnapshot";
 
 interface ProductDetailProps {
   product: ProductDetailType;
@@ -72,11 +74,16 @@ export default function ProductDetailContainer({
   viewerId = null,
   isModalContext = false,
 }: ProductDetailProps) {
+  const recentProduct = product.hidden_at
+    ? null
+    : createRecentViewedProductSnapshot(product);
+
   return (
     <div className="relative min-h-full flex flex-col bg-background text-primary transition-colors">
       {/* 최근 본 상품 저장, 편집 후 1회 refresh 같은 브라우저 부작용은 별도 island로 격리 */}
       <ProductDetailClientEffects
-        product={product}
+        productId={product.id}
+        recentProduct={recentProduct}
         isModalContext={isModalContext}
       />
 
@@ -130,10 +137,7 @@ export default function ProductDetailContainer({
             region3={product.region3 ?? null}
           />
 
-          <ProductDetailTags
-            tags={product.search_tags}
-            viewerId={viewerId}
-          />
+          <ProductDetailTags tags={product.search_tags} viewerId={viewerId} />
         </div>
       </div>
 

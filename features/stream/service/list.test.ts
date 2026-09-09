@@ -7,9 +7,12 @@
  * Date        Author   Status    Description
  * 2026.08.21  임도헌   Created   잠긴 방송의 원본 썸네일 비노출과 PUBLIC signed 변환 검증
  * 2026.08.26  임도헌   Modified  다시보기 최신·인기 복합 커서의 DB 조건 검증
+ * 2026.09.09  임도헌   Modified  공용 목록 페이지 크기와 다음 커서 조립 검증
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RECORDINGS_PAGE_TAKE, STREAMS_PAGE_TAKE } from "@/lib/constants";
+import { decodeRecordingCursor } from "@/features/stream/utils/recordingCursor";
 
 const mocks = vi.hoisted(() => ({
   db: {
@@ -30,8 +33,8 @@ vi.mock("@/features/stream/service/playback", () => ({
   resolveStreamThumbnailUrl: mocks.resolveStreamThumbnailUrl,
 }));
 
-const createBroadcast = (visibility: "PUBLIC" | "PRIVATE") => ({
-  id: 31,
+const createBroadcast = (visibility: "PUBLIC" | "PRIVATE", id = 31) => ({
+  id,
   title: "테스트 방송",
   description: null,
   thumbnail:
@@ -55,6 +58,92 @@ const createBroadcast = (visibility: "PUBLIC" | "PRIVATE") => ({
   tags: [],
   board_games: [],
   vodAssets: [],
+});
+
+const createRecording = (id: number) => ({
+  id,
+  duration_sec: 90,
+  ready_at: new Date(`2026-08-26T10:${String(id).padStart(2, "0")}:00.000Z`),
+  views: 100 - id,
+  _count: { recordingLikes: 1, recordingComments: 2 },
+  provider_asset_id: `vod-${id}`,
+  thumbnail_url: `https://example.com/vod-${id}.jpg`,
+  title: `다시보기 ${id}`,
+  custom_thumbnail_url: null,
+  thumbnailAnimated: false,
+  created_at: new Date("2026-08-26T00:00:00.000Z"),
+  broadcastId: id,
+  broadcast: {
+    id,
+    title: `방송 ${id}`,
+    description: null,
+    thumbnail: null,
+    thumbnailAnimated: false,
+    visibility: "PUBLIC" as const,
+    category: null,
+    tags: [],
+    board_games: [],
+    liveInput: {
+      provider_uid: `live-${id}`,
+      userId: 7,
+      user: {
+        id: 7,
+        username: "captain",
+        avatar: null,
+        followers: [],
+      },
+    },
+  },
+});
+
+describe("메인 방송 페이지 응답 조립", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getBlockedUserIds.mockResolvedValue([]);
+    mocks.db.recordingLike.findMany.mockResolvedValue([]);
+    mocks.resolveStreamThumbnailUrl.mockImplementation(
+      (source: string | null) => source
+    );
+  });
+
+  it("라이브 목록은 전용 페이지 크기로 자르고 다음 ID 커서를 반환한다", async () => {
+    mocks.db.broadcast.findMany.mockResolvedValue(
+      Array.from({ length: STREAMS_PAGE_TAKE + 1 }, (_, index) =>
+        createBroadcast("PUBLIC", 100 - index)
+      )
+    );
+    const { getStreamsPage } = await import("./list");
+
+    const result = await getStreamsPage({
+      scope: "all",
+      viewerId: 11,
+      cursor: null,
+    });
+
+    expect(result.streams).toHaveLength(STREAMS_PAGE_TAKE);
+    expect(result.nextCursor).toBe(result.streams.at(-1)?.id);
+  });
+
+  it("다시보기 목록은 전용 페이지 크기로 자르고 복합 커서를 반환한다", async () => {
+    mocks.db.vodAsset.findMany.mockResolvedValue(
+      Array.from({ length: RECORDINGS_PAGE_TAKE + 1 }, (_, index) =>
+        createRecording(index + 1)
+      )
+    );
+    const { getRecordingsPage } = await import("./list");
+
+    const result = await getRecordingsPage({
+      sort: "latest",
+      viewerId: 11,
+      cursor: null,
+    });
+    const last = result.recordings.at(-1);
+    const cursor = decodeRecordingCursor(result.nextCursor, "latest");
+
+    expect(result.recordings).toHaveLength(RECORDINGS_PAGE_TAKE);
+    expect(cursor?.id).toBe(last?.vodId);
+    expect(cursor?.readyAt).toEqual(last?.readyAt);
+  });
 });
 
 describe("getRecordingsList composite cursor", () => {

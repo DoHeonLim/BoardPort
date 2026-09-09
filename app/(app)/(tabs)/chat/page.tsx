@@ -17,6 +17,7 @@
  * 2026.03.03  임도헌   Modified  TanStack Query prefetchQuery 및 HydrationBoundary 적용 (initialRooms Props 제거)
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/chat/page.tsx 에서 app/(app)/(tabs)/chat/page.tsx 로 변경 (라우트 그룹 개편)
+ * 2026.09.09  임도헌   Modified  검증된 사용자 ID로 미읽음 알림을 직접 조회해 세션 재검증 제거
  */
 import { redirect } from "next/navigation";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
@@ -25,7 +26,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import getSession from "@/lib/session";
 import { getChatRooms } from "@/features/chat/service/room";
 import ChatRoomListContainer from "@/features/chat/components/ChatRoomListContainer";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import { Suspense } from "react";
 import ChatListSkeleton from "@/features/chat/components/ChatListSkeleton";
 
@@ -54,7 +55,7 @@ export default async function ChatPage() {
       queryKey: queryKeys.chats.list(userId),
       queryFn: () => getChatRooms(userId),
     }),
-    getUnreadNotificationCount(),
+    getUnreadNotificationCountOrZero(userId),
   ]);
 
   return (

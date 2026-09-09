@@ -40,6 +40,7 @@
  * 2026.08.13  임도헌   Modified  게시글 댓글 prefetch cache를 조회자별로 분리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 조회수를 분리해 최신 DB 조회수 기준으로 렌더링
+ * 2026.09.09  임도헌   Modified  댓글 초기 조회는 검증된 조회자로 service를 직접 호출해 세션 재검증 제거
  */
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ import {
 } from "@/features/post/service/post";
 import { getPostLikeStatus } from "@/features/post/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
-import { getPostCommentsListAction } from "@/features/post/actions/comments";
+import { getPostCommentsList } from "@/features/post/service/comment";
 import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 
 /** 게시글 ID를 검증하고 공유·브라우저 메타데이터를 생성한다. */
@@ -159,10 +160,11 @@ export default async function PostDetailPage(props: {
     getPostDetailViewData(id),
     getPostLikeStatus(id, userId),
     getUserInfoById(userId),
-    // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장함 (Prefetch)
+    // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장 (Prefetch)
     queryClient.prefetchInfiniteQuery({
       queryKey: queryKeys.posts.comments(id, userId),
-      queryFn: () => getPostCommentsListAction(id),
+      // 서버 렌더에서 검증된 조회자를 직접 전달해 Server Action의 세션 재검증 방지
+      queryFn: () => getPostCommentsList(id, undefined, 10, userId),
       initialPageParam: undefined as number | undefined,
     }),
   ]);

@@ -65,6 +65,7 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.08  임도헌   Modified  상품 정렬 query 정규화와 빈 목록 정렬 선택 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.09  임도헌   Modified  초기 목록은 검증된 조회자로 service를 직접 호출해 세션 재검증 제거
  */
 
 import { Suspense } from "react";
@@ -95,8 +96,8 @@ import {
   getUserSearchHistory,
   getPopularSearches,
 } from "@/features/product/service/history";
-import { getProductsAction } from "@/features/product/actions/list";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { getProductsList } from "@/features/product/service/list";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { getUserLocation } from "@/features/user/service/profile";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
@@ -186,7 +187,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
   const categoriesPromise = fetchProductCategories();
   const searchHistoryPromise = getUserSearchHistory(userId);
   const popularSearchesPromise = getPopularSearches();
-  const unreadCountPromise = getUnreadNotificationCount();
+  const unreadCountPromise = getUnreadNotificationCountOrZero(userId);
   const keywordAlertsPromise = getMyKeywordAlerts(userId);
   const userLocationPromise = getUserLocation(userId);
 
@@ -213,7 +214,8 @@ export default async function ProductsPage(props: ProductsPageProps) {
 
   const prefetchProductsPromise = queryClient.prefetchInfiniteQuery({
     queryKey: queryKeys.products.list(productListQueryKey, userId),
-    queryFn: () => getProductsAction(null, queryParams),
+    // 서버 렌더에서 검증된 조회자를 직접 전달해 Server Action의 세션 재검증 방지
+    queryFn: () => getProductsList(queryParams, userId, null),
     initialPageParam: null as number | null,
   });
 

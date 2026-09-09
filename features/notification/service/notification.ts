@@ -18,6 +18,7 @@
  * 2026.06.19  임도헌   Modified  관리자 조치 인앱 알림은 명시 링크가 있을 때만 보기 링크를 저장하도록 정리
  * 2026.08.21  임도헌   Modified  인앱 알림 발신을 서버 전용 private topic으로 전환
  * 2026.08.26  임도헌   Modified  moderation outbox가 재시도 여부를 판단하도록 관리자 알림 처리 결과 반환
+ * 2026.09.09  임도헌   Modified  검증된 사용자 ID용 미읽음 알림 fail-soft 조회 추가
  */
 
 import "server-only";
@@ -192,6 +193,21 @@ export async function getUnreadNotificationCountByUser(userId: number) {
       isRead: false,
     },
   });
+}
+
+/**
+ * 보조 UI용 안 읽은 알림 개수 조회
+ *
+ * - 이미 인증을 마친 서버 렌더 경로에서 사용자 ID로 직접 조회
+ * - 알림 조회 실패가 핵심 화면 렌더링을 막지 않도록 0 반환
+ */
+export async function getUnreadNotificationCountOrZero(userId: number) {
+  try {
+    return await getUnreadNotificationCountByUser(userId);
+  } catch (error) {
+    console.error("Failed to fetch unread notification count:", error);
+    return 0;
+  }
 }
 
 /**

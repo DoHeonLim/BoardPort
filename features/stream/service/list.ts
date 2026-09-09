@@ -27,10 +27,12 @@
  * 2026.08.21  임도헌   Modified  목록 DTO 원본 provider UID 제거 및 접근 범위별 Cloudflare 썸네일 signed 변환
  * 2026.08.26  임도헌   Modified  다시보기 최신·인기 정렬을 복합 커서 조건으로 변경해 동률 누락 방지
  * 2026.09.08  임도헌   Modified  녹화본 사용자 제목 검색과 썸네일 우선순위 적용
+ * 2026.09.09  임도헌   Modified  페이지·API 공용 라이브 및 다시보기 페이징 응답 조립 추가
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { RECORDINGS_PAGE_TAKE, STREAMS_PAGE_TAKE } from "@/lib/constants";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeStream } from "@/features/stream/utils/serializer";
 import {
@@ -46,11 +48,16 @@ import {
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 import type {
   BroadcastSummary,
+  RecordingsPage,
   RecordingSort,
+  StreamsPage,
   StreamScope,
   VodForGrid,
 } from "@/features/stream/types";
-import type { DecodedRecordingCursor } from "@/features/stream/utils/recordingCursor";
+import {
+  encodeRecordingCursor,
+  type DecodedRecordingCursor,
+} from "@/features/stream/utils/recordingCursor";
 
 /** provider URL은 signed URL로 교체하고, 접근 불가 또는 설정 오류면 원본을 노출하지 않는다. */
 function getAccessScopedThumbnail(
@@ -193,6 +200,30 @@ export async function getStreamsList(params: {
       }
     );
   });
+}
+
+/**
+ * 메인 라이브 목록의 한 페이지 응답 조립
+ *
+ * - 페이지 크기보다 한 건 더 조회해 다음 페이지 존재 여부 판별
+ * - 서버 페이지와 Route Handler가 같은 커서 규칙 공유
+ */
+export async function getStreamsPage(params: {
+  scope: StreamScope;
+  category?: string;
+  keyword?: string;
+  viewerId: number;
+  cursor: number | null;
+}): Promise<StreamsPage> {
+  const list = await getStreamsList({
+    ...params,
+    take: STREAMS_PAGE_TAKE + 1,
+  });
+  const hasMore = list.length > STREAMS_PAGE_TAKE;
+  const streams = hasMore ? list.slice(0, STREAMS_PAGE_TAKE) : list;
+  const nextCursor = hasMore ? streams[streams.length - 1].id : null;
+
+  return { streams, nextCursor };
 }
 
 /**
@@ -443,6 +474,33 @@ export async function getRecordingsList(params: {
         b.visibility === "FOLLOWERS" ? !isMine && !isFollowing : false,
     };
   });
+}
+
+/**
+ * 메인 다시보기 목록의 한 페이지 응답 조립
+ *
+ * - 전용 페이지 크기보다 한 건 더 조회해 다음 페이지 존재 여부 판별
+ * - 정렬값에 맞는 불투명 복합 커서 발급
+ */
+export async function getRecordingsPage(params: {
+  sort: RecordingSort;
+  followingOnly?: boolean;
+  category?: string;
+  keyword?: string;
+  viewerId: number;
+  cursor: DecodedRecordingCursor | null;
+}): Promise<RecordingsPage> {
+  const list = await getRecordingsList({
+    ...params,
+    take: RECORDINGS_PAGE_TAKE + 1,
+  });
+  const hasMore = list.length > RECORDINGS_PAGE_TAKE;
+  const recordings = hasMore ? list.slice(0, RECORDINGS_PAGE_TAKE) : list;
+  const nextCursor = hasMore
+    ? encodeRecordingCursor(params.sort, recordings[recordings.length - 1])
+    : null;
+
+  return { recordings, nextCursor };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -46,6 +46,7 @@
  * 2026.08.13  임도헌   Modified  게시글 목록 prefetch와 클라이언트 캐시를 조회자별로 분리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.08  임도헌   Modified  게시글 정렬 query 정규화와 빈 목록 정렬 선택 추가
+ * 2026.09.09  임도헌   Modified  초기 목록은 검증된 조회자로 service를 직접 호출하고 독립적인 알림 조회를 병렬화
  */
 
 import { Suspense } from "react";
@@ -70,8 +71,8 @@ import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import PostListRefreshRelay from "@/features/post/components/PostListRefreshRelay";
 import PostSortSelect from "@/features/post/components/PostSortSelect";
 import { getUserLocation } from "@/features/user/service/profile";
-import { getPostsListAction } from "@/features/post/actions/list";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { getPostsList } from "@/features/post/service/post";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 import type {
   PostSearchParams,
@@ -126,10 +127,9 @@ export default async function PostsPage(props: PostsPageProps) {
     sort: normalizePostSort(searchParams.sort),
   };
 
-  const [unreadCount, userLocation] = await Promise.all([
-    getUnreadNotificationCount(),
-    getUserLocation(userId),
-  ]);
+  // 목록 조건과 무관한 알림 조회를 지역 조회와 동시에 시작해 초기 대기 중첩
+  const unreadCountPromise = getUnreadNotificationCountOrZero(userId);
+  const userLocation = await getUserLocation(userId);
 
   const userRegion1 = userLocation?.region1;
   const userRegion2 = userLocation?.region2;
@@ -150,11 +150,17 @@ export default async function PostsPage(props: PostsPageProps) {
     ? formatNormalizedRegion(userLocation)
     : null;
 
-  await queryClient.prefetchInfiniteQuery({
+  // 서버 렌더에서 검증된 조회자를 직접 전달해 Server Action의 세션 재검증 방지
+  const prefetchPostsPromise = queryClient.prefetchInfiniteQuery({
     queryKey: queryKeys.posts.list(postListQueryKey, userId),
-    queryFn: () => getPostsListAction(null, params),
+    queryFn: () => getPostsList(params, userId, null),
     initialPageParam: null as number | null,
   });
+
+  const [unreadCount] = await Promise.all([
+    unreadCountPromise,
+    prefetchPostsPromise,
+  ]);
 
   // 데이터 여부 확인
   const prefetchData = queryClient.getQueryData<InfiniteData<PostsListPage>>(
