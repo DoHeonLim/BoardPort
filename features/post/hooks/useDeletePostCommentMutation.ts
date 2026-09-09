@@ -11,6 +11,7 @@
  * 2026.04.09  임도헌   Modified  성공 결과가 화면에 바로 드러나는 댓글 삭제는 실패 토스트만 남기도록 정리
  * 2026.05.18  임도헌   Modified  댓글 삭제 시 상세 메타와 목록 카드 댓글 수 캐시 동기화 추가
  * 2026.08.13  임도헌   Modified  목록 낙관 업데이트/롤백/무효화를 현재 조회자로 제한
+ * 2026.09.09  임도헌   Modified  서버 본문 cache 분리 후 삭제 Action 전달값을 댓글 ID로 축소
  */
 "use client";
 
@@ -44,21 +45,22 @@ export function useDeletePostCommentMutation(postId: number, viewerId: number) {
 
   return useMutation({
     mutationFn: async (commentId: number) => {
-      const res = await deleteCommentAction(commentId, postId);
+      const res = await deleteCommentAction(commentId);
       if (!res.success) throw new Error(res.error);
       return res;
     },
     onMutate: async () => {
       await queryClient.cancelQueries({
-        predicate: (query) =>
-          isPostListKeyForViewer(query.queryKey, viewerId),
+        predicate: (query) => isPostListKeyForViewer(query.queryKey, viewerId),
       });
 
       const previousStats = queryClient.getQueryData(statsQueryKey);
-      const previousLists = queryClient.getQueriesData<InfiniteData<PostsPage>>({
-        predicate: (query) =>
-          isPostListKeyForViewer(query.queryKey, viewerId),
-      });
+      const previousLists = queryClient.getQueriesData<InfiniteData<PostsPage>>(
+        {
+          predicate: (query) =>
+            isPostListKeyForViewer(query.queryKey, viewerId),
+        }
+      );
 
       queryClient.setQueryData(
         statsQueryKey,
@@ -109,8 +111,7 @@ export function useDeletePostCommentMutation(postId: number, viewerId: number) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        predicate: (query) =>
-          isPostListKeyForViewer(query.queryKey, viewerId),
+        predicate: (query) => isPostListKeyForViewer(query.queryKey, viewerId),
       });
     },
   });

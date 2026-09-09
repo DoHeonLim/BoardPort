@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.09  임도헌   Created   서버에서 상세 DTO를 카드용 최소 스냅샷으로 변환하는 공용 유틸 분리
+ * 2026.09.09  임도헌   Modified  별도 최신 조회의 좋아요 수를 카드 스냅샷에 결합
  */
 
 import type { ProductDetailType, ProductType } from "@/features/product/types";
@@ -25,12 +26,15 @@ function serializeProductDate(value: Date | string) {
  *
  * - 생성 시각과 끌어올리기 이후 노출 기준 시각을 각각 직렬화해 의미 유지
  * - 상품 카드 렌더링에 필요한 필드만 선택해 상세 전용 데이터 전달 방지
+ * - 상세 본문 cache에 포함하지 않는 최신 좋아요 수를 목록 카드 형식으로 결합
  *
  * @param product - 서버에서 조회한 상품 상세 정보
+ * @param likeCount - 별도 최신 상태 조회에서 확인한 좋아요 수
  * @returns 상품 카드에서 재사용할 최근 본 상품 스냅샷
  */
 export function createRecentViewedProductSnapshot(
-  product: ProductDetailType
+  product: ProductDetailType,
+  likeCount: number
 ): RecentViewedProduct {
   return {
     id: product.id,
@@ -48,7 +52,7 @@ export function createRecentViewedProductSnapshot(
     region3: product.region3 ?? null,
     images: product.images,
     category: product.category,
-    _count: product._count,
+    _count: { product_likes: likeCount },
     search_tags: product.search_tags,
     board_games: product.board_games,
   };

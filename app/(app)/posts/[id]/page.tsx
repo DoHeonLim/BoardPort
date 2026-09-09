@@ -41,6 +41,7 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 조회수를 분리해 최신 DB 조회수 기준으로 렌더링
  * 2026.09.09  임도헌   Modified  댓글 초기 조회는 검증된 조회자로 service를 직접 호출해 세션 재검증 제거
+ * 2026.09.09  임도헌   Modified  상세 본문과 분리한 최신 반응 통계 및 조회자 좋아요 상태 사용
  */
 
 export const dynamic = "force-dynamic";
@@ -61,7 +62,6 @@ import {
   getCachedPost,
   getPostDetailViewData,
 } from "@/features/post/service/post";
-import { getPostLikeStatus } from "@/features/post/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { getPostCommentsList } from "@/features/post/service/comment";
 import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
@@ -156,9 +156,8 @@ export default async function PostDetailPage(props: {
 
   // QueryClient 초기화 및 데이터 병렬 조회
   const queryClient = getQueryClient();
-  const [post, likeStatus, viewerInfo] = await Promise.all([
-    getPostDetailViewData(id),
-    getPostLikeStatus(id, userId),
+  const [postDetail, viewerInfo] = await Promise.all([
+    getPostDetailViewData(id, userId),
     getUserInfoById(userId),
     // 서버 환경에서 댓글 첫 페이지를 미리 가져와 캐시에 저장 (Prefetch)
     queryClient.prefetchInfiniteQuery({
@@ -168,6 +167,7 @@ export default async function PostDetailPage(props: {
       initialPageParam: undefined as number | undefined,
     }),
   ]);
+  const { post, likeStatus } = postDetail;
 
   if (!post) return notFound();
   if (!viewerInfo) redirect("/login");

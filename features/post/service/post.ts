@@ -51,6 +51,7 @@
  * 2026.08.28  임도헌   Modified  게시글 피드 지역 조건 함수 JSDoc 보강
  * 2026.09.08  임도헌   Modified  프로필 작성자별 목록 필터를 기존 공개·지역 정책에 결합
  * 2026.09.08  임도헌   Modified  최신·조회·좋아요·댓글 게시글 정렬 기준 추가
+ * 2026.09.09  임도헌   Modified  상세 본문 cache에서 반응 통계를 분리하고 최신 상태 조회로 통합
  */
 import "server-only";
 
@@ -83,6 +84,7 @@ import {
 } from "@/features/media/service/assets";
 
 const TAKE = POSTS_PAGE_TAKE;
+type PostDetailBody = Omit<PostDetail, "_count">;
 
 /** 정렬별 주 기준 뒤에 생성 시각과 ID를 적용해 동률 순서를 고정한다. */
 function getPostListOrderBy(
@@ -554,20 +556,21 @@ async function buildWhere(
  * 게시글 상세 정보 데이터 조회 로직
  *
  * [데이터 가공 전략]
- * - 유저 정보, 태그, 이미지 목록, 카운트(댓글, 좋아요) 등 연관 데이터 조인 조회
+ * - 유저 정보, 태그, 이미지 목록 등 안정적인 본문 연관 데이터 조인 조회
  * - 이미지 노출 순서(order) 기준 오름차순 정렬 반환
  *
  * @param {number} id - 게시글 ID
- * @returns {Promise<PostDetail | null>} 게시글 상세 정보 또는 null
+ * @returns 캐시 가능한 게시글 상세 본문 또는 null
  * @throws {Error} 데이터베이스 상세 조회에 실패한 경우
  */
-export async function getPostDetail(id: number): Promise<PostDetail | null> {
+export async function getPostDetail(
+  id: number
+): Promise<PostDetailBody | null> {
   // findUnique의 null만 실제 미존재이며, DB 예외는 cache에 null로 저장하지 않고 상위로 전파한다.
   const post = await db.post.findUnique({
     where: { id },
     include: {
       user: { select: { id: true, username: true, avatar: true } },
-      _count: { select: { comments: true, post_likes: true } },
       images: { orderBy: { order: "asc" } },
       tags: true,
       video: true,
@@ -594,7 +597,7 @@ export async function getPostDetail(id: number): Promise<PostDetail | null> {
       if (!locale) return [];
       return [{ boardGame: { ...linkedBoardGame, locale } }];
     }),
-  } as PostDetail;
+  } as PostDetailBody;
 }
 
 /**
@@ -605,7 +608,7 @@ export async function getPostDetail(id: number): Promise<PostDetail | null> {
  * - `POST_DETAIL` 태그를 주입하여 생성/수정/삭제 시 On-demand 무효화 지원
  *
  * @param {number} id - 게시글 ID
- * @returns {Promise<PostDetail | null>} 캐시가 적용된 게시글 상세 정보
+ * @returns 캐시가 적용된 게시글 상세 본문
  */
 export const getCachedPost = (id: number) => {
   return nextCache(() => getPostDetail(id), ["post-detail-data", String(id)], {
@@ -619,29 +622,53 @@ export const getCachedPost = (id: number) => {
  *
  * [캐시 분리 전략]
  * - 제목·본문·첨부 관계는 1시간 상세 cache를 재사용한다.
- * - 진입마다 달라지는 조회수와 실제 행 존재 여부는 DB에서 별도 조회한다.
+ * - 진입마다 달라지는 조회수·댓글 수·좋아요 수와 실제 행 존재 여부를 DB에서 함께 조회
+ * - 조회자 좋아요 여부만 복합 키로 별도 확인
  * - 삭제 직후 오래된 본문 cache가 남아 있어도 live state가 없으면 미존재로 처리한다.
  *
  * @param id - 게시글 ID
- * @returns 최신 조회수를 덮어쓴 게시글 상세 또는 실제 미존재 시 null
+ * @param userId - 좋아요 여부를 확인할 조회자 ID
+ * @returns 최신 통계를 결합한 게시글 상세와 조회자 좋아요 상태
  * @throws {Error} 본문 또는 최신 조회수 조회에 실패한 경우
  */
 export async function getPostDetailViewData(
-  id: number
-): Promise<PostDetail | null> {
-  const [post, liveState] = await Promise.all([
+  id: number,
+  userId: number | null
+): Promise<{
+  post: PostDetail | null;
+  likeStatus: { likeCount: number; isLiked: boolean };
+}> {
+  const [post, liveState, likedRow] = await Promise.all([
     getCachedPost(id),
     db.post.findUnique({
       where: { id },
-      select: { views: true },
+      select: {
+        views: true,
+        _count: { select: { comments: true, post_likes: true } },
+      },
     }),
+    userId
+      ? db.postLike.findUnique({
+          where: { id: { postId: id, userId } },
+          select: { postId: true },
+        })
+      : Promise.resolve(null),
   ]);
 
-  if (!post || !liveState) return null;
+  const likeStatus = {
+    likeCount: liveState?._count.post_likes ?? 0,
+    isLiked: !!likedRow,
+  };
+
+  if (!post || !liveState) return { post: null, likeStatus };
 
   return {
-    ...post,
-    views: liveState.views,
+    post: {
+      ...post,
+      views: liveState.views,
+      _count: liveState._count,
+    },
+    likeStatus,
   };
 }
 

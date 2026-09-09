@@ -28,6 +28,7 @@
  * 2026.08.27  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리해 최신 DB 값으로 덮어쓰도록 보강
  * 2026.08.31  임도헌   Modified  Next 서버 cache에서 문자열로 복원된 상세 날짜를 Date로 정규화
+ * 2026.09.09  임도헌   Modified  별도 최신 조회와 중복되던 좋아요 집계를 상세 본문 cache에서 제거
  */
 import "server-only";
 
@@ -36,7 +37,6 @@ import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { PRODUCT_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import type { ProductDetailType } from "@/features/product/types";
-import { getProductLikeStatus } from "@/features/product/service/like";
 import { checkBlockRelation } from "@/features/user/service/block";
 
 /** Next 서버 cache를 거치며 직렬화된 날짜를 상세 도메인의 Date 계약으로 복원한다. */
@@ -48,7 +48,7 @@ function restoreProductDetailDate(value: Date | string) {
  * 제품 상세 정보 데이터 조회 로직
  *
  * [데이터 가공 전략]
- * - 유저 정보, 태그, 카테고리 계층 구조, 이미지 목록, 좋아요 카운트 등 연관 데이터 조인 조회
+ * - 유저 정보, 태그, 카테고리 계층 구조, 이미지 목록 등 공통 본문 연관 데이터 조인 조회
  * - 이미지 노출 순서(order) 기준 오름차순 정렬 반환
  *
  * @param {number} id - 제품 ID
@@ -75,7 +75,6 @@ export async function getProductDetail(
       board_games: {
         select: PRODUCT_BOARD_GAME_RELATION_SELECT,
       },
-      _count: { select: { product_likes: true } },
     },
   });
   if (!product) return null;
@@ -120,9 +119,8 @@ export async function getProductDetailViewData(
   userId: number | null
 ) {
   // 공통 본문 캐시는 유지하되, 채팅 약속 수락처럼 상태만 바뀌는 경로는 최신 DB 값을 덮어쓴다.
-  const [product, likeStatus, liveState] = await Promise.all([
+  const [product, liveState, likedRow] = await Promise.all([
     getCachedProduct(id),
-    getProductLikeStatus(id, userId),
     db.product.findUnique({
       where: { id },
       select: {
@@ -130,9 +128,21 @@ export async function getProductDetailViewData(
         purchase_userId: true,
         hidden_at: true,
         views: true,
+        _count: { select: { product_likes: true } },
       },
     }),
+    userId
+      ? db.productLike.findUnique({
+          where: { id: { productId: id, userId } },
+          select: { productId: true },
+        })
+      : Promise.resolve(null),
   ]);
+
+  const likeStatus = {
+    likeCount: liveState?._count.product_likes ?? 0,
+    isLiked: !!likedRow,
+  };
 
   if (!product || !liveState) {
     return {

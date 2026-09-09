@@ -31,6 +31,7 @@
  * 2026.06.18  임도헌   Modified  상품 거래 기준 지역 필수화에 맞춰 ProductDTO location을 필수값으로 정리
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 노출 기준 시각을 최근 본 상품 스냅샷까지 보존하도록 refreshed_at 계약 명시
  * 2026.09.08  임도헌   Modified  항구 메인 상품 목록 정렬 타입과 검색 조건 추가
+ * 2026.09.09  임도헌   Modified  상세 본문 타입에서 별도 최신 조회로 이동한 좋아요 집계 제거
  */
 
 import {
@@ -269,9 +270,6 @@ export interface ProductDetailType extends ProductFullDetails {
       kor_name: string;
       icon: string | null;
     } | null;
-  };
-  _count: {
-    product_likes: number;
   };
   board_games?: Array<{
     boardGame: BoardGameRelationOption;

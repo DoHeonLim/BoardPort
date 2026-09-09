@@ -22,6 +22,7 @@
  * 2026.06.18  임도헌   Modified  예약/판매완료 거래 상태를 상세 헤더에 전달
  * 2026.08.13  임도헌   Modified  상품 태그 검색 기록에 현재 조회자 ID 전달
  * 2026.09.09  임도헌   Modified  최근 본 상품 스냅샷을 서버에서 구성해 클라이언트 전달 DTO 축소
+ * 2026.09.09  임도헌   Modified  별도 조회한 최신 좋아요 수를 최근 본 상품 스냅샷에 결합
  * ===============================================================================================
  * ProductDetail 페이지를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 상세 정보의 특정 섹션을 담당
@@ -76,7 +77,7 @@ export default function ProductDetailContainer({
 }: ProductDetailProps) {
   const recentProduct = product.hidden_at
     ? null
-    : createRecentViewedProductSnapshot(product);
+    : createRecentViewedProductSnapshot(product, likeCount);
 
   return (
     <div className="relative min-h-full flex flex-col bg-background text-primary transition-colors">
