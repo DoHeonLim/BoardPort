@@ -16,6 +16,8 @@
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 약속 제안 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  모바일 약속 입력 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  * 2026.08.27  임도헌   Modified  지도 선택 중첩 상태를 고려한 데스크톱 포커스 관리를 공용 useModalFocus로 통일
+ * 2026.09.08  임도헌   Modified  전 기기 공통 주간 달력과 시간 버튼 선택 UI 적용
+ * 2026.09.09  임도헌   Modified  오늘 기본 선택과 월별 가로 스크롤 날짜 UI 반영
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -26,8 +28,13 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import AppointmentDateTimePicker from "@/features/chat/components/AppointmentDateTimePicker";
 import LocationPicker from "@/features/map/components/LocationPicker";
 import type { LocationData } from "@/features/map/types";
+import {
+  formatAppointmentDateValue,
+  getNextAppointmentSlot,
+} from "@/features/chat/utils/appointmentPicker";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
 
@@ -41,7 +48,7 @@ interface ScheduleModalProps {
  * 약속 잡기 모달
  *
  * [기능]
- * 1. 날짜(`date`)와 시간(`time`)을 입력받음.
+ * 1. 월별 날짜 목록과 오전·오후 시 및 10분 단위 시간을 선택받음.
  * 2. `LocationPicker`를 호출하여 지도상에서 약속 장소를 선택받음.
  * 3. 입력값 검증 후 `onConfirm` 콜백을 통해 데이터를 상위로 전달.
  */
@@ -52,7 +59,8 @@ export default function ScheduleModal({
 }: ScheduleModalProps) {
   const isMobile = useIsMobile();
   const [dateStr, setDateStr] = useState("");
-  const [timeStr, setTimeStr] = useState("");
+  const [hourStr, setHourStr] = useState("");
+  const [minuteStr, setMinuteStr] = useState("");
   const [location, setLocation] = useState<LocationData | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -60,7 +68,8 @@ export default function ScheduleModal({
 
   const resetDraft = useCallback(() => {
     setDateStr("");
-    setTimeStr("");
+    setHourStr("");
+    setMinuteStr("");
     setLocation(null);
     setShowMap(false);
   }, []);
@@ -89,13 +98,18 @@ export default function ScheduleModal({
 
   if (!isOpen) return null;
 
+  const earliestDateTime = getNextAppointmentSlot(new Date());
+  const selectedDateStr =
+    dateStr || formatAppointmentDateValue(earliestDateTime);
+  const timeStr = hourStr && minuteStr ? `${hourStr}:${minuteStr}` : "";
+
   const handleSubmit = () => {
-    if (!dateStr || !timeStr || !location) {
+    if (!timeStr || !location) {
       toast.error("약속 날짜, 시간, 장소를 모두 입력해주세요.");
       return;
     }
 
-    const dateTime = new Date(`${dateStr}T${timeStr}`);
+    const dateTime = new Date(`${selectedDateStr}T${timeStr}`);
     if (isNaN(dateTime.getTime()) || dateTime < new Date()) {
       toast.error("현재보다 이후 시간을 선택해주세요.");
       return;
@@ -108,40 +122,16 @@ export default function ScheduleModal({
   };
 
   const bodyContent = (
-    <div className="space-y-5">
-      {/* 날짜/시간 선택 */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <label
-            htmlFor="schedule-date"
-            className="text-xs font-bold text-muted"
-          >
-            날짜
-          </label>
-          <input
-            id="schedule-date"
-            type="date"
-            value={dateStr}
-            onChange={(e) => setDateStr(e.target.value)}
-            className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label
-            htmlFor="schedule-time"
-            className="text-xs font-bold text-muted"
-          >
-            시간
-          </label>
-          <input
-            id="schedule-time"
-            type="time"
-            value={timeStr}
-            onChange={(e) => setTimeStr(e.target.value)}
-            className="input-primary text-sm bg-surface-dim h-10 px-3 rounded-xl w-full border-none ring-1 ring-border focus:ring-brand dark:focus:ring-brand-light"
-          />
-        </div>
-      </div>
+    <div className="w-full min-w-0 space-y-5 overflow-x-hidden">
+      <AppointmentDateTimePicker
+        date={selectedDateStr}
+        hour={hourStr}
+        minute={minuteStr}
+        minimumDateTime={earliestDateTime}
+        onDateChange={setDateStr}
+        onHourChange={setHourStr}
+        onMinuteChange={setMinuteStr}
+      />
 
       {/* 장소 선택 */}
       <div className="space-y-2">
@@ -184,7 +174,7 @@ export default function ScheduleModal({
   const footer = (
     <button
       onClick={handleSubmit}
-      disabled={!location || !dateStr || !timeStr || isPending}
+      disabled={!location || !timeStr || isPending}
       className="btn-primary h-10 w-full px-6 text-sm sm:w-auto"
     >
       {isPending ? "전송 중..." : "약속 제안하기"}
@@ -228,10 +218,10 @@ export default function ScheduleModal({
         aria-modal="true"
         aria-labelledby="schedule-modal-title"
         tabIndex={-1}
-        className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border-subtle"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-subtle bg-surface px-5 py-4">
           <h3
             id="schedule-modal-title"
             className="font-bold text-primary text-lg flex items-center gap-2"
@@ -249,10 +239,12 @@ export default function ScheduleModal({
         </div>
 
         {/* Body */}
-        <div className="p-5">{bodyContent}</div>
+        <div className="min-w-0 overflow-x-hidden overflow-y-auto p-5">
+          {bodyContent}
+        </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border-subtle bg-surface flex justify-end">
+        <div className="flex shrink-0 justify-end border-t border-border-subtle bg-surface p-4">
           {footer}
         </div>
       </div>

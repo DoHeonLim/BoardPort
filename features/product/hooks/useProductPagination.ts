@@ -25,6 +25,7 @@
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.08.13  임도헌   Modified  상품 목록 query key에 현재 조회자 범위 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.08  임도헌   Modified  상품 정렬 query와 메인 목록 캐시 범위 연결
  */
 
 "use client";
@@ -139,6 +140,9 @@ function buildProductsApiUrl(
   appendNumberParam(params, "maxPrice", searchParams?.maxPrice);
   appendStringParam(params, "game_type", searchParams?.game_type);
   appendStringParam(params, "condition", searchParams?.condition);
+  if (searchParams?.sort && searchParams.sort !== "latest") {
+    params.set("sort", searchParams.sort);
+  }
 
   const queryString = params.toString();
   return queryString ? `/api/products?${queryString}` : "/api/products";
@@ -193,7 +197,7 @@ async function fetchProductsPage<T>(url: string): Promise<ProductsEnvelope<T>> {
  *
  * [기능 및 동작 원리]
  * 1. TanStack Query의 `useSuspenseInfiniteQuery`로 커서 기반 무한 스크롤 상태를 조립
- * 2. `mode` 값에 따라 Query Key와 조회 URL(fetcher)을 동적으로 분기해 메인 목록/프로필 목록/커스텀 목록을 공통 처리
+ * 2. `mode` 값에 따라 Query Key와 조회 URL(fetcher)을 동적으로 분기해 검색·필터·정렬별 메인 목록과 프로필/커스텀 목록을 공통 처리
  * 3. Client queryFn의 Server Action 직접 호출을 피하도록 기본/프로필 목록은 Route Handler fetch로 조회
  * 4. Suspense 경계 아래에서 평탄화된 제품 배열과 첫 페이지 totalCount를 반환해 상위 리스트가 즉시 렌더링할 수 있게 함
  * 5. `updateOne`으로 단일 아이템만 로컬 캐시에 반영해 좋아요/후기 같은 부분 갱신을 쿼리 무효화 없이 처리

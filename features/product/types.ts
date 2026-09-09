@@ -30,6 +30,7 @@
  * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제의 좋아요 캐시 분리를 위한 ProductCard viewerId prop 추가
  * 2026.06.18  임도헌   Modified  상품 거래 기준 지역 필수화에 맞춰 ProductDTO location을 필수값으로 정리
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 노출 기준 시각을 최근 본 상품 스냅샷까지 보존하도록 refreshed_at 계약 명시
+ * 2026.09.08  임도헌   Modified  항구 메인 상품 목록 정렬 타입과 검색 조건 추가
  */
 
 import {
@@ -96,9 +97,13 @@ export interface ProductSearchParams {
   maxPrice?: number;
   game_type?: string;
   condition?: string;
+  sort?: ProductSort;
   take?: number;
   skip?: number;
 }
+
+/** 항구 메인 상품 목록 정렬 방식 */
+export type ProductSort = "latest" | "priceAsc" | "priceDesc";
 
 /** 상품 목록 필터 상태 */
 export type FilterState = {

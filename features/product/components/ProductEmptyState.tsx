@@ -22,6 +22,7 @@
  * 2026.06.15  임도헌   Modified  상세조건 0건 상태를 순수 검색 0건과 구분해 안내
  * 2026.06.16  임도헌   Modified  키워드가 있는 조건 0건 상태에서도 키워드 알림 CTA를 유지
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.08  임도헌   Modified  상세 조건 해제 링크에서 현재 상품 정렬 유지
  */
 "use client";
 
@@ -29,6 +30,7 @@ import Link from "next/link";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
 import type { RegionRange } from "@/generated/prisma/enums";
+import type { ProductSort } from "@/features/product/types";
 
 interface ProductEmptyStateProps {
   hasSearchParams: boolean;
@@ -36,6 +38,7 @@ interface ProductEmptyStateProps {
   keyword?: string;
   alertId?: number;
   currentRange: RegionRange;
+  sort?: ProductSort;
 }
 
 /**
@@ -50,6 +53,7 @@ interface ProductEmptyStateProps {
  * @param keyword - 현재 검색 중인 키워드
  * @param alertId - 해당 키워드의 알림 등록 ID (등록 상태 확인용)
  * @param currentRange - 현재 탐색 중인 지역 필터 범위
+ * @param sort - 현재 상품 정렬
  */
 export default function ProductEmptyState({
   hasSearchParams,
@@ -57,6 +61,7 @@ export default function ProductEmptyState({
   keyword,
   alertId,
   currentRange,
+  sort = "latest",
 }: ProductEmptyStateProps) {
   // 범위가 동/구로 좁을 때 안내가 필요한지 판별
   const isNarrowRange = currentRange === "DONG" || currentRange === "GU";
@@ -67,8 +72,12 @@ export default function ProductEmptyState({
         ? `'${keyword}' 검색 결과 중 현재 조건에 맞는 상품을 찾지 못했어요.`
         : `'${keyword}'에 대한 결과를 찾지 못했어요.`
       : null;
-  const resetRefinementHref = keyword
-    ? `/products?keyword=${encodeURIComponent(keyword)}`
+  const resetRefinementParams = new URLSearchParams();
+  if (keyword) resetRefinementParams.set("keyword", keyword);
+  if (sort !== "latest") resetRefinementParams.set("sort", sort);
+  const resetRefinementQuery = resetRefinementParams.toString();
+  const resetRefinementHref = resetRefinementQuery
+    ? `/products?${resetRefinementQuery}`
     : "/products";
   const title = hasSearchParams
     ? hasActiveRefinements

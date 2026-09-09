@@ -23,6 +23,7 @@
  * 2026.03.31  임도헌   Modified  무한 스크롤 조회와 viewer 필터 주석 톤 통일
  * 2026.04.02  임도헌   Modified  목록 액션 JSDoc 반환 설명 보강
  * 2026.09.05  임도헌   Modified  최근 본 상품 ID 검증과 세션 기반 서버 재조회 액션 추가
+ * 2026.09.08  임도헌   Modified  상품 목록 정렬 조건 위임 책임을 주석에 반영
  */
 
 "use server";
@@ -67,7 +68,7 @@ export async function getRecentProductsAction(
  * [기능]
  * - 클라이언트 무한 스크롤의 데이터 페칭 진입점 역할
  * - 로그인 세션 기준 viewerId를 주입해 차단/정지 유저 필터링을 함께 적용
- * - 현재 검색 조건(params)을 그대로 유지한 채 service 계층에 위임
+ * - 현재 검색·필터·정렬 조건(params)을 그대로 유지한 채 service 계층에 위임
  *
  * @param {number | null} cursor - 마지막 아이템 ID 커서
  * @param {ProductSearchParams} params - 검색 파라미터 (keyword, region, category 등)
