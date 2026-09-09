@@ -12,11 +12,12 @@
  * 2026.04.02  임도헌   Modified  삭제 액션 파라미터/반환 JSDoc 보강
  * 2026.05.16  임도헌   Modified  방송 삭제 사전 조회를 stream service 헬퍼로 이동
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.09  임도헌   Modified  삭제 직후 미존재 상태를 보장하는 updateTag 적용
  */
 
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
 import {
@@ -47,7 +48,7 @@ export const deleteBroadcastAction = async (broadcastId: number) => {
   const result = await deleteBroadcast(broadcastId);
 
   if (result.success) {
-    revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
+    updateTag(T.BROADCAST_DETAIL(broadcastId));
     revalidatePath("/streams");
   }
   return result;
@@ -70,7 +71,7 @@ export async function deleteLiveInputAction(liveInputId: number) {
 
   if (result.success) {
     for (const broadcastId of affectedBroadcastIds) {
-      revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
+      updateTag(T.BROADCAST_DETAIL(broadcastId));
     }
   }
 

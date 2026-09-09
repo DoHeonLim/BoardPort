@@ -29,6 +29,7 @@
  * 2026.08.27  임도헌   Modified  상세 본문 cache와 변동성 높은 조회수를 분리해 최신 DB 값으로 덮어쓰도록 보강
  * 2026.08.31  임도헌   Modified  Next 서버 cache에서 문자열로 복원된 상세 날짜를 Date로 정규화
  * 2026.09.09  임도헌   Modified  별도 최신 조회와 중복되던 좋아요 집계를 상세 본문 cache에서 제거
+ * 2026.09.09  임도헌   Modified  상세 본문 tag의 실제 무효화 대상 기준 명시
  */
 import "server-only";
 
@@ -96,7 +97,7 @@ export async function getProductDetail(
  *
  * [캐시 제어 전략]
  * - `unstable_cache`를 활용한 서버 사이드 렌더링 캐시 적용
- * - `PRODUCT_DETAIL` 태그를 주입하여 수정/상태 변경/삭제 시 On-demand 무효화 지원
+ * - `PRODUCT_DETAIL` 태그를 주입하여 본문 수정·끌어올리기·삭제 시 On-demand 무효화 지원
  *
  * @param {number} id - 제품 ID
  */

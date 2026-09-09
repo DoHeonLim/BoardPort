@@ -11,11 +11,11 @@
  * 2026.03.05  임도헌   Modified  상태 변경 시의 무거운 `revalidateTag` 호출 제거 및 클라이언트 Query Cache(`onOptimisticMove`)로 갱신 책임 위임
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.09  임도헌   Removed   별도 최신 거래 상태 조회와 중복되는 상세 본문 태그 만료 제거
  */
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
+import { revalidatePath } from "next/cache";
 import getSession from "@/lib/session";
 import { updateProductStatus } from "@/features/product/service/trade";
 import type { ProductStatus } from "@/features/product/types";
@@ -53,7 +53,6 @@ export async function updateProductStatusAction(
 
   const meta = result.data;
 
-  revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 }); // 제품 상세 원본 갱신
   revalidatePath("/products");
   revalidatePath("/profile");
 

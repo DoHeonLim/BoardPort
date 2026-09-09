@@ -10,10 +10,11 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 관련 화면 갱신 추가
  * 2026.09.08  임도헌   Modified  녹화본 전용 제목·썸네일 수정 액션 추가
+ * 2026.09.09  임도헌   Modified  방송 수정 직후 상세 본문을 보장하는 updateTag 적용과 녹화본의 중복 만료 제거
  */
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import getSession from "@/lib/session";
 import * as T from "@/lib/cacheTags";
 import {
@@ -71,7 +72,7 @@ export async function updateBroadcastMetaAction(
     return { success: false, error: result.error };
   }
 
-  revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
+  updateTag(T.BROADCAST_DETAIL(broadcastId));
   revalidatePath("/streams");
   revalidatePath(`/streams/${broadcastId}`);
   revalidatePath("/profile");
@@ -119,7 +120,6 @@ export async function updateRecordingMetaAction(
   const result = await updateRecordingMeta(session.id, vodId, parsed.data);
   if (!result.success) return result;
 
-  revalidateTag(T.BROADCAST_DETAIL(result.data.broadcastId), { expire: 0 });
   revalidatePath("/streams");
   revalidatePath(`/streams/${vodId}/recording`);
   revalidatePath("/profile");

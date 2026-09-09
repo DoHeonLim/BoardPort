@@ -19,6 +19,7 @@
  * 2026.08.26  임도헌   Modified  신고 claim·DB 조치·감사 로그를 단일 transaction으로 묶고 outbox 멱등 재시도 적용
  * 2026.08.28  임도헌   Modified  신고 대상 미리보기와 소유자 조회 함수 JSDoc 보강
  * 2026.09.04  임도헌   Modified  신고 대상 스냅샷 기반 제목·사용자명 검색과 삭제 후 표시 정보 유지
+ * 2026.09.09  임도헌   Modified  신고로 삭제된 상품·게시글·방송의 상세 cache tag 메타 반환
  */
 
 import "server-only";
@@ -397,7 +398,15 @@ export async function updateReportStatus(
         if (!report)
           throw new ReportModerationError("신고 내역을 찾을 수 없습니다.");
         if (completedAction) {
-          const revalidation = buildIdempotentRevalidationMeta(report);
+          const shouldRefreshDeletedDetail =
+            status === "RESOLVED" &&
+            isReportResolutionInput(resolution) &&
+            (resolution.action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT ||
+              resolution.deleteContent === true);
+          const revalidation = buildIdempotentRevalidationMeta(
+            report,
+            shouldRefreshDeletedDetail
+          );
           return {
             reportId,
             status,
@@ -430,6 +439,8 @@ export async function updateReportStatus(
         const outboxJobs: ModerationOutboxJob[] = [];
         const revalidationPaths = new Set<string>(["/admin/reports"]);
         let productDetailId: number | undefined;
+        let postDetailId: number | undefined;
+        let broadcastDetailId: number | undefined;
         let finalAdminComment = trimmedComment;
         let strikeTotal = 0;
 
@@ -494,6 +505,8 @@ export async function updateReportStatus(
               revalidationPaths.add(path)
             );
             productDetailId = deletion.productDetailId;
+            postDetailId = deletion.postDetailId;
+            broadcastDetailId = deletion.broadcastDetailId;
           }
 
           if (
@@ -592,6 +605,8 @@ export async function updateReportStatus(
               : undefined,
           revalidationPaths: [...revalidationPaths],
           productDetailId,
+          postDetailId,
+          broadcastDetailId,
         } satisfies ReportResolutionResult;
       },
       { isolationLevel: "Serializable" }
@@ -618,37 +633,56 @@ export async function updateReportStatus(
 class ReportModerationError extends Error {}
 
 /** commit 후 응답이 끊긴 조치 재시도에서도 관련 목록·상세 cache를 다시 정리한다. */
-function buildIdempotentRevalidationMeta(report: {
-  targetProductId: number | null;
-  targetPostId: number | null;
-  targetCommentId: number | null;
-  targetStreamId: number | null;
-  targetProductMessageId: number | null;
-  targetStreamMessageId: number | null;
-  targetReviewId: number | null;
-}): Pick<ReportResolutionResult, "revalidationPaths" | "productDetailId"> {
+function buildIdempotentRevalidationMeta(
+  report: {
+    targetProductId: number | null;
+    targetPostId: number | null;
+    targetCommentId: number | null;
+    targetStreamId: number | null;
+    targetProductMessageId: number | null;
+    targetStreamMessageId: number | null;
+    targetReviewId: number | null;
+  },
+  includeDeletedDetailTags: boolean
+): Pick<
+  ReportResolutionResult,
+  "revalidationPaths" | "productDetailId" | "postDetailId" | "broadcastDetailId"
+> {
   const paths = new Set<string>(["/admin/reports"]);
   let productDetailId: number | undefined;
+  let postDetailId: number | undefined;
+  let broadcastDetailId: number | undefined;
 
   if (report.targetProductId) {
     paths.add("/products");
     paths.add(`/products/view/${report.targetProductId}`);
     paths.add("/profile");
     paths.add("/chat");
-    productDetailId = report.targetProductId;
+    if (includeDeletedDetailTags) productDetailId = report.targetProductId;
   }
   if (report.targetPostId || report.targetCommentId) {
     paths.add("/posts");
-    if (report.targetPostId) paths.add(`/posts/${report.targetPostId}`);
+    if (report.targetPostId) {
+      paths.add(`/posts/${report.targetPostId}`);
+      if (includeDeletedDetailTags) postDetailId = report.targetPostId;
+    }
   }
   if (report.targetStreamId || report.targetStreamMessageId) {
     paths.add("/streams");
-    if (report.targetStreamId) paths.add(`/streams/${report.targetStreamId}`);
+    if (report.targetStreamId) {
+      paths.add(`/streams/${report.targetStreamId}`);
+      if (includeDeletedDetailTags) broadcastDetailId = report.targetStreamId;
+    }
   }
   if (report.targetProductMessageId) paths.add("/chat");
   if (report.targetReviewId) paths.add("/products");
 
-  return { revalidationPaths: [...paths], productDetailId };
+  return {
+    revalidationPaths: [...paths],
+    productDetailId,
+    postDetailId,
+    broadcastDetailId,
+  };
 }
 
 /** 같은 신고와 조치 조합이 항상 같은 멱등 키를 사용하도록 정규화한다. */
@@ -1448,6 +1482,8 @@ interface ReportContentDeletionResult {
   outboxJobs: ModerationOutboxJob[];
   revalidationPaths: string[];
   productDetailId?: number;
+  postDetailId?: number;
+  broadcastDetailId?: number;
 }
 
 /** 신고 대상 콘텐츠의 DB 삭제·감사 로그를 transaction 안에서 처리한다. */
@@ -1570,6 +1606,7 @@ async function deleteReportTargetContentTx(
         `/posts/${post.id}`,
         `/profile/${post.user.username}`,
       ],
+      postDetailId: post.id,
     };
   }
 
@@ -1619,6 +1656,7 @@ async function deleteReportTargetContentTx(
         `/streams/${broadcast.id}`,
         `/profile/${broadcast.liveInput.user.username}/channel`,
       ],
+      broadcastDetailId: broadcast.id,
     };
   }
 
@@ -1675,7 +1713,6 @@ async function deleteReportTargetContentTx(
         }),
       ],
       revalidationPaths: ["/products", `/products/view/${review.productId}`],
-      productDetailId: review.productId,
     };
   }
 

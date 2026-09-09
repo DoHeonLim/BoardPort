@@ -7,10 +7,13 @@
  * Date        Author   Status    Description
  * 2026.02.03  임도헌   Created   끌어올리기 액션 추가
  * 2026.04.02  임도헌   Modified  파일 설명과 Action 주석 톤을 현재 서버 액션 기준으로 정리
+ * 2026.09.09  임도헌   Modified  성공 직후 상세 본문을 갱신하는 updateTag 책임 추가
  */
 "use server";
 
 import getSession from "@/lib/session";
+import { updateTag } from "next/cache";
+import * as T from "@/lib/cacheTags";
 import { bumpProduct } from "@/features/product/service/bump";
 import type { ServiceResult } from "@/lib/types";
 
@@ -32,5 +35,7 @@ export async function bumpProductAction(
     return { success: false, error: "로그인이 필요합니다." };
   }
 
-  return await bumpProduct(session.id, productId);
+  const result = await bumpProduct(session.id, productId);
+  if (result.success) updateTag(T.PRODUCT_DETAIL(productId));
+  return result;
 }

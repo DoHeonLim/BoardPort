@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.01  임도헌   Created   `notFound()` 제어 신호 없이 세션 만료 실패를 반환하는 동작 검증
+ * 2026.09.09  임도헌   Modified  삭제 직후 상세 태그를 만료하는 updateTag 검증으로 변경
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   deletePost: vi.fn(),
-  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -23,7 +24,7 @@ vi.mock("@/features/post/service/post", () => ({
   deletePost: mocks.deletePost,
 }));
 vi.mock("next/cache", () => ({
-  revalidateTag: mocks.revalidateTag,
+  updateTag: mocks.updateTag,
   revalidatePath: mocks.revalidatePath,
 }));
 
@@ -43,7 +44,7 @@ describe("deletePostAction", () => {
       error: "로그인이 필요합니다.",
     });
     expect(mocks.deletePost).not.toHaveBeenCalled();
-    expect(mocks.revalidateTag).not.toHaveBeenCalled();
+    expect(mocks.updateTag).not.toHaveBeenCalled();
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -52,9 +53,7 @@ describe("deletePostAction", () => {
 
     await expect(deletePostAction(31)).resolves.toEqual({ success: true });
     expect(mocks.deletePost).toHaveBeenCalledWith(7, 31);
-    expect(mocks.revalidateTag).toHaveBeenCalledWith("post-detail-31", {
-      expire: 0,
-    });
+    expect(mocks.updateTag).toHaveBeenCalledWith("post-detail-31");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/posts");
   });
 });
