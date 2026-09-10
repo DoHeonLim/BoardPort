@@ -41,6 +41,7 @@ next-env.d.ts
 # pwa (next-pwa / Serwist generated service workers)
 **/public/workbox-*.js
 **/public/sw.js
+**/public/sw.js.map
 **/public/swe-worker-*.js
 **/public/worker-*.js
 **/public/fallback-*.js
