@@ -31,11 +31,17 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/products/add/page.tsx 에서 app/(app)/(tabs)/products/add/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.14  임도헌   Modified  ProductForm이 mode 기반으로 내부 서버 액션을 선택하도록 정리해 action prop 전달 제거
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
+ * 2026.09.10  임도헌   Modified  도감 진입 보드게임 사전 선택과 복귀 문맥 적용
  */
 
 import ProductForm from "@/features/product/components/ProductForm";
 import { fetchProductCategories } from "@/features/product/service/category";
 import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
+import {
+  getBoardGameCreationPrefill,
+  parseBoardGameCreationId,
+} from "@/features/boardgame/utils/contentCreation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,19 +52,35 @@ export const revalidate = 0;
  * - 카테고리 목록을 서버에서 미리 로드하여 폼에 주입
  * - `ProductForm`을 'create' 모드로 렌더링
  */
-export default async function AddPage() {
+export default async function AddPage(props: {
+  searchParams: Promise<{ boardGameId?: string; returnTo?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const requestedBoardGameId = parseBoardGameCreationId(
+    searchParams.boardGameId
+  );
   const [categories, boardGameOptionsResult] = await Promise.all([
     fetchProductCategories(),
-    getBoardGameRelationOptions(),
+    getBoardGameRelationOptions({
+      includeIds: requestedBoardGameId ? [requestedBoardGameId] : [],
+    }),
   ]);
+  const boardGameOptions = boardGameOptionsResult.success
+    ? boardGameOptionsResult.data
+    : [];
+  const boardGameIds = getBoardGameCreationPrefill(
+    searchParams.boardGameId,
+    boardGameOptions
+  );
+  const cancelHref = sanitizeCallbackUrl(searchParams.returnTo ?? "/products");
 
   return (
     <ProductForm
       mode="create"
       categories={categories}
-      boardGameOptions={
-        boardGameOptionsResult.success ? boardGameOptionsResult.data : []
-      }
+      defaultValues={{ boardGameIds }}
+      boardGameOptions={boardGameOptions}
+      cancelHref={cancelHref}
     />
   );
 }

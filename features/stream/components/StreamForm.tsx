@@ -33,6 +33,7 @@
  * 2026.05.16  임도헌   Modified   방송 카테고리 parentId 타입을 StreamCategory에 반영해 any 의존 제거
  * 2026.05.30  임도헌   Modified   모바일 방송 생성 폼의 입력 밀도 조정
  * 2026.08.22  임도헌   Modified   방송 썸네일 전용 업로드 용도와 MediaAsset delivery URL 사용
+ * 2026.09.10  임도헌   Modified   도감 작성 진입의 보드게임 초기값과 상세 복귀 문맥 적용
  */
 "use client";
 
@@ -466,6 +467,7 @@ export default function StreamForm({
           streamKey={streamInfo.streamKey}
           liveInputId={streamInfo.liveInputId}
           broadcastId={streamInfo.broadcastId ?? undefined}
+          returnTo={cancelHref}
         />
       )}
     </div>

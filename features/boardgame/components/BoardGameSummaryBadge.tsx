@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.03  임도헌   Created   게시글/방송 카드에서 연결 보드게임을 작게 식별할 수 있는 공용 배지 추가
  * 2026.05.04  임도헌   Modified  목록 카드에서 연결 보드게임임을 더 명확히 보이도록 아이콘형 prefix 추가
+ * 2026.09.11  임도헌   Modified  썸네일 배치용 고대비 오버레이 표현 추가
  */
 
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
@@ -17,6 +18,7 @@ interface BoardGameSummaryBadgeProps {
     boardGame: BoardGameRelationOption;
   }>;
   className?: string;
+  variant?: "default" | "overlay";
 }
 
 /**
@@ -28,6 +30,7 @@ interface BoardGameSummaryBadgeProps {
 export default function BoardGameSummaryBadge({
   items = [],
   className,
+  variant = "default",
 }: BoardGameSummaryBadgeProps) {
   if (!items.length) return null;
 
@@ -41,12 +44,26 @@ export default function BoardGameSummaryBadge({
         연결된 보드게임: {label}
         {restItems.length ? ` 외 ${restItems.length}개` : ""}
       </span>
-      <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-brand/25 bg-brand/10 px-2 py-0.5 text-[11px] font-semibold leading-5 text-brand-dark shadow-sm dark:border-brand-light/35 dark:bg-brand-light/15 dark:text-white">
+      <span
+        className={cn(
+          "inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-5 shadow-sm",
+          variant === "overlay"
+            ? "border-white/20 bg-black/70 text-white backdrop-blur-[2px]"
+            : "border-brand/25 bg-brand/10 text-brand-dark dark:border-brand-light/35 dark:bg-brand-light/15 dark:text-white"
+        )}
+      >
         <span aria-hidden="true">🎲</span>
         <span className="truncate">{label}</span>
       </span>
       {restItems.length > 0 && (
-        <span className="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-secondary">
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-4",
+            variant === "overlay"
+              ? "border border-white/20 bg-black/70 text-white backdrop-blur-[2px]"
+              : "bg-surface-muted text-secondary"
+          )}
+        >
           +{restItems.length}
         </span>
       )}

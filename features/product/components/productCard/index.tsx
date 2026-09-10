@@ -56,6 +56,8 @@
  * 2026.06.01  임도헌   Modified  그리드 카드의 태그/메타 묶음을 하단 정렬해 카드별 공백 차이 완화
  * 2026.06.04  임도헌   Modified  데모 상품 밀도 대응을 위해 리스트 카드 높이와 썸네일 정렬 보정
  * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제 버튼에 viewerId 전달
+ * 2026.09.11  임도헌   Modified  빠른 찜 해제 상태를 상위 통합 탭 개수에 전달
+ * 2026.09.11  임도헌   Modified  아이콘형 빠른 해제에 맞춘 카드 본문 공간 복구
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -97,6 +99,7 @@ export default function ProductCard({
   returnTo = "/products",
   showQuickUnlike = false,
   viewerId = null,
+  onOptimisticChange,
 }: ProductCardProps) {
   const likedAt = "liked_at" in product ? product.liked_at : undefined;
   const {
@@ -156,7 +159,7 @@ export default function ProductCard({
     <div
       className={cn(
         "flex min-w-0 flex-col gap-1",
-        showInlineQuickUnlike && "pr-16 sm:pr-24",
+        showInlineQuickUnlike && "pr-12",
         showCornerBoardGameBadge && "sm:pr-[46%]"
       )}
     >
@@ -267,6 +270,7 @@ export default function ProductCard({
             likeCount={_count.product_likes}
             viewerId={viewerId}
             variant="quick-remove"
+            onOptimisticChange={onOptimisticChange}
           />
         </div>
       )}
@@ -280,6 +284,7 @@ export default function ProductCard({
               likeCount={_count.product_likes}
               viewerId={viewerId}
               variant="quick-remove"
+              onOptimisticChange={onOptimisticChange}
             />
           </div>
 
@@ -314,7 +319,6 @@ export default function ProductCard({
           <div
             className={cn(
               "flex min-w-0 flex-1 px-2.5 py-2.5 sm:px-3.5 sm:py-3.5",
-              showQuickUnlike && isGrid && "pr-14 sm:pr-24",
               isGrid
                 ? "flex-col justify-between gap-1.5 sm:gap-2"
                 : "flex-col justify-between gap-1.5"

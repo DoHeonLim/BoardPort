@@ -111,10 +111,10 @@ export default function MyProfileDeferredSections({
             <div>
               <div className="mb-1 flex items-center gap-2 text-danger">
                 <HeartIcon className="size-5" />
-                <span className="text-sm font-medium">찜한 내역</span>
+                <span className="text-sm font-medium">관심 목록</span>
               </div>
               <p className="text-xs text-muted transition-colors group-hover:text-primary">
-                내가 찜한 관심 상품
+                저장한 상품·게시글·다시보기
               </p>
             </div>
             <ChevronRightIcon className="size-5 text-muted transition-colors group-hover:text-brand dark:group-hover:text-brand-light" />

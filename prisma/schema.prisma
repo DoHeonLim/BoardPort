@@ -615,6 +615,7 @@ model PostLike {
 
   @@id(name: "id", [userId, postId])
   @@index([postId]) // 게시글별 좋아요 집계 및 정렬
+  @@index([userId, created_at(sort: Desc), postId(sort: Desc)]) // 내 찜 게시글 최신순 + 커서 페이징 최적화
 }
 
 /// 게시글 태그 (Many-to-Many via implicit relation)
@@ -1333,6 +1334,7 @@ model RecordingLike {
   vodId  Int
 
   @@id([userId, vodId], name: "id")
+  @@index([userId, created_at(sort: Desc), vodId(sort: Desc)]) // 내 찜 다시보기 최신순 + 커서 페이징 최적화
 }
 
 /// 녹화본 댓글

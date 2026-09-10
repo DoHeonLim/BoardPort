@@ -26,6 +26,7 @@
  * 2026.08.13  임도헌   Modified  상품 목록 query key에 현재 조회자 범위 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.08  임도헌   Modified  상품 정렬 query와 메인 목록 캐시 범위 연결
+ * 2026.09.11  임도헌   Modified  상품 관심 목록의 찜 시각·상품 ID 복합 커서 지원
  */
 
 "use client";
@@ -39,6 +40,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
 import type {
   Paginated,
+  LikedProductCursor,
   ProductSearchParams,
   UserProductsScope,
 } from "@/features/product/types";
@@ -47,7 +49,8 @@ import type {
 // 1. Hook Configuration Types
 // =============================================================================
 
-type ProductsEnvelope<T> = Paginated<T>;
+type ProductPageCursor = number | LikedProductCursor;
+type ProductsEnvelope<T> = Paginated<T, ProductPageCursor>;
 
 /** [Mode 1] 기본 제품 목록 (항구 메인 페이지 등) */
 type ProductMode = {
@@ -82,7 +85,7 @@ export type UseProductPaginationParams<T extends { id: number }> =
 export interface UseProductPaginationResult<T extends { id: number }> {
   products: T[]; // 평탄화된 전체 제품 배열
   totalCount?: number; // 서버에서 내려준 전체 결과 수 (지원 모드에서만 사용)
-  cursor: number | null; // 다음 페이지 요청을 위한 커서 ID
+  cursor: ProductPageCursor | null; // 다음 페이지 요청을 위한 정렬 커서
   isFetchingNextPage: boolean; // 스크롤 하단에 도달하여 다음 페이지를 불러오는 중인지 여부
   hasMore: boolean; // 불러올 데이터가 더 남아있는지 여부
   loadMore: () => Promise<unknown>; // 다음 페이지 요청 트리거 함수
@@ -157,13 +160,18 @@ function buildProductsApiUrl(
  */
 function buildUserProductsApiUrl(
   scope: UserProductsScope,
-  cursor: number | null
+  cursor: ProductPageCursor | null
 ) {
   const params = new URLSearchParams({
     type: scope.type,
     userId: String(scope.userId),
   });
-  appendNumberParam(params, "cursor", cursor);
+  if (typeof cursor === "number") {
+    appendNumberParam(params, "cursor", cursor);
+  } else if (cursor) {
+    params.set("cursorId", String(cursor.id));
+    params.set("cursorAt", cursor.likedAt);
+  }
 
   return `/api/products/user-scope?${params.toString()}`;
 }
@@ -250,7 +258,7 @@ export function useProductPagination<T extends { id: number }>(
 
   /**
    * 무한 쿼리 인스턴스 생성
-   * - pageParam을 제품의 ID(커서)로 사용하여 다음 페이지를 요청
+   * - pageParam을 제품 ID 또는 찜 정렬 복합 커서로 사용한 다음 페이지 요청
    */
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
@@ -264,7 +272,10 @@ export function useProductPagination<T extends { id: number }>(
         if (mode === "profile" && profileScope) {
           // Client queryFn의 Server Action 직접 호출은 초기 렌더 waterfall 오류가 날 수 있어 Route Handler fetch 사용
           return fetchProductsPage<T>(
-            buildUserProductsApiUrl(profileScope, pageParam as number | null)
+            buildUserProductsApiUrl(
+              profileScope,
+              pageParam as ProductPageCursor | null
+            )
           );
         }
         // 3. 기본 카탈로그 모드 (항구 메인)
@@ -274,7 +285,7 @@ export function useProductPagination<T extends { id: number }>(
           buildProductsApiUrl(searchParams, pageParam as number | null)
         )) as unknown as ProductsEnvelope<T>;
       },
-      initialPageParam: null as number | null,
+      initialPageParam: null as ProductPageCursor | null,
       // 서버가 응답한 nextCursor를 다음 요청의 pageParam으로 사용
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       // 페이지 이동 시 데이터 보존 및 잦은 재요청 방지를 위해 캐시 유지 시간(1분) 적용
@@ -292,20 +303,23 @@ export function useProductPagination<T extends { id: number }>(
    */
   const updateOne = useCallback(
     (id: number, patch: Partial<T>) => {
-      queryClient.setQueryData<ProductInfiniteCache<T>>(queryKey, (oldData) => {
-        // [방어 로직] 캐시 구조가 비어있거나 깨져있을 경우 무시
-        if (!oldData || !oldData.pages || oldData.pages.length === 0)
-          return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: ProductsEnvelope<T>) => ({
-            ...page,
-            products: page.products.map((p: T) =>
-              p.id === id ? { ...p, ...patch } : p
-            ),
-          })),
-        };
-      });
+      queryClient.setQueryData<ProductInfiniteCache<T, ProductPageCursor>>(
+        queryKey,
+        (oldData) => {
+          // [방어 로직] 캐시 구조가 비어있거나 깨져있을 경우 무시
+          if (!oldData || !oldData.pages || oldData.pages.length === 0)
+            return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: ProductsEnvelope<T>) => ({
+              ...page,
+              products: page.products.map((p: T) =>
+                p.id === id ? { ...p, ...patch } : p
+              ),
+            })),
+          };
+        }
+      );
     },
     [queryClient, queryKey]
   );

@@ -32,6 +32,8 @@
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 노출 기준 시각을 최근 본 상품 스냅샷까지 보존하도록 refreshed_at 계약 명시
  * 2026.09.08  임도헌   Modified  항구 메인 상품 목록 정렬 타입과 검색 조건 추가
  * 2026.09.09  임도헌   Modified  상세 본문 타입에서 별도 최신 조회로 이동한 좋아요 집계 제거
+ * 2026.09.11  임도헌   Modified  찜 목록 카드의 낙관 변경 콜백 타입 추가
+ * 2026.09.11  임도헌   Modified  상품 찜 목록의 삭제 안전 복합 커서 추가
  */
 
 import {
@@ -65,6 +67,12 @@ export type UserProductsScope =
   | { type: "SOLD"; userId: number }
   | { type: "PURCHASED"; userId: number }
   | { type: "LIKED"; userId: number };
+
+/** 찜 항목 삭제 후에도 정렬 경계를 유지하는 상품 관심 목록 커서 */
+export interface LikedProductCursor {
+  id: number;
+  likedAt: string;
+}
 
 // =============================================================================
 // 2. Data Transfer Objects (DTO) - 요청/응답 데이터
@@ -173,9 +181,9 @@ export interface ProductLikeResult {
 }
 
 /** 제네릭 페이지네이션 결과 */
-export interface Paginated<T> {
+export interface Paginated<T, TCursor = number> {
   products: T[];
-  nextCursor: number | null;
+  nextCursor: TCursor | null;
   totalCount?: number;
 }
 
@@ -378,6 +386,7 @@ export interface ProductCardProps {
   returnTo?: string;
   showQuickUnlike?: boolean;
   viewerId?: number | null;
+  onOptimisticChange?: (isLiked: boolean) => void;
 }
 
 // =============================================================================

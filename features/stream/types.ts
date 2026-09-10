@@ -33,6 +33,7 @@
  * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 rate limit 실패 코드 추가
  * 2026.08.26  임도헌   Modified  Cloudflare webhook provider 시각·Notifications 식별 필드 추가
  * 2026.09.08  임도헌   Modified  방송·녹화본 사용자 썸네일과 수정 결과 타입 확장
+ * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각 메타 지원
  * 2026.08.26  임도헌   Modified  다시보기 메인 목록의 정렬값 기반 불투명 커서 타입 추가
  * 2026.08.27  임도헌   Modified  메인·채널별 커서 제네릭 응답 타입 설명 보강
  */
@@ -145,6 +146,7 @@ export interface VodForGrid {
   user: UserSummary;
   href?: string; // 상세 이동 경로 (없으면 /streams/:vodId/recording 폴백)
   readyAt: Date | null;
+  likedAt?: Date | string;
   duration?: number;
   viewCount?: number;
   likeCount?: number; // 카드 메타용 녹화본 좋아요 수

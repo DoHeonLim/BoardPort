@@ -8,12 +8,14 @@
  * 2026.05.05  임도헌   Created   상품/게시글/방송 관련 콘텐츠 UI 분리
  * 2026.06.19  임도헌   Modified  관련 방송 링크를 라이브/종료 상태에 따라 방송 상세 또는 VOD 상세로 분기
  * 2026.09.06  임도헌   Modified  관련 콘텐츠 상세에 도감 returnTo 전달
+ * 2026.09.10  임도헌   Modified  보드게임 사전 선택 기반 연결 콘텐츠 작성 진입점 추가
  */
 
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { BoardGameRelatedContent } from "@/features/boardgame/types/public";
+import { buildBoardGameContentCreationHref } from "@/features/boardgame/utils/contentCreation";
 
 interface RelatedContentSectionProps {
   content: BoardGameRelatedContent | null;
@@ -54,6 +56,27 @@ export default function RelatedContentSection({
           className="focus-ring-soft shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-bold text-primary transition hover:bg-surface-dim"
         >
           항구에서 검색
+        </Link>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <Link
+          href={buildBoardGameContentCreationHref("/products/add", boardGameId)}
+          className="focus-ring-soft inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-surface-dim px-2 text-center text-xs font-bold text-primary transition hover:border-brand/50 hover:bg-surface sm:text-sm"
+        >
+          상품 등록
+        </Link>
+        <Link
+          href={buildBoardGameContentCreationHref("/posts/add", boardGameId)}
+          className="focus-ring-soft inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-surface-dim px-2 text-center text-xs font-bold text-primary transition hover:border-brand/50 hover:bg-surface sm:text-sm"
+        >
+          게시글 작성
+        </Link>
+        <Link
+          href={buildBoardGameContentCreationHref("/streams/add", boardGameId)}
+          className="focus-ring-soft inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-surface-dim px-2 text-center text-xs font-bold text-primary transition hover:border-brand/50 hover:bg-surface sm:text-sm"
+        >
+          방송 시작
         </Link>
       </div>
 

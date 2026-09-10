@@ -17,6 +17,7 @@
  * 2026.04.08  임도헌   Modified  게시글 카드 대표 썸네일을 첫 미디어 블록(이미지/유튜브 임베드) 우선 규칙으로 정리
  * 2026.04.14  임도헌   Modified  첫 게시글 카드만 priority/fetchPriority를 적용해 목록 LCP를 개선
  * 2026.04.14  임도헌   Modified  유튜브 썸네일도 Next 이미지 최적화를 통과시키고 sizes를 모바일 실폭 기준으로 보정
+ * 2026.09.11  임도헌   Modified  Cloudflare Images public variant 중복 방지
  */
 "use client";
 
@@ -25,6 +26,7 @@ import { PhotoIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import type { PostBlock, PostImage } from "@/features/post/types";
 import { parseYouTubeEmbedInput } from "@/features/post/utils/embed";
+import { toPostImagePublicUrl } from "@/features/post/utils/image";
 
 interface PostCardThumbnailProps {
   images: PostImage[];
@@ -66,11 +68,11 @@ export default function PostCardThumbnail({
 
   const thumbnailSrc =
     firstMediaBlock?.type === "IMAGE" && firstMediaBlock.postImage?.url
-      ? `${firstMediaBlock.postImage.url}/public`
+      ? toPostImagePublicUrl(firstMediaBlock.postImage.url)
       : firstMediaBlock?.type === "EMBED" && selectedEmbedThumbnail
         ? selectedEmbedThumbnail
         : images[0]
-          ? `${images[0].url}/public`
+          ? toPostImagePublicUrl(images[0].url)
           : null;
 
   const isAnimatedThumbnail =

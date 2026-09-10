@@ -27,6 +27,8 @@
  * 2026.05.18  임도헌   Modified  게시글 카드 좋아요 하트 색상을 현재 사용자 좋아요 여부 기준으로 전달
  * 2026.06.18  임도헌   Modified  명시 장소가 있는 게시글만 카드 위치를 표시하도록 locationName 전달
  * 2026.06.21  임도헌   Modified  장소 미지정 게시글도 feedRegion 작성 동네를 목록 메타에 노출
+ * 2026.09.11  임도헌   Modified  통합 찜 목록의 빠른 해제 액션 배치 공간 지원
+ * 2026.09.11  임도헌   Modified  리스트 썸네일 높이 복구와 빠른 해제 액션의 상단 영역 분리
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -56,6 +58,9 @@ interface PostCardProps {
   viewMode: "list" | "grid";
   isPriority?: boolean;
   returnTo?: string;
+  reserveTopRightAction?: boolean;
+  activityAt?: Date | string;
+  activityLabel?: string;
 }
 
 /**
@@ -70,6 +75,9 @@ export default function PostCard({
   viewMode,
   isPriority = false,
   returnTo = "/posts",
+  reserveTopRightAction = false,
+  activityAt,
+  activityLabel,
 }: PostCardProps) {
   const isGrid = viewMode === "grid";
   const detailHref = `/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`;
@@ -85,7 +93,12 @@ export default function PostCard({
       )}
     >
       {/* 썸네일 */}
-      <div className={cn("relative shrink-0", isGrid ? "w-full" : "h-full")}>
+      <div
+        className={cn(
+          "relative shrink-0",
+          isGrid ? "w-full" : "self-stretch"
+        )}
+      >
         <PostCardThumbnail
           images={post.images}
           blocks={post.blocks}
@@ -104,7 +117,12 @@ export default function PostCard({
         )}
       >
         {/* 상단: 카테고리 + 제목 */}
-        <div className="flex flex-col gap-0.5">
+        <div
+          className={cn(
+            "flex flex-col gap-0.5",
+            reserveTopRightAction && !isGrid && "pr-12"
+          )}
+        >
           <PostCardHeader category={post.category} viewMode={viewMode} />
           <PostCardTitle title={post.title} viewMode={viewMode} />
           <BoardGameSummaryBadge items={post.board_games} className="mt-0.5" />
@@ -134,6 +152,8 @@ export default function PostCard({
             isLiked={Boolean(post.isLiked)}
             comments={post._count.comments}
             createdAt={post.created_at.toString()}
+            activityAt={activityAt}
+            activityLabel={activityLabel}
             locationName={post.locationName}
             region1={post.region1}
             region2={post.region2}

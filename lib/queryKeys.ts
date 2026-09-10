@@ -8,12 +8,12 @@
  * 1. Next.js fetch 캐시 (서버 사이드) - cacheTags.ts 사용
  *   - 대상: 공통 콘텐츠 (모든 유저가 같은 데이터를 봄), 업데이트 빈도가 낮은 데이터
  *   - 예시: 카테고리 목록, 뱃지 전체 목록, 게시글 상세(본문), 상품 상세(본문)
- *   - 효과: DB API 호출 비용 90% 이상 절감
+ *   - 효과: 반복되는 공통 조회의 서버 연산과 데이터베이스 접근 완화
  *
  * 2. TanStack Query (클라이언트 사이드) - queryKeys.ts 사용
  *   - 대상: 개인화 데이터, 실시간 데이터, 클라이언트 탐색 맥락을 유지해야 하는 목록
  *   - 예시: 내 동네/차단이 필터링된 상품 목록, 보드게임 도감 목록, 채팅방 목록, 알림 목록, 좋아요 상태
- *   - 효과: 탭 전환/뒤로가기 시 API 호출 0회 (즉각 반응)
+ *   - 효과: 캐시가 유효한 탐색에서 즉각적인 화면 복원과 중복 요청 완화
  *
  * 3. 혼합 사용 (상세 페이지 패턴)
  *   - 상세 본문(공통)은 Next.js 캐시를 사용
@@ -33,6 +33,8 @@
  * 2026.06.07  임도헌   Modified  VOD 좋아요 상태 query key를 시청자별로 분리
  * 2026.06.17  임도헌   Modified  상품/게시글 좋아요 상태 query key도 시청자별로 분리
  * 2026.08.13  임도헌   Modified  개인화 목록/댓글/검색 캐시를 조회자별로 분리
+ * 2026.09.11  임도헌   Modified  사용자별 찜한 게시글·다시보기 목록 키 추가
+ * 2026.09.11  임도헌   Modified  캐시 효과 설명을 실제 보장 범위 중심으로 정리
  */
 
 import type { QueryKeyParams } from "@/lib/types";
@@ -95,6 +97,8 @@ export const queryKeys = {
         "likeStatus",
         viewerId ?? "guest",
       ] as const,
+    liked: (userId: number) =>
+      [...queryKeys.posts.all, "liked", userId] as const,
   },
 
   // 3. 리뷰(Review) 도메인
@@ -167,6 +171,8 @@ export const queryKeys = {
         "likeStatus",
         viewerId ?? "guest",
       ] as const,
+    likedRecordings: (userId: number) =>
+      [...queryKeys.streams.all, "likedRecordings", userId] as const,
   },
 
   // 6. 유저(User) 도메인

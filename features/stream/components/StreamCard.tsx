@@ -55,6 +55,8 @@
  * 2026.06.22  임도헌   Modified  레일 카드 카테고리 배지가 남은 줄 전체를 차지하지 않도록 폭 계산 조정
  * 2026.09.03  임도헌   Modified  카드 이동과 팔로우 CTA를 분리하고 PRIVATE 사용자 노출 용어를 비공개로 통일
  * 2026.09.06  임도헌   Modified  비공개 배지의 불투명 배경과 글자 대비 보강
+ * 2026.09.11  임도헌   Modified  통합 찜 목록의 빠른 해제 액션 배치 공간 지원
+ * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각과 썸네일 보드게임 배지 지원
  */
 
 "use client";
@@ -100,6 +102,8 @@ interface StreamCardProps {
   streamer: { username: string; avatar?: string | null };
   startedAt?:
     Date | string | null /** 서버에서 Date로 오기도 하므로 넓혀서 수용 */;
+  activityAt?: Date | string | null;
+  activityLabel?: string;
   category?: StreamCategory | null;
   tags?: { name: string }[];
   boardGames?: Array<{ boardGame: BoardGameRelationOption }>;
@@ -120,10 +124,14 @@ interface StreamCardProps {
   onRequestFollow?: () => void; // 팔로우 CTA 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
+  /** 연결 보드게임 배지 위치 */
+  boardGameBadgePlacement?: "content" | "thumbnail";
   /** 프로필/채널처럼 소유자가 자명한 컨텍스트에서의 스트리머 정보 숨김 가능 */
   showStreamer?: boolean;
   /** LCP 후보가 되는 썸네일을 우선 로드할 때 사용 */
   thumbnailPriority?: boolean;
+  /** 썸네일 우측 상단에 링크 밖 액션을 배치할 때 필요한 공간 예약 */
+  reserveTopRightAction?: boolean;
 }
 
 /**
@@ -154,6 +162,8 @@ export default function StreamCard(props: StreamCardProps) {
     showReplayBadge = false,
     streamer,
     startedAt,
+    activityAt,
+    activityLabel,
     category,
     tags,
     boardGames,
@@ -171,8 +181,10 @@ export default function StreamCard(props: StreamCardProps) {
     isPrivateType,
     onRequestFollow,
     layout = "grid",
+    boardGameBadgePlacement = "content",
     showStreamer = true,
     thumbnailPriority = false,
+    reserveTopRightAction = false,
   } = props;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -220,12 +232,13 @@ export default function StreamCard(props: StreamCardProps) {
   );
 
   // startedAt를 ISO 문자열로 정규화 (formatToTimeAgo 호환)
-  const startedAtIso = useMemo(() => {
-    if (!startedAt) return null;
-    if (startedAt instanceof Date) return startedAt.toISOString();
-    if (typeof startedAt === "string") return startedAt;
+  const displayedAtIso = useMemo(() => {
+    const displayedAt = activityAt ?? startedAt;
+    if (!displayedAt) return null;
+    if (displayedAt instanceof Date) return displayedAt.toISOString();
+    if (typeof displayedAt === "string") return displayedAt;
     return null;
-  }, [startedAt]);
+  }, [activityAt, startedAt]);
 
   // ======== Hover/Focus 기반 Preview 로직 (IntersectionObserver 제거) ========
   const hoverTimerRef = useRef<number | null>(null);
@@ -439,7 +452,8 @@ export default function StreamCard(props: StreamCardProps) {
           <div
             className={cn(
               "absolute inset-x-2 top-2 z-10 flex gap-1.5",
-              "items-start justify-between"
+              "items-start justify-between",
+              reserveTopRightAction && "pr-12"
             )}
           >
             <div
@@ -486,6 +500,14 @@ export default function StreamCard(props: StreamCardProps) {
             )}
           </div>
 
+          {boardGameBadgePlacement === "thumbnail" && (
+            <BoardGameSummaryBadge
+              items={boardGames}
+              variant="overlay"
+              className="absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)]"
+            />
+          )}
+
           {shouldPreview && (
             <button
               type="button"
@@ -516,7 +538,9 @@ export default function StreamCard(props: StreamCardProps) {
         <div
           className={cn(
             "flex flex-1 flex-col justify-between",
-            isGridLayout ? "gap-2 p-3 sm:gap-2.5 sm:p-3.5" : "gap-2.5 p-3.5"
+            isGridLayout
+              ? "gap-2 p-3 sm:gap-2.5 sm:p-3.5"
+              : "gap-2.5 p-3.5"
           )}
         >
           <div className={cn(isGridLayout ? "space-y-1.5" : "space-y-2")}>
@@ -525,10 +549,12 @@ export default function StreamCard(props: StreamCardProps) {
                 {title}
               </h3>
 
-              <BoardGameSummaryBadge
-                items={boardGames}
-                className="sm:max-w-[46%] sm:justify-end"
-              />
+              {boardGameBadgePlacement === "content" && (
+                <BoardGameSummaryBadge
+                  items={boardGames}
+                  className="sm:max-w-[46%] sm:justify-end"
+                />
+              )}
             </div>
 
             {showStreamer && (
@@ -548,7 +574,7 @@ export default function StreamCard(props: StreamCardProps) {
           {/* 하단 메타 정보 */}
           {!shortDescription &&
             (formattedTags ||
-              startedAtIso ||
+              displayedAtIso ||
               duration ||
               viewCount != null ||
               likeCount != null ||
@@ -633,9 +659,10 @@ export default function StreamCard(props: StreamCardProps) {
                     </div>
                   </div>
 
-                  {startedAtIso && (
+                  {displayedAtIso && (
                     <span className="ml-auto shrink-0 whitespace-nowrap">
-                      {formatToTimeAgo(startedAtIso)} {isLive ? "시작" : ""}
+                      {activityLabel && `${activityLabel} `}
+                      {formatToTimeAgo(displayedAtIso)} {isLive ? "시작" : ""}
                     </span>
                   )}
                 </div>
