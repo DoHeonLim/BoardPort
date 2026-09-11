@@ -1,6 +1,6 @@
 /**
  * File Name : next.config.mjs
- * Description : Next.js 보안 헤더·이미지·Serwist 빌드 설정
+ * Description : Next.js 보안 헤더·이미지 설정
  *
  * History
  * 2026.08.23 Modified Next.js 16 및 Serwist 기반 PWA 빌드 구성으로 전환
@@ -8,34 +8,9 @@
  * 2026.08.31 Modified 동적 OG 이미지 함수에 Pretendard 한글 글꼴 파일 포함
  * 2026.08.31 Modified 오프라인 안내 페이지의 로고 자산을 Serwist precache에 포함
  * 2026.09.01 Modified Vercel 서버 이미지 렌더링용 Pretendard OTF 글꼴 포함
+ * 2026.09.10 Modified Turbopack 전환을 위해 Serwist 생성을 별도 CLI 단계로 분리
+ * 2026.09.11 Modified Next.js AI 에이전트 규칙 파일 자동 생성 비활성화
  */
-
-import withSerwistInit from "@serwist/next";
-
-const pwaRevision = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
-
-const withSerwist = withSerwistInit({
-  swSrc: "app/sw.ts",
-  swDest: "public/sw.js",
-  register: true,
-  scope: "/",
-  disable: process.env.NODE_ENV === "development",
-  additionalPrecacheEntries: [
-    {
-      url: "/offline",
-      revision: pwaRevision,
-    },
-    {
-      url: "/images/logo-symbol.png",
-      revision: pwaRevision,
-    },
-    {
-      url: "/images/logo-text.png",
-      revision: pwaRevision,
-    },
-  ],
-  exclude: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
-});
 
 // 환경변수 URL에서 CSP에 넣을 origin만 안전하게 추출
 function normalizeOrigin(value) {
@@ -167,6 +142,7 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  agentRules: false,
   outputFileTracingIncludes: {
     "/products/view/*/opengraph-image*": ["./app/fonts/Pretendard-Bold.otf"],
     "/products/view/*/og-image": ["./app/fonts/Pretendard-Bold.otf"],
@@ -177,7 +153,7 @@ const nextConfig = {
   },
   experimental: {
     // Next 16 CLI 경로가 큰 --showConfig 출력을 잘린 JSON으로 읽는 경우가 있어
-    // 타입 검사를 생략하지 않고 현재 TypeScript 5.9 Compiler API로 실행한다.
+    // 타입 검사를 생략하지 않고 현재 TypeScript 5.9 Compiler API로 실행
     useTypeScriptCli: false,
   },
   images: {
@@ -206,4 +182,4 @@ const nextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+export default nextConfig;

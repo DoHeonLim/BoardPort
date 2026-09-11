@@ -31,6 +31,8 @@
  * 2026.08.13  임도헌   Modified  낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  * 2026.08.27  임도헌   Modified  목록·상세 재방문 시 새 서버 좋아요 상태를 기존 무기한 cache보다 우선하도록 동기화
  * 2026.09.06  임도헌   Modified  기본 좋아요 버튼의 라이트·다크 포커스 링 보강
+ * 2026.09.11  임도헌   Modified  찜한 내역 탭 개수용 낙관 변경 콜백 추가
+ * 2026.09.11  임도헌   Modified  빠른 찜 해제 액션을 소형 휴지통 버튼으로 통일
  */
 "use client";
 
@@ -40,7 +42,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { toast } from "sonner";
 import {
   HeartIcon as OutlineHeartIcon,
-  XMarkIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
 import {
@@ -59,6 +61,7 @@ interface ProductLikeButtonProps {
   viewerId?: number | null;
   variant?: "stack" | "quick-remove";
   className?: string;
+  onOptimisticChange?: (isLiked: boolean) => void;
 }
 
 type ProductLikeCacheItem = {
@@ -90,6 +93,7 @@ export default function ProductLikeButton({
   viewerId = null,
   variant = "stack",
   className = "",
+  onOptimisticChange,
 }: ProductLikeButtonProps) {
   const queryClient = useQueryClient();
   const queryKey = queryKeys.products.likeStatus(productId, viewerId);
@@ -135,6 +139,7 @@ export default function ProductLikeButton({
         ? Math.max(0, data.likeCount - 1)
         : data.likeCount + 1;
       const nextIsLiked = !data.isLiked;
+      onOptimisticChange?.(nextIsLiked);
 
       // 1) 상세 버튼 상태 즉시 반영
       queryClient.setQueryData(queryKey, {
@@ -236,7 +241,7 @@ export default function ProductLikeButton({
         }
       }
 
-      return { previousLikeStatus, listQueries, likedQueries };
+      return { previousLikeStatus, listQueries, likedQueries, nextIsLiked };
     },
     onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
@@ -244,7 +249,6 @@ export default function ProductLikeButton({
 
       // 롤백: like status
       queryClient.setQueryData(queryKey, context?.previousLikeStatus);
-
       // 롤백: products lists
       context?.listQueries?.forEach(([k, v]: [readonly unknown[], unknown]) => {
         queryClient.setQueryData(k, v);
@@ -256,6 +260,7 @@ export default function ProductLikeButton({
           queryClient.setQueryData(k, v);
         }
       );
+      if (context) onOptimisticChange?.(!context.nextIsLiked);
     },
     onSettled: () => {
       queryClient.invalidateQueries({
@@ -275,10 +280,8 @@ export default function ProductLikeButton({
       className={cn(
         variant === "quick-remove"
           ? [
-              "inline-flex h-7 items-center justify-center gap-1 rounded-full border border-border-subtle bg-surface/92 px-2 text-muted shadow-sm transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform sm:h-8 sm:gap-1.5 sm:px-3",
-              "dark:border-border-strong dark:bg-surface-dim dark:text-primary dark:shadow-[0_0_0_1px_rgba(148,163,184,0.08)]",
-              "hover:-translate-y-0.5 hover:bg-surface-dim hover:text-primary active:scale-95",
-              "dark:hover:border-border-strong dark:hover:bg-surface-hover dark:hover:text-primary",
+              "inline-flex size-9 items-center justify-center rounded-full border border-border-strong bg-surface text-muted shadow-md transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform",
+              "hover:-translate-y-0.5 hover:border-danger/40 hover:bg-surface-dim hover:text-danger active:scale-95",
               "focus-ring-soft",
               "disabled:cursor-not-allowed",
             ]
@@ -305,28 +308,20 @@ export default function ProductLikeButton({
             ? `좋아요 취소 ${data.likeCount}`
             : `좋아요 ${data.likeCount}`
       }
+      title={
+        variant === "quick-remove"
+          ? data.isLiked
+            ? "찜 해제"
+            : "찜하기"
+          : undefined
+      }
     >
       {variant === "quick-remove" ? (
-        <>
-          {data.isLiked ? (
-            <XMarkIcon className="size-3 shrink-0 sm:size-3.5" />
-          ) : (
-            <OutlineHeartIcon className="size-3 shrink-0 sm:size-3.5" />
-          )}
-          <span className="text-xs font-medium leading-none">
-            {data.isLiked ? (
-              <>
-                <span className="sm:hidden">해제</span>
-                <span className="hidden sm:inline">찜 해제</span>
-              </>
-            ) : (
-              <>
-                <span className="sm:hidden">찜</span>
-                <span className="hidden sm:inline">찜하기</span>
-              </>
-            )}
-          </span>
-        </>
+        data.isLiked ? (
+          <TrashIcon className="size-4 shrink-0" aria-hidden="true" />
+        ) : (
+          <OutlineHeartIcon className="size-4 shrink-0" aria-hidden="true" />
+        )
       ) : data.isLiked ? (
         <HeartIcon className="size-6" />
       ) : (

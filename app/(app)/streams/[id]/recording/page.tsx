@@ -40,6 +40,7 @@
  * 2026.08.13  임도헌   Modified  다시보기 댓글 prefetch cache를 조회자별로 분리
  * 2026.08.21  임도헌   Modified  VOD 권한 판정 전에 실행되던 조회수·좋아요·댓글 조회 부수 효과 차단
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.08  임도헌   Modified  녹화본 사용자 제목·썸네일을 상세 화면과 관리 메뉴에 전달
  */
 export const dynamic = "force-dynamic";
 
@@ -161,6 +162,8 @@ export default async function RecordingVodPage(props: {
         ownerId={owner.id}
         username={owner.username}
         avatar={owner.avatar}
+        title={detail.title}
+        customThumbnail={detail.customThumbnail}
         isOwner={isOwner}
         backHref={returnTo}
         categoryLabel={category?.kor_name ?? null}
@@ -171,7 +174,7 @@ export default async function RecordingVodPage(props: {
       <main className="flex-1 flex flex-col items-center gap-3 pb-20 px-page-x py-6 w-full max-w-mobile mx-auto">
         {/* 비디오 플레이어 및 메타 정보 */}
         <RecordingDetail
-          broadcast={detail.broadcast}
+          broadcast={{ ...detail.broadcast, title: detail.title }}
           vodId={vodId}
           viewerId={viewerId}
           playbackId={detail.playbackId}

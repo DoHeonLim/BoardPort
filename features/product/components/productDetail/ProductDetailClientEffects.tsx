@@ -10,25 +10,26 @@
  * 2026.04.24  임도헌   Modified  navigation refresh helper로 제품 상세 refresh flag 소비 로직을 단순화
  * 2026.05.03  임도헌   Modified  최근 본 상품 스냅샷에도 연결 보드게임 정보를 함께 저장
  * 2026.08.27  임도헌   Modified  최근 본 상품에 실제 끌어올리기 노출 시각을 저장하도록 공용 변환 함수 적용
+ * 2026.09.09  임도헌   Modified  전체 상세 DTO 대신 서버에서 만든 최근 본 상품 스냅샷만 수신
  */
 
 "use client";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { ProductDetailType } from "@/features/product/types";
 import {
-  createRecentViewedProductSnapshot,
   removeRecentViewedProduct,
   saveRecentViewedProduct,
 } from "@/features/product/utils/recentViewed";
+import type { RecentViewedProduct } from "@/features/product/utils/recentViewedSnapshot";
 import {
   consumeNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
 
 interface ProductDetailClientEffectsProps {
-  product: ProductDetailType;
+  productId: number;
+  recentProduct: RecentViewedProduct | null;
   isModalContext: boolean;
 }
 
@@ -38,21 +39,21 @@ interface ProductDetailClientEffectsProps {
  * 서버에서 다룰 수 없는 동작만 담당해 본문 렌더링은 최대한 서버 컴포넌트로 유지
  */
 export default function ProductDetailClientEffects({
-  product,
+  productId,
+  recentProduct,
   isModalContext,
 }: ProductDetailClientEffectsProps) {
   const router = useRouter();
 
   // 브라우저 저장소 기반 최근 본 상품 동기화
   useEffect(() => {
-    if (product.hidden_at) {
-      removeRecentViewedProduct(product.id);
+    if (!recentProduct) {
+      removeRecentViewedProduct(productId);
       return;
     }
 
-    // 최근 본 상품에는 카드 렌더링에 필요한 스냅샷만 브라우저 저장소에 보관
-    saveRecentViewedProduct(createRecentViewedProductSnapshot(product));
-  }, [product]);
+    saveRecentViewedProduct(recentProduct);
+  }, [productId, recentProduct]);
 
   // 일반 상세 detail-edit back 복귀 시에만 서버 payload 1회 재요청
   useEffect(() => {
@@ -62,13 +63,13 @@ export default function ProductDetailClientEffects({
     if (
       !consumeNavigationRefresh(
         NAVIGATION_REFRESH_SCOPES.PRODUCT_DETAIL,
-        product.id
+        productId
       )
     ) {
       return;
     }
     router.refresh();
-  }, [isModalContext, product.id, router]);
+  }, [isModalContext, productId, router]);
 
   return null;
 }

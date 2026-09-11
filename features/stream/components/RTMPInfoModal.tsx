@@ -29,6 +29,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 주요 CTA weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.27  임도헌   Modified  중첩 확인창을 고려한 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.10  임도헌   Modified  도감에서 생성한 방송의 상세 복귀 문맥 유지
  */
 
 import React, {
@@ -57,6 +58,7 @@ import { deleteBroadcastAction } from "@/features/stream/actions/delete";
 import { rotateLiveInputKeyAction } from "@/features/stream/actions/key";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 interface RTMPInfoModalProps {
   open: boolean;
@@ -65,6 +67,7 @@ interface RTMPInfoModalProps {
   streamKey: string;
   liveInputId: number;
   broadcastId?: number;
+  returnTo?: string;
 }
 
 /**
@@ -87,6 +90,7 @@ export default function RTMPInfoModal({
   streamKey,
   liveInputId,
   broadcastId,
+  returnTo = "/streams",
 }: RTMPInfoModalProps) {
   const isMobile = useIsMobile();
   const router = useRouter();
@@ -245,8 +249,9 @@ export default function RTMPInfoModal({
     navigatedToBroadcastRef.current = true;
     setCloseConfirmOpen(false);
     onOpenChange(false);
+    const safeReturnTo = sanitizeCallbackUrl(returnTo);
     router.replace(
-      `/streams/${broadcastId}?returnTo=${encodeURIComponent("/streams")}`
+      `/streams/${broadcastId}?returnTo=${encodeURIComponent(safeReturnTo)}`
     );
   };
 

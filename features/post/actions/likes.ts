@@ -16,12 +16,11 @@
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  * 2026.08.27  임도헌   Modified  Service 실패를 예외로 전파해 클라이언트 낙관적 업데이트가 롤백되도록 보강
+ * 2026.09.09  임도헌   Removed   반응 통계 분리에 따라 불필요해진 상세 본문 cache 무효화 제거
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { togglePostLike } from "@/features/post/service/like";
 
 /**
@@ -30,10 +29,10 @@ import { togglePostLike } from "@/features/post/service/like";
  * [기능]
  * - 로그인 세션을 확인하고
  * - 좋아요 추가를 service 계층에 위임
- * - 성공 시 상세 화면 캐시를 무효화해 카운트와 상태를 최신화
+ * - 성공 상태는 클라이언트의 조회자별 낙관 캐시에 반영
  *
  * @param {number} postId - 게시글 ID
- * @returns {Promise<void>} 좋아요 반영 후 상세 캐시 최신화
+ * @returns {Promise<void>} 좋아요 반영 완료
  * @throws {Error} Service 계층에서 좋아요 처리를 완료하지 못한 경우
  */
 export const likePost = async (postId: number) => {
@@ -44,8 +43,6 @@ export const likePost = async (postId: number) => {
 
   // 실패를 정상 완료로 숨기면 클라이언트 mutation의 onError가 실행되지 않아 낙관적 상태가 남는다.
   if (!result.success) throw new Error(result.error);
-
-  revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
 };
 
 /**
@@ -54,10 +51,10 @@ export const likePost = async (postId: number) => {
  * [기능]
  * - 로그인 세션을 확인하고
  * - 좋아요 취소를 service 계층에 위임
- * - 성공 시 상세 화면 캐시를 무효화해 카운트와 상태를 최신화
+ * - 성공 상태는 클라이언트의 조회자별 낙관 캐시에 반영
  *
  * @param {number} postId - 게시글 ID
- * @returns {Promise<void>} 좋아요 취소 반영 후 상세 캐시 최신화
+ * @returns {Promise<void>} 좋아요 취소 반영 완료
  * @throws {Error} Service 계층에서 좋아요 취소를 완료하지 못한 경우
  */
 export const dislikePost = async (postId: number) => {
@@ -68,6 +65,4 @@ export const dislikePost = async (postId: number) => {
 
   // 좋아요 추가와 같은 실패 계약을 유지해 클라이언트 롤백 경로를 보장한다.
   if (!result.success) throw new Error(result.error);
-
-  revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
 };

@@ -14,6 +14,7 @@
  * 2026.04.02  임도헌   Modified  제품 이미지 public variant 처리 유틸 공용화
  * 2026.08.21  임도헌   Modified  상품 좋아요 알림 발신을 서버 전용 private topic으로 전환
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.09  임도헌   Removed   상세 최신 상태 조회와 중복되던 좋아요 상태 조회 함수 제거
  *
  */
 import "server-only";
@@ -22,7 +23,6 @@ import db from "@/lib/db";
 import { realtimeServer as supabase } from "@/features/realtime/service/broadcast";
 import { notificationRealtimeTopic } from "@/features/realtime/topics";
 import type { ServiceResult } from "@/lib/types";
-import type { ProductLikeResult } from "@/features/product/types";
 import { checkBlockRelation } from "@/features/user/service/block";
 import { isUniqueConstraintError } from "@/lib/errors";
 import { sendPushNotification } from "@/features/notification/service/sender";
@@ -34,34 +34,6 @@ import { toProductImagePublicUrl } from "@/features/product/utils/image";
 
 // 알림 스팸 방지용 쿨다운
 const LIKE_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000; // 10분
-
-/**
- * 제품 좋아요 상태 및 카운트 조회 로직
- *
- * [데이터 가공 전략]
- * - 해당 제품의 총 좋아요 수(`likeCount`)와 요청 유저의 좋아요 누름 여부(`isLiked`) 병렬 집계
- * - 비로그인(userId가 null) 상태일 경우 `isLiked`를 false로 즉시 반환
- *
- * @param {number} productId - 제품 ID
- * @param {number | null} userId - 조회하는 유저 ID
- * @returns {Promise<ProductLikeResult>} 좋아요 여부 및 총 개수 객체 반환
- */
-export async function getProductLikeStatus(
-  productId: number,
-  userId: number | null
-): Promise<ProductLikeResult> {
-  const likeCount = await db.productLike.count({ where: { productId } });
-  let isLiked = false;
-
-  if (userId) {
-    const exist = await db.productLike.findUnique({
-      where: { id: { productId, userId } },
-    });
-    isLiked = !!exist;
-  }
-
-  return { likeCount, isLiked };
-}
 
 /**
  * 판매자에게 좋아요 알림을 보낼지 여부를 판단

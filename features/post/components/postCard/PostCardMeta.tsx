@@ -19,6 +19,7 @@
  * 2026.05.18  임도헌   Modified  좋아요 하트 강조 색상을 총 좋아요 수가 아닌 현재 사용자 좋아요 여부 기준으로 보정
  * 2026.06.18  임도헌   Modified  명시 장소가 있는 게시글만 카드 위치 정보를 표시
  * 2026.06.21  임도헌   Modified  명시 장소가 없으면 feedRegion 기준 작성 동네를 카드 메타에 표시
+ * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각과 활동 라벨 표시 지원
  */
 "use client";
 
@@ -39,6 +40,8 @@ interface PostCardMetaProps {
   isLiked?: boolean;
   comments: number;
   createdAt: string;
+  activityAt?: Date | string;
+  activityLabel?: string;
   locationName?: string | null;
   region1?: string | null;
   region2?: string | null;
@@ -64,6 +67,8 @@ export default function PostCardMeta({
   isLiked = false,
   comments,
   createdAt,
+  activityAt,
+  activityLabel,
   locationName,
   region1,
   region2,
@@ -74,6 +79,13 @@ export default function PostCardMeta({
   viewMode = "list",
 }: PostCardMetaProps) {
   const isGrid = viewMode === "grid";
+  const effectiveDate = activityAt ?? createdAt;
+  const time = (
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-muted">
+      {activityLabel && <span>{activityLabel}</span>}
+      <TimeAgo date={effectiveDate} />
+    </span>
+  );
   // 명시 장소는 관련 장소로, 없을 때의 feedRegion은 전국 피드에서 출처를 보여주는 작성 동네로 표시한다.
   const explicitLocationText = locationName
     ? formatNormalizedRegion({ region1, region2, region3 })
@@ -128,10 +140,7 @@ export default function PostCardMeta({
 
         <div className="flex items-center justify-between gap-2 text-xs">
           {stats}
-          <TimeAgo
-            date={createdAt}
-            className="text-muted whitespace-nowrap shrink-0"
-          />
+          {time}
         </div>
       </div>
     );
@@ -172,10 +181,7 @@ export default function PostCardMeta({
               </span>
             </>
           )}
-          <TimeAgo
-            date={createdAt}
-            className="text-muted whitespace-nowrap shrink-0"
-          />
+          {time}
         </div>
       </div>
     </div>

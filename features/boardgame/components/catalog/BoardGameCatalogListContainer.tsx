@@ -7,6 +7,9 @@
  * Date        Author   Status    Description
  * 2026.05.08  임도헌   Created   HydrationBoundary 아래에서 도감 목록 Query 캐시 사용
  * 2026.05.18  임도헌   Modified  긴 도감 목록 탐색을 위해 목록 상단에도 페이지네이션 배치
+ * 2026.09.11  임도헌   Modified  모바일 요약 카드 간격과 목록 밀도 조정
+ * 2026.09.11  임도헌   Modified  실제 대표 이미지가 있는 첫 도감 카드를 LCP 우선 대상으로 지정
+ * 2026.09.11  임도헌   Modified  모바일 첫 화면 대표 이미지 4장을 LCP 우선 대상으로 지정
  */
 
 "use client";
@@ -22,6 +25,8 @@ interface BoardGameCatalogListContainerProps {
   filters: BoardGameCatalogFilters;
   hasActiveFilters: boolean;
 }
+
+const LCP_EAGER_IMAGE_COUNT = 4;
 
 /**
  * 공개 보드게임 목록과 페이지네이션 렌더링
@@ -40,6 +45,12 @@ export default function BoardGameCatalogListContainer({
     limit,
     filters,
   });
+  const priorityItemIds = new Set(
+    items
+      .filter((item) => Boolean(item.imageUrl))
+      .slice(0, LCP_EAGER_IMAGE_COUNT)
+      .map((item) => item.id)
+  );
 
   return (
     <>
@@ -72,9 +83,13 @@ export default function BoardGameCatalogListContainer({
               filters={filters}
               placement="top"
             />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
               {items.map((item) => (
-                <BoardGameCatalogCard key={item.id} item={item} />
+                <BoardGameCatalogCard
+                  key={item.id}
+                  item={item}
+                  isPriority={priorityItemIds.has(item.id)}
+                />
               ))}
             </div>
           </>

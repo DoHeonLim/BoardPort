@@ -28,6 +28,7 @@
  * 2026.05.29  임도헌   Modified  상단 옵션 메뉴에 방송국 이동 액션 추가
  * 2026.05.29  임도헌   Modified  모바일 옵션 메뉴 판정과 모바일/데스크톱 채팅 진입점 분리
  * 2026.09.03  임도헌   Modified  방송 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
+ * 2026.09.08  임도헌   Modified  방송 정보 수정 모달에 사용자 썸네일 상태 전달
  */
 
 import { useState, useRef, useEffect, useTransition } from "react";
@@ -56,7 +57,10 @@ import {
   STREAM_VISIBILITY_DISPLAY,
 } from "@/features/stream/constants";
 import { cn, handleShare } from "@/lib/utils";
-import type { StreamVisibility } from "@/features/stream/types";
+import type {
+  StreamMetaUpdatePayload,
+  StreamVisibility,
+} from "@/features/stream/types";
 import EditStreamMetaModal from "@/features/stream/components/EditStreamMetaModal";
 
 const ReportModal = dynamic(
@@ -73,6 +77,8 @@ type Props = {
   visibility: StreamVisibility;
   /** 현재 방송 설명 */
   description?: string | null;
+  /** 현재 사용자 업로드 썸네일, 자동 썸네일이면 null */
+  customThumbnail?: string | null;
   /** 본인 방송 여부 */
   isOwner?: boolean;
   /** 뒤로가기 폴백 경로 (기본 /streams) */
@@ -84,10 +90,7 @@ type Props = {
   /** 채팅 열기 핸들러 */
   onOpenChat: () => void;
   /** 방송 메타 수정 직후 로컬 상태 반영 */
-  onStreamMetaUpdated?: (next: {
-    title: string;
-    description: string | null;
-  }) => void;
+  onStreamMetaUpdated?: (next: StreamMetaUpdatePayload) => void;
 };
 
 /**
@@ -97,7 +100,7 @@ type Props = {
  * - 스트림 상세 Client Shell에서 내려주는 채팅 열림 상태를 기반으로 데스크톱 상단바 채팅 열기 버튼 노출 여부를 제어
  * - 방송 권한(Public/Private/Followers) 속성에 따른 동적 뱃지 렌더링 적용
  * - 방송국 이동, 스트리머 차단(`toggleBlockAction`), 방송 신고 모달(`ReportModal`) 연동
- * - 호스트는 상단 메뉴에서 방송국 이동과 방송 제목/설명 수정을 수행하고 저장 직후 로컬 상세 상태를 즉시 갱신
+ * - 호스트는 상단 메뉴에서 방송국 이동과 방송 표시 정보 수정을 수행하고 저장 직후 로컬 상세 상태를 즉시 갱신
  * - 뒤로가기 버튼(`BackButton`) 및 고유 URL 복사를 위한 공유하기(`handleShare`) 기능 포함
  */
 export default function StreamTopbar({
@@ -107,6 +110,7 @@ export default function StreamTopbar({
   title,
   visibility,
   description,
+  customThumbnail,
   isOwner = false,
   backFallbackHref = "/streams",
   className = "",
@@ -334,7 +338,7 @@ export default function StreamTopbar({
         <BottomSheet
           open={isMobile && menuOpen}
           title="방송 관리"
-          description="방송국으로 이동하거나 라이브 중 제목과 설명을 수정할 수 있습니다."
+          description="방송국으로 이동하거나 라이브 중 표시 정보를 수정할 수 있습니다."
           onClose={() => setMenuOpen(false)}
         >
           <div className="space-y-2 pt-2">
@@ -418,6 +422,7 @@ export default function StreamTopbar({
         streamId={streamId}
         initialTitle={title}
         initialDescription={description}
+        initialThumbnail={customThumbnail}
         onSaved={(next) => onStreamMetaUpdated?.(next)}
       />
     </header>

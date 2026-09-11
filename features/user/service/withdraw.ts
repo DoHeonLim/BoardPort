@@ -11,6 +11,7 @@
  * 2026.05.24  임도헌   Modified  회원 탈퇴 시 상품 채팅방 알림 링크 cleanup 메타 포함
  * 2026.08.22  임도헌   Modified  회원 이미지 자산을 URL 대신 MediaAsset provider ID로 일괄 정리
  * 2026.09.07  임도헌   Modified  탈퇴 이미지 정리 outbox와 사용자 삭제의 원자적 기록 추가
+ * 2026.09.08  임도헌   Modified  방송 정리 대상에 녹화본 ID를 포함해 사용자 썸네일 cleanup 연결
  */
 
 import "server-only";
@@ -73,7 +74,7 @@ export async function withdrawUser(userId: number): Promise<ServiceResult> {
           select: {
             id: true,
             thumbnail: true,
-            vodAssets: { select: { provider_asset_id: true } },
+            vodAssets: { select: { id: true, provider_asset_id: true } },
           },
         })
       : [];

@@ -11,6 +11,7 @@
  * 2026.05.12  임도헌   Modified  페이지 번호 직접 입력 이동 폼 추가
  * 2026.05.18  임도헌   Modified  직접 이동 버튼 아이콘을 다음 페이지와 구분되는 Enter 계열 아이콘으로 변경
  * 2026.05.18  임도헌   Modified  상단/하단 동시 배치와 숫자 버튼 중앙 정렬 보정
+ * 2026.09.11  임도헌   Modified  모바일 이전·현재·다음 요약 탐색 적용
  */
 "use client";
 
@@ -41,7 +42,10 @@ type VisiblePage = number | "ellipsis";
  * @param totalPages - 전체 페이지 수
  * @returns 페이지 번호와 ellipsis 목록
  */
-function buildVisiblePages(currentPage: number, totalPages: number): VisiblePage[] {
+function buildVisiblePages(
+  currentPage: number,
+  totalPages: number
+): VisiblePage[] {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
@@ -117,99 +121,132 @@ export default function BoardGamePagination({
   };
 
   return (
-    <nav
-      className={
-        placement === "top"
-          ? "mb-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
-          : "mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
-      }
-      aria-label="보드게임 도감 페이지네이션"
-    >
-      <PageLink
-        page={page - 1}
-        disabled={page <= 1}
-        filters={filters}
-        ariaLabel="이전 페이지"
-        variant="icon"
+    <>
+      <nav
+        className={
+          placement === "top"
+            ? "mb-3 flex items-center justify-between sm:hidden"
+            : "mt-6 flex items-center justify-between sm:hidden"
+        }
+        aria-label="보드게임 도감 페이지네이션"
       >
-        <ChevronLeftIcon className="size-5" aria-hidden="true" />
-      </PageLink>
-
-      <div className="flex items-center gap-2">
-        {visiblePages.map((visiblePage, index) =>
-          visiblePage === "ellipsis" ? (
-            <span
-              key={`ellipsis-${index}`}
-              className="px-1 text-sm font-medium text-muted"
-            >
-              ...
-            </span>
-          ) : (
-            <PageLink
-              key={visiblePage}
-              page={visiblePage}
-              disabled={false}
-              filters={filters}
-              ariaLabel={`${visiblePage}페이지로 이동`}
-              current={visiblePage === page}
-            >
-              {visiblePage}
-            </PageLink>
-          )
-        )}
-      </div>
-
-      <span className="ml-1 text-xs font-medium text-muted">
-        총 {totalPages}페이지
-      </span>
-
-      <form
-        onSubmit={handleJumpSubmit}
-        className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-2 py-1 shadow-sm"
-        aria-label="페이지 번호로 바로 이동"
-      >
-        <label htmlFor={jumpInputId} className="sr-only">
-          이동할 페이지 번호
-        </label>
-        <input
-          id={jumpInputId}
-          type="number"
-          min={1}
-          max={totalPages}
-          inputMode="numeric"
-          value={targetPage}
-          onChange={(event) => setTargetPage(event.target.value)}
-          onBlur={() => {
-            if (!targetPage.trim()) setTargetPage(String(page));
-          }}
-          className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-center text-sm font-medium leading-none text-primary outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
-          aria-describedby={jumpTotalId}
-        />
-        <span
-          id={jumpTotalId}
-          className="whitespace-nowrap text-xs font-medium text-muted"
+        <PageLink
+          page={page - 1}
+          disabled={page <= 1}
+          filters={filters}
+          ariaLabel="이전 페이지"
+          variant="icon"
         >
-          / {totalPages}
+          <ChevronLeftIcon className="size-5" aria-hidden="true" />
+        </PageLink>
+        <span className="text-sm font-bold text-primary">
+          {page} <span className="font-medium text-muted">/ {totalPages}</span>
         </span>
-        <button
-          type="submit"
-          className="focus-ring-soft inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg bg-surface-dim text-muted transition-colors hover:bg-brand hover:text-white"
-          aria-label="입력한 페이지로 이동"
+        <PageLink
+          page={page + 1}
+          disabled={page >= totalPages}
+          filters={filters}
+          ariaLabel="다음 페이지"
+          variant="icon"
         >
-          <ArrowTurnDownLeftIcon className="size-4" aria-hidden="true" />
-        </button>
-      </form>
+          <ChevronRightIcon className="size-5" aria-hidden="true" />
+        </PageLink>
+      </nav>
 
-      <PageLink
-        page={page + 1}
-        disabled={page >= totalPages}
-        filters={filters}
-        ariaLabel="다음 페이지"
-        variant="icon"
+      <nav
+        className={
+          placement === "top"
+            ? "mb-4 hidden flex-wrap items-center justify-center gap-3 sm:flex"
+            : "mt-8 hidden flex-wrap items-center justify-center gap-3 sm:flex"
+        }
+        aria-label="보드게임 도감 페이지네이션"
       >
-        <ChevronRightIcon className="size-5" aria-hidden="true" />
-      </PageLink>
-    </nav>
+        <PageLink
+          page={page - 1}
+          disabled={page <= 1}
+          filters={filters}
+          ariaLabel="이전 페이지"
+          variant="icon"
+        >
+          <ChevronLeftIcon className="size-5" aria-hidden="true" />
+        </PageLink>
+
+        <div className="flex items-center gap-2">
+          {visiblePages.map((visiblePage, index) =>
+            visiblePage === "ellipsis" ? (
+              <span
+                key={`ellipsis-${index}`}
+                className="px-1 text-sm font-medium text-muted"
+              >
+                ...
+              </span>
+            ) : (
+              <PageLink
+                key={visiblePage}
+                page={visiblePage}
+                disabled={false}
+                filters={filters}
+                ariaLabel={`${visiblePage}페이지로 이동`}
+                current={visiblePage === page}
+              >
+                {visiblePage}
+              </PageLink>
+            )
+          )}
+        </div>
+
+        <span className="ml-1 text-xs font-medium text-muted">
+          총 {totalPages}페이지
+        </span>
+
+        <form
+          onSubmit={handleJumpSubmit}
+          className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-2 py-1 shadow-sm"
+          aria-label="페이지 번호로 바로 이동"
+        >
+          <label htmlFor={jumpInputId} className="sr-only">
+            이동할 페이지 번호
+          </label>
+          <input
+            id={jumpInputId}
+            type="number"
+            min={1}
+            max={totalPages}
+            inputMode="numeric"
+            value={targetPage}
+            onChange={(event) => setTargetPage(event.target.value)}
+            onBlur={() => {
+              if (!targetPage.trim()) setTargetPage(String(page));
+            }}
+            className="h-9 w-16 rounded-lg border border-border bg-background px-2 text-center text-sm font-medium leading-none text-primary outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+            aria-describedby={jumpTotalId}
+          />
+          <span
+            id={jumpTotalId}
+            className="whitespace-nowrap text-xs font-medium text-muted"
+          >
+            / {totalPages}
+          </span>
+          <button
+            type="submit"
+            className="focus-ring-soft inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg bg-surface-dim text-muted transition-colors hover:bg-brand hover:text-white"
+            aria-label="입력한 페이지로 이동"
+          >
+            <ArrowTurnDownLeftIcon className="size-4" aria-hidden="true" />
+          </button>
+        </form>
+
+        <PageLink
+          page={page + 1}
+          disabled={page >= totalPages}
+          filters={filters}
+          ariaLabel="다음 페이지"
+          variant="icon"
+        >
+          <ChevronRightIcon className="size-5" aria-hidden="true" />
+        </PageLink>
+      </nav>
+    </>
   );
 }
 

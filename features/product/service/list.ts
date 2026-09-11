@@ -23,6 +23,7 @@
  * 2026.05.20  임도헌   Modified  refreshed_at 정렬 주석의 2차 기준을 실제 id 기준으로 정정
  * 2026.05.24  임도헌   Modified  삭제된 상품 cursor로 인한 목록 페이지네이션 실패 방어
  * 2026.09.05  임도헌   Modified  최근 본 상품의 공개 상태·차단 필터와 최신 카드 정보 재조회 추가
+ * 2026.09.08  임도헌   Modified  최신·낮은 가격·높은 가격 상품 정렬 기준 추가
  */
 import "server-only";
 import db from "@/lib/db";
@@ -35,9 +36,25 @@ import type {
   ProductSearchParams,
   Paginated,
   ProductType,
+  ProductSort,
 } from "@/features/product/types";
 
 const TAKE = PRODUCTS_PAGE_TAKE;
+
+/** 가격 동률에서도 끌어올리기 시각과 ID로 목록 순서를 고정한다. */
+function getProductListOrderBy(
+  sort: ProductSort
+): Prisma.ProductOrderByWithRelationInput[] {
+  switch (sort) {
+    case "priceAsc":
+      return [{ price: "asc" }, { refreshed_at: "desc" }, { id: "desc" }];
+    case "priceDesc":
+      return [{ price: "desc" }, { refreshed_at: "desc" }, { id: "desc" }];
+    case "latest":
+    default:
+      return [{ refreshed_at: "desc" }, { id: "desc" }];
+  }
+}
 
 /**
  * 최근 열람한 ID를 DB에서 조회해 현재 노출 가능한 카드만 반환
@@ -211,7 +228,8 @@ async function buildSearchWhere(
  * [데이터 페칭 및 가공 전략]
  * - 검색 쿼리 빌더(`buildSearchWhere`) 적용 및 커서 기반 데이터 추출
  * - 조회자(`viewerId`) 기준 차단된 유저의 상품 은닉 처리
- * - 끌어올리기(`refreshed_at`)를 반영한 내림차순 1차 정렬 및 id 기준 2차 정렬 적용
+ * - 최신순은 끌어올리기 시각, 가격순은 가격을 주 기준으로 적용
+ * - 주 정렬값 동률은 끌어올리기 시각과 ID 내림차순으로 결정
  * - 다음 페이지 존재 유무 판별을 위한 LIMIT + 1 레코드 조회 로직 포함
  *
  * @param {ProductSearchParams} params - 검색 조건
@@ -226,6 +244,7 @@ export async function getProductsList(
 ): Promise<Paginated<ProductType>> {
   // 검색 파라미터 기반 where 조건 조립
   const where = await buildSearchWhere(params, viewerId);
+  const sort = params.sort ?? "latest";
 
   // 차단 유저 필터링 (필수 보안)
   const blockedIds = await getBlockedUserIds(viewerId);
@@ -252,8 +271,7 @@ export async function getProductsList(
     db.product.findMany({
       where,
       select: PRODUCT_SELECT,
-      // 끌어올리기 반영 정렬
-      orderBy: [{ refreshed_at: "desc" }, { id: "desc" }],
+      orderBy: getProductListOrderBy(sort),
       take: (params.take ?? TAKE) + 1,
       skip: cursor ? 1 : (params.skip ?? 0),
       cursor: cursorObj,

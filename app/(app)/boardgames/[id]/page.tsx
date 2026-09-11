@@ -15,6 +15,8 @@
  * 2026.05.05  임도헌   Modified  상세/추천/연결 콘텐츠 조회 서비스 직접 import 경로 반영
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.03  임도헌   Modified  도감 상세 직접 진입에서도 목록으로 복귀하도록 뒤로가기 고정
+ * 2026.09.11  임도헌   Modified  모바일 핵심 정보 우선 배치와 메타데이터 2열 구성
+ * 2026.09.11  임도헌   Modified  Next.js 16 기준 대표 이미지 eager 로딩 전환
  */
 
 import Image from "next/image";
@@ -137,47 +139,29 @@ export default async function BoardGameDetailPage(
         </Link>
       </header>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
-            <div className="aspect-[4/3] bg-surface-dim">
-              {boardGame.imageUrl ? (
-                <Image
-                  src={boardGame.imageUrl}
-                  alt={`${boardGame.locale.title} 대표 이미지`}
-                  width={720}
-                  height={540}
-                  sizes="(min-width: 1024px) 360px, 100vw"
-                  className="h-full w-full object-contain p-4"
-                  priority
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm font-medium text-muted">
-                  이미지 없음
-                </div>
-              )}
-            </div>
+      <section className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm lg:col-start-1 lg:row-start-1">
+          <div className="aspect-[4/3] bg-surface-dim">
+            {boardGame.imageUrl ? (
+              <Image
+                src={boardGame.imageUrl}
+                alt={`${boardGame.locale.title} 대표 이미지`}
+                width={720}
+                height={540}
+                sizes="(min-width: 1024px) 360px, 100vw"
+                className="h-full w-full object-contain p-4"
+                loading="eager"
+                fetchPriority="high"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm font-medium text-muted">
+                이미지 없음
+              </div>
+            )}
           </div>
-
-          <a
-            href={boardGame.bggUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="focus-ring-soft inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary transition hover:bg-surface-dim"
-          >
-            BGG 원문 보기
-            <ArrowTopRightOnSquareIcon className="size-4" />
-          </a>
-
-          <p className="rounded-2xl border border-border-subtle bg-surface p-4 text-xs leading-5 text-muted">
-            일부 원천 메타데이터는 BoardGameGeek 기반 공개 데이터셋을 seed로
-            사용했습니다. 게임별 원문 정보는 BGG 링크에서 확인할 수 있습니다.
-          </p>
-
-          <SimilarGamesSection games={similarGames} />
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-5 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <section className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-sm">
             <p className="text-sm font-bold text-muted">
               {boardGame.primaryName}
@@ -195,7 +179,7 @@ export default async function BoardGameDetailPage(
             </p>
           </section>
 
-          <section className="grid gap-3 sm:grid-cols-2">
+          <section className="grid grid-cols-2 gap-3">
             <InfoCard
               label="발매연도"
               value={boardGame.yearPublished ?? "정보 없음"}
@@ -268,6 +252,25 @@ export default async function BoardGameDetailPage(
             content={relatedContent}
             searchKeyword={boardGame.locale.title}
           />
+        </div>
+
+        <div className="space-y-4 lg:col-start-1 lg:row-start-2 lg:self-start">
+          <a
+            href={boardGame.bggUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="focus-ring-soft inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-bold text-primary transition hover:bg-surface-dim"
+          >
+            BGG 원문 보기
+            <ArrowTopRightOnSquareIcon className="size-4" />
+          </a>
+
+          <p className="rounded-2xl border border-border-subtle bg-surface p-4 text-xs leading-5 text-muted">
+            일부 원천 메타데이터는 BoardGameGeek 기반 공개 데이터셋을 seed로
+            사용했습니다. 게임별 원문 정보는 BGG 링크에서 확인할 수 있습니다.
+          </p>
+
+          <SimilarGamesSection games={similarGames} />
         </div>
       </section>
     </main>

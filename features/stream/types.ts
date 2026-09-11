@@ -32,6 +32,8 @@
  * 2026.08.21  임도헌   Modified  클라이언트 DTO의 원본 Cloudflare UID를 단기 playback token과 내부 방송 ID로 대체
  * 2026.08.23  임도헌   Modified  PRIVATE 비밀번호 rate limit 실패 코드 추가
  * 2026.08.26  임도헌   Modified  Cloudflare webhook provider 시각·Notifications 식별 필드 추가
+ * 2026.09.08  임도헌   Modified  방송·녹화본 사용자 썸네일과 수정 결과 타입 확장
+ * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각 메타 지원
  * 2026.08.26  임도헌   Modified  다시보기 메인 목록의 정렬값 기반 불투명 커서 타입 추가
  * 2026.08.27  임도헌   Modified  메인·채널별 커서 제네릭 응답 타입 설명 보강
  */
@@ -144,6 +146,7 @@ export interface VodForGrid {
   user: UserSummary;
   href?: string; // 상세 이동 경로 (없으면 /streams/:vodId/recording 폴백)
   readyAt: Date | null;
+  likedAt?: Date | string;
   duration?: number;
   viewCount?: number;
   likeCount?: number; // 카드 메타용 녹화본 좋아요 수
@@ -174,6 +177,9 @@ export interface StreamDetailDTO {
   title: string;
   playbackId: string | null;
   thumbnail: string | null;
+  /** 수정 화면에 표시할 사용자 업로드 원본 URL, 자동 썸네일이면 null */
+  customThumbnail: string | null;
+  thumbnailAnimated: boolean;
   userId: number;
   user: {
     id: number;
@@ -195,6 +201,9 @@ export interface StreamDetailDTO {
 /** 녹화본 상세 페이지 조립용 DTO */
 export interface VodDetailDTO {
   vodId: number;
+  title: string;
+  customThumbnail: string | null;
+  thumbnailAnimated: boolean;
   playbackId: string | null;
   durationSec: number | null;
   readyAt: Date | null;
@@ -256,10 +265,19 @@ export type CreateBroadcastResult =
     }
   | (ServiceFailure & { fieldErrors?: Record<string, string[]> });
 
-/** 방송 제목/설명 실시간 동기화 payload */
+/** 방송 표시 정보 수정 결과 및 실시간 제목·설명 동기화 payload */
 export interface StreamMetaUpdatePayload {
   title: string;
   description: string | null;
+  thumbnail?: string | null;
+  thumbnailAnimated?: boolean;
+}
+
+/** 녹화본 전용 표시 정보 수정 결과 */
+export interface RecordingMetaUpdatePayload {
+  title: string;
+  thumbnail?: string | null;
+  thumbnailAnimated?: boolean;
 }
 
 /** Cloudflare Stream 상태 필드 원본 형태 */
@@ -318,7 +336,7 @@ export interface CloudflareVideoListResponse {
   [key: string]: unknown;
 }
 
-/** 방송 제목/설명 수정 결과 */
+/** 방송 표시 정보 수정 결과 */
 export type UpdateBroadcastMetaResult =
   | {
       success: true;
@@ -355,6 +373,21 @@ export type SendStreamMessageResult =
         | "RATE_LIMITED"
         | "CREATE_FAILED";
     };
+
+/** 녹화본 전용 제목·사용자 썸네일 수정 결과 */
+export type UpdateRecordingMetaResult =
+  | {
+      success: true;
+      data: {
+        vodId: number;
+        broadcastId: number;
+        username: string;
+        title: string;
+        thumbnail: string | null;
+        thumbnailAnimated: boolean;
+      };
+    }
+  | (ServiceFailure & { fieldErrors?: Record<string, string[]> });
 
 /** 방송 채팅 메시지 삭제 결과 */
 export type DeleteStreamMessageResult =

@@ -37,6 +37,9 @@
  * 2026.05.09  임도헌   Modified  좁은 폭에서 헤더 액션과 뷰 토글이 겹치지 않도록 줄바꿈 허용
  * 2026.06.04  임도헌   Modified  모바일 하단 고정 UI와 마지막 상품 카드가 겹치지 않도록 목록 여백 보강
  * 2026.08.13  임도헌   Modified  상품 목록 query에 현재 조회자 ID 전달
+ * 2026.09.08  임도헌   Modified  메인 상품 목록 도구 행에 정렬 선택 추가
+ * 2026.09.11  임도헌   Modified  실제 대표 이미지가 있는 첫 상품을 LCP 우선 대상으로 지정
+ * 2026.09.11  임도헌   Modified  모바일 첫 화면 실제 대표 이미지 4장을 LCP 우선 대상으로 지정
  */
 
 "use client";
@@ -59,6 +62,7 @@ import type {
   ViewMode,
 } from "@/features/product/types";
 import { cn } from "@/lib/utils";
+import ProductSortSelect from "@/features/product/components/ProductSortSelect";
 
 type ProductListProps = {
   searchParams?: ProductSearchParams;
@@ -67,6 +71,8 @@ type ProductListProps = {
   headerAction?: ReactNode;
 };
 
+const LCP_EAGER_IMAGE_COUNT = 4;
+
 /**
  * 제품 목록 렌더링 컴포넌트
  *
@@ -74,7 +80,7 @@ type ProductListProps = {
  * - `useProductPagination` 커스텀 훅을 통해 검색 필터(`searchParams`) 기반 무한 스크롤 상태 전역 관리
  * - 검색 조건 변경 시 동적 Query Key를 통한 캐시 자동 분리 및 신규 데이터 패칭 유도
  * - `useInfiniteScroll` 및 `usePageVisibility` 훅을 연동한 뷰포트 기반 지연 로딩 최적화 적용
- * - 총 상품 수, 키워드 알림 버튼, 뷰 토글을 리스트 상단 헤더 row에서 함께 렌더링
+ * - 총 상품 수, 키워드 알림 버튼, 정렬 선택, 뷰 토글을 리스트 상단 헤더 row에서 함께 렌더링
  * - 뷰 모드(List ↔ Grid) 전환 상태 제어 및 `isFetchingNextPage` 플래그 활용 로딩 스피너 분리 표시
  */
 export default function ProductList({
@@ -114,6 +120,12 @@ export default function ProductList({
   });
 
   const displayCount = totalCount ?? products.length;
+  const priorityProductIds = new Set(
+    products
+      .filter((product) => Boolean(product.images[0]?.url))
+      .slice(0, LCP_EAGER_IMAGE_COUNT)
+      .map((product) => product.id)
+  );
   const returnTo = useMemo(() => {
     const next = currentSearchParams.toString();
     return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
@@ -129,31 +141,37 @@ export default function ProductList({
           </span>
           {headerAction && <div className="min-w-0 shrink">{headerAction}</div>}
         </div>
-        <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
-          <button
-            onClick={() => setViewMode("list")}
-            aria-label="리스트 보기"
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
-              viewMode === "list"
-                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                : "text-muted hover:bg-surface-dim hover:text-primary"
-            )}
-          >
-            <ListBulletIcon className="size-5" />
-          </button>
-          <button
-            onClick={() => setViewMode("grid")}
-            aria-label="그리드 보기"
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
-              viewMode === "grid"
-                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                : "text-muted hover:bg-surface-dim hover:text-primary"
-            )}
-          >
-            <Squares2X2Icon className="size-5" />
-          </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {searchParams?.sort && (
+            <ProductSortSelect value={searchParams.sort} />
+          )}
+
+          <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
+            <button
+              onClick={() => setViewMode("list")}
+              aria-label="리스트 보기"
+              className={cn(
+                "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+                viewMode === "list"
+                  ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                  : "text-muted hover:bg-surface-dim hover:text-primary"
+              )}
+            >
+              <ListBulletIcon className="size-5" />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              aria-label="그리드 보기"
+              className={cn(
+                "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+                viewMode === "grid"
+                  ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                  : "text-muted hover:bg-surface-dim hover:text-primary"
+              )}
+            >
+              <Squares2X2Icon className="size-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -172,12 +190,12 @@ export default function ProductList({
               : "grid grid-cols-1 gap-4"
           )}
         >
-          {products.map((product, index) => (
+          {products.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
               viewMode={viewMode}
-              isPriority={index === 0}
+              isPriority={priorityProductIds.has(product.id)}
               returnTo={returnTo}
             />
           ))}

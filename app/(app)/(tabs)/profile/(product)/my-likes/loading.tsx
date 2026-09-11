@@ -1,6 +1,6 @@
 /**
  * File Name : app/(app)/(tabs)/profile/(product)/my-likes/loading.tsx
- * Description : 나의 찜한 내역 페이지 로딩 스켈레톤
+ * Description : 나의 관심 목록 페이지 로딩 스켈레톤
  * Author : 임도헌
  *
  * History
@@ -11,6 +11,7 @@
  * 2026.04.09  임도헌   Modified  로컬 페이지 맥락에 맞게 찜 해제 액션 포함 스켈레톤으로 구체화
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/(product)/my-likes/loading.tsx 에서 app/(app)/(tabs)/profile/(product)/my-likes/loading.tsx 로 변경 (라우트 그룹 개편)
  * 2026.04.17  임도헌   Modified  실카드 메타 리듬에 맞춰 좋아요/조회수/찜시점 구간의 상단 구분선을 제거하고 간격만 유지
+ * 2026.09.11  임도헌   Modified  콘텐츠 탭과 보기 전환을 포함한 관심 목록 스켈레톤 적용
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -19,6 +20,10 @@ export default function Loading() {
   return (
     <div className="min-h-screen bg-background transition-colors">
       <div className="px-page-x py-6 flex flex-col gap-4">
+        <Skeleton className="h-[54px] w-full rounded-xl" />
+        <div className="flex justify-end">
+          <Skeleton className="h-[54px] w-[98px] rounded-xl" />
+        </div>
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
@@ -59,6 +64,5 @@ export default function Loading() {
     </div>
   );
 }
-
 
 

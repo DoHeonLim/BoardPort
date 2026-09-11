@@ -14,6 +14,7 @@
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.06.18  임도헌   Modified  게시글 관련 장소 문구로 도메인 표현 정리
  * 2026.09.07  임도헌   Modified  장소명과 정규화 지역명이 같을 때 중복 부제를 숨기고 카드 제목을 세로 중앙 정렬
+ * 2026.09.11  임도헌   Modified  상세 하단 보조 섹션 간 제목 크기와 아이콘 위계 통일
  */
 "use client";
 
@@ -168,8 +169,8 @@ export default function PostDetailLocationSection({
 
   return (
     <section ref={sectionRef} className="border-t border-border-subtle pt-4">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-primary">
-        <MapPinIcon className="size-4 text-brand dark:text-brand-light" />
+      <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-primary">
+        <MapPinIcon className="size-5 text-brand dark:text-brand-light" />
         게시글 관련 장소
       </h2>
 

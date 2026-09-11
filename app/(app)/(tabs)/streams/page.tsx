@@ -48,6 +48,7 @@
  * 2026.08.13  임도헌   Modified  라이브·다시보기 목록 cache key의 조회자 범위 구조 통일
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.26  임도헌   Modified  다시보기 서버 프리패치의 복합 커서 타입 반영
+ * 2026.09.09  임도헌   Modified  검증된 사용자 ID로 알림·목록 service를 직접 조회해 세션 재검증 제거
  */
 import { Suspense } from "react";
 import { Metadata } from "next";
@@ -76,10 +77,10 @@ import StreamListSection from "@/features/stream/components/StreamListSection";
 import LiveStatusRealtimeSubscriber from "@/features/stream/components/LiveStatusRealtimeSubscriber";
 import RecordingListRefreshRelay from "@/features/stream/components/RecordingListRefreshRelay";
 import {
-  getRecordingsListAction,
-  getStreamsListAction,
-} from "@/features/stream/actions/list";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+  getRecordingsPage,
+  getStreamsPage,
+} from "@/features/stream/service/list";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import type {
   RecordingSort,
   RecordingListCursor,
@@ -144,7 +145,7 @@ export default async function StreamsPage(props: StreamsPageProps) {
     sort: recordingSort,
     scope: scope === "following" ? "following" : "",
   };
-  // 접근 플래그와 팔로잉 여부가 조회자에 따라 달라지므로 목록 캐시를 viewerId로 분리한다.
+  // 접근 플래그와 팔로잉 여부가 조회자에 따라 달라지는 목록 캐시를 viewerId로 분리
   const liveListQueryKey = queryKeys.streams.list(
     scope,
     liveQueryParams,
@@ -166,20 +167,29 @@ export default async function StreamsPage(props: StreamsPageProps) {
       ? queryClient.prefetchInfiniteQuery({
           queryKey: recordingListQueryKey,
           queryFn: () =>
-            getRecordingsListAction(
-              recordingSort,
-              scope === "following",
-              null,
-              recordingQueryParams
-            ),
+            getRecordingsPage({
+              sort: recordingSort,
+              followingOnly: scope === "following",
+              category,
+              keyword,
+              viewerId,
+              cursor: null,
+            }),
           initialPageParam: null as RecordingListCursor | null,
         })
       : queryClient.prefetchInfiniteQuery({
           queryKey: liveListQueryKey,
-          queryFn: () => getStreamsListAction(scope, null, liveQueryParams),
+          queryFn: () =>
+            getStreamsPage({
+              scope,
+              category,
+              keyword,
+              viewerId,
+              cursor: null,
+            }),
           initialPageParam: null as number | null,
         }),
-    getUnreadNotificationCount(),
+    getUnreadNotificationCountOrZero(viewerId),
   ]);
 
   const prefetchData = queryClient.getQueryData<

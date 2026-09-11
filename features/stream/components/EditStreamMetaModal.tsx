@@ -1,6 +1,6 @@
 /**
  * File Name : features/stream/components/EditStreamMetaModal.tsx
- * Description : 방송 제목/설명 빠른 수정 모달
+ * Description : 방송 제목·설명·사용자 썸네일 수정 모달
  * Author : 임도헌
  *
  * History
@@ -11,6 +11,7 @@
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 저장 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  모바일 방송 정보 수정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 Cloudflare direct upload 추가
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -20,7 +21,12 @@ import { toast } from "sonner";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
 import Input from "@/components/ui/Input";
+import ImageUploader from "@/components/global/ImageUploader";
 import { updateBroadcastMetaAction } from "@/features/stream/actions/update";
+import type { StreamMetaUpdatePayload } from "@/features/stream/types";
+import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
+import { getUploadUrl } from "@/lib/cloudflareImages";
+import { MAX_PHOTO_SIZE, MAX_PHOTO_SIZE_MB } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -30,14 +36,16 @@ interface EditStreamMetaModalProps {
   streamId: number;
   initialTitle: string;
   initialDescription?: string | null;
+  initialThumbnail?: string | null;
   onClose: () => void;
-  onSaved: (next: { title: string; description: string | null }) => void;
+  onSaved: (next: StreamMetaUpdatePayload) => void;
 }
 
 /**
- * 방송 제목/설명만 빠르게 수정하는 모달
+ * 방송 표시 정보를 빠르게 수정하는 모달
  *
  * - 모바일은 하단 시트, 데스크톱은 중앙 모달 톤으로 반응형 배치
+ * - 제목·설명은 항상 저장하고 썸네일은 실제 교체·제거했을 때만 변경 요청
  * - 저장 성공 시 상세 셸 로컬 상태와 서버 상태를 함께 갱신
  */
 export default function EditStreamMetaModal({
@@ -45,6 +53,7 @@ export default function EditStreamMetaModal({
   streamId,
   initialTitle,
   initialDescription,
+  initialThumbnail,
   onClose,
   onSaved,
 }: EditStreamMetaModalProps) {
@@ -53,9 +62,14 @@ export default function EditStreamMetaModal({
   const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription ?? "");
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailChanged, setThumbnailChanged] = useState(false);
+  const [isImageFormOpen, setIsImageFormOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [isPending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -65,8 +79,21 @@ export default function EditStreamMetaModal({
     if (!open) return;
     setTitle(initialTitle);
     setDescription(initialDescription ?? "");
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+    setThumbnailPreview(toStreamThumbnailPublicUrl(initialThumbnail));
+    setThumbnailFile(null);
+    setThumbnailChanged(false);
+    setIsImageFormOpen(true);
     setFieldErrors({});
-  }, [initialDescription, initialTitle, open]);
+  }, [initialDescription, initialThumbnail, initialTitle, open]);
+
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    },
+    []
+  );
 
   useModalFocus({
     open,
@@ -79,35 +106,134 @@ export default function EditStreamMetaModal({
 
   if (!open || !mounted) return null;
 
+  const selectThumbnail = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    if (
+      file.type === "image/x-icon" ||
+      file.type === "image/vnd.microsoft.icon" ||
+      file.name.toLowerCase().endsWith(".ico")
+    ) {
+      toast.error(".ico 파일은 지원하지 않습니다. (jpg, png, webp 등 사용)");
+      return;
+    }
+    if (file.size > MAX_PHOTO_SIZE) {
+      toast.error(
+        `이미지는 최대 ${MAX_PHOTO_SIZE_MB}MB까지 업로드할 수 있습니다.`
+      );
+      return;
+    }
+
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    const objectUrl = URL.createObjectURL(file);
+    objectUrlRef.current = objectUrl;
+    setThumbnailPreview(objectUrl);
+    setThumbnailFile(file);
+    setThumbnailChanged(true);
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if ((event.target.files?.length ?? 0) > 1) {
+      toast.error("방송 썸네일은 1장만 선택할 수 있습니다.");
+      event.target.value = "";
+      return;
+    }
+    const file = event.target.files?.[0];
+    if (file) selectThumbnail(file);
+    event.target.value = "";
+  };
+
+  const handleImageDrop = (event: React.DragEvent) => {
+    if ((event.dataTransfer.files?.length ?? 0) > 1) {
+      toast.error("방송 썸네일은 1장만 선택할 수 있습니다.");
+      return;
+    }
+    const file = event.dataTransfer.files?.[0];
+    if (file) selectThumbnail(file);
+  };
+
+  const handleDeleteImage = () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+    setThumbnailPreview(null);
+    setThumbnailFile(null);
+    setThumbnailChanged(true);
+  };
+
   const handleSubmit = () => {
     if (isPending) return;
 
     setFieldErrors({});
 
     startTransition(async () => {
-      const result = await updateBroadcastMetaAction(streamId, {
-        title,
-        description,
-      });
+      try {
+        let thumbnailUpdate: Pick<
+          Parameters<typeof updateBroadcastMetaAction>[1],
+          "thumbnail" | "thumbnailAnimated"
+        > = {};
 
-      if (!result.success) {
-        if (result.fieldErrors) {
-          setFieldErrors(result.fieldErrors);
+        if (thumbnailChanged) {
+          let thumbnail: string | null = null;
+          let thumbnailAnimated = false;
+
+          if (thumbnailFile) {
+            const upload = await getUploadUrl("STREAM_THUMBNAIL");
+            if (!upload.success) {
+              toast.error(upload.error ?? "썸네일 업로드 준비에 실패했습니다.");
+              return;
+            }
+
+            const uploadBody = new FormData();
+            uploadBody.append("file", thumbnailFile);
+            const response = await fetch(upload.result.uploadURL, {
+              method: "POST",
+              body: uploadBody,
+            });
+            if (!response.ok) {
+              toast.error("썸네일 업로드에 실패했습니다. 다시 시도해주세요.");
+              return;
+            }
+            thumbnail = upload.result.deliveryUrl;
+            thumbnailAnimated = thumbnailFile.type === "image/gif";
+          }
+
+          thumbnailUpdate = { thumbnail, thumbnailAnimated };
         }
-        toast.error(
-          result.error ??
-            "방송 정보 수정에 실패했습니다. 제목과 설명을 확인한 뒤 다시 시도해주세요."
-        );
-        return;
-      }
 
-      onSaved({
-        title: result.data.title,
-        description: result.data.description,
-      });
-      toast.success("방송 정보가 업데이트되었습니다.");
-      onClose();
-      router.refresh();
+        const result = await updateBroadcastMetaAction(streamId, {
+          title,
+          description,
+          ...thumbnailUpdate,
+        });
+
+        if (!result.success) {
+          if (result.fieldErrors) {
+            setFieldErrors(result.fieldErrors);
+          }
+          toast.error(
+            result.error ??
+              "방송 정보 수정에 실패했습니다. 입력값과 썸네일을 확인한 뒤 다시 시도해주세요."
+          );
+          return;
+        }
+
+        onSaved({
+          title: result.data.title,
+          description: result.data.description,
+          thumbnail: result.data.thumbnail,
+          thumbnailAnimated: result.data.thumbnailAnimated,
+        });
+        toast.success("방송 정보가 업데이트되었습니다.");
+        onClose();
+        router.refresh();
+      } catch (error) {
+        console.error("[EditStreamMetaModal] update failed:", error);
+        toast.error(
+          "방송 정보 수정 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+        );
+      }
     });
   };
 
@@ -122,6 +248,26 @@ export default function EditStreamMetaModal({
         disabled={isPending}
         density="compact"
       />
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-primary">사용자 썸네일</span>
+        <ImageUploader
+          previews={thumbnailPreview ? [thumbnailPreview] : []}
+          onImageChange={handleImageChange}
+          onImageDrop={handleImageDrop}
+          onDeleteImage={handleDeleteImage}
+          onDragEnd={() => undefined}
+          isOpen={isImageFormOpen}
+          onToggle={() => setIsImageFormOpen((value) => !value)}
+          maxImages={1}
+          isUploading={isPending}
+          compact
+          optional
+        />
+        <p className="px-1 text-xs leading-5 text-muted">
+          사용자 썸네일을 제거하면 기본 이미지로 전환됩니다. 새 이미지는
+          10MB까지 첨부할 수 있습니다.
+        </p>
+      </div>
       <Input
         type="textarea"
         label="방송 설명"
@@ -154,7 +300,7 @@ export default function EditStreamMetaModal({
       <BottomSheet
         open={open}
         title="방송 정보 수정"
-        description="라이브 중에도 제목과 설명을 바로 업데이트할 수 있습니다."
+        description="라이브 중에도 제목과 설명, 사용자 썸네일을 업데이트할 수 있습니다."
         onClose={() => !isPending && onClose()}
         contentClassName="pt-4"
         footer={footer}
@@ -193,7 +339,8 @@ export default function EditStreamMetaModal({
               방송 정보 수정
             </h2>
             <p className="mt-1 text-sm text-muted">
-              라이브 중에도 제목과 설명을 바로 업데이트할 수 있습니다.
+              라이브 중에도 제목과 설명, 사용자 썸네일을 업데이트할 수
+              있습니다.
             </p>
           </div>
           <button

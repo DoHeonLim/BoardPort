@@ -21,6 +21,8 @@
  * 2026.05.08  임도헌   Modified  상세 DTO 타입을 features/stream/types.ts로 이동
  * 2026.08.21  임도헌   Modified  상세 DTO에서 원본 Cloudflare UID를 제거하고 playback token 주입 자리만 제공
  * 2026.09.07  임도헌   Modified  실제 미존재와 DB 조회 실패를 분리해 일시 오류가 404·null cache로 변환되지 않도록 보강
+ * 2026.09.08  임도헌   Modified  사용자 업로드와 Cloudflare 자동 썸네일의 수정 경계 분리
+ * 2026.09.08  임도헌   Modified  녹화본 사용자 제목·썸네일 override 조회 추가
  */
 
 import "server-only";
@@ -28,6 +30,8 @@ import db from "@/lib/db";
 import { unstable_cache as nextCache } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
+import { parseCloudflareImageReference } from "@/features/media/utils/cloudflareImage";
+import { selectRecordingTitle } from "@/features/stream/utils/thumbnail";
 import type { StreamDetailDTO, VodDetailDTO } from "@/features/stream/types";
 
 /**
@@ -49,6 +53,7 @@ export async function getBroadcastDetail(
     select: {
       title: true,
       thumbnail: true,
+      thumbnailAnimated: true,
       description: true,
       pinnedChatNotice: true,
       started_at: true,
@@ -76,6 +81,11 @@ export async function getBroadcastDetail(
     title: b.title,
     playbackId: null,
     thumbnail: b.thumbnail ?? null,
+    customThumbnail:
+      b.thumbnail && parseCloudflareImageReference(b.thumbnail)
+        ? b.thumbnail
+        : null,
+    thumbnailAnimated: b.thumbnailAnimated,
     userId: b.liveInput.userId,
     user: {
       id: b.liveInput.user.id,
@@ -137,6 +147,9 @@ export async function getVodDetail(
     where: { id: vodId },
     select: {
       id: true,
+      title: true,
+      custom_thumbnail_url: true,
+      thumbnailAnimated: true,
       duration_sec: true,
       ready_at: true,
       created_at: true,
@@ -168,6 +181,9 @@ export async function getVodDetail(
 
   return {
     vodId: vod.id,
+    title: selectRecordingTitle(vod.title, vod.broadcast.title),
+    customThumbnail: vod.custom_thumbnail_url,
+    thumbnailAnimated: vod.thumbnailAnimated,
     playbackId: null,
     durationSec: vod.duration_sec,
     readyAt: vod.ready_at,

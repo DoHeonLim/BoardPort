@@ -45,6 +45,8 @@
  * 2026.06.18  임도헌   Modified  게시글 목록 쿼리 키에 실제 지역값을 포함해 동네 변경 캐시 충돌 방지
  * 2026.08.13  임도헌   Modified  게시글 목록 prefetch와 클라이언트 캐시를 조회자별로 분리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.08  임도헌   Modified  게시글 정렬 query 정규화와 빈 목록 정렬 선택 추가
+ * 2026.09.09  임도헌   Modified  초기 목록은 검증된 조회자로 service를 직접 호출하고 독립적인 알림 조회를 병렬화
  */
 
 import { Suspense } from "react";
@@ -67,20 +69,23 @@ import PostLocalRangeHint from "@/features/post/components/PostLocalRangeHint";
 import AddPostButton from "@/features/post/components/AddPostButton";
 import PostListSkeleton from "@/features/post/components/PostListSkeleton";
 import PostListRefreshRelay from "@/features/post/components/PostListRefreshRelay";
+import PostSortSelect from "@/features/post/components/PostSortSelect";
 import { getUserLocation } from "@/features/user/service/profile";
-import { getPostsListAction } from "@/features/post/actions/list";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { getPostsList } from "@/features/post/service/post";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
 import type {
   PostSearchParams,
   PostsPage as PostsListPage,
 } from "@/features/post/types";
 import type { RegionRange } from "@/generated/prisma/enums";
+import { normalizePostSort } from "@/features/post/utils/postSort";
 
 interface PostsPageProps {
   searchParams: Promise<{
     keyword?: string;
     category?: string;
+    sort?: string;
   }>;
 }
 
@@ -100,12 +105,12 @@ export const metadata: Metadata = {
  * - 로그인 세션 검증 및 비인가 사용자 리다이렉트 처리
  * - 알림 개수와 사용자 지역 정보를 선조회하여 헤더 초기 상태 구성
  * - 모바일/데스크톱 헤더를 분리 렌더링하여 같은 검색 UX를 기기별 레이아웃에 맞게 제공
- * - URL 검색 조건을 기반으로 `getPostsListAction`을 호출하여 초기 게시글 목록 서버 프리패치(Prefetch)
+ * - URL 검색·카테고리·정렬 조건을 기반으로 초기 게시글 목록 서버 프리패치(Prefetch)
  * - `currentRange`를 게시글 목록 쿼리 키에 포함하여 지역 범위 전환 시 캐시 stale 방지
  * - TanStack Query HydrationBoundary 적용으로 클라이언트 사이드 워터폴 현상 방지
  * - 게시글 데이터 유무에 따른 `PostList` 또는 `PostEmptyState` 조건부 렌더링
  *
- * @param {PostsPageProps} props - URL 쿼리 파라미터 (keyword, category)
+ * @param {PostsPageProps} props - URL 쿼리 파라미터 (keyword, category, sort)
  */
 export default async function PostsPage(props: PostsPageProps) {
   const searchParams = await props.searchParams;
@@ -119,12 +124,12 @@ export default async function PostsPage(props: PostsPageProps) {
   const params: PostSearchParams = {
     keyword: searchParams.keyword,
     category: searchParams.category,
+    sort: normalizePostSort(searchParams.sort),
   };
 
-  const [unreadCount, userLocation] = await Promise.all([
-    getUnreadNotificationCount(),
-    getUserLocation(userId),
-  ]);
+  // 목록 조건과 무관한 알림 조회를 지역 조회와 동시에 시작해 초기 대기 중첩
+  const unreadCountPromise = getUnreadNotificationCountOrZero(userId);
+  const userLocation = await getUserLocation(userId);
 
   const userRegion1 = userLocation?.region1;
   const userRegion2 = userLocation?.region2;
@@ -145,11 +150,17 @@ export default async function PostsPage(props: PostsPageProps) {
     ? formatNormalizedRegion(userLocation)
     : null;
 
-  await queryClient.prefetchInfiniteQuery({
+  // 서버 렌더에서 검증된 조회자를 직접 전달해 Server Action의 세션 재검증 방지
+  const prefetchPostsPromise = queryClient.prefetchInfiniteQuery({
     queryKey: queryKeys.posts.list(postListQueryKey, userId),
-    queryFn: () => getPostsListAction(null, params),
+    queryFn: () => getPostsList(params, userId, null),
     initialPageParam: null as number | null,
   });
+
+  const [unreadCount] = await Promise.all([
+    unreadCountPromise,
+    prefetchPostsPromise,
+  ]);
 
   // 데이터 여부 확인
   const prefetchData = queryClient.getQueryData<InfiniteData<PostsListPage>>(
@@ -192,11 +203,17 @@ export default async function PostsPage(props: PostsPageProps) {
             currentRange={currentRange}
           />
           {isDataEmpty ? (
-            <PostEmptyState
-              keyword={searchParams.keyword}
-              category={searchParams.category}
-              currentRange={currentRange}
-            />
+            <>
+              <div className="mb-5 flex justify-end px-1 sm:mb-6">
+                <PostSortSelect value={params.sort ?? "latest"} />
+              </div>
+              <PostEmptyState
+                keyword={searchParams.keyword}
+                category={searchParams.category}
+                currentRange={currentRange}
+                sort={params.sort}
+              />
+            </>
           ) : (
             <HydrationBoundary state={dehydrate(queryClient)}>
               <Suspense fallback={<PostListSkeleton viewMode="list" />}>

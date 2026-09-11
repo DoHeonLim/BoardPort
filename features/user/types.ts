@@ -18,9 +18,12 @@
  * 2026.05.16  임도헌   Modified  팔로우 캐시 동기화용 페이지/통계 타입 추가
  * 2026.05.17  임도헌   Modified  차단 관리 모달용 차단 유저 요약 타입 추가
  * 2026.06.18  임도헌   Modified  지역 정규화 정책에 맞춰 UserProfile 지역 필드 설명 최신화
+ * 2026.09.11  임도헌   Modified  통합 찜 목록 탭·페이지·개수 타입 추가
  */
 
 import type { Role } from "@/generated/prisma/enums";
+import type { PostDetail } from "@/features/post/types";
+import type { VodForGrid } from "@/features/stream/types";
 
 // =============================================================================
 // 1. Entity / UI Types
@@ -240,3 +243,31 @@ export type ChangePasswordActionState = {
     _?: string[]; // 전역 에러
   };
 };
+/** 관심 목록에서 선택할 콘텐츠 범위 */
+export type MyLikesTab = "products" | "posts" | "recordings";
+
+/** 찜한 시각이 포함된 게시글 목록 항목 */
+export interface LikedPostListItem extends PostDetail {
+  liked_at: Date | string;
+}
+
+/** 삭제 후에도 정렬 경계를 유지하는 관심 목록 복합 커서 */
+export interface MyLikesCursor {
+  id: number;
+  likedAt: string;
+}
+
+/** 찜한 게시글 페이지 */
+export interface LikedPostsPage {
+  posts: LikedPostListItem[];
+  nextCursor: MyLikesCursor | null;
+}
+
+/** 찜한 다시보기 페이지 */
+export interface LikedRecordingsPage {
+  recordings: VodForGrid[];
+  nextCursor: MyLikesCursor | null;
+}
+
+/** 관심 목록 탭별 개수 */
+export type MyLikesCounts = Record<MyLikesTab, number>;

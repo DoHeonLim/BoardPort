@@ -12,11 +12,12 @@
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  * 2026.09.01  임도헌   Modified  세션 만료를 `notFound()` 제어 신호 대신 클라이언트 처리 가능한 실패 결과로 반환
+ * 2026.09.09  임도헌   Modified  삭제 직후 미존재 상태를 보장하는 updateTag 적용
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag, revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import { deletePost as deletePostService } from "@/features/post/service/post";
 
@@ -40,7 +41,7 @@ export async function deletePostAction(postId: number) {
   const result = await deletePostService(session.id, postId);
 
   if (result.success) {
-    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
+    updateTag(T.POST_DETAIL(postId));
     revalidatePath("/posts");
   }
 

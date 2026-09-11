@@ -27,6 +27,9 @@
  * 2026.04.14  임도헌   Modified  LCP 우선 로드 카드 수 상수를 모듈 상단으로 분리하고 파생값 구간을 역할별로 정리
  * 2026.05.30  임도헌   Modified  게시글 뷰 토글을 제품 목록 토글 톤과 통일
  * 2026.08.13  임도헌   Modified  게시글 목록 query에 현재 조회자 ID 전달
+ * 2026.09.08  임도헌   Modified  메인 게시글 목록 도구 행에 정렬 선택 추가
+ * 2026.09.11  임도헌   Modified  실제 대표 이미지가 있는 첫 게시글을 LCP 우선 대상으로 지정
+ * 2026.09.11  임도헌   Modified  첫 화면 실제 대표 이미지 2장을 LCP 우선 대상으로 지정
  */
 
 "use client";
@@ -37,9 +40,11 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostCard from "@/features/post/components/postCard";
+import { getPostCardThumbnail } from "@/features/post/components/postCard/PostCardThumbnail";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { PostSearchParams } from "@/features/post/types";
+import PostSortSelect from "@/features/post/components/PostSortSelect";
 import { cn } from "@/lib/utils";
 
 interface PostListProps {
@@ -48,7 +53,7 @@ interface PostListProps {
   viewerId: number;
 }
 
-const LCP_PRIORITY_CARD_COUNT = 3;
+const LCP_EAGER_IMAGE_COUNT = 2;
 
 /**
  * 게시글 목록 렌더링 컴포넌트
@@ -59,6 +64,7 @@ const LCP_PRIORITY_CARD_COUNT = 3;
  * - 사용자 가시성(`usePageVisibility`) 기반의 `useInfiniteScroll` 스크롤 감지 및 페이징 요청 제어
  * - 뷰 모드(List/Grid) 전환 로컬 상태 관리 및 적용
  * - 첫 페이지 `totalCount`를 활용한 총 게시글 수 문구 고정 표시
+ * - 메인 게시글 목록에서는 URL과 연결된 현재 정렬 선택 표시
  * - 데이터 페칭 상태(`isFetchingNextPage`)에 따른 하단 스피너 조건부 렌더링 적용
  */
 export default function PostList({
@@ -82,6 +88,12 @@ export default function PostList({
 
   // 렌더링용 파생값의 훅 호출 아래 1회 계산
   const displayCount = totalCount ?? posts.length;
+  const priorityPostIds = new Set(
+    posts
+      .filter((post) => Boolean(getPostCardThumbnail(post.images, post.blocks)))
+      .slice(0, LCP_EAGER_IMAGE_COUNT)
+      .map((post) => post.id)
+  );
   const returnTo = useMemo(() => {
     const next = currentSearchParams.toString();
     return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
@@ -100,42 +112,46 @@ export default function PostList({
 
   return (
     <>
-      <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 px-1 sm:mb-6">
         <span className="shrink-0 text-sm font-medium text-muted">
           총 <span className="font-bold text-primary">{displayCount}</span>개의
           게시글
         </span>
 
-        {/* 뷰 모드 전환 버튼 영역 */}
-        <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
-          <button
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
-              viewMode === "list"
-                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                : "text-muted hover:bg-surface-dim hover:text-primary"
-            )}
-            aria-label="리스트 보기"
-          >
-            <ListBulletIcon className="size-5" />
-          </button>
-          <button
-            onClick={() => setViewMode("grid")}
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
-              viewMode === "grid"
-                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                : "text-muted hover:bg-surface-dim hover:text-primary"
-            )}
-            aria-label="그리드 보기"
-          >
-            <Squares2X2Icon className="size-5" />
-          </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {searchParams.sort && <PostSortSelect value={searchParams.sort} />}
+
+          {/* 뷰 모드 전환 버튼 영역 */}
+          <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
+            <button
+              onClick={() => setViewMode("list")}
+              className={cn(
+                "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+                viewMode === "list"
+                  ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                  : "text-muted hover:bg-surface-dim hover:text-primary"
+              )}
+              aria-label="리스트 보기"
+            >
+              <ListBulletIcon className="size-5" />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={cn(
+                "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
+                viewMode === "grid"
+                  ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
+                  : "text-muted hover:bg-surface-dim hover:text-primary"
+              )}
+              aria-label="그리드 보기"
+            >
+              <Squares2X2Icon className="size-5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 제품 카드 */}
+      {/* 게시글 카드 목록 */}
       <div
         className={cn(
           viewMode === "grid"
@@ -143,12 +159,12 @@ export default function PostList({
             : "mx-auto grid max-w-4xl grid-cols-1 gap-3 sm:gap-4"
         )}
       >
-        {posts.map((post, index) => (
+        {posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
             viewMode={viewMode}
-            isPriority={index < LCP_PRIORITY_CARD_COUNT}
+            isPriority={priorityPostIds.has(post.id)}
             returnTo={returnTo}
           />
         ))}

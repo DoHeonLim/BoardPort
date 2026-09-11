@@ -17,6 +17,7 @@
  * 2026.03.28  임도헌   Modified  검색어를 제목 대신 보조 문구로 다시 노출해 제품 empty state와 검색 피드백 문법을 통일
  * 2026.03.30  임도헌   Modified  게시글 카테고리 plain 라벨 정리에 맞춰 empty state 기본 문구를 일반 게시글 기준으로 조정
  * 2026.06.15  임도헌   Modified  검색어+카테고리 0건 상태를 순수 검색 0건과 구분해 안내
+ * 2026.09.08  임도헌   Modified  카테고리 해제 링크에서 현재 게시글 정렬 유지
  */
 "use client";
 
@@ -27,22 +28,26 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import type { RegionRange } from "@/generated/prisma/enums";
+import type { PostSort } from "@/features/post/types";
 
 interface PostEmptyStateProps {
   keyword?: string;
   category?: string;
   currentRange?: RegionRange;
+  sort?: PostSort;
 }
 
 /**
  * 게시글 목록이 비어있을 때 표시되는 UI
  * - 검색어, 카테고리 필터 여부에 따라 적절한 안내 메시지를 표시
+ * - 카테고리 해제 시 검색어와 정렬 query를 유지
  * - 게시글 작성 버튼을 제공
  */
 export default function PostEmptyState({
   keyword,
   category,
   currentRange,
+  sort = "latest",
 }: PostEmptyStateProps) {
   let message = "작성된 게시글이 없습니다.";
   let subMessage = "첫 번째 게시글을 작성해보세요!";
@@ -52,8 +57,12 @@ export default function PostEmptyState({
     ? POST_CATEGORY[category as PostCategoryType]
     : null;
   const hasKeywordWithCategory = Boolean(keyword && categoryLabel);
-  const keywordOnlyHref = keyword
-    ? `/posts?keyword=${encodeURIComponent(keyword)}`
+  const keywordOnlyParams = new URLSearchParams();
+  if (keyword) keywordOnlyParams.set("keyword", keyword);
+  if (sort !== "latest") keywordOnlyParams.set("sort", sort);
+  const keywordOnlyQuery = keywordOnlyParams.toString();
+  const keywordOnlyHref = keywordOnlyQuery
+    ? `/posts?${keywordOnlyQuery}`
     : "/posts";
 
   if (hasKeywordWithCategory) {

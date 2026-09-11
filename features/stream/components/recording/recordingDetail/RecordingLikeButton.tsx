@@ -19,6 +19,7 @@
  * 2026.06.17  임도헌   Modified  낙관 반영 직후 좋아요 버튼이 흐려 보이지 않도록 pending opacity 제거
  * 2026.08.13  임도헌   Modified  목록 낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  * 2026.08.27  임도헌   Modified  재방문 시 새 서버 좋아요 상태를 기존 무기한 cache보다 우선하도록 동기화
+ * 2026.09.11  임도헌   Modified  상세 좋아요 취소와 통합 찜한 다시보기 목록 캐시 동기화
  */
 
 "use client";
@@ -41,6 +42,8 @@ import {
   updateRecordingListCaches,
 } from "@/features/stream/utils/recordingListCache";
 import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
+import type { InfiniteData } from "@tanstack/react-query";
+import type { LikedRecordingsPage } from "@/features/user/types";
 
 interface RecordingLikeButtonProps {
   isLiked: boolean;
@@ -92,11 +95,17 @@ export default function RecordingLikeButton({
       await Promise.all([
         queryClient.cancelQueries({ queryKey }),
         cancelRecordingListQueries(queryClient, viewerId),
+        queryClient.cancelQueries({
+          queryKey: queryKeys.streams.likedRecordings(viewerId),
+        }),
       ]);
       const previous = queryClient.getQueryData(queryKey);
       const previousRecordingLists = getRecordingListSnapshots(
         queryClient,
         viewerId
+      );
+      const previousLikedRecordings = queryClient.getQueryData(
+        queryKeys.streams.likedRecordings(viewerId)
       );
 
       const nextState = {
@@ -109,23 +118,46 @@ export default function RecordingLikeButton({
       queryClient.setQueryData(queryKey, nextState);
 
       // 상세에서 좋아요를 바꾼 뒤 뒤로갈 때 이전 목록 캐시도 같은 상태를 보여주도록 동기화
-      updateRecordingListCaches(
-        queryClient,
-        vodId,
-        () => nextState,
-        viewerId
-      );
+      updateRecordingListCaches(queryClient, vodId, () => nextState, viewerId);
 
-      return { previous, previousRecordingLists };
+      if (data.isLiked) {
+        queryClient.setQueryData(
+          queryKeys.streams.likedRecordings(viewerId),
+          (old: InfiniteData<LikedRecordingsPage> | undefined) =>
+            old
+              ? {
+                  ...old,
+                  pages: old.pages.map((page) => ({
+                    ...page,
+                    recordings: page.recordings.filter(
+                      (recording) => recording.vodId !== vodId
+                    ),
+                  })),
+                }
+              : old
+        );
+      }
+
+      return { previous, previousRecordingLists, previousLikedRecordings };
     },
     onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
       toast.error("좋아요 처리에 실패했습니다.");
       queryClient.setQueryData(queryKey, context?.previous);
-      restoreRecordingListSnapshots(queryClient, context?.previousRecordingLists);
+      restoreRecordingListSnapshots(
+        queryClient,
+        context?.previousRecordingLists
+      );
+      queryClient.setQueryData(
+        queryKeys.streams.likedRecordings(viewerId),
+        context?.previousLikedRecordings
+      );
     },
     onSettled: () => {
       invalidateRecordingListCaches(queryClient, viewerId);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.streams.likedRecordings(viewerId),
+      });
     },
   });
 

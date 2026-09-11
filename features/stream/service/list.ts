@@ -26,10 +26,13 @@
  * 2026.05.18  임도헌   Modified  다시보기 카드 메타용 좋아요/댓글 수와 현재 사용자 좋아요 여부 매핑 추가
  * 2026.08.21  임도헌   Modified  목록 DTO 원본 provider UID 제거 및 접근 범위별 Cloudflare 썸네일 signed 변환
  * 2026.08.26  임도헌   Modified  다시보기 최신·인기 정렬을 복합 커서 조건으로 변경해 동률 누락 방지
+ * 2026.09.08  임도헌   Modified  녹화본 사용자 제목 검색과 썸네일 우선순위 적용
+ * 2026.09.09  임도헌   Modified  페이지·API 공용 라이브 및 다시보기 페이징 응답 조립 추가
  */
 
 import "server-only";
 import db from "@/lib/db";
+import { RECORDINGS_PAGE_TAKE, STREAMS_PAGE_TAKE } from "@/lib/constants";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeStream } from "@/features/stream/utils/serializer";
 import {
@@ -38,15 +41,23 @@ import {
 } from "@/features/stream/selects";
 import { STREAM_BOARD_GAME_RELATION_SELECT } from "@/features/boardgame/selects";
 import { getBlockedUserIds } from "@/features/user/service/block";
-import { selectRecordingThumbnail } from "@/features/stream/utils/thumbnail";
+import {
+  selectRecordingThumbnail,
+  selectRecordingTitle,
+} from "@/features/stream/utils/thumbnail";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
 import type {
   BroadcastSummary,
+  RecordingsPage,
   RecordingSort,
+  StreamsPage,
   StreamScope,
   VodForGrid,
 } from "@/features/stream/types";
-import type { DecodedRecordingCursor } from "@/features/stream/utils/recordingCursor";
+import {
+  encodeRecordingCursor,
+  type DecodedRecordingCursor,
+} from "@/features/stream/utils/recordingCursor";
 
 /** provider URL은 signed URL로 교체하고, 접근 불가 또는 설정 오류면 원본을 노출하지 않는다. */
 function getAccessScopedThumbnail(
@@ -192,6 +203,30 @@ export async function getStreamsList(params: {
 }
 
 /**
+ * 메인 라이브 목록의 한 페이지 응답 조립
+ *
+ * - 페이지 크기보다 한 건 더 조회해 다음 페이지 존재 여부 판별
+ * - 서버 페이지와 Route Handler가 같은 커서 규칙 공유
+ */
+export async function getStreamsPage(params: {
+  scope: StreamScope;
+  category?: string;
+  keyword?: string;
+  viewerId: number;
+  cursor: number | null;
+}): Promise<StreamsPage> {
+  const list = await getStreamsList({
+    ...params,
+    take: STREAMS_PAGE_TAKE + 1,
+  });
+  const hasMore = list.length > STREAMS_PAGE_TAKE;
+  const streams = hasMore ? list.slice(0, STREAMS_PAGE_TAKE) : list;
+  const nextCursor = hasMore ? streams[streams.length - 1].id : null;
+
+  return { streams, nextCursor };
+}
+
+/**
  * 메인 다시보기 목록 필터링 및 페이징 조회 로직
  *
  * [데이터 페칭 및 권한 제어 전략]
@@ -270,6 +305,7 @@ export async function getRecordingsList(params: {
   if (keyword) {
     conditions.push({
       OR: [
+        { title: { contains: keyword, mode: "insensitive" } },
         { broadcast: { title: { contains: keyword, mode: "insensitive" } } },
         {
           broadcast: {
@@ -324,6 +360,9 @@ export async function getRecordingsList(params: {
       _count: { select: { recordingLikes: true, recordingComments: true } },
       provider_asset_id: true,
       thumbnail_url: true,
+      title: true,
+      custom_thumbnail_url: true,
+      thumbnailAnimated: true,
       created_at: true,
       broadcastId: true,
       broadcast: {
@@ -389,6 +428,8 @@ export async function getRecordingsList(params: {
     const thumbnail = selectRecordingThumbnail({
       visibility: b.visibility,
       isOwner: isMine,
+      customThumbnail: getAccessScopedThumbnail(v.custom_thumbnail_url, null),
+      customThumbnailAnimated: v.thumbnailAnimated,
       providerThumbnail:
         viewerId > 0 && canUseProviderThumbnail
           ? getAccessScopedThumbnail(v.thumbnail_url, v.provider_asset_id)
@@ -403,7 +444,7 @@ export async function getRecordingsList(params: {
     return {
       vodId: v.id,
       broadcastId: b.id,
-      title: b.title,
+      title: selectRecordingTitle(v.title, b.title),
       // 제한 콘텐츠는 VOD asset UID가 포함될 수 있는 provider 썸네일을 목록에 노출하지 않는다.
       ...thumbnail,
       visibility: b.visibility,
@@ -433,6 +474,33 @@ export async function getRecordingsList(params: {
         b.visibility === "FOLLOWERS" ? !isMine && !isFollowing : false,
     };
   });
+}
+
+/**
+ * 메인 다시보기 목록의 한 페이지 응답 조립
+ *
+ * - 전용 페이지 크기보다 한 건 더 조회해 다음 페이지 존재 여부 판별
+ * - 정렬값에 맞는 불투명 복합 커서 발급
+ */
+export async function getRecordingsPage(params: {
+  sort: RecordingSort;
+  followingOnly?: boolean;
+  category?: string;
+  keyword?: string;
+  viewerId: number;
+  cursor: DecodedRecordingCursor | null;
+}): Promise<RecordingsPage> {
+  const list = await getRecordingsList({
+    ...params,
+    take: RECORDINGS_PAGE_TAKE + 1,
+  });
+  const hasMore = list.length > RECORDINGS_PAGE_TAKE;
+  const recordings = hasMore ? list.slice(0, RECORDINGS_PAGE_TAKE) : list;
+  const nextCursor = hasMore
+    ? encodeRecordingCursor(params.sort, recordings[recordings.length - 1])
+    : null;
+
+  return { recordings, nextCursor };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -518,6 +586,11 @@ export async function getRecentBroadcasts(
     const thumbnail = selectRecordingThumbnail({
       visibility: b.visibility,
       isOwner: includePrivate,
+      customThumbnail: getAccessScopedThumbnail(
+        latestVod?.custom_thumbnail_url,
+        null
+      ),
+      customThumbnailAnimated: latestVod?.thumbnailAnimated,
       providerThumbnail:
         latestVod && viewerId && canUseProviderThumbnail
           ? getAccessScopedThumbnail(
@@ -531,6 +604,7 @@ export async function getRecentBroadcasts(
 
     return {
       ...stream,
+      title: selectRecordingTitle(latestVod?.title, stream.title),
       ...thumbnail,
       latestVodId: latestVod?.id ?? null,
     };
@@ -623,6 +697,9 @@ export async function getChannelVods(
       _count: { select: { recordingLikes: true, recordingComments: true } },
       provider_asset_id: true,
       thumbnail_url: true,
+      title: true,
+      custom_thumbnail_url: true,
+      thumbnailAnimated: true,
       created_at: true,
       broadcast: {
         select: {
@@ -671,6 +748,8 @@ export async function getChannelVods(
     const thumbnail = selectRecordingThumbnail({
       visibility: b.visibility,
       isOwner,
+      customThumbnail: getAccessScopedThumbnail(v.custom_thumbnail_url, null),
+      customThumbnailAnimated: v.thumbnailAnimated,
       providerThumbnail:
         viewerId && canUseProviderThumbnail
           ? getAccessScopedThumbnail(v.thumbnail_url, v.provider_asset_id)
@@ -684,7 +763,7 @@ export async function getChannelVods(
     return {
       vodId: v.id,
       broadcastId: b.id,
-      title: b.title,
+      title: selectRecordingTitle(v.title, b.title),
       ...thumbnail,
       visibility: b.visibility,
       user: b.liveInput.user,

@@ -19,6 +19,7 @@
  * 2026.05.08  임도헌   Modified  TanStack Query 서버 프리패치 및 HydrationBoundary 적용
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.03  임도헌   Modified  도감 직접 진입에서도 상품 목록으로 복귀하도록 뒤로가기 고정
+ * 2026.09.11  임도헌   Modified  모바일 필터 바텀시트와 적용 조건 요약 UI 반영
  */
 
 import { Suspense } from "react";
@@ -26,17 +27,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import BackButton from "@/components/global/BackButton";
+import BoardGameCatalogFilters from "@/features/boardgame/components/catalog/BoardGameCatalogFilters";
 import BoardGameCatalogListContainer from "@/features/boardgame/components/catalog/BoardGameCatalogListContainer";
-import FilterSelect from "@/features/boardgame/components/catalog/FilterSelect";
 import { getBoardGamesCatalogAction } from "@/features/boardgame/actions/list";
 import { BOARDGAME_CATALOG_PAGE_SIZE } from "@/features/boardgame/constants";
 import { parseBoardGameCatalogFilters } from "@/features/boardgame/utils/catalogFilters";
 import { getQueryClient } from "@/lib/getQueryClient";
 import { queryKeys } from "@/lib/queryKeys";
-import {
-  MagnifyingGlassIcon,
-  ShoppingBagIcon,
-} from "@heroicons/react/24/outline";
+import { ShoppingBagIcon } from "@heroicons/react/24/outline";
 
 export const dynamic = "force-dynamic";
 
@@ -117,88 +115,11 @@ export default async function BoardGamesPage(props: {
           </Link>
         </div>
 
-        <form
+        <BoardGameCatalogFilters
           key={filterFormKey}
-          action="/boardgames"
-          className="mt-5 space-y-3"
-        >
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
-              <input
-                name="q"
-                defaultValue={filters.query ?? ""}
-                placeholder="게임명, 별칭 검색"
-                className="input-primary h-12 w-full pl-10"
-              />
-              <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted" />
-            </div>
-            <button type="submit" className="btn-primary h-12 px-5 font-bold">
-              검색
-            </button>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <FilterSelect
-              name="players"
-              label="인원"
-              value={filters.players ?? ""}
-              options={[
-                { value: "", label: "전체 인원" },
-                { value: "solo", label: "1인 가능" },
-                { value: "two", label: "2인 추천" },
-                { value: "threeFour", label: "3-4인" },
-                { value: "group", label: "5인 이상" },
-              ]}
-            />
-            <FilterSelect
-              name="playTime"
-              label="시간"
-              value={filters.playTime ?? ""}
-              options={[
-                { value: "", label: "전체 시간" },
-                { value: "short", label: "30분 이하" },
-                { value: "standard", label: "31-90분" },
-                { value: "long", label: "90분 이상" },
-              ]}
-            />
-            <FilterSelect
-              name="weight"
-              label="난이도"
-              value={filters.weight ?? ""}
-              options={[
-                { value: "", label: "전체 난이도" },
-                { value: "light", label: "가벼움" },
-                { value: "medium", label: "보통" },
-                { value: "heavy", label: "전략" },
-              ]}
-            />
-            <FilterSelect
-              name="sort"
-              label="정렬"
-              value={filters.sort ?? "rank"}
-              options={[
-                { value: "rank", label: "도감 기본순" },
-                { value: "rating", label: "평점순" },
-                { value: "popular", label: "평가 많은 순" },
-                { value: "newest", label: "신작순" },
-              ]}
-            />
-          </div>
-
-          {hasActiveFilters ? (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-dim px-3 py-2">
-              <p className="text-xs font-bold text-muted">
-                검색 조건이 적용되어 있습니다.
-              </p>
-              <Link
-                href="/boardgames"
-                className="focus-ring-soft inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-brand/35 bg-brand/10 px-3 text-xs font-bold text-brand-dark transition-colors hover:border-brand/60 hover:bg-brand/15 dark:border-brand-light/45 dark:bg-brand-light/15 dark:text-white dark:hover:bg-brand-light/20"
-              >
-                초기화
-              </Link>
-            </div>
-          ) : null}
-        </form>
+          filters={filters}
+          hasActiveFilters={hasActiveFilters}
+        />
       </header>
 
       <HydrationBoundary state={dehydrate(queryClient)}>
@@ -227,14 +148,14 @@ function BoardGameCatalogListFallback() {
         <div className="h-5 w-28 animate-pulse rounded bg-surface-dim" />
         <div className="h-4 w-16 animate-pulse rounded bg-surface-dim" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, index) => (
           <div
             key={index}
-            className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm"
+            className="flex min-h-36 overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm sm:block sm:min-h-0"
           >
-            <div className="aspect-[4/3] animate-pulse bg-surface-dim" />
-            <div className="space-y-3 p-4">
+            <div className="w-28 shrink-0 animate-pulse bg-surface-dim sm:aspect-[4/3] sm:w-auto" />
+            <div className="min-w-0 flex-1 space-y-3 p-3 sm:p-4">
               <div className="h-5 w-2/3 animate-pulse rounded bg-surface-dim" />
               <div className="h-4 w-1/2 animate-pulse rounded bg-surface-dim" />
               <div className="h-10 animate-pulse rounded bg-surface-dim" />

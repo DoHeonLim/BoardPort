@@ -2,7 +2,7 @@
 
 /**
  * File Name : features/product/components/ProfileProductSectionLayout.tsx
- * Description : 프로필 하위 제품 섹션(판매/구매/찜) 공통 레이아웃
+ * Description : 프로필 하위 거래·관심 섹션 공통 레이아웃
  * Author : 임도헌
  *
  * History
@@ -15,6 +15,7 @@
  * 2026.08.27  임도헌   Modified  상위 탭 레이아웃과 중복되던 main 랜드마크 제거
  * 2026.08.28  임도헌   Modified  경로별 제목 결정 함수 JSDoc 보강
  * 2026.09.03  임도헌   Modified  판매·구매·찜 하위 화면의 뒤로가기를 프로필 복귀로 고정
+ * 2026.09.11  임도헌   Modified  복수 콘텐츠 범위를 반영해 찜 화면 제목을 관심 목록으로 변경
  */
 
 import { usePathname } from "next/navigation";
@@ -26,21 +27,21 @@ import { cn } from "@/lib/utils";
  * 현재 프로필 상품 하위 경로에 맞는 앱바 제목을 결정한다.
  *
  * @param pathname - 현재 애플리케이션 경로
- * @returns 판매·구매·찜 내역에 대응하는 제목
+ * @returns 판매·구매·관심 목록에 대응하는 제목
  */
 function resolveTitle(pathname: string) {
   if (pathname.endsWith("/my-sales")) return "판매 내역";
   if (pathname.endsWith("/my-purchases")) return "구매 내역";
-  if (pathname.endsWith("/my-likes")) return "찜한 내역";
+  if (pathname.endsWith("/my-likes")) return "관심 목록";
   return "상품 내역";
 }
 
 const SECTION_HEADER_HEIGHT = 52;
 
 /**
- * 프로필 > 제품 하위 섹션의 공통 프레임
+ * 프로필 > 거래·관심 하위 섹션의 공통 프레임
  *
- * - 판매/구매/찜 내역이 모두 같은 앱바 구조를 사용
+ * - 판매/구매/관심 목록이 모두 같은 앱바 구조를 사용
  * - 제목은 현재 pathname 기준으로 결정해 개별 레이아웃 중복을 줄인다
  * - 형제 경로 이동 시 스크롤 초기화는 재마운트되는 `template.tsx`에서 처리하고,
  *   이 레이아웃은 헤더 프레임과 본문 시작 위치만 책임진다

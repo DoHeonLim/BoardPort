@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.06.25  임도헌   Created   URL viewerId를 신뢰하지 않는 세션 기준 조회 테스트 추가
+ * 2026.09.09  임도헌   Modified  공용 라이브 페이지 service 호출 기준으로 mock 갱신
  */
 
 import { NextRequest } from "next/server";
@@ -13,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
-  getStreamsList: vi.fn(),
+  getStreamsPage: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({
@@ -21,13 +22,13 @@ vi.mock("@/lib/session", () => ({
 }));
 
 vi.mock("@/features/stream/service/list", () => ({
-  getStreamsList: mocks.getStreamsList,
+  getStreamsPage: mocks.getStreamsPage,
 }));
 
 describe("GET /api/streams", () => {
   beforeEach(() => {
     mocks.getSession.mockReset();
-    mocks.getStreamsList.mockReset();
+    mocks.getStreamsPage.mockReset();
   });
 
   it("비로그인 요청의 viewerId query를 조회자 권한으로 사용하지 않는다", async () => {
@@ -42,7 +43,7 @@ describe("GET /api/streams", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ streams: [], nextCursor: null });
-    expect(mocks.getStreamsList).not.toHaveBeenCalled();
+    expect(mocks.getStreamsPage).not.toHaveBeenCalled();
   });
 
   it("세션이 있으면 query viewerId보다 세션 ID를 우선한다", async () => {
@@ -52,11 +53,11 @@ describe("GET /api/streams", () => {
     );
 
     mocks.getSession.mockResolvedValue({ id: 7 });
-    mocks.getStreamsList.mockResolvedValue([]);
+    mocks.getStreamsPage.mockResolvedValue({ streams: [], nextCursor: null });
 
     await GET(request);
 
-    expect(mocks.getStreamsList).toHaveBeenCalledWith(
+    expect(mocks.getStreamsPage).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: "following",
         viewerId: 7,

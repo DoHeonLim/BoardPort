@@ -14,8 +14,8 @@
 import type { Paginated } from "@/features/product/types";
 
 /** TanStack Infinite Query가 제품 페이지 목록을 저장하는 캐시 shape */
-export type ProductInfiniteCache<T extends { id: number }> = {
-  pages: Paginated<T>[];
+export type ProductInfiniteCache<T extends { id: number }, TCursor = number> = {
+  pages: Paginated<T, TCursor>[];
   pageParams?: unknown[];
 };
 

@@ -6,12 +6,16 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 프로필/마이페이지 제품 목록 조회 API 분리
+ * 2026.09.11  임도헌   Modified  상품 관심 목록의 삭제 안전 복합 커서 검증 추가
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import { getUserProductsList } from "@/features/product/service/userList";
-import type { UserProductsScope } from "@/features/product/types";
+import type {
+  LikedProductCursor,
+  UserProductsScope,
+} from "@/features/product/types";
 import { USER_ERRORS } from "@/features/user/constants";
 
 const USER_PRODUCT_SCOPE_TYPES = [
@@ -31,7 +35,20 @@ const USER_PRODUCT_SCOPE_TYPES = [
 function parseNullableNumberParam(value: string | null): number | null {
   if (!value) return null;
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+/** 상품 관심 목록 복합 커서 정규화 */
+function parseLikedProductCursor(
+  idValue: string | null,
+  likedAtValue: string | null
+): LikedProductCursor | null {
+  const id = parseNullableNumberParam(idValue);
+  if (!id || !likedAtValue) return null;
+  const likedAt = new Date(likedAtValue);
+  return Number.isNaN(likedAt.getTime())
+    ? null
+    : { id, likedAt: likedAt.toISOString() };
 }
 
 /**
@@ -91,7 +108,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const cursor = parseNullableNumberParam(searchParams.get("cursor"));
+  const rawCursor = searchParams.get("cursor");
+  const rawCursorId = searchParams.get("cursorId");
+  const rawCursorAt = searchParams.get("cursorAt");
+  const likedCursor = parseLikedProductCursor(rawCursorId, rawCursorAt);
+  const hasLikedCursorParam = rawCursorId !== null || rawCursorAt !== null;
+  if (
+    (scope.type === "LIKED" && hasLikedCursorParam && !likedCursor) ||
+    (scope.type === "LIKED" && rawCursor !== null) ||
+    (scope.type !== "LIKED" && hasLikedCursorParam) ||
+    (rawCursor !== null && !parseNullableNumberParam(rawCursor))
+  ) {
+    return NextResponse.json({ error: "BAD_CURSOR" }, { status: 400 });
+  }
+  const cursor =
+    scope.type === "LIKED" ? likedCursor : parseNullableNumberParam(rawCursor);
   const page = await getUserProductsList(scope, cursor);
   return NextResponse.json(page);
 }
