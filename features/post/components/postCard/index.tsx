@@ -29,6 +29,8 @@
  * 2026.06.21  임도헌   Modified  장소 미지정 게시글도 feedRegion 작성 동네를 목록 메타에 노출
  * 2026.09.11  임도헌   Modified  통합 찜 목록의 빠른 해제 액션 배치 공간 지원
  * 2026.09.11  임도헌   Modified  리스트 썸네일 높이 복구와 빠른 해제 액션의 상단 영역 분리
+ * 2026.09.11  임도헌   Modified  대표 이미지가 없는 카드의 썸네일 영역과 카드 정렬 복구
+ * 2026.09.11  임도헌   Modified  이미지 카드의 연결 보드게임 배지를 썸네일 오버레이로 이동
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -47,7 +49,9 @@ import Link from "next/link";
 import { PostDetail } from "@/features/post/types";
 import PostCardHeader from "@/features/post/components/postCard/PostCardHeader";
 import PostCardMeta from "@/features/post/components/postCard/PostCardMeta";
-import PostCardThumbnail from "@/features/post/components/postCard/PostCardThumbnail";
+import PostCardThumbnail, {
+  getPostCardThumbnail,
+} from "@/features/post/components/postCard/PostCardThumbnail";
 import PostCardTitle from "@/features/post/components/postCard/PostCardTitle";
 import PostCardTags from "@/features/post/components/postCard/PostCardTags";
 import BoardGameSummaryBadge from "@/features/boardgame/components/BoardGameSummaryBadge";
@@ -81,6 +85,7 @@ export default function PostCard({
 }: PostCardProps) {
   const isGrid = viewMode === "grid";
   const detailHref = `/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`;
+  const thumbnail = getPostCardThumbnail(post.images, post.blocks);
 
   return (
     <Link
@@ -89,22 +94,24 @@ export default function PostCard({
       className={cn(
         "focus-ring-strong-inset group relative flex overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
         "hover:-translate-y-0.5 hover:shadow-md hover:border-brand/30 dark:hover:border-brand-light/30",
-        isGrid ? "flex-col h-full" : "flex-row min-h-28 w-full sm:min-h-36"
+        isGrid ? "h-full flex-col" : "flex-row min-h-28 w-full sm:min-h-36"
       )}
     >
-      {/* 썸네일 */}
       <div
-        className={cn(
-          "relative shrink-0",
-          isGrid ? "w-full" : "self-stretch"
-        )}
+        className={cn("relative shrink-0", isGrid ? "w-full" : "self-stretch")}
       >
         <PostCardThumbnail
-          images={post.images}
-          blocks={post.blocks}
+          thumbnail={thumbnail}
           viewMode={viewMode}
           isPriority={isPriority}
         />
+        {thumbnail ? (
+          <BoardGameSummaryBadge
+            items={post.board_games}
+            variant="overlay"
+            className="absolute inset-x-2 bottom-2 z-[1]"
+          />
+        ) : null}
       </div>
 
       {/* 2. 정보 영역 (flex-col flex-1) */}
@@ -120,12 +127,17 @@ export default function PostCard({
         <div
           className={cn(
             "flex flex-col gap-0.5",
-            reserveTopRightAction && !isGrid && "pr-12"
+            reserveTopRightAction && (!isGrid || !thumbnail) && "pr-12"
           )}
         >
           <PostCardHeader category={post.category} viewMode={viewMode} />
           <PostCardTitle title={post.title} viewMode={viewMode} />
-          <BoardGameSummaryBadge items={post.board_games} className="mt-0.5" />
+          {!thumbnail && (
+            <BoardGameSummaryBadge
+              items={post.board_games}
+              className="mt-0.5"
+            />
+          )}
         </div>
 
         {/* 중단: 태그 영역 (공간을 채워 메타 정보를 아래로 밀어냄) */}

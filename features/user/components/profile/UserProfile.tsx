@@ -56,6 +56,7 @@
  * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 팔로우 CTA 스크롤 동작 조정
  * 2026.08.28  임도헌   Modified  로그인·팔로우·판매 탭 함수 JSDoc 보강
  * 2026.09.08  임도헌   Modified  타인 프로필 최근 작성 게시글 미리보기 추가
+ * 2026.09.11  임도헌   Modified  방송국 보조 링크의 모바일 터치 영역 보강
  */
 
 "use client";
@@ -181,7 +182,7 @@ export default function UserProfile({
   // 차단 해제 Transition
   const [isUnblocking, startUnblock] = useTransition();
 
-  /** 현재 프로필 경로를 복귀 주소로 포함한 로그인 화면으로 이동한다. */
+  /** 현재 프로필 경로를 복귀 주소로 포함한 로그인 화면 이동 */
   const onRequireLogin = useCallback(() => {
     router.push(`/login?callbackUrl=${encodeURIComponent(next)}`);
   }, [router, next]);
@@ -189,10 +190,10 @@ export default function UserProfile({
   const followButtonId = "user-profile-follow-btn";
 
   /**
-   * 방송 레일의 팔로워 전용 콘텐츠에서 프로필 팔로우 버튼으로 사용자를 유도한다.
+   * 방송 레일의 팔로워 전용 콘텐츠에서 프로필 팔로우 버튼으로 사용자 유도
    *
    * 비로그인 사용자는 로그인 화면으로 이동하고, 로그인 사용자는 팔로우 버튼을
-   * 화면 중앙으로 이동한 뒤 사용할 수 있으면 즉시 실행한다.
+   * 화면 중앙 이동 후 사용할 수 있으면 즉시 실행
    */
   const requestFollowFromRail = useCallback(() => {
     if (!viewerId) {
@@ -233,7 +234,7 @@ export default function UserProfile({
   };
 
   /**
-   * 판매 상태 탭을 URL 쿼리에 반영해 새로고침과 복귀 후에도 선택을 유지한다.
+   * 판매 상태 탭의 URL 쿼리 반영과 새로고침·복귀 후 선택 유지
    *
    * @param tab - 선택한 판매 중 또는 판매 완료 상태
    */
@@ -299,13 +300,13 @@ export default function UserProfile({
         <>
           {/* 3. 방송국 레일: 현재 프로필 경로를 유지한 채 channel로 이동하고 자동 prefetch는 생략 */}
           <section>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex min-h-10 items-center justify-between">
               <h2 className="text-sm font-bold text-primary">방송국</h2>
               <Link
                 href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(next)}`}
                 prefetch={false}
                 aria-label="방송국 전체 보기"
-                className="focus-ring-soft flex items-center rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                className="focus-ring-soft -mr-2 inline-flex min-h-10 items-center rounded-lg px-2 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-brand dark:hover:text-brand-light"
               >
                 방송국 전체 보기
                 <ChevronRightIcon className="size-3 ml-0.5" />
@@ -499,7 +500,7 @@ export default function UserProfile({
 }
 
 /**
- * 선택한 판매 상태의 상품을 불러와 무한 스크롤 목록으로 표시한다.
+ * 선택한 판매 상태의 상품을 불러오는 무한 스크롤 목록 표시
  *
  * @param props - 판매 상태, 프로필 사용자, 보기 방식과 상세 복귀 경로
  * @returns 선택한 판매 탭의 상품 목록 또는 빈 상태 안내

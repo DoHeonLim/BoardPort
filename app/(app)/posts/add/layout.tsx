@@ -12,6 +12,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/add/layout.tsx 에서 app/(app)/posts/add/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  모바일 작성 헤더 높이와 좌우 여백을 압축
  * 2026.09.03  임도헌   Modified  직접 진입에서도 뒤로가기가 게시글 목록으로 복귀하도록 고정
+ * 2026.09.11  임도헌   Modified  불투명 작성 헤더와 본문 폭 기준 구분선으로 통일
  */
 
 import type { ReactNode } from "react";
@@ -24,11 +25,11 @@ export default function AddPostLayout({ children }: { children: ReactNode }) {
       <header
         className={cn(
           "sticky top-0 z-40 h-[52px] w-full",
-          "bg-background/80 backdrop-blur-md border-b border-border-subtle",
+          "bg-background",
           "transition-colors"
         )}
       >
-        <div className="mx-auto flex h-full max-w-3xl items-center gap-2.5 px-3">
+        <div className="mx-auto flex h-full max-w-3xl items-center gap-2.5 border-b border-border-subtle px-3">
           <BackButton
             fallbackHref="/posts"
             preferFallback

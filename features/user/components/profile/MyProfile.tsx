@@ -56,6 +56,7 @@
  * 2026.06.18  임도헌   Modified   정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.08.13  임도헌   Modified  내 프로필 리뷰 목록에 현재 조회자 ID 전달
  * 2026.09.08  임도헌   Modified  하단 섹션에 최근 작성 게시글 전달
+ * 2026.09.11  임도헌   Modified  프로필 보조 링크의 모바일 터치 영역 보강
  */
 "use client";
 
@@ -238,12 +239,12 @@ export default function MyProfile({
 
       {/* 2. 알림 설정 및 기기 상태 안내 */}
       <section>
-        <div className="flex items-end justify-between mb-3 px-1">
+        <div className="mb-3 flex min-h-10 items-center justify-between px-1">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
             href={`/profile/notifications/setting?returnTo=${encodeURIComponent(returnTo)}`}
             prefetch={false}
-            className="focus-ring-soft rounded-md text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
+            className="focus-ring-soft -mr-2 inline-flex min-h-10 items-center rounded-lg px-2 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-brand dark:hover:text-brand-light"
           >
             상세 설정
           </Link>

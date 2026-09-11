@@ -8,11 +8,15 @@
  * 2026.05.03  임도헌   Created   상품/게시글/방송 상세의 연결 보드게임 표시 컴포넌트 추가
  * 2026.05.04  임도헌   Modified  게시글 상세에서 사용할 수 있는 카드형 표시 variant 추가
  * 2026.09.07  임도헌   Modified  상세 화면 문서 구조에 맞춰 카드형 제목 레벨 선택 지원
+ * 2026.09.11  임도헌   Modified  카드형 섹션 제목에 보드게임 아이콘과 제목 레벨별 위계 보강
  */
 
 import Link from "next/link";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowTopRightOnSquareIcon,
+  PuzzlePieceIcon,
+} from "@heroicons/react/24/outline";
 
 interface LinkedBoardGameChipsProps {
   items?: BoardGameRelationOption[];
@@ -43,12 +47,16 @@ export default function LinkedBoardGameChips({
     return (
       <section className="flex flex-col gap-2">
         <Heading
-          className={
+          className={`flex items-center gap-2 ${
             headingLevel === "h2"
-              ? "text-sm font-bold text-primary"
+              ? "text-base font-bold text-primary"
               : "text-sm font-semibold text-primary"
-          }
+          }`}
         >
+          <PuzzlePieceIcon
+            aria-hidden="true"
+            className="size-5 shrink-0 text-brand dark:text-brand-light"
+          />
           {title}
         </Heading>
         <div className="grid gap-2">

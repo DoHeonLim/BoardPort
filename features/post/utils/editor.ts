@@ -8,6 +8,7 @@
  * 2026.03.31  임도헌   Created   PostForm에서 분리한 블록 생성/초기화/본문 추출 헬퍼 정리
  * 2026.03.31  임도헌   Modified  블록 복원과 초기 편집기 구성 목적이 드러나도록 JSDoc 보강
  * 2026.03.31  임도헌   Modified  유튜브 전용 EMBED 블록 생성 및 초기 복원 헬퍼 추가
+ * 2026.09.11  임도헌   Modified  신규 폼 초기 텍스트 블록 ID 고정으로 hydration과 드래그 핸들 연결 안정화
  */
 
 import type { PostBlock, PostEditorBlock } from "@/features/post/types";
@@ -45,9 +46,18 @@ export function createEmbedEditorBlock(url = ""): PostEditorBlock {
   };
 }
 
+/** 서버와 브라우저에서 동일하게 복원되는 최초 텍스트 블록 생성 */
+function createInitialTextEditorBlock(text: string): PostEditorBlock {
+  return {
+    id: "text-initial",
+    type: "TEXT",
+    textContent: text,
+  };
+}
+
 /**
  * 편집기 초기 블록 배열 계산
- * 저장된 blocks가 있으면 그대로 복원하고, 없으면 최소 TEXT 블록 하나로 편집기를 시작합니다.
+ * 저장된 blocks가 있으면 그대로 복원하고, 없으면 최소 TEXT 블록 하나로 편집기 시작
  */
 export function deriveInitialEditorBlocks(
   description: string,
@@ -88,17 +98,21 @@ export function deriveInitialEditorBlocks(
       }
     }
 
-    return editorBlocks.length ? editorBlocks : [createTextEditorBlock(description)];
+    return editorBlocks.length
+      ? editorBlocks
+      : [createInitialTextEditorBlock(description)];
   }
 
-  return [createTextEditorBlock(description)];
+  return [createInitialTextEditorBlock(description)];
 }
 
 /**
  * 저장용 본문 문자열 계산
  * description 검색/미리보기 필드와의 동기화를 위해 TEXT 블록만 추려 하나의 문자열로 합칩니다.
  */
-export function getDescriptionFromEditorBlocks(blocks: PostEditorBlock[]): string {
+export function getDescriptionFromEditorBlocks(
+  blocks: PostEditorBlock[]
+): string {
   return blocks
     .filter((block) => block.type === "TEXT")
     .map((block) => block.textContent?.trim() ?? "")
@@ -108,7 +122,7 @@ export function getDescriptionFromEditorBlocks(blocks: PostEditorBlock[]): strin
 
 /**
  * 초기 이미지 자산 매핑
- * 저장된 photos/animated 정보를 현재 IMAGE 블록 순서에 맞춰 편집기용 자산으로 복원합니다.
+ * 저장된 photos/animated 정보를 현재 IMAGE 블록 순서에 맞춘 편집기용 자산으로 복원
  */
 export function deriveInitialImageBlockAssets(
   blocks: PostEditorBlock[],

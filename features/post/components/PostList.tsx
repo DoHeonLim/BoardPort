@@ -28,6 +28,8 @@
  * 2026.05.30  임도헌   Modified  게시글 뷰 토글을 제품 목록 토글 톤과 통일
  * 2026.08.13  임도헌   Modified  게시글 목록 query에 현재 조회자 ID 전달
  * 2026.09.08  임도헌   Modified  메인 게시글 목록 도구 행에 정렬 선택 추가
+ * 2026.09.11  임도헌   Modified  실제 대표 이미지가 있는 첫 게시글을 LCP 우선 대상으로 지정
+ * 2026.09.11  임도헌   Modified  첫 화면 실제 대표 이미지 2장을 LCP 우선 대상으로 지정
  */
 
 "use client";
@@ -38,6 +40,7 @@ import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostCard from "@/features/post/components/postCard";
+import { getPostCardThumbnail } from "@/features/post/components/postCard/PostCardThumbnail";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { PostSearchParams } from "@/features/post/types";
@@ -50,7 +53,7 @@ interface PostListProps {
   viewerId: number;
 }
 
-const LCP_PRIORITY_CARD_COUNT = 3;
+const LCP_EAGER_IMAGE_COUNT = 2;
 
 /**
  * 게시글 목록 렌더링 컴포넌트
@@ -85,6 +88,12 @@ export default function PostList({
 
   // 렌더링용 파생값의 훅 호출 아래 1회 계산
   const displayCount = totalCount ?? posts.length;
+  const priorityPostIds = new Set(
+    posts
+      .filter((post) => Boolean(getPostCardThumbnail(post.images, post.blocks)))
+      .slice(0, LCP_EAGER_IMAGE_COUNT)
+      .map((post) => post.id)
+  );
   const returnTo = useMemo(() => {
     const next = currentSearchParams.toString();
     return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
@@ -142,7 +151,7 @@ export default function PostList({
         </div>
       </div>
 
-      {/* 제품 카드 */}
+      {/* 게시글 카드 목록 */}
       <div
         className={cn(
           viewMode === "grid"
@@ -150,12 +159,12 @@ export default function PostList({
             : "mx-auto grid max-w-4xl grid-cols-1 gap-3 sm:gap-4"
         )}
       >
-        {posts.map((post, index) => (
+        {posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
             viewMode={viewMode}
-            isPriority={index < LCP_PRIORITY_CARD_COUNT}
+            isPriority={priorityPostIds.has(post.id)}
             returnTo={returnTo}
           />
         ))}

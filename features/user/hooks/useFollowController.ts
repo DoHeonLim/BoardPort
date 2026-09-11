@@ -25,12 +25,14 @@
  * 2026.05.16  임도헌   Modified  팔로우 모달 캐시 조회 타입을 명시해 any 캐스팅 제거
  * 2026.06.17  임도헌   Modified  팔로우 버튼/카운트 표시만 선반영하고 팔로워 전용 접근 상태는 서버 성공 후 동기화
  * 2026.08.13  임도헌   Modified  팔로우 통계·목록 cache 갱신을 현재 조회자로 제한
+ * 2026.09.11  임도헌   Modified  팔로우 통계 cache를 서버 snapshot 공용 훅으로 동기화
  */
 "use client";
 
 import { useCallback, useState } from "react";
-import { useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 import { useFollowToggle } from "@/features/user/hooks/useFollowToggle";
 import { useFollowPagination } from "@/features/user/hooks/useFollowPagination";
 import { queryKeys } from "@/lib/queryKeys";
@@ -75,14 +77,13 @@ export function useFollowController({
 
   // 헤더 통계 캐시
   // profile/channel 상단 숫자와 팔로우 버튼을 같은 query key 기준으로 유지
-  const { data: followStats } = useQuery({
+  const followStats = useServerSnapshotQuery({
     queryKey: queryKeys.users.followStats(ownerId, viewerId ?? null),
-    initialData: {
+    snapshot: {
       isFollowing: initialIsFollowing,
       followerCount: initialFollowerCount,
       followingCount: initialFollowingCount,
     },
-    staleTime: Infinity, // Mutation 발생 시 덮어쓰기 전까지 유지
   });
   const [optimisticOwnerState, setOptimisticOwnerState] = useState<{
     isFollowing: boolean;
@@ -120,7 +121,7 @@ export function useFollowController({
 
   /**
    * 헤더의 팔로우 버튼 토글 (Viewer -> Owner)
- * 실제 캐시 갱신은 `useFollowToggle` 내부 처리
+   * 실제 캐시 갱신은 `useFollowToggle` 내부 처리
    */
   const onToggleFollow = useCallback(async () => {
     if (!viewerId) return onRequireLogin?.();

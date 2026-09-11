@@ -9,6 +9,7 @@
  * 2026.04.16  임도헌   Modified   MyProfile 하단 섹션을 지연 렌더링 전용 컴포넌트로 분리
  * 2026.05.12  임도헌   Modified   내 방송국 StreamCard에 카테고리/태그/보드게임 메타 전달
  * 2026.09.08  임도헌   Modified   내 최근 작성 게시글 미리보기 추가
+ * 2026.09.11  임도헌   Modified   방송국 보조 링크의 모바일 터치 영역 보강
  */
 
 import type { CSSProperties } from "react";
@@ -124,13 +125,13 @@ export default function MyProfileDeferredSections({
 
       {/* 4-2. 방송국 레일 */}
       <section style={DEFERRED_SECTION_STYLE}>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex min-h-10 items-center justify-between">
           <h2 className="text-sm font-bold text-primary">내 방송국</h2>
           <Link
             href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(returnTo)}`}
             prefetch={false}
             aria-label="방송국 전체 보기"
-            className="focus-ring-soft flex items-center rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+            className="focus-ring-soft -mr-2 inline-flex min-h-10 items-center rounded-lg px-2 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-brand dark:hover:text-brand-light"
           >
             방송국 전체 보기
             <ChevronRightIcon className="ml-0.5 size-3" />

@@ -38,6 +38,8 @@
  * 2026.06.04  임도헌   Modified  모바일 하단 고정 UI와 마지막 상품 카드가 겹치지 않도록 목록 여백 보강
  * 2026.08.13  임도헌   Modified  상품 목록 query에 현재 조회자 ID 전달
  * 2026.09.08  임도헌   Modified  메인 상품 목록 도구 행에 정렬 선택 추가
+ * 2026.09.11  임도헌   Modified  실제 대표 이미지가 있는 첫 상품을 LCP 우선 대상으로 지정
+ * 2026.09.11  임도헌   Modified  모바일 첫 화면 실제 대표 이미지 4장을 LCP 우선 대상으로 지정
  */
 
 "use client";
@@ -68,6 +70,8 @@ type ProductListProps = {
   viewerId: number;
   headerAction?: ReactNode;
 };
+
+const LCP_EAGER_IMAGE_COUNT = 4;
 
 /**
  * 제품 목록 렌더링 컴포넌트
@@ -116,6 +120,12 @@ export default function ProductList({
   });
 
   const displayCount = totalCount ?? products.length;
+  const priorityProductIds = new Set(
+    products
+      .filter((product) => Boolean(product.images[0]?.url))
+      .slice(0, LCP_EAGER_IMAGE_COUNT)
+      .map((product) => product.id)
+  );
   const returnTo = useMemo(() => {
     const next = currentSearchParams.toString();
     return sanitizeCallbackUrl(pathname + (next ? `?${next}` : ""));
@@ -180,12 +190,12 @@ export default function ProductList({
               : "grid grid-cols-1 gap-4"
           )}
         >
-          {products.map((product, index) => (
+          {products.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
               viewMode={viewMode}
-              isPriority={index === 0}
+              isPriority={priorityProductIds.has(product.id)}
               returnTo={returnTo}
             />
           ))}
