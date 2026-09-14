@@ -21,6 +21,7 @@
  * 2026.08.28  임도헌   Modified  데스크톱 모달 셸 함수 JSDoc 보강
  * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
  * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useRef, useState } from "react";
@@ -39,6 +40,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
 
 interface Props {
+  open: boolean;
   onClose: () => void;
   onSelect: (data: LocationData) => void;
 }
@@ -134,7 +136,11 @@ function mergeResults(
  * 3. 모바일 BottomSheet / 데스크톱 포털 모달 분기
  * 4. 선택 결과의 프로필 위치 저장 형식 변환
  */
-export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
+export default function NeighborhoodSearchModal({
+  open,
+  onClose,
+  onSelect,
+}: Props) {
   const isMobile = useIsMobile();
   const { loading, error } = useKakaoLoader();
   const [keyword, setKeyword] = useState("");
@@ -148,7 +154,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useModalFocus({
-    open: true,
+    open,
     enabled: !isMobile,
     containerRef: dialogRef,
     initialFocusRef: dialogRef,
@@ -368,10 +374,12 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
     </div>
   );
 
+  if (!open && !isMobile) return null;
+
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={open}
         title="내 동네 검색"
         description="동, 읍, 면 단위로 검색해 내 동네를 설정합니다."
         onClose={onClose}

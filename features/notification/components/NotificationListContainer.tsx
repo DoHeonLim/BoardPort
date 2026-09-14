@@ -39,9 +39,11 @@
  * 2026.06.21  임도헌   Modified  모바일 알림 제목/본문 펼침 기준을 실제 clamp overflow 측정으로 보정
  * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
  * 2026.09.12  임도헌   Modified  전체·유형별 알림 빈 상태를 구분하고 필터 복구 동선 추가
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import dynamic from "next/dynamic";
 import {
   useEffect,
@@ -611,14 +613,14 @@ export default function NotificationListContainer({
         totalPages={data.totalPages}
       />
 
-      {isKeywordModalOpen ? (
+      <ModalPresence open={isKeywordModalOpen}>
         <KeywordAlertModal
           isOpen={isKeywordModalOpen}
           onClose={() => setIsKeywordModalOpen(false)}
           initialKeywords={keywordAlerts}
           userLocation={userLocation}
         />
-      ) : null}
+      </ModalPresence>
     </div>
   );
 }

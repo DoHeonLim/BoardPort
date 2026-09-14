@@ -36,9 +36,11 @@
  * 2026.09.10  임도헌   Modified   도감 작성 진입의 보드게임 초기값과 상세 복귀 문맥 적용
  * 2026.09.12  임도헌   Modified   방송 필수 설정을 먼저 배치하고 설명·썸네일·태그를 선택 입력 섹션으로 통합
  * 2026.09.12  임도헌   Modified   방송 준비 중 진행 표시와 취소 이동 잠금 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -532,16 +534,18 @@ export default function StreamForm({
       </form>
 
       {/* OBS 정보 모달 */}
-      {showStreamInfo && streamInfo && (
-        <RTMPInfoModal
-          open={showStreamInfo}
-          onOpenChange={setShowStreamInfo}
-          rtmpUrl={streamInfo.rtmpUrl}
-          streamKey={streamInfo.streamKey}
-          liveInputId={streamInfo.liveInputId}
-          broadcastId={streamInfo.broadcastId ?? undefined}
-          returnTo={cancelHref}
-        />
+      {streamInfo && (
+        <ModalPresence open={showStreamInfo}>
+          <RTMPInfoModal
+            open={showStreamInfo}
+            onOpenChange={setShowStreamInfo}
+            rtmpUrl={streamInfo.rtmpUrl}
+            streamKey={streamInfo.streamKey}
+            liveInputId={streamInfo.liveInputId}
+            broadcastId={streamInfo.broadcastId ?? undefined}
+            returnTo={cancelHref}
+          />
+        </ModalPresence>
       )}
     </div>
   );

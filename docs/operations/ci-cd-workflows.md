@@ -71,6 +71,8 @@ E2E는 공유 테스트 DB를 사용하므로 workflow concurrency를 `e2e-share
 
 ## 3. E2E Secrets
 
+모바일 UI 회귀 테스트도 위 Chromium 실행에 포함됩니다. 해당 파일에서 화면 너비와 터치 입력을 설정하므로 별도 모바일 project는 필요하지 않습니다. 이는 Chromium에서의 반응형 검사이며 실제 iOS Safari 검증을 대체하지 않습니다. 상세 범위는 [테스트 전략](./testing-strategy.md#모바일-ui-회귀)을 참고합니다.
+
 GitHub Actions에서 E2E를 실행하려면 아래 secrets를 설정합니다.
 
 | Secret                                     | 설명                                                                          |

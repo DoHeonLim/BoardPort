@@ -58,10 +58,12 @@
  * 2026.09.11  임도헌   Modified  통합 찜 목록의 빠른 해제 액션 배치 공간 지원
  * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각과 썸네일 보드게임 배지 지원
  * 2026.09.12  임도헌   Modified  보드게임 배지와 하단 메타를 탐색에 필요한 정보 중심으로 정리
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -644,14 +646,14 @@ export default function StreamCard(props: StreamCardProps) {
       )}
 
       {/* 공용 비밀번호 모달 */}
-      {isModalOpen && (
+      <ModalPresence open={isModalOpen}>
         <PrivateAccessModal
           open={isModalOpen}
           onOpenChange={setIsModalOpen}
           streamId={id}
           redirectHref={navigableHref}
         />
-      )}
+      </ModalPresence>
     </article>
   );
 }

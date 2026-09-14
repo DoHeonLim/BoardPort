@@ -29,6 +29,7 @@
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -138,7 +139,7 @@ export default function SelectUserModal({
     [isProcessingId, onOpenChange, onConfirm]
   );
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   const bodyContent = (
     <div className="flex min-h-0 flex-1 flex-col">

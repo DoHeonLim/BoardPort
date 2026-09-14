@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.09.08  임도헌   Created   현재 query를 보존하는 목록 정렬 선택 UI 추가
  * 2026.09.08  임도헌   Modified  앱 테마에 맞춰 네이티브 옵션 창의 색상 체계 고정
+ * 2026.09.14  임도헌   Modified  모바일 목록 조작 버튼의 최소 44px 터치 영역 확보
  */
 
 "use client";
@@ -52,14 +53,14 @@ export default function UrlSortSelect<T extends string>({
   };
 
   return (
-    <label className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-2.5 text-sm font-medium text-muted transition-[border-color,box-shadow] focus-within:border-brand/60 focus-within:ring-2 focus-within:ring-brand/25 dark:focus-within:border-brand-light/70 dark:focus-within:ring-brand-light/25 sm:min-h-[44px] sm:px-3">
+    <label className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl border border-border-subtle bg-surface px-2.5 text-sm font-medium text-muted transition-[border-color,box-shadow] focus-within:border-brand/60 focus-within:ring-2 focus-within:ring-brand/25 dark:focus-within:border-brand-light/70 dark:focus-within:ring-brand-light/25 sm:px-3">
       <ArrowsUpDownIcon className="size-4" aria-hidden="true" />
       <span className="sr-only">{ariaLabel}</span>
       <select
         value={value}
         onChange={(event) => handleChange(event.target.value as T)}
         aria-label={ariaLabel}
-        className="cursor-pointer border-0 bg-transparent p-0 pr-6 text-sm font-bold text-primary shadow-none outline-none [color-scheme:light] focus:ring-0 dark:[color-scheme:dark]"
+        className="min-h-[44px] cursor-pointer border-0 bg-transparent p-0 pr-6 text-sm font-bold text-primary shadow-none outline-none [color-scheme:light] focus:ring-0 dark:[color-scheme:dark]"
       >
         {options.map((option) => (
           <option

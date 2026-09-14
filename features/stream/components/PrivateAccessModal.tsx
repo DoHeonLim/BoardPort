@@ -32,6 +32,7 @@
  * 2026.08.30  임도헌   Modified  언락 후 활성 Realtime JWT 캐시만 갱신하는 전용 모듈 사용
  * 2026.09.13  임도헌   Modified  입장 CTA를 공통 비동기 버튼으로 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -179,7 +180,7 @@ export default function PrivateAccessModal({
     });
   };
 
-  if (!open) return null;
+  if (!open && !isMobile) return null;
 
   const formId = "private-access-form";
   const passwordInput = (

@@ -28,6 +28,7 @@
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
  * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -62,9 +63,10 @@ interface EmailVerificationModalProps {
  * 3. 인증 성공 시 페이지를 새로고침하여 변경된 인증 상태를 반영
  */
 function EmailVerificationModalInner({
+  isOpen,
   onClose,
   email,
-}: Omit<EmailVerificationModalProps, "isOpen">) {
+}: EmailVerificationModalProps) {
   const isMobile = useIsMobile();
   const router = useRouter();
   const [state, action] = useFormState(verifyEmail, INITIAL_EMAIL_VERIFY_STATE);
@@ -238,15 +240,15 @@ function EmailVerificationModalInner({
 
   // 모바일은 BottomSheet가 담당하므로 데스크톱에서만 스크롤을 잠근다.
   useEffect(() => {
-    if (isMobile) return;
+    if (isMobile || !isOpen) return;
     lockBodyScroll();
     return () => {
       unlockBodyScroll();
     };
-  }, [isMobile]);
+  }, [isMobile, isOpen]);
 
   useModalFocus({
-    open: true,
+    open: isOpen,
     enabled: !isMobile,
     containerRef: dialogRef,
     initialFocusRef: dialogRef,
@@ -254,6 +256,8 @@ function EmailVerificationModalInner({
   });
 
   // 상태별 본문 분기
+  if (!isOpen && !isMobile) return null;
+
   const content = state.token ? (
     <div className="space-y-6">
       <div>
@@ -315,7 +319,7 @@ function EmailVerificationModalInner({
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={isOpen}
         title="이메일 인증"
         description={maskedEmail}
         onClose={onClose}
@@ -384,11 +388,10 @@ export default function EmailVerificationModal({
     prevOpen.current = isOpen;
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   return (
     <EmailVerificationModalInner
       key={`${email}-${openSeq}`}
+      isOpen={isOpen}
       onClose={onClose}
       email={email}
     />

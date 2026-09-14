@@ -8,6 +8,7 @@ Author : 임도헌
 History
 Date        Author   Status    Description
 2026.08.22  임도헌   Created   MediaAsset 배포 순서와 안전한 OG 이미지 처리 경계 정리
+2026.09.14  임도헌   Modified  방송·녹화본 사용자 썸네일의 연결과 교체 범위 반영
 -->
 
 ## 목적
@@ -28,7 +29,7 @@ Cloudflare Images direct upload URL 자체는 일회성이지만, 발급된 이�
 1. 배포 전 migration을 적용해 기존 Cloudflare Images URL을 `MediaAsset`에 backfill한다.
 2. backfill 결과에서 목적별 수량과 충돌 누락을 확인한다.
 3. 새 애플리케이션 버전을 배포한다.
-4. 상품·게시글·채팅·아바타·방송 썸네일을 각각 한 번 업로드해 정상 연결을 확인한다.
+4. 상품·게시글·채팅·아바타·방송·녹화본 썸네일을 각각 한 번 업로드해 정상 연결을 확인한다.
 
 운영 DB migration 명령은 저장소 루트에서 다음과 같이 실행한다.
 
@@ -50,6 +51,13 @@ order by "purpose";
 ```
 
 Cloudflare가 아닌 GitHub OAuth 아바타 등 외부 프로필 이미지는 backfill 대상이 아니다. 기존 값은 변경하지 않는 편집에서만 유지되며, 새 사용자 업로드는 반드시 현재 Cloudflare 계정에 속하고 `MediaAsset`에 등록된 자산이어야 한다.
+
+## 방송·녹화본 썸네일
+
+- 방송 사용자 썸네일은 `STREAM_THUMBNAIL`, 녹화본 사용자 썸네일은 `VOD_THUMBNAIL` 용도로 구분한다.
+- 수정 시 현재 사용자가 소유한 용도의 자산만 연결하고, 교체·제거된 이전 자산은 `ORPHANED → DELETED`로 정리한다.
+- 녹화본 화면은 사용자 지정 썸네일, Cloudflare Stream 자동 썸네일, 부모 방송 썸네일 순서로 표시한다.
+- 방송·녹화본 삭제와 회원 탈퇴에서는 연결된 사용자 썸네일도 기존 이미지 정리 경로에 포함한다.
 
 ## 미연결 업로드 정책
 

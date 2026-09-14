@@ -20,6 +20,7 @@
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  * 2026.09.13  임도헌   Modified  관리자 액션별 공통 버튼 variant·진행 표시 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { createPortal } from "react-dom";
@@ -101,10 +102,9 @@ export default function AdminActionModal({
     setMounted(true);
   }, []);
 
-  // 모달 종료 시 입력 상태 초기화
-  // 같은 모달을 여러 대상에 재사용하므로 닫힐 때 사유와 기간을 기본값으로 초기화
+  // 열릴 때 입력 상태를 초기화해 퇴장 중 내용 변경 방지
   useEffect(() => {
-    if (!open) {
+    if (open) {
       setReason("");
       setBanDuration(0);
     }
@@ -118,7 +118,7 @@ export default function AdminActionModal({
     onClose: handleRequestClose,
   });
 
-  if (!open || !mounted) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const handleConfirm = () => {
     if (reason.trim().length < minReasonLength) return;
@@ -226,7 +226,7 @@ export default function AdminActionModal({
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={open}
         title={title}
         description={description}
         onClose={handleRequestClose}

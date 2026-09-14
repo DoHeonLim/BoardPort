@@ -18,9 +18,11 @@
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.28  임도헌   Modified  온보딩 제출 함수 JSDoc 보강
  * 2026.09.13  임도헌   Modified  공용 제출 진행 표시와 필드 구독 방식 정리
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useMemo, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -300,12 +302,13 @@ export default function OnboardingForm({
         />
       </form>
 
-      {isLocationModalOpen && (
+      <ModalPresence open={isLocationModalOpen}>
         <NeighborhoodSearchModal
+          open={isLocationModalOpen}
           onClose={() => setIsLocationModalOpen(false)}
           onSelect={handleLocationSelect}
         />
-      )}
+      </ModalPresence>
     </>
   );
 }

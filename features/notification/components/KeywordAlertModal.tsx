@@ -9,6 +9,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -73,7 +74,7 @@ export default function KeywordAlertModal({
     onClose,
   });
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   if (isMobile) {
     return (

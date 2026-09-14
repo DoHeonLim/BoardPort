@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.13  임도헌   Created   목록 화면의 보기 방식 전환 UI와 접근성 상태 통일
+ * 2026.09.14  임도헌   Modified  모바일 목록 조작 버튼의 최소 44px 터치 영역 확보
  */
 "use client";
 
@@ -53,7 +54,7 @@ export default function ViewModeToggle({
             aria-label={label}
             aria-pressed={isSelected}
             className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
+              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
               isSelected
                 ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
                 : "text-muted hover:bg-surface-dim hover:text-primary"

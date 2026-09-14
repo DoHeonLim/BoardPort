@@ -8,6 +8,7 @@
  * 2026.09.08  임도헌   Created   녹화본 제목과 사용자 썸네일 교체·제거 기능 추가
  * 2026.09.13  임도헌   Modified  저장 CTA를 공통 비동기 버튼으로 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -89,7 +90,7 @@ export default function EditRecordingMetaModal({
     },
   });
 
-  if (!open || !mounted) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const selectThumbnail = (file: File) => {
     if (!file.type.startsWith("image/")) {

@@ -28,6 +28,7 @@
  * 2026.09.04  임도헌   Modified  처리 전 대상 제목·사용자명을 주요 정보로 표시하고 ID를 보조 정보로 정리
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  * 2026.09.13  임도헌   Modified  신고 처리 액션별 공통 버튼 진행 표시 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import Link from "next/link";
@@ -197,7 +198,7 @@ export default function ReportActionDialog({
     onClose: handleRequestClose,
   });
 
-  if (!open || !mounted) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const handleAction = (status: "RESOLVED" | "DISMISSED") => {
     setPendingStatus(status);
@@ -518,7 +519,7 @@ export default function ReportActionDialog({
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={open}
         title="신고 처리"
         description={dialogDescription}
         onClose={handleRequestClose}

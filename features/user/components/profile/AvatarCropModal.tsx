@@ -18,6 +18,7 @@
  * 2026.09.06  임도헌   Modified  좌표 슬라이더를 포인터 드래그·방향키 이동으로 전환하고 반응형 크롭 좌표 동기화
  * 2026.09.13  임도헌   Modified  이미지 적용 진행 표시 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -157,7 +158,7 @@ export default function AvatarCropModal({
     [crop, imageSize.height, imageSize.width, viewportSize]
   );
 
-  if (!mounted || !open) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const bodyContent = (
     <>

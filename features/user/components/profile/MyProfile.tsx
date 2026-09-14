@@ -57,9 +57,11 @@
  * 2026.08.13  임도헌   Modified  내 프로필 리뷰 목록에 현재 조회자 ID 전달
  * 2026.09.08  임도헌   Modified  하단 섹션에 최근 작성 게시글 전달
  * 2026.09.11  임도헌   Modified  프로필 보조 링크의 모바일 터치 영역 보강
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -351,37 +353,37 @@ export default function MyProfile({
         onOpenWithdraw={() => openModal("withdraw")}
       />
 
-      {/* 5. Zustand 기반 모달의 실제 열림 시점 한정 렌더링 */}
-      {modals.review && (
+      {/* 5. 모달 퇴장 전환 후 내부 상태 정리 */}
+      <ModalPresence open={modals.review}>
         <ProfileReviewsModal
           isOpen={modals.review}
           onClose={() => closeModal("review")}
           userId={user.id}
           viewerId={user.id}
         />
-      )}
-      {modals.badge && (
+      </ModalPresence>
+      <ModalPresence open={modals.badge}>
         <ProfileBadgesModal
           isOpen={modals.badge}
           closeModal={() => closeModal("badge")}
           badges={badges}
           userBadges={userBadges}
         />
-      )}
-      {modals.email && (
+      </ModalPresence>
+      <ModalPresence open={modals.email}>
         <EmailVerificationModal
           isOpen={modals.email}
           onClose={() => closeModal("email")}
           email={user.email || ""}
         />
-      )}
-      {modals.password && (
+      </ModalPresence>
+      <ModalPresence open={modals.password}>
         <PasswordChangeModal
           isOpen={modals.password}
           onClose={() => closeModal("password")}
         />
-      )}
-      {modals.block && (
+      </ModalPresence>
+      <ModalPresence open={modals.block}>
         <BlockedUsersModal
           isOpen={modals.block}
           onClose={() => closeModal("block")}
@@ -389,13 +391,13 @@ export default function MyProfile({
           loading={blockedUsersLoading}
           onUsersChange={setBlockedUsers}
         />
-      )}
-      {modals.withdraw && (
+      </ModalPresence>
+      <ModalPresence open={modals.withdraw}>
         <WithdrawalModal
           isOpen={modals.withdraw}
           onClose={() => closeModal("withdraw")}
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

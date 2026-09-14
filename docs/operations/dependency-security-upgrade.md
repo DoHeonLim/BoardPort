@@ -2,9 +2,9 @@
 
 ## 목적
 
-BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱신하면서 호환성 변경, PWA 전환, 남은 취약점의 처리 기준을 함께 기록한다.
+BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱신하고, v1.4.0 준비 과정에서 Turbopack과 Serwist 빌드를 분리한 결과까지 기록한다.
 
-최종 확인일은 `2026-08-30`이며, 버전 판단은 [Next.js 16 업그레이드 가이드](https://nextjs.org/docs/app/guides/upgrading/version-16), [Next.js 2026년 8월 보안 릴리스](https://nextjs.org/blog/august-2026-security-release), [Next.js PWA 가이드](https://nextjs.org/docs/app/guides/progressive-web-apps), [Serwist Next.js 가이드](https://serwist.pages.dev/docs/next/getting-started)를 따른다.
+최종 확인일은 `2026-09-14`이며, 버전 판단은 [Next.js 16 업그레이드 가이드](https://nextjs.org/docs/app/guides/upgrading/version-16), [Next.js 2026년 8월 보안 릴리스](https://nextjs.org/blog/august-2026-security-release), [Next.js PWA 가이드](https://nextjs.org/docs/app/guides/progressive-web-apps), [Serwist Next.js 가이드](https://serwist.pages.dev/docs/next/getting-started)를 따른다.
 
 ## 적용 범위
 
@@ -21,7 +21,9 @@ BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱�
 - `revalidateTag`는 기존 즉시 만료 의미를 유지하도록 `{ expire: 0 }` 프로필을 명시한다.
 - 요청 전 인증·인가 파일은 `middleware.ts` 대신 `proxy.ts` 규약을 사용한다.
 - Server Component의 `dynamic(..., { ssr: false })`는 Client Component loader로 경계를 옮긴다.
-- Serwist webpack 통합을 사용하므로 `next dev --webpack`, `next build --webpack`을 명시한다. Turbopack 전환은 Serwist 지원과 PWA 회귀 검증을 별도 수행한 뒤 결정한다.
+- 개발 서버와 Next.js 애플리케이션 빌드는 Turbopack을 사용한다.
+- Serwist는 Next.js 플러그인 결합 대신 `next build --turbopack` 완료 후 `serwist build serwist.config.mjs`를 실행해 서비스 워커를 별도로 생성한다.
+- 빌드 분리 후에도 `/sw.js`, offline fallback과 production service worker E2E를 유지한다.
 
 ## PWA 보존 항목
 

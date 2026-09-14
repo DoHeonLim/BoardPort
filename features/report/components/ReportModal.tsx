@@ -22,6 +22,7 @@
  * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
  * 2026.09.13  임도헌   Modified  신고 접수 CTA를 공통 비동기 버튼으로 통일
  * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import {
@@ -101,12 +102,12 @@ export default function ReportModal({
     if (!isPending) onClose();
   }, [isPending, onClose]);
 
-  // 모달 닫힐 때 상태 초기화
+  // 열릴 때 입력 초기화 및 데스크톱 스크롤 잠금
   useEffect(() => {
-    if (!isOpen) {
-      setReason("");
-      setDescription("");
-    } else if (!isMobile) {
+    if (!isOpen) return;
+    setReason("");
+    setDescription("");
+    if (!isMobile) {
       // 데스크톱 모달은 직접 관리하고, 모바일 스크롤/포커스는 공용 BottomSheet가 담당
       lockBodyScroll();
       return () => {
@@ -123,7 +124,7 @@ export default function ReportModal({
     onClose: handleRequestClose,
   });
 
-  if (!isOpen || !mounted) return null;
+  if (!mounted || (!isOpen && !isMobile)) return null;
 
   const handleSubmit = () => {
     if (!reason) {
@@ -220,7 +221,7 @@ export default function ReportModal({
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={isOpen}
         title="신고하기"
         onClose={handleRequestClose}
         contentClassName="px-4 py-5"

@@ -22,10 +22,12 @@
  * 2026.09.04  임도헌   Modified  신고 목록에 대상 제목·사용자명과 작성자 식별 정보 표시
  * 2026.09.06  임도헌   Modified  파란 카드 액션 버튼의 라이트모드 포커스를 흰 내부 링으로 구분
  * 2026.09.12  임도헌   Modified  검색·상태 필터 결과 0건 상태에 조건 초기화 동선 추가
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -90,10 +92,15 @@ export default function AdminReportListContainer({
   const hasActiveFilters =
     !!searchParams.get("q")?.trim() || currentStatus !== "PENDING";
   const autoOpenReportId = Number(searchParams.get("open"));
-  const selectedReport =
+  const activeReport =
     selectedReportId !== null
       ? (reports.find((report) => report.id === selectedReportId) ?? null)
       : null;
+  const [lastReport, setLastReport] = useState<AdminReportItem | null>(null);
+  useEffect(() => {
+    if (activeReport) setLastReport(activeReport);
+  }, [activeReport]);
+  const selectedReport = selectedReportId === null ? lastReport : activeReport;
   // 안전한 내부 복귀 경로
   // 상세 진입과 모달 자동 오픈을 오갈 때 raw 외부 경로가 다시 전파되지 않도록 내부 경로 정규화
   const returnTo = sanitizeCallbackUrl(
@@ -499,11 +506,11 @@ export default function AdminReportListContainer({
         totalPages={data.totalPages}
       />
 
-      {selectedReportId && (
+      <ModalPresence open={selectedReportId !== null}>
         <ReportActionDialog
           open={!!selectedReportId}
           onClose={handleDialogClose}
-          reportId={selectedReportId}
+          reportId={selectedReportId ?? selectedReport?.id ?? 0}
           reportReason={selectedReport?.reason as ReportReason}
           currentStrikeTotal={selectedReport?.recentStrikeTotal ?? 0}
           reporterUsername={selectedReport?.reporter.username}
@@ -543,7 +550,7 @@ export default function AdminReportListContainer({
           existingAdminComment={selectedReport?.adminComment ?? null}
           onSuccess={handleSuccess}
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

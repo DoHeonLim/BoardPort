@@ -60,10 +60,12 @@
  * 2026.09.12  임도헌   Modified  판매 목록 보기 방식의 URL 보존 및 토글 접근성 보강
  * 2026.09.12  임도헌   Modified  프로필 빈 후기와 판매 목록의 안내 동선 정리
  * 2026.09.13  임도헌   Modified  판매 목록의 리스트·그리드 전환 UI를 공통 컴포넌트로 통일
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import {
   useMemo,
   useRef,
@@ -475,22 +477,22 @@ export default function UserProfile({
           </section>
 
           {/* 7. 리뷰 전체보기 모달 */}
-          {isReviewModalOpen && (
+          <ModalPresence open={isReviewModalOpen}>
             <ProfileReviewsModal
               isOpen={isReviewModalOpen}
               onClose={() => setIsReviewModalOpen(false)}
               userId={user.id}
               viewerId={viewerId ?? null}
             />
-          )}
-          {isBadgeModalOpen && (
+          </ModalPresence>
+          <ModalPresence open={isBadgeModalOpen}>
             <ProfileBadgesModal
               isOpen={isBadgeModalOpen}
               closeModal={() => setIsBadgeModalOpen(false)}
               badges={badges}
               userBadges={userBadges}
             />
-          )}
+          </ModalPresence>
         </>
       )}
     </div>

@@ -25,6 +25,7 @@
  * 2026.04.10  임도헌   Modified  검색 타이포 정책에 맞춰 드롭다운 헤더 weight를 500 기준으로 정리
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.09.12  임도헌   Modified  필터 닫기 버튼의 폼 제출 방지 타입 명시
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -166,7 +167,7 @@ export default function SearchFilters({
   );
   const hasChildCategories = childCategories.length > 0;
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   return (
     <div className="relative z-50">

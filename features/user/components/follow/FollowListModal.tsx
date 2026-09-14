@@ -35,6 +35,7 @@
  * 2026.09.12  임도헌   Modified  닫기 버튼의 접근성 이름과 장식 아이콘 의미 분리
  * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  * 2026.09.14  임도헌   Modified  공용 시트와 같은 속도의 모바일 진입·퇴장 전환 적용
+ * 2026.09.14  임도헌   Modified  퇴장 중 상호작용 차단 및 동작 줄이기 설정 반영
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -130,9 +131,14 @@ export default function FollowListModal({
       });
     } else {
       setIsVisible(false);
-      exitTimer = window.setTimeout(() => {
-        setShouldRender(false);
-      }, TRANSITION_DURATION_MS);
+      exitTimer = window.setTimeout(
+        () => {
+          setShouldRender(false);
+        },
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : TRANSITION_DURATION_MS
+      );
     }
 
     return () => {
@@ -184,6 +190,7 @@ export default function FollowListModal({
 
   return (
     <div
+      inert={!isOpen}
       className={cn(
         "fixed inset-0 z-50 flex items-end justify-center sm:items-center",
         !isVisible && "pointer-events-none"

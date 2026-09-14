@@ -55,10 +55,12 @@
  * 2026.06.18  임도헌   Modified  판매 내역 하단 액션의 주요/일반/위험 톤 분리
  * 2026.06.21  임도헌   Modified  판매 내역 위험 액션을 공용 danger 토큰 기준으로 통일해 다크모드 대비 보정
  * 2026.09.13  임도헌   Modified  판매 내역의 거래 후기 용어 통일
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import {
   useEffect,
   useState,
@@ -833,14 +835,14 @@ export default function MySalesProductItem({
       )}
 
       {/* 4. 유저 예약자 선택 */}
-      {modalState.reservation && (
+      <ModalPresence open={modalState.reservation}>
         <SelectUserModal
           productId={product.id}
           isOpen={modalState.reservation}
           onOpenChange={(v) => toggleModal("reservation", v)}
           onConfirm={handleReserveConfirm}
         />
-      )}
+      </ModalPresence>
 
       {/* 5. 상태 변경 확인 다이얼로그 */}
       <ConfirmDialog

@@ -23,6 +23,7 @@
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 수명 주기를 공용 useModalFocus로 통일
  * 2026.08.28  임도헌   Modified  로딩 중 취소 방지 함수 JSDoc 보강
  * 2026.09.13  임도헌   Modified  확인 액션에 공통 버튼 variant·진행 표시 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -102,7 +103,7 @@ export default function ConfirmDialog({
   });
 
   // open이 false거나 마운트 전이면 렌더링 안 함
-  if (!open || !mounted) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const onBackdropClick = onCancelIfIdle;
 
@@ -157,7 +158,7 @@ export default function ConfirmDialog({
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={open}
         title={title}
         onClose={onCancelIfIdle}
         footer={mobileConfirmButton}

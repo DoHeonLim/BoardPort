@@ -26,6 +26,7 @@
  * 2026.08.13  임도헌   Modified  리뷰 목록에 차단 필터 기준 조회자 ID 전달
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, Suspense } from "react";
@@ -83,7 +84,7 @@ export default function ProfileReviewsModal({
     onClose,
   });
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   const reviewsContent = (
     <Suspense

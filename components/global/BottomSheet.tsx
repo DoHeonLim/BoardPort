@@ -13,6 +13,7 @@
  * 2026.08.27  임도헌   Modified  공용 useModalFocus로 초기·순환·복귀 포커스와 중첩 모달 키보드 처리를 통일
  * 2026.09.13  임도헌   Modified  시트 닫기 버튼을 공용 컴포넌트로 통일
  * 2026.09.14  임도헌   Modified  시트와 배경의 공통 진입·퇴장 전환 적용
+ * 2026.09.14  임도헌   Modified  퇴장 중 상호작용 차단 및 동작 줄이기 설정 반영
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -77,14 +78,23 @@ export default function BottomSheet({
 
     if (open) {
       setShouldRender(true);
+      setTranslateY(0);
+      setIsDragging(false);
+      dragStartYRef.current = 0;
+      dragCurrentYRef.current = 0;
       animationFrame = window.requestAnimationFrame(() => {
         setIsVisible(true);
       });
     } else {
       setIsVisible(false);
-      exitTimer = window.setTimeout(() => {
-        setShouldRender(false);
-      }, TRANSITION_DURATION_MS);
+      exitTimer = window.setTimeout(
+        () => {
+          setShouldRender(false);
+        },
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : TRANSITION_DURATION_MS
+      );
     }
 
     return () => {
@@ -145,6 +155,7 @@ export default function BottomSheet({
   };
 
   const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
     setIsDragging(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -163,6 +174,7 @@ export default function BottomSheet({
 
   return createPortal(
     <div
+      inert={!open}
       className={cn(
         "fixed inset-0 z-[60] flex items-end justify-center",
         !isVisible && "pointer-events-none"
@@ -200,7 +212,11 @@ export default function BottomSheet({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
+          onPointerCancel={() => {
+            setIsDragging(false);
+            dragCurrentYRef.current = 0;
+            setTranslateY(0);
+          }}
         >
           <div
             className="mb-3 h-1.5 w-12 rounded-full bg-border"

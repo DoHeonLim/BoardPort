@@ -20,9 +20,11 @@
  * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 댓글 작성자 라벨 weight를 500 기준으로 정리
  * 2026.08.13  임도헌   Modified  댓글 상세 cache와 삭제 mutation을 조회자 범위로 연결
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
@@ -238,14 +240,14 @@ export default function PostCommentItem({
       </BottomSheet>
 
       {/* 신고 모달 */}
-      {reportOpen && (
+      <ModalPresence open={reportOpen}>
         <ReportModal
           isOpen={reportOpen}
           onClose={() => setReportOpen(false)}
           targetId={comment.id}
           targetType="COMMENT"
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

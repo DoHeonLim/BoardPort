@@ -37,6 +37,14 @@ npm run test:e2e -- --project=chromium
 
 seed 데이터가 필요한 테스트까지 실행할 때는 `E2E_SEEDED=1`을 함께 지정합니다.
 
+Bash / WSL:
+
+```bash
+E2E_SEEDED=1 npm run test:e2e -- --project=chromium
+```
+
+PowerShell:
+
 ```powershell
 $env:E2E_SEEDED="1"
 npm run test:e2e -- --project=chromium
@@ -51,6 +59,18 @@ npm run cleanup:e2e
 
 전체 실행 예시는 아래 순서를 기준으로 합니다.
 
+Bash / WSL:
+
+```bash
+npm run seed:e2e
+E2E_SEEDED=1 npm run test:e2e -- --project=chromium
+npm run cleanup:e2e
+```
+
+환경변수는 해당 명령에만 적용되므로 별도 해제가 필요 없습니다.
+
+PowerShell:
+
 ```powershell
 npm run seed:e2e
 $env:E2E_SEEDED="1"
@@ -60,6 +80,14 @@ npm run cleanup:e2e
 ```
 
 특정 spec만 먼저 확인한 뒤 같은 터미널에서 전체 suite를 다시 실행할 때는 중간에 `npm run seed:e2e`를 한 번 더 실행합니다. 약속 수락, 상품 수정, 팔로우처럼 seed 상태를 실제로 변경하는 테스트가 있으므로, Playwright 실행 단위마다 seed 기준 상태를 다시 맞춥니다.
+
+## 스킵과 실행 결과 확인
+
+- seed 생성만으로는 seed 기반 테스트가 활성화되지 않습니다. 테스트 실행 명령에 `E2E_SEEDED=1`을 지정해야 합니다.
+- Bash / WSL에서 PowerShell의 `$env:` 또는 `Remove-Item` 명령을 사용하면 환경변수 설정에 실패합니다.
+- 서비스 워커 테스트는 개발 서버에서 스킵될 수 있습니다. 프로덕션 서버를 사용하는 CI에서 별도로 확인합니다.
+- 실행 결과의 `passed`, `failed`, `skipped`를 함께 확인합니다. 실패가 없어도 seed 기반 테스트가 스킵됐다면 전체 기능 검증 완료가 아닙니다.
+- `--list`는 테스트 검색만 수행하므로 실제 브라우저 검증 결과로 간주하지 않습니다.
 
 ## 데이터 원칙
 
@@ -78,6 +106,26 @@ npm run cleanup:e2e
 - GitHub E2E는 Production Stream private JWK를 사용하지 않고 실행마다 임시 RSA key를 생성해 signed token 생성 경로만 검증합니다. Seed VOD는 실제 Cloudflare 재생 자산이 아니므로 외부 플레이어 성공 여부는 검증 범위에 포함하지 않습니다.
 
 ## 현재 seed 기반 회귀 범위
+
+### 모바일 UI
+
+`mobile-ui.spec.ts`는 기존 Chromium 실행에 포함되며, 테스트 내부에서 터치 입력과 화면 너비를 설정합니다.
+
+- 360·427·559·560·634·640·768px에서 상품·게시글 목록 도구의 겹침과 가로 넘침 검증
+- 모바일의 상품 수·도감 / 정렬·보기 방식 두 줄 배치 유지 검증
+- 리스트·그리드 전환, 새로고침 후 보기 방식 유지, 썸네일 높이와 카드 배치 검증
+- 카테고리 바텀시트의 Tab 순환, Escape·터치 닫기, 포커스 복귀와 스크롤 잠금 해제 검증
+- 일반 애니메이션과 움직임 줄이기 설정에서 시트 조작 검증
+
+준비된 테스트 서버와 seed 데이터를 대상으로 모바일 테스트만 실행하려면:
+
+```bash
+E2E_SEEDED=1 npm run test:e2e -- tests/e2e/mobile-ui.spec.ts --project=chromium
+```
+
+브라우저 엔진은 Chromium이며 실제 iOS Safari 동작이나 이미지 다운로드 성공 여부는 별도 확인이 필요합니다.
+
+### 주요 기능
 
 - 삭제된 콘텐츠를 참조하는 알림의 이동 가능/불가 상태
 - 상품/게시글 목록에서 살아 있는 seed 콘텐츠만 노출되는지 여부

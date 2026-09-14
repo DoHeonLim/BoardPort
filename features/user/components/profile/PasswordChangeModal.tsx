@@ -34,6 +34,7 @@
  * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
  * 2026.09.13  임도헌   Modified  비밀번호 변경 진행 표시 통일
  * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -132,7 +133,7 @@ export default function PasswordChangeModal({
     focusFirstFieldError<PasswordChangeDTO>(formErrors, setFocus);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   const formId = "password-change-form";
 

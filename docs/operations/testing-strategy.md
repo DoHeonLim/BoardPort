@@ -24,7 +24,7 @@ CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전�
 - 상품/게시글 CRUD와 삭제 후 목록 복귀
 - 삭제된 콘텐츠 알림의 이동 가능/불가 상태
 - 채팅 약속 수락과 상품 상태 전환
-- 로그인/온보딩 기본 smoke flow
+- 공개 인증 화면, 로그인 복귀 경로와 비로그인 접근 제한 smoke flow
 - 관리자 신고 처리 smoke flow
 
 ## 2. 핵심 검증 축
@@ -100,6 +100,18 @@ DB 상태가 필요한 E2E는 `npm run seed:e2e`로 `[E2E]` prefix 기반 테스
 seed 기반 테스트가 끝난 뒤에는 `npm run cleanup:e2e`로 `[E2E]` prefix 콘텐츠와 테스트 계정 알림을 정리합니다.
 특정 spec을 먼저 실행한 뒤 전체 suite를 다시 실행하는 것처럼 Playwright 실행을 나눌 때는 각 실행 전에 `npm run seed:e2e`를 다시 실행합니다. 약속 수락, 상품 수정, 팔로우 테스트는 seed 데이터를 실제로 변경하므로 실행 단위마다 기준 상태를 복원합니다.
 
+Bash / WSL:
+
+```bash
+npm run seed:e2e
+E2E_SEEDED=1 npm run test:e2e -- --project=chromium
+npm run cleanup:e2e
+```
+
+환경변수는 해당 명령에만 적용되므로 별도 해제가 필요 없습니다.
+
+PowerShell:
+
 ```powershell
 npm run seed:e2e
 $env:E2E_SEEDED="1"
@@ -107,6 +119,16 @@ npm run test:e2e -- --project=chromium
 Remove-Item Env:E2E_SEEDED
 npm run cleanup:e2e
 ```
+
+### 모바일 UI 회귀
+
+`tests/e2e/mobile-ui.spec.ts`의 4개 테스트는 기존 Chromium CI에 포함됩니다. 목록 테스트 2개 안에서 360·427·559·560·634·640·768px 너비를 반복 검사하고, 시트 테스트 2개는 일반·움직임 줄이기 설정을 각각 검사합니다.
+
+- 상품·게시글 목록 도구의 겹침, 가로 넘침과 560px 경계 배치
+- 리스트·그리드 전환, 새로고침 후 보기 방식 유지, 썸네일 높이와 본문 배치
+- 카테고리 시트의 키보드 포커스 순환, Escape·터치 닫기, 포커스 복귀와 스크롤 잠금 해제
+
+전체 시트의 애니메이션 통일 여부, 실제 iOS Safari, 외부 이미지 다운로드 성공 여부까지 보장하는 테스트는 아닙니다. 테스트 코드 추가와 실제 실행 통과는 구분하며, 실행 결과에서 seed 테스트의 스킵 여부도 확인합니다. 실행 명령과 스킵 조건은 [E2E 실행 기준](../../tests/e2e/README.md)을 따릅니다.
 
 ## 4. 제외 범위
 
