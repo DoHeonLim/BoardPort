@@ -182,7 +182,7 @@ async function main() {
       eng_name: "GAME_PLAY",
       kor_name: "게임 플레이",
       icon: "🎮",
-      description: "실시간 게임 플레이 스트리밍",
+      description: "실시간 게임 플레이 방송",
       subcategories: [
         {
           eng_name: "MULTIPLAYER",
@@ -194,13 +194,13 @@ async function main() {
           eng_name: "SOLO_PLAY",
           kor_name: "솔로 플레이",
           icon: "🎯",
-          description: "개인 플레이 스트리밍",
+          description: "개인 플레이 방송",
         },
         {
           eng_name: "TOURNAMENT",
           kor_name: "토너먼트",
           icon: "🏆",
-          description: "대회나 토너먼트 스트리밍",
+          description: "대회나 토너먼트 방송",
         },
       ],
     },
@@ -360,7 +360,7 @@ async function main() {
       name: "QUALITY_MASTER",
       icon: `https://imagedelivery.net/${CF_HASH}/4b6ed65a-732d-439e-4509-faa53dcb9400`,
       description:
-        "8회 이상 판매를 완료하고, 그 중 70% 이상을 새제품급/거의 새것 상태와 완벽한 구성으로 유지한 품질의 달인입니다!",
+        "8회 이상 판매를 완료하고, 그중 70% 이상을 새상품급/거의 새것 상태와 완벽한 구성으로 유지한 품질의 달인입니다!",
     },
     {
       name: "EARLY_SAILOR",

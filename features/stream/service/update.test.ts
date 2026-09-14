@@ -325,7 +325,7 @@ describe("updateRecordingMeta", () => {
 
     expect(result).toEqual({
       success: false,
-      error: "녹화본 수정 권한이 없습니다.",
+      error: "다시보기 수정 권한이 없습니다.",
     });
     expect(mocks.transaction).not.toHaveBeenCalled();
   });

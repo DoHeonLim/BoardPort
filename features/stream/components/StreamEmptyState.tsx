@@ -19,6 +19,7 @@
  * 2026.04.16  임도헌   Modified  빈 상태 CTA 링크 자동 prefetch를 끄고 실제 선택 시 이동하도록 정리
  * 2026.05.08  임도헌   Modified  스트림 조회 범위 타입을 StreamScope 공용 타입으로 교체
  * 2026.06.16  임도헌   Modified  검색어+카테고리/팔로잉 0건 상태를 순수 검색 0건과 구분해 안내
+ * 2026.09.12  임도헌   Modified  빈 상태 안내를 방송 기능 중심 문구로 정리
  */
 import Link from "next/link";
 import { VideoCameraIcon } from "@heroicons/react/24/outline";
@@ -77,7 +78,7 @@ export default function StreamEmptyState({
     : "진행 중인 방송이 없습니다.";
   let description = isRecordingMode
     ? "방송이 종료되고 준비가 끝난 다시보기가 여기에 표시됩니다."
-    : "새로운 신호를 시작해보세요.";
+    : "새로운 방송을 시작해보세요.";
 
   if (hasKeywordWithRefinement) {
     title = "조건에 맞는 결과가 없습니다.";
@@ -99,8 +100,8 @@ export default function StreamEmptyState({
       ? "팔로잉 다시보기가 없습니다."
       : "팔로잉 방송이 없습니다.";
     description = isRecordingMode
-      ? "관심 있는 스트리머를 팔로우해 지난 방송과 새 신호를 함께 받아보세요."
-      : "관심 있는 스트리머를 팔로우해 새 신호를 받아보세요.";
+      ? "관심 있는 스트리머를 팔로우해 지난 방송과 새 방송을 확인해보세요."
+      : "관심 있는 스트리머를 팔로우해 새 방송을 확인해보세요.";
   }
 
   return (

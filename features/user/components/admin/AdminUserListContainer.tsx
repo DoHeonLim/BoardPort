@@ -1,6 +1,6 @@
 /**
  * File Name : features/user/components/admin/AdminUserListContainer.tsx
- * Description : 유저 목록 테이블 및 관리 기능
+ * Description : 사용자 목록 테이블 및 관리 기능
  * Author : 임도헌
  *
  * History
@@ -14,6 +14,7 @@
  * 2026.04.10  임도헌   Modified  유저 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  프로필 링크/관리 모달 프리로드를 줄이고 모바일 카드 렌더·배지 대비를 보강해 관리자 유저 페이지 초기 부하를 완화
  * 2026.09.01  임도헌   Modified  중간 너비에서 유저 상태와 관리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
+ * 2026.09.12  임도헌   Modified  검색·필터 결과 0건 상태에 조건 초기화 동선 추가
  */
 "use client";
 
@@ -30,6 +31,7 @@ import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import UserStatusBadge from "./UserStatusBadge";
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
+import AdminListEmptyState from "@/features/report/components/admin/AdminListEmptyState";
 import UserAvatar from "@/components/global/UserAvatar";
 import {
   ArrowTopRightOnSquareIcon,
@@ -53,13 +55,13 @@ interface Props {
 }
 
 /**
- * 관리자 유저 관리 컨테이너
+ * 관리자 사용자 관리 컨테이너
  *
  * [기능]
- * 1. 검색과 role 칩 필터를 통해 유저 목록을 데스크톱 테이블/모바일 카드형으로 표시함
- * 2. 프로필 바로가기와 식별자 배지를 함께 보여 운영 추적을 빠르게 함
- * 3. 권한 관리: 유저를 관리자(ADMIN)로 승격하거나 강등시킴
- * 4. 이용 제재: `AdminActionModal`을 통해 사유와 기간을 입력받아 유저를 정지(Ban) 또는 해제함
+ * 1. 검색과 role 칩 필터 기반 사용자 목록의 데스크톱 테이블·모바일 카드 표시
+ * 2. 프로필 바로가기와 식별자 배지를 통한 운영 추적 지원
+ * 3. 사용자의 관리자(ADMIN) 승격·강등
+ * 4. `AdminActionModal`을 통한 사용자 이용 정지·해제
  */
 export default function AdminUserListContainer({ data }: Props) {
   const router = useRouter();
@@ -161,9 +163,9 @@ export default function AdminUserListContainer({ data }: Props) {
       <div className="flex flex-wrap gap-2">
         {[
           { value: "ALL", label: "전체" },
-          { value: "USER", label: "일반 회원" },
+          { value: "USER", label: "일반 사용자" },
           { value: "ADMIN", label: "관리자" },
-          { value: "BANNED", label: "정지 유저" },
+          { value: "BANNED", label: "정지 사용자" },
         ].map((option) => (
           <button
             key={option.value}
@@ -183,11 +185,20 @@ export default function AdminUserListContainer({ data }: Props) {
 
       <div className="space-y-4 xl:hidden">
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
-            {hasActiveFilters
-              ? "검색/필터 조건에 맞는 유저가 없습니다."
-              : "등록된 유저가 없습니다."}
-          </div>
+          <AdminListEmptyState
+            panel
+            title={
+              hasActiveFilters
+                ? "검색·필터 조건에 맞는 사용자가 없습니다."
+                : "등록된 사용자가 없습니다."
+            }
+            description={
+              hasActiveFilters
+                ? "검색어나 사용자 상태 조건을 바꿔보세요."
+                : "사용자가 가입하면 이곳에 표시됩니다."
+            }
+            resetHref={hasActiveFilters ? "/admin/users" : undefined}
+          />
         ) : (
           items.map((user: AdminUserItem) => (
             <article
@@ -293,7 +304,7 @@ export default function AdminUserListContainer({ data }: Props) {
                   }
                   className="focus-ring-soft rounded-xl border border-border-subtle bg-surface-dim/30 px-3 py-2.5 text-xs font-bold text-primary"
                 >
-                  {user.role === "USER" ? "관리자 승격" : "일반 유저 강등"}
+                  {user.role === "USER" ? "관리자 승격" : "일반 사용자 강등"}
                 </button>
                 <button
                   type="button"
@@ -325,7 +336,7 @@ export default function AdminUserListContainer({ data }: Props) {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-surface-dim text-muted font-bold border-b border-border-subtle">
               <tr>
-                <th className="px-6 py-4">유저</th>
+                <th className="px-6 py-4">사용자</th>
                 <th className="px-6 py-4">권한</th>
                 <th className="px-6 py-4">상태</th>
                 <th className="px-6 py-4">가입일</th>
@@ -337,10 +348,20 @@ export default function AdminUserListContainer({ data }: Props) {
             <tbody className="divide-y divide-border-subtle">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-20 text-center text-muted">
-                    {hasActiveFilters
-                      ? "검색/필터 조건에 맞는 유저가 없습니다."
-                      : "등록된 유저가 없습니다."}
+                  <td colSpan={7} className="p-0">
+                    <AdminListEmptyState
+                      title={
+                        hasActiveFilters
+                          ? "검색·필터 조건에 맞는 사용자가 없습니다."
+                          : "등록된 사용자가 없습니다."
+                      }
+                      description={
+                        hasActiveFilters
+                          ? "검색어나 사용자 상태 조건을 바꿔보세요."
+                          : "사용자가 가입하면 이곳에 표시됩니다."
+                      }
+                      resetHref={hasActiveFilters ? "/admin/users" : undefined}
+                    />
                   </td>
                 </tr>
               ) : (
@@ -349,7 +370,7 @@ export default function AdminUserListContainer({ data }: Props) {
                     key={user.id}
                     className="hover:bg-surface-dim/30 transition-colors"
                   >
-                    {/* 유저 정보 */}
+                    {/* 사용자 정보 */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <UserAvatar
@@ -457,7 +478,7 @@ export default function AdminUserListContainer({ data }: Props) {
                                 >
                                   {user.role === "USER"
                                     ? "관리자 승격"
-                                    : "일반 유저 강등"}
+                                    : "일반 사용자 강등"}
                                 </button>
 
                                 <div
@@ -510,7 +531,9 @@ export default function AdminUserListContainer({ data }: Props) {
         open={!!roleTarget}
         onClose={() => setRoleTarget(null)}
         title={
-          roleTarget?.currentRole === "USER" ? "관리자 승격" : "일반 유저 강등"
+          roleTarget?.currentRole === "USER"
+            ? "관리자 승격"
+            : "일반 사용자 강등"
         }
         description={
           roleTarget
@@ -540,7 +563,7 @@ export default function AdminUserListContainer({ data }: Props) {
         confirmLabel={banTarget?.isBanned ? "해제 확정" : "정지 확정"}
         confirmVariant={banTarget?.isBanned ? "success" : "danger"}
         onConfirm={executeBanToggle}
-        placeholder="처리 사유를 입력해주세요 (유저에게 알림으로 전송됩니다)"
+        placeholder="처리 사유를 입력해주세요 (사용자에게 알림으로 전송됩니다)"
         showBanOptions={!banTarget?.isBanned}
       />
     </div>

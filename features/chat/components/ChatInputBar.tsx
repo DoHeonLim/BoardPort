@@ -46,6 +46,7 @@
  * 2026.08.28  임도헌   Modified  채팅 입력·이미지 업로드 핸들러 JSDoc 보강
  * 2026.09.06  임도헌   Modified  채팅 입력 영역 이미지 드롭과 파일 선택 검증 경로 통합
  * 2026.09.06  임도헌   Modified  이미지 드롭 안내와 드래그 진입 시 대상 영역 피드백 추가
+ * 2026.09.12  임도헌   Modified  첨부 이미지 삭제 버튼의 최소 클릭 영역과 장식 아이콘 의미 분리
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -139,7 +140,7 @@ export default function ChatInputBar({
   };
 
   /**
-   * 이전 객체 URL을 해제하고 현재 이미지 미리보기 URL을 교체한다.
+   * 이전 객체 URL을 해제하고 현재 이미지 미리보기 URL을 교체
    *
    * @param nextPreviewUrl - 새 미리보기 URL 또는 초기화를 위한 null
    */
@@ -164,7 +165,7 @@ export default function ChatInputBar({
   };
 
   /**
-   * 선택한 이미지를 전송 모드에 맞게 가공해 Cloudflare Images에 업로드한다.
+   * 선택한 이미지를 전송 모드에 맞게 가공해 Cloudflare Images에 업로드
    *
    * @param file - 사용자가 선택한 원본 이미지
    * @param mode - 최적화 또는 원본 업로드 모드
@@ -197,7 +198,7 @@ export default function ChatInputBar({
   };
 
   /**
-   * 파일 입력에서 선택한 이미지의 크기·형식을 검증하고 미리보기와 업로드를 시작한다.
+   * 파일 입력에서 선택한 이미지의 크기·형식을 검증하고 미리보기와 업로드를 시작
    *
    * @param e - 이미지 파일 입력 변경 이벤트
    */
@@ -275,7 +276,7 @@ export default function ChatInputBar({
   };
 
   /**
-   * 현재 텍스트와 이미지 정보를 멱등성 ID와 함께 제출하고 실패 시 입력을 복원한다.
+   * 현재 텍스트와 이미지 정보를 멱등성 ID와 함께 제출하고 실패 시 입력을 복원
    *
    * @param options - IME 조합 중 명시적 버튼 전송을 허용할지 여부
    */
@@ -342,7 +343,7 @@ export default function ChatInputBar({
   }, []);
 
   /**
-   * 데스크톱 Enter 입력은 전송하고 Shift+Enter 및 모바일 Enter는 줄바꿈으로 유지한다.
+   * 데스크톱 Enter 입력은 전송하고 Shift+Enter 및 모바일 Enter는 줄바꿈으로 유지
    *
    * @param e - textarea 키보드 이벤트
    */
@@ -417,13 +418,14 @@ export default function ChatInputBar({
               </div>
             )}
             <button
+              type="button"
               onClick={removeImage}
               onMouseDown={preventFocusSteal}
               onPointerDown={preventFocusSteal}
               aria-label="첨부 이미지 제거"
-              className="focus-ring-soft absolute top-1 right-1 rounded-full bg-black/60 p-0.5 text-white hover:bg-black"
+              className="focus-ring-soft absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black"
             >
-              <XMarkIcon className="size-4" />
+              <XMarkIcon className="size-4" aria-hidden="true" />
             </button>
           </div>
 

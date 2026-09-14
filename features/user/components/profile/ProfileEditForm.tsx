@@ -44,6 +44,7 @@
  * 2026.08.27  임도헌   Modified  이메일·비밀번호·전화 인증 입력의 label과 실제 필드 연결 보강
  * 2026.08.28  임도헌   Modified  아바타 적용·크롭 완료 함수 JSDoc 보강
  * 2026.09.06  임도헌   Modified  아바타 파일 선택과 드롭 검증 통합 및 키보드 진입 보강
+ * 2026.09.13  임도헌   Modified  저장 진행 표시와 필드 구독 방식 정리
  */
 "use client";
 
@@ -51,7 +52,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
   MAX_PHOTO_SIZE,
   PASSWORD_MIN_LENGTH,
@@ -161,7 +162,7 @@ export default function ProfileEditForm({
     setValue,
     setError,
     setFocus,
-    watch,
+    control,
     reset: rhfReset,
     clearErrors,
     formState: { errors },
@@ -180,9 +181,9 @@ export default function ProfileEditForm({
     reValidateMode: "onChange",
   });
 
-  const phoneValue = watch("phone");
+  const phoneValue = useWatch({ control, name: "phone" });
   const normalizedPhone = (phoneValue || "").trim();
-  const avatarValue = watch("avatar");
+  const avatarValue = useWatch({ control, name: "avatar" });
   // 기존 아바타, 새 미리보기, 폼 값을 함께 보고 삭제 버튼 노출 여부를 결정
   const hasAnyAvatar = !!currentPhoto || preview !== "" || !!avatarValue;
 
@@ -259,7 +260,7 @@ export default function ProfileEditForm({
   };
 
   /**
-   * 크롭된 아바타 파일을 미리보기에 반영하고 전용 업로드 URL을 준비한다.
+   * 크롭된 아바타 파일을 미리보기에 반영하고 전용 업로드 URL 준비
    *
    * @param nextFile - 업로드할 아바타 이미지 파일
    */
@@ -304,7 +305,7 @@ export default function ProfileEditForm({
   };
 
   /**
-   * 선택한 크롭 설정으로 새 아바타 파일을 생성해 폼 업로드 상태에 반영한다.
+   * 선택한 크롭 설정으로 새 아바타 파일을 생성해 폼 업로드 상태에 반영
    *
    * @param crop - 사용자가 확정한 확대 및 위치 조절값
    */
@@ -635,7 +636,7 @@ export default function ProfileEditForm({
         {/* 사용자 이름 */}
         <Input
           id="username"
-          label="선원 닉네임"
+          label="닉네임"
           type="text"
           required
           placeholder={`닉네임 (3~${USERNAME_MAX_LENGTH}자)`}
@@ -804,7 +805,9 @@ export default function ProfileEditForm({
         {/* 액션 버튼 */}
         <div className="mt-2 flex flex-col gap-3">
           <Button
-            text={submitting ? "저장 중..." : "수정 완료"}
+            text="수정 완료"
+            loading={submitting}
+            loadingText="저장 중..."
             disabled={submitting}
           />
           <div className="grid grid-cols-2 gap-3">

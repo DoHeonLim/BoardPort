@@ -60,7 +60,9 @@ async function shouldSendLikeNotification(params: {
     where: {
       userId: sellerId,
       type: "TRADE",
-      title: "새 관심 신호가 도착했어요",
+      title: {
+        in: ["상품을 찜한 사용자가 있어요", "새 관심 신호가 도착했어요"],
+      },
       link: `/products/view/${productId}`,
       created_at: { gte: since },
       body: { startsWith: `${likerName}님이 '` },
@@ -106,7 +108,7 @@ async function notifySellerOnLike(params: {
   if (pref && !isNotificationTypeEnabled(pref, "TRADE")) return;
 
   const link = `/products/view/${productId}`;
-  const title = "새 관심 신호가 도착했어요";
+  const title = "상품을 찜한 사용자가 있어요";
   const body = `${likerName}님이 '${productTitle}' 상품을 찜했습니다.`;
 
   const notification = await db.notification.create({

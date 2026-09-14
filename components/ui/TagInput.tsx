@@ -16,6 +16,7 @@
  * 2026.05.17  임도헌   Modified  control/name props를 react-hook-form 제네릭 타입으로 구체화
  * 2026.06.18  임도헌   Modified  모바일 키보드 Enter/blur 시 태그 확정 흐름 보강
  * 2026.08.27  임도헌   Modified  태그 label과 입력·검증 오류를 자동 ID 및 ARIA 속성으로 연결
+ * 2026.09.12  임도헌   Modified  태그 삭제 버튼의 최소 클릭 영역과 장식 아이콘 의미 분리
  */
 "use client";
 
@@ -112,11 +113,11 @@ export default function TagInput<TFieldValues extends FieldValues>({
               <button
                 type="button"
                 onClick={() => handleRemoveTag(tag)}
-                className="focus-ring-soft rounded-full hover:text-danger dark:hover:text-rose-400 transition-colors"
+                className="focus-ring-soft -my-1 -mr-1 inline-flex size-6 items-center justify-center rounded-full transition-colors hover:bg-danger/10 hover:text-danger dark:hover:text-rose-400"
                 aria-label={`${tag} 태그 삭제`}
                 disabled={disabled}
               >
-                <XMarkIcon className="w-3.5 h-3.5" />
+                <XMarkIcon className="size-3.5" aria-hidden="true" />
               </button>
             </div>
           ))}

@@ -47,7 +47,9 @@ export async function deleteReviewService(
       },
     });
 
-    if (!rev) return { success: false, error: "리뷰를 찾을 수 없습니다." };
+    if (!rev) {
+      return { success: false, error: "거래 후기를 찾을 수 없습니다." };
+    }
 
     // 2. 권한 검증
     // 오직 작성자(isAuthor)만 삭제 가능

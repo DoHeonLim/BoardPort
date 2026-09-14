@@ -68,7 +68,7 @@ async function fetchRecordingCommentsPage(
   });
 
   if (!response.ok) {
-    throw new Error("녹화본 댓글을 불러오지 못했습니다.");
+    throw new Error("다시보기 댓글을 불러오지 못했습니다.");
   }
 
   return response.json();

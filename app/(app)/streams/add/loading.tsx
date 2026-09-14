@@ -9,7 +9,8 @@
  * 2026.03.12  임도헌   Modified  현재 스트림 생성 폼과 flat 헤더 밀도에 맞춰 스켈레톤 정리
  * 2026.03.29  임도헌   Modified  add layout의 공통 헤더를 따르도록 본문-only 스켈레톤으로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/add/loading.tsx 에서 app/(app)/streams/add/loading.tsx 로 변경 (라우트 그룹 개편)
-*/
+ * 2026.09.12  임도헌   Modified  필수 설정과 접힌 선택 입력 순서에 맞춰 로딩 스켈레톤 정리
+ */
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function Loading() {
@@ -24,18 +25,23 @@ export default function Loading() {
         {/* Form */}
         <Skeleton className="h-14 w-full rounded-xl" />
         <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-12 w-full rounded-xl" />
 
         <div className="grid grid-cols-2 gap-4">
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-12 w-full rounded-xl" />
         </div>
 
-        <Skeleton className="h-12 w-full rounded-xl" />
-
         <div className="rounded-xl border border-border-subtle bg-surface p-4">
           <Skeleton className="h-4 w-40 rounded" />
           <Skeleton className="mt-3 h-12 w-full rounded-xl" />
+        </div>
+
+        <div className="flex min-h-14 items-center justify-between rounded-xl border border-border-subtle bg-surface px-4 py-3">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24 rounded" />
+            <Skeleton className="h-3 w-44 rounded" />
+          </div>
+          <Skeleton className="size-4 rounded" />
         </div>
 
         <div className="pt-2 flex flex-col gap-3">
@@ -46,4 +52,3 @@ export default function Loading() {
     </div>
   );
 }
-

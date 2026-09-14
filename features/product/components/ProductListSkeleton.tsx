@@ -11,10 +11,13 @@
  * 2026.05.09  임도헌   Modified  보드게임 도감/알림 액션이 포함된 상품 목록 헤더 구조 반영
  * 2026.06.01  임도헌   Modified  모바일 목록 툴바 압축 밀도에 맞춰 뷰 토글 스켈레톤 크기 조정
  * 2026.06.21  임도헌   Modified  실제 뷰 토글 버튼 크기(모바일 36px, sm 이상 44px)에 맞춰 스켈레톤 정렬
+ * 2026.09.13  임도헌   Modified  공통 보기 전환 로딩 골격 적용
+ * 2026.09.14  임도헌   Modified  실제 목록과 같은 반응형 두 행 도구 구조 적용
  */
 "use client";
 
 import ProductCardSkeleton from "@/features/product/components/ProductCardSkeleton";
+import ViewModeToggleSkeleton from "@/components/ui/ViewModeToggleSkeleton";
 import { cn } from "@/lib/utils";
 import type { ViewMode } from "@/features/product/types";
 
@@ -39,15 +42,15 @@ export default function ProductListSkeleton({
   return (
     <div className="flex flex-col">
       {showToolbar ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <div className="mb-4 grid grid-cols-1 gap-3 px-1 min-[560px]:flex min-[560px]:flex-nowrap min-[560px]:items-center min-[560px]:justify-between">
+          <div className="flex min-w-0 items-center gap-2 min-[560px]:flex-1">
             <div className="h-5 w-28 rounded-full bg-surface-dim" />
             <div className="h-8 w-24 rounded-full bg-surface-dim" />
             <div className="h-8 w-9 rounded-full bg-surface-dim sm:w-28" />
           </div>
-          <div className="flex rounded-xl border border-border-subtle bg-surface p-1">
-            <div className="size-9 rounded-lg bg-surface-dim sm:size-11" />
-            <div className="size-9 rounded-lg bg-surface-dim sm:size-11" />
+          <div className="flex w-full items-center justify-between gap-2 min-[560px]:w-auto min-[560px]:justify-start">
+            <div className="h-9 w-28 rounded-xl bg-surface-dim sm:h-11" />
+            <ViewModeToggleSkeleton />
           </div>
         </div>
       ) : null}

@@ -11,6 +11,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/add/loading.tsx 에서 app/(app)/posts/add/loading.tsx 로 변경 (라우트 그룹 개편)
  * 2026.06.01  임도헌   Modified  모바일 게시글 작성 폼 compact 밀도에 맞춰 스켈레톤 높이 정리
  * 2026.09.11  임도헌   Modified  실제 폼의 연결 보드게임과 블록 편집기 순서에 맞춘 로딩 구조 동기화
+ * 2026.09.12  임도헌   Modified  접힌 추가 정보 섹션에 맞춰 태그·장소 스켈레톤 통합
  */
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -64,16 +65,13 @@ export default function Loading() {
           </div>
         </div>
 
-        {/* 태그 입력 영역 */}
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24 rounded" />
-          <Skeleton className="h-11 w-full rounded-xl sm:h-12" />
-        </div>
-
-        {/* 관련 장소 선택 영역 */}
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-36 rounded" />
-          <Skeleton className="h-12 w-full rounded-xl border border-border-subtle" />
+        {/* 추가 정보 요약 영역 */}
+        <div className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-4 py-3">
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-24 rounded" />
+            <Skeleton className="h-3 w-48 max-w-full rounded" />
+          </div>
+          <Skeleton className="size-4 rounded" />
         </div>
 
         {/* 하단 액션 영역 */}

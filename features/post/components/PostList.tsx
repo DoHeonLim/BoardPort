@@ -30,11 +30,14 @@
  * 2026.09.08  임도헌   Modified  메인 게시글 목록 도구 행에 정렬 선택 추가
  * 2026.09.11  임도헌   Modified  실제 대표 이미지가 있는 첫 게시글을 LCP 우선 대상으로 지정
  * 2026.09.11  임도헌   Modified  첫 화면 실제 대표 이미지 2장을 LCP 우선 대상으로 지정
+ * 2026.09.12  임도헌   Modified  목록 보기 방식을 URL에 보존하고 토글 선택 상태 접근성 보강
+ * 2026.09.13  임도헌   Modified  리스트·그리드 전환 UI를 공통 컴포넌트로 통일
+ * 2026.09.14  임도헌   Modified  중간 너비 목록 도구 영역을 두 행 구조로 고정
  */
 
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
@@ -42,10 +45,10 @@ import { usePostPagination } from "@/features/post/hooks/usePostPagination";
 import PostCard from "@/features/post/components/postCard";
 import { getPostCardThumbnail } from "@/features/post/components/postCard/PostCardThumbnail";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
-import { ListBulletIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import { PostSearchParams } from "@/features/post/types";
 import PostSortSelect from "@/features/post/components/PostSortSelect";
 import { cn } from "@/lib/utils";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
 
 interface PostListProps {
   searchParams: PostSearchParams;
@@ -72,11 +75,28 @@ export default function PostList({
   queryKeyExtra,
   viewerId,
 }: PostListProps) {
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const isVisible = usePageVisibility();
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
   const currentSearchParams = useSearchParams();
+  const viewMode = currentSearchParams.get("view") === "grid" ? "grid" : "list";
+
+  // 목록 보기 방식 URL 반영
+  // 기본 리스트 파라미터는 생략하고 그리드 선택만 남겨 상세 복귀와 새로고침 문맥 보존
+  const handleViewModeChange = (nextView: "list" | "grid") => {
+    const params = new URLSearchParams(currentSearchParams.toString());
+    if (nextView === "grid") {
+      params.set("view", "grid");
+    } else {
+      params.delete("view");
+    }
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      query ? `${pathname}?${query}` : pathname
+    );
+  };
 
   // Suspense에 의해 data 보장
   const { posts, totalCount, isFetchingNextPage, hasMore, loadMore } =
@@ -112,42 +132,20 @@ export default function PostList({
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 px-1 sm:mb-6">
+      <div className="mb-5 grid grid-cols-1 gap-3 px-1 min-[560px]:flex min-[560px]:flex-nowrap min-[560px]:items-center min-[560px]:justify-between sm:mb-6">
         <span className="shrink-0 text-sm font-medium text-muted">
           총 <span className="font-bold text-primary">{displayCount}</span>개의
           게시글
         </span>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full shrink-0 items-center justify-between gap-2 min-[560px]:w-auto min-[560px]:justify-start">
           {searchParams.sort && <PostSortSelect value={searchParams.sort} />}
 
-          {/* 뷰 모드 전환 버튼 영역 */}
-          <div className="flex shrink-0 rounded-xl border border-border-subtle bg-surface p-1">
-            <button
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
-                viewMode === "list"
-                  ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                  : "text-muted hover:bg-surface-dim hover:text-primary"
-              )}
-              aria-label="리스트 보기"
-            >
-              <ListBulletIcon className="size-5" />
-            </button>
-            <button
-              onClick={() => setViewMode("grid")}
-              className={cn(
-                "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] sm:min-h-[44px] sm:min-w-[44px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow]",
-                viewMode === "grid"
-                  ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                  : "text-muted hover:bg-surface-dim hover:text-primary"
-              )}
-              aria-label="그리드 보기"
-            >
-              <Squares2X2Icon className="size-5" />
-            </button>
-          </div>
+          <ViewModeToggle
+            value={viewMode}
+            onChange={handleViewModeChange}
+            ariaLabel="게시글 목록 보기 방식"
+          />
         </div>
       </div>
 

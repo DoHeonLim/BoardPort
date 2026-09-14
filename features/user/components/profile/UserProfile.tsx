@@ -57,6 +57,9 @@
  * 2026.08.28  임도헌   Modified  로그인·팔로우·판매 탭 함수 JSDoc 보강
  * 2026.09.08  임도헌   Modified  타인 프로필 최근 작성 게시글 미리보기 추가
  * 2026.09.11  임도헌   Modified  방송국 보조 링크의 모바일 터치 영역 보강
+ * 2026.09.12  임도헌   Modified  판매 목록 보기 방식의 URL 보존 및 토글 접근성 보강
+ * 2026.09.12  임도헌   Modified  프로필 빈 후기와 판매 목록의 안내 동선 정리
+ * 2026.09.13  임도헌   Modified  판매 목록의 리스트·그리드 전환 UI를 공통 컴포넌트로 통일
  */
 
 "use client";
@@ -84,12 +87,8 @@ import ProductCard from "@/features/product/components/productCard";
 import StreamCard from "@/features/stream/components/StreamCard";
 import Skeleton from "@/components/ui/Skeleton";
 import ProfileReviewPreviewList from "@/features/user/components/profile/ProfileReviewPreviewList";
-import {
-  NoSymbolIcon,
-  ListBulletIcon,
-  Squares2X2Icon,
-  ChevronRightIcon,
-} from "@heroicons/react/24/outline";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
+import { NoSymbolIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
 import type {
@@ -170,12 +169,13 @@ export default function UserProfile({
     const tab = searchParams.get("tab");
     return tab === "sold" ? "sold" : "selling";
   }, [searchParams]);
+  const viewMode: ViewMode =
+    searchParams.get("view") === "grid" ? "grid" : "list";
 
   // 1. 팔로우 상태 관리 (Local State)
   const [isFollowing, setIsFollowing] = useState<boolean>(!!user.isFollowing);
 
-  // 2. 뷰 및 탭 상태
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // 2. 모달 상태
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
 
@@ -233,19 +233,30 @@ export default function UserProfile({
     });
   };
 
-  /**
-   * 판매 상태 탭의 URL 쿼리 반영과 새로고침·복귀 후 선택 유지
-   *
-   * @param tab - 선택한 판매 중 또는 판매 완료 상태
-   */
-  const handleTabChange = useCallback(
-    (tab: ProductStatus) => {
+  /** 판매 상태와 보기 방식을 현재 URL에 반영 */
+  const replaceSalesState = useCallback(
+    (tab: ProductStatus, nextViewMode: ViewMode) => {
       const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", tab);
+
+      if (tab === "selling") params.delete("tab");
+      else params.set("tab", tab);
+
+      if (nextViewMode === "grid") params.set("view", "grid");
+      else params.delete("view");
+
       const query = params.toString();
-      router.replace(`${pathname}?${query}`, { scroll: false });
+      window.history.replaceState(
+        null,
+        "",
+        query ? `${pathname}?${query}` : pathname
+      );
     },
-    [pathname, router, searchParams]
+    [pathname, searchParams]
+  );
+
+  const handleTabChange = useCallback(
+    (tab: ProductStatus) => replaceSalesState(tab, viewMode),
+    [replaceSalesState, viewMode]
   );
 
   return (
@@ -280,7 +291,7 @@ export default function UserProfile({
             차단한 사용자입니다
           </h2>
           <p className="text-sm text-muted mt-2 leading-relaxed">
-            이 사용자의 판매 물품, 게시글, 방송 정보를
+            이 사용자의 판매 상품, 게시글, 방송 정보를
             <br />볼 수 없습니다.
           </p>
 
@@ -378,13 +389,16 @@ export default function UserProfile({
                 <h2 className="text-sm font-bold text-primary">
                   받은 거래 후기
                 </h2>
-                <button
-                  onClick={() => setIsReviewModalOpen(true)}
-                  aria-label="받은 거래 후기 전체 보기"
-                  className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
-                >
-                  전체 보기
-                </button>
+                {previewReviews.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsReviewModalOpen(true)}
+                    aria-label="받은 거래 후기 전체 보기"
+                    className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
+                  >
+                    전체 보기
+                  </button>
+                )}
               </div>
               <ProfileReviewPreviewList reviews={previewReviews} />
             </section>
@@ -393,6 +407,7 @@ export default function UserProfile({
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
                 <button
+                  type="button"
                   onClick={() => setIsBadgeModalOpen(true)}
                   aria-label="획득한 뱃지 전체 보기"
                   className="focus-ring-soft rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
@@ -413,7 +428,9 @@ export default function UserProfile({
                 {(["selling", "sold"] as const).map((tab) => (
                   <button
                     key={tab}
+                    type="button"
                     onClick={() => handleTabChange(tab)}
+                    aria-pressed={activeTab === tab}
                     className={cn(
                       "focus-ring-soft flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       activeTab === tab
@@ -428,32 +445,13 @@ export default function UserProfile({
 
               {/* 뷰 모드 토글 */}
               <div className="flex justify-end mb-3">
-                <div className="flex rounded-xl border border-border-subtle bg-surface-dim/80 p-1 shadow-sm">
-                  <button
-                    onClick={() => setViewMode("list")}
-                    aria-label="리스트 보기"
-                    className={cn(
-                      "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
-                      viewMode === "list"
-                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                        : "text-muted hover:bg-background/70 hover:text-primary"
-                    )}
-                  >
-                    <ListBulletIcon className="size-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    aria-label="그리드 보기"
-                    className={cn(
-                      "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
-                      viewMode === "grid"
-                        ? "bg-background text-brand dark:text-brand-light shadow-sm ring-1 ring-border/70"
-                        : "text-muted hover:bg-background/70 hover:text-primary"
-                    )}
-                  >
-                    <Squares2X2Icon className="size-4" />
-                  </button>
-                </div>
+                <ViewModeToggle
+                  value={viewMode}
+                  onChange={(nextView) =>
+                    replaceSalesState(activeTab, nextView)
+                  }
+                  ariaLabel="프로필 판매 상품 목록 보기 방식"
+                />
               </div>
 
               {/* 목록 렌더링 (Suspense 적용) */}
@@ -538,11 +536,21 @@ function SalesTabContent({
   });
 
   if (products.length === 0) {
+    const title =
+      type === "selling"
+        ? "판매 중인 상품이 없습니다"
+        : "판매가 완료된 상품이 없습니다";
+    const description =
+      type === "selling"
+        ? "판매할 상품이 등록되면 이곳에 표시됩니다."
+        : "거래를 완료한 상품이 생기면 이곳에 표시됩니다.";
+
     return (
-      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-12 text-center text-sm text-muted">
-        {type === "selling"
-          ? "판매 중인 상품이 없습니다."
-          : "판매 완료한 상품이 없습니다."}
+      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 px-4 py-10 text-center">
+        <p className="text-sm font-medium text-primary">{title}</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">
+          {description}
+        </p>
       </div>
     );
   }

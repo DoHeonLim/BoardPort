@@ -13,11 +13,13 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/posts/[id]/edit/layout.tsx 에서 app/(app)/posts/[id]/edit/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified  게시글 수정 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.09.03  임도헌   Modified  직접 진입에서도 뒤로가기가 게시글 상세로 복귀하도록 고정
+ * 2026.09.12  임도헌   Modified  헤더 경계선을 게시글 수정 본문 폭에 맞춰 정렬
+ * 2026.09.13  임도헌   Modified  수정 화면 상단바를 공통 하위 화면 헤더로 통일
  */
 
 import type { ReactNode } from "react";
 import PostEditBackButton from "@/features/post/components/PostEditBackButton";
-import { cn } from "@/lib/utils";
+import SubpageHeader from "@/components/global/SubpageHeader";
 
 /** 게시글 수정 화면의 비동기 route params를 해석해 전용 레이아웃을 구성한다. */
 export default async function EditPostLayout(props: {
@@ -32,20 +34,15 @@ export default async function EditPostLayout(props: {
 
   return (
     <div className="min-h-screen bg-background transition-colors">
-      <header
-        className={cn(
-          "sticky top-0 z-40 h-[52px] w-full",
-          "border-b border-border-subtle bg-background shadow-sm",
-          "transition-colors"
-        )}
-      >
-        <div className="mx-auto max-w-3xl h-full flex items-center px-3 sm:px-4 gap-3">
+      <SubpageHeader
+        title="게시글 수정"
+        contentClassName="max-w-3xl"
+        backAction={
           <PostEditBackButton
             postId={Number.isFinite(idNum) && idNum > 0 ? idNum : 0}
           />
-          <h1 className="text-base font-medium text-primary">게시글 수정</h1>
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto max-w-3xl pb-20">{children}</main>
     </div>

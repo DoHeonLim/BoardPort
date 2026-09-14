@@ -20,6 +20,7 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/add/page.tsx 에서 app/(app)/streams/add/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
  * 2026.09.10  임도헌   Modified  도감 진입 보드게임 사전 선택과 복귀 문맥 적용
+ * 2026.09.12  임도헌   Modified  방송 시작에 필요한 필수 설정 기준으로 안내 문구 정리
  */
 
 import type { Metadata } from "next";
@@ -36,8 +37,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "새로운 스트리밍 시작하기 | BoardPort",
-  description: "OBS/방송 툴과 호환되는 라이브 스트리밍을 생성하세요.",
+  title: "새로운 방송 시작하기 | BoardPort",
+  description: "OBS 등 방송 도구와 연결할 라이브 방송을 시작하세요.",
 };
 
 /**
@@ -76,7 +77,7 @@ export default async function AddStreamPage(props: {
     <div className="px-page-x py-6">
       <div className="mb-6">
         <p className="text-sm text-muted">
-          제목, 카테고리, 썸네일을 설정하여 방송을 시작하세요.
+          제목과 카테고리, 공개 범위를 설정하여 방송을 시작하세요.
           <br />
           생성 후 OBS 설정 정보를 확인할 수 있습니다.
         </p>

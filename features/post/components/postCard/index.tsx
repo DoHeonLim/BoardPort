@@ -31,6 +31,7 @@
  * 2026.09.11  임도헌   Modified  리스트 썸네일 높이 복구와 빠른 해제 액션의 상단 영역 분리
  * 2026.09.11  임도헌   Modified  대표 이미지가 없는 카드의 썸네일 영역과 카드 정렬 복구
  * 2026.09.11  임도헌   Modified  이미지 카드의 연결 보드게임 배지를 썸네일 오버레이로 이동
+ * 2026.09.12  임도헌   Modified  그리드 카드의 연결 게임·태그 중복을 줄여 제목과 반응 정보 우선순위 강화
  * ===============================================================================================
  * PostCard (게시글 카드) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 게시글 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당:
@@ -86,6 +87,7 @@ export default function PostCard({
   const isGrid = viewMode === "grid";
   const detailHref = `/posts/${post.id}?returnTo=${encodeURIComponent(returnTo)}`;
   const thumbnail = getPostCardThumbnail(post.images, post.blocks);
+  const hasBoardGameBadge = Boolean(post.board_games?.length);
 
   return (
     <Link
@@ -130,7 +132,7 @@ export default function PostCard({
             reserveTopRightAction && (!isGrid || !thumbnail) && "pr-12"
           )}
         >
-          <PostCardHeader category={post.category} viewMode={viewMode} />
+          <PostCardHeader category={post.category} />
           <PostCardTitle title={post.title} viewMode={viewMode} />
           {!thumbnail && (
             <BoardGameSummaryBadge
@@ -147,7 +149,7 @@ export default function PostCard({
             isGrid ? "pt-0.5" : "flex flex-1 items-start pt-0.5"
           )}
         >
-          {post.tags.length > 0 && (
+          {post.tags.length > 0 && (!isGrid || !hasBoardGameBadge) && (
             <PostCardTags
               tags={post.tags}
               compact={isGrid}

@@ -47,6 +47,8 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.08  임도헌   Modified  게시글 정렬 query 정규화와 빈 목록 정렬 선택 추가
  * 2026.09.09  임도헌   Modified  초기 목록은 검증된 조회자로 service를 직접 호출하고 독립적인 알림 조회를 병렬화
+ * 2026.09.12  임도헌   Modified  URL 보기 방식과 목록 스켈레톤 형태 일치
+ * 2026.09.12  임도헌   Modified  게시글 작성 취소 시 현재 검색·분류 문맥 복귀 지원
  */
 
 import { Suspense } from "react";
@@ -86,6 +88,7 @@ interface PostsPageProps {
     keyword?: string;
     category?: string;
     sort?: string;
+    view?: string;
   }>;
 }
 
@@ -114,6 +117,13 @@ export const metadata: Metadata = {
  */
 export default async function PostsPage(props: PostsPageProps) {
   const searchParams = await props.searchParams;
+  const viewMode = searchParams.view === "grid" ? "grid" : "list";
+  const listParams = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (value) listParams.set(key, value);
+  });
+  const listQuery = listParams.toString();
+  const returnTo = listQuery ? `/posts?${listQuery}` : "/posts";
   const session = await getSession();
   if (!session?.id) {
     redirect("/login?callbackUrl=/posts");
@@ -212,11 +222,12 @@ export default async function PostsPage(props: PostsPageProps) {
                 category={searchParams.category}
                 currentRange={currentRange}
                 sort={params.sort}
+                returnTo={returnTo}
               />
             </>
           ) : (
             <HydrationBoundary state={dehydrate(queryClient)}>
-              <Suspense fallback={<PostListSkeleton viewMode="list" />}>
+              <Suspense fallback={<PostListSkeleton viewMode={viewMode} />}>
                 <PostList
                   key={`${JSON.stringify(searchParams)}-${JSON.stringify(postListScope)}`}
                   searchParams={params}
@@ -229,7 +240,7 @@ export default async function PostsPage(props: PostsPageProps) {
         </div>
       </PullToRefresh>
       {/* 게시글 추가 플로팅 버튼 (FAB) */}
-      <AddPostButton />
+      <AddPostButton returnTo={returnTo} />
     </div>
   );
 }

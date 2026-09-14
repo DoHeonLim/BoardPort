@@ -12,15 +12,18 @@
  * 2026.06.19  임도헌   Modified  모바일 방송 정보 수정 UI를 공용 BottomSheet로 분기해 모달 문법 통일
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.08  임도헌   Modified  사용자 썸네일 교체·제거와 Cloudflare direct upload 추가
+ * 2026.09.13  임도헌   Modified  저장 CTA를 공통 비동기 버튼으로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import ImageUploader from "@/components/global/ImageUploader";
 import { updateBroadcastMetaAction } from "@/features/stream/actions/update";
 import type { StreamMetaUpdatePayload } from "@/features/stream/types";
@@ -284,14 +287,15 @@ export default function EditStreamMetaModal({
 
   const footer = (
     <div className="flex justify-end">
-      <button
+      <Button
         type="button"
         onClick={handleSubmit}
+        text="저장"
+        loading={isPending}
+        loadingText="저장 중..."
         disabled={isPending}
-        className="btn-primary h-10 w-full px-5 text-sm sm:w-auto"
-      >
-        {isPending ? "저장 중..." : "저장"}
-      </button>
+        className="h-10 w-full px-5 text-sm sm:w-auto"
+      />
     </div>
   );
 
@@ -339,19 +343,14 @@ export default function EditStreamMetaModal({
               방송 정보 수정
             </h2>
             <p className="mt-1 text-sm text-muted">
-              라이브 중에도 제목과 설명, 사용자 썸네일을 업데이트할 수
-              있습니다.
+              라이브 중에도 제목과 설명, 사용자 썸네일을 업데이트할 수 있습니다.
             </p>
           </div>
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={() => !isPending && onClose()}
             disabled={isPending}
-            aria-label="방송 정보 수정 모달 닫기"
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="방송 정보 수정 모달 닫기"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">{content}</div>

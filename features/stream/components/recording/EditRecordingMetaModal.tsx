@@ -6,16 +6,19 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.08  임도헌   Created   녹화본 제목과 사용자 썸네일 교체·제거 기능 추가
+ * 2026.09.13  임도헌   Modified  저장 CTA를 공통 비동기 버튼으로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import ImageUploader from "@/components/global/ImageUploader";
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import { updateRecordingMetaAction } from "@/features/stream/actions/update";
 import type { RecordingMetaUpdatePayload } from "@/features/stream/types";
 import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
@@ -34,7 +37,7 @@ interface EditRecordingMetaModalProps {
   onSaved: (next: RecordingMetaUpdatePayload) => void;
 }
 
-/** 사용자 지정 녹화본 표시 정보만 변경하고 provider 자동 썸네일은 보존한다. */
+/** 사용자 지정 녹화본 표시 정보 변경 및 provider 자동 썸네일 보존 */
 export default function EditRecordingMetaModal({
   open,
   vodId,
@@ -118,7 +121,7 @@ export default function EditRecordingMetaModal({
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if ((event.target.files?.length ?? 0) > 1) {
-      toast.error("녹화본 썸네일은 1장만 선택할 수 있습니다.");
+      toast.error("다시보기 썸네일은 1장만 선택할 수 있습니다.");
       event.target.value = "";
       return;
     }
@@ -129,7 +132,7 @@ export default function EditRecordingMetaModal({
 
   const handleImageDrop = (event: React.DragEvent) => {
     if ((event.dataTransfer.files?.length ?? 0) > 1) {
-      toast.error("녹화본 썸네일은 1장만 선택할 수 있습니다.");
+      toast.error("다시보기 썸네일은 1장만 선택할 수 있습니다.");
       return;
     }
     const file = event.dataTransfer.files?.[0];
@@ -197,13 +200,13 @@ export default function EditRecordingMetaModal({
           thumbnail: result.data.thumbnail,
           thumbnailAnimated: result.data.thumbnailAnimated,
         });
-        toast.success("녹화본 정보가 업데이트되었습니다.");
+        toast.success("다시보기 정보가 업데이트되었습니다.");
         onClose();
         router.refresh();
       } catch (error) {
         console.error("[EditRecordingMetaModal] update failed:", error);
         toast.error(
-          "녹화본 정보 수정 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+          "다시보기 정보 수정 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
         );
       }
     });
@@ -212,10 +215,10 @@ export default function EditRecordingMetaModal({
   const content = (
     <div className="flex flex-col gap-4 pt-2">
       <Input
-        label="녹화본 제목"
+        label="다시보기 제목"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder="녹화본 제목을 입력하세요"
+        placeholder="다시보기 제목을 입력하세요"
         errors={fieldErrors.title ?? []}
         disabled={isPending}
         density="compact"
@@ -245,14 +248,15 @@ export default function EditRecordingMetaModal({
 
   const footer = (
     <div className="flex justify-end">
-      <button
+      <Button
         type="button"
         onClick={handleSubmit}
+        text="저장"
+        loading={isPending}
+        loadingText="저장 중..."
         disabled={isPending}
-        className="btn-primary h-10 w-full px-5 text-sm sm:w-auto"
-      >
-        {isPending ? "저장 중..." : "저장"}
-      </button>
+        className="h-10 w-full px-5 text-sm sm:w-auto"
+      />
     </div>
   );
 
@@ -260,8 +264,8 @@ export default function EditRecordingMetaModal({
     return (
       <BottomSheet
         open={open}
-        title="녹화 정보 수정"
-        description="이 녹화본의 제목과 사용자 썸네일을 수정할 수 있습니다."
+        title="다시보기 정보 수정"
+        description="이 다시보기의 제목과 사용자 썸네일을 수정할 수 있습니다."
         onClose={() => !isPending && onClose()}
         contentClassName="pt-4"
         footer={footer}
@@ -296,21 +300,17 @@ export default function EditRecordingMetaModal({
               id="edit-recording-meta-title"
               className="text-lg font-bold text-primary"
             >
-              녹화 정보 수정
+              다시보기 정보 수정
             </h2>
             <p className="mt-1 text-sm text-muted">
-              이 녹화본의 제목과 사용자 썸네일을 수정할 수 있습니다.
+              이 다시보기의 제목과 사용자 썸네일을 수정할 수 있습니다.
             </p>
           </div>
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={() => !isPending && onClose()}
             disabled={isPending}
-            aria-label="녹화 정보 수정 모달 닫기"
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="다시보기 정보 수정 모달 닫기"
+          />
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">{content}</div>
         <div className="shrink-0 border-t border-border-subtle bg-surface px-6 py-4">

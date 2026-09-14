@@ -328,7 +328,7 @@ export async function getReportsAdmin(
 }
 
 /**
- * 신고 승인·기각을 원자적이고 멱등하게 처리한다.
+ * 신고 승인·기각을 원자적이고 멱등하게 처리
  * - PENDING 신고를 PROCESSING으로 조건부 선점해 단일 처리자만 허용
  * - 신고 상태, strike, DB 제재·삭제, 감사 로그, outbox enqueue를 하나의 transaction으로 처리
  * - 동일 `(reportId, status, action)` 재시도는 완료된 감사 로그를 기준으로 성공에 수렴
@@ -424,7 +424,7 @@ export async function updateReportStatus(
           );
         }
 
-        // 하나의 transaction 안에서 PENDING 행을 선점해 동시 실행자 중 한 명만 조치한다.
+        // 하나의 transaction 안에서 PENDING 행을 선점해 동시 실행자 중 한 명만 조치
         const claim = await tx.report.updateMany({
           where: { id: reportId, status: "PENDING" },
           data: { status: "PROCESSING" },
@@ -453,7 +453,7 @@ export async function updateReportStatus(
               resolution.action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN)
           ) {
             throw new ReportModerationError(
-              "신고 대상의 조치 유저를 찾을 수 없습니다."
+              "신고 대상의 조치 사용자를 찾을 수 없습니다."
             );
           }
           if (targetUserId && resolution.strike > 0) {
@@ -981,7 +981,7 @@ function getTargetPreviewFromMaps(
   if (report.targetUserId) {
     return (
       maps.userMetaMap.get(report.targetUserId)?.username ??
-      `유저 #${report.targetUserId}`
+      `사용자 #${report.targetUserId}`
     );
   }
   if (report.targetProductId) {
@@ -1453,7 +1453,7 @@ async function banReportTargetUserTx(
     select: { role: true },
   });
   if (!user)
-    throw new ReportModerationError("조치 대상 유저를 찾을 수 없습니다.");
+    throw new ReportModerationError("조치 대상 사용자를 찾을 수 없습니다.");
   if (user.role === "ADMIN") {
     throw new ReportModerationError("관리자는 정지할 수 없습니다.");
   }

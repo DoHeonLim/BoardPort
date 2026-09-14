@@ -31,6 +31,7 @@
  * 2026.05.18  임도헌   Modified  미읽음 수 클라이언트 재검증을 Server Action 대신 전용 API 조회로 전환
  * 2026.06.07  임도헌   Modified  오래된 서버 초기값이 클라이언트 미읽음 차감을 되돌리지 않도록 보정
  * 2026.06.21  임도헌   Modified  하단 신호 탭 미읽음 뱃지가 탭바 상단에서 잘려 보이지 않도록 위치 조정
+ * 2026.09.12  임도헌   Modified  하단 메뉴를 기능 중심 명칭과 아이콘으로 정리
  */
 "use client";
 
@@ -40,14 +41,14 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   NewspaperIcon as SolidNewspaperIcon,
-  HomeIcon as SolidHomeIcon,
+  ShoppingBagIcon as SolidShoppingBagIcon,
   ChatBubbleOvalLeftEllipsisIcon as SolidChatIcon,
   VideoCameraIcon as SolidVideoCameraIcon,
   UserIcon as SolidUserIcon,
 } from "@heroicons/react/24/solid";
 import {
   NewspaperIcon as OutlineNewspaperIcon,
-  HomeIcon as OutlineHomeIcon,
+  ShoppingBagIcon as OutlineShoppingBagIcon,
   ChatBubbleOvalLeftEllipsisIcon as OutlineChatIcon,
   VideoCameraIcon as OutlineVideoCameraIcon,
   UserIcon as OutlineUserIcon,
@@ -64,7 +65,7 @@ interface TabBarProps {
  * TabBar 채팅 뱃지용 전체 미읽음 수 조회
  *
  * Client Component 초기 렌더에서 Server Action을 직접 queryFn으로 호출하면
- * App Router fetch waterfall 오류가 발생할 수 있어 전용 Route Handler를 사용합니다.
+ * App Router fetch waterfall 오류 방지를 위한 전용 Route Handler 사용
  */
 async function fetchUnreadChatMessageCount() {
   const response = await fetch("/api/chats/unread-count", {
@@ -85,7 +86,7 @@ async function fetchUnreadChatMessageCount() {
  * - 최상위 탭 경로 및 타 유저 프로필/채널 페이지에서 노출
  * - 현재 경로 기준 active 상태 표시
  * - 모바일 하단 고정 내비게이션 제공
- * - 신호 탭에 전체 채팅 미읽음 수를 표시하고 query invalidation으로 최신화
+ * - 채팅 탭의 전체 미읽음 수 표시와 query invalidation 기반 최신화
  */
 export default function TabBar({
   userId,
@@ -111,8 +112,7 @@ export default function TabBar({
     if (!userId) return;
 
     const unreadQueryKey = queryKeys.chats.unreadCount(userId);
-    const cachedUnreadCount =
-      queryClient.getQueryData<number>(unreadQueryKey);
+    const cachedUnreadCount = queryClient.getQueryData<number>(unreadQueryKey);
 
     // 채팅방 진입 후 클라이언트가 줄인 미읽음 수를 오래된 서버 초기값으로 되살리지 않음
     if (
@@ -126,31 +126,31 @@ export default function TabBar({
   const tabs = [
     {
       href: "/products",
-      label: "항구",
-      solidIcon: SolidHomeIcon,
-      outlineIcon: OutlineHomeIcon,
+      label: "상품",
+      solidIcon: SolidShoppingBagIcon,
+      outlineIcon: OutlineShoppingBagIcon,
     },
     {
       href: "/posts",
-      label: "항해일지",
+      label: "게시글",
       solidIcon: SolidNewspaperIcon,
       outlineIcon: OutlineNewspaperIcon,
     },
     {
       href: "/chat",
-      label: "신호",
+      label: "채팅",
       solidIcon: SolidChatIcon,
       outlineIcon: OutlineChatIcon,
     },
     {
       href: "/streams",
-      label: "등대방송",
+      label: "방송",
       solidIcon: SolidVideoCameraIcon,
       outlineIcon: OutlineVideoCameraIcon,
     },
     {
       href: "/profile",
-      label: "선원증",
+      label: "내 정보",
       solidIcon: SolidUserIcon,
       outlineIcon: OutlineUserIcon,
     },
@@ -197,8 +197,7 @@ export default function TabBar({
 
   if (!shouldShowTabBar) return null;
 
-  const unreadChatCount =
-    unreadChatCountQuery.data ?? initialUnreadChatCount;
+  const unreadChatCount = unreadChatCountQuery.data ?? initialUnreadChatCount;
   const unreadChatBadgeText =
     unreadChatCount > 99 ? "99+" : String(unreadChatCount);
 

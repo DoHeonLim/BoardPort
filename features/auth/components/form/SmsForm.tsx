@@ -23,6 +23,7 @@
  * 2026.05.12  임도헌   Modified  토큰 단계 보조 액션이 blur 검증으로 한 번 막히지 않도록 처리
  * 2026.05.19  임도헌   Modified  서버 액션 예외 처리와 SMS 자동완성 힌트 보강
  * 2026.08.27  임도헌   Modified  휴대폰 번호·인증번호 입력에 접근 가능한 숨김 label 추가
+ * 2026.09.13  임도헌   Modified  휴대폰 인증 진행 표시 통일
  */
 
 // react-hook-form에 사용되는 schema가 z.object가 아닌 단일 필드라서 전체 폼 검증이 무효화됨.
@@ -212,13 +213,9 @@ export default function SmsForm({
 
       <div className="flex flex-col gap-4 mt-2">
         <Button
-          text={
-            isPending
-              ? "처리 중..."
-              : phase === "phone"
-                ? "인증번호 받기"
-                : "인증하기"
-          }
+          text={phase === "phone" ? "인증번호 받기" : "인증하기"}
+          loading={isPending}
+          loadingText="처리 중..."
           disabled={isPending}
         />
 

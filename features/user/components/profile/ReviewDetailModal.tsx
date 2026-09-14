@@ -21,15 +21,15 @@
  * 2026.06.18  임도헌   Modified  닫기 버튼을 공통 secondary modal 스타일로 통일
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 닫기 버튼을 제거해 신고/삭제 액션만 남김
  * 2026.08.27  임도헌   Modified  중첩 신고 모달을 고려한 포커스 관리를 공용 useModalFocus로 통일
+ * 2026.09.13  임도헌   Modified  거래 후기 용어와 액션 버튼 문법 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { StarIcon } from "@heroicons/react/24/solid";
-import {
-  ExclamationTriangleIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { cn } from "@/lib/utils";
 import type { ProfileReview } from "@/features/user/types";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -64,7 +64,7 @@ export default function ReviewDetailModal({
   title,
   review,
   onDelete,
-  emptyMessage = "아직 작성된 리뷰가 없습니다.",
+  emptyMessage = "아직 작성된 거래 후기가 없습니다.",
   isOwnReview = false,
 }: ReviewDetailModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -144,14 +144,10 @@ export default function ReviewDetailModal({
                   ))}
                 </div>
               )}
-              <button
-                type="button"
+              <ModalCloseButton
                 onClick={onClose}
-                aria-label="리뷰 상세 모달 닫기"
-                className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-              >
-                <XMarkIcon className="size-6" />
-              </button>
+                label="거래 후기 상세 모달 닫기"
+              />
             </div>
           </div>
         </div>
@@ -175,6 +171,7 @@ export default function ReviewDetailModal({
             <div className="flex items-center">
               {review && !isOwnReview && (
                 <button
+                  type="button"
                   onClick={() => setReportOpen(true)}
                   className="focus-ring-soft rounded-md text-muted hover:text-danger text-sm flex items-center gap-1 transition-colors"
                 >
@@ -186,6 +183,7 @@ export default function ReviewDetailModal({
 
             {review && onDelete ? (
               <button
+                type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
                 className="focus-ring-soft px-4 py-2 text-sm font-medium text-danger bg-danger/10 hover:bg-danger/20 rounded-xl transition-colors disabled:opacity-50"

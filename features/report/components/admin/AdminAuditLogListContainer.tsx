@@ -16,6 +16,7 @@
  * 2026.04.28  임도헌   Modified  신고 제재 관련 감사 로그 사유를 운영자가 읽기 쉬운 한글 요약으로 포맷
  * 2026.04.28  임도헌   Modified  삭제 감사 로그의 OwnerID 옆에 유저명을 함께 표시
  * 2026.09.01  임도헌   Modified  중간 너비에서 감사 상세 정보가 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
+ * 2026.09.12  임도헌   Modified  검색·빠른 필터 결과 0건 상태에 조건 초기화 동선 추가
  */
 
 "use client";
@@ -26,6 +27,7 @@ import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
+import AdminListEmptyState from "@/features/report/components/admin/AdminListEmptyState";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
   formatAuditReason,
@@ -62,7 +64,10 @@ export default function AdminAuditLogListContainer({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const hasQuery = !!searchParams.get("q")?.trim();
+  const hasActiveFilters =
+    !!searchParams.get("q")?.trim() ||
+    activeAction !== "ALL" ||
+    activeTargetType !== "ALL";
   const returnTo = sanitizeCallbackUrl(
     searchParams?.size ? `${pathname}?${searchParams.toString()}` : pathname
   );
@@ -71,25 +76,25 @@ export default function AdminAuditLogListContainer({
     { value: "ALL", label: "전체 액션" },
     { value: "RESOLVE_REPORT", label: "신고 승인" },
     { value: "DISMISS_REPORT", label: "신고 기각" },
-    { value: "BAN_USER", label: "유저 정지" },
+    { value: "BAN_USER", label: "사용자 정지" },
     { value: "UNBAN_USER", label: "정지 해제" },
     { value: "CHANGE_ROLE", label: "권한 변경" },
     { value: "DELETE_POST", label: "게시글 삭제" },
     { value: "DELETE_PRODUCT", label: "상품 삭제" },
     { value: "DELETE_COMMENT", label: "댓글 삭제" },
-    { value: "DELETE_REVIEW", label: "리뷰 삭제" },
+    { value: "DELETE_REVIEW", label: "거래 후기 삭제" },
     { value: "DELETE_MESSAGE", label: "메시지 삭제" },
     { value: "DELETE_STREAM", label: "방송 종료" },
   ];
 
   const targetTypeFilters = [
     { value: "ALL", label: "전체 대상" },
-    { value: "USER", label: "유저" },
+    { value: "USER", label: "사용자" },
     { value: "REPORT", label: "신고" },
     { value: "POST", label: "게시글" },
     { value: "PRODUCT", label: "상품" },
     { value: "COMMENT", label: "댓글" },
-    { value: "REVIEW", label: "리뷰" },
+    { value: "REVIEW", label: "거래 후기" },
     { value: "MESSAGE", label: "메시지" },
     { value: "STREAM", label: "방송" },
   ];
@@ -151,11 +156,20 @@ export default function AdminAuditLogListContainer({
 
       <div className="space-y-4 xl:hidden">
         {data.items.length === 0 ? (
-          <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
-            {hasQuery
-              ? "검색된 감사 로그가 없습니다."
-              : "기록된 감사 로그가 없습니다."}
-          </div>
+          <AdminListEmptyState
+            panel
+            title={
+              hasActiveFilters
+                ? "검색·필터 조건에 맞는 감사 로그가 없습니다."
+                : "기록된 감사 로그가 없습니다."
+            }
+            description={
+              hasActiveFilters
+                ? "검색어나 액션·대상 조건을 바꿔보세요."
+                : "관리자 활동이 기록되면 이곳에 표시됩니다."
+            }
+            resetHref={hasActiveFilters ? "/admin/logs" : undefined}
+          />
         ) : (
           data.items.map((log) => {
             const actionLabel = AUDIT_ACTION_LABELS[log.action] || log.action;
@@ -268,10 +282,20 @@ export default function AdminAuditLogListContainer({
             <tbody className="divide-y divide-border-subtle">
               {data.items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center text-muted">
-                    {hasQuery
-                      ? "검색된 감사 로그가 없습니다."
-                      : "기록된 감사 로그가 없습니다."}
+                  <td colSpan={5} className="p-0">
+                    <AdminListEmptyState
+                      title={
+                        hasActiveFilters
+                          ? "검색·필터 조건에 맞는 감사 로그가 없습니다."
+                          : "기록된 감사 로그가 없습니다."
+                      }
+                      description={
+                        hasActiveFilters
+                          ? "검색어나 액션·대상 조건을 바꿔보세요."
+                          : "관리자 활동이 기록되면 이곳에 표시됩니다."
+                      }
+                      resetHref={hasActiveFilters ? "/admin/logs" : undefined}
+                    />
                   </td>
                 </tr>
               ) : (

@@ -20,14 +20,16 @@
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.01  임도헌   Modified  태블릿·작은 데스크톱 모달의 카드 열 수를 화면 너비별로 조정
  * 2026.09.05  임도헌   Modified  최초 표시·창 복귀·목록 열기 시 서버 검증으로 삭제 상품과 오래된 이미지 정리
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { XMarkIcon, ClockIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { ClockIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import ProductCard from "@/features/product/components/productCard";
 import {
   getRecentViewedProducts,
@@ -62,13 +64,13 @@ export default function RecentViewedProductsFab() {
 
   const requestState = useRef({ version: 0 }).current;
   // 관리자나 다른 브라우저에서 상품을 삭제해도 로컬 열람 기록은 남는다.
-  // 삭제된 이미지 URL을 다시 표시하지 않도록 서버에서 상품 상태를 확인한 뒤 렌더링한다.
+  // 삭제된 이미지 URL을 다시 표시하지 않도록 서버에서 상품 상태를 확인한 뒤 렌더링
   const loadProducts = useCallback(async () => {
     const version = ++requestState.version;
     const ids = getRecentViewedProducts()
       .slice(0, 8)
       .map((product) => product.id);
-    // 최초 렌더링은 빈 목록으로 유지하고 검증된 서버 결과만 표시한다.
+    // 최초 렌더링은 빈 목록으로 유지하고 검증된 서버 결과만 표시
     if (!ids.length) {
       setProducts([]);
       setIsOpen(false);
@@ -82,7 +84,7 @@ export default function RecentViewedProductsFab() {
       setProducts(next.filter((product) => verifiedIds.has(product.id)));
       if (!next.length) setIsOpen(false);
     } catch {
-      // 요청 실패 시 기록과 직전 검증 화면을 유지하고 다음 복귀·목록 열기 때 재시도한다.
+      // 요청 실패 시 기록과 직전 검증 화면을 유지하고 다음 복귀·목록 열기 때 재시도
     }
   }, [requestState]);
 
@@ -288,14 +290,10 @@ export default function RecentViewedProductsFab() {
                 </p>
               </div>
 
-              <button
-                type="button"
+              <ModalCloseButton
                 onClick={() => setIsOpen(false)}
-                className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-                aria-label="최근 본 상품 모달 닫기"
-              >
-                <XMarkIcon className="size-6" />
-              </button>
+                label="최근 본 상품 모달 닫기"
+              />
             </div>
 
             <div className="overflow-y-auto px-6 py-5">

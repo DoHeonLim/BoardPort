@@ -105,7 +105,7 @@ export async function updateRecordingMetaAction(
     return { success: false, error: "로그인이 필요합니다." };
   }
   if (!Number.isFinite(vodId) || vodId <= 0) {
-    return { success: false, error: "잘못된 녹화본 ID입니다." };
+    return { success: false, error: "잘못된 다시보기 ID입니다." };
   }
 
   const parsed = recordingMetaUpdateSchema.safeParse(rawData);

@@ -24,6 +24,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.04.26  임도헌   Modified  스트림 채팅 유저 모달에 dialog 의미와 제목/닫기 라벨, ESC 닫기 흐름을 보강
  * 2026.08.27  임도헌   Modified  중첩 확인·신고 모달을 고려한 포커스 관리를 공용 useModalFocus로 통일
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -40,12 +41,12 @@ import {
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import UserAvatar from "@/components/global/UserAvatar";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import {
   ExclamationTriangleIcon,
   NoSymbolIcon,
   UserMinusIcon,
   UserCircleIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -147,7 +148,7 @@ export default function StreamChatUserModal({
       const result = await toggleBlockAction(targetUser.id, "block");
 
       if (result.success) {
-        toast.success(`${targetUser.username}님을 유저 차단했습니다.`);
+        toast.success(`${targetUser.username}님을 차단했습니다.`);
 
         onModerationSuccess?.({ targetId: targetUser.id, kind: "block" });
 
@@ -233,13 +234,13 @@ export default function StreamChatUserModal({
         ? isTargetMuted
           ? `${targetUser.username}님의 채팅 금지를 해제할까요?`
           : `${targetUser.username}님의 채팅을 금지할까요?`
-        : `${targetUser.username}님을 유저 차단할까요?`;
+        : `${targetUser.username}님을 사용자 차단할까요?`;
   const moderationDescription =
     resolvedIntent === "kick"
-      ? "강제 퇴장하면 이 유저는 현재 방송에서 즉시 나가게 됩니다. 전역 차단은 적용되지 않습니다."
+      ? "강제 퇴장하면 이 사용자는 현재 방송에서 즉시 나가게 됩니다. 전역 차단은 적용되지 않습니다."
       : resolvedIntent === "mute"
         ? isTargetMuted
-          ? "채팅 금지를 해제하면 이 유저는 현재 방송에서 다시 메시지를 보낼 수 있습니다."
+          ? "채팅 금지를 해제하면 이 사용자는 현재 방송에서 다시 메시지를 보낼 수 있습니다."
           : "채팅 금지는 현재 방송에서만 메시지 전송을 막습니다. 시청과 전역 관계에는 영향을 주지 않습니다."
         : "차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.";
   const moderationLabel =
@@ -249,7 +250,7 @@ export default function StreamChatUserModal({
         ? isTargetMuted
           ? "채팅 금지 해제"
           : "채팅 금지"
-        : "유저 차단";
+        : "사용자 차단";
 
   const openConfirm = (intent: ModerationIntent) => {
     setModerationIntent(intent);
@@ -293,13 +294,7 @@ export default function StreamChatUserModal({
         >
           {/* 닫기 버튼 */}
           <div className="flex justify-end p-2">
-            <button
-              onClick={onClose}
-              className="focus-ring-soft rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-              aria-label="유저 메뉴 닫기"
-            >
-              <XMarkIcon className="size-6" />
-            </button>
+            <ModalCloseButton onClick={onClose} label="사용자 메뉴 닫기" />
           </div>
 
           {/* 프로필 정보 */}
@@ -334,8 +329,10 @@ export default function StreamChatUserModal({
                     현재 방송에서만 메시지 전송을 막습니다.
                   </p>
                   <p>
-                    <span className="font-medium text-primary">유저 차단</span>:
-                    라이브 밖 관계까지 끊는 전역 차단입니다.
+                    <span className="font-medium text-primary">
+                      사용자 차단
+                    </span>
+                    : 라이브 밖 관계까지 끊는 전역 차단입니다.
                   </p>
                 </div>
               </div>
@@ -374,7 +371,7 @@ export default function StreamChatUserModal({
                         className={cn(actionButtonBaseClass, blockActionClass)}
                       >
                         <UserMinusIcon className="size-5" />
-                        유저 차단
+                        사용자 차단
                       </button>
                     </>
                   ) : (

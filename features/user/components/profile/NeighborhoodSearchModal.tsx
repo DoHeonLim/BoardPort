@@ -19,16 +19,15 @@
  * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.08.28  임도헌   Modified  데스크톱 모달 셸 함수 JSDoc 보강
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BottomSheet from "@/components/global/BottomSheet";
-import {
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  MapPinIcon,
-} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { toast } from "sonner";
 import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
 import type { LocationData } from "@/features/map/types";
@@ -362,13 +361,7 @@ export default function NeighborhoodSearchModal({ onClose, onSelect }: Props) {
           <h3 id="neighborhood-search-title" className="font-bold text-primary">
             내 동네 검색
           </h3>
-          <button
-            onClick={onClose}
-            className="focus-ring-soft rounded-full p-1 text-muted hover:text-primary transition-colors"
-            aria-label="내 동네 검색 모달 닫기"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+          <ModalCloseButton onClick={onClose} label="내 동네 검색 모달 닫기" />
         </div>
         {content}
       </div>

@@ -18,16 +18,17 @@
  * 2026.08.27  임도헌   Modified  지도 선택 중첩 상태를 고려한 데스크톱 포커스 관리를 공용 useModalFocus로 통일
  * 2026.09.08  임도헌   Modified  전 기기 공통 주간 달력과 시간 버튼 선택 UI 적용
  * 2026.09.09  임도헌   Modified  오늘 기본 선택과 월별 가로 스크롤 날짜 UI 반영
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
+ * 2026.09.13  임도헌   Modified  약속 전송 CTA를 공통 비동기 버튼으로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  MapPinIcon,
-  CalendarIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { MapPinIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
+import Button from "@/components/ui/Button";
 import AppointmentDateTimePicker from "@/features/chat/components/AppointmentDateTimePicker";
 import LocationPicker from "@/features/map/components/LocationPicker";
 import type { LocationData } from "@/features/map/types";
@@ -172,13 +173,15 @@ export default function ScheduleModal({
   );
 
   const footer = (
-    <button
+    <Button
+      type="button"
       onClick={handleSubmit}
+      text="약속 제안하기"
+      loading={isPending}
+      loadingText="전송 중..."
       disabled={!location || !timeStr || isPending}
-      className="btn-primary h-10 w-full px-6 text-sm sm:w-auto"
-    >
-      {isPending ? "전송 중..." : "약속 제안하기"}
-    </button>
+      className="h-10 w-full px-6 text-sm sm:w-auto"
+    />
   );
 
   const locationPicker = showMap ? (
@@ -229,13 +232,7 @@ export default function ScheduleModal({
             <CalendarIcon className="size-5 text-brand dark:text-brand-light" />
             약속 잡기
           </h3>
-          <button
-            onClick={handleClose}
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
-            aria-label="닫기"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+          <ModalCloseButton onClick={handleClose} label="약속 설정 모달 닫기" />
         </div>
 
         {/* Body */}

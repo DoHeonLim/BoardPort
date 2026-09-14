@@ -18,6 +18,7 @@
  * 2026.03.30  임도헌   Modified  게시글 카테고리 plain 라벨 정리에 맞춰 empty state 기본 문구를 일반 게시글 기준으로 조정
  * 2026.06.15  임도헌   Modified  검색어+카테고리 0건 상태를 순수 검색 0건과 구분해 안내
  * 2026.09.08  임도헌   Modified  카테고리 해제 링크에서 현재 게시글 정렬 유지
+ * 2026.09.12  임도헌   Modified  게시글 작성 취소 시 빈 목록 문맥 복귀 지원
  */
 "use client";
 
@@ -35,6 +36,7 @@ interface PostEmptyStateProps {
   category?: string;
   currentRange?: RegionRange;
   sort?: PostSort;
+  returnTo?: string;
 }
 
 /**
@@ -48,6 +50,7 @@ export default function PostEmptyState({
   category,
   currentRange,
   sort = "latest",
+  returnTo = "/posts",
 }: PostEmptyStateProps) {
   let message = "작성된 게시글이 없습니다.";
   let subMessage = "첫 번째 게시글을 작성해보세요!";
@@ -109,10 +112,10 @@ export default function PostEmptyState({
             </Link>
           )}
           <Link
-            href="/posts/add"
+            href={`/posts/add?returnTo=${encodeURIComponent(returnTo)}`}
             className="btn-primary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm shadow-sm"
           >
-            <PlusIcon className="w-5 h-5" />
+            <PlusIcon aria-hidden="true" className="h-5 w-5" />
             <span>게시글 작성하기</span>
           </Link>
         </div>

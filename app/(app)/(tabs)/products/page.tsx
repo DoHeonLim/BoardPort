@@ -66,6 +66,9 @@
  * 2026.09.08  임도헌   Modified  상품 정렬 query 정규화와 빈 목록 정렬 선택 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.09  임도헌   Modified  초기 목록은 검증된 조회자로 service를 직접 호출해 세션 재검증 제거
+ * 2026.09.12  임도헌   Modified  URL 보기 방식과 목록 스켈레톤 형태 일치
+ * 2026.09.12  임도헌   Modified  상품 등록 취소 시 현재 검색·필터 문맥 복귀 지원
+ * 2026.09.14  임도헌   Modified  목록 도감 링크의 좁은 너비 줄바꿈 방지
  */
 
 import { Suspense } from "react";
@@ -118,12 +121,13 @@ interface ProductsPageProps {
     game_type?: string;
     condition?: string;
     sort?: string;
+    view?: string;
   }>;
 }
 
 export const metadata: Metadata = {
   title: "항구 (상품 목록)",
-  description: "다양한 보드게임과 TRPG 물품을 거래하세요.",
+  description: "다양한 보드게임과 TRPG 상품을 거래하세요.",
   openGraph: {
     title: "보드포트 항구",
     description: "보드게임 중고 거래의 중심, 보드포트 항구입니다.",
@@ -155,6 +159,13 @@ function parseNumberParam(val: string | undefined): number | undefined {
  */
 export default async function ProductsPage(props: ProductsPageProps) {
   const searchParams = await props.searchParams;
+  const viewMode = searchParams.view === "grid" ? "grid" : "list";
+  const listParams = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (value) listParams.set(key, value);
+  });
+  const listQuery = listParams.toString();
+  const returnTo = listQuery ? `/products?${listQuery}` : "/products";
   const session = await getSession();
   const userId = session?.id ?? null;
 
@@ -301,11 +312,12 @@ export default async function ProductsPage(props: ProductsPageProps) {
                 alertId={matchedAlert?.id}
                 currentRange={currentRange}
                 sort={queryParams.sort}
+                returnTo={returnTo}
               />
             </>
           ) : (
             <HydrationBoundary state={dehydrate(queryClient)}>
-              <Suspense fallback={<ProductListSkeleton viewMode="list" />}>
+              <Suspense fallback={<ProductListSkeleton viewMode={viewMode} />}>
                 <ProductList
                   key={`${JSON.stringify(searchParams)}-${JSON.stringify(productListScope)}`}
                   searchParams={queryParams}
@@ -315,7 +327,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href="/boardgames"
-                        className="focus-ring-soft inline-flex min-h-8 items-center rounded-full border border-border bg-surface px-3.5 text-xs font-bold text-brand transition hover:bg-surface-dim dark:text-brand-light"
+                        className="focus-ring-soft inline-flex min-h-8 items-center whitespace-nowrap rounded-full border border-border bg-surface px-3.5 text-xs font-bold text-brand transition hover:bg-surface-dim dark:text-brand-light"
                       >
                         {searchParams.keyword ? (
                           <>
@@ -344,7 +356,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
         </div>
       </PullToRefresh>
 
-      <AddProductButton />
+      <AddProductButton returnTo={returnTo} />
     </div>
   );
 }

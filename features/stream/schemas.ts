@@ -109,7 +109,7 @@ export const streamMetaUpdateSchema = z.object({
     .max(500, "설명은 최대 500자입니다.")
     .optional()
     .or(z.literal("")),
-  // undefined는 기존 이미지 유지, null은 사용자 썸네일 제거를 의미한다.
+  // undefined는 기존 이미지 유지, null은 사용자 썸네일 제거
   thumbnail: z
     .string()
     .url("올바른 썸네일 URL이 아닙니다.")
@@ -122,10 +122,10 @@ export type StreamMetaUpdateValues = z.infer<typeof streamMetaUpdateSchema>;
 
 /** 녹화본 전용 제목과 선택적 사용자 썸네일 변경 스키마 */
 export const recordingMetaUpdateSchema = z.object({
-  title: requiredTrimmedString("녹화본 제목을 입력해주세요.")
+  title: requiredTrimmedString("다시보기 제목을 입력해주세요.")
     .min(5, "5자 이상 적어주세요.")
     .max(50, "제목은 최대 50자입니다."),
-  // undefined는 기존 이미지 유지, null은 사용자 썸네일 제거를 의미한다.
+  // undefined는 기존 이미지 유지, null은 사용자 썸네일 제거
   thumbnail: z
     .string()
     .url("올바른 썸네일 URL이 아닙니다.")

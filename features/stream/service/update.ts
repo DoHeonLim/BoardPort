@@ -80,7 +80,7 @@ export async function updateBroadcastMeta(
       let nextThumbnail = existing.thumbnail;
       let nextThumbnailAnimated = existing.thumbnailAnimated;
 
-      // 필드가 생략되면 제목·설명만 수정하고 기존 사용자/자동 썸네일은 유지한다.
+      // 필드 생략 시 제목·설명만 수정하고 기존 사용자/자동 썸네일 유지
       if (data.thumbnail !== undefined) {
         if (data.thumbnail) {
           const [ownedThumbnailUrl] = await attachOwnedMediaAssets(tx, {
@@ -222,10 +222,10 @@ export async function updateRecordingMeta(
     });
 
     if (!existing?.broadcast?.liveInput) {
-      return { success: false, error: "녹화본을 찾을 수 없습니다." };
+      return { success: false, error: "다시보기를 찾을 수 없습니다." };
     }
     if (existing.broadcast.liveInput.userId !== userId) {
-      return { success: false, error: "녹화본 수정 권한이 없습니다." };
+      return { success: false, error: "다시보기 수정 권한이 없습니다." };
     }
 
     let staleThumbnailAssetIds: string[] = [];
@@ -296,7 +296,7 @@ export async function updateRecordingMeta(
     return {
       success: false,
       error:
-        "녹화본 정보 수정에 실패했습니다. 입력값과 썸네일을 확인한 뒤 다시 시도해주세요.",
+        "다시보기 정보 수정에 실패했습니다. 입력값과 썸네일을 확인한 뒤 다시 시도해주세요.",
     };
   }
 }

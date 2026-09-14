@@ -26,10 +26,11 @@
  * 2026.06.19  임도헌   Modified  데스크톱 신고 처리 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.04  임도헌   Modified  처리 전 대상 제목·사용자명을 주요 정보로 표시하고 ID를 보조 정보로 정리
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.13  임도헌   Modified  신고 처리 액션별 공통 버튼 진행 표시 적용
  */
 
 import Link from "next/link";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import { createPortal } from "react-dom";
 import {
   useCallback,
@@ -41,6 +42,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
+import Button from "@/components/ui/Button";
 import { updateReportAction } from "@/features/report/actions/admin";
 import Select from "@/components/ui/Select";
 import {
@@ -159,6 +162,9 @@ export default function ReportActionDialog({
     effectiveRecommended.deleteContent
   );
   const [isPending, startTransition] = useTransition();
+  const [pendingStatus, setPendingStatus] = useState<
+    "RESOLVED" | "DISMISSED" | null
+  >(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const isReadOnly = reportStatus !== "PENDING";
@@ -194,50 +200,55 @@ export default function ReportActionDialog({
   if (!open || !mounted) return null;
 
   const handleAction = (status: "RESOLVED" | "DISMISSED") => {
+    setPendingStatus(status);
     startTransition(async () => {
-      const res = await updateReportAction(
-        reportId,
-        status,
-        status === "RESOLVED"
-          ? {
-              action,
-              adminComment: comment,
-              strike:
-                action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
-                  ? Math.max(effectiveRecommended.strike, 2)
-                  : effectiveRecommended.strike,
-              durationDays:
-                action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN
-                  ? durationDays
-                  : action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
-                    ? REPORT_BAN_DURATIONS.PERMANENT
-                    : undefined,
-              deleteContent:
-                action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT
-                  ? true
-                  : deleteContent,
-            }
-          : { adminComment: comment }
-      );
-      if (res.success) {
-        toast.success(
-          status === "RESOLVED"
-            ? "신고를 승인(조치)했습니다."
-            : "신고를 기각했습니다."
-        );
-        onSuccess(
+      try {
+        const res = await updateReportAction(
           reportId,
           status,
-          comment,
           status === "RESOLVED"
-            ? action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
-              ? Math.max(effectiveRecommended.strike, 2)
-              : effectiveRecommended.strike
-            : 0
+            ? {
+                action,
+                adminComment: comment,
+                strike:
+                  action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
+                    ? Math.max(effectiveRecommended.strike, 2)
+                    : effectiveRecommended.strike,
+                durationDays:
+                  action === REPORT_RESOLUTION_ACTIONS.TEMP_BAN
+                    ? durationDays
+                    : action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
+                      ? REPORT_BAN_DURATIONS.PERMANENT
+                      : undefined,
+                deleteContent:
+                  action === REPORT_RESOLUTION_ACTIONS.DELETE_CONTENT
+                    ? true
+                    : deleteContent,
+              }
+            : { adminComment: comment }
         );
-        onClose();
-      } else {
-        toast.error(res.error);
+        if (res.success) {
+          toast.success(
+            status === "RESOLVED"
+              ? "신고를 승인(조치)했습니다."
+              : "신고를 기각했습니다."
+          );
+          onSuccess(
+            reportId,
+            status,
+            comment,
+            status === "RESOLVED"
+              ? action === REPORT_RESOLUTION_ACTIONS.PERMA_BAN
+                ? Math.max(effectiveRecommended.strike, 2)
+                : effectiveRecommended.strike
+              : 0
+          );
+          onClose();
+        } else {
+          toast.error(res.error);
+        }
+      } finally {
+        setPendingStatus(null);
       }
     });
   };
@@ -480,20 +491,27 @@ export default function ReportActionDialog({
 
   const footer = isReadOnly ? null : (
     <div className="flex justify-end gap-3">
-      <button
+      <Button
+        type="button"
         onClick={() => handleAction("DISMISSED")}
+        text="기각"
+        loading={pendingStatus === "DISMISSED"}
+        loadingText="기각 중..."
+        variant="secondary"
+        size="sm"
         disabled={isPending}
-        className="focus-ring-soft inline-flex h-10 min-w-20 items-center justify-center rounded-xl border border-rose-300/50 bg-rose-50 px-4 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
-      >
-        기각
-      </button>
-      <button
+        className="w-auto min-w-20 border-rose-300/50 bg-rose-50 font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
+      />
+      <Button
+        type="button"
         onClick={() => handleAction("RESOLVED")}
+        text="조치 완료"
+        loading={pendingStatus === "RESOLVED"}
+        loadingText="처리 중..."
+        size="sm"
         disabled={isPending}
-        className="btn-primary h-10 min-w-24 text-sm"
-      >
-        {isPending ? "처리 중..." : "조치 완료"}
-      </button>
+        className="w-auto min-w-24"
+      />
     </div>
   );
 
@@ -540,15 +558,11 @@ export default function ReportActionDialog({
                 {dialogDescription}
               </p>
             </div>
-            <button
-              type="button"
+            <ModalCloseButton
               onClick={handleRequestClose}
               disabled={isPending}
-              aria-label="신고 처리 모달 닫기"
-              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-            >
-              <XMarkIcon className="size-6" />
-            </button>
+              label="신고 처리 모달 닫기"
+            />
           </div>
           {content}
         </div>

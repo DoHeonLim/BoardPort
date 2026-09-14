@@ -25,6 +25,7 @@
  * 2026.04.18  임도헌   Modified  체크박스/시간 입력 폼을 서버 렌더링으로 분리해 초기 설정 페이지 하이드레이션 비용 축소
  * 2026.04.20  임도헌   Modified  알림 설정 체크박스와 행 포커스를 공용 문법에 맞춰 정리
  * 2026.06.21  임도헌   Modified  댓글/약속/다시보기 알림 추가에 맞춰 알림 종류 설명 문구 보강
+ * 2026.09.13  임도헌   Modified  거래 후기 알림 용어 통일
  */
 
 import {
@@ -75,7 +76,10 @@ export default function NotificationSettingsClient({
   saveError = false,
 }: Props) {
   return (
-    <form action={saveNotificationPreferencesAndRedirect} className="flex flex-col gap-6">
+    <form
+      action={saveNotificationPreferencesAndRedirect}
+      className="flex flex-col gap-6"
+    >
       <input type="hidden" name="returnTo" value={returnTo} />
 
       {saveError ? (
@@ -93,8 +97,8 @@ export default function NotificationSettingsClient({
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-bold text-primary">알림 종류</h2>
         <p className="px-1 text-xs leading-relaxed text-muted">
-          받고 싶은 알림만 켜 두세요. 댓글·거래·방송 활동 알림은
-          종류별 설정을 따릅니다.
+          받고 싶은 알림만 켜 두세요. 댓글·거래·방송 활동 알림은 종류별 설정을
+          따릅니다.
         </p>
         <div className="panel divide-y divide-border overflow-hidden">
           {rows.map((row) => (
@@ -110,9 +114,7 @@ export default function NotificationSettingsClient({
                   <p className="text-sm font-medium text-primary">
                     {row.label}
                   </p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {row.description}
-                  </p>
+                  <p className="mt-0.5 text-xs text-muted">{row.description}</p>
                 </div>
               </div>
 
@@ -120,7 +122,9 @@ export default function NotificationSettingsClient({
                 type="checkbox"
                 name={row.name}
                 defaultChecked={
-                  prefs[row.name as keyof NotificationPreferencesProps] as boolean
+                  prefs[
+                    row.name as keyof NotificationPreferencesProps
+                  ] as boolean
                 }
                 className="focus-ring-strong size-5 shrink-0 rounded border-border accent-brand dark:accent-brand-light"
               />
@@ -185,7 +189,7 @@ const rows = [
   },
   {
     name: "review",
-    label: "리뷰 알림",
+    label: "거래 후기 알림",
     icon: <ChatBubbleBottomCenterTextIcon className="size-5" />,
     description: "나에게 작성된 새로운 후기",
   },

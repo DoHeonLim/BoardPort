@@ -25,12 +25,13 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.13  임도헌   Modified  리뷰 목록에 차단 필터 기준 조회자 ID 전달
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useRef, Suspense } from "react";
 import ReviewsList from "@/features/user/components/profile/ReviewsList";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -145,13 +146,11 @@ export default function ProfileReviewsModal({
           <h2 id="reviews-title" className="text-lg font-bold text-primary">
             받은 거래 후기
           </h2>
-          <button
+          <ModalCloseButton
             onClick={onClose}
-            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
-            aria-label="닫기"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="받은 거래 후기 모달 닫기"
+            className="-mr-2"
+          />
         </div>
 
         {/* 내용 영역 (스크롤 가능) */}

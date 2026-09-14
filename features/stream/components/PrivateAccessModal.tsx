@@ -30,6 +30,8 @@
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.08.28  임도헌   Modified  비공개 방송 접근 제출 함수 JSDoc 보강
  * 2026.08.30  임도헌   Modified  언락 후 활성 Realtime JWT 캐시만 갱신하는 전용 모듈 사용
+ * 2026.09.13  임도헌   Modified  입장 CTA를 공통 비동기 버튼으로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -39,12 +41,14 @@ import { unlockPrivateBroadcastAction } from "@/features/stream/actions/access";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { unlockErrorMessage } from "@/features/stream/utils/access";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
+import Button from "@/components/ui/Button";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { invalidateRealtimeAccessToken } from "@/lib/realtimeAccessToken";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
-import { LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { LockClosedIcon } from "@heroicons/react/24/outline";
 
 interface PrivateAccessModalProps {
   open: boolean;
@@ -116,7 +120,7 @@ export default function PrivateAccessModal({
   });
 
   /**
-   * 비밀번호를 검증해 비공개 방송을 해제하고 결과 코드에 맞는 경로로 이동한다.
+   * 비밀번호를 검증해 비공개 방송을 해제하고 결과 코드에 맞는 경로로 이동
    *
    * @param e - 비밀번호 입력 폼 제출 이벤트
    */
@@ -166,7 +170,7 @@ export default function PrivateAccessModal({
         }
       }
 
-      // 다음 private join이 방금 저장된 unlocked_broadcast_ids claim으로 토큰을 다시 받게 한다.
+      // 다음 private join이 방금 저장된 unlocked_broadcast_ids claim으로 토큰을 다시 수신하도록 처리
       invalidateRealtimeAccessToken();
       close();
       onSuccess?.();
@@ -197,14 +201,15 @@ export default function PrivateAccessModal({
     />
   );
   const submitButton = (
-    <button
+    <Button
       type="submit"
       form={formId}
+      text="입장하기"
+      loading={isPending}
+      loadingText="확인 중..."
       disabled={isPending}
-      className="btn-primary min-h-[48px] w-full px-6 text-sm sm:w-auto sm:min-w-[112px]"
-    >
-      {isPending ? "확인 중..." : "입장하기"}
-    </button>
+      className="min-h-[48px] w-full px-6 text-sm sm:w-auto sm:min-w-[112px]"
+    />
   );
 
   const content = (
@@ -274,15 +279,12 @@ export default function PrivateAccessModal({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
+        <ModalCloseButton
           onClick={close}
           disabled={isPending}
-          aria-label="비공개 방송 모달 닫기"
-          className="focus-ring-soft absolute right-4 top-4 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-        >
-          <XMarkIcon className="size-6" />
-        </button>
+          label="비공개 방송 모달 닫기"
+          className="absolute right-4 top-4"
+        />
         <div className="mb-5 flex flex-col items-center text-center">
           <div className="state-icon-wrap mb-4 size-[68px]">
             <LockClosedIcon className="size-8 text-amber-500" />

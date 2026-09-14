@@ -64,13 +64,13 @@ export default function UserInsightHeader({
           className={`${summaryCardClass} border-border-subtle`}
         >
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
-            총 회원
+            총 사용자
           </p>
           <p className="mt-2 text-3xl font-bold tracking-tight text-primary">
             {summary.totalUsers.toLocaleString()}
           </p>
           <p className="mt-1 text-sm text-muted">
-            현재 보드포트에 등록된 전체 회원 수입니다.
+            현재 보드포트에 등록된 전체 사용자 수입니다.
           </p>
         </Link>
         <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-4 shadow-sm">
@@ -81,7 +81,7 @@ export default function UserInsightHeader({
             {summary.todaySignups.toLocaleString()}
           </p>
           <p className="mt-1 text-sm text-muted">
-            오늘 새로 유입된 회원 수입니다.
+            오늘 새로 가입한 사용자 수입니다.
           </p>
         </div>
         <Link

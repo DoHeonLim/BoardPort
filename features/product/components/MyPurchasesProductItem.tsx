@@ -41,6 +41,7 @@
  * 2026.05.03  임도헌   Modified  프로필 구매 카드에 연결 보드게임 배지 표시 추가
  * 2026.05.05  임도헌   Modified  구매 내역 카드 helper와 리뷰 삭제 핸들러 JSDoc 보강
  * 2026.08.27  임도헌   Modified  반응형 썸네일 표시 폭을 Image sizes로 명시
+ * 2026.09.13  임도헌   Modified  구매 내역의 거래 후기 용어와 버튼 문법 통일
  */
 
 "use client";
@@ -221,17 +222,18 @@ export default function MyPurchasesProductItem({
           onReviewChanged?.({ reviews: next });
           return next;
         });
-        toast.success("리뷰를 삭제했습니다.");
+        toast.success("거래 후기를 삭제했습니다.");
         toggleModal("viewMine", false); // 상세 모달도 같이 닫기
       } else {
         toast.error(
-          res.error ?? "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+          res.error ??
+            "거래 후기 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
         );
       }
     } catch (e) {
       console.error(e);
       toast.error(
-        "리뷰 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+        "거래 후기 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
       );
     } finally {
       setIsDeleting(false);
@@ -348,26 +350,29 @@ export default function MyPurchasesProductItem({
       <div className="grid grid-cols-2 divide-x divide-border-subtle border-t border-border-subtle bg-surface-dim/30">
         {buyerReview ? (
           <button
+            type="button"
             onClick={() => toggleModal("viewMine", true)}
             className="focus-ring-strong-inset py-3 text-xs font-medium text-primary transition-colors hover:bg-surface-dim sm:text-sm"
           >
-            내 리뷰 보기
+            내 후기 보기
           </button>
         ) : (
           <button
+            type="button"
             onClick={() => toggleModal("create", true)}
             disabled={isSubmitting}
             className="focus-ring-strong-inset py-3 text-xs font-medium text-brand transition-colors hover:bg-brand/5 dark:text-brand-light dark:hover:bg-brand-light/10 disabled:opacity-50 sm:text-sm"
           >
-            {isSubmitting ? "작성 중..." : "리뷰 작성하기"}
+            {isSubmitting ? "작성 중..." : "후기 작성하기"}
           </button>
         )}
 
         <button
+          type="button"
           onClick={() => toggleModal("viewSeller", true)}
           className="focus-ring-strong-inset py-3 text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary sm:text-sm"
         >
-          판매자 리뷰
+          판매자 후기
         </button>
       </div>
 
@@ -386,7 +391,7 @@ export default function MyPurchasesProductItem({
       <ReviewDetailModal
         isOpen={modalState.viewMine}
         onClose={() => toggleModal("viewMine", false)}
-        title="내가 쓴 리뷰"
+        title="내가 쓴 거래 후기"
         review={buyerReview}
         onDelete={() => toggleModal("deleteConfirm", true)}
         isOwnReview={true}
@@ -396,9 +401,9 @@ export default function MyPurchasesProductItem({
       <ReviewDetailModal
         isOpen={modalState.viewSeller}
         onClose={() => toggleModal("viewSeller", false)}
-        title={`${sellerName}님의 리뷰`}
+        title={`${sellerName}님의 거래 후기`}
         review={sellerReview}
-        emptyMessage={`${sellerName}님이 아직 리뷰를 작성하지 않았습니다.`}
+        emptyMessage={`${sellerName}님이 아직 거래 후기를 작성하지 않았습니다.`}
       />
 
       {/* 4. 삭제 확인 다이얼로그 */}
@@ -407,8 +412,8 @@ export default function MyPurchasesProductItem({
         onCancel={() => toggleModal("deleteConfirm", false)}
         onConfirm={confirmDeleteReview}
         loading={isDeleting}
-        title="리뷰 삭제"
-        description="작성한 리뷰를 삭제하시겠습니까?"
+        title="거래 후기 삭제"
+        description="작성한 거래 후기를 삭제하시겠습니까?"
         confirmLabel="삭제"
       />
     </div>

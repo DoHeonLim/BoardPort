@@ -14,6 +14,7 @@
  * 2026.04.14  임도헌   Modified  /posts/add 선프리패치를 막아 목록 초기 JS 평가 비용을 완화
  * 2026.04.17  임도헌   Modified  게시글 FAB의 no-prefetch와 safe-area 배치 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.04.26  임도헌   Modified  다크모드 FAB 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.09.12  임도헌   Modified  게시글 작성 취소 시 현재 목록 문맥 복귀 지원
  */
 
 import Link from "next/link";
@@ -28,10 +29,14 @@ import { cn } from "@/lib/utils";
  * - `/posts/add`는 의도 시점에만 로드되도록 `prefetch={false}`로 선프리패치를 막음
  * - 모바일에서는 safe-area inset을 고려해 하단 탭/제스처 영역과 겹치지 않게 배치
  */
-export default function AddPostButton() {
+export default function AddPostButton({
+  returnTo = "/posts",
+}: {
+  returnTo?: string;
+}) {
   return (
     <Link
-      href="/posts/add"
+      href={`/posts/add?returnTo=${encodeURIComponent(returnTo)}`}
       // 게시글 작성 페이지 JS의 실제 진입 의도 발생 시점 한정 준비
       prefetch={false}
       title="새 게시글 작성"
@@ -45,7 +50,7 @@ export default function AddPostButton() {
         "bottom-[calc(80px+env(safe-area-inset-bottom))] sm:bottom-24"
       )}
     >
-      <PlusIcon className="size-7 sm:size-10" />
+      <PlusIcon aria-hidden="true" className="size-7 sm:size-10" />
     </Link>
   );
 }

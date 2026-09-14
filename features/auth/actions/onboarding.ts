@@ -161,7 +161,7 @@ export async function completeOnboardingAction(
       if (takenUser) {
         return {
           success: false,
-          fieldErrors: { username: ["이미 사용 중인 유저명입니다."] },
+          fieldErrors: { username: ["이미 사용 중인 닉네임입니다."] },
         };
       }
 

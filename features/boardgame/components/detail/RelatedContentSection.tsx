@@ -9,6 +9,7 @@
  * 2026.06.19  임도헌   Modified  관련 방송 링크를 라이브/종료 상태에 따라 방송 상세 또는 VOD 상세로 분기
  * 2026.09.06  임도헌   Modified  관련 콘텐츠 상세에 도감 returnTo 전달
  * 2026.09.10  임도헌   Modified  보드게임 사전 선택 기반 연결 콘텐츠 작성 진입점 추가
+ * 2026.09.12  임도헌   Modified  상품 검색 목적이 드러나는 버튼 문구로 변경
  */
 
 import Image from "next/image";
@@ -55,7 +56,7 @@ export default function RelatedContentSection({
           href={`/products?keyword=${encodeURIComponent(searchKeyword)}`}
           className="focus-ring-soft shrink-0 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-bold text-primary transition hover:bg-surface-dim"
         >
-          항구에서 검색
+          상품에서 검색
         </Link>
       </div>
 

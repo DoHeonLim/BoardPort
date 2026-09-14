@@ -35,7 +35,7 @@ interface StreamSearchBarWrapperProps {
 export default function StreamSearchBarWrapper({
   className,
   compact = true,
-  placeholder = "스트리밍 검색",
+  placeholder = "방송 검색",
 }: StreamSearchBarWrapperProps) {
   const router = useRouter();
   const sp = useSearchParams();

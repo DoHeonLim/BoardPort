@@ -15,6 +15,7 @@
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 헤더의 초소형 타이포 스케일을 단순화
  * 2026.05.03  임도헌   Modified  카테고리 경로가 남는 폭을 활용하도록 고정 max-width 제거
  * 2026.05.04  임도헌   Modified  좁은 상품 카드에서는 카테고리 경로를 숨길 수 있도록 반응형 옵션 추가
+ * 2026.09.12  임도헌   Modified  그리드 카드에서는 마지막 카테고리만 표시해 분류 경로 밀도 축소
  */
 
 import { GAME_TYPE_DISPLAY } from "@/features/product/constants";
@@ -47,16 +48,16 @@ export function ProductCardHeader({
 }: ProductCardHeaderProps) {
   const isGrid = viewMode === "grid";
   const categoryPath = category
-    ? `${category.parent ? `${category.parent.icon ?? ""} ${category.parent.kor_name} > ` : ""}${category.icon ?? ""} ${category.kor_name}`.trim()
+    ? isGrid
+      ? `${category.icon ?? ""} ${category.kor_name}`.trim()
+      : `${category.parent ? `${category.parent.icon ?? ""} ${category.parent.kor_name} > ` : ""}${category.icon ?? ""} ${category.kor_name}`.trim()
     : "";
 
   return (
     <div
       className={cn(
         "flex min-w-0 max-w-full items-center text-muted",
-        isGrid
-          ? "gap-1 text-xs sm:gap-1.5"
-          : "gap-1.5 text-xs"
+        isGrid ? "gap-1 text-xs sm:gap-1.5" : "gap-1.5 text-xs"
       )}
     >
       <span

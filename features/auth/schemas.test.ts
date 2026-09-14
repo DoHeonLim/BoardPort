@@ -81,7 +81,7 @@ describe("auth schemas", () => {
     if (!requiredLocation.success) {
       const fieldErrors = requiredLocation.error.flatten().fieldErrors;
       expect(fieldErrors.username).toContain(
-        "유저명은 최소 3자 이상이어야 합니다."
+        "닉네임은 최소 3자 이상이어야 합니다."
       );
       expect(fieldErrors.email).toContain("이메일 형식을 확인해주세요.");
       expect(fieldErrors.locationName).toEqual(

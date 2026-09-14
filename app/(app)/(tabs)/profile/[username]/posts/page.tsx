@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.08  임도헌   Created   프로필 작성글 커서 목록과 상세 복귀 문맥 추가
+ * 2026.09.12  임도헌   Modified  URL 보기 방식의 복귀 보존 및 목록 스켈레톤 형태 일치
  */
 
 import type { Metadata } from "next";
@@ -50,7 +51,7 @@ export async function generateMetadata(props: {
 /** 기존 게시글 공개·지역·차단 정책을 유지하는 사용자별 작성글 목록 */
 export default async function UserPostsPage(props: {
   params: Promise<{ username: string }>;
-  searchParams?: Promise<{ returnTo?: string }>;
+  searchParams?: Promise<{ returnTo?: string; view?: string }>;
 }) {
   const [{ username: rawUsername }, searchParams] = await Promise.all([
     props.params,
@@ -60,7 +61,10 @@ export default async function UserPostsPage(props: {
   const returnTo = sanitizeCallbackUrl(
     searchParams?.returnTo ?? `/profile/${encodeURIComponent(username)}`
   );
-  const listHref = `/profile/${encodeURIComponent(username)}/posts?returnTo=${encodeURIComponent(returnTo)}`;
+  const viewMode = searchParams?.view === "grid" ? "grid" : "list";
+  const listParams = new URLSearchParams({ returnTo });
+  if (viewMode === "grid") listParams.set("view", "grid");
+  const listHref = `/profile/${encodeURIComponent(username)}/posts?${listParams.toString()}`;
 
   const session = await getSession();
   if (!session?.id) {
@@ -130,18 +134,18 @@ export default async function UserPostsPage(props: {
                 <p className="state-title">작성한 게시글이 없습니다.</p>
                 <p className="state-description">
                   {isOwner
-                    ? "첫 번째 항해일지를 작성해보세요."
-                    : "아직 공개된 항해일지가 없습니다."}
+                    ? "첫 번째 게시글을 작성해보세요."
+                    : "아직 공개된 게시글이 없습니다."}
                 </p>
               </div>
               {isOwner && (
                 <div className="state-actions justify-center">
                   <Link
-                    href="/posts/add"
+                    href={`/posts/add?returnTo=${encodeURIComponent(listHref)}`}
                     prefetch={false}
                     className="btn-primary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm"
                   >
-                    <PlusIcon className="size-5" />
+                    <PlusIcon aria-hidden="true" className="size-5" />
                     게시글 작성하기
                   </Link>
                 </div>
@@ -150,7 +154,7 @@ export default async function UserPostsPage(props: {
           </div>
         ) : (
           <HydrationBoundary state={dehydrate(queryClient)}>
-            <Suspense fallback={<PostListSkeleton viewMode="list" />}>
+            <Suspense fallback={<PostListSkeleton viewMode={viewMode} />}>
               <PostList
                 searchParams={params}
                 queryKeyExtra={scope}

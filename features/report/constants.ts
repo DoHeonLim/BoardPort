@@ -191,21 +191,21 @@ export const REPORT_RESOLUTION_ACTION_DESCRIPTIONS: Record<
 > = {
   WARN: "관리자 코멘트와 함께 경고 및 strike를 누적합니다.",
   DELETE_CONTENT: "문제 콘텐츠를 삭제하고 필요한 경우 strike를 누적합니다.",
-  TEMP_BAN: "유저를 일정 기간 정지하고 필요한 콘텐츠 조치도 병행합니다.",
-  PERMA_BAN: "유저를 영구 정지합니다. 중대한 위반에서만 사용합니다.",
+  TEMP_BAN: "사용자를 일정 기간 정지하고 필요한 콘텐츠 조치도 병행합니다.",
+  PERMA_BAN: "사용자를 영구 정지합니다. 중대한 위반에서만 사용합니다.",
 };
 
 /** 감사 로그 액션 한글 매핑 */
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   ADD_STRIKE: "strike 부여",
-  WARN_USER: "유저 경고",
-  BAN_USER: "유저 정지",
+  WARN_USER: "사용자 경고",
+  BAN_USER: "사용자 정지",
   UNBAN_USER: "정지 해제",
   CHANGE_ROLE: "권한 변경",
   DELETE_PRODUCT: "상품 삭제",
   DELETE_POST: "게시글 삭제",
   DELETE_COMMENT: "댓글 삭제",
-  DELETE_REVIEW: "리뷰 삭제",
+  DELETE_REVIEW: "거래 후기 삭제",
   DELETE_MESSAGE: "메시지 삭제",
   DELETE_STREAM: "방송 종료",
   RESOLVE_REPORT: "신고 승인",
@@ -214,12 +214,12 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
 
 /** 대상 타입 한글 매핑 */
 export const TARGET_TYPE_LABELS: Record<string, string> = {
-  USER: "유저",
+  USER: "사용자",
   PRODUCT: "상품",
   POST: "게시글",
   COMMENT: "댓글",
   MESSAGE: "메시지",
   STREAM: "방송",
   REPORT: "신고",
-  REVIEW: "리뷰",
+  REVIEW: "거래 후기",
 };

@@ -24,6 +24,7 @@
  * 2026.06.14  임도헌   Modified  긴 필터 요약을 말줄임 대신 가로 스크롤로 확인할 수 있게 조정
  * 2026.06.15  임도헌   Modified  검색어만 적용된 상태도 요약 X 버튼으로 바로 해제할 수 있게 조정
  * 2026.08.13  임도헌   Modified  모바일 검색 기록 cache에 현재 사용자 ID 전달
+ * 2026.09.12  임도헌   Modified  필터 초기화 버튼의 최소 클릭 영역과 장식 아이콘 의미 분리
  */
 "use client";
 
@@ -112,7 +113,9 @@ export default function ProductMobileHeader({
     searchHistory,
   });
   const showSummaryReset = hasActiveFilters || hasActiveKeyword;
-  const handleSummaryReset = hasActiveFilters ? resetFilterParams : clearKeyword;
+  const handleSummaryReset = hasActiveFilters
+    ? resetFilterParams
+    : clearKeyword;
   const summaryResetLabel = hasActiveFilters
     ? "필터 초기화 (검색어 유지)"
     : "검색어 초기화";
@@ -179,9 +182,9 @@ export default function ProductMobileHeader({
                   type="button"
                   onClick={handleSummaryReset}
                   aria-label={summaryResetLabel}
-                  className="focus-ring-soft ml-1.5 shrink-0 rounded-full p-0.5 text-muted transition-colors hover:bg-surface hover:text-primary"
+                  className="focus-ring-soft ml-1.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-primary"
                 >
-                  <XMarkIcon className="size-3.5" />
+                  <XMarkIcon className="size-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>

@@ -17,11 +17,12 @@
  * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.28  임도헌   Modified  온보딩 제출 함수 JSDoc 보강
+ * 2026.09.13  임도헌   Modified  공용 제출 진행 표시와 필드 구독 방식 정리
  */
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -86,7 +87,7 @@ export default function OnboardingForm({
     setFocus,
     setValue,
     trigger,
-    watch,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -104,7 +105,7 @@ export default function OnboardingForm({
     },
   });
 
-  const locationName = watch("locationName");
+  const locationName = useWatch({ control, name: "locationName" });
   const locationError = errors.locationName?.message;
   const emailError = errors.email?.message;
   // 선택 이메일은 강제 온보딩 항목이 아니라 상단 요약에서는 제외
@@ -140,7 +141,7 @@ export default function OnboardingForm({
   };
 
   /**
-   * 필요한 온보딩 필드만 FormData로 구성해 완료 액션을 실행한다.
+   * 필요한 온보딩 필드만 FormData로 구성해 완료 액션을 실행
    *
    * @param data - 검증을 통과한 온보딩 입력값
    */
@@ -209,8 +210,8 @@ export default function OnboardingForm({
         {onboarding.needsUsernameSetup && (
           <Input
             {...register("username")}
-            label="선원 닉네임"
-            placeholder="항해에 사용할 닉네임"
+            label="닉네임"
+            placeholder="사용할 닉네임"
             autoComplete="username"
             icon={<UserIcon className="size-5" />}
             errors={errors.username?.message ? [errors.username.message] : []}
@@ -291,7 +292,9 @@ export default function OnboardingForm({
         )}
 
         <Button
-          text={isPending ? "저장 중..." : "항해 시작하기"}
+          text="항해 시작하기"
+          loading={isPending}
+          loadingText="저장 중..."
           disabled={isPending}
           className="mt-2"
         />

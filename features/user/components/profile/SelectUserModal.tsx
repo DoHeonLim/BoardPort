@@ -28,12 +28,13 @@
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 닫기 버튼을 제거해 닫기 동작 통일
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import BottomSheet from "@/components/global/BottomSheet";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { cn } from "@/lib/utils";
 import { getProductChatUsersAction } from "@/features/product/actions/chat";
 import { ChatUser } from "@/features/chat/types";
@@ -85,7 +86,7 @@ export default function SelectUserModal({
         console.error("Failed to fetch chat users:", e);
         if (isMounted()) {
           setChatUsers([]);
-          setError("채팅 유저를 불러오지 못했어요.");
+          setError("채팅 상대를 불러오지 못했어요.");
         }
       } finally {
         if (isMounted()) setIsLoading(false);
@@ -176,7 +177,7 @@ export default function SelectUserModal({
       ) : chatUsers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border-subtle bg-surface-dim/70 px-4 py-8 text-center text-muted">
           <p className="text-sm font-medium text-primary">
-            아직 채팅한 유저가 없습니다.
+            아직 채팅한 상대가 없습니다.
           </p>
           <p className="mt-1 text-xs leading-5 text-muted">
             예약 가능한 대화 상대가 생기면 이곳에 표시됩니다.
@@ -305,15 +306,11 @@ export default function SelectUserModal({
               이 상품으로 대화를 나눈 사용자 중 한 명을 예약자로 지정합니다.
             </p>
           </div>
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={() => onOpenChange(false)}
             disabled={isProcessingId !== null}
-            aria-label="예약자 선택 모달 닫기"
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="예약자 선택 모달 닫기"
+          />
         </div>
 
         {/* Body (User List) */}

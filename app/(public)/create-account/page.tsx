@@ -46,8 +46,8 @@ export default async function CreateAccountPage(props: {
 
   return (
     <AuthPageShell
-      title="선원 등록"
-      description="새로운 항해를 위한 선원증을 발급받으세요"
+      title="회원가입"
+      description="계정을 만들고 보드포트를 시작하세요"
     >
       <CreateAccountForm callbackUrl={callbackUrl} />
     </AuthPageShell>

@@ -32,11 +32,16 @@
  * 2026.05.30  임도헌   Modified  판매 내역 뷰 토글을 제품 목록 토글 톤과 통일
  * 2026.06.21  임도헌   Modified  판매 내역 뷰 토글 모바일 크기를 목록 공통 36px 기준으로 정렬
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.12  임도헌   Modified  판매 탭 빈 상태를 공용 상태 카드와 상품 등록 동선으로 정리
+ * 2026.09.12  임도헌   Modified  판매 상태와 목록 보기 방식의 URL 보존 및 토글 접근성 보강
+ * 2026.09.13  임도헌   Modified  리스트·그리드 전환 UI를 공통 컴포넌트로 통일
  */
 
 "use client";
 
 import { useCallback, useRef, useState, Suspense } from "react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
@@ -44,11 +49,7 @@ import { useProductPagination } from "@/features/product/hooks/useProductPaginat
 import { queryKeys } from "@/lib/queryKeys";
 import MySalesProductItem from "@/features/product/components/MySalesProductItem";
 import Skeleton from "@/components/ui/Skeleton";
-import {
-  ListBulletIcon,
-  Squares2X2Icon,
-  TagIcon,
-} from "@heroicons/react/24/outline";
+import { TagIcon } from "@heroicons/react/24/outline";
 import {
   PRODUCT_STATUS_LABEL,
   PRODUCT_STATUS_TYPES,
@@ -62,6 +63,7 @@ import type {
 } from "@/features/product/types";
 import { cn } from "@/lib/utils";
 import type { ProductInfiniteCache } from "@/features/product/utils/productQueryCache";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
 
 interface MySalesProductListProps {
   userId: number;
@@ -92,6 +94,7 @@ type SalesTabContentProps = {
   type: ProductStatus;
   userId: number;
   viewMode: ViewMode;
+  returnTo: string;
   onOptimisticMove: (payload: SalesMovePayload) => () => void;
   onMoveFailed: (payload: SalesMoveFailedPayload) => Promise<void>;
 };
@@ -110,9 +113,39 @@ export default function MySalesProductList({
   initialCounts,
 }: MySalesProductListProps) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<ProductStatus>("selling");
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const activeTab: ProductStatus =
+    requestedTab === "reserved" || requestedTab === "sold"
+      ? requestedTab
+      : "selling";
+  const viewMode: ViewMode =
+    searchParams.get("view") === "grid" ? "grid" : "list";
+  const listQuery = searchParams.toString();
+  const returnTo = listQuery ? `${pathname}?${listQuery}` : pathname;
   const [counts, setCounts] = useState<TabCounts>(initialCounts);
+
+  /** 판매 상태와 보기 방식을 현재 URL에 반영 */
+  const replaceListState = useCallback(
+    (nextTab: ProductStatus, nextViewMode: ViewMode) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (nextTab === "selling") params.delete("tab");
+      else params.set("tab", nextTab);
+
+      if (nextViewMode === "grid") params.set("view", "grid");
+      else params.delete("view");
+
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        query ? `${pathname}?${query}` : pathname
+      );
+    },
+    [pathname, searchParams]
+  );
   /**
    * 낙관적 상태 이동 (Optimistic Move) 핸들러
    * - 탭 간 아이템 이동 시, Query Cache를 직접 조작
@@ -228,7 +261,9 @@ export default function MySalesProductList({
         {PRODUCT_STATUS_TYPES.map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            type="button"
+            onClick={() => replaceListState(tab, viewMode)}
+            aria-pressed={activeTab === tab}
             className={cn(
               "group focus-ring-soft flex-1 min-h-[44px] rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               activeTab === tab
@@ -252,32 +287,11 @@ export default function MySalesProductList({
       </div>
 
       <div className="flex justify-end gap-2 mb-3">
-        <div className="flex rounded-xl border border-border-subtle bg-surface p-1">
-          <button
-            onClick={() => setViewMode("list")}
-            aria-label="리스트 보기"
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
-              viewMode === "list"
-                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                : "text-muted hover:bg-surface-dim hover:text-primary"
-            )}
-          >
-            <ListBulletIcon className="size-5" />
-          </button>
-          <button
-            onClick={() => setViewMode("grid")}
-            aria-label="그리드 보기"
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow] sm:min-h-[44px] sm:min-w-[44px]",
-              viewMode === "grid"
-                ? "bg-surface-dim text-brand shadow-sm ring-1 ring-border-subtle dark:text-brand-light"
-                : "text-muted hover:bg-surface-dim hover:text-primary"
-            )}
-          >
-            <Squares2X2Icon className="size-5" />
-          </button>
-        </div>
+        <ViewModeToggle
+          value={viewMode}
+          onChange={(nextView) => replaceListState(activeTab, nextView)}
+          ariaLabel="판매 상품 목록 보기 방식"
+        />
       </div>
 
       {/* 선택 탭 전용 Suspense 경계 */}
@@ -294,6 +308,7 @@ export default function MySalesProductList({
           type={activeTab}
           userId={userId}
           viewMode={viewMode}
+          returnTo={returnTo}
           onOptimisticMove={onOptimisticMove}
           onMoveFailed={onMoveFailed}
         />
@@ -316,6 +331,7 @@ function SalesTabContent({
   type,
   userId,
   viewMode,
+  returnTo,
   onOptimisticMove,
   onMoveFailed,
 }: SalesTabContentProps) {
@@ -341,18 +357,40 @@ function SalesTabContent({
   });
 
   if (products.length === 0) {
+    const emptyTitle =
+      type === "selling"
+        ? "판매 중인 상품이 없습니다"
+        : type === "reserved"
+          ? "예약 중인 상품이 없습니다"
+          : "판매 완료한 상품이 없습니다";
+    const emptyDescription =
+      type === "selling"
+        ? "판매할 상품을 등록해 첫 거래를 시작해보세요."
+        : type === "reserved"
+          ? "구매자와 예약한 상품이 생기면 여기에 표시됩니다."
+          : "거래를 완료한 상품이 생기면 여기에 표시됩니다.";
+
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="p-4 rounded-full bg-surface-dim mb-4">
-          <TagIcon className="size-10 text-muted/50" />
+      <div className="state-screen px-0 pt-4">
+        <div className="state-card">
+          <div className="state-icon-wrap">
+            <TagIcon className="size-10 text-muted/50" />
+          </div>
+          <div>
+            <p className="state-title">{emptyTitle}</p>
+            <p className="state-description">{emptyDescription}</p>
+          </div>
+          {type === "selling" && (
+            <div className="state-actions justify-center">
+              <Link
+                href={`/products/add?returnTo=${encodeURIComponent(returnTo)}`}
+                className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm font-medium shadow-sm"
+              >
+                상품 등록하기
+              </Link>
+            </div>
+          )}
         </div>
-        <p className="text-lg font-medium leading-relaxed text-primary">
-          {type === "selling"
-            ? "판매 중인 상품이 없습니다"
-            : type === "reserved"
-              ? "예약 중인 상품이 없습니다"
-              : "판매 완료한 상품이 없습니다"}
-        </p>
       </div>
     );
   }

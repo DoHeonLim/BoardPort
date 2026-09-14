@@ -12,6 +12,7 @@
  * 2026.02.24  임도헌   Modified  로고 추가
  * 2026.03.06  임도헌   Modified  Empty/Error 상태 공통 레이아웃 유틸을 적용해 404 톤을 전역 상태 화면과 통일
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 기본 CTA weight를 500 기준으로 정리
+ * 2026.09.12  임도헌   Modified  기본 복귀 버튼을 목적지가 드러나는 문구로 변경
  */
 
 "use client";
@@ -25,7 +26,7 @@ interface NotFoundProps {
   title?: string;
   /** 상세 설명 텍스트 또는 노드 */
   description?: React.ReactNode;
-  /** 리다이렉트 버튼 텍스트 (기본값: "항구로 돌아가기") */
+  /** 리다이렉트 버튼 텍스트 (기본값: "상품 목록으로") */
   redirectText?: string;
   /** 리다이렉트 경로 (기본값: "/products") */
   redirectHref?: string;
@@ -48,7 +49,7 @@ interface NotFoundProps {
 export default function NotFound({
   title = "항로를 이탈했습니다",
   description = "요청하신 페이지가 지도에 존재하지 않습니다.\n삭제되었거나 주소가 변경되었을 수 있어요.",
-  redirectText = "항구로 돌아가기",
+  redirectText = "상품 목록으로",
   redirectHref = "/products",
   className,
   action,

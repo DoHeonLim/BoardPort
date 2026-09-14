@@ -10,6 +10,7 @@
  * 2026.04.17  임도헌   Modified  다시보기 무한 스크롤과 첫 카드 우선 로드 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.05.03  임도헌   Modified  다시보기 카드에 연결 보드게임 요약 배지 표시
  * 2026.05.18  임도헌   Modified  다시보기 카드에 좋아요/댓글 메타 전달
+ * 2026.09.12  임도헌   Modified  다시보기 카드의 핵심 메타 정리에 맞춰 중복 반응 통계 전달 제거
  */
 "use client";
 
@@ -35,8 +36,8 @@ interface RecordingListProps {
 /**
  * 스트림 메인 탭용 다시보기 리스트
  *
- * - `useRecordingPagination`으로 정렬/팔로잉/검색 조건에 맞는 VOD 목록을 가져온다
- * - `useInfiniteScroll`과 `usePageVisibility`를 결합해 보이는 탭에서만 다음 페이지를 불러온다
+ * - `useRecordingPagination`을 통한 정렬·팔로잉·검색 조건별 VOD 조회
+ * - `useInfiniteScroll`과 `usePageVisibility`를 결합한 활성 탭의 다음 페이지 조회
  * - 첫 카드만 `thumbnailPriority`를 주어 다시보기 목록의 대표 LCP 후보를 먼저 노출
  */
 export default function RecordingList({
@@ -98,9 +99,6 @@ export default function RecordingList({
             boardGames={rec.board_games}
             duration={rec.duration}
             viewCount={rec.viewCount}
-            likeCount={rec.likeCount}
-            commentCount={rec.commentCount}
-            isLiked={rec.isLiked}
             href={rec.href}
             requiresPassword={rec.requiresPassword}
             isFollowersOnly={rec.visibility === "FOLLOWERS"}

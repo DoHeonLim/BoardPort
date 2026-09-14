@@ -54,6 +54,7 @@
  * 2026.06.18  임도헌   Modified  공용 거래 상태 배지로 예약/판매완료 색상 기준 통일
  * 2026.06.18  임도헌   Modified  판매 내역 하단 액션의 주요/일반/위험 톤 분리
  * 2026.06.21  임도헌   Modified  판매 내역 위험 액션을 공용 danger 토큰 기준으로 통일해 다크모드 대비 보정
+ * 2026.09.13  임도헌   Modified  판매 내역의 거래 후기 용어 통일
  */
 
 "use client";
@@ -147,7 +148,7 @@ type ProductStatusActionResult = {
 
 /**
  * 판매 탭 상태의 카드 상단 pill 표시
- * 예약/판매완료는 공개 상품 카드와 같은 공용 거래 상태 배지를 사용한다.
+ * 예약/판매완료는 공개 상품 카드와 같은 공용 거래 상태 배지를 사용
  *
  * @param props - 현재 판매 상태 tab
  * @returns 상태 pill 또는 null
@@ -285,7 +286,7 @@ export default function MySalesProductItem({
   );
   const displayDate =
     type === "sold"
-      ? product.purchased_at ?? product.created_at
+      ? (product.purchased_at ?? product.created_at)
       : product.created_at;
 
   // 리뷰 작성 훅
@@ -379,17 +380,17 @@ export default function MySalesProductItem({
           return next;
         });
         toggleModal("reviewSeller", false);
-        toast.success("리뷰를 삭제했습니다.");
+        toast.success("거래 후기를 삭제했습니다.");
       } else {
         toast.error(
           res.error ??
-            "리뷰 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+            "거래 후기 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
         );
       }
     } catch (e) {
       console.error(e);
       toast.error(
-        "리뷰 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+        "거래 후기 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
       );
     } finally {
       setIsDeleting(false);
@@ -681,8 +682,8 @@ export default function MySalesProductItem({
           isSoldGrid
             ? "grid grid-cols-2"
             : isGrid
-            ? "flex flex-col divide-y divide-border-subtle"
-            : "grid grid-flow-col auto-cols-fr divide-x divide-border-subtle"
+              ? "flex flex-col divide-y divide-border-subtle"
+              : "grid grid-flow-col auto-cols-fr divide-x divide-border-subtle"
         )}
       >
         {type === "selling" && (
@@ -754,7 +755,7 @@ export default function MySalesProductItem({
                 onClick={() => toggleModal("reviewSeller", true)}
                 className={getSalesActionClass("neutral", isGrid)}
               >
-                내 리뷰 보기
+                내 후기 보기
               </button>
             ) : (
               <button
@@ -762,7 +763,7 @@ export default function MySalesProductItem({
                 disabled={reviewLoading}
                 className={getSalesActionClass("primary", isGrid)}
               >
-                {reviewLoading ? "처리 중..." : "리뷰 작성"}
+                {reviewLoading ? "처리 중..." : "후기 작성"}
               </button>
             )}
             <button
@@ -780,7 +781,7 @@ export default function MySalesProductItem({
               onClick={() => toggleModal("reviewBuyer", true)}
               className={getSalesActionClass("neutral", isGrid)}
             >
-              구매자 리뷰
+              구매자 후기
             </button>
             <button
               onClick={handleToggleHidden}
@@ -813,7 +814,7 @@ export default function MySalesProductItem({
         <ReviewDetailModal
           isOpen={modalState.reviewSeller}
           onClose={() => toggleModal("reviewSeller", false)}
-          title="내가 쓴 리뷰"
+          title="내가 쓴 거래 후기"
           review={sellerReviews[0]}
           onDelete={() => toggleModal("deleteConfirm", true)}
           isOwnReview={true}
@@ -825,9 +826,9 @@ export default function MySalesProductItem({
         <ReviewDetailModal
           isOpen={modalState.reviewBuyer}
           onClose={() => toggleModal("reviewBuyer", false)}
-          title="구매자 리뷰"
+          title="구매자 거래 후기"
           review={buyerReviews[0]}
-          emptyMessage="아직 작성된 리뷰가 없습니다."
+          emptyMessage="아직 작성된 거래 후기가 없습니다."
         />
       )}
 
@@ -849,7 +850,7 @@ export default function MySalesProductItem({
         loading={opLoading}
         title="상태 변경 경고"
         confirmLabel="변경"
-        description="판매 중으로 변경하면 작성된 리뷰가 모두 삭제됩니다."
+        description="판매 중으로 변경하면 작성된 거래 후기가 모두 삭제됩니다."
       />
 
       {/* 6. 삭제 확인 다이얼로그 */}
@@ -858,7 +859,7 @@ export default function MySalesProductItem({
         onCancel={() => toggleModal("deleteConfirm", false)}
         onConfirm={confirmDeleteReview}
         loading={isDeleting}
-        title="리뷰 삭제"
+        title="거래 후기 삭제"
         confirmLabel="삭제"
         description="삭제 후에는 복구할 수 없습니다."
       />

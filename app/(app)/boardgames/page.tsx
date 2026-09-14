@@ -20,6 +20,7 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.03  임도헌   Modified  도감 직접 진입에서도 상품 목록으로 복귀하도록 뒤로가기 고정
  * 2026.09.11  임도헌   Modified  모바일 필터 바텀시트와 적용 조건 요약 UI 반영
+ * 2026.09.12  임도헌   Modified  상품 목록 복귀 버튼을 기능 중심 문구로 변경
  */
 
 import { Suspense } from "react";
@@ -110,8 +111,8 @@ export default async function BoardGamesPage(props: {
             className="focus-ring-soft inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-bold text-primary shadow-sm transition hover:border-brand/50 hover:bg-surface-dim sm:px-4"
           >
             <ShoppingBagIcon className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">항구로 가기</span>
-            <span className="sm:hidden">항구</span>
+            <span className="hidden sm:inline">상품 목록으로</span>
+            <span className="sm:hidden">상품</span>
           </Link>
         </div>
 

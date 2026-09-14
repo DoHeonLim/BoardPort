@@ -801,7 +801,10 @@ export default function StreamChatRoom({
   ) => {
     if (chatHandleStartYRef.current === null) return;
 
-    if (event.clientY - chatHandleStartYRef.current > CHAT_HANDLE_CLOSE_THRESHOLD) {
+    if (
+      event.clientY - chatHandleStartYRef.current >
+      CHAT_HANDLE_CLOSE_THRESHOLD
+    ) {
       chatHandleStartYRef.current = null;
       closeChat();
     }
@@ -1097,13 +1100,13 @@ export default function StreamChatRoom({
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-start px-4 pt-10 text-center sm:justify-center sm:pt-0">
             <div className="rounded-full border border-border-subtle bg-surface-dim/70 px-3 py-1 text-xs font-medium tracking-[0.14em] text-muted">
-              교신 대기
+              채팅 대기
             </div>
             <p className="mt-4 text-sm font-medium text-muted">
-              아직 신호가 없습니다.
+              아직 채팅이 없습니다.
             </p>
             <p className="mt-1 text-xs leading-5 text-muted/80">
-              첫 메시지를 남겨 선원들과 대화를 시작해보세요.
+              첫 메시지를 남겨 대화를 시작해보세요.
             </p>
           </div>
         ) : (

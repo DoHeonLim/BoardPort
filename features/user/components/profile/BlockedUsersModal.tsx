@@ -18,13 +18,14 @@
  * 2026.06.18  임도헌   Modified  모바일 차단 관리 흐름을 BottomSheet로 분리하고 닫기 버튼 크기 기준 통일
  * 2026.06.19  임도헌   Modified  X 닫기로 모달 종료 동작을 통일하고 푸터 닫기 버튼 제거
  * 2026.08.27  임도헌   Modified  포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toggleBlockAction } from "@/features/user/actions/block";
 import UserAvatar from "@/components/global/UserAvatar";
 import BottomSheet from "@/components/global/BottomSheet";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { BlockedUserSummary } from "@/features/user/types";
@@ -99,12 +100,12 @@ export default function BlockedUsersModal({
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="size-6 animate-spin rounded-full border-2 border-brand/25 border-t-brand dark:border-brand-light/25 dark:border-t-brand-light" />
           <p className="mt-3 text-sm text-muted">
-            차단한 선원 목록을 불러오는 중...
+            차단한 사용자 목록을 불러오는 중...
           </p>
         </div>
       ) : users.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-muted text-sm">차단한 선원이 없습니다.</p>
+          <p className="text-muted text-sm">차단한 사용자가 없습니다.</p>
         </div>
       ) : (
         users.map((u) => (
@@ -138,8 +139,8 @@ export default function BlockedUsersModal({
     return (
       <BottomSheet
         open={isOpen}
-        title="차단한 선원 관리"
-        description="차단한 선원 목록을 확인하고 필요하면 차단을 해제합니다."
+        title="차단한 사용자 관리"
+        description="차단한 사용자 목록을 확인하고 필요하면 차단을 해제합니다."
         onClose={handleClose}
         contentClassName="pt-4"
       >
@@ -160,20 +161,13 @@ export default function BlockedUsersModal({
       >
         <div className="px-6 py-4 border-b border-border-subtle flex justify-between items-center bg-surface">
           <h2 id="blocked-users-title" className="font-bold text-primary">
-            차단한 선원 관리
+            차단한 사용자 관리
           </h2>
-          <button
+          <ModalCloseButton
             onClick={handleClose}
-            type="button"
-            aria-label="차단한 선원 관리 모달 닫기"
+            label="차단한 사용자 관리 모달 닫기"
             disabled={isPending}
-            className={cn(
-              "focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors",
-              "text-muted hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-            )}
-          >
-            <XMarkIcon className="size-6 text-muted" />
-          </button>
+          />
         </div>
         <div className="p-4 max-h-[60vh] overflow-y-auto space-y-4">
           {bodyContent}

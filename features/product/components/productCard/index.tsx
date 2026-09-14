@@ -58,6 +58,7 @@
  * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제 버튼에 viewerId 전달
  * 2026.09.11  임도헌   Modified  빠른 찜 해제 상태를 상위 통합 탭 개수에 전달
  * 2026.09.11  임도헌   Modified  아이콘형 빠른 해제에 맞춘 카드 본문 공간 복구
+ * 2026.09.12  임도헌   Modified  그리드 카드의 중복 상태와 보조 메타를 핵심 정보 중심으로 정리
  * ===============================================================================================
  * ProductCard (구 ListProduct) 컴포넌트를 구성하는 UI 요소들을 분리해 모아둔 디렉토리
  * 각 컴포넌트는 제품 정보를 보여주는 카드에서 특정 부분의 렌더링을 담당
@@ -189,21 +190,22 @@ export default function ProductCard({
     </div>
   );
 
-  // 그리드 카드는 연결 보드게임명과 태그를 한 줄로 압축해 하단 거래 메타 공간 확보
+  // 그리드 카드의 연결 보드게임 우선 표시와 보조 태그 중복 축소
   const boardGameTagsNode = isGrid ? (
-    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+    hasBoardGameBadge ? (
       <ProductCardBoardGameBadge
         items={board_games}
         viewMode={viewMode}
-        className="hidden max-w-[52%] shrink-0 sm:flex"
+        className="max-w-full"
       />
+    ) : (
       <ProductCardTags
         tags={search_tags}
         maxTags={1}
         mobileMaxTags={1}
-        className="min-w-0 flex-1 flex-nowrap overflow-hidden"
+        className="min-w-0 flex-nowrap overflow-hidden"
       />
-    </div>
+    )
   ) : showInlineQuickUnlike ? (
     <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
       <ProductCardBoardGameBadge

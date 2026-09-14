@@ -107,7 +107,7 @@ export const metadata: Metadata = {
   description: "실시간 보드게임 플레이와 소통 방송을 시청하세요.",
   openGraph: {
     title: "보드포트 등대방송",
-    description: "보드게임 라이브 스트리밍과 다시보기",
+    description: "보드게임 라이브 방송과 다시보기",
   },
 };
 /**

@@ -57,6 +57,7 @@
  * 2026.09.06  임도헌   Modified  비공개 배지의 불투명 배경과 글자 대비 보강
  * 2026.09.11  임도헌   Modified  통합 찜 목록의 빠른 해제 액션 배치 공간 지원
  * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각과 썸네일 보드게임 배지 지원
+ * 2026.09.12  임도헌   Modified  보드게임 배지와 하단 메타를 탐색에 필요한 정보 중심으로 정리
  */
 
 "use client";
@@ -74,11 +75,7 @@ import {
   PlayIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import {
-  ChatBubbleLeftIcon,
-  EyeIcon,
-  HeartIcon,
-} from "@heroicons/react/24/solid";
+import { EyeIcon } from "@heroicons/react/24/solid";
 import { StreamCategory, StreamVisibility } from "@/features/stream/types";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
 import { STREAM_VISIBILITY } from "@/features/stream/constants";
@@ -109,9 +106,6 @@ interface StreamCardProps {
   boardGames?: Array<{ boardGame: BoardGameRelationOption }>;
   duration?: number; // 초 단위
   viewCount?: number; // 조회수
-  likeCount?: number; // 다시보기 좋아요 수
-  commentCount?: number; // 다시보기 댓글 수
-  isLiked?: boolean; // 현재 사용자의 다시보기 좋아요 여부
   shortDescription?: boolean;
   href?: string /** 직접 지정하면 우선 사용, 없으면 isLive 기준으로 기본 경로 계산 */;
   // 서버 플래그
@@ -124,8 +118,6 @@ interface StreamCardProps {
   onRequestFollow?: () => void; // 팔로우 CTA 액션
   /** 레이아웃 모드: grid(기본), rail(가로 스크롤용 고정폭 카드) */
   layout?: "grid" | "rail";
-  /** 연결 보드게임 배지 위치 */
-  boardGameBadgePlacement?: "content" | "thumbnail";
   /** 프로필/채널처럼 소유자가 자명한 컨텍스트에서의 스트리머 정보 숨김 가능 */
   showStreamer?: boolean;
   /** LCP 후보가 되는 썸네일을 우선 로드할 때 사용 */
@@ -139,11 +131,11 @@ interface StreamCardProps {
  *
  * [기능]
  * 1. 라이브 및 녹화본(VOD) 정보를 카드 형태로 표시
- * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 메타 정보(시간, 좋아요, 댓글, 조회수 등)를 렌더링
+ * 2. 썸네일, 제목, 스트리머 정보, 카테고리, 태그, 재생 시간, 조회수, 표시 시점 제공
  * 3. 접근 권한(Private, Followers Only)에 따른 잠금 UI 및 오버레이를 제공
  * 4. 데스크톱 hover/focus 또는 모바일 미리보기 버튼으로 라이브 미리보기(iframe)를 로드
  * 5. 카드 클릭은 상세 이동, 명시적 CTA는 팔로우 요청, 비공개 카드는 비밀번호 모달 열기를 수행
- * 6. 작은 화면에서는 태그/시간/좋아요/댓글/조회수 메타를 2단으로 분리해 카드 밀도 완화
+ * 6. 작은 화면에서도 제목과 핵심 메타가 먼저 보이는 정보 위계 유지
  *
  * [권한]
  * - `PRIVATE` 방송: `requiresPassword` prop을 SSOT로 사용 (서버에서 세션의 언락 여부까지 확인하여 주입됨)
@@ -169,9 +161,6 @@ export default function StreamCard(props: StreamCardProps) {
     boardGames,
     duration,
     viewCount,
-    likeCount,
-    commentCount,
-    isLiked = false,
     shortDescription = false,
     href,
     requiresPassword = false,
@@ -181,7 +170,6 @@ export default function StreamCard(props: StreamCardProps) {
     isPrivateType,
     onRequestFollow,
     layout = "grid",
-    boardGameBadgePlacement = "content",
     showStreamer = true,
     thumbnailPriority = false,
     reserveTopRightAction = false,
@@ -310,7 +298,7 @@ export default function StreamCard(props: StreamCardProps) {
     (isHoveredOrFocused || isTouchPreviewActive) &&
     !previewError;
 
-  /** 비공개 방송 카드 클릭 시 비밀번호 입력 흐름으로 전환한다. */
+  /** 비공개 방송 카드 클릭 시 비밀번호 입력 흐름으로 전환 */
   const handleStreamClick = (e: React.MouseEvent) => {
     if (requiresPassword) {
       e.preventDefault();
@@ -426,7 +414,7 @@ export default function StreamCard(props: StreamCardProps) {
           ) : thumb && !thumbError ? (
             <Image
               src={thumb}
-              alt={title || (isLive ? "라이브 썸네일" : "녹화 썸네일")}
+              alt={title || (isLive ? "라이브 썸네일" : "다시보기 썸네일")}
               fill
               sizes={thumbnailSizes}
               priority={thumbnailPriority}
@@ -500,13 +488,16 @@ export default function StreamCard(props: StreamCardProps) {
             )}
           </div>
 
-          {boardGameBadgePlacement === "thumbnail" && (
-            <BoardGameSummaryBadge
-              items={boardGames}
-              variant="overlay"
-              className="absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)]"
-            />
-          )}
+          <BoardGameSummaryBadge
+            items={boardGames}
+            variant="overlay"
+            className={cn(
+              "absolute bottom-2 left-2 z-10",
+              shouldPreview
+                ? "max-w-[calc(100%-4rem)]"
+                : "max-w-[calc(100%-1rem)]"
+            )}
+          />
 
           {shouldPreview && (
             <button
@@ -538,23 +529,14 @@ export default function StreamCard(props: StreamCardProps) {
         <div
           className={cn(
             "flex flex-1 flex-col justify-between",
-            isGridLayout
-              ? "gap-2 p-3 sm:gap-2.5 sm:p-3.5"
-              : "gap-2.5 p-3.5"
+            isGridLayout ? "gap-2 p-3 sm:gap-2.5 sm:p-3.5" : "gap-2.5 p-3.5"
           )}
         >
           <div className={cn(isGridLayout ? "space-y-1.5" : "space-y-2")}>
-            <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <h3 className="line-clamp-2 min-w-0 font-medium text-base leading-snug text-primary transition-colors group-hover:text-brand dark:group-hover:text-brand-light sm:flex-1">
                 {title}
               </h3>
-
-              {boardGameBadgePlacement === "content" && (
-                <BoardGameSummaryBadge
-                  items={boardGames}
-                  className="sm:max-w-[46%] sm:justify-end"
-                />
-              )}
             </div>
 
             {showStreamer && (
@@ -576,9 +558,7 @@ export default function StreamCard(props: StreamCardProps) {
             (formattedTags ||
               displayedAtIso ||
               duration ||
-              viewCount != null ||
-              likeCount != null ||
-              commentCount != null) && (
+              viewCount != null) && (
               <div
                 className={cn(
                   "mt-auto min-w-0 border-t border-border-subtle text-xs text-muted",
@@ -609,41 +589,6 @@ export default function StreamCard(props: StreamCardProps) {
                       {!isLive &&
                         duration &&
                         duration > 0 &&
-                        (typeof viewCount === "number" ||
-                          typeof likeCount === "number" ||
-                          typeof commentCount === "number") && (
-                          <span className="text-border shrink-0">|</span>
-                        )}
-                      {!isLive && typeof likeCount === "number" && (
-                        <span className="inline-flex shrink-0 items-center gap-1">
-                          {/* 다시보기 카드의 빨간 하트는 전체 좋아요 수가 아니라 현재 사용자 좋아요 여부를 의미 */}
-                          <HeartIcon
-                            className={cn(
-                              "size-3",
-                              isLiked ? "text-rose-500" : "text-muted/70"
-                            )}
-                            aria-hidden="true"
-                          />
-                          {likeCount.toLocaleString()}
-                        </span>
-                      )}
-                      {!isLive &&
-                        typeof likeCount === "number" &&
-                        typeof commentCount === "number" && (
-                          <span className="text-border shrink-0">|</span>
-                        )}
-                      {!isLive && typeof commentCount === "number" && (
-                        <span className="inline-flex shrink-0 items-center gap-1">
-                          <ChatBubbleLeftIcon
-                            className="size-3 text-muted/70"
-                            aria-hidden="true"
-                          />
-                          {commentCount.toLocaleString()}
-                        </span>
-                      )}
-                      {!isLive &&
-                        (typeof likeCount === "number" ||
-                          typeof commentCount === "number") &&
                         typeof viewCount === "number" && (
                           <span className="text-border shrink-0">|</span>
                         )}
@@ -671,7 +616,7 @@ export default function StreamCard(props: StreamCardProps) {
         </div>
       </Link>
 
-      {/* 링크와 분리된 명시적 팔로우 CTA: 카드 탐색만으로 관계가 변경되지 않게 한다. */}
+      {/* 링크와 분리된 명시적 팔로우 CTA: 카드 탐색 시 관계 변경 방지 */}
       {followersOnlyLocked && (
         <div
           className={cn(

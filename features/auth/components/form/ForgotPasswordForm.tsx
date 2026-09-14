@@ -12,6 +12,7 @@
  * 2026.05.12  임도헌   Modified  로그인 복귀 링크 클릭 시 blur 검증으로 이동이 지연되지 않도록 처리
  * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 로그인 링크에서 생략
+ * 2026.09.13  임도헌   Modified  메일 전송 진행 표시 통일
  */
 "use client";
 
@@ -131,7 +132,9 @@ export default function ForgotPasswordForm({
         </p>
 
         <Button
-          text={isPending ? "메일 전송 중..." : "재설정 메일 보내기"}
+          text="재설정 메일 보내기"
+          loading={isPending}
+          loadingText="메일 전송 중..."
           disabled={isPending}
         />
       </form>

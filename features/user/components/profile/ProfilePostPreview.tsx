@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.09.08  임도헌   Created   최근 작성글과 전체 목록 진입점 추가
+ * 2026.09.12  임도헌   Modified  게시글 작성 취소 시 프로필 복귀 문맥 유지
  */
 
 import Link from "next/link";
@@ -20,7 +21,7 @@ interface ProfilePostPreviewProps {
   returnTo: string;
 }
 
-/** 프로필에는 최근 글만 노출하고 전체 커서 목록은 별도 화면에서 제공한다. */
+/** 프로필의 최근 글 노출과 전체 목록·작성 화면 진입 구성 */
 export default function ProfilePostPreview({
   posts,
   username,
@@ -52,11 +53,11 @@ export default function ProfilePostPreview({
           <p className="text-sm text-muted">아직 작성한 게시글이 없습니다.</p>
           {isOwner && (
             <Link
-              href="/posts/add"
+              href={`/posts/add?returnTo=${encodeURIComponent(returnTo)}`}
               prefetch={false}
               className="btn-primary mt-4 inline-flex min-h-[40px] items-center justify-center gap-1.5 px-4 text-sm"
             >
-              <PlusIcon className="size-4" />
+              <PlusIcon aria-hidden="true" className="size-4" />
               게시글 작성하기
             </Link>
           )}

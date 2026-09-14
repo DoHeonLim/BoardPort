@@ -26,6 +26,8 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.27  임도헌   Modified  인증 코드 label·입력과 도움말을 명시적 ID 및 aria-describedby로 연결
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -37,7 +39,8 @@ import { toast } from "sonner";
 import BottomSheet from "@/components/global/BottomSheet";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import Input from "@/components/ui/Input";
-import { XMarkIcon, EnvelopeIcon, KeyIcon } from "@heroicons/react/24/outline";
+import { EnvelopeIcon, KeyIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -350,13 +353,11 @@ function EmailVerificationModalInner({
               <span>{maskedEmail}</span>
             </div>
           </div>
-          <button
+          <ModalCloseButton
             onClick={onClose}
-            aria-label="이메일 인증 모달 닫기"
-            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="이메일 인증 모달 닫기"
+            className="-mr-2"
+          />
         </div>
 
         {/* 본문 */}

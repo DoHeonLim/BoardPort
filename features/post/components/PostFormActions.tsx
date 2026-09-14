@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.04.21  임도헌   Created   PostForm의 저장/리셋/취소 액션을 분리해 하단 흐름을 명확화
+ * 2026.09.12  임도헌   Modified  공용 로딩 표시와 제출 중 보조 액션 비활성화 스타일 적용
  */
 
 import Button from "@/components/ui/Button";
@@ -39,9 +40,9 @@ export default function PostFormActions({
   return (
     <div className="flex flex-col gap-2.5 pt-3 sm:gap-3 sm:pt-4">
       <Button
-        text={
-          isUploading ? (isEdit ? "수정 중..." : "업로드 중...") : submitLabel
-        }
+        text={submitLabel}
+        loading={isUploading}
+        loadingText={isEdit ? "수정 중..." : "등록 중..."}
         disabled={isEditorLocked}
       />
 
@@ -56,7 +57,7 @@ export default function PostFormActions({
         <button
           type="button"
           onClick={onReset}
-          className="focus-ring-soft h-12 rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim"
+          className="focus-ring-soft h-12 rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isEditorLocked}
         >
           {isEdit ? "원래 값으로 되돌리기" : "전체 초기화"}

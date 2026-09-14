@@ -8,6 +8,7 @@
  * 2026.04.21  임도헌   Created   PostForm의 위치 선택/변경 UI를 별도 섹션으로 분리
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.06.18  임도헌   Modified  게시글 관련 장소 문구로 도메인 표현 정리
+ * 2026.09.12  임도헌   Modified  관련 장소 삭제 버튼의 접근성 이름과 클릭 영역 보강
  */
 
 import { MapPinIcon, XMarkIcon } from "@heroicons/react/24/outline";
@@ -38,10 +39,7 @@ export default function PostLocationSection({
     <div className="flex flex-col gap-2 pt-2">
       <label className="flex items-center gap-1 text-sm font-medium text-primary">
         <MapPinIcon className="size-4" />
-        게시글 관련 장소{" "}
-        <span className="font-normal text-muted">
-          (선택)
-        </span>
+        게시글 관련 장소 <span className="font-normal text-muted">(선택)</span>
       </label>
 
       {location ? (
@@ -71,10 +69,11 @@ export default function PostLocationSection({
             <button
               type="button"
               onClick={onClearLocation}
-              className="focus-ring-soft p-1 text-muted hover:text-danger"
+              className="focus-ring-soft inline-flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
               disabled={isUploading}
+              aria-label="게시글 관련 장소 삭제"
             >
-              <XMarkIcon className="size-4" />
+              <XMarkIcon className="size-4" aria-hidden="true" />
             </button>
           </div>
         </div>

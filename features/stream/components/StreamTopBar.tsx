@@ -404,7 +404,7 @@ export default function StreamTopbar({
 
       <ConfirmDialog
         open={blockConfirmOpen}
-        title="유저 차단"
+        title="사용자 차단"
         description={`${ownerUsername}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`}
         onConfirm={handleBlock}
         onCancel={() => setBlockConfirmOpen(false)}

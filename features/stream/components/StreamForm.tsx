@@ -34,13 +34,15 @@
  * 2026.05.30  임도헌   Modified   모바일 방송 생성 폼의 입력 밀도 조정
  * 2026.08.22  임도헌   Modified   방송 썸네일 전용 업로드 용도와 MediaAsset delivery URL 사용
  * 2026.09.10  임도헌   Modified   도감 작성 진입의 보드게임 초기값과 상세 복귀 문맥 적용
+ * 2026.09.12  임도헌   Modified   방송 필수 설정을 먼저 배치하고 설명·썸네일·태그를 선택 입력 섹션으로 통합
+ * 2026.09.12  임도헌   Modified   방송 준비 중 진행 표시와 취소 이동 잠금 적용
  */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { getUploadUrl } from "@/lib/cloudflareImages";
@@ -63,6 +65,7 @@ import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
 import { cn } from "@/lib/utils";
 import BoardGameRelationField from "@/features/boardgame/components/BoardGameRelationField";
 import type { BoardGameRelationOption } from "@/features/boardgame/types/public";
+import OptionalFormSection from "@/components/ui/OptionalFormSection";
 
 const RTMPInfoModal = dynamic(
   () => import("@/features/stream/components/RTMPInfoModal"),
@@ -116,6 +119,13 @@ export default function StreamForm({
     rtmpUrl: string;
   } | null>(null);
   const [showStreamInfo, setShowStreamInfo] = useState(false);
+  const [isOptionalInfoOpen, setIsOptionalInfoOpen] = useState(
+    Boolean(
+      defaultValues?.description?.trim() ||
+      defaultValues?.thumbnail ||
+      defaultValues?.tags?.length
+    )
+  );
 
   const {
     register,
@@ -124,7 +134,6 @@ export default function StreamForm({
     getValues,
     resetField,
     control,
-    watch,
     setError,
     setFocus,
     formState: { errors, isSubmitting },
@@ -144,8 +153,11 @@ export default function StreamForm({
     },
   });
 
-  const watchVisibility = watch("visibility");
-  const selectedBoardGameIds = watch("boardGameIds") ?? [];
+  const watchVisibility = useWatch({ control, name: "visibility" });
+  const selectedBoardGameIds =
+    useWatch({ control, name: "boardGameIds" }) ?? [];
+  const description = useWatch({ control, name: "description" }) ?? "";
+  const tags = useWatch({ control, name: "tags" }) ?? [];
   const isPrivateVisibilitySelected =
     watchVisibility === STREAM_VISIBILITY.PRIVATE;
 
@@ -166,6 +178,14 @@ export default function StreamForm({
     handleDeleteImage,
     handleDragEnd,
   } = useImageUpload({ maxImages: 1, setValue, getValues });
+
+  const optionalInfoStatus = [
+    description.trim() ? "설명 작성됨" : null,
+    previews.length > 0 || defaultValues?.thumbnail ? "썸네일 1장" : null,
+    tags.length > 0 ? `태그 ${tags.length}개` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   // 카테고리 Select의 부모-자식 구조 기준 분리 렌더링
   // 서버 row의 parentId를 기준으로 대분류/소분류 그룹 분리
@@ -258,9 +278,30 @@ export default function StreamForm({
 
       if (!result.success) {
         if (result.fieldErrors) {
+          const hasOptionalFieldError = Boolean(
+            result.fieldErrors.description ||
+            result.fieldErrors.thumbnail ||
+            result.fieldErrors.tags
+          );
+          if (hasOptionalFieldError) {
+            setIsOptionalInfoOpen(true);
+          }
           applyFieldErrors<StreamFormValues>(setError, result.fieldErrors, {
             setFocus,
+            shouldFocusFirst: !hasOptionalFieldError,
           });
+          if (hasOptionalFieldError && typeof window !== "undefined") {
+            const firstOptionalField = [
+              "description",
+              "thumbnail",
+              "tags",
+            ].find((field) => result.fieldErrors?.[field]?.[0]);
+            if (firstOptionalField) {
+              window.requestAnimationFrame(() => {
+                setFocus(firstOptionalField as keyof StreamFormValues);
+              });
+            }
+          }
         }
         toast.error(
           result.error ??
@@ -296,6 +337,16 @@ export default function StreamForm({
    * @param formErrors - React Hook Form 오류 객체
    */
   const onInvalid = (formErrors: typeof errors) => {
+    const hasOptionalFieldError = Boolean(
+      formErrors.description || formErrors.thumbnail || formErrors.tags
+    );
+    if (hasOptionalFieldError) {
+      setIsOptionalInfoOpen(true);
+      window.requestAnimationFrame(() => {
+        focusFirstFieldError<StreamFormValues>(formErrors, setFocus);
+      });
+      return;
+    }
     focusFirstFieldError<StreamFormValues>(formErrors, setFocus);
   };
 
@@ -331,37 +382,6 @@ export default function StreamForm({
           }
         />
 
-        <Input
-          type="textarea"
-          label="방송 설명"
-          placeholder="방송에 대해 설명해주세요"
-          errors={
-            errors.description?.message ? [errors.description.message] : []
-          }
-          {...register("description")}
-          density="compact"
-        />
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-primary">썸네일</label>
-          <ImageUploader
-            previews={previews}
-            onImageChange={handleImageChange}
-            onImageDrop={handleImageDrop}
-            onDeleteImage={handleDeleteImage}
-            onDragEnd={handleDragEnd}
-            isOpen={isImageFormOpen}
-            onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
-            maxImages={1}
-            compact
-            optional
-          />
-          <p className="text-xs text-muted pl-1">
-            방송 썸네일은 최대 1장까지 업로드할 수 있으며, 10MB까지 첨부할 수
-            있습니다.
-          </p>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
             label="대분류"
@@ -393,8 +413,6 @@ export default function StreamForm({
             ))}
           </Select>
         </div>
-
-        <TagInput name="tags" control={control} maxTags={5} />
 
         <div
           className={cn(
@@ -446,12 +464,67 @@ export default function StreamForm({
           )}
         </div>
 
+        <OptionalFormSection
+          title="추가 정보"
+          description="방송 설명, 썸네일과 검색 태그"
+          status={optionalInfoStatus || undefined}
+          open={isOptionalInfoOpen}
+          onOpenChange={setIsOptionalInfoOpen}
+        >
+          <Input
+            type="textarea"
+            label="방송 설명"
+            placeholder="방송에 대해 설명해주세요"
+            errors={
+              errors.description?.message ? [errors.description.message] : []
+            }
+            {...register("description")}
+            density="compact"
+          />
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-primary">썸네일</label>
+            <ImageUploader
+              previews={previews}
+              onImageChange={handleImageChange}
+              onImageDrop={handleImageDrop}
+              onDeleteImage={handleDeleteImage}
+              onDragEnd={handleDragEnd}
+              isOpen={isImageFormOpen}
+              onToggle={() => setIsImageFormOpen(!isImageFormOpen)}
+              maxImages={1}
+              compact
+              optional
+            />
+            <p className="pl-1 text-xs text-muted">
+              방송 썸네일은 최대 1장까지 업로드할 수 있으며, 10MB까지 첨부할 수
+              있습니다.
+            </p>
+          </div>
+
+          <TagInput name="tags" control={control} maxTags={5} />
+        </OptionalFormSection>
+
         <div className="pt-2 flex flex-col gap-3">
-          <Button disabled={isSubmitting} text="방송 시작하기" />
+          <Button
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            loadingText="방송 준비 중..."
+            text="방송 시작하기"
+          />
 
           <Link
             href={cancelHref}
-            className="focus-ring-soft inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary"
+            aria-disabled={isSubmitting}
+            tabIndex={isSubmitting ? -1 : undefined}
+            onClick={(event) => {
+              if (isSubmitting) event.preventDefault();
+            }}
+            className={cn(
+              "focus-ring-soft inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-surface text-sm font-medium text-muted transition-colors hover:bg-surface-dim hover:text-primary",
+              isSubmitting &&
+                "pointer-events-none cursor-not-allowed opacity-50"
+            )}
           >
             취소
           </Link>

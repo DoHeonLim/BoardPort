@@ -19,6 +19,9 @@
  * 2026.09.11  임도헌   Moved     제품 전용 컴포넌트 경로에서 사용자 찜 보관함 경로로 이동
  * 2026.09.11  임도헌   Modified  URL 기반 리스트·그리드 전환과 다시보기 기본 그리드 적용
  * 2026.09.11  임도헌   Modified  다시보기 그리드 고정과 모든 콘텐츠의 찜한 시각 표시
+ * 2026.09.12  임도헌   Modified  게시글 관심 목록의 빈 상태 문구를 기능 중심으로 정리
+ * 2026.09.12  임도헌   Modified  다시보기 카드의 중복 반응 통계 전달 제거
+ * 2026.09.13  임도헌   Modified  리스트·그리드 전환 UI를 공통 컴포넌트로 통일
  */
 "use client";
 
@@ -27,10 +30,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DocumentTextIcon,
-  ListBulletIcon,
   PlayCircleIcon,
   ShoppingBagIcon,
-  Squares2X2Icon,
 } from "@heroicons/react/24/outline";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
@@ -49,6 +50,7 @@ import type {
   MyLikesCounts,
   MyLikesTab,
 } from "@/features/user/types";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
 
 const TABS: Array<{ type: MyLikesTab; label: string }> = [
   { type: "products", label: "상품" },
@@ -135,40 +137,11 @@ export default function MyLikesList({
 
       {activeTab !== "recordings" && (
         <div className="mb-4 flex justify-end">
-          <div
-            className="inline-flex rounded-xl border border-border bg-surface p-1 shadow-sm"
-            role="group"
-            aria-label="관심 목록 보기 방식"
-          >
-            <button
-              type="button"
-              onClick={() => changeView("list")}
-              aria-label="리스트 보기"
-              aria-pressed={viewMode === "list"}
-              className={cn(
-                "focus-ring-soft flex size-11 items-center justify-center rounded-lg transition-colors",
-                viewMode === "list"
-                  ? "bg-surface-dim text-brand shadow-sm dark:bg-background dark:text-brand-light"
-                  : "text-muted hover:bg-background/70 hover:text-primary"
-              )}
-            >
-              <ListBulletIcon className="size-5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => changeView("grid")}
-              aria-label="그리드 보기"
-              aria-pressed={viewMode === "grid"}
-              className={cn(
-                "focus-ring-soft flex size-11 items-center justify-center rounded-lg transition-colors",
-                viewMode === "grid"
-                  ? "bg-surface-dim text-brand shadow-sm dark:bg-background dark:text-brand-light"
-                  : "text-muted hover:bg-background/70 hover:text-primary"
-              )}
-            >
-              <Squares2X2Icon className="size-5" aria-hidden="true" />
-            </button>
-          </div>
+          <ViewModeToggle
+            value={viewMode}
+            onChange={changeView}
+            ariaLabel="관심 목록 보기 방식"
+          />
         </div>
       )}
 
@@ -217,7 +190,7 @@ function EmptyLikes({ type }: { type: MyLikesTab }) {
     ],
     posts: [
       "찜한 게시글이 없습니다",
-      "다시 보고 싶은 항해일지를 좋아요로 모아보세요.",
+      "다시 보고 싶은 게시글을 좋아요로 모아보세요.",
       "/posts",
       "게시글 둘러보기",
       DocumentTextIcon,
@@ -400,12 +373,8 @@ function LikedRecordings({
             category={recording.category}
             tags={recording.tags}
             boardGames={recording.board_games}
-            boardGameBadgePlacement="thumbnail"
             duration={recording.duration}
             viewCount={recording.viewCount}
-            likeCount={recording.likeCount}
-            commentCount={recording.commentCount}
-            isLiked
             href={recording.href}
             requiresPassword={recording.requiresPassword}
             isFollowersOnly={recording.visibility === "FOLLOWERS"}

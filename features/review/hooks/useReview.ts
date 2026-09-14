@@ -14,6 +14,7 @@
  * 2026.01.16  임도헌   Moved     hooks -> hooks/review
  * 2026.01.18  임도헌   Moved     hooks/review -> features/review/hooks
  * 2026.01.24  임도헌   Modified  Action(createReviewAction) 연결 및 경로 수정
+ * 2026.09.13  임도헌   Modified  사용자 피드백 문구를 거래 후기로 통일
  */
 import { useState } from "react";
 import { toast } from "sonner";
@@ -78,14 +79,14 @@ export function useReview({ productId, type, onSuccess }: UseReviewProps) {
         // 콜백 에러는 전체 흐름을 실패로 간주하지 않음
       }
 
-      toast.success("리뷰가 작성되었습니다.");
+      toast.success("거래 후기가 작성되었습니다.");
       return { ok: true, review: res.review };
     } catch (err) {
       // 5. 예상치 못한 네트워크/런타임 에러 처리
       const msg =
         err instanceof Error
           ? err.message
-          : "리뷰 작성 중 오류가 발생했습니다.";
+          : "거래 후기 작성 중 오류가 발생했습니다.";
 
       console.error("[useReview] Unexpected error:", err);
       setError(msg);

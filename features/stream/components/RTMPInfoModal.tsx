@@ -30,6 +30,7 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.27  임도헌   Modified  중첩 확인창을 고려한 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.09.10  임도헌   Modified  도감에서 생성한 방송의 상세 복귀 문맥 유지
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import React, {
@@ -43,9 +44,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import BottomSheet from "@/components/global/BottomSheet";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import {
-  XMarkIcon,
   EyeIcon,
   EyeSlashIcon,
   ClipboardIcon,
@@ -98,7 +99,7 @@ export default function RTMPInfoModal({
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFocusRef = useRef<HTMLButtonElement>(null);
 
-  // 트래킹: 사용자가 "스트리밍 페이지로 이동"을 눌러 네비게이션 했는지 여부
+  // 트래킹: 사용자가 "방송 페이지로 이동"을 눌러 네비게이션 했는지 여부
   // 네비게이션했으면 닫기 시 브로드캐스트 삭제를 수행하지 않음
   const navigatedToBroadcastRef = useRef(false);
 
@@ -447,16 +448,13 @@ export default function RTMPInfoModal({
             <h2 className="text-lg font-bold text-primary sm:text-xl">
               방송 송출 정보
             </h2>
-            <button
-              type="button"
+            <ModalCloseButton
               onClick={requestClose}
-              aria-label="송출 정보 모달 닫기"
+              label="송출 정보 모달 닫기"
               title="닫기"
-              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg"
               disabled={isDeleting}
-            >
-              <XMarkIcon className="size-6" />
-            </button>
+            />
           </div>
           {content}
           <div className="mt-2">{footer}</div>

@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/components/form/LoginForm.tsx
- * Description : 유저 로그인 폼 컴포넌트
+ * Description : 로그인 폼 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -29,6 +29,7 @@
  * 2026.08.27  임도헌   Modified  화면 구성을 유지하면서 이메일·비밀번호 입력에 접근 가능한 숨김 label 추가
  * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 회원가입·비밀번호 찾기 링크에서 생략
  * 2026.09.05  임도헌   Modified  명시적 라벨과 제출 후 검증 방식으로 인증 폼 접근성 보강
+ * 2026.09.13  임도헌   Modified  공용 제출 진행 표시 적용
  */
 "use client";
 
@@ -177,7 +178,9 @@ export default function LoginForm({
 
       <div className="mt-2 flex flex-col gap-3.5">
         <Button
-          text={isPending ? "로그인 중..." : "로그인"}
+          text="로그인"
+          loading={isPending}
+          loadingText="로그인 중..."
           disabled={isPending}
         />
 
@@ -199,7 +202,7 @@ export default function LoginForm({
             onPointerDown={preventPointerDownFocus}
             className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"
           >
-            회원가입 하기
+            회원가입
           </Link>
         </div>
       </div>

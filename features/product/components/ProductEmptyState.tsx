@@ -23,6 +23,7 @@
  * 2026.06.16  임도헌   Modified  키워드가 있는 조건 0건 상태에서도 키워드 알림 CTA를 유지
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.08  임도헌   Modified  상세 조건 해제 링크에서 현재 상품 정렬 유지
+ * 2026.09.12  임도헌   Modified  상품 등록 취소 시 빈 목록 문맥 복귀 지원
  */
 "use client";
 
@@ -39,6 +40,7 @@ interface ProductEmptyStateProps {
   alertId?: number;
   currentRange: RegionRange;
   sort?: ProductSort;
+  returnTo?: string;
 }
 
 /**
@@ -62,6 +64,7 @@ export default function ProductEmptyState({
   alertId,
   currentRange,
   sort = "latest",
+  returnTo = "/products",
 }: ProductEmptyStateProps) {
   // 범위가 동/구로 좁을 때 안내가 필요한지 판별
   const isNarrowRange = currentRange === "DONG" || currentRange === "GU";
@@ -92,7 +95,7 @@ export default function ProductEmptyState({
       : isNarrowRange
         ? "다른 검색어로 다시 시도하거나, 동네 범위를 넓혀보세요."
         : "다른 검색어로 다시 시도해보세요."
-    : "첫 번째 상품을 등록해 항구를 채워보세요.";
+    : "첫 번째 상품을 등록해보세요.";
 
   return (
     <div className="state-screen">
@@ -114,7 +117,7 @@ export default function ProductEmptyState({
         {!hasSearchParams && (
           <div className="state-actions justify-center">
             <Link
-              href="/products/add"
+              href={`/products/add?returnTo=${encodeURIComponent(returnTo)}`}
               className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm shadow-sm"
             >
               첫 상품 등록하기

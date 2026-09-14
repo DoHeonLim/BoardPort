@@ -18,13 +18,15 @@
  * 2026.06.19  임도헌   Modified  데스크톱 X 닫기를 추가하고 푸터 취소 버튼을 제거해 실제 관리자 액션만 남김
  * 2026.06.19  임도헌   Modified  데스크톱 관리자 액션 모달을 포털로 렌더링해 관리자 셸의 레이아웃 문맥에서 분리
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.13  임도헌   Modified  관리자 액션별 공통 버튼 variant·진행 표시 적용
  */
 
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import BottomSheet from "@/components/global/BottomSheet";
-import { cn } from "@/lib/utils";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
+import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -84,6 +86,9 @@ export default function AdminActionModal({
   const [reason, setReason] = useState("");
   const [banDuration, setBanDuration] = useState(0); // 0: 영구
   const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<
+    "confirm" | "secondary" | null
+  >(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [mounted, setMounted] = useState(false);
@@ -117,25 +122,28 @@ export default function AdminActionModal({
 
   const handleConfirm = () => {
     if (reason.trim().length < minReasonLength) return;
+    setPendingAction("confirm");
     startTransition(async () => {
-      // 정지 기간 조건부 전달
-      // 정지 옵션이 켜진 경우에만 duration을 넘겨 공용 confirm 시그니처 유지
-      await onConfirm(reason, showBanOptions ? banDuration : undefined);
+      try {
+        // 정지 기간 조건부 전달
+        // 정지 옵션이 켜진 경우에만 duration을 넘겨 공용 confirm 시그니처 유지
+        await onConfirm(reason, showBanOptions ? banDuration : undefined);
+      } finally {
+        setPendingAction(null);
+      }
     });
   };
 
   const handleSecondary = () => {
     if (!onSecondaryAction) return;
+    setPendingAction("secondary");
     startTransition(async () => {
-      await onSecondaryAction(reason);
+      try {
+        await onSecondaryAction(reason);
+      } finally {
+        setPendingAction(null);
+      }
     });
-  };
-
-  const variantClasses = {
-    primary:
-      "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",
-    danger: "bg-danger text-white hover:bg-red-600",
-    success: "bg-emerald-600 text-white hover:bg-emerald-700",
   };
 
   const content = (
@@ -188,28 +196,30 @@ export default function AdminActionModal({
   const footer = (
     <div className="flex flex-col justify-end gap-3 sm:flex-row">
       {secondaryLabel && onSecondaryAction && (
-        <button
+        <Button
+          type="button"
           onClick={handleSecondary}
+          text={secondaryLabel}
+          loading={pendingAction === "secondary"}
+          loadingText={secondaryLabel}
+          variant="secondary"
+          size="sm"
           disabled={isPending}
-          className="btn-secondary flex-1 sm:flex-none border-border"
-        >
-          {secondaryLabel}
-        </button>
+          className="h-auto min-h-10 flex-1 border-border px-6 py-2.5 font-bold sm:w-auto sm:flex-none"
+        />
       )}
 
-      <button
+      <Button
+        type="button"
         onClick={handleConfirm}
+        text={confirmLabel}
+        loading={pendingAction === "confirm"}
+        loadingText={confirmLabel}
+        variant={confirmVariant}
+        size="sm"
         disabled={isPending || reason.trim().length < minReasonLength}
-        className={cn(
-          "focus-ring-strong flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold shadow-sm transition-[background-color,color,border-color,box-shadow,opacity] disabled:opacity-50 sm:flex-none",
-          variantClasses[confirmVariant]
-        )}
-      >
-        {isPending && (
-          <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-        )}
-        {confirmLabel}
-      </button>
+        className="h-auto min-h-10 flex-1 px-6 py-2.5 font-bold shadow-sm sm:w-auto sm:flex-none"
+      />
     </div>
   );
 
@@ -256,15 +266,11 @@ export default function AdminActionModal({
                 {description}
               </p>
             </div>
-            <button
-              type="button"
+            <ModalCloseButton
               onClick={handleRequestClose}
               disabled={isPending}
-              aria-label="관리자 액션 모달 닫기"
-              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-            >
-              <XMarkIcon className="size-6" />
-            </button>
+              label="관리자 액션 모달 닫기"
+            />
           </div>
           {content}
         </div>
