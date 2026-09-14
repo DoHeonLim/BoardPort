@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   메인, 로그인, 오프라인 공개 페이지 진입 smoke 테스트 추가
  * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로의 인증 화면 쿼리 생략 검증 추가
+ * 2026.09.14  임도헌   Modified  로그인·회원가입 화면의 용어 통일 반영
  */
 
 import { expect, test } from "@playwright/test";
@@ -21,9 +22,10 @@ test.describe("public smoke", () => {
     await expect(
       page.getByRole("link", { name: "로그인하기" })
     ).toHaveAttribute("href", "/login");
-    await expect(
-      page.getByRole("link", { name: "새로운 선원으로 등록" })
-    ).toHaveAttribute("href", "/create-account");
+    await expect(page.getByRole("link", { name: "회원가입" })).toHaveAttribute(
+      "href",
+      "/create-account"
+    );
   });
 
   test("로그인 페이지가 기본 입력과 보조 링크를 렌더링한다", async ({
@@ -38,9 +40,10 @@ test.describe("public smoke", () => {
     await expect(page.getByPlaceholder("비밀번호")).toBeVisible();
 
     // 외부 callbackUrl은 로그인 페이지에서 내부 fallback으로 정규화 후 보조 링크에 반영
-    await expect(
-      page.getByRole("link", { name: "회원가입 하기" })
-    ).toHaveAttribute("href", "/create-account?callbackUrl=%2F");
+    await expect(page.getByRole("link", { name: "회원가입" })).toHaveAttribute(
+      "href",
+      "/create-account?callbackUrl=%2F"
+    );
   });
 
   test("기본 프로필 복귀 경로는 인증 화면 링크의 쿼리에서 생략한다", async ({
@@ -48,9 +51,10 @@ test.describe("public smoke", () => {
   }) => {
     await page.goto("/login");
 
-    await expect(
-      page.getByRole("link", { name: "회원가입 하기" })
-    ).toHaveAttribute("href", "/create-account");
+    await expect(page.getByRole("link", { name: "회원가입" })).toHaveAttribute(
+      "href",
+      "/create-account"
+    );
     await expect(
       page.getByRole("link", { name: "비밀번호를 잊으셨나요?" })
     ).toHaveAttribute("href", "/forgot-password");
