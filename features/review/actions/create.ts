@@ -9,12 +9,11 @@
  * 2026.03.05  임도헌   Modified  Action 내 `revalidateTag` 부수 효과(리뷰 목록, 평점 등) 제거 및 클라이언트 Mutation 훅으로 상태 갱신 위임
  * 2026.05.16  임도헌   Modified  현재 actions 계층 역할에 맞게 파일 설명 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.09  임도헌   Removed   별도 리뷰 Query와 무관한 상품 상세 본문 태그 만료 제거
  */
 "use server";
 
-import { revalidateTag } from "next/cache";
 import getSession from "@/lib/session";
-import * as T from "@/lib/cacheTags";
 import { createReviewService } from "@/features/review/service/create";
 import { createReviewSchema } from "@/features/review/schemas";
 import { REVIEW_ERRORS } from "@/features/review/constants";
@@ -24,7 +23,7 @@ import type { ReviewServiceResult } from "@/features/review/types";
  * 리뷰 생성 Action
  * - 로그인 세션을 확인
  * - 입력값을 Zod 스키마로 검증
- * - Service 계층을 호출하여 리뷰를 생성하고, 성공 시 제품 상세 캐시를 무효화
+ * - Service 계층을 호출해 리뷰 생성
  *
  * @param productId - 제품 ID
  * @param payload - 리뷰 내용
@@ -57,13 +56,6 @@ export async function createReviewAction(
 
   // 리뷰 생성 service 위임
   const result = await createReviewService(session.id, parsed.data);
-
-  if (result.success && result.meta) {
-    const { productId } = result.meta;
-
-    // 상품 상세 캐시 재검증
-    revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
-  }
 
   return result;
 }

@@ -19,6 +19,7 @@
  * 2026.08.31  임도헌   Modified  로컬 Pretendard 글꼴 합성으로 운영 OG 이미지 한글 깨짐 방지
  * 2026.09.01  임도헌   Modified  Vercel 서버 렌더러와 호환되는 OTF 한글 글꼴 적용
  * 2026.09.01  임도헌   Modified  공백 없는 긴 방송 제목의 카드 영역 내 줄바꿈 보완
+ * 2026.09.08  임도헌   Modified  종료 방송 OG에 최신 녹화본 사용자 제목·썸네일 우선 적용
  */
 
 import sharp, { type OverlayOptions } from "sharp";
@@ -35,6 +36,7 @@ import {
   type OgCard,
   type OgTextSpec,
 } from "@/lib/media/ogText";
+import { selectRecordingTitle } from "@/features/stream/utils/thumbnail";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
@@ -239,7 +241,12 @@ export default async function Image({
       visibility: true,
       vodAssets: {
         where: { ready_at: { not: null } },
-        select: { provider_asset_id: true, thumbnail_url: true },
+        select: {
+          provider_asset_id: true,
+          thumbnail_url: true,
+          title: true,
+          custom_thumbnail_url: true,
+        },
         orderBy: [{ ready_at: "desc" }, { id: "desc" }],
         take: 1,
       },
@@ -264,8 +271,12 @@ export default async function Image({
   let thumbnailCandidate: string | null = null;
   try {
     thumbnailCandidate = resolveStreamThumbnailUrl(
-      latestVod?.thumbnail_url ?? stream.thumbnail,
-      latestVod?.provider_asset_id ?? stream.liveInput.provider_uid
+      latestVod?.custom_thumbnail_url ??
+        latestVod?.thumbnail_url ??
+        stream.thumbnail,
+      latestVod?.custom_thumbnail_url
+        ? null
+        : (latestVod?.provider_asset_id ?? stream.liveInput.provider_uid)
     );
   } catch (error) {
     console.warn("[StreamOG] signed thumbnail unavailable:", error);
@@ -275,7 +286,9 @@ export default async function Image({
 
   return createPngResponse(
     buildStreamOverlayCard({
-      title: stream.title,
+      title: isLive
+        ? stream.title
+        : selectRecordingTitle(latestVod?.title, stream.title),
       username: stream.liveInput.user.username,
       badgeText,
       badgeColor,

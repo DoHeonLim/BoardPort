@@ -2,9 +2,9 @@
 
 ## 목적
 
-BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱신하면서 호환성 변경, PWA 전환, 남은 취약점의 처리 기준을 함께 기록한다.
+BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱신하고, v1.4.0 준비 과정에서 Turbopack과 Serwist 빌드를 분리한 결과까지 기록한다.
 
-최종 확인일은 `2026-08-30`이며, 버전 판단은 [Next.js 16 업그레이드 가이드](https://nextjs.org/docs/app/guides/upgrading/version-16), [Next.js 2026년 8월 보안 릴리스](https://nextjs.org/blog/august-2026-security-release), [Next.js PWA 가이드](https://nextjs.org/docs/app/guides/progressive-web-apps), [Serwist Next.js 가이드](https://serwist.pages.dev/docs/next/getting-started)를 따른다.
+최종 확인일은 `2026-09-14`이며, 버전 판단은 [Next.js 16 업그레이드 가이드](https://nextjs.org/docs/app/guides/upgrading/version-16), [Next.js 2026년 8월 보안 릴리스](https://nextjs.org/blog/august-2026-security-release), [Next.js PWA 가이드](https://nextjs.org/docs/app/guides/progressive-web-apps), [Serwist Next.js 가이드](https://serwist.pages.dev/docs/next/getting-started)를 따른다.
 
 ## 적용 범위
 
@@ -18,10 +18,12 @@ BoardPort v1.3.0에서 오래된 프레임워크와 production 의존성을 갱�
 ## Next.js 16 호환 정책
 
 - `params`, `searchParams`, `headers()`, `cookies()`는 비동기 API로 사용한다.
-- `revalidateTag`는 기존 즉시 만료 의미를 유지하도록 `{ expire: 0 }` 프로필을 명시한다.
+- `revalidateTag`는 기존 즉시 만료 의미를 유지하도록 `{ expire: 0 }` 프로필을 명시한다. Server Action에서 수정 직후 새 상세 데이터를 읽어야 하는 경로는 `updateTag`를 사용한다.
 - 요청 전 인증·인가 파일은 `middleware.ts` 대신 `proxy.ts` 규약을 사용한다.
 - Server Component의 `dynamic(..., { ssr: false })`는 Client Component loader로 경계를 옮긴다.
-- Serwist webpack 통합을 사용하므로 `next dev --webpack`, `next build --webpack`을 명시한다. Turbopack 전환은 Serwist 지원과 PWA 회귀 검증을 별도 수행한 뒤 결정한다.
+- 개발 서버와 Next.js 애플리케이션 빌드는 Turbopack을 사용한다.
+- Serwist는 Next.js 플러그인 결합 대신 `next build --turbopack` 완료 후 `serwist build serwist.config.mjs`를 실행해 서비스 워커를 별도로 생성한다.
+- 빌드 분리 후에도 `/sw.js`, offline fallback과 production service worker E2E를 유지한다.
 
 ## PWA 보존 항목
 
@@ -39,7 +41,7 @@ production build를 `next start`로 실행한 Chromium smoke에서 서비스 워
 
 남은 3건은 `prisma → @prisma/config → deepmerge-ts@7` 한 경로가 package 단위로 집계된 결과다. npm의 자동 수정 제안은 Prisma `7.9.1`을 `6.12.0`으로 강제 다운그레이드하므로 적용하지 않는다. 이 경로는 application request runtime이 아니라 Prisma CLI 설정 처리 경로이며 다음 Prisma 7 패치에서 `deepmerge-ts >= 8` 반영 여부를 재확인한다.
 
-CI의 `npm run audit:production`은 이 high 3건을 계속 출력해 기준선을 숨기지 않으면서 critical 취약점이 새로 유입되면 실패하도록 설정한다. hardcoded secret은 별도 `Dependency and Secret Audit` job에서 전체 Git 이력을 Gitleaks로 검사해 차단한다.
+CI의 `npm run audit:production`은 이 high 3건을 검사 결과에 출력하고 critical 취약점이 발견되면 실패하도록 설정한다. 코드에 포함된 비밀 값은 별도 `Dependency and Secret Audit` job에서 전체 Git 이력을 Gitleaks로 검사한다.
 
 다음 명령은 사용하지 않는다.
 

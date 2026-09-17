@@ -38,6 +38,7 @@
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.03  임도헌   Modified  상품 수정 뒤로가기가 편집 흐름별 취소 경로를 우선하도록 고정
+ * 2026.09.13  임도헌   Modified  수정 화면 상단바를 공통 하위 화면 헤더로 통일
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -48,6 +49,7 @@ import { convertProductToFormValues } from "@/features/product/utils/converter";
 import { getProductDetail } from "@/features/product/service/detail";
 import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
 import BackButton from "@/components/global/BackButton";
+import SubpageHeader from "@/components/global/SubpageHeader";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 /**
@@ -96,22 +98,18 @@ export default async function EditPage(props: {
 
   return (
     <div className="min-h-screen bg-background text-primary transition-colors">
-      <header
-        className="sticky top-0 z-40 h-[52px] w-full border-b border-border-subtle bg-background shadow-sm transition-colors"
-        role="banner"
-      >
-        <div className="mx-auto max-w-mobile h-full flex items-center gap-3 px-4">
+      <SubpageHeader
+        title="보드게임 상품 수정"
+        contentClassName="max-w-mobile"
+        backAction={
           <BackButton
             fallbackHref={cancelHref}
             preferFallback
             variant="appbar"
             className="px-0"
           />
-          <h1 className="text-base font-medium text-primary">
-            보드게임 상품 수정
-          </h1>
-        </div>
-      </header>
+        }
+      />
 
       <div className="px-page-x py-page-y">
         <ProductForm

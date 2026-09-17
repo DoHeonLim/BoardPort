@@ -1,11 +1,12 @@
 /**
  * File Name : features/stream/components/StreamCard.test.tsx
- * Description : 팔로워 전용 방송 카드의 탐색과 팔로우 CTA 분리 회귀 테스트
+ * Description : 방송 카드의 탐색·활동 시각·팔로우 CTA 회귀 테스트
  * Author : 임도헌
  *
  * History
  * Date        Author   Status    Description
  * 2026.09.03  임도헌   Created   카드 이동이 팔로우를 실행하지 않고 명시적 버튼만 관계를 변경하는지 검증
+ * 2026.09.11  임도헌   Modified  관심 목록에서 찜한 시각을 우선 표시하는지 검증
  */
 
 // @vitest-environment jsdom
@@ -66,5 +67,28 @@ describe("StreamCard", () => {
 
     fireEvent.click(followButton);
     expect(mocks.requestFollow).toHaveBeenCalledTimes(1);
+  });
+
+  it("관심 목록에서는 콘텐츠 생성 시각보다 찜한 시각을 우선 표시한다", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-11T12:00:00.000Z"));
+
+    render(
+      <StreamCard
+        id={231}
+        title="관심 목록 다시보기"
+        thumbnail={null}
+        isLive={false}
+        streamer={{ username: "testb" }}
+        startedAt="2026-09-01T12:00:00.000Z"
+        activityAt="2026-09-11T11:55:00.000Z"
+        activityLabel="찜"
+      />
+    );
+
+    expect(screen.getByText(/찜 5분 전/)).toBeInTheDocument();
+    expect(screen.queryByText(/1주일 전/)).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 });

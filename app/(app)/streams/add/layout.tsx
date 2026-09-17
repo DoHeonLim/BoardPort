@@ -11,10 +11,13 @@
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/add/layout.tsx 에서 app/(app)/streams/add/layout.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified   스트리밍 생성 상단 헤더 높이를 모바일 서브 헤더 기준으로 정리
  * 2026.09.03  임도헌   Modified   직접 진입에서도 뒤로가기가 방송 목록으로 복귀하도록 고정
+ * 2026.09.11  임도헌   Modified   헤더 구분선을 본문과 같은 콘텐츠 폭으로 제한
+ * 2026.09.12  임도헌   Modified   프로필 진입 시 returnTo 기반 뒤로가기 복귀 지원
+ * 2026.09.13  임도헌   Modified   작성 화면 상단바를 공통 하위 화면 헤더로 통일
  */
 
 import BackButton from "@/components/global/BackButton";
-import { cn } from "@/lib/utils";
+import SubpageHeader from "@/components/global/SubpageHeader";
 
 export default function AddStreamLayout({
   children,
@@ -23,24 +26,19 @@ export default function AddStreamLayout({
 }) {
   return (
     <div className="min-h-screen bg-background text-primary transition-colors">
-      {/* 고정 헤더 */}
-      <header
-        className={cn(
-          "sticky top-0 z-40 h-[52px] w-full",
-          "border-b border-border-subtle bg-background shadow-sm",
-          "transition-colors"
-        )}
-      >
-        <div className="mx-auto max-w-mobile h-full flex items-center px-4 gap-3">
+      <SubpageHeader
+        title="방송 시작"
+        contentClassName="max-w-mobile"
+        backAction={
           <BackButton
             fallbackHref="/streams"
             preferFallback
+            useReturnTo
             variant="appbar"
             className="px-0"
           />
-          <h1 className="text-base font-medium text-primary">스트리밍 시작</h1>
-        </div>
-      </header>
+        }
+      />
 
       {/* 본문 */}
       <main className="mx-auto max-w-mobile pb-20">{children}</main>

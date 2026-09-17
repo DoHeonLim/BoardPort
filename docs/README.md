@@ -1,10 +1,10 @@
 # BoardPort Docs
 
-이 폴더에는 BoardPort를 만들면서 정리한 공개용 설계, 운영, 트러블슈팅 문서를 모아두었습니다.
+이 폴더에는 BoardPort의 주요 설계 판단, 운영 기준과 문제 해결 과정을 정리했습니다.
 
 서비스 소개, 데모 영상, Feature Flow, System Architecture는 루트 [README](../README.md)에서 먼저 확인할 수 있습니다.
 
-면접이나 코드 리뷰에서 빠르게 흐름을 잡고 싶다면 아래 순서로 보는 편이 좋습니다.
+전체 구조에서 주요 설계 사례로 이어지는 권장 순서는 다음과 같습니다.
 
 ## 추천 읽는 순서
 
@@ -55,8 +55,11 @@
 - [상품 채팅 동시성·멱등성 운영 기준](./operations/chat-idempotency.md)
 - [상품 거래 상태 불변식 운영 기준](./operations/product-trade-invariants.md)
 - [Cloudflare Stream Webhook 멱등성·순서 제어](./operations/stream-webhook-idempotency.md)
+- [데이터베이스 배포·복구 절차](./operations/database-deployment-runbook.md)
+- [MediaAsset 소유권·정리 운영 기준](./operations/media-asset-ownership.md)
 - [테스트 전략](./operations/testing-strategy.md)
 - [CI/CD 워크플로우](./operations/ci-cd-workflows.md)
+- [릴리즈·Production smoke·롤백 절차](./operations/release-runbook.md)
 - [프레임워크·의존성 보안 업그레이드 기록](./operations/dependency-security-upgrade.md)
 - [Cloudflare Stream Signed Playback 전환 절차](./operations/stream-signed-playback-runbook.md)
 - [Supabase Realtime Private Channel 전환 절차](./operations/supabase-realtime-private-channels.md)

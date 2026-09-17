@@ -63,7 +63,12 @@
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.08.13  임도헌   Modified  상품 목록 cache key를 조회자와 전체 지역 튜플 기준으로 분리
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
+ * 2026.09.08  임도헌   Modified  상품 정렬 query 정규화와 빈 목록 정렬 선택 추가
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.09  임도헌   Modified  초기 목록은 검증된 조회자로 service를 직접 호출해 세션 재검증 제거
+ * 2026.09.12  임도헌   Modified  URL 보기 방식과 목록 스켈레톤 형태 일치
+ * 2026.09.12  임도헌   Modified  상품 등록 취소 시 현재 검색·필터 문맥 복귀 지원
+ * 2026.09.14  임도헌   Modified  목록 도감 링크의 좁은 너비 줄바꿈 방지
  */
 
 import { Suspense } from "react";
@@ -88,18 +93,24 @@ import ProductListSkeleton from "@/features/product/components/ProductListSkelet
 import KeywordAlertButton from "@/features/notification/components/KeywordAlertButton";
 import ProductListRefreshRelay from "@/features/product/components/ProductListRefreshRelay";
 import ProductModalReopenRelay from "@/features/product/components/ProductModalReopenRelay";
+import ProductSortSelect from "@/features/product/components/ProductSortSelect";
 import { fetchProductCategories } from "@/features/product/service/category";
 import {
   getUserSearchHistory,
   getPopularSearches,
 } from "@/features/product/service/history";
-import { getProductsAction } from "@/features/product/actions/list";
-import { getUnreadNotificationCount } from "@/features/notification/actions/count";
+import { getProductsList } from "@/features/product/service/list";
+import { getUnreadNotificationCountOrZero } from "@/features/notification/service/notification";
 import { getMyKeywordAlerts } from "@/features/notification/service/keyword";
 import { getUserLocation } from "@/features/user/service/profile";
 import { formatNormalizedRegion } from "@/features/map/utils/normalizeRegion";
-import type { Paginated, ProductType } from "@/features/product/types";
+import type {
+  Paginated,
+  ProductSearchParams,
+  ProductType,
+} from "@/features/product/types";
 import type { RegionRange } from "@/generated/prisma/enums";
+import { normalizeProductSort } from "@/features/product/utils/productSort";
 
 interface ProductsPageProps {
   searchParams: Promise<{
@@ -109,12 +120,14 @@ interface ProductsPageProps {
     maxPrice?: string;
     game_type?: string;
     condition?: string;
+    sort?: string;
+    view?: string;
   }>;
 }
 
 export const metadata: Metadata = {
   title: "항구 (상품 목록)",
-  description: "다양한 보드게임과 TRPG 물품을 거래하세요.",
+  description: "다양한 보드게임과 TRPG 상품을 거래하세요.",
   openGraph: {
     title: "보드포트 항구",
     description: "보드게임 중고 거래의 중심, 보드포트 항구입니다.",
@@ -139,13 +152,20 @@ function parseNumberParam(val: string | undefined): number | undefined {
  * [기능]
  * - 로그인 세션 확인 및 비인가 사용자 리다이렉트 처리
  * - 카테고리, 검색 기록, 인기 검색어, 안 읽은 알림 수, 키워드 알림, 지역 정보를 병렬 로드하여 헤더 초기 상태 구성
- * - URL 검색 파라미터 기반 제품 목록 쿼리 및 유저 지역 설정(DB `User.regionRange`) 기반의 서버 프리패치(Prefetch) 적용
+ * - URL 검색·필터·정렬 기반 제품 목록 쿼리 및 유저 지역 설정(DB `User.regionRange`) 기반의 서버 프리패치(Prefetch) 적용
  * - 모바일/데스크톱 헤더를 분리 렌더링하여 동일한 검색 UX를 기기별 레이아웃에 맞게 제공
  * - HydrationBoundary를 이용한 초기 렌더링 시 클라이언트 캐시 하이드레이션 처리
  * - 데이터 존재 여부에 따른 `ProductList` 또는 `ProductEmptyState` 조건부 렌더링 및 키워드 알림 버튼 주입
  */
 export default async function ProductsPage(props: ProductsPageProps) {
   const searchParams = await props.searchParams;
+  const viewMode = searchParams.view === "grid" ? "grid" : "list";
+  const listParams = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (value) listParams.set(key, value);
+  });
+  const listQuery = listParams.toString();
+  const returnTo = listQuery ? `/products?${listQuery}` : "/products";
   const session = await getSession();
   const userId = session?.id ?? null;
 
@@ -154,7 +174,6 @@ export default async function ProductsPage(props: ProductsPageProps) {
   }
 
   const queryClient = getQueryClient();
-  const hasSearchParams = Object.keys(searchParams).length > 0;
   const minPrice = parseNumberParam(searchParams.minPrice);
   const maxPrice = parseNumberParam(searchParams.maxPrice);
   const hasRefinementParams = [
@@ -164,20 +183,22 @@ export default async function ProductsPage(props: ProductsPageProps) {
     searchParams.game_type,
     searchParams.condition,
   ].some(Boolean);
+  const hasSearchParams = Boolean(searchParams.keyword || hasRefinementParams);
 
-  const queryParams = {
+  const queryParams: ProductSearchParams = {
     keyword: searchParams.keyword,
     category: searchParams.category,
     minPrice,
     maxPrice,
     game_type: searchParams.game_type,
     condition: searchParams.condition,
+    sort: normalizeProductSort(searchParams.sort),
   };
 
   const categoriesPromise = fetchProductCategories();
   const searchHistoryPromise = getUserSearchHistory(userId);
   const popularSearchesPromise = getPopularSearches();
-  const unreadCountPromise = getUnreadNotificationCount();
+  const unreadCountPromise = getUnreadNotificationCountOrZero(userId);
   const keywordAlertsPromise = getMyKeywordAlerts(userId);
   const userLocationPromise = getUserLocation(userId);
 
@@ -204,7 +225,8 @@ export default async function ProductsPage(props: ProductsPageProps) {
 
   const prefetchProductsPromise = queryClient.prefetchInfiniteQuery({
     queryKey: queryKeys.products.list(productListQueryKey, userId),
-    queryFn: () => getProductsAction(null, queryParams),
+    // 서버 렌더에서 검증된 조회자를 직접 전달해 Server Action의 세션 재검증 방지
+    queryFn: () => getProductsList(queryParams, userId, null),
     initialPageParam: null as number | null,
   });
 
@@ -279,16 +301,23 @@ export default async function ProductsPage(props: ProductsPageProps) {
       <PullToRefresh className="flex-1">
         <div className="flex-1 px-page-x pt-1 pb-4 md:pt-2 md:pb-6">
           {isDataEmpty ? (
-            <ProductEmptyState
-              hasSearchParams={hasSearchParams}
-              hasRefinementParams={hasRefinementParams}
-              keyword={searchParams.keyword}
-              alertId={matchedAlert?.id}
-              currentRange={currentRange}
-            />
+            <>
+              <div className="mb-4 flex justify-end px-1">
+                <ProductSortSelect value={queryParams.sort ?? "latest"} />
+              </div>
+              <ProductEmptyState
+                hasSearchParams={hasSearchParams}
+                hasRefinementParams={hasRefinementParams}
+                keyword={searchParams.keyword}
+                alertId={matchedAlert?.id}
+                currentRange={currentRange}
+                sort={queryParams.sort}
+                returnTo={returnTo}
+              />
+            </>
           ) : (
             <HydrationBoundary state={dehydrate(queryClient)}>
-              <Suspense fallback={<ProductListSkeleton viewMode="list" />}>
+              <Suspense fallback={<ProductListSkeleton viewMode={viewMode} />}>
                 <ProductList
                   key={`${JSON.stringify(searchParams)}-${JSON.stringify(productListScope)}`}
                   searchParams={queryParams}
@@ -298,7 +327,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href="/boardgames"
-                        className="focus-ring-soft inline-flex min-h-8 items-center rounded-full border border-border bg-surface px-3.5 text-xs font-bold text-brand transition hover:bg-surface-dim dark:text-brand-light"
+                        className="focus-ring-soft inline-flex min-h-8 items-center whitespace-nowrap rounded-full border border-border bg-surface px-3.5 text-xs font-bold text-brand transition hover:bg-surface-dim dark:text-brand-light"
                       >
                         {searchParams.keyword ? (
                           <>
@@ -327,7 +356,7 @@ export default async function ProductsPage(props: ProductsPageProps) {
         </div>
       </PullToRefresh>
 
-      <AddProductButton />
+      <AddProductButton returnTo={returnTo} />
     </div>
   );
 }

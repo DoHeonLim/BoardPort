@@ -26,6 +26,8 @@
  * 2026.04.10  임도헌   Modified  채팅 타이포 정책에 맞춰 검색 초기화 버튼 weight를 500 기준으로 정리
  * 2026.04.17  임도헌   Modified  채팅 목록 상단 검색창 스타일을 정리
  * 2026.05.30  임도헌   Modified  채팅 목록 헤더 높이를 모바일 서브 헤더 기준으로 정리
+ * 2026.09.12  임도헌   Modified  기능을 바로 이해할 수 있는 채팅 화면 문구로 정리
+ * 2026.09.12  임도헌   Modified  대화·검색 빈 상태를 주요 목록의 공용 상태 카드와 상품 용어 기준으로 통일
  */
 
 "use client";
@@ -84,7 +86,7 @@ export default function ChatRoomListContainer({
       <header className="sticky top-0 z-30 h-[52px] border-b border-border-subtle bg-background shadow-sm transition-colors">
         <div className="mx-auto flex h-full max-w-mobile items-center justify-between px-page-x">
           <div className="flex items-center gap-1.5">
-            <h1 className="text-lg font-bold text-primary">신호</h1>
+            <h1 className="text-lg font-bold text-primary">채팅</h1>
             <span className="rounded-full border border-border-subtle bg-surface-dim px-2 py-0.5 text-xs font-bold text-primary">
               {rooms.length}
             </span>
@@ -137,42 +139,46 @@ export default function ChatRoomListContainer({
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-border-subtle bg-surface px-6 py-16 text-center shadow-sm">
-              <div className="mb-4 rounded-full bg-surface-dim p-4">
-                <MagnifyingGlassIcon className="size-8 text-muted/60" />
+            <div className="state-screen px-0 pt-4">
+              <div className="state-card">
+                <div className="state-icon-wrap">
+                  <MagnifyingGlassIcon className="size-10 text-muted/50" />
+                </div>
+                <h2 className="state-title">검색 결과가 없습니다.</h2>
+                <p className="state-description">
+                  상대방 이름, 상품명 또는 마지막 대화 내용을 다시 확인해보세요.
+                </p>
+                <div className="state-actions justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="btn-secondary focus-ring-soft inline-flex min-h-[44px] items-center justify-center px-6 text-sm font-medium"
+                  >
+                    검색 초기화
+                  </button>
+                </div>
               </div>
-              <p className="text-lg font-medium text-primary">
-                검색 결과가 없습니다
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                상대방 이름, 상품명 또는 마지막 대화 내용을 다시 확인해보세요.
-              </p>
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="focus-ring-soft mt-6 inline-flex h-10 items-center rounded-xl border border-border-subtle bg-background px-4 text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
-              >
-                검색 초기화
-              </button>
             </div>
           )
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="p-4 rounded-full bg-surface-dim mb-4">
-              <ChatBubbleOvalLeftEllipsisIcon className="size-8 text-muted/50" />
+          <div className="state-screen px-0 pt-4">
+            <div className="state-card">
+              <div className="state-icon-wrap">
+                <ChatBubbleOvalLeftEllipsisIcon className="size-10 text-muted/50" />
+              </div>
+              <h2 className="state-title">진행 중인 대화가 없습니다.</h2>
+              <p className="state-description">
+                관심 있는 상품의 판매자에게 대화를 시작해보세요.
+              </p>
+              <div className="state-actions justify-center">
+                <Link
+                  href="/products"
+                  className="btn-primary inline-flex min-h-[44px] items-center justify-center px-6 text-sm font-medium shadow-sm"
+                >
+                  상품 둘러보기
+                </Link>
+              </div>
             </div>
-            <p className="text-lg font-medium text-primary">
-              진행 중인 대화가 없습니다
-            </p>
-            <p className="text-sm text-muted mt-1 mb-6">
-              관심 있는 물품에 대해 대화를 시작해보세요!
-            </p>
-            <Link
-              href="/products"
-              className="btn-primary h-10 px-6 text-sm inline-flex items-center shadow-md"
-            >
-              항구로 이동하기
-            </Link>
           </div>
         )}
       </div>

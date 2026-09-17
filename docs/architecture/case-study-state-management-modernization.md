@@ -19,7 +19,7 @@
 | 영역                          | Before                                                 | After                                                | 개선 효과                                                       |
 | ----------------------------- | ------------------------------------------------------ | ---------------------------------------------------- | --------------------------------------------------------------- |
 | 목록/댓글 페이징              | 도메인별 `useState`와 수동 배열 병합                   | `useInfiniteQuery` / `useSuspenseInfiniteQuery`      | 병합, 중복 제거, 로딩 상태 처리 반복 감소                       |
-| 초기 데이터 전달              | `initial*` props와 클라이언트 로컬 상태 동기화         | Server Component prefetch + HydrationBoundary        | 서버 첫 페이지와 클라이언트 캐시 identity 일치                  |
+| 초기 데이터 전달              | `initial*` props와 클라이언트 로컬 상태 동기화         | Server Component prefetch + HydrationBoundary        | 서버에서 준비한 첫 페이지를 클라이언트 캐시로 전달              |
 | 데이터 재검증                 | `revalidateTag`, `router.refresh`, 개별 refetch가 혼재 | queryKeys 기반 invalidate/refetch                    | mutation 후 갱신 범위 추적 용이                                 |
 | 주요 목록의 클라이언트 재조회 | Client queryFn에서 조회용 Server Action 호출 가능성    | Route Handler fetch                                  | 초기 렌더 Server Function 호출 오류와 fetch waterfall 위험 감소 |
 | 실시간 이벤트                 | 구독 위치마다 UI 갱신과 재조회 방식이 혼재             | 화면 성격에 따라 payload 즉시 반영 또는 query 재검증 | 메시지·알림의 즉시성과 DB 기준 상태 수렴을 함께 유지            |
@@ -27,7 +27,7 @@
 
 ## 2. 분리 기준
 
-이 작업에서 가장 중요한 기준은 상태 관리 라이브러리 도입 자체가 아니라, 상태의 성격을 먼저 구분하는 일이었습니다.
+상태의 저장 위치와 갱신 방식에 따라 다음 세 가지로 구분했습니다.
 
 - **Client State:** 모달, 알림 UI, 테마처럼 서버에 저장되지 않는 UI 상태
 - **Server State:** 목록, 상세, 댓글, 좋아요, 팔로우, 채팅방처럼 서버에서 오는 데이터
@@ -44,7 +44,8 @@
 - module singleton store를 직접 공유하지 않음
 - provider 내부에서 요청/트리 단위 store 생성
 - selector 기반 훅으로 필요한 상태만 구독
-- 서버 데이터는 Zustand에 넣지 않음
+- 목록·상세 같은 서버 데이터는 TanStack Query로 관리
+- 알림 미읽음 수는 예외적으로 Zustand에서 표시용 상태를 유지하고, Realtime 수신 시 즉시 반영한 뒤 구독 시작·화면 복귀 시 서버 조회로 보정
 
 관련 코드:
 
@@ -59,14 +60,14 @@
 
 이후 달라진 점:
 
-- page 병합, 중복 제거, 로딩 상태, 에러 상태를 도메인별로 반복 구현하지 않음
+- 페이지별 캐시와 로딩·에러 상태는 Query로 관리하고, 화면용 목록 조합과 도메인별 보정은 각 훅에서 처리
 - 뒤로가기 후에도 같은 query key의 목록 캐시를 재사용
 - mutation 후 invalidate 기준을 queryKeys로 모음
 - optimistic update와 rollback 위치를 명확하게 분리
 
 ### 3.3 Query Key Factory
 
-`lib/queryKeys.ts`를 cache identity의 단일 기준으로 사용했습니다.
+캐시를 식별하는 키는 `lib/queryKeys.ts`에서 정의했습니다.
 
 ```ts
 queryKeys.products.list(filters, viewerId);
@@ -89,10 +90,6 @@ BoardPort는 App Router와 TanStack Query를 함께 쓰면서 조회와 변경�
 | 일부 세션 의존·기존 조회 queryFn                 | Server Action 유지                                                 |
 | 생성/수정/삭제/토글                              | Server Action                                                      |
 | Realtime 이벤트                                  | 화면 성격에 따라 payload 즉시 반영 또는 invalidate/refetch/refresh |
-
-짧게 쓰면 이렇습니다.
-
-> 서버에서는 service 계층 또는 조회용 Server Action으로 초기 데이터를 준비하고, 주요 목록의 클라이언트 재검증은 Route Handler를 통해 수행하며, 일부 세션 의존 조회와 변경 작업은 Server Action으로 유지합니다.
 
 이 기준을 둔 이유는 Client Component의 queryFn이 렌더 중에도 실행되기 때문입니다. 실제 점검 과정에서 주요 목록의 조회용 Server Action을 직접 호출한 queryFn이 Next.js의 Server Function 초기 렌더 호출 오류를 만들었고, fetch waterfall 위험도 같이 남았습니다.
 
@@ -128,18 +125,10 @@ BoardPort는 App Router와 TanStack Query를 함께 쓰면서 조회와 변경�
 ### 방송 상태
 
 1. 방송 상세 셸에서 live-status를 한 번만 구독
-2. payload callback으로 현재 화면에 상태를 전달하고 `router.refresh()`로 서버 상태를 재검증
+2. `stream:status` private 채널의 payload에서 내부 방송 ID만 확인하고 `router.refresh()`로 서버 상태를 재검증
 3. 하위 컴포넌트는 Supabase를 직접 보지 않고 props만 받아 구독 수와 상태 분산을 줄임
 
 ## 6. 개선 효과
-
-- 상태 변경 위치와 cache key가 명확해짐
-- 뒤로가기, 탭 이동, 무한 스크롤에서 목록 맥락 유지
-- Client State와 Server State가 섞이는 문제 감소
-- Realtime 이벤트를 화면 성격에 따라 즉시 반영과 서버 기준 재검증으로 구분
-- queryFn, prefetch, mutation, invalidate의 역할이 문서화됨
-
-구조 변경 이후 반복 구현과 갱신 범위 추적에서 다음과 같은 개선이 있었습니다.
 
 | 개선 지점                            | 개선 효과                                                                              |
 | ------------------------------------ | -------------------------------------------------------------------------------------- |
@@ -158,9 +147,7 @@ BoardPort는 App Router와 TanStack Query를 함께 쓰면서 조회와 변경�
 
 ## 8. 정리
 
-이 작업의 핵심은 Zustand와 TanStack Query 도입 자체가 아니라, 상태의 성격을 기준으로 책임을 다시 나눈 데 있습니다.
-
-모달과 알림 같은 UI 상태는 Client State로 두고, 목록·댓글·좋아요·팔로우·채팅 메시지처럼 서버에서 오는 데이터는 Server State로 다뤘습니다. 이 구분이 생기면서 상태 변경 위치, 캐시 키, 하이드레이션 경계, mutation 후처리 기준도 훨씬 따라가기 쉬워졌습니다.
+UI 상태는 Zustand에, 서버 데이터는 TanStack Query에 모았습니다. 알림 미읽음 수는 표시용 상태를 Zustand에 유지하되 서버 조회로 보정합니다. 새 조회나 변경 기능을 추가할 때는 캐시 키와 갱신 대상을 함께 정의합니다.
 
 ## 9. 관련 문서
 

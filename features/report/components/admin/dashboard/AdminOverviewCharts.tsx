@@ -97,14 +97,14 @@ export default function AdminOverviewCharts({
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.7fr_1fr]">
       <AdminChartCard
         title="최근 30일 서비스 활동 추이"
-        description="회원 가입, 상품 등록, 게시글 작성, 방송 시작 흐름을 한 번에 읽을 수 있는 운영용 추이 패널입니다."
+        description="회원가입, 상품 등록, 게시글 작성, 방송 시작 흐름을 한 번에 읽을 수 있는 운영용 추이 패널입니다."
         actionSlot={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
               href="/admin/users"
               className="focus-ring-soft rounded px-1 py-0.5 text-xs font-medium text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
             >
-              유저 보기
+              사용자 보기
             </Link>
             <Link
               href="/admin/products"

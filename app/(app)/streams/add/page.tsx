@@ -19,19 +19,26 @@
  * 2026.03.07  임도헌   Modified   StreamForm 취소 경로를 명시적으로 주입(v1.2 Cancelable Flow)
  * 2026.04.12  임도헌   Moved     파일 경로를 app/streams/add/page.tsx 에서 app/(app)/streams/add/page.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 옵션 주입
+ * 2026.09.10  임도헌   Modified  도감 진입 보드게임 사전 선택과 복귀 문맥 적용
+ * 2026.09.12  임도헌   Modified  방송 시작에 필요한 필수 설정 기준으로 안내 문구 정리
  */
 
 import type { Metadata } from "next";
 import StreamForm from "@/features/stream/components/StreamForm";
 import { fetchStreamCategories } from "@/features/stream/service/category";
 import { getBoardGameRelationOptions } from "@/features/boardgame/service/publicQuery/relationOptions";
+import {
+  getBoardGameCreationPrefill,
+  parseBoardGameCreationId,
+} from "@/features/boardgame/utils/contentCreation";
+import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "새로운 스트리밍 시작하기 | BoardPort",
-  description: "OBS/방송 툴과 호환되는 라이브 스트리밍을 생성하세요.",
+  title: "새로운 방송 시작하기 | BoardPort",
+  description: "OBS 등 방송 도구와 연결할 라이브 방송을 시작하세요.",
 };
 
 /**
@@ -40,21 +47,37 @@ export const metadata: Metadata = {
  * - 방송 카테고리를 미리 로드하여 폼에 주입
  * - `StreamForm` 컴포넌트를 렌더링
  */
-export default async function AddStreamPage() {
+export default async function AddStreamPage(props: {
+  searchParams: Promise<{ boardGameId?: string; returnTo?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+  const requestedBoardGameId = parseBoardGameCreationId(
+    searchParams.boardGameId
+  );
   let categories: Awaited<ReturnType<typeof fetchStreamCategories>> = [];
-  const boardGameOptionsResult = await getBoardGameRelationOptions();
+  const boardGameOptionsResult = await getBoardGameRelationOptions({
+    includeIds: requestedBoardGameId ? [requestedBoardGameId] : [],
+  });
 
   try {
     categories = await fetchStreamCategories();
   } catch (err) {
     console.error("[AddStreamPage] fetchStreamCategories failed:", err);
   }
+  const boardGameOptions = boardGameOptionsResult.success
+    ? boardGameOptionsResult.data
+    : [];
+  const boardGameIds = getBoardGameCreationPrefill(
+    searchParams.boardGameId,
+    boardGameOptions
+  );
+  const cancelHref = sanitizeCallbackUrl(searchParams.returnTo ?? "/streams");
 
   return (
     <div className="px-page-x py-6">
       <div className="mb-6">
         <p className="text-sm text-muted">
-          제목, 카테고리, 썸네일을 설정하여 방송을 시작하세요.
+          제목과 카테고리, 공개 범위를 설정하여 방송을 시작하세요.
           <br />
           생성 후 OBS 설정 정보를 확인할 수 있습니다.
         </p>
@@ -62,10 +85,9 @@ export default async function AddStreamPage() {
 
       <StreamForm
         categories={categories ?? []}
-        boardGameOptions={
-          boardGameOptionsResult.success ? boardGameOptionsResult.data : []
-        }
-        cancelHref="/streams"
+        defaultValues={{ boardGameIds }}
+        boardGameOptions={boardGameOptions}
+        cancelHref={cancelHref}
       />
     </div>
   );

@@ -22,11 +22,14 @@
  * 2026.06.19  임도헌   Modified  모바일 BottomSheet에서는 X 닫기와 중복되는 취소 버튼을 제거해 확인 CTA만 남김
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 수명 주기를 공용 useModalFocus로 통일
  * 2026.08.28  임도헌   Modified  로딩 중 취소 방지 함수 JSDoc 보강
+ * 2026.09.13  임도헌   Modified  확인 액션에 공통 버튼 variant·진행 표시 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import BottomSheet from "@/components/global/BottomSheet";
+import Button from "@/components/ui/Button";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useModalFocus } from "@/hooks/useModalFocus";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
@@ -100,7 +103,7 @@ export default function ConfirmDialog({
   });
 
   // open이 false거나 마운트 전이면 렌더링 안 함
-  if (!open || !mounted) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const onBackdropClick = onCancelIfIdle;
 
@@ -122,44 +125,40 @@ export default function ConfirmDialog({
       >
         {cancelLabel}
       </button>
-      <button
+      <Button
         type="button"
         onClick={onConfirm}
+        text={confirmLabel}
+        loading={loading}
+        loadingText="처리 중..."
+        variant={confirmVariant}
+        size="sm"
         disabled={loading}
-        className={cn(
-          "focus-ring-strong inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50",
-          confirmVariant === "primary"
-            ? "bg-brand hover:bg-brand-dark"
-            : "bg-danger hover:bg-red-600"
-        )}
-      >
-        {loading ? "처리 중..." : confirmLabel}
-      </button>
+        className="w-auto rounded-lg shadow-sm"
+      />
     </div>
   );
 
   const mobileConfirmButton = (
     <div className="flex justify-end">
-      <button
+      <Button
         type="button"
         onClick={onConfirm}
+        text={confirmLabel}
+        loading={loading}
+        loadingText="처리 중..."
+        variant={confirmVariant}
+        size="sm"
         disabled={loading}
-        className={cn(
-          "focus-ring-strong inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50",
-          confirmVariant === "primary"
-            ? "bg-brand hover:bg-brand-dark"
-            : "bg-danger hover:bg-red-600"
-        )}
-      >
-        {loading ? "처리 중..." : confirmLabel}
-      </button>
+        className="w-auto rounded-lg shadow-sm"
+      />
     </div>
   );
 
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={open}
         title={title}
         onClose={onCancelIfIdle}
         footer={mobileConfirmButton}

@@ -53,7 +53,7 @@ export default function StreamModeTabs({
 
   return (
     <nav
-      aria-label="스트림 모드"
+      aria-label="방송 유형"
       className={cn(
         "rounded-xl border border-border-subtle bg-background p-0.5",
         compact ? "w-full" : "inline-flex"

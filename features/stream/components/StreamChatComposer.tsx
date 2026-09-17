@@ -62,8 +62,8 @@ export default function StreamChatComposer({
     >
       {isMuted && (
         <div className="mb-2 rounded-2xl border border-danger/20 bg-danger/5 px-4 py-2 text-xs leading-5 text-danger">
-          호스트가 현재 방송에서 회원님의 채팅을 제한했습니다. 시청은 계속할 수
-          있지만 메시지는 보낼 수 없습니다.
+          호스트가 현재 방송에서 내 채팅을 제한했습니다. 시청은 계속할 수 있지만
+          메시지는 보낼 수 없습니다.
         </div>
       )}
       <div className="flex items-center gap-2">

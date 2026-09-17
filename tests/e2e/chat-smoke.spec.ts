@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.26  임도헌   Created   E2E seed 채팅방의 목록 노출과 상세 진입 smoke 테스트 추가
  * 2026.05.26  임도헌   Modified  채팅방 카드 href 검증 후 상세 URL 직접 진입으로 SPA click flake 완화
+ * 2026.09.14  임도헌   Modified  채팅 화면의 메뉴 용어 통일 반영
  */
 
 import { expect, test } from "@playwright/test";
@@ -32,7 +33,7 @@ test.describe("seeded chat smoke", () => {
 
     await loginWithEmail(page, E2E_BUYER, "/chat");
 
-    await expect(page.getByRole("heading", { name: "신호" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "채팅" })).toBeVisible();
     await expect(
       page.getByPlaceholder("상대방, 상품, 마지막 대화 검색")
     ).toBeVisible();

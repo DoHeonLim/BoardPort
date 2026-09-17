@@ -18,6 +18,8 @@
  * 2026.06.19  임도헌   Modified  관리자 조치 인앱 알림은 명시 링크가 있을 때만 보기 링크를 저장하도록 정리
  * 2026.08.21  임도헌   Modified  인앱 알림 발신을 서버 전용 private topic으로 전환
  * 2026.08.26  임도헌   Modified  moderation outbox가 재시도 여부를 판단하도록 관리자 알림 처리 결과 반환
+ * 2026.09.09  임도헌   Modified  검증된 사용자 ID용 미읽음 알림 fail-soft 조회 추가
+ * 2026.09.13  임도헌   Modified  거래 후기 삭제 알림 문구 통일
  */
 
 import "server-only";
@@ -195,6 +197,21 @@ export async function getUnreadNotificationCountByUser(userId: number) {
 }
 
 /**
+ * 보조 UI용 안 읽은 알림 개수 조회
+ *
+ * - 이미 인증을 마친 서버 렌더 경로에서 사용자 ID로 직접 조회
+ * - 알림 조회 실패가 핵심 화면 렌더링을 막지 않도록 0 반환
+ */
+export async function getUnreadNotificationCountOrZero(userId: number) {
+  try {
+    return await getUnreadNotificationCountByUser(userId);
+  } catch (error) {
+    console.error("Failed to fetch unread notification count:", error);
+    return 0;
+  }
+}
+
+/**
  * 관리자 조치(삭제/정지) 시 대상 유저에게 알림을 발송
  * - DB 저장, 인앱 실시간 브로드캐스트, 웹 푸시를 포함
  * - deliveryKey가 있으면 인앱 알림을 upsert해 outbox 재시도 중 중복 생성을 방지
@@ -238,8 +255,8 @@ export async function sendAdminActionNotification({
         notiBody = `작성하신 댓글이 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
         break;
       case "DELETE_REVIEW":
-        notiTitle = "리뷰가 삭제되었습니다";
-        notiBody = `작성하신 리뷰가 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
+        notiTitle = "거래 후기가 삭제되었습니다";
+        notiBody = `작성하신 거래 후기가 운영 정책 위반으로 삭제되었습니다.\n사유: ${reason}`;
         break;
       case "DELETE_MESSAGE":
         notiTitle = "메시지가 삭제되었습니다";

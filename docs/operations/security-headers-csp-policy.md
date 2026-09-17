@@ -17,7 +17,7 @@ BoardPort는 Lighthouse Trust & Safety 항목을 참고하되, 외부 SDK와 PWA
 
 이렇게 둔 이유:
 
-- Kakao Maps, Cloudflare Stream, YouTube, Workbox 등 외부 런타임이 많음
+- Kakao Maps, Cloudflare Stream, YouTube 등 외부 SDK와 Serwist 기반 PWA를 함께 사용
 - Enforced 전환 시 지도/영상/푸시/임베드 기능 회귀 위험이 있음
 - 먼저 Report-Only 로그로 실제 출처를 관찰하고, 기능 차단 가능성을 줄이는 방향이 안전함
 

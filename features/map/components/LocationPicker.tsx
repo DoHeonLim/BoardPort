@@ -22,6 +22,7 @@
  * 2026.04.10  임도헌   Modified  map 타이포 정책에 맞춰 안내 힌트와 선택 위치 라벨 크기/weight를 400·500·700 기준으로 정리
  * 2026.05.16  임도헌   Modified  카카오 장소 검색 결과 타입을 명시해 any 제거
  * 2026.06.18  임도헌   Modified  도 단위 카카오 주소를 시/군 중심 지역 계층으로 정규화
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useState, useEffect } from "react";
@@ -30,11 +31,8 @@ import { Map, MapMarker } from "react-kakao-maps-sdk";
 import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
 import { MAP_DEFAULT_CENTER } from "@/features/map/constants";
 import { toast } from "sonner";
-import {
-  MagnifyingGlassIcon,
-  MapPinIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import type {
   KakaoPlaceSearchResult,
   LocationData,
@@ -197,14 +195,10 @@ export default function LocationPicker({
         {/* 헤더 */}
         <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface shrink-0 z-20 relative">
           <h3 className="font-bold text-primary text-lg">거래 장소 선택</h3>
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={onClose}
-            className="focus-ring-soft rounded-full p-2 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-            aria-label="거래 장소 선택 모달 닫기"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="거래 장소 선택 모달 닫기"
+          />
         </div>
 
         {/* 검색 바 */}
@@ -334,14 +328,10 @@ export default function LocationPicker({
         <div className="bg-surface w-full h-[100dvh] sm:h-auto sm:max-w-md sm:rounded-3xl border-0 sm:border sm:border-border-subtle shadow-2xl overflow-hidden">
           <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface">
             <h3 className="font-bold text-primary text-lg">거래 장소 선택</h3>
-            <button
-              type="button"
+            <ModalCloseButton
               onClick={onClose}
-              className="focus-ring-soft rounded-full p-2 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-              aria-label="거래 장소 선택 모달 닫기"
-            >
-              <XMarkIcon className="size-6" />
-            </button>
+              label="거래 장소 선택 모달 닫기"
+            />
           </div>
           <div className="p-6">
             <div className="state-card max-w-none px-5 py-6">

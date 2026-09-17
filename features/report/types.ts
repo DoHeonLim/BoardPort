@@ -14,6 +14,7 @@
  * 2026.04.28  임도헌   Modified  삭제 감사 로그 OwnerID의 표시용 유저명 메타 추가
  * 2026.08.26  임도헌   Modified  신고 처리 멱등 재시도와 cache 재검증 결과 메타 추가
  * 2026.09.04  임도헌   Modified  DB에 저장되는 신고 대상·상위 문맥 스냅샷 타입 반영
+ * 2026.09.09  임도헌   Modified  삭제 대상별 상세 cache tag 재검증 ID 확장
  */
 
 import type { Report } from "@/generated/prisma/client";
@@ -80,6 +81,10 @@ export interface ReportResolutionResult {
   revalidationPaths?: string[];
   /** 상품 상세 cache tag를 정밀하게 재검증할 상품 ID */
   productDetailId?: number;
+  /** 게시글 상세 cache tag를 정밀하게 재검증할 게시글 ID */
+  postDetailId?: number;
+  /** 방송 상세 cache tag를 정밀하게 재검증할 방송 ID */
+  broadcastDetailId?: number;
 }
 
 /** strike 누적을 고려해 계산한 권장 조치 결과 */

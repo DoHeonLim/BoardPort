@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.26  임도헌   Created   단일 claim·동일 조치 재시도·동시 처리 충돌 검증 추가
+ * 2026.09.09  임도헌   Modified  콘텐츠 삭제 멱등 재시도의 도메인별 상세 tag 메타 검증
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,12 +22,14 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
       update: vi.fn(),
     },
+    post: { findUnique: vi.fn() },
   };
   return {
     tx,
     db: { $transaction: vi.fn() },
     enqueue: vi.fn(),
     processOutbox: vi.fn(),
+    hardDeletePostTx: vi.fn(),
   };
 });
 
@@ -40,7 +43,7 @@ vi.mock("@/features/product/service/delete", () => ({
   hardDeleteProductTx: vi.fn(),
 }));
 vi.mock("@/features/post/service/post", () => ({
-  hardDeletePostTx: vi.fn(),
+  hardDeletePostTx: mocks.hardDeletePostTx,
 }));
 vi.mock("@/features/stream/service/delete", () => ({
   deleteBroadcastTx: vi.fn(),
@@ -72,6 +75,11 @@ describe("report moderation service", () => {
     mocks.tx.report.findUnique.mockResolvedValue(pendingReport);
     mocks.tx.report.updateMany.mockResolvedValue({ count: 1 });
     mocks.tx.report.update.mockResolvedValue({});
+    mocks.tx.post.findUnique.mockResolvedValue(null);
+    mocks.hardDeletePostTx.mockResolvedValue({
+      imageAssetIds: [],
+      assetUid: null,
+    });
     mocks.enqueue.mockResolvedValue(undefined);
     mocks.processOutbox.mockResolvedValue({
       claimed: 0,
@@ -149,6 +157,90 @@ describe("report moderation service", () => {
     });
     expect(mocks.tx.report.updateMany).not.toHaveBeenCalled();
     expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("삭제된 게시글 조치 재시도는 게시글 상세 tag ID를 반환한다", async () => {
+    const { updateReportStatus } = await import("./admin");
+    mocks.tx.auditLog.findUnique.mockResolvedValue({ id: 99 });
+    mocks.tx.report.findUnique.mockResolvedValue({
+      ...pendingReport,
+      targetPostId: 31,
+    });
+
+    const result = await updateReportStatus(1, 10, "RESOLVED", {
+      action: "DELETE_CONTENT",
+      adminComment: "삭제 조치 재시도입니다.",
+      strike: 0,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        idempotent: true,
+        postDetailId: 31,
+        revalidationPaths: ["/admin/reports", "/posts", "/posts/31"],
+      },
+    });
+  });
+
+  it("게시글 삭제 조치 성공 결과에 게시글 상세 tag ID를 포함한다", async () => {
+    const { updateReportStatus } = await import("./admin");
+    mocks.tx.report.findUnique.mockResolvedValue({
+      ...pendingReport,
+      targetPostId: 31,
+    });
+    mocks.tx.post.findUnique.mockResolvedValue({
+      id: 31,
+      title: "신고 게시글",
+      userId: 20,
+      user: { username: "reported-user" },
+      tags: [],
+      video: null,
+    });
+
+    const result = await updateReportStatus(1, 10, "RESOLVED", {
+      action: "DELETE_CONTENT",
+      adminComment: "삭제 조치입니다.",
+      strike: 0,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        postDetailId: 31,
+        revalidationPaths: [
+          "/admin/reports",
+          "/posts",
+          "/posts/31",
+          "/profile/reported-user",
+        ],
+      },
+    });
+    expect(mocks.hardDeletePostTx).toHaveBeenCalledWith(
+      mocks.tx,
+      expect.objectContaining({ id: 31 })
+    );
+  });
+
+  it("삭제 없는 경고 조치 재시도는 상세 tag ID를 반환하지 않는다", async () => {
+    const { updateReportStatus } = await import("./admin");
+    mocks.tx.auditLog.findUnique.mockResolvedValue({ id: 99 });
+    mocks.tx.report.findUnique.mockResolvedValue({
+      ...pendingReport,
+      targetPostId: 31,
+    });
+
+    const result = await updateReportStatus(1, 10, "RESOLVED", {
+      action: "WARN",
+      adminComment: "경고 조치 재시도입니다.",
+      strike: 1,
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { idempotent: true },
+    });
+    expect(result.success && result.data?.postDetailId).toBeUndefined();
   });
 
   it("동시 처리자가 PENDING claim을 얻지 못하면 어떤 후속 조치도 기록하지 않는다", async () => {

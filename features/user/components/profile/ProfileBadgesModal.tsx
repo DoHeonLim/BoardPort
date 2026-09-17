@@ -35,6 +35,9 @@
  * 2026.08.27  임도헌   Modified  고정 크기 뱃지 아이콘의 Image sizes 명시
  * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 모바일 뱃지 선택 스크롤 동작 조정
  * 2026.08.28  임도헌   Modified  입력 방식 감지 함수 JSDoc 보강
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 접근성 이름과 장식 아이콘 의미 분리
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -50,8 +53,8 @@ import {
   autoUpdate,
   type Placement,
 } from "@floating-ui/react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { getMotionSafeScrollBehavior } from "@/lib/accessibility";
@@ -271,7 +274,7 @@ export default function ProfileBadgesModal({
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   const selectedBadgePanel =
     !showDesktopTooltip && selectedBadge ? (
@@ -391,12 +394,11 @@ export default function ProfileBadgesModal({
           <h2 id="badges-title" className="text-lg font-bold text-primary">
             뱃지 컬렉션 ({userBadges.length}/{badges.length})
           </h2>
-          <button
+          <ModalCloseButton
             onClick={closeModal}
-            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="뱃지 컬렉션 모달 닫기"
+            className="-mr-2"
+          />
         </div>
 
         {selectedBadgePanel}

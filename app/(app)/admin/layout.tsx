@@ -99,7 +99,7 @@ export default async function AdminLayout({
           <AdminNavLink
             href="/admin/users"
             icon={<UsersIcon />}
-            label="유저 관리"
+            label="사용자 관리"
           />
           <AdminNavLink
             href="/admin/products"

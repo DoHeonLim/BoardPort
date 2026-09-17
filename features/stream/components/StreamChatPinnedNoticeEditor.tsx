@@ -6,9 +6,11 @@
  * History
  * 2026.04.21  임도헌   Created   StreamChatRoom에서 고정 공지 편집 UI를 분리
  * 2026.04.26  임도헌   Modified  저장 CTA의 다크모드 색조를 primary CTA 톤과 맞춰 정리
+ * 2026.09.13  임도헌   Modified  저장 CTA를 공통 비동기 버튼으로 통일
  */
 "use client";
 
+import Button from "@/components/ui/Button";
 import { STREAM_PINNED_NOTICE_MAX_LENGTH } from "@/features/stream/constants";
 
 interface StreamChatPinnedNoticeEditorProps {
@@ -21,9 +23,7 @@ interface StreamChatPinnedNoticeEditorProps {
   onSave: () => void;
 }
 
-/**
- * 호스트가 채팅 상단 고정 공지를 작성/수정하는 패널.
- */
+/** 호스트용 채팅 상단 고정 공지 작성·수정 패널 */
 export default function StreamChatPinnedNoticeEditor({
   draft,
   initialNotice,
@@ -73,14 +73,15 @@ export default function StreamChatPinnedNoticeEditor({
           >
             공지 해제
           </button>
-          <button
+          <Button
             type="button"
             onClick={onSave}
+            text={initialNotice ? "저장" : "등록"}
+            loading={isSaving}
+            loadingText="저장 중..."
             disabled={isSaving}
-            className="focus-ring-strong rounded-full bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60 dark:bg-brand dark:text-white dark:hover:bg-brand-dark"
-          >
-            {isSaving ? "저장 중..." : initialNotice ? "저장" : "등록"}
-          </button>
+            className="h-9 w-auto rounded-full px-4 py-2 text-sm"
+          />
         </div>
       </div>
     </div>

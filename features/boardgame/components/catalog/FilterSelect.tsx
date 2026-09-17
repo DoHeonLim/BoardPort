@@ -6,17 +6,19 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.05  임도헌   Created   목록 페이지의 반복 필터 select UI 분리
+ * 2026.09.11  임도헌   Modified  반응형 필터의 controlled 입력 지원
  */
 
 interface FilterSelectProps {
   name: string;
   label: string;
   value: string;
+  onChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
 }
 
 /**
- * 카탈로그 URL query와 연결되는 uncontrolled select 필터를 표시
+ * 카탈로그 URL query와 연결되는 controlled select 필터 표시
  *
  * @param props - 필터 이름, 라벨, 현재 값, 옵션 목록
  * @returns 보드게임 카탈로그 필터 select
@@ -25,6 +27,7 @@ export default function FilterSelect({
   name,
   label,
   value,
+  onChange,
   options,
 }: FilterSelectProps) {
   return (
@@ -32,7 +35,8 @@ export default function FilterSelect({
       {label}
       <select
         name={name}
-        defaultValue={value}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
         className="input-primary h-11 bg-surface px-3 text-sm font-bold text-primary"
       >
         {options.map((option) => (

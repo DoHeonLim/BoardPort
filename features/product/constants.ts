@@ -60,7 +60,7 @@ export const GAME_TYPE_DISPLAY = {
 
 /** 상품 상태 등급 표시 라벨 */
 export const CONDITION_DISPLAY = {
-  NEW: "새제품급",
+  NEW: "새상품급",
   LIKE_NEW: "거의새것",
   GOOD: "사용감있음",
   USED: "많이사용됨",

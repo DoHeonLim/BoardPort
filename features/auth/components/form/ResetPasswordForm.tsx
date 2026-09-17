@@ -9,6 +9,7 @@
  * 2026.03.18  임도헌   Modified  비밀번호 재설정 후 로그인 화면으로 복귀할 때 callbackUrl을 유지
  * 2026.05.19  임도헌   Modified  서버 액션 예외 시 pending 해제 후 토스트로 안내되도록 에러 처리 보강
  * 2026.08.30  임도헌   Modified  재설정 후 기본 프로필 복귀 경로는 로그인 주소에서 생략
+ * 2026.09.13  임도헌   Modified  비밀번호 재설정 진행 표시 통일
  */
 "use client";
 
@@ -133,7 +134,9 @@ export default function ResetPasswordForm({
       />
 
       <Button
-        text={isPending ? "재설정 중..." : "비밀번호 재설정"}
+        text="비밀번호 재설정"
+        loading={isPending}
+        loadingText="재설정 중..."
         disabled={isPending}
       />
     </form>

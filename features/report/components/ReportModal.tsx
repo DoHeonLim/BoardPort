@@ -19,6 +19,10 @@
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 신고 제출 CTA 중심으로 정리
  * 2026.06.19  임도헌   Modified  모바일 신고 UI를 공용 BottomSheet로 분기해 차단/신고 모달 문법 통일
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
+ * 2026.09.13  임도헌   Modified  신고 접수 CTA를 공통 비동기 버튼으로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import {
@@ -32,8 +36,9 @@ import {
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
+import Button from "@/components/ui/Button";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { submitReportAction } from "@/features/report/actions/create";
@@ -97,12 +102,12 @@ export default function ReportModal({
     if (!isPending) onClose();
   }, [isPending, onClose]);
 
-  // 모달 닫힐 때 상태 초기화
+  // 열릴 때 입력 초기화 및 데스크톱 스크롤 잠금
   useEffect(() => {
-    if (!isOpen) {
-      setReason("");
-      setDescription("");
-    } else if (!isMobile) {
+    if (!isOpen) return;
+    setReason("");
+    setDescription("");
+    if (!isMobile) {
       // 데스크톱 모달은 직접 관리하고, 모바일 스크롤/포커스는 공용 BottomSheet가 담당
       lockBodyScroll();
       return () => {
@@ -119,7 +124,7 @@ export default function ReportModal({
     onClose: handleRequestClose,
   });
 
-  if (!isOpen || !mounted) return null;
+  if (!mounted || (!isOpen && !isMobile)) return null;
 
   const handleSubmit = () => {
     if (!reason) {
@@ -202,19 +207,21 @@ export default function ReportModal({
   );
 
   const submitButton = (
-    <button
+    <Button
+      type="button"
       onClick={handleSubmit}
-      className="btn-primary h-11 px-8"
+      text="신고하기"
+      loading={isPending}
+      loadingText="접수 중..."
+      className="h-11 w-auto px-8"
       disabled={isPending || !reason}
-    >
-      {isPending ? "접수 중..." : "신고하기"}
-    </button>
+    />
   );
 
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={isOpen}
         title="신고하기"
         onClose={handleRequestClose}
         contentClassName="px-4 py-5"
@@ -249,15 +256,12 @@ export default function ReportModal({
           <h2 id={titleId} className="font-bold text-primary text-lg">
             신고하기
           </h2>
-          <button
+          <ModalCloseButton
             onClick={handleRequestClose}
             disabled={isPending}
             ref={closeButtonRef}
-            aria-label="신고 모달 닫기"
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="신고 모달 닫기"
+          />
         </div>
 
         {/* 본문 */}

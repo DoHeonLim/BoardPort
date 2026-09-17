@@ -10,6 +10,7 @@
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  * 2026.04.10  임도헌   Modified  notification 타이포 정책에 맞춰 지역 범위 칩 weight를 500 기준으로 정리
  * 2026.04.26  임도헌   Modified  키워드 알림 삭제/빈 상태 문구와 아이콘 버튼 라벨을 구체화
+ * 2026.09.12  임도헌   Modified  키워드 삭제 버튼의 최소 클릭 영역과 장식 아이콘 의미 분리
  */
 "use client";
 
@@ -76,12 +77,13 @@ export default function KeywordManagementList({ items }: Props) {
           </span>
           <span className="text-xs font-bold pl-0.5">{item.keyword}</span>
           <button
+            type="button"
             onClick={() => handleDelete(item.id, item.keyword)}
             disabled={isPending}
-            className="focus-ring-soft rounded-full p-0.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+            className="focus-ring-soft -my-1 -mr-1 inline-flex size-6 items-center justify-center rounded-full text-muted transition-colors hover:bg-danger/10 hover:text-danger"
             aria-label={`${item.keyword} 키워드 알림 삭제`}
           >
-            <XMarkIcon className="size-3.5" />
+            <XMarkIcon className="size-3.5" aria-hidden="true" />
           </button>
         </div>
       ))}

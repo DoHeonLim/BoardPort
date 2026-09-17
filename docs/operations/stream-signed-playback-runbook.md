@@ -6,7 +6,7 @@
 
 - Prisma migration은 `LiveInput.requireSignedURLs`의 로컬 기본값과 기존 row를 `true`로 맞춘다.
 - 신규 생성·키 재발급 코드는 Cloudflare Live Input의 `recording.requireSignedURLs=true`를 요청한다.
-- 기존 Cloudflare Live Input의 원격 설정은 DB migration으로 변경되지 않는다. 배포 전에 전수 backfill이 필요하다.
+- 기존 Cloudflare Live Input의 원격 설정은 DB migration으로 변경되지 않는다. signed token을 사용하는 코드 배포 후 기존 원격 자산을 전수 backfill해야 전환이 완료된다.
 - 애플리케이션은 signing key가 없거나 잘못되면 원본 UID로 fallback하지 않고 재생을 실패시킨다.
 
 ## 2. 준비
@@ -23,9 +23,7 @@ signing private JWK는 API token과 같은 서버 비밀이다. 브라우저 환
 
 ## 3. 기존 Live Input·VOD backfill
 
-BoardPort 운영 DB에 연결된 자산은 아래 스크립트로 조회·적용한다. 기본 실행은
-dry-run이며 Cloudflare 설정을 변경하지 않는다. 대상 개수가 Live Input 5개, VOD
-7개와 다르면 실제 적용 전에 중단한다.
+아래 스크립트는 2026.08.21 최초 전환 당시 Live Input 5개, VOD 7개를 대상으로 작성했다. 기본 실행은 dry-run이며 Cloudflare 설정을 변경하지 않는다. 대상 수가 당시 기준과 다르면 중단하도록 고정되어 있으므로 상시 운영용 전수 점검 명령으로 사용하지 않는다. 재사용하려면 현재 대상 목록과 예상 수를 확인하고 스크립트의 고정값을 검토해야 한다.
 
 ```bash
 npm run backfill:stream-signed-playback
@@ -72,14 +70,14 @@ npm run backfill:stream-signed-playback -- --apply
 
 샘플이 아니라 전체 Live Input과 기존 VOD의 원격 설정을 다시 조회해 `requireSignedURLs=true`와 승인된 `allowedOrigins`를 확인한다. 그다음 각 공개 범위별로 아래를 검증한다.
 
-| 시나리오 | 기대 결과 |
-| --- | --- |
-| 원본 Live Input/VOD UID iframe | 재생 거부 |
-| 유효한 로그인·권한·단기 token | 재생 성공 |
-| 팔로우 취소 후 새 요청 | 상세·댓글·좋아요·채팅 거부 |
-| PRIVATE unlock 없는 새 세션 | 재생·상호작용 거부 |
-| 만료 token | 재생 거부 |
-| 제한 방송 metadata/OG | generic 문구, `noindex` |
+| 시나리오                       | 기대 결과                  |
+| ------------------------------ | -------------------------- |
+| 원본 Live Input/VOD UID iframe | 재생 거부                  |
+| 유효한 로그인·권한·단기 token  | 재생 성공                  |
+| 팔로우 취소 후 새 요청         | 상세·댓글·좋아요·채팅 거부 |
+| PRIVATE unlock 없는 새 세션    | 재생·상호작용 거부         |
+| 만료 token                     | 재생 거부                  |
+| 제한 방송 metadata/OG          | generic 문구, `noindex`    |
 
 ## 5. 배포와 복구
 

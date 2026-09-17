@@ -59,12 +59,12 @@ export const onboardingSchema = ({
     })
     .superRefine((data, ctx) => {
       if (needsUsernameSetup) {
-        const username = requiredTrimmedString("유저명을 입력해주세요.")
+        const username = requiredTrimmedString("닉네임을 입력해주세요.")
           .toLowerCase()
-          .min(3, "유저명은 최소 3자 이상이어야 합니다.")
+          .min(3, "닉네임은 최소 3자 이상이어야 합니다.")
           .max(
             USERNAME_MAX_LENGTH,
-            `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
+            `닉네임은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
           )
           .safeParse(data.username);
 

@@ -26,6 +26,7 @@
  * 2026.04.03  임도헌   Modified  리뷰 생성 helper 주석 보강
  * 2026.06.21  임도헌   Modified  인앱 알림 더보기와 맞도록 리뷰 알림 본문 사전 축약 제거
  * 2026.08.21  임도헌   Modified  리뷰 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
+ * 2026.09.13  임도헌   Modified  거래 후기 알림 문구 통일
  */
 
 import "server-only";
@@ -144,7 +145,7 @@ export async function createReviewService(
     if (await checkBlockRelation(userId, reviewTargetId)) {
       return {
         success: false,
-        error: "차단 관계에서는 리뷰를 작성할 수 없습니다.",
+        error: "차단 관계에서는 거래 후기를 작성할 수 없습니다.",
       };
     }
 
@@ -199,10 +200,10 @@ export async function createReviewService(
         });
 
         if (isNotificationTypeEnabled(pref, "REVIEW")) {
-          const title = "새로운 리뷰가 작성되었습니다";
+          const title = "새로운 거래 후기가 작성되었습니다";
           const body = `${review.user.username}님이 ${
             prod.title
-          }에 리뷰를 작성했습니다: "${normalizeNotificationText(data.payload)}"`;
+          }에 거래 후기를 작성했습니다: "${normalizeNotificationText(data.payload)}"`;
 
           // DB 알림 저장
           const notification = await db.notification.create({
@@ -218,22 +219,20 @@ export async function createReviewService(
           });
 
           // In-app realtime 전송
-          await supabase
-            .channel(notificationRealtimeTopic(targetUserId))
-            .send({
-              type: "broadcast",
-              event: "notification",
-              payload: {
-                id: notification.id,
-                userId: targetUserId,
-                title: notification.title,
-                body: notification.body,
-                link: notification.link,
-                type: notification.type,
-                image: notification.image,
-                created_at: notification.created_at,
-              },
-            });
+          await supabase.channel(notificationRealtimeTopic(targetUserId)).send({
+            type: "broadcast",
+            event: "notification",
+            payload: {
+              id: notification.id,
+              userId: targetUserId,
+              title: notification.title,
+              body: notification.body,
+              link: notification.link,
+              type: notification.type,
+              image: notification.image,
+              created_at: notification.created_at,
+            },
+          });
 
           // Push 전송
           if (canSendPushForType(pref, "REVIEW")) {

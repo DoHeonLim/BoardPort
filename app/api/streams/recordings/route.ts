@@ -9,19 +9,14 @@
  * 2026.06.25  임도헌   Modified  URL viewerId fallback 제거 및 세션 기준 조회자 권한 고정
  * 2026.08.26  임도헌   Modified  정렬값 기반 불투명 복합 커서 검증 및 응답 적용
  * 2026.09.05  임도헌   Modified  다시보기 추가 페이지에 최초 조회와 동일한 전용 페이지 크기 적용
+ * 2026.09.09  임도헌   Modified  공용 service 페이징 응답 조립 적용
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { RECORDINGS_PAGE_TAKE } from "@/lib/constants";
 import getSession from "@/lib/session";
-import { getRecordingsList } from "@/features/stream/service/list";
+import { getRecordingsPage } from "@/features/stream/service/list";
 import type { RecordingSort } from "@/features/stream/types";
-import {
-  decodeRecordingCursor,
-  encodeRecordingCursor,
-} from "@/features/stream/utils/recordingCursor";
-
-const TAKE = RECORDINGS_PAGE_TAKE;
+import { decodeRecordingCursor } from "@/features/stream/utils/recordingCursor";
 
 /**
  * 공백 검색 파라미터 정규화
@@ -47,7 +42,7 @@ export async function GET(request: NextRequest) {
   const sort: RecordingSort =
     searchParams.get("sort") === "popular" ? "popular" : "latest";
   const followingOnly = searchParams.get("followingOnly") === "true";
-  // /api 경로는 middleware 인증 가드를 타지 않으므로 URL viewerId를 신뢰하지 않고 세션만 조회자 기준으로 사용한다.
+  // middleware 인증 가드를 타지 않는 /api 경로에서 세션만 조회자 기준으로 사용
   const viewerId = session?.id ?? null;
   const rawCursor = searchParams.get("cursor");
   const cursor = decodeRecordingCursor(rawCursor, sort);
@@ -63,20 +58,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const list = await getRecordingsList({
+  const page = await getRecordingsPage({
     sort,
     followingOnly,
     category: normalizeTextParam(searchParams.get("category")),
     keyword: normalizeTextParam(searchParams.get("keyword")),
     viewerId,
     cursor,
-    take: TAKE + 1,
   });
-  const hasMore = list.length > TAKE;
-  const recordings = hasMore ? list.slice(0, TAKE) : list;
-  const nextCursor = hasMore
-    ? encodeRecordingCursor(sort, recordings[recordings.length - 1])
-    : null;
-
-  return NextResponse.json({ recordings, nextCursor });
+  return NextResponse.json(page);
 }

@@ -12,6 +12,7 @@
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서 가격/상태 배지 밀도를 조정
  * 2026.03.12  임도헌   Modified  카드 상태 배지를 시맨틱 토큰 기반 톤으로 정리
  * 2026.04.10  임도헌   Modified  Pretendard subset 3-weight 정책에 맞춰 카드 가격과 상태 배지의 타이포 스케일을 정리
+ * 2026.09.12  임도헌   Modified  썸네일 상태와 중복되는 그리드 가격 영역의 상태 배지 생략 지원
  */
 
 import { cn } from "@/lib/utils";
@@ -27,7 +28,7 @@ interface ProductCardPriceProps {
 
 /**
  * 가격과 판매 상태(작은 배지)를 표시
- * 썸네일 오버레이 외에도 텍스트 영역에 상태를 다시 한 번 명시
+ * 목록 맥락에 따라 텍스트 영역의 상태 배지 노출 선택
  */
 export default function ProductCardPrice({
   price,
@@ -49,20 +50,18 @@ export default function ProductCardPrice({
       >
         {formatToWon(price)}
         <span
-          className={cn(
-            "ml-0.5 text-xs font-normal text-primary sm:text-sm"
-          )}
+          className={cn("ml-0.5 text-xs font-normal text-primary sm:text-sm")}
         >
           원
         </span>
       </span>
 
-      {isSold && (
+      {!isGrid && isSold && (
         <span className="inline-flex items-center rounded bg-surface-dim px-1.5 py-0.5 text-xs font-bold text-muted">
           판매완료
         </span>
       )}
-      {isReserved && (
+      {!isGrid && isReserved && (
         <span className="inline-flex items-center rounded border border-brand/20 bg-brand/15 px-1.5 py-0.5 text-xs font-bold text-brand-dark dark:border-brand-light/25 dark:bg-brand-light/20 dark:text-gray-100">
           예약중
         </span>

@@ -30,6 +30,10 @@
  * 2026.06.17  임도헌   Modified  찜 목록 빠른 해제의 좋아요 캐시 분리를 위한 ProductCard viewerId prop 추가
  * 2026.06.18  임도헌   Modified  상품 거래 기준 지역 필수화에 맞춰 ProductDTO location을 필수값으로 정리
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 노출 기준 시각을 최근 본 상품 스냅샷까지 보존하도록 refreshed_at 계약 명시
+ * 2026.09.08  임도헌   Modified  항구 메인 상품 목록 정렬 타입과 검색 조건 추가
+ * 2026.09.09  임도헌   Modified  상세 본문 타입에서 별도 최신 조회로 이동한 좋아요 집계 제거
+ * 2026.09.11  임도헌   Modified  찜 목록 카드의 낙관 변경 콜백 타입 추가
+ * 2026.09.11  임도헌   Modified  상품 찜 목록의 삭제 안전 복합 커서 추가
  */
 
 import {
@@ -64,6 +68,12 @@ export type UserProductsScope =
   | { type: "PURCHASED"; userId: number }
   | { type: "LIKED"; userId: number };
 
+/** 찜 항목 삭제 후에도 정렬 경계를 유지하는 상품 관심 목록 커서 */
+export interface LikedProductCursor {
+  id: number;
+  likedAt: string;
+}
+
 // =============================================================================
 // 2. Data Transfer Objects (DTO) - 요청/응답 데이터
 // =============================================================================
@@ -96,9 +106,13 @@ export interface ProductSearchParams {
   maxPrice?: number;
   game_type?: string;
   condition?: string;
+  sort?: ProductSort;
   take?: number;
   skip?: number;
 }
+
+/** 항구 메인 상품 목록 정렬 방식 */
+export type ProductSort = "latest" | "priceAsc" | "priceDesc";
 
 /** 상품 목록 필터 상태 */
 export type FilterState = {
@@ -167,9 +181,9 @@ export interface ProductLikeResult {
 }
 
 /** 제네릭 페이지네이션 결과 */
-export interface Paginated<T> {
+export interface Paginated<T, TCursor = number> {
   products: T[];
-  nextCursor: number | null;
+  nextCursor: TCursor | null;
   totalCount?: number;
 }
 
@@ -264,9 +278,6 @@ export interface ProductDetailType extends ProductFullDetails {
       kor_name: string;
       icon: string | null;
     } | null;
-  };
-  _count: {
-    product_likes: number;
   };
   board_games?: Array<{
     boardGame: BoardGameRelationOption;
@@ -375,6 +386,7 @@ export interface ProductCardProps {
   returnTo?: string;
   showQuickUnlike?: boolean;
   viewerId?: number | null;
+  onOptimisticChange?: (isLiked: boolean) => void;
 }
 
 // =============================================================================

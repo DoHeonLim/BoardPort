@@ -56,6 +56,7 @@
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.08.24  임도헌   Modified  Next.js 16 모달 편집 복귀를 목록 relay로 고정하고 목적 경로 전환 후 성공 피드백 표시
  * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 폼 오류·이미지 섹션 스크롤 동작 조정
+ * 2026.09.16  임도헌   Modified  폼 필드 구독을 useWatch로 변경해 React Compiler 호환 경고 해소
  */
 
 /**
@@ -80,7 +81,7 @@
 import dynamic from "next/dynamic";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useImageUpload } from "@/hooks/useImageUpload";
@@ -277,7 +278,6 @@ export default function ProductForm({
     register,
     handleSubmit,
     setValue,
-    watch,
     reset,
     control,
     formState: { errors },
@@ -290,8 +290,8 @@ export default function ProductForm({
     resolver: zodResolver(productFormSchema),
     defaultValues: initialFormValues,
   });
-  const selectedCategoryId = watch("categoryId");
-  const watchedBoardGameIds = watch("boardGameIds");
+  const selectedCategoryId = useWatch({ control, name: "categoryId" });
+  const watchedBoardGameIds = useWatch({ control, name: "boardGameIds" });
   const selectedBoardGameIds = useMemo(
     () => watchedBoardGameIds ?? [],
     [watchedBoardGameIds]
@@ -358,8 +358,8 @@ export default function ProductForm({
   ]);
 
   // 최소 인원이 최대 인원을 넘지 않도록 자동 보정
-  const minPlayers = watch("min_players");
-  const maxPlayers = watch("max_players");
+  const minPlayers = useWatch({ control, name: "min_players" });
+  const maxPlayers = useWatch({ control, name: "max_players" });
 
   useEffect(() => {
     if (minPlayers && maxPlayers && minPlayers > maxPlayers) {
@@ -526,7 +526,7 @@ export default function ProductForm({
 
   // 거래 장소 모달 열림 상태와 이미지 섹션 포커스 참조
   const [isMapOpen, setIsMapOpen] = useState(false);
-  const location = watch("location");
+  const location = useWatch({ control, name: "location" });
   const imageSectionRef = useRef<HTMLDivElement | null>(null);
   const locationSectionRef = useRef<HTMLDivElement | null>(null);
 

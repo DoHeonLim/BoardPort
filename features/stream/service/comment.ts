@@ -16,6 +16,7 @@
  * 2026.06.21  임도헌   Modified  녹화본 댓글 작성 시 방송 주인에게 인앱/푸시 알림 전송 추가
  * 2026.08.21  임도헌   Modified  댓글 조회·생성·삭제 전에 부모 방송 접근 권한 검증 추가
  * 2026.08.21  임도헌   Modified  녹화본 댓글 알림 발신을 서버 전용 private topic으로 전환
+ * 2026.09.08  임도헌   Modified  댓글 알림에 녹화본 사용자 제목 우선 적용
  */
 
 import "server-only";
@@ -33,6 +34,7 @@ import {
   isNotificationTypeEnabled,
 } from "@/features/notification/utils/policy";
 import { sendPushNotification } from "@/features/notification/service/sender";
+import { selectRecordingTitle } from "@/features/stream/utils/thumbnail";
 import {
   authorizeVodAccess,
   requireStreamAccess,
@@ -216,6 +218,7 @@ export const createRecordingComment = async (
   const vod = await db.vodAsset.findUnique({
     where: { id: vodId },
     select: {
+      title: true,
       broadcast: {
         select: {
           title: true,
@@ -249,7 +252,7 @@ export const createRecordingComment = async (
   if (vod?.broadcast.liveInput.userId) {
     await notifyStreamerOnRecordingComment({
       vodId,
-      recordingTitle: vod.broadcast.title,
+      recordingTitle: selectRecordingTitle(vod.title, vod.broadcast.title),
       ownerId: vod.broadcast.liveInput.userId,
       commenterId: userId,
       commenterName: comment.user.username,

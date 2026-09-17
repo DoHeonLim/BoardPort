@@ -9,6 +9,7 @@
  * 2026.05.26  임도헌   Modified  관리자 대시보드 로드 시간과 ADMIN_ONLY 403 정책에 맞춰 기대값 보정
  * 2026.05.27  임도헌   Modified  ADMIN_ONLY redirect 대기를 domcontentloaded 기준으로 맞춰 E2E flake 완화
  * 2026.09.05  임도헌   Modified  관리자 전용 접근 거부 화면의 실제 제목 검증 반영
+ * 2026.09.14  임도헌   Modified  관리자 화면의 사용자 용어 통일 반영
  */
 
 import { expect, test } from "@playwright/test";
@@ -32,7 +33,7 @@ test.describe("seeded admin smoke", () => {
     await loginWithEmail(page, E2E_ADMIN, "/admin", { timeout: 30_000 });
 
     await expect(page.getByRole("heading", { name: "대시보드" })).toBeVisible();
-    await expect(page.getByText("총 회원 수")).toBeVisible();
+    await expect(page.getByText("총 사용자 수")).toBeVisible();
     await expect(page.getByText("처리 대기 신고")).toBeVisible();
     await expect(
       page.getByRole("link", { name: "신고 관리" }).first()

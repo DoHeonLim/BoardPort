@@ -25,6 +25,7 @@
  * 2026.08.21  임도헌   Modified  원본 Live Input UID를 삭제 요청에서 제거하고 서버 소유권 판정만 사용
  * 2026.08.28  임도헌   Modified  녹화 삭제 함수 JSDoc 보강
  * 2026.09.03  임도헌   Modified  다시보기 상세 뒤로가기가 정규화된 목록 문맥을 우선하도록 고정
+ * 2026.09.08  임도헌   Modified  소유자 녹화 정보 수정 메뉴와 목록 cache 갱신 추가
  */
 
 "use client";
@@ -41,6 +42,7 @@ import {
   ExclamationTriangleIcon,
   ShareIcon,
   TrashIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import ConfirmDialog from "@/components/global/ConfirmDialog";
 import BackButton from "@/components/global/BackButton";
@@ -53,10 +55,19 @@ import {
   markNavigationRefresh,
   NAVIGATION_REFRESH_SCOPES,
 } from "@/lib/navigationRefreshFlag";
-import { removeRecordingFromListCaches } from "@/features/stream/utils/recordingListCache";
+import {
+  invalidateRecordingListCaches,
+  removeRecordingFromListCaches,
+  updateRecordingListCaches,
+} from "@/features/stream/utils/recordingListCache";
+import { toStreamThumbnailPublicUrl } from "@/features/stream/utils/image";
 
 const ReportModal = dynamic(
   () => import("@/features/report/components/ReportModal"),
+  { ssr: false }
+);
+const EditRecordingMetaModal = dynamic(
+  () => import("@/features/stream/components/recording/EditRecordingMetaModal"),
   { ssr: false }
 );
 
@@ -83,6 +94,8 @@ interface RecordingTopbarProps {
   ownerId: number;
   username: string;
   avatar: string | null;
+  title: string;
+  customThumbnail?: string | null;
   isOwner?: boolean;
   /** 뒤로가기/삭제 완료 후 돌아갈 내부 경로. 기본값은 다시보기 목록이다. */
   backHref?: string;
@@ -107,6 +120,8 @@ export default function RecordingTopbar({
   ownerId,
   username,
   avatar,
+  title,
+  customThumbnail,
   isOwner,
   backHref = "/streams",
   categoryLabel,
@@ -119,6 +134,7 @@ export default function RecordingTopbar({
   const [reportOpen, setReportOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -153,7 +169,7 @@ export default function RecordingTopbar({
     });
   };
 
-  /** 녹화를 삭제하고 목록 캐시에서 제거한 뒤 안전한 진입 문맥으로 복귀한다. */
+  /** 다시보기 삭제와 목록 캐시 제거 후 안전한 진입 문맥으로 복귀 */
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
@@ -166,12 +182,13 @@ export default function RecordingTopbar({
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
         toast.error(
-          data?.error ?? "녹화 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
+          data?.error ??
+            "다시보기 삭제에 실패했습니다. 잠시 후 다시 시도해주세요."
         );
         return;
       }
 
-      toast.success("녹화를 삭제했습니다.");
+      toast.success("다시보기를 삭제했습니다.");
       removeRecordingFromListCaches(queryClient, vodId);
       setDeleteConfirmOpen(false);
       setMenuOpen(false);
@@ -197,7 +214,7 @@ export default function RecordingTopbar({
     } catch (error) {
       console.error(error);
       toast.error(
-        "녹화 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
+        "다시보기 삭제 중 문제가 발생했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요."
       );
     } finally {
       setIsDeleting(false);
@@ -246,7 +263,7 @@ export default function RecordingTopbar({
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label={
-                isOwner ? "녹화 관리 메뉴 열기" : "다시보기 옵션 열기"
+                isOwner ? "다시보기 관리 메뉴 열기" : "다시보기 옵션 열기"
               }
               aria-expanded={menuOpen}
               aria-haspopup={isMobile ? "dialog" : "menu"}
@@ -260,16 +277,28 @@ export default function RecordingTopbar({
                 className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-border-subtle bg-background shadow-xl"
               >
                 {isOwner ? (
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setDeleteConfirmOpen(true);
-                    }}
-                    role="menuitem"
-                    className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
-                  >
-                    <TrashIcon className="size-4" /> 녹화 삭제
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setEditOpen(true);
+                      }}
+                      role="menuitem"
+                      className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-surface-dim"
+                    >
+                      <PencilSquareIcon className="size-4" /> 다시보기 정보 수정
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setDeleteConfirmOpen(true);
+                      }}
+                      role="menuitem"
+                      className="focus-ring-soft flex w-full items-center gap-2 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-danger hover:bg-danger/5"
+                    >
+                      <TrashIcon className="size-4" /> 다시보기 삭제
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button
@@ -303,27 +332,40 @@ export default function RecordingTopbar({
 
       <BottomSheet
         open={isMobile && menuOpen}
-        title={isOwner ? "녹화 관리" : "다시보기 옵션"}
+        title={isOwner ? "다시보기 관리" : "다시보기 옵션"}
         description={
           isOwner
-            ? "이 녹화본을 삭제할 수 있습니다."
+            ? "이 다시보기를 수정하거나 삭제할 수 있습니다."
             : "스트리머 차단 또는 다시보기 신고를 진행할 수 있습니다."
         }
         onClose={() => setMenuOpen(false)}
       >
         <div className="space-y-2 pt-2">
           {isOwner ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                setDeleteConfirmOpen(true);
-              }}
-              className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
-            >
-              <TrashIcon className="size-5 shrink-0" />
-              녹화 삭제
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setEditOpen(true);
+                }}
+                className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
+              >
+                <PencilSquareIcon className="size-5 shrink-0" />
+                다시보기 정보 수정
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setDeleteConfirmOpen(true);
+                }}
+                className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-danger transition-colors hover:bg-danger/10"
+              >
+                <TrashIcon className="size-5 shrink-0" />
+                다시보기 삭제
+              </button>
+            </>
           ) : (
             <>
               <button
@@ -355,8 +397,8 @@ export default function RecordingTopbar({
 
       <ConfirmDialog
         open={deleteConfirmOpen}
-        title="녹화를 삭제할까요?"
-        description="삭제한 녹화는 되돌릴 수 없습니다."
+        title="다시보기를 삭제할까요?"
+        description="삭제한 다시보기는 되돌릴 수 없습니다."
         confirmLabel="삭제"
         cancelLabel="취소"
         onConfirm={handleDelete}
@@ -364,9 +406,37 @@ export default function RecordingTopbar({
         loading={isDeleting}
       />
 
+      <EditRecordingMetaModal
+        open={editOpen}
+        vodId={vodId}
+        initialTitle={title}
+        initialThumbnail={customThumbnail}
+        onClose={() => setEditOpen(false)}
+        onSaved={(next) => {
+          updateRecordingListCaches(
+            queryClient,
+            vodId,
+            () => ({
+              title: next.title,
+              ...(next.thumbnail
+                ? {
+                    thumbnail: toStreamThumbnailPublicUrl(next.thumbnail),
+                    thumbnailAnimated: next.thumbnailAnimated ?? false,
+                  }
+                : {}),
+            }),
+            ownerId
+          );
+          if (next.thumbnail === null) {
+            // 사용자 이미지 제거 후 목록 재조회로 provider·방송 fallback 복원
+            invalidateRecordingListCaches(queryClient, ownerId);
+          }
+        }}
+      />
+
       <ConfirmDialog
         open={blockConfirmOpen}
-        title="유저 차단"
+        title="사용자 차단"
         description={`${username}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`}
         onConfirm={handleBlock}
         onCancel={() => setBlockConfirmOpen(false)}

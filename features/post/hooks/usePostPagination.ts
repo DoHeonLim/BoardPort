@@ -23,6 +23,8 @@
  * 2026.05.19  임도헌   Modified  Client queryFn 초기 렌더의 조회용 Server Action 호출 오류를 피하도록 Route Handler fetch로 전환
  * 2026.06.18  임도헌   Modified  게시글 피드 지역 스코프를 queryKeyExtra로 분리한다는 설명으로 최신화
  * 2026.08.13  임도헌   Modified  게시글 목록 query key에 현재 조회자 범위 추가
+ * 2026.09.08  임도헌   Modified  프로필 작성자별 게시글 API 범위 추가
+ * 2026.09.08  임도헌   Modified  게시글 정렬 query와 목록 캐시 범위 연결
  */
 "use client";
 
@@ -68,6 +70,12 @@ function buildPostsApiUrl(
   if (cursor) params.set("cursor", String(cursor));
   if (searchParams.keyword) params.set("keyword", searchParams.keyword);
   if (searchParams.category) params.set("category", searchParams.category);
+  if (searchParams.sort && searchParams.sort !== "latest") {
+    params.set("sort", searchParams.sort);
+  }
+  if (searchParams.authorId) {
+    params.set("authorId", String(searchParams.authorId));
+  }
 
   const queryString = params.toString();
   return queryString ? `/api/posts?${queryString}` : "/api/posts";
@@ -101,7 +109,7 @@ async function fetchPostsPage(url: string): Promise<PostsPage> {
  * 게시글 목록 Suspense 무한 스크롤 훅
  *
  * [기능]
- * - `searchParams`를 queryKey에 반영해 게시판/카테고리/검색어 조합별 캐시를 분리
+ * - `searchParams`를 queryKey에 반영해 카테고리/검색어/정렬 조합별 캐시를 분리
  * - `queryKeyExtra`로 같은 검색 조건 안에서도 피드 지역/범위 같은 보조 스코프를 추가 분리
  * - `useSuspenseInfiniteQuery`와 게시글 목록 Route Handler를 연결해 Client queryFn의 Server Action 직접 호출을 피하고 다음 페이지를 커서 기반으로 조회
  * - 평탄화된 posts 배열과 첫 페이지 totalCount를 함께 반환해 목록/헤더가 같은 데이터를 공유하도록 구성

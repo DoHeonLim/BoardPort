@@ -19,11 +19,12 @@ import type {
 /** 잠금 해제 실패 코드별 사용자 메시지 */
 export const unlockErrorMessage: Record<UnlockErrorCode, string> = {
   NOT_LOGGED_IN: "로그인이 필요합니다.",
-  STREAM_NOT_FOUND: "스트림을 찾을 수 없습니다.",
-  NOT_PRIVATE_STREAM: "비공개 스트림이 아닙니다.",
+  STREAM_NOT_FOUND: "방송을 찾을 수 없습니다.",
+  NOT_PRIVATE_STREAM: "비공개 방송이 아닙니다.",
   NO_PASSWORD_SET: "비밀번호가 설정되지 않았습니다.",
   INVALID_PASSWORD: "비밀번호가 올바르지 않습니다.",
-  RATE_LIMITED: "비밀번호 입력 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
+  RATE_LIMITED:
+    "비밀번호 입력 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.",
   BAD_REQUEST: "요청이 올바르지 않습니다.",
   MISSING_PASSWORD: "비밀번호를 입력해주세요.",
   INTERNAL_ERROR: "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",

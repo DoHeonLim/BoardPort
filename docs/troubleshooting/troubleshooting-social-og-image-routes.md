@@ -11,7 +11,7 @@
 - 로컬 Windows 환경에서 `/og-image` 진입 시 `@vercel/og` 폰트 경로 관련 `Invalid URL` 오류 발생
 - `runtime` export가 문자열 리터럴이 아니라는 Next.js build 경고 발생
 
-이 문제는 단순 UI 이슈가 아니라, **Next Metadata 이미지 라우트와 외부 소셜 크롤러가 안정적으로 호출할 수 있는 이미지 URL을 분리해야 하는 문제**였습니다.
+외부 소셜 크롤러의 요청을 재현하고 응답을 확인할 수 있도록, Next Metadata 이미지 라우트와 별도로 고정된 이미지 URL이 필요했습니다.
 
 ## 1. 증상
 
@@ -20,7 +20,7 @@
 `opengraph-image.tsx`는 Next.js Metadata API의 file-based metadata route입니다.
 빌드 결과나 크롤러 접근 방식에 따라 내부적으로 해시가 붙은 경로가 사용되는 케이스가 있어, 브라우저에서 `/opengraph-image`를 직접 열어 확인하는 흐름과 실제 metadata 해석 흐름이 항상 같지 않았습니다.
 
-따라서 직접 확인 가능한 안정 URL이 없으면, 공유 미리보기 문제를 로컬에서 빠르게 재현하기 어렵습니다.
+따라서 직접 요청할 수 있는 고정 URL이 없으면, 공유 미리보기 문제를 로컬에서 재현하기 어렵습니다.
 
 ### 1.2 공유 앱에서 기본 사이트 이미지가 표시됨
 
@@ -93,7 +93,7 @@ KakaoTalk 같은 공유 앱은 URL preview를 캐시합니다.
 - `streams/[id]/opengraph-image.tsx`
 - `streams/[id]/og-image/route.tsx`
 
-상세 페이지 metadata는 안정 URL을 `openGraph.images`로 내려줍니다.
+상세 페이지 metadata는 고정 URL을 `openGraph.images`로 내려줍니다.
 
 관련 파일:
 
@@ -119,9 +119,9 @@ Windows 로컬의 `@vercel/og` 폰트 경로 오류를 피하기 위해, 현재 
 
 1. DB에서 상세 데이터 조회
 2. 텍스트 escape와 줄 분리
-3. SVG 정보 패널 생성
+3. SVG 배경·패널과 로컬 Pretendard OTF 글꼴 기반 텍스트 레이어 생성
 4. 외부 대표 이미지 fetch
-5. `sharp().composite()`로 이미지 합성
+5. `sharp().composite()`로 대표 이미지·패널·텍스트 합성
 6. `image/png` Response 반환
 
 이 구조는 소셜 크롤러가 요구하는 정적 PNG 응답에 가깝고, 로컬 검증도 쉽습니다.
@@ -133,9 +133,12 @@ Windows 로컬의 `@vercel/og` 폰트 경로 오류를 피하기 위해, 현재 
 
 우선순위:
 
-1. 최신 ready VOD `thumbnail_url`
-2. 방송 `thumbnail`
-3. 기본 BoardPort fallback
+1. 최신 ready VOD `custom_thumbnail_url`
+2. 최신 ready VOD `thumbnail_url`
+3. 방송 `thumbnail`
+4. 기본 BoardPort fallback
+
+종료 방송의 공유 제목은 최신 ready VOD의 사용자 제목을 우선 사용하고, 없으면 방송 제목을 사용합니다. PUBLIC 방송의 Cloudflare Stream 썸네일은 단기 서명 URL로 변환해 가져옵니다.
 
 상대 경로 썸네일이 들어오는 경우에는 `NEXT_PUBLIC_APP_URL`을 기준으로 절대 URL로 보정합니다.
 따라서 소셜 공유 미리보기 검증 전에는 production 환경의 `NEXT_PUBLIC_APP_URL`이 실제 배포 도메인을 가리키는지도 함께 확인합니다.

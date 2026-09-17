@@ -38,9 +38,12 @@
  * 2026.06.19  임도헌   Modified  모바일 긴 알림 본문 더보기와 알림센터 자기 링크 버튼 숨김 처리 추가
  * 2026.06.21  임도헌   Modified  모바일 알림 제목/본문 펼침 기준을 실제 clamp overflow 측정으로 보정
  * 2026.08.23  임도헌   Modified  React 19 ref·element 타입 호환 반영
+ * 2026.09.12  임도헌   Modified  전체·유형별 알림 빈 상태를 구분하고 필터 복구 동선 추가
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import dynamic from "next/dynamic";
 import {
   useEffect,
@@ -69,6 +72,7 @@ import type {
 import {
   ArrowsRightLeftIcon,
   BellAlertIcon,
+  BellSlashIcon,
   ChatBubbleBottomCenterTextIcon,
   ChatBubbleLeftEllipsisIcon,
   CheckBadgeIcon,
@@ -364,7 +368,7 @@ export default function NotificationListContainer({
   const shouldShowUnavailableCopy = (notification: NotificationItem) =>
     shouldShowUnavailableNotificationCopy(notification);
 
-  // 링크가 제거된 콘텐츠형 알림에만 이동 불가 안내를 보여준다.
+  // 링크가 제거된 콘텐츠형 알림만 이동 불가 안내 대상으로 지정
   // 시스템/배지 알림은 원래 링크가 없을 수 있어 안내 대상에서 제외
   /**
    * 선택한 알림 필터로 이동하며 page 쿼리는 1페이지 기준으로 초기화
@@ -483,16 +487,37 @@ export default function NotificationListContainer({
         })}
       </div>
 
-      <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden shadow-sm">
-        {notifications.length === 0 ? (
-          <div className="px-6 py-16 text-center text-muted">
-            <p className="text-sm">
+      {notifications.length === 0 ? (
+        <div className="state-screen px-0 pt-0 sm:pt-2">
+          <div className="state-card">
+            <div className="state-icon-wrap">
+              <BellSlashIcon className="size-10 text-muted/50" />
+            </div>
+            <h3 className="state-title">
               {activeFilter === "ALL"
                 ? "도착한 알림이 없습니다."
                 : `${NOTIFICATION_FILTER_LABELS[activeFilter]} 알림이 없습니다.`}
+            </h3>
+            <p className="state-description">
+              {activeFilter === "ALL"
+                ? "거래나 채팅 등 새로운 소식이 생기면 여기에 표시됩니다."
+                : "전체 알림에서 다른 소식을 확인해보세요."}
             </p>
+            {activeFilter !== "ALL" && (
+              <div className="state-actions justify-center">
+                <button
+                  type="button"
+                  onClick={() => changeFilter("ALL")}
+                  className="btn-secondary focus-ring-soft inline-flex min-h-[44px] items-center justify-center px-6 text-sm font-medium"
+                >
+                  전체 알림 보기
+                </button>
+              </div>
+            )}
           </div>
-        ) : (
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-sm">
           <ul className="divide-y divide-border-subtle">
             {notifications.map((notification) => {
               const icon = typeIcons[notification.type] || (
@@ -580,22 +605,22 @@ export default function NotificationListContainer({
               );
             })}
           </ul>
-        )}
-      </div>
+        </div>
+      )}
 
       <NotificationPagination
         currentPage={data.currentPage}
         totalPages={data.totalPages}
       />
 
-      {isKeywordModalOpen ? (
+      <ModalPresence open={isKeywordModalOpen}>
         <KeywordAlertModal
           isOpen={isKeywordModalOpen}
           onClose={() => setIsKeywordModalOpen(false)}
           initialKeywords={keywordAlerts}
           userLocation={userLocation}
         />
-      ) : null}
+      </ModalPresence>
     </div>
   );
 }

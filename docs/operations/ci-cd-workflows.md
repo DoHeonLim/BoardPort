@@ -33,9 +33,9 @@ BoardPort의 전체 CI/CD 흐름은 GitHub Actions CI와 Vercel CD로 나뉩니�
 
 `Full Migration and Seed Smoke` job은 전용 `RELEASE_MIGRATION_TEST_DATABASE_URL`만 읽는 Prisma config로 빈 `boardport_release_test` DB에 전체 migration 이력을 처음부터 적용합니다. 적용된 DB와 `schema.prisma`를 비교해 drift가 있으면 차단하고, E2E seed를 두 번 실행해 최종 schema와 seed 멱등성을 확인한 뒤 cleanup을 검증합니다. 도메인별 Migration 통합 테스트는 별도 `boardport_migration_test` DB에서 순차 실행합니다. 기본 CI는 외부 서비스 호출 없이 컴파일과 정적 검증을 수행하기 위해 placeholder 환경 변수를 사용합니다.
 
-`Dependency and Secret Audit` job은 전체 Git 이력을 Gitleaks로 검사하고 production dependency audit을 실행합니다. 이 job은 의존성 트리만 검사하므로 `npm ci --ignore-scripts`를 사용해 Prisma Client 생성과 애플리케이션 DB 환경 변수 의존성을 제외합니다. 현재 Prisma CLI 경로의 알려진 high 3건은 [`dependency-security-upgrade.md`](./dependency-security-upgrade.md)에 추적하며, 자동 수정이 Prisma 6.12 강제 다운그레이드를 제안하므로 적용하지 않습니다. CI는 이 기준선을 숨기지 않으면서 critical 취약점이 새로 유입되면 실패하도록 설정합니다.
+`Dependency and Secret Audit` job은 전체 Git 이력을 Gitleaks로 검사하고 프로덕션 의존성의 취약점을 점검합니다. 의존성 검사에는 `npm ci --ignore-scripts`를 사용해 Prisma Client 생성과 애플리케이션 DB 환경 변수 의존성을 제외합니다. 현재 Prisma CLI 경로의 알려진 high 3건은 [`dependency-security-upgrade.md`](./dependency-security-upgrade.md)에서 추적하며, 자동 수정이 Prisma 6.12 강제 다운그레이드를 제안하므로 적용하지 않습니다. CI는 high 항목을 검사 결과에 출력하고 critical 취약점이 발견되면 실패하도록 설정합니다.
 
-`Unit, Type, Lint, Build` job은 Node 기반 단위 테스트와 파일별 jsdom 컴포넌트 테스트를 함께 실행하고 전체 source V8 coverage가 [`testing-strategy.md`](./testing-strategy.md)의 기준선 아래로 내려가면 실패합니다.
+`Unit, Type, Lint, Build` job은 Node 기반 단위 테스트와 파일별 jsdom 컴포넌트 테스트를 함께 실행하고 전체 소스 코드의 V8 커버리지가 [`testing-strategy.md`](./testing-strategy.md)의 CI 하한 아래로 내려가면 실패합니다.
 
 로컬에서는 일회용 PostgreSQL 16 컨테이너로 전체 도메인 migration 통합 테스트를 한 번에 실행할 수 있습니다.
 
@@ -70,6 +70,8 @@ Docker 실행기는 컨테이너 생성·준비 확인·환경변수 주입·종
 E2E는 공유 테스트 DB를 사용하므로 workflow concurrency를 `e2e-shared-db`로 고정해 동시에 여러 E2E가 seed/cleanup을 수행하지 않도록 제한합니다. CI에서는 개발 서버가 허용하는 동작에 기대지 않도록 `next build` 결과를 `next start`로 실행해 실제 배포 모드와 같은 경계를 검증합니다. Production 모드 로그인에서 요구하는 `RATE_LIMIT_SALT`는 GitHub 실행 ID와 재시도 번호를 조합한 테스트 전용 값으로 매 실행마다 주입합니다.
 
 ## 3. E2E Secrets
+
+모바일 UI 회귀 테스트도 위 Chromium 실행에 포함됩니다. 해당 파일에서 화면 너비와 터치 입력을 설정하므로 별도 모바일 project는 필요하지 않습니다. 이는 Chromium에서의 반응형 검사이며 실제 iOS Safari 검증을 대체하지 않습니다. 상세 범위는 [테스트 전략](./testing-strategy.md#모바일-ui-회귀)을 참고합니다.
 
 GitHub Actions에서 E2E를 실행하려면 아래 secrets를 설정합니다.
 

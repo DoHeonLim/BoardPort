@@ -14,6 +14,7 @@
  * 2026.04.10  임도헌   Modified  products 타이포 정책에 맞춰 이미지 비어있음 안내 라벨을 text-xs 기준으로 정리
  * 2026.04.13  임도헌   Modified  목록 첫 카드만 대표 LCP 후보로 다루도록 priority 사용 범위를 조정
  * 2026.04.13  임도헌   Modified  모바일 카드 실폭 기준으로 sizes를 보정해 과한 이미지 전송을 완화
+ * 2026.09.11  임도헌   Modified  Next.js 16 기준 LCP 이미지 eager 로딩 전환
  */
 "use client";
 
@@ -59,7 +60,8 @@ export default function ProductCardThumbnail({
           src={thumbnailUrl}
           alt={title}
           fill
-          priority={isPriority}
+          loading={isPriority ? "eager" : "lazy"}
+          fetchPriority={isPriority ? "high" : undefined}
           sizes={
             viewMode === "grid"
               ? "(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 22vw"

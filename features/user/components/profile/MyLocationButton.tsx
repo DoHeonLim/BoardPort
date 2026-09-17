@@ -10,9 +10,11 @@
  * 2026.03.12  임도헌   Modified  위치 저장 성공 후 router.refresh로 현재 화면 지역 정보 즉시 갱신
  * 2026.03.27  임도헌   Modified  프로필 카드 우측 변경/설정 액션 텍스트의 다크모드 가시성 보강
  * 2026.04.17  임도헌   Modified  지역 설정 버튼의 variant 분기와 NeighborhoodSearchModal 연동 책임 설명 보강
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MapPinIcon } from "@heroicons/react/24/solid";
@@ -65,20 +67,21 @@ export default function MyLocationButton({
   if (variant === "header") {
     return (
       <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="focus-ring-soft flex items-center gap-1 rounded-md text-sm font-bold text-primary transition-colors hover:text-brand dark:hover:text-brand-light"
-        title={fullLocation || "동네를 설정해주세요"}
-      >
+        <button
+          onClick={() => setIsOpen(true)}
+          className="focus-ring-soft flex items-center gap-1 rounded-md text-sm font-bold text-primary transition-colors hover:text-brand dark:hover:text-brand-light"
+          title={fullLocation || "동네를 설정해주세요"}
+        >
           <MapPinIcon className="size-4 text-brand" />
           <span>{currentRegion || "동네 설정"}</span>
         </button>
-        {isOpen && (
+        <ModalPresence open={isOpen}>
           <NeighborhoodSearchModal
+            open={isOpen}
             onClose={() => setIsOpen(false)}
             onSelect={handleSelect}
           />
-        )}
+        </ModalPresence>
       </>
     );
   }
@@ -126,12 +129,13 @@ export default function MyLocationButton({
         </div>
       </button>
 
-      {isOpen && (
+      <ModalPresence open={isOpen}>
         <NeighborhoodSearchModal
+          open={isOpen}
           onClose={() => setIsOpen(false)}
           onSelect={handleSelect}
         />
-      )}
+      </ModalPresence>
     </>
   );
 }

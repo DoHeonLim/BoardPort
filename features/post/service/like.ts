@@ -13,6 +13,7 @@
  * 2026.03.05  임도헌   Modified  주석 최신화
  * 2026.03.07  임도헌   Modified  정지 유저 가드 및 사용자 노출용 실패 문구 구체화
  * 2026.05.16  임도헌   Modified  Prisma P2025 판별을 unknown-safe 타입 가드로 정리
+ * 2026.09.09  임도헌   Removed   상세 최신 상태 조회와 중복되던 좋아요 상태 조회 함수 제거
  */
 
 import "server-only";
@@ -32,31 +33,6 @@ function isPrismaRequestErrorCode(err: unknown, code: string): boolean {
   return (
     err instanceof Prisma.PrismaClientKnownRequestError && err.code === code
   );
-}
-
-/**
- * 게시글 좋아요 상태 및 총 개수 조회 로직
- *
- * [데이터 가공 전략]
- * - 게시글의 총 좋아요 개수 카운트 및 현재 유저의 좋아요 여부 병렬 조회
- * - 비로그인(null) 사용자일 경우 좋아요 상태를 false로 반환
- *
- * @param {number} postId - 게시글 ID
- * @param {number | null} userId - 조회 유저 ID
- * @returns {Promise<{ likeCount: number; isLiked: boolean }>} 좋아요 개수와 현재 사용자 반응 상태
- */
-export async function getPostLikeStatus(postId: number, userId: number | null) {
-  // 총 좋아요 수와 현재 사용자 반응 상태를 함께 조회
-  const [likeCount, likedRow] = await Promise.all([
-    db.postLike.count({ where: { postId } }),
-    userId
-      ? db.postLike.findUnique({
-          where: { id: { postId, userId } },
-        })
-      : Promise.resolve(null),
-  ]);
-
-  return { likeCount, isLiked: !!likedRow };
 }
 
 /**
@@ -88,8 +64,7 @@ export async function togglePostLike(
     where: { id: postId },
     select: { userId: true },
   });
-  if (!post)
-    return { success: false, error: "게시글을 찾을 수 없습니다." };
+  if (!post) return { success: false, error: "게시글을 찾을 수 없습니다." };
 
   // 차단 관계 확인
   const isBlocked = await checkBlockRelation(userId, post.userId);
@@ -121,8 +96,7 @@ export async function togglePostLike(
     console.error("togglePostLike failed:", e);
     return {
       success: false,
-      error:
-        "좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

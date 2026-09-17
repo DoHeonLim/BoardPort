@@ -39,6 +39,8 @@
  * 2026.08.21  임도헌   Modified  차단 관계에서는 최근 방송과 signed thumbnail 조회를 시작하지 않도록 보강
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 요청 API와 route config 호환 반영
  * 2026.09.03  임도헌   Modified  타인 프로필 뒤로가기가 정규화된 returnTo를 우선하도록 고정
+ * 2026.09.08  임도헌   Modified  공개 가능한 최근 작성 게시글 미리보기 추가
+ * 2026.09.09  임도헌   Modified  리뷰·공개 상품 초기 목록을 service에서 직접 조회해 세션 재검증 제거
  */
 
 import { Metadata } from "next";
@@ -55,13 +57,13 @@ import {
   getUserProfile,
   resolveUserIdByUsername,
 } from "@/features/user/service/profile";
-import { getUserReviewsAction } from "@/features/user/actions/review";
 import { getUserReviews } from "@/features/user/service/review";
 import { getUserAverageRating } from "@/features/user/service/metric";
 import { getAllBadges, getUserBadges } from "@/features/user/service/badge";
-import { getUserProductsAction } from "@/features/user/actions/product";
+import { getUserProductsList } from "@/features/product/service/userList";
 import { getRecentBroadcasts } from "@/features/stream/service/list";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
+import { getPostsList } from "@/features/post/service/post";
 export const dynamic = "force-dynamic";
 
 /** URL username을 기반으로 사용자 프로필 메타데이터를 생성한다. */
@@ -87,7 +89,7 @@ export async function generateMetadata(props: {
  * - URL의 username을 활용한 대상 사용자 ID 식별 및 정보 로드
  * - returnTo 쿼리를 내부 경로로 정규화해 상단 뒤로가기 폴백 경로로 사용
  * - 본인 프로필 접근 시 내 프로필 페이지(`/profile`)로 강제 리다이렉트 처리
- * - 프로필 코어 정보, 평점, 뱃지, 최근 방송 목록의 서버 사이드 병렬 로드 적용
+ * - 프로필 코어 정보, 평점, 뱃지, 최근 방송·작성글의 서버 사이드 병렬 로드 적용
  * - TanStack Query를 활용한 대상 유저의 리뷰, 판매 중/판매 완료 상품 목록 서버 프리패치(Prefetch) 적용
  * - HydrationBoundary를 통한 직렬화된 캐시 상태 클라이언트 전달
  */
@@ -129,40 +131,52 @@ export default async function UserProfilePage(props: {
   const queryClient = getQueryClient();
 
   // 4. 데이터 병렬 로딩
-  const [averageRating, badges, userBadges, streams, previewReviews] =
-    await Promise.all([
-      getUserAverageRating(userProfile.id),
-      getAllBadges(),
-      getUserBadges(userProfile.id),
-      userProfile.isBlocked
-        ? Promise.resolve([])
-        : getRecentBroadcasts(userProfile.id, 6, false, viewerId),
-      getUserReviews(userProfile.id, null, 2, viewerId).then(
-        (res) => res.reviews
-      ),
+  const [
+    averageRating,
+    badges,
+    userBadges,
+    streams,
+    previewReviews,
+    recentPosts,
+  ] = await Promise.all([
+    getUserAverageRating(userProfile.id),
+    getAllBadges(),
+    getUserBadges(userProfile.id),
+    userProfile.isBlocked
+      ? Promise.resolve([])
+      : getRecentBroadcasts(userProfile.id, 6, false, viewerId),
+    getUserReviews(userProfile.id, null, 2, viewerId).then(
+      (res) => res.reviews
+    ),
+    userProfile.isBlocked
+      ? Promise.resolve([])
+      : getPostsList(
+          { authorId: userProfile.id },
+          viewerId ?? -1,
+          null,
+          2
+        ).then((res) => res.posts),
 
-      // TanStack Query Prefetch
-      queryClient.prefetchInfiniteQuery({
-        queryKey: queryKeys.reviews.user(userProfile.id, viewerId),
-        queryFn: () => getUserReviewsAction(userProfile.id, null),
-        initialPageParam: null as number | null,
-      }),
-      queryClient.prefetchInfiniteQuery({
-        queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
-        queryFn: () =>
-          getUserProductsAction(
-            { type: "SELLING", userId: userProfile.id },
-            null
-          ),
-        initialPageParam: null as number | null,
-      }),
-      queryClient.prefetchInfiniteQuery({
-        queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
-        queryFn: () =>
-          getUserProductsAction({ type: "SOLD", userId: userProfile.id }, null),
-        initialPageParam: null as number | null,
-      }),
-    ]);
+    // TanStack Query Prefetch
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.reviews.user(userProfile.id, viewerId),
+      // 서버 렌더에서 확인한 조회자를 전달해 리뷰 Action의 세션 재검증 방지
+      queryFn: () => getUserReviews(userProfile.id, null, 10, viewerId),
+      initialPageParam: null as number | null,
+    }),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.products.userScope("SELLING", userProfile.id),
+      queryFn: () =>
+        getUserProductsList({ type: "SELLING", userId: userProfile.id }, null),
+      initialPageParam: null as number | null,
+    }),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.products.userScope("SOLD", userProfile.id),
+      queryFn: () =>
+        getUserProductsList({ type: "SOLD", userId: userProfile.id }, null),
+      initialPageParam: null as number | null,
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-background transition-colors pb-24">
@@ -204,6 +218,7 @@ export default async function UserProfilePage(props: {
             userBadges={userBadges}
             previewReviews={previewReviews}
             myStreams={streams}
+            recentPosts={recentPosts}
             viewerId={viewerId ?? undefined}
           />
         </HydrationBoundary>

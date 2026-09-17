@@ -21,10 +21,13 @@
  * 2026.09.01  임도헌   Modified  중간 너비에서 신고 정보와 처리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
  * 2026.09.04  임도헌   Modified  신고 목록에 대상 제목·사용자명과 작성자 식별 정보 표시
  * 2026.09.06  임도헌   Modified  파란 카드 액션 버튼의 라이트모드 포커스를 흰 내부 링으로 구분
+ * 2026.09.12  임도헌   Modified  검색·상태 필터 결과 0건 상태에 조건 초기화 동선 추가
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -33,6 +36,7 @@ import TimeAgo from "@/components/ui/TimeAgo";
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
+import AdminListEmptyState from "@/features/report/components/admin/AdminListEmptyState";
 import ReportStatusBadge from "@/features/report/components/admin/ReportStatusBadge";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import {
@@ -85,12 +89,18 @@ export default function AdminReportListContainer({
   const [reports, setReports] = useState<AdminReportItem[]>(data.items);
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const currentSearch = searchParams?.toString();
-  const hasQuery = !!searchParams.get("q")?.trim();
+  const hasActiveFilters =
+    !!searchParams.get("q")?.trim() || currentStatus !== "PENDING";
   const autoOpenReportId = Number(searchParams.get("open"));
-  const selectedReport =
+  const activeReport =
     selectedReportId !== null
       ? (reports.find((report) => report.id === selectedReportId) ?? null)
       : null;
+  const [lastReport, setLastReport] = useState<AdminReportItem | null>(null);
+  useEffect(() => {
+    if (activeReport) setLastReport(activeReport);
+  }, [activeReport]);
+  const selectedReport = selectedReportId === null ? lastReport : activeReport;
   // 안전한 내부 복귀 경로
   // 상세 진입과 모달 자동 오픈을 오갈 때 raw 외부 경로가 다시 전파되지 않도록 내부 경로 정규화
   const returnTo = sanitizeCallbackUrl(
@@ -193,11 +203,20 @@ export default function AdminReportListContainer({
 
       <div className="space-y-4 xl:hidden">
         {reports.length === 0 ? (
-          <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
-            {hasQuery
-              ? "검색 조건에 맞는 신고가 없습니다."
-              : "신고 내역이 없습니다."}
-          </div>
+          <AdminListEmptyState
+            panel
+            title={
+              hasActiveFilters
+                ? "검색·필터 조건에 맞는 신고가 없습니다."
+                : "대기 중인 신고가 없습니다."
+            }
+            description={
+              hasActiveFilters
+                ? "검색어나 신고 상태 조건을 바꿔보세요."
+                : "새 신고가 접수되면 이곳에 표시됩니다."
+            }
+            resetHref={hasActiveFilters ? "/admin/reports" : undefined}
+          />
         ) : (
           reports.map((report) => {
             const targetHref = getTargetUrl(report, returnTo);
@@ -343,10 +362,22 @@ export default function AdminReportListContainer({
             <tbody className="divide-y divide-border-subtle">
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-20 text-center text-muted">
-                    {hasQuery
-                      ? "검색 조건에 맞는 신고가 없습니다."
-                      : "신고 내역이 없습니다."}
+                  <td colSpan={7} className="p-0">
+                    <AdminListEmptyState
+                      title={
+                        hasActiveFilters
+                          ? "검색·필터 조건에 맞는 신고가 없습니다."
+                          : "대기 중인 신고가 없습니다."
+                      }
+                      description={
+                        hasActiveFilters
+                          ? "검색어나 신고 상태 조건을 바꿔보세요."
+                          : "새 신고가 접수되면 이곳에 표시됩니다."
+                      }
+                      resetHref={
+                        hasActiveFilters ? "/admin/reports" : undefined
+                      }
+                    />
                   </td>
                 </tr>
               ) : (
@@ -475,11 +506,11 @@ export default function AdminReportListContainer({
         totalPages={data.totalPages}
       />
 
-      {selectedReportId && (
+      <ModalPresence open={selectedReportId !== null}>
         <ReportActionDialog
           open={!!selectedReportId}
           onClose={handleDialogClose}
-          reportId={selectedReportId}
+          reportId={selectedReportId ?? selectedReport?.id ?? 0}
           reportReason={selectedReport?.reason as ReportReason}
           currentStrikeTotal={selectedReport?.recentStrikeTotal ?? 0}
           reporterUsername={selectedReport?.reporter.username}
@@ -519,7 +550,7 @@ export default function AdminReportListContainer({
           existingAdminComment={selectedReport?.adminComment ?? null}
           onSuccess={handleSuccess}
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

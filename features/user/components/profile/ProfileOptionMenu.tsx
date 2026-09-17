@@ -169,7 +169,7 @@ export default function ProfileOptionMenu({
       <BottomSheet
         open={isMobile && isOpen}
         title="프로필 옵션"
-        description="유저 차단 또는 신고를 진행할 수 있습니다."
+        description="사용자 차단 또는 신고를 진행할 수 있습니다."
         onClose={() => setIsOpen(false)}
       >
         <div className="space-y-2 pt-2">
@@ -195,7 +195,10 @@ export default function ProfileOptionMenu({
               setIsOpen(false);
               setReportOpen(true);
             }}
-            className={cn(mobileActionClass, "text-primary hover:bg-surface-dim")}
+            className={cn(
+              mobileActionClass,
+              "text-primary hover:bg-surface-dim"
+            )}
           >
             <ExclamationTriangleIcon className="size-5 shrink-0" />
             신고하기
@@ -206,7 +209,7 @@ export default function ProfileOptionMenu({
       {/* 차단 확인 Dialog */}
       <ConfirmDialog
         open={confirmOpen}
-        title={isBlocked ? "차단 해제" : "유저 차단"}
+        title={isBlocked ? "차단 해제" : "사용자 차단"}
         description={
           isBlocked
             ? `${username}님의 차단을 해제하시겠습니까?`

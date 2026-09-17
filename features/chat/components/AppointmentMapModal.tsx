@@ -12,6 +12,8 @@
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 하단 닫기 버튼을 제거해 길찾기 CTA 중심으로 정리
  * 2026.08.27  임도헌   Modified  dialog 의미와 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 접근성 이름과 클릭 영역 보강
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useEffect, useRef } from "react";
@@ -19,10 +21,10 @@ import { createPortal } from "react-dom";
 import { Map, MapMarker } from "react-kakao-maps-sdk";
 import useKakaoLoader from "@/features/map/hooks/useKakaoLoader";
 import {
-  XMarkIcon,
   MapPinIcon,
   ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import { useModalFocus } from "@/hooks/useModalFocus";
@@ -94,12 +96,7 @@ export default function AppointmentMapModal({
             <MapPinIcon className="size-5 text-brand" />
             약속 장소
           </h3>
-          <button
-            onClick={onClose}
-            className="focus-ring-soft rounded-full p-1 text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+          <ModalCloseButton onClick={onClose} label="약속 장소 지도 닫기" />
         </div>
 
         {/* 지도 영역 */}

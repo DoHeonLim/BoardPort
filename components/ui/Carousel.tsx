@@ -17,6 +17,9 @@
  * 2026.04.11  임도헌   Modified  상세 이미지 좌우 네비게이션을 투명 오버레이 톤으로 완화하고 border/blur 제거
  * 2026.04.14  임도헌   Modified  확대 모달은 필요 시에만 지연 로드하고 상세별 이미지 sizes/quality를 주입할 수 있게 조정
  * 2026.09.06  임도헌   Modified  활성 이미지 확대 버튼과 사진 배경에 독립적인 위치 표시 보강
+ * 2026.09.11  임도헌   Modified  사진 명도와 무관한 좌우 탐색 버튼 대비 보강
+ * 2026.09.11  임도헌   Modified  Next.js 16 기준 첫 이미지 eager 로딩 전환
+ * 2026.09.11  임도헌   Modified  확대 보기의 기본 배율 사진 탐색 연결
  */
 "use client";
 
@@ -174,7 +177,8 @@ export default function Carousel({
                 // 캐러셀의 화면 가득 채우기보다 원본 비율 유지 우선
                 className="object-contain select-none"
                 sizes={imageSizes}
-                priority={index === 0}
+                loading={index === 0 ? "eager" : "lazy"}
+                fetchPriority={index === 0 ? "high" : undefined}
                 draggable={false}
                 quality={imageQuality}
                 unoptimized={!!image.isAnimated}
@@ -192,10 +196,10 @@ export default function Carousel({
               e.stopPropagation(); // 드래그 이벤트 전파 방지
               handlePrevious();
             }}
-            className="focus-ring-soft absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-transparent p-2 text-white/90 transition-colors hover:bg-black/10"
+            className="focus-ring-soft absolute left-2 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-white shadow-md ring-1 ring-white/40 backdrop-blur-sm transition-colors hover:bg-black/90"
             aria-label="이전 이미지"
           >
-            <ChevronLeftIcon className="h-6 w-6 drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" />
+            <ChevronLeftIcon className="size-5" />
           </button>
 
           <button
@@ -203,10 +207,10 @@ export default function Carousel({
               e.stopPropagation();
               handleNext();
             }}
-            className="focus-ring-soft absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-transparent p-2 text-white/90 transition-colors hover:bg-black/10"
+            className="focus-ring-soft absolute right-2 top-1/2 z-10 inline-flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-white shadow-md ring-1 ring-white/40 backdrop-blur-sm transition-colors hover:bg-black/90"
             aria-label="다음 이미지"
           >
-            <ChevronRightIcon className="h-6 w-6 drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" />
+            <ChevronRightIcon className="size-5" />
           </button>
 
           {/* 인디케이터 (Dots) */}
@@ -245,6 +249,9 @@ export default function Carousel({
         alt={`원본 이미지 ${currentIndex + 1}`}
         isAnimated={!!images[currentIndex].isAnimated}
         onClose={() => setIsZoomed(false)}
+        onPrevious={images.length > 1 ? handlePrevious : undefined}
+        onNext={images.length > 1 ? handleNext : undefined}
+        positionLabel={`${currentIndex + 1} / ${images.length}`}
       />
     </div>
   );

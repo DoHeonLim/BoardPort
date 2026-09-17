@@ -51,13 +51,13 @@ export default async function SMSLoginPage(props: {
 
   return (
     <AuthPageShell
-      title="등대 신호"
+      title="휴대폰 로그인"
       description="휴대폰 번호로 빠르게 로그인하세요"
     >
       <SmsForm callbackUrl={callbackUrl} />
 
       <div className="mt-6 text-center text-sm text-muted">
-        다른 방법으로 항해하시겠어요?{" "}
+        다른 방법으로 로그인하시겠어요?{" "}
         <Link
           href={loginHref}
           className="focus-ring-soft rounded-md px-1 py-0.5 font-medium text-brand transition-colors hover:underline dark:text-brand-light"

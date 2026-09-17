@@ -15,15 +15,13 @@
  * 2026.05.24  임도헌   Modified  삭제된 방송을 가리키는 알림 링크/이미지 정리 추가
  * 2026.08.22  임도헌   Modified  방송 썸네일 삭제를 MediaAsset provider ID 기준으로 전환
  * 2026.08.26  임도헌   Modified  moderation outbox용 외부 방송 자산 삭제 실패 전파 옵션 추가
+ * 2026.09.08  임도헌   Modified  방송 삭제 시 연결된 VOD_THUMBNAIL 자산 정리 추가
  */
 
 import "server-only";
 import db from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import {
-  deleteCloudflareImageAssetsById,
-  getLinkedMediaAssetIds,
-} from "@/features/media/service/assets";
+import { deleteCloudflareImageAssetsById } from "@/features/media/service/assets";
 
 /** 방송 transaction commit 뒤 정리할 Cloudflare VOD·썸네일 식별자. */
 export type BroadcastAssetCleanup = {
@@ -39,7 +37,7 @@ type BroadcastDeleteMeta = {
 type HardDeleteBroadcastTarget = {
   id: number;
   thumbnail: string | null;
-  vodAssets: { provider_asset_id: string }[];
+  vodAssets: { id: number; provider_asset_id: string }[];
 };
 
 /** 방송 삭제 권한 확인에 필요한 최소 메타 조회 */
@@ -155,10 +153,27 @@ export async function hardDeleteBroadcastWithCleanup(
   target: HardDeleteBroadcastTarget
 ) {
   const vodAssetIds = target.vodAssets.map((item) => item.provider_asset_id);
-  const thumbnailAssetIds = await getLinkedMediaAssetIds({
-    purpose: "STREAM_THUMBNAIL",
-    linkedEntityId: String(target.id),
+  const thumbnailAssets = await db.mediaAsset.findMany({
+    where: {
+      state: "ATTACHED",
+      OR: [
+        {
+          purpose: "STREAM_THUMBNAIL",
+          linkedEntityId: String(target.id),
+        },
+        {
+          purpose: "VOD_THUMBNAIL",
+          linkedEntityId: {
+            in: target.vodAssets.map((vod) => String(vod.id)),
+          },
+        },
+      ],
+    },
+    select: { providerAssetId: true },
   });
+  const thumbnailAssetIds = thumbnailAssets.map(
+    (asset) => asset.providerAssetId
+  );
 
   await db.$transaction(async (tx) => {
     if (thumbnailAssetIds.length > 0) {
@@ -206,7 +221,7 @@ export async function deleteBroadcastTx(
         id: true,
         thumbnail: true,
         vodAssets: {
-          select: { provider_asset_id: true },
+          select: { id: true, provider_asset_id: true },
         },
       },
     });
@@ -217,9 +232,19 @@ export async function deleteBroadcastTx(
 
     const thumbnailAssets = await tx.mediaAsset.findMany({
       where: {
-        purpose: "STREAM_THUMBNAIL",
-        linkedEntityId: String(broadcastId),
         state: "ATTACHED",
+        OR: [
+          {
+            purpose: "STREAM_THUMBNAIL",
+            linkedEntityId: String(broadcastId),
+          },
+          {
+            purpose: "VOD_THUMBNAIL",
+            linkedEntityId: {
+              in: broadcast.vodAssets.map((vod) => String(vod.id)),
+            },
+          },
+        ],
       },
       select: { providerAssetId: true },
     });

@@ -33,8 +33,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * 대시보드 페이지
- * - 핵심 KPI 카드와 최근 30일 운영 추이를 함께 보여준다.
- * - 빠른 이동 링크와 최근 신고/로그 위젯으로 실제 처리 맥락까지 이어준다.
+ * - 핵심 KPI 카드와 최근 30일 운영 추이를 함께 표시
+ * - 빠른 이동 링크와 최근 신고/로그 위젯으로 실제 처리 맥락까지 연결
  */
 export default async function AdminDashboard() {
   const result = await getAdminDashboardAction();
@@ -47,7 +47,7 @@ export default async function AdminDashboard() {
 
   const quickLinks = [
     { href: "/admin/reports", label: "신고 관리" },
-    { href: "/admin/users", label: "유저 관리" },
+    { href: "/admin/users", label: "사용자 관리" },
     { href: "/admin/products", label: "상품 관리" },
     { href: "/admin/posts", label: "게시글 관리" },
     { href: "/admin/streams", label: "방송 관리" },
@@ -77,7 +77,7 @@ export default async function AdminDashboard() {
       {/* 핵심 KPI 카드: 각 숫자는 해당 관리 화면으로 바로 이어지는 운영 진입점 */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
         <DashboardStatCard
-          title="총 회원 수"
+          title="총 사용자 수"
           value={metrics.userCount}
           unit="명"
           icon={<UsersIcon className="size-6 text-blue-500" />}

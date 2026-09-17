@@ -17,6 +17,7 @@
  * 2026.03.25  임도헌   Modified  제품 상세 전용 밀도 조정을 위해 className 주입 지원 추가
  * 2026.04.02  임도헌   Modified  채팅 진입 버튼 파일 헤더명과 JSDoc 태그 형식 정리
  * 2026.09.01  임도헌   Modified  반환된 채팅 경로를 클라이언트 라우터로 이동해 `NEXT_REDIRECT` 토스트 노출 방지
+ * 2026.09.13  임도헌   Modified  채팅 이동 CTA를 공통 비동기 버튼으로 통일
  */
 "use client";
 
@@ -26,6 +27,7 @@ import { toast } from "sonner";
 import { createChatRoomAction } from "@/features/product/actions/chat";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { cn } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 
 /**
  * 채팅방 생성 및 이동 버튼 컴포넌트
@@ -71,17 +73,14 @@ export default function ChatButton({
   };
 
   return (
-    <button
+    <Button
+      type="button"
       onClick={handleClick}
+      text="채팅으로 거래하기"
+      loading={isPending}
+      loadingText="이동 중..."
       disabled={isPending}
-      className={cn(
-        "w-full h-12 rounded-xl font-bold text-base shadow-sm",
-        "btn-primary",
-        "disabled:opacity-50 disabled:cursor-not-allowed",
-        className
-      )}
-    >
-      {isPending ? "이동 중..." : "채팅으로 거래하기"}
-    </button>
+      className={cn("h-12 font-bold shadow-sm disabled:opacity-50", className)}
+    />
   );
 }

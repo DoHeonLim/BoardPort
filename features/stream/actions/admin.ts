@@ -9,6 +9,7 @@
  * 2026.03.30  임도헌   Modified  방송 인사이트 조회 액션을 추가하고 관리자 페이지를 action 계층으로 통일
  * 2026.04.02  임도헌   Modified  관리자 스트림 액션 JSDoc 보강
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.09  임도헌   Modified  관리자 종료 직후 미존재 상태를 보장하는 updateTag 적용
  */
 "use server";
 
@@ -18,7 +19,7 @@ import {
   deleteStreamByAdmin,
 } from "../service/admin";
 import { verifyAdminAccess } from "@/features/auth/service/authSession";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import type { ServiceResult } from "@/lib/types";
 import type {
@@ -28,7 +29,7 @@ import type {
 
 /**
  * 관리자 방송 목록 조회 Action
- * - 관리자 권한을 검증하고 현재 송출 중인 방송 목록을 조회함
+ * - 관리자 권한 검증 후 현재 송출 중인 방송 목록 조회
  *
  * @param page - 현재 페이지
  * @param query - 검색어 (제목, 스트리머)
@@ -63,8 +64,8 @@ export async function getStreamsAdminInsightsAction(): Promise<
 
 /**
  * 관리자 방송 강제 종료 Action
- * - 관리자 권한을 검증하고 특정 방송을 강제로 삭제(종료)함
- * - 종료 후 관리자 목록 및 유저 공개 목록을 갱신함
+ * - 관리자 권한 검증 후 특정 방송 강제 삭제(종료)
+ * - 종료 후 관리자 목록 및 유저 공개 목록 갱신
  *
  * @param broadcastId - 대상 방송 ID
  * @param reason - 종료 사유 (Audit Log 기록용)
@@ -82,7 +83,7 @@ export async function deleteStreamAdminAction(
   const res = await deleteStreamByAdmin(auth.adminId, broadcastId, reason);
 
   if (res.success && res.data) {
-    revalidateTag(T.BROADCAST_DETAIL(broadcastId), { expire: 0 });
+    updateTag(T.BROADCAST_DETAIL(broadcastId));
     revalidatePath("/admin/streams");
     revalidatePath("/streams"); // 유저 공개 목록 갱신
     revalidatePath(`/profile/${res.data.username}/channel`);

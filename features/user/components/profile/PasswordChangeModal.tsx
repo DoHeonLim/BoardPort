@@ -31,6 +31,10 @@
  * 2026.06.19  임도헌   Modified  submit Button 패턴을 유지하면서 완료 버튼의 최소 너비와 높이 기준 보정
  * 2026.06.19  임도헌   Modified  X 닫기와 중복되는 푸터 취소 버튼을 제거해 비밀번호 변경 CTA 위계 정리
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 폼 제출 방지 타입 명시
+ * 2026.09.13  임도헌   Modified  비밀번호 변경 진행 표시 통일
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -42,17 +46,14 @@ import {
 } from "@/features/user/schemas";
 import { changePasswordAction } from "@/features/user/actions/profile";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
 import { toast } from "sonner";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { PASSWORD_MIN_LENGTH } from "@/lib/constants";
-import {
-  XMarkIcon,
-  LockClosedIcon,
-  KeyIcon,
-} from "@heroicons/react/24/outline";
+import { LockClosedIcon, KeyIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { applyFieldErrors } from "@/lib/applyFieldErrors";
 import { focusFirstFieldError } from "@/lib/focusFirstFieldError";
@@ -132,7 +133,7 @@ export default function PasswordChangeModal({
     focusFirstFieldError<PasswordChangeDTO>(formErrors, setFocus);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   const formId = "password-change-form";
 
@@ -240,7 +241,9 @@ export default function PasswordChangeModal({
   const footer = (
     <div className="flex justify-end">
       <Button
-        text={submitting ? "변경 중..." : "변경 완료"}
+        text="변경 완료"
+        loading={submitting}
+        loadingText="변경 중..."
         disabled={submitting}
         className="!h-10 w-full min-w-[112px] px-6 text-sm sm:w-auto"
         form={formId}
@@ -292,14 +295,12 @@ export default function PasswordChangeModal({
           >
             비밀번호 변경
           </h2>
-          <button
+          <ModalCloseButton
             onClick={doClose}
             disabled={submitting}
-            className="focus-ring-soft p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim rounded-full transition-colors disabled:opacity-50"
-            aria-label="닫기"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="비밀번호 변경 모달 닫기"
+            className="-mr-2"
+          />
         </div>
 
         {/* 폼 */}
@@ -308,7 +309,9 @@ export default function PasswordChangeModal({
 
           <div className="pt-2 flex justify-end">
             <Button
-              text={submitting ? "변경 중..." : "변경 완료"}
+              text="변경 완료"
+              loading={submitting}
+              loadingText="변경 중..."
               disabled={submitting}
               className="!h-10 w-auto min-w-[112px] px-6 text-sm"
               form={formId}
