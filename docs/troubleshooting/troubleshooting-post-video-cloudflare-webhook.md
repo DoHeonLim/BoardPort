@@ -89,7 +89,7 @@ READY 웹훅에서 `PostVideo.status`는 `READY`로 바꾸되, `draftKey`는 바
 
 ### 전략 3. error 웹훅은 `FAILED`로 수렴
 
-Cloudflare 처리 실패 payload는 `PostVideo.status = "FAILED"`로 반영합니다.
+Cloudflare 처리 실패 payload는 `UPLOADING` 또는 `PROCESSING` 상태의 동영상을 `FAILED`로 전환합니다. 이미 `READY` 또는 `FAILED`로 확정된 상태는 뒤늦게 도착한 반대 웹훅으로 되돌리지 않습니다.
 
 이 상태를 UI에서 보여주면 사용자는 처리 중으로 무한 대기하지 않고 다시 업로드를 선택할 수 있습니다.
 
@@ -115,7 +115,7 @@ Cloudflare 처리 실패 payload는 `PostVideo.status = "FAILED"`로 반영합�
 
 확인 포인트:
 
-- `status = PROCESSING`
+- 업로드 세션 생성 직후 `status = UPLOADING`
 - `draftKey` 존재
 - `uploadUid` 또는 `providerAssetId` 존재
 - 작성자 user id가 현재 사용자와 일치
@@ -133,7 +133,7 @@ Vercel logs 또는 서버 로그에서 `/api/webhooks/cloudflare` 요청을 확�
 
 ### 4.3 READY 매칭 확인
 
-READY 웹훅 후 `PostVideo`가 아래처럼 갱신되어야 합니다.
+`UPLOADING` 또는 `PROCESSING` 상태에서 READY 웹훅을 받으면 `PostVideo`가 아래처럼 갱신되어야 합니다.
 
 - `status = READY`
 - `providerAssetId` 또는 `uploadUid`가 Cloudflare asset uid와 연결
@@ -151,7 +151,7 @@ READY 웹훅 후 `PostVideo`가 아래처럼 갱신되어야 합니다.
 
 ### 4.5 실패 케이스 확인
 
-Cloudflare error payload 또는 direct upload 실패 후에는 아래처럼 보여야 합니다.
+처리 중인 동영상의 Cloudflare error payload 또는 direct upload 실패 후에는 아래처럼 보여야 합니다.
 
 - `status = FAILED`
 - 상세/수정 화면에서 실패 안내 표시
@@ -172,7 +172,7 @@ Cloudflare error payload 또는 direct upload 실패 후에는 아래처럼 보�
 - 삭제된 draft나 취소된 업로드에 대한 늦은 웹훅이 skip 로그만 남김
 - 외부 player 내부의 추적/통계성 콘솔 로그가 재생 기능에 영향 없음
 
-## 6. 이번에 확인한 점
+## 6. 설계에서 얻은 기준
 
 ### 6.1 외부 시스템 이벤트는 앱 내부 저장 흐름과 순서가 보장되지 않음
 
@@ -213,4 +213,5 @@ Cloudflare 웹훅은 사용자가 게시글 저장 버튼을 누르기 전에 �
 ## 8. 함께 보면 좋은 문서
 
 - [게시글 콘텐츠 시스템 설계](../design/post-content-system-design.md)
+- [Cloudflare 웹훅 멱등성·순서 제어](../operations/stream-webhook-idempotency.md)
 - [Lighthouse 보안 헤더 점검](./troubleshooting-lighthouse-security-headers.md)

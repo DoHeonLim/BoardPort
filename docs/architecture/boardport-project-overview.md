@@ -9,7 +9,7 @@ BoardPort는 보드게임 거래와 커뮤니티 활동을 하나의 서비스 �
 | 항목        | 내용                                                                                                        |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | 개발 형태   | 1인 Next.js 웹 서비스 프로젝트                                                                              |
-| 개발 기간   | 2024.10 - 현재                                                                                              |
+| 개발 기간   | 2024.10 - 2026.09                                                                                           |
 | 핵심 도메인 | 상품 거래, 보드게임 도감, 게시글, 채팅 약속, 방송/VOD, 알림, 관리자                                         |
 | 주요 기술   | Next.js 16 App Router, React 19, TypeScript, Prisma, PostgreSQL, TanStack Query, Zustand, Supabase Realtime |
 
@@ -69,6 +69,7 @@ BoardPort는 이 문제를 **거래 → 소통 → 약속 → 플레이 공유 �
 ### Community Posts
 
 - 카테고리 게시글, 댓글/대댓글
+- 최신순·조회순·좋아요순·댓글순 정렬
 - 텍스트, 이미지, 동영상, 임베드 블록 기반 콘텐츠
 - Cloudflare 웹훅 기반 동영상 처리 상태 관리
 - 리스트/그리드 보기와 대표 이미지·이미지 없음 상태 제공
@@ -123,7 +124,7 @@ Browser / PWA
 
 - `app/(public)`: 로그인, 회원가입, 공개 진입 화면
 - `app/(app)`: 로그인 후 접근 가능한 주요 서비스 화면
-- `middleware.ts`: 공개 경로, 게스트 전용 경로, 관리자 경로 보호
+- `proxy.ts`: 공개 경로, 게스트 전용 경로, 관리자 경로 보호
 - `robots.ts`, `sitemap.ts`: 로그인 기반 서비스에 맞춘 최소 공개 색인
 
 ### 도메인 구조
@@ -165,7 +166,7 @@ utils/        순수 유틸
 - 공용 `Button`에서 서버 폼과 클라이언트 비동기 작업의 진행 상태를 표시
 - 모바일 상품·게시글 목록의 두 줄/한 줄 전환은 560px 기준, 관리자 화면은 넓은 작업 공간 유지
 
-세부 배치와 남은 점검 항목은 [UI/UX 디자인 기준](../design/boardport-uiux-design-standard.md), 자동화 범위는 [테스트 전략](../operations/testing-strategy.md)을 참고합니다.
+세부 배치 기준은 [UI/UX 디자인 기준](../design/boardport-uiux-design-standard.md), 자동화 범위는 [테스트 전략](../operations/testing-strategy.md)을 참고합니다.
 
 ### Client State / Server State 분리
 
@@ -201,7 +202,7 @@ Realtime 이벤트는 화면 특성에 따라 payload를 즉시 반영하거나,
 - 채팅 메시지는 payload를 Query Cache에 즉시 반영
 - 알림은 payload로 Zustand 카운트와 토스트를 즉시 갱신
 - 채팅방 목록과 TabBar 미읽음 수 재검증
-- 방송 live-status는 상세 셸에서 한 번만 구독하고 payload callback과 `router.refresh()`를 함께 사용
+- 방송 상태 이벤트는 상세 셸에서 한 번만 구독하고 내부 방송 ID를 확인한 뒤 `router.refresh()`로 서버 상태 재검증
 - 알림은 pagehide/visibility 전환 시 정리와 복귀 동기화
 
 ### 소셜 공유 이미지 경로 분리

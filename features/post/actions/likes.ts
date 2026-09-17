@@ -1,5 +1,5 @@
 /**
- * File Name : features/post/actions/like.ts
+ * File Name : features/post/actions/likes.ts
  * Description : 게시글 좋아요 서버 액션
  * Author : 임도헌
  *

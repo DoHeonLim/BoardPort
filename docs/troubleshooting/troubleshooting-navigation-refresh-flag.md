@@ -32,12 +32,12 @@ BoardPort에서는 `목록 -> 상세 -> 수정 -> 저장/취소/삭제` 흐름�
 
 현재 구현은 아래처럼 정리합니다.
 
-| 흐름 | 기본 복귀 정책 | 최신화 방식 | fallback |
-| --- | --- | --- | --- |
-| 게시글 `detail-edit` | `push + back` | `post-detail-refresh:{id}` | 상세 경로 |
-| 제품 `detail-edit` | `push + back` | `product-detail-refresh:{id}` | `window.location.replace()` |
-| 제품 `modal-edit` | `push + back` | `product-modal-refresh:{id}` | `ProductModalReopenRelay` |
-| 풀페이지 상세 삭제 | `back` 우선 | 목록 refresh flag | 도메인별 fallback |
+| 흐름                 | 기본 복귀 정책 | 최신화 방식                   | fallback                    |
+| -------------------- | -------------- | ----------------------------- | --------------------------- |
+| 게시글 `detail-edit` | `push + back`  | `post-detail-refresh:{id}`    | 상세 경로                   |
+| 제품 `detail-edit`   | `push + back`  | `product-detail-refresh:{id}` | `window.location.replace()` |
+| 제품 `modal-edit`    | `push + back`  | `product-modal-refresh:{id}`  | `ProductModalReopenRelay`   |
+| 풀페이지 상세 삭제   | `back` 우선    | 목록 refresh flag             | 도메인별 fallback           |
 
 ### 1. 게시글 `detail-edit`
 
@@ -153,7 +153,7 @@ BoardPort에서는 `목록 -> 상세 -> 수정 -> 저장/취소/삭제` 흐름�
 
 `window.location.reload()`를 선택한 이유:
 
-`router.refresh()`는 SPA 방식으로 서버 데이터만 갱신합니다. 반면 `window.location.reload()`는 브라우저가 전체 문서를 새로 요청하면서 메모리의 라우터 트리를 처음부터 다시 구성합니다. mixed tree 잔상을 제거하는 데 가장 확실한 방법이지만, SPA 상태 전체가 초기화되는 비용도 있습니다. 삭제 직후 목록 복귀라는 문맥에서는 이 비용이 허용 가능하다고 판단했습니다.
+`router.refresh()`는 SPA 방식으로 서버 데이터를 갱신합니다. 반면 `window.location.reload()`는 브라우저가 전체 문서를 새로 요청하면서 메모리의 라우터 트리를 처음부터 다시 구성합니다. 재현 환경에서는 이 방식으로 mixed tree 잔상을 해소했지만, SPA 상태 전체가 초기화되는 비용도 있습니다. 적용 범위는 삭제 직후 목록 복귀로 제한했습니다.
 
 cursor 보정이 필요했던 이유:
 
@@ -182,7 +182,7 @@ cursor 보정이 필요했던 이유:
 
 현재 BoardPort 구현은 기본적으로 존재하지 않는 상세에 대해 서버에서 `notFound()`를 반환합니다.
 
-현재 게시글 / 제품 / 녹화 삭제는 hard delete 기준입니다. 따라서 존재하지 않는 상세에 대한 `notFound()` 방어로 충분합니다.
+현재 게시글 / 제품 / 녹화는 DB에서 삭제합니다. 서버에서 상세 데이터를 다시 조회할 때 대상이 없으면 `notFound()`로 처리합니다.
 단, 이후 soft delete나 `deleted_at` 상태를 유지하는 도메인을 도입하면 상세 조회 단계에서 삭제 상태를 별도로 검사해야 합니다.
 
 - 게시글 상세: [app/(app)/posts/[id]/page.tsx](<../../app/(app)/posts/[id]/page.tsx>)

@@ -1,5 +1,5 @@
 /**
- * File Name : features/notification/components/NotificationSettingsClient
+ * File Name : features/notification/components/NotificationSettingsClient.tsx
  * Description : 알림 설정 서버 폼 컴포넌트 (알림 종류 + 방해 금지 시간)
  * Author : 임도헌
  *

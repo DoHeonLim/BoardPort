@@ -220,13 +220,13 @@ App Router는 soft navigation 상태를 메모리에 유지합니다.
 
 ## 5. 결과
 
-| 문제 | 해결 결과 |
-| --- | --- |
-| 저장 후 404 | 라우터 트리 불일치 원인 파악 후 복귀 경로 정리 |
-| 히스토리 중복 순환 | `back 우선` 정책으로 기본 목록/모달 엔트리 중복 완화 |
-| 채팅 왕복 후 목록 무한 로딩 | 모달 닫기를 `returnTo replace`로 고정해 이전 채팅 히스토리 재진입 차단 |
-| stale 데이터 복귀 | `navigationRefreshFlag` 1회 소비로 복귀 직후 최신화 |
-| 모달 직접 진입/새로고침 문맥 | `ProductModalReopenRelay`가 fallback 재오픈만 담당 |
+| 문제                         | 해결 결과                                                              |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| 저장 후 404                  | 라우터 트리 불일치 원인 파악 후 복귀 경로 정리                         |
+| 히스토리 중복 순환           | `back 우선` 정책으로 기본 목록/모달 엔트리 중복 완화                   |
+| 채팅 왕복 후 목록 무한 로딩  | 모달 닫기를 `returnTo replace`로 고정해 이전 채팅 히스토리 재진입 차단 |
+| stale 데이터 복귀            | `navigationRefreshFlag` 1회 소비로 복귀 직후 최신화                    |
+| 모달 직접 진입/새로고침 문맥 | `ProductModalReopenRelay`가 fallback 재오픈만 담당                     |
 
 ### 모달에서 수정 시작
 
@@ -248,7 +248,7 @@ App Router는 soft navigation 상태를 메모리에 유지합니다.
 - 예전 `products -> modal detail -> edit -> products -> modal detail` 식 중복은 크게 줄어듦
 - 직접 진입/새로고침 문맥만 fallback 릴레이가 개입
 
-## 6. 이번에 확인한 점
+## 6. 설계에서 얻은 기준
 
 ### 6.1 App Router에서 URL과 라우터 트리는 다른 개념이다
 
@@ -279,22 +279,13 @@ App Router를 쓸 때는 “어떤 URL인가”만큼 “어떤 트리 상태인
 
 ## 7. 정리
 
-이 사례는 제품 상세 라우팅 문제를 “404 해결”만으로 보면 부족하다는 점을 보여줍니다.
-실제로는 아래 세 가지를 함께 맞춰야 했습니다.
-
-1. Parallel / Intercepting Route의 라우터 트리 정합성
-2. 모달/상세/수정 간 히스토리 정책
-3. 복귀 직후 stale 데이터의 1회 최신화
-
-현재 코드는 아래 기준으로 맞춰두었습니다.
+상세·수정 화면의 복귀와 데이터 갱신은 다음 기준으로 처리합니다.
 
 1. 일반 상세 수정은 `push + back + detail refresh` 기반
 2. 모달 상세 수정은 `push + back + modal refresh` 기반
 3. `ProductModalReopenRelay`는 모달 재오픈 fallback 전용
 4. `product-modal-refresh`는 복귀 후 1회 최신화 전용
 5. `ProductListRefreshRelay`는 제품 목록 mixed tree 정리 전용
-
-결국 제품 모달 라우팅은 **`replace + relay`를 기본 전략으로 쓰는 구조가 아니라, `back 우선 + relay fallback` 구조**로 정리됐습니다.
 
 ## 8. 함께 보면 좋은 문서
 

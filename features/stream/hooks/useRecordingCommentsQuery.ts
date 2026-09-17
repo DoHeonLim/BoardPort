@@ -1,5 +1,5 @@
 /**
- * File Name : features/stream/hooks/useRecordingCommentsQuery.ts(전 이름: useRecordingComment)
+ * File Name : features/stream/hooks/useRecordingCommentsQuery.ts
  * Description : 녹화본 댓글 조회 전용 훅 (CQRS Query 분리 & Suspense 적용)
  * Author : 임도헌
  *

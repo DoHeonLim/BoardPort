@@ -13,21 +13,21 @@ BoardPort는 범용 중고거래 서비스에서 분리되기 쉬운 **상품 �
 | 항목             | 내용                                                                                                             |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
 | 개발 형태        | 1인 기획·설계·개발·배포·운영                                                                                     |
-| 개발 기간        | 2024.10 - 2026.07                                                                                                |
+| 개발 기간        | 2024.10 - 2026.09                                                                                                |
 | 핵심 사용자 흐름 | 도감 탐색 → 상품/콘텐츠 확인 → 채팅·약속 → 거래·후기 → 라이브/VOD                                                |
 | 담당 범위        | Frontend, Backend, Data Modeling, Realtime, Media, PWA, Admin, CI/CD                                             |
 | 핵심 스택        | Next.js 16 App Router, React 19, TypeScript, Prisma 7, PostgreSQL, TanStack Query v5, Zustand, Supabase Realtime |
 
 ## Key Engineering Problems
 
-기능 수보다 **도메인 사이의 상태 정합성**, **비동기 이벤트의 순서**, **App Router의 탐색 문맥**을 안정화하는 데 집중했습니다.
+거래 상태의 불일치, 비동기 이벤트의 순서 역전, 상세·수정 화면 사이의 복귀 오류를 다음과 같이 처리했습니다.
 
-| 문제                                                          | 설계 판단                                                                                                                              | 결과 및 근거                                                                                                                                                                  |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 채팅 약속 수락과 상품 예약 상태가 서로 어긋날 수 있음         | 약속 수락, 상품 예약 전환, 다른 대기 약속 취소, 시스템 메시지를 하나의 transaction으로 처리하고 조건부 `updateMany`로 동시 수락을 방어 | 약속과 상품이 하나의 확정 상태로 전환되도록 만들고 경쟁 요청의 중복 수락을 차단 — [상세 문서](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)        |
-| Server State, UI State, Realtime 이벤트의 갱신 책임이 섞임    | Zustand는 UI 상태, TanStack Query는 서버 상태로 분리하고 Realtime은 화면 성격에 따라 payload 즉시 반영 또는 DB 재검증 신호로 처리      | 메시지·알림의 즉시성을 유지하면서 목록·미읽음 수·방송 상태는 DB의 확정 상태로 수렴 — [상세 문서](./docs/architecture/case-study-state-management-modernization.md)            |
-| 모달 상세, 일반 상세, 수정 화면의 URL과 복귀 문맥이 충돌함    | Intercepting Route와 일반 상세를 함께 지원하고 `returnTo`, `flow`, 1회성 refresh flag로 문맥을 분리                                    | 공유 가능한 상세 URL을 유지하면서 목록·모달·수정 화면 사이의 뒤로가기와 최신화 흐름을 안정화 — [상세 문서](./docs/troubleshooting/troubleshooting-product-modal-routing.md)   |
-| Cloudflare 인코딩 이벤트와 게시글 저장의 순서가 보장되지 않음 | READY 선도착을 허용하고 실제 게시글 연결 전까지 `draftKey`를 보존하며 실패 이벤트를 `FAILED`로 수렴                                    | 이벤트 순서가 바뀌어도 영상을 연결하고 `PROCESSING` 상태가 무기한 고착되는 문제를 방지 — [상세 문서](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md) |
+| 문제                                                          | 설계 판단                                                                                                                              | 결과 및 근거                                                                                                                                                                          |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 채팅 약속 수락과 상품 예약 상태가 서로 어긋날 수 있음         | 약속 수락, 상품 예약 전환, 다른 대기 약속 취소, 시스템 메시지를 하나의 transaction으로 처리하고 조건부 `updateMany`로 동시 수락을 방어 | 약속과 상품이 하나의 확정 상태로 전환되도록 만들고 경쟁 요청의 중복 수락을 차단 — [상세 문서](./docs/troubleshooting/troubleshooting-appointment-atomic-transition.md)                |
+| Server State, UI State, Realtime 이벤트의 갱신 책임이 섞임    | Zustand는 UI 상태, TanStack Query는 서버 상태로 분리하고 Realtime은 화면 성격에 따라 payload 즉시 반영 또는 DB 재검증 신호로 처리      | 메시지·알림의 즉시성을 유지하면서 목록·미읽음 수·방송 상태는 DB의 확정 상태로 수렴 — [상세 문서](./docs/architecture/case-study-state-management-modernization.md)                    |
+| 모달 상세, 일반 상세, 수정 화면의 URL과 복귀 문맥이 충돌함    | Intercepting Route와 일반 상세를 함께 지원하고 `returnTo`, `flow`, 1회성 refresh flag로 문맥을 분리                                    | 공유 가능한 상세 URL을 유지하면서 목록·모달·수정 화면 사이의 뒤로가기와 최신화 흐름을 안정화 — [상세 문서](./docs/troubleshooting/troubleshooting-product-modal-routing.md)           |
+| Cloudflare 인코딩 이벤트와 게시글 저장의 순서가 보장되지 않음 | READY 선도착을 허용하고 실제 게시글 연결 전까지 `draftKey`를 보존하며 실패 이벤트를 `FAILED`로 반영                                    | READY가 먼저 도착해도 게시글에 영상을 연결하고, 인코딩 실패 이벤트 수신 시 처리 중 상태를 종료 — [상세 문서](./docs/troubleshooting/troubleshooting-post-video-cloudflare-webhook.md) |
 
 ## Demo
 
@@ -122,7 +122,7 @@ BoardPort의 주요 도메인과 사용자 흐름을 한 번에 확인할 수 �
 
 ## System Architecture
 
-초기 데이터는 Server Component에서 service 계층 또는 세션·viewer 정보를 주입하는 조회용 Server Action을 서버에서 호출해 준비합니다. 주요 목록의 Client queryFn은 Route Handler fetch를 사용하고, 채팅 메시지·리뷰·팔로우·검색 기록 등 일부 기존 조회와 사용자 변경 작업은 Server Action을 유지합니다. Realtime 이벤트는 화면 특성에 따라 payload를 즉시 반영하거나 DB의 확정 상태를 재검증하는 신호로 사용하고, 외부 웹훅은 비동기 처리 결과를 DB 상태 전이로 반영합니다.
+Server Component에서 초기 데이터를 준비하고, 클라이언트는 TanStack Query로 서버 데이터를 관리합니다. 주요 목록의 재조회에는 Route Handler를, 사용자 변경 작업에는 Server Action을 사용합니다. 실시간 이벤트와 외부 웹훅의 처리 방식은 [상태 관리 문서](./docs/architecture/case-study-state-management-modernization.md)와 [프로젝트 개요](./docs/architecture/boardport-project-overview.md)에 정리했습니다.
 
 ![BoardPort System Architecture](./docs/assets/readme/boardport-system-architecture.png)
 
@@ -178,7 +178,7 @@ README에서는 결과를 빠르게 확인하고, 아래 문서에서는 문제�
 ```text
 app/          App Router 페이지, 레이아웃, 메타 라우트, Route Handler
 components/   전역 레이아웃 및 공통 UI 컴포넌트
-docs/         공개용 설계, 운영, 트러블슈팅 문서
+docs/         설계, 운영, 트러블슈팅 문서
 features/     도메인별 비즈니스 로직과 UI
 hooks/        공용 hooks
 lib/          세션, query keys, store, 공통 유틸
