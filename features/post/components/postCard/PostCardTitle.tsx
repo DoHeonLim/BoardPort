@@ -12,6 +12,7 @@
  * 2026.03.06  임도헌   Modified  모바일 그리드 제목 줄간격 및 최소 높이를 조정해 카드 하단 공백을 완화
  * 2026.03.26  임도헌   Modified  리스트 카드 모바일 제목을 2줄까지 허용해 긴 제목 가독성을 보강
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 카드 제목 weight를 500 기준으로 정리하고 리스트 모바일 크기를 표준 스케일로 조정
+ * 2026.09.12  임도헌   Modified  그리드 제목의 강제 최소 높이를 제거해 짧은 제목 아래 빈 공간 축소
  */
 "use client";
 
@@ -23,7 +24,7 @@ interface PostCardTitleProps {
 }
 
 /**
- * 게시글 제목을 표시합니다.
+ * 게시글 제목 표시
  * - Grid View: 최대 2줄 표시 (line-clamp-2)
  * - List View: 최대 1줄 표시 (line-clamp-1)
  */
@@ -33,7 +34,7 @@ export default function PostCardTitle({ title, viewMode }: PostCardTitleProps) {
       className={cn(
         "font-medium text-primary transition-colors group-hover:text-brand dark:group-hover:text-brand-light leading-snug",
         viewMode === "grid"
-          ? "text-sm sm:text-base line-clamp-2 min-h-[1.5rem] sm:min-h-[2.5rem]"
+          ? "text-sm sm:text-base line-clamp-2"
           : "text-base sm:text-lg line-clamp-2 sm:line-clamp-1"
       )}
     >

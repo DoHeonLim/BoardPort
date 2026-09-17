@@ -254,7 +254,7 @@ export default function ProfileSettingMenu({
             className="focus-ring-soft flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-primary hover:bg-surface-dim transition-colors"
           >
             <UserMinusIcon className="size-4 shrink-0" />
-            차단한 선원 관리
+            차단한 사용자 관리
           </button>
 
           <div role="separator" className="h-px bg-border-subtle" />

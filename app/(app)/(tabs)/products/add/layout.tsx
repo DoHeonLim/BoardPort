@@ -15,14 +15,17 @@
  * 2026.08.27  임도헌   Modified  상위 탭 레이아웃과 중복되던 main 랜드마크 제거
  * 2026.08.28  임도헌   Modified  상품 등록 레이아웃 함수 JSDoc 보강
  * 2026.09.03  임도헌   Modified  직접 진입에서도 뒤로가기가 상품 목록으로 복귀하도록 고정
+ * 2026.09.12  임도헌   Modified  헤더 경계선을 상품 등록 본문 폭에 맞춰 정렬
+ * 2026.09.12  임도헌   Modified  returnTo 기반 상품 등록 이전 화면 복귀 지원
+ * 2026.09.13  임도헌   Modified  작성 화면 상단바를 공통 하위 화면 헤더로 통일
  */
 
 import type { ReactNode } from "react";
 import BackButton from "@/components/global/BackButton";
-import { cn } from "@/lib/utils";
+import SubpageHeader from "@/components/global/SubpageHeader";
 
 /**
- * 상품 등록 화면의 상단 앱바와 본문 컨테이너를 구성한다.
+ * 상품 등록 화면의 상단 앱바와 본문 컨테이너를 구성
  *
  * @param props - 상품 등록 페이지 콘텐츠
  * @returns 상품 등록 전용 레이아웃
@@ -34,24 +37,18 @@ export default function AddProductLayout({
 }) {
   return (
     <div className="min-h-screen bg-background text-primary transition-colors">
-      {/* 상단바 */}
-      <header
-        className={cn(
-          "sticky top-0 z-40 h-[52px] w-full",
-          "border-b border-border-subtle bg-background shadow-sm",
-          "transition-colors"
-        )}
-        role="banner"
-      >
-        <div className="mx-auto flex h-full max-w-mobile items-center gap-2.5 px-3">
+      <SubpageHeader
+        title="상품 등록"
+        contentClassName="max-w-mobile"
+        backAction={
           <BackButton
             fallbackHref="/products"
             preferFallback
+            useReturnTo
             variant="appbar"
           />
-          <h1 className="text-base font-medium text-primary">상품 등록</h1>
-        </div>
-      </header>
+        }
+      />
 
       {/* 본문 컨테이너 */}
       <div className="mx-auto max-w-mobile pb-20">{children}</div>

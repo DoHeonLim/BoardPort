@@ -84,7 +84,7 @@ async function fetchStreamsPage(url: string): Promise<StreamsPage> {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error("스트리밍 목록을 불러오지 못했습니다.");
+    throw new Error("방송 목록을 불러오지 못했습니다.");
   }
 
   return (await response.json()) as StreamsPage;

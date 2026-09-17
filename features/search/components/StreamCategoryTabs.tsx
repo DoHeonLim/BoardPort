@@ -76,7 +76,7 @@ export default function StreamCategoryTabs({
   }, [searchParam]);
 
   /**
-   * 데스크톱 카테고리 레일을 지정한 방향으로 이동한다.
+   * 데스크톱 카테고리 레일을 지정한 방향으로 이동
    *
    * @param direction - 이동할 가로 방향
    */
@@ -114,7 +114,7 @@ export default function StreamCategoryTabs({
         <nav
           ref={scrollContainerRef}
           className="flex gap-1.5 overflow-x-auto scrollbar-hide px-0.5 py-0.5 sm:gap-2"
-          aria-label="스트리밍 카테고리"
+          aria-label="방송 카테고리"
         >
           <Link
             href={buildHref(undefined)}

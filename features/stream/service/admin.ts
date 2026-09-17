@@ -12,6 +12,7 @@
  * 2026.03.31  임도헌   Modified  관리자 종료도 일반 삭제와 같은 VOD/썸네일 cleanup 규칙을 재사용
  * 2026.05.15  임도헌   Modified  관리자 방송 검색 범위에 태그명 포함
  * 2026.05.16  임도헌   Modified  관리자 방송 검색 where 조건 타입 명시
+ * 2026.09.08  임도헌   Modified  관리자 삭제 대상에 녹화본 ID를 포함해 사용자 썸네일 정리 연결
  */
 
 import "server-only";
@@ -141,9 +142,8 @@ export async function getStreamsAdminInsights(
   now: Date = new Date()
 ): Promise<ServiceResult<AdminStreamInsights>> {
   try {
-    const { buildRecentDayBuckets } = await import(
-      "@/features/report/utils/analytics"
-    );
+    const { buildRecentDayBuckets } =
+      await import("@/features/report/utils/analytics");
 
     const twentyFourHoursAgo = new Date(now);
     twentyFourHoursAgo.setHours(now.getHours() - 23, 0, 0, 0);
@@ -198,7 +198,9 @@ export async function getStreamsAdminInsights(
 
     // 최근 7일 시작 추이를 같은 일 단위 버킷으로 정규화
     const startBuckets = buildRecentDayBuckets(
-      recentStarts.flatMap((item) => (item.started_at ? [item.started_at] : [])),
+      recentStarts.flatMap((item) =>
+        item.started_at ? [item.started_at] : []
+      ),
       7,
       now
     );
@@ -247,7 +249,8 @@ export async function getStreamsAdminInsights(
                   const endedAt = stream.ended_at;
                   if (!startedAt || !endedAt) return acc;
                   return (
-                    acc + (endedAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60)
+                    acc +
+                    (endedAt.getTime() - startedAt.getTime()) / (1000 * 60 * 60)
                   );
                 }, 0) / endedRecentStreams.length
               : 0,
@@ -288,7 +291,7 @@ export async function deleteStreamByAdmin(
         title: true,
         thumbnail: true,
         vodAssets: {
-          select: { provider_asset_id: true },
+          select: { id: true, provider_asset_id: true },
         },
         liveInput: {
           select: {

@@ -16,6 +16,7 @@
  * 2026.04.17  임도헌   Modified  메인 FAB와 최근 본 상품 진입점의 지연 노출 책임이 주석에서 바로 드러나도록 설명 보강
  * 2026.04.26  임도헌   Modified  다크모드 FAB 색조를 primary CTA 톤과 맞춰 정리
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.12  임도헌   Modified  상품 등록 취소 시 현재 목록 문맥 복귀 지원
  */
 "use client";
 
@@ -37,7 +38,11 @@ const RecentViewedProductsFab = dynamic(
  * - 최근 본 상품 진입점은 idle 이후에만 동적 로딩해 products 초기 평가 비용을 낮춤
  * - 모바일 하단 안전 영역과 탭바 높이를 고려해 리스트 가림을 최소화
  */
-export default function AddProductButton() {
+export default function AddProductButton({
+  returnTo = "/products",
+}: {
+  returnTo?: string;
+}) {
   const [showRecentViewed, setShowRecentViewed] = useState(false);
 
   useEffect(() => {
@@ -70,7 +75,7 @@ export default function AddProductButton() {
       {showRecentViewed ? <RecentViewedProductsFab /> : null}
 
       <Link
-        href="/products/add"
+        href={`/products/add?returnTo=${encodeURIComponent(returnTo)}`}
         prefetch={false}
         title="새 상품 추가"
         aria-label="상품 추가"
@@ -83,7 +88,7 @@ export default function AddProductButton() {
           "bottom-[calc(80px+env(safe-area-inset-bottom))] sm:bottom-24"
         )}
       >
-        <PlusIcon className="size-7 sm:size-10" />
+        <PlusIcon aria-hidden="true" className="size-7 sm:size-10" />
       </Link>
     </>
   );

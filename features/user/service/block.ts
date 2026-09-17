@@ -83,8 +83,7 @@ export async function blockUserService(
     console.error("blockUserService error:", error);
     return {
       success: false,
-      error:
-        "유저 차단에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "사용자 차단에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
@@ -118,8 +117,7 @@ export async function unblockUserService(
     console.error("unblockUserService error:", error);
     return {
       success: false,
-      error:
-        "유저 차단 해제에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "사용자 차단 해제에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

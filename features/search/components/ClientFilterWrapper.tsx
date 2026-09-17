@@ -17,9 +17,11 @@
  * 2026.03.12  임도헌   Modified  헤더 필터 버튼과 모달 래퍼의 compact/tone 분기 역할 명확화
  * 2026.04.02  임도헌   Modified  검색 필터 타입 import를 search 도메인 공용 타입 기준으로 정리
  * 2026.04.20  임도헌   Modified  제품 헤더 필터 트리거에 공용 포커스 링을 적용해 neutral 버튼 문법을 맞춤
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
@@ -73,14 +75,14 @@ export default function ClientFilterWrapper({
         <span className={compact ? "sr-only" : ""}>필터</span>
       </button>
 
-      {isFilterOpen && (
+      <ModalPresence open={isFilterOpen}>
         <SearchFilters
           isOpen={isFilterOpen}
           onClose={() => setIsFilterOpen(false)}
           categories={categories}
           filters={filters}
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

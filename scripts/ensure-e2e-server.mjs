@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.05.24  임도헌   Created   E2E 실행 전 dev server 미실행 상태를 명확한 안내로 차단
  * 2026.08.28  임도헌   Modified  로컬 개발·production 서버 실행 방법을 함께 안내
+ * 2026.09.14  임도헌   Modified  Bash·WSL과 PowerShell의 seed 테스트 실행 명령 구분
  */
 
 // 기본은 로컬 E2E 서버를 보지만, 필요하면 다른 preview URL로도 검증할 수 있다.
@@ -40,6 +41,9 @@ try {
   console.error("아래 순서를 함께 사용합니다.");
   console.error("");
   console.error("   npm run seed:e2e");
+  console.error("   # Bash / WSL");
+  console.error("   E2E_SEEDED=1 npm run test:e2e -- --project=chromium");
+  console.error("   # PowerShell");
   console.error('   $env:E2E_SEEDED="1"');
   console.error("   npm run test:e2e -- --project=chromium");
   console.error("   Remove-Item Env:E2E_SEEDED");

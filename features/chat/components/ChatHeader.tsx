@@ -37,6 +37,7 @@
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
  * 2026.09.02  임도헌   Modified  로그인 복귀 후 앱 뒤로가기가 방문 기록 대신 채팅의 안전한 returnTo를 사용하도록 보완
  * 2026.09.03  임도헌   Modified  약속 수락 후 RSC refresh로 전달된 상품 상태를 헤더 로컬 상태에 동기화
+ * 2026.09.13  임도헌   Modified  판매 상태 복귀 안내의 거래 후기 용어 통일
  */
 
 import Image from "next/image";
@@ -136,8 +137,8 @@ export default function ChatHeader({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
 
-  // 약속 수락 이벤트의 router.refresh 결과를 헤더 메뉴에도 반영한다.
-  // 로컬 상태 액션 뒤에도 서버가 다시 전달한 값을 최종 상태로 사용한다.
+  // 약속 수락 이벤트의 router.refresh 결과를 헤더 메뉴에도 반영
+  // 로컬 상태 액션 뒤에도 서버가 다시 전달한 값을 최종 상태로 사용
   useEffect(() => {
     setProductState(product);
   }, [product]);
@@ -276,7 +277,7 @@ export default function ChatHeader({
       if (res?.success) {
         // 리뷰 삭제 로직은 서버 트랜잭션으로 이관됨
         toast.success(
-          "판매 중으로 되돌렸어요. 이 상품에 작성된 리뷰도 모두 삭제되었습니다."
+          "판매 중으로 되돌렸어요. 이 상품에 작성된 거래 후기도 모두 삭제되었습니다."
         );
         setProductState((prev) => ({
           ...prev,
@@ -627,7 +628,7 @@ export default function ChatHeader({
       <ConfirmDialog
         open={revertDialogOpen}
         title="판매 상태를 되돌릴까요?"
-        description="판매 완료를 취소하고 '판매 중' 상태로 돌립니다. 관련 리뷰도 모두 삭제됩니다."
+        description="판매 완료를 취소하고 '판매 중' 상태로 돌립니다. 관련 거래 후기도 모두 삭제됩니다."
         confirmLabel="변경"
         onConfirm={handleSoldToSelling}
         onCancel={() => setRevertDialogOpen(false)}

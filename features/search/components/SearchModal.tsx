@@ -22,6 +22,7 @@
  * 2026.04.26  임도헌   Modified  모바일/데스크톱 검색 모달에 dialog 의미와 스크린리더 제목을 보강
  * 2026.04.26  임도헌   Modified  닫기 버튼의 visible copy에서 단축키 설명을 제거해 액션 라벨만 남김
  * 2026.08.27  임도헌   Modified  검색 입력 초기 포커스·Tab 순환·Escape·복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.12  임도헌   Modified  검색 닫기 버튼의 폼 제출 방지 타입 명시
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -121,6 +122,7 @@ export default function SearchModal({
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border-subtle bg-background px-3 py-3 shrink-0">
           <button
+            type="button"
             onClick={onClose}
             className="focus-ring-soft inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-dim text-muted shadow-sm transition-colors hover:bg-surface hover:text-primary"
             aria-label="닫기"
@@ -219,6 +221,7 @@ export default function SearchModal({
         {/* Footer Area */}
         <div className="flex justify-end border-t border-border-subtle bg-surface p-4 shrink-0">
           <button
+            type="button"
             onClick={onClose}
             className="focus-ring-soft flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-bold text-muted transition-colors hover:bg-surface-dim hover:text-primary"
           >

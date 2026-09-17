@@ -41,18 +41,22 @@
  * 2026.08.22  임도헌   Modified  게시글 전용 업로드 용도와 서버가 반환한 MediaAsset delivery URL 사용
  * 2026.08.27  임도헌   Modified  모션 축소 설정에 따라 편집기 블록 스크롤 동작 조정
  * 2026.09.06  임도헌   Modified  새 블록 DOM 반영 후 입력 포커스와 스크롤 위치 동기화
+ * 2026.09.10  임도헌   Modified  도감 작성 진입의 보드게임 초기값과 상세 복귀 문맥 적용
+ * 2026.09.12  임도헌   Modified  태그와 관련 장소를 선택 입력 섹션으로 묶어 작성 흐름 단순화
+ * 2026.09.14  임도헌   Modified  선택 입력 오류 발생 시 접힌 섹션을 열고 오류 필드로 이동
  */
 "use client";
 
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DropResult } from "@hello-pangea/dnd";
 import TagInput from "@/components/ui/TagInput";
 import FormErrorSummary from "@/components/ui/FormErrorSummary";
+import OptionalFormSection from "@/components/ui/OptionalFormSection";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
 import { getUploadUrl } from "@/lib/cloudflareImages";
@@ -96,6 +100,7 @@ interface PostFormProps {
   initialValues?: PostFormValues & { id?: number };
   initialVideo?: PostVideo | null;
   initialBlocks?: PostBlock[];
+  initialBoardGameIds?: number[];
   backUrl: string;
   boardGameOptions?: BoardGameRelationOption[];
   submitLabel?: string;
@@ -138,6 +143,7 @@ export default function PostForm({
   initialValues,
   initialVideo,
   initialBlocks,
+  initialBoardGameIds = [],
   backUrl,
   boardGameOptions = [],
   submitLabel = "작성 완료",
@@ -166,10 +172,10 @@ export default function PostForm({
         hasAttachedVideo: false,
         removeVideo: false,
         tags: [],
-        boardGameIds: [],
+        boardGameIds: initialBoardGameIds,
         location: null,
       },
-    [initialValues]
+    [initialBoardGameIds, initialValues]
   );
 
   // 편집기 초기 블록
@@ -233,7 +239,6 @@ export default function PostForm({
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     control,
     formState: { errors },
@@ -343,8 +348,19 @@ export default function PostForm({
 
   // 위치 관련 상태
   const [isMapOpen, setIsMapOpen] = useState(false);
-  const location = watch("location");
-  const selectedBoardGameIds = watch("boardGameIds") ?? [];
+  const location = useWatch({ control, name: "location" });
+  const tags = useWatch({ control, name: "tags" }) ?? [];
+  const selectedBoardGameIds =
+    useWatch({ control, name: "boardGameIds" }) ?? [];
+  const optionalInfoStatus = [
+    tags.length > 0 ? `태그 ${tags.length}개` : null,
+    location ? "장소 선택됨" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const [isOptionalInfoOpen, setIsOptionalInfoOpen] = useState(
+    Boolean(optionalInfoStatus)
+  );
 
   /**
    * 지도에서 선택한 위치를 게시글 위치 값으로 반영
@@ -720,10 +736,10 @@ export default function PostForm({
         toast.success(
           isEdit ? "게시글이 수정되었습니다." : "게시글이 등록되었습니다."
         );
-        const nextHref =
-          isEdit && backUrl
-            ? `/posts/${result.postId}?returnTo=${encodeURIComponent(backUrl)}`
-            : `/posts/${result.postId}`;
+        const shouldPreserveReturnTo = isEdit || backUrl !== "/posts";
+        const nextHref = shouldPreserveReturnTo
+          ? `/posts/${result.postId}?returnTo=${encodeURIComponent(backUrl)}`
+          : `/posts/${result.postId}`;
 
         if (isEdit && editFlow === "detail-edit") {
           // 상세 진입 편집 복귀
@@ -741,9 +757,15 @@ export default function PostForm({
       }
 
       if (result.fieldErrors) {
-        applyFieldErrors<PostFormValues>(setError, result.fieldErrors, {
-          setFocus,
-        });
+        const fieldErrors = result.fieldErrors;
+        const applyErrors = () =>
+          applyFieldErrors<PostFormValues>(setError, fieldErrors, { setFocus });
+        if (fieldErrors.tags?.length || fieldErrors.location?.length) {
+          setIsOptionalInfoOpen(true);
+          requestAnimationFrame(applyErrors);
+        } else {
+          applyErrors();
+        }
       }
       if (result.error) {
         toast.error(result.error);
@@ -766,6 +788,13 @@ export default function PostForm({
    * @param formErrors - React Hook Form 오류 객체
    */
   const onInvalid = (formErrors: typeof errors) => {
+    if (formErrors.tags || formErrors.location) {
+      setIsOptionalInfoOpen(true);
+      requestAnimationFrame(() =>
+        focusFirstFieldError<PostFormValues>(formErrors, setFocus)
+      );
+      return;
+    }
     focusFirstFieldError<PostFormValues>(formErrors, setFocus);
   };
 
@@ -832,21 +861,29 @@ export default function PostForm({
           onRemoveImageBlockAsset={removeImageBlockAsset}
         />
 
-        <TagInput
-          name="tags"
-          control={control}
-          maxTags={5}
-          resetSignal={resetSignal}
-          disabled={isUploading}
-        />
-        <PostLocationSection
-          location={location ?? null}
-          isUploading={isUploading}
-          onOpenMap={() => setIsMapOpen(true)}
-          onClearLocation={() =>
-            setValue("location", null, { shouldDirty: true })
-          }
-        />
+        <OptionalFormSection
+          title="추가 정보"
+          description="검색 태그와 게시글 관련 장소"
+          status={optionalInfoStatus || undefined}
+          open={isOptionalInfoOpen}
+          onOpenChange={setIsOptionalInfoOpen}
+        >
+          <TagInput
+            name="tags"
+            control={control}
+            maxTags={5}
+            resetSignal={resetSignal}
+            disabled={isUploading}
+          />
+          <PostLocationSection
+            location={location ?? null}
+            isUploading={isUploading}
+            onOpenMap={() => setIsMapOpen(true)}
+            onClearLocation={() =>
+              setValue("location", null, { shouldDirty: true })
+            }
+          />
+        </OptionalFormSection>
 
         <PostFormActions
           isUploading={isUploading}

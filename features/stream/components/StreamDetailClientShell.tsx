@@ -19,6 +19,7 @@
  * 2026.05.29  임도헌   Modified  채팅 열림 상태에 따라 방송 정보 높이 제한과 스크롤 기준 적용
  * 2026.08.21  임도헌   Modified  실시간 상태 이벤트를 Cloudflare UID 대신 내부 방송 ID로 매칭
  * 2026.08.21  임도헌   Modified  실시간 payload 직접 반영 대신 router refresh 결과로 방송 상태 재검증
+ * 2026.09.08  임도헌   Modified  사용자 썸네일 수정 결과를 상세 로컬 상태에 반영
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -58,7 +59,7 @@ interface StreamDetailClientShellProps {
  * 스트림 상세 전용 클라이언트 셸
  *
  * - 스트림 상세 내부에서만 쓰이는 채팅 열림 상태를 로컬 state로 관리
- * - 방송 제목/설명 변경과 실시간 메타 업데이트를 로컬 stream state에 합쳐 상세 UI에 즉시 반영
+ * - 방송 표시 정보 변경과 실시간 메타 업데이트를 로컬 stream state에 합쳐 상세 UI에 즉시 반영
  * - 상단바, 상세 레이아웃, 데스크톱/모바일 채팅 컴포넌트에 동일 상태를 props로 전달
  * - 상세 전용 실시간 상태 구독과 `main` 랜드마크를 이 셸에 모아 페이지 진입 구조를 단순하게 유지
  * - 모바일 키보드 오픈 시 상단바와 상세 영역을 접고 채팅 레일 중심의 입력 레이아웃으로 전환
@@ -150,6 +151,7 @@ export default function StreamDetailClientShell({
           ownerUsername={streamState.user.username}
           title={streamState.title}
           description={streamState.description}
+          customThumbnail={streamState.customThumbnail}
           visibility={streamState.visibility}
           isOwner={isOwner}
           backFallbackHref={returnTo}
@@ -161,6 +163,12 @@ export default function StreamDetailClientShell({
               ...prev,
               title: next.title,
               description: next.description,
+              ...(next.thumbnail !== undefined
+                ? {
+                    customThumbnail: next.thumbnail,
+                    thumbnailAnimated: next.thumbnailAnimated ?? false,
+                  }
+                : {}),
             }))
           }
         />

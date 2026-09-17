@@ -32,16 +32,22 @@
  * 2026.03.28  임도헌   Modified  팔로워 모달의 비맞팔 섹션 라벨을 추천 대신 설명형 문구로 바꿔 기준을 명확화
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.27  임도헌   Modified  포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.12  임도헌   Modified  닫기 버튼의 접근성 이름과 장식 아이콘 의미 분리
+ * 2026.09.14  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  공용 시트와 같은 속도의 모바일 진입·퇴장 전환 적용
+ * 2026.09.14  임도헌   Modified  퇴장 중 상호작용 차단 및 동작 줄이기 설정 반영
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import FollowListItem from "@/features/user/components/follow/FollowListItem";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { cn } from "@/lib/utils";
 import type { FollowListUser } from "@/features/user/types";
 import { useModalFocus } from "@/hooks/useModalFocus";
+
+const TRANSITION_DURATION_MS = 200;
 
 type FollowListError =
   | { stage: "first"; message: string }
@@ -95,6 +101,8 @@ export default function FollowListModal({
   error,
   onRetry,
 }: FollowListModalProps) {
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isVisible, setIsVisible] = useState(false);
   const isMoreError = error?.stage === "more";
   const isFirstError = error?.stage === "first";
 
@@ -112,18 +120,49 @@ export default function FollowListModal({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    let animationFrame: number | undefined;
+    let exitTimer: number | undefined;
+
+    if (isOpen) {
+      setShouldRender(true);
+      animationFrame = window.requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+    } else {
+      setIsVisible(false);
+      exitTimer = window.setTimeout(
+        () => {
+          setShouldRender(false);
+        },
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : TRANSITION_DURATION_MS
+      );
+    }
+
+    return () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      if (exitTimer !== undefined) {
+        window.clearTimeout(exitTimer);
+      }
+    };
+  }, [isOpen]);
+
   /**
    * 모달이 열려 있는 동안 배경 문서 스크롤을 잠금
    */
   useEffect(() => {
-    if (!isOpen) return;
+    if (!shouldRender) return;
 
     lockBodyScroll();
 
     return () => {
       unlockBodyScroll();
     };
-  }, [isOpen]);
+  }, [shouldRender]);
 
   useModalFocus({
     open: isOpen,
@@ -144,15 +183,24 @@ export default function FollowListModal({
     threshold: 0.1,
   });
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   const titleId = `followlist-title-${kind}`;
   const restLabel = kind === "followers" ? "나를 팔로우하는 사용자" : "팔로잉";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+    <div
+      inert={!isOpen}
+      className={cn(
+        "fixed inset-0 z-50 flex items-end justify-center sm:items-center",
+        !isVisible && "pointer-events-none"
+      )}
+    >
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className={cn(
+          "fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ease-out",
+          isVisible ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -164,21 +212,22 @@ export default function FollowListModal({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "relative w-full sm:max-w-md bg-surface shadow-xl overflow-hidden outline-none flex flex-col",
-          "min-h-[280px] max-h-[80dvh] rounded-t-2xl animate-slide-up sm:max-h-[600px] sm:rounded-2xl",
-          "border-t sm:border border-border-subtle"
+          "relative flex w-full flex-col overflow-hidden border-t border-border-subtle bg-surface shadow-xl outline-none transition-[transform,opacity] duration-200 ease-out sm:max-w-md sm:border",
+          "min-h-[280px] max-h-[80dvh] rounded-t-2xl sm:max-h-[600px] sm:rounded-2xl",
+          isVisible
+            ? "translate-y-0 opacity-100 sm:scale-100"
+            : "translate-y-full opacity-100 sm:translate-y-0 sm:scale-95 sm:opacity-0"
         )}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface shrink-0">
           <h2 id={titleId} className="text-lg font-bold text-primary">
             {title}
           </h2>
-          <button
+          <ModalCloseButton
             onClick={onClose}
-            className="focus-ring-soft rounded-full p-2 -mr-2 text-muted hover:text-primary hover:bg-surface-dim transition-colors"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="팔로우 목록 닫기"
+            className="-mr-2"
+          />
         </div>
 
         {/* 스크롤 페이징 중 에러 발생 시 렌더링되는 경고 배너 */}

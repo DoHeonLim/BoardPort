@@ -20,12 +20,15 @@
  * 2026.04.26  임도헌   Modified  리뷰 작성 모달에 dialog 의미와 별점 radiogroup, 후기 입력 라벨을 추가해 접근성을 보강
  * 2026.06.19  임도헌   Modified  X 닫기 버튼을 추가하고 푸터 취소 버튼을 제거해 후기 작성 CTA 위계 정리
  * 2026.08.27  임도헌   Modified  포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.13  임도헌   Modified  거래 후기 제출 CTA에 공통 비동기 버튼 적용
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import UserAvatar from "@/components/global/UserAvatar";
 import { StarIcon } from "@heroicons/react/24/solid";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
+import Button from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useModalFocus } from "@/hooks/useModalFocus";
 
@@ -129,15 +132,11 @@ export default function CreateReviewModal({
           >
             거래 후기 작성
           </h2>
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={handleBackdrop}
             disabled={isSubmitting}
-            aria-label="거래 후기 작성 모달 닫기"
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="거래 후기 작성 모달 닫기"
+          />
         </div>
 
         {/* 본문 */}
@@ -204,13 +203,15 @@ export default function CreateReviewModal({
 
         {/* 하단 액션 */}
         <div className="shrink-0 px-6 py-4 border-t border-border-subtle bg-surface flex justify-end">
-          <button
+          <Button
+            type="button"
             onClick={handleSubmit}
+            text="후기 남기기"
+            loading={isSubmitting}
+            loadingText="작성 중..."
             disabled={disabled}
-            className="btn-primary h-10 text-sm"
-          >
-            {isSubmitting ? "작성 중..." : "후기 남기기"}
-          </button>
+            className="h-10 w-auto min-w-28 text-sm"
+          />
         </div>
       </div>
     </div>

@@ -52,10 +52,7 @@ export default async function LoginPage(props: {
   const callbackUrl = sanitizeCallbackUrl(raw);
 
   return (
-    <AuthPageShell
-      title="항해 준비"
-      description="이메일로 로그인하여 항해를 시작하세요"
-    >
+    <AuthPageShell title="항해 준비" description="이메일로 로그인하세요">
       <LoginForm
         callbackUrl={callbackUrl}
         initialErrorMessage={initialErrorMessage}

@@ -73,7 +73,9 @@ Evaluating a string as JavaScript violates the following Content Security Policy
 
 ### 2.3 Workbox 경유 이미지/썸네일 `connect-src`
 
-Workbox 서비스워커가 이미지 리소스를 `fetch` 경로로 처리하면서, 이미지 출처가 `img-src`뿐 아니라 `connect-src`에서도 관찰되는 케이스를 확인했습니다.
+당시 next-pwa/Workbox 서비스워커가 이미지 리소스를 `fetch` 경로로 처리하면서, 이미지 출처가 `img-src`뿐 아니라 `connect-src`에서도 관찰되는 케이스를 확인했습니다.
+
+현재는 Serwist로 전환했으며 runtime cache는 같은 출처의 `/_next/static`, `/images`로 제한합니다. 외부 이미지 요청을 Workbox가 처리한다는 설명은 당시 사례에만 해당합니다. 전환 기준은 [의존성 업그레이드 기록](../operations/dependency-security-upgrade.md)을 따릅니다.
 
 현재 앱 필수 출처로 반영된 예:
 

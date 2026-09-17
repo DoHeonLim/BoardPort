@@ -51,7 +51,21 @@ docker ps -a --filter "name=boardport-migration-test"
 
 ## 3. 배포 전 검증
 
-빈 PostgreSQL에서 전체 migration과 최종 schema 정합성을 먼저 검증합니다.
+빈 PostgreSQL에서 전체 migration과 최종 schema 정합성을 먼저 검증합니다. 앞의 Docker 실행기는 도메인 테스트 후 컨테이너를 제거하므로, 이 검증에는 별도의 `boardport_release_test` DB를 준비합니다. 저장소 루트에서 실행하며 `55432` 포트가 비어 있어야 합니다.
+
+```bash
+docker run --detach --rm \
+  --name boardport-release-test \
+  --env POSTGRES_USER=postgres \
+  --env POSTGRES_PASSWORD=postgres \
+  --env POSTGRES_DB=boardport_release_test \
+  --publish 127.0.0.1:55432:5432 \
+  postgres:16
+
+docker exec boardport-release-test pg_isready -U postgres -d boardport_release_test
+```
+
+`pg_isready`가 `accepting connections`를 반환한 뒤 다음 명령을 실행합니다. 아직 준비되지 않았다면 준비 확인 명령을 다시 실행합니다.
 
 ```bash
 RELEASE_MIGRATION_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:55432/boardport_release_test?schema=public" \
@@ -66,6 +80,12 @@ npx prisma migrate diff \
 ```
 
 `No difference detected.`가 아닌 경우 운영 DB에 적용하지 않습니다. GitHub의 `Full Migration and Seed Smoke`도 같은 검증을 수행합니다.
+
+검증이 끝나면 성공·실패 여부와 관계없이 전용 컨테이너를 종료합니다. `--rm`으로 생성했으므로 테스트 DB도 함께 제거됩니다.
+
+```bash
+docker stop boardport-release-test
+```
 
 ## 4. 운영 migration 순서
 

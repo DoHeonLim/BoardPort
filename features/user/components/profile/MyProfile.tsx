@@ -55,9 +55,13 @@
  * 2026.05.17  임도헌   Modified   차단 유저 목록 상태 타입을 BlockedUserSummary로 명시
  * 2026.06.18  임도헌   Modified   정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.08.13  임도헌   Modified  내 프로필 리뷰 목록에 현재 조회자 ID 전달
+ * 2026.09.08  임도헌   Modified  하단 섹션에 최근 작성 게시글 전달
+ * 2026.09.11  임도헌   Modified  프로필 보조 링크의 모바일 터치 영역 보강
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -87,6 +91,7 @@ import type {
   UserProfile,
 } from "@/features/user/types";
 import type { PushNotificationStatus } from "@/features/notification/types";
+import type { PostDetail } from "@/features/post/types";
 
 const ProfileReviewsModal = dynamic(() => import("./ProfileReviewsModal"), {
   ssr: false,
@@ -129,6 +134,7 @@ type MyProfileProps = {
   userBadges: Badge[];
   previewReviews: import("@/features/user/types").ProfileReview[];
   myStreams?: BroadcastSummary[];
+  recentPosts: PostDetail[];
   viewerId?: number;
 };
 
@@ -136,9 +142,9 @@ type MyProfileProps = {
  * 내 프로필 메인 UI 컴포넌트
  *
  * [상태 주입 및 상호작용 제어 로직]
- * - 서버로부터 하이드레이션(Hydration)된 유저 정보, 평점, 뱃지, 최근 방송 데이터를 선언적으로 렌더링
+ * - 서버로부터 하이드레이션(Hydration)된 유저 정보, 평점, 뱃지, 최근 방송·작성글 데이터를 선언적으로 렌더링
  * - 프로필 헤더/인증/알림/내 동네처럼 첫 화면 맥락에 필요한 섹션은 즉시 렌더링
- * - 거래 정보/내 방송국/후기/뱃지/계정 액션은 `MyProfileDeferredSections`로 분리해 아래 영역 부하를 지연 처리
+ * - 거래 정보/내 방송국/작성글/후기/뱃지/계정 액션은 `MyProfileDeferredSections`로 분리해 아래 영역 부하를 지연 처리
  * - `useModalStore` 기반 Zustand 전역 상태 구독을 통한 다중 모달(리뷰, 뱃지, 이메일, 비밀번호, 차단 관리 등) 표시 제어
  * - 차단한 유저 데이터 로딩(Server Action) 중 토스트 피드백 표시 및 로딩 완료 시 상태 병합 처리
  */
@@ -149,6 +155,7 @@ export default function MyProfile({
   userBadges,
   previewReviews,
   myStreams,
+  recentPosts,
   viewerId,
 }: MyProfileProps) {
   const pathname = usePathname();
@@ -157,9 +164,9 @@ export default function MyProfile({
   const returnTo = sanitizeCallbackUrl(
     currentQuery ? `${pathname}?${currentQuery}` : pathname
   );
-  const [blockedUsers, setBlockedUsers] = useState<
-    BlockedUserSummary[] | null
-  >(null);
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUserSummary[] | null>(
+    null
+  );
   const [blockedUsersLoading, setBlockedUsersLoading] = useState(false);
   const [pushStatus, setPushStatus] =
     useState<PushNotificationStatus>("disabled");
@@ -234,12 +241,12 @@ export default function MyProfile({
 
       {/* 2. 알림 설정 및 기기 상태 안내 */}
       <section>
-        <div className="flex items-end justify-between mb-3 px-1">
+        <div className="mb-3 flex min-h-10 items-center justify-between px-1">
           <h2 className="text-sm font-bold text-primary">알림 설정</h2>
           <Link
             href={`/profile/notifications/setting?returnTo=${encodeURIComponent(returnTo)}`}
             prefetch={false}
-            className="focus-ring-soft rounded-md text-xs text-muted hover:text-brand dark:hover:text-brand-light transition-colors"
+            className="focus-ring-soft -mr-2 inline-flex min-h-10 items-center rounded-lg px-2 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-brand dark:hover:text-brand-light"
           >
             상세 설정
           </Link>
@@ -336,6 +343,7 @@ export default function MyProfile({
       {/* 4. 초기 프로필 렌더 보호를 위한 하단 섹션 지연 렌더링 */}
       <MyProfileDeferredSections
         myStreams={myStreams}
+        recentPosts={recentPosts}
         previewReviews={previewReviews}
         returnTo={returnTo}
         user={user}
@@ -345,37 +353,37 @@ export default function MyProfile({
         onOpenWithdraw={() => openModal("withdraw")}
       />
 
-      {/* 5. Zustand 기반 모달의 실제 열림 시점 한정 렌더링 */}
-      {modals.review && (
+      {/* 5. 모달 퇴장 전환 후 내부 상태 정리 */}
+      <ModalPresence open={modals.review}>
         <ProfileReviewsModal
           isOpen={modals.review}
           onClose={() => closeModal("review")}
           userId={user.id}
           viewerId={user.id}
         />
-      )}
-      {modals.badge && (
+      </ModalPresence>
+      <ModalPresence open={modals.badge}>
         <ProfileBadgesModal
           isOpen={modals.badge}
           closeModal={() => closeModal("badge")}
           badges={badges}
           userBadges={userBadges}
         />
-      )}
-      {modals.email && (
+      </ModalPresence>
+      <ModalPresence open={modals.email}>
         <EmailVerificationModal
           isOpen={modals.email}
           onClose={() => closeModal("email")}
           email={user.email || ""}
         />
-      )}
-      {modals.password && (
+      </ModalPresence>
+      <ModalPresence open={modals.password}>
         <PasswordChangeModal
           isOpen={modals.password}
           onClose={() => closeModal("password")}
         />
-      )}
-      {modals.block && (
+      </ModalPresence>
+      <ModalPresence open={modals.block}>
         <BlockedUsersModal
           isOpen={modals.block}
           onClose={() => closeModal("block")}
@@ -383,13 +391,13 @@ export default function MyProfile({
           loading={blockedUsersLoading}
           onUsersChange={setBlockedUsers}
         />
-      )}
-      {modals.withdraw && (
+      </ModalPresence>
+      <ModalPresence open={modals.withdraw}>
         <WithdrawalModal
           isOpen={modals.withdraw}
           onClose={() => closeModal("withdraw")}
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

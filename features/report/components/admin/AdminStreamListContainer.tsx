@@ -15,6 +15,7 @@
  * 2026.04.10  임도헌   Modified  방송 목록 카드와 테이블의 배지·메타 타이포를 400·500·700 정책에 맞춰 정리
  * 2026.04.18  임도헌   Modified  강제 종료 모달을 지연 로드해 관리자 목록 초기 번들 비용을 완화
  * 2026.09.01  임도헌   Modified  중간 너비에서 방송 정보와 관리 동작이 잘리지 않도록 카드·테이블 전환 시점을 확장 화면으로 조정
+ * 2026.09.12  임도헌   Modified  검색 결과 0건 상태에 조건 초기화 동선 추가
  */
 
 "use client";
@@ -31,6 +32,7 @@ import {
 import TimeAgo from "@/components/ui/TimeAgo";
 import AdminSearchBar from "@/features/report/components/admin/AdminSearchBar";
 import AdminPagination from "@/features/report/components/admin/AdminPagination";
+import AdminListEmptyState from "@/features/report/components/admin/AdminListEmptyState";
 import { sanitizeCallbackUrl } from "@/features/auth/utils/redirect";
 import { deleteStreamAdminAction } from "@/features/stream/actions/admin";
 import type { AdminStreamListResponse } from "@/features/stream/types";
@@ -99,11 +101,20 @@ export default function AdminStreamListContainer({
 
       <div className="space-y-4 xl:hidden">
         {items.length === 0 ? (
-          <div className="rounded-2xl border border-border-subtle bg-surface px-5 py-16 text-center text-sm text-muted shadow-sm">
-            {hasQuery
-              ? "검색 조건에 맞는 방송이 없습니다."
-              : "현재 진행 중인 방송이 없습니다."}
-          </div>
+          <AdminListEmptyState
+            panel
+            title={
+              hasQuery
+                ? "검색 조건에 맞는 방송이 없습니다."
+                : "현재 진행 중인 방송이 없습니다."
+            }
+            description={
+              hasQuery
+                ? "검색어를 바꾸거나 조건을 초기화해보세요."
+                : "방송이 시작되면 이곳에 표시됩니다."
+            }
+            resetHref={hasQuery ? "/admin/streams" : undefined}
+          />
         ) : (
           items.map((stream) => (
             <article
@@ -205,10 +216,20 @@ export default function AdminStreamListContainer({
             <tbody className="divide-y divide-border-subtle">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center text-muted">
-                    {hasQuery
-                      ? "검색 조건에 맞는 방송이 없습니다."
-                      : "현재 진행 중인 방송이 없습니다."}
+                  <td colSpan={6} className="p-0">
+                    <AdminListEmptyState
+                      title={
+                        hasQuery
+                          ? "검색 조건에 맞는 방송이 없습니다."
+                          : "현재 진행 중인 방송이 없습니다."
+                      }
+                      description={
+                        hasQuery
+                          ? "검색어를 바꾸거나 조건을 초기화해보세요."
+                          : "방송이 시작되면 이곳에 표시됩니다."
+                      }
+                      resetHref={hasQuery ? "/admin/streams" : undefined}
+                    />
                   </td>
                 </tr>
               ) : (

@@ -12,25 +12,22 @@
  * 2026.02.26  임도헌   Modified  다크모드 가시성 개선
  * 2026.03.06  임도헌   Modified  모바일 그리드 카드에서 헤더 배지 밀도를 조정
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 카테고리 배지 weight와 text-xs 스케일을 정리
+ * 2026.09.12  임도헌   Modified  사용하지 않는 뷰 모드 속성을 제거해 카테고리 배지 책임 정리
  */
 "use client";
 
 import { POST_CATEGORY, PostCategoryType } from "@/features/post/constants";
 import { cn } from "@/lib/utils";
-import type { ViewMode } from "@/features/product/types";
 
 interface PostCardHeaderProps {
   category: string;
-  viewMode?: ViewMode;
 }
 
 /**
  * 게시글의 카테고리를 뱃지 형태로 표시
  * 상수(`POST_CATEGORY`)를 사용하여 카테고리 코드를 사람이 읽을 수 있는 이름으로 변환
  */
-export default function PostCardHeader({
-  category,
-}: PostCardHeaderProps) {
+export default function PostCardHeader({ category }: PostCardHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-0.5">
       <span

@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.01.24  임도헌   Created   Zod 스키마 정의
+ * 2026.09.13  임도헌   Modified  거래 후기 검증 문구 통일
  */
 
 import { z } from "zod";
@@ -23,13 +24,13 @@ export const createReviewSchema = z.object({
     .trim()
     .min(
       REVIEW_MIN_LENGTH,
-      `리뷰는 최소 ${REVIEW_MIN_LENGTH}자 이상이어야 합니다.`
+      `거래 후기는 최소 ${REVIEW_MIN_LENGTH}자 이상이어야 합니다.`
     )
     .max(
       REVIEW_MAX_LENGTH,
-      `리뷰는 최대 ${REVIEW_MAX_LENGTH}자까지 가능합니다.`
+      `거래 후기는 최대 ${REVIEW_MAX_LENGTH}자까지 가능합니다.`
     ),
-    rate: z
+  rate: z
     .number()
     .min(REVIEW_RATING_MIN)
     .max(REVIEW_RATING_MAX)

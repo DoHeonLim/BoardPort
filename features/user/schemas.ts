@@ -47,12 +47,12 @@ export const profileEditSchema = ({
 }: ProfileEditSchemaOptions) =>
   z
     .object({
-      username: requiredTrimmedString("유저명을 입력해주세요.")
+      username: requiredTrimmedString("닉네임을 입력해주세요.")
         .toLowerCase()
-        .min(3, "유저명은 최소 3자 이상이어야 합니다.")
+        .min(3, "닉네임은 최소 3자 이상이어야 합니다.")
         .max(
           USERNAME_MAX_LENGTH,
-          `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
+          `닉네임은 최대 ${USERNAME_MAX_LENGTH}자까지 가능합니다.`
         ),
 
       email: normalizeNullableString(
@@ -63,14 +63,13 @@ export const profileEditSchema = ({
 
       avatarAnimated: z.boolean().optional().default(false),
 
-      phone: normalizeNullableString()
-        .refine(
-          (phone) =>
-            !phone ||
-            (validator.isMobilePhone(phone, "ko-KR") &&
-              /^[0-9]{11}$/.test(phone)),
-          { message: "전화번호는 11자리 숫자여야 합니다." }
-        ),
+      phone: normalizeNullableString().refine(
+        (phone) =>
+          !phone ||
+          (validator.isMobilePhone(phone, "ko-KR") &&
+            /^[0-9]{11}$/.test(phone)),
+        { message: "전화번호는 11자리 숫자여야 합니다." }
+      ),
 
       password: normalizeNullableString(),
 
@@ -185,11 +184,10 @@ export const passwordChangeSchema = z
         `비밀번호는 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`
       )
       .regex(PASSWORD_REGEX, PASSWORD_REGEX_ERROR),
-    confirmPassword: requiredTrimmedString("비밀번호 확인을 입력해주세요.")
-      .min(
-        PASSWORD_MIN_LENGTH,
-        `비밀번호는 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`
-      ),
+    confirmPassword: requiredTrimmedString("비밀번호 확인을 입력해주세요.").min(
+      PASSWORD_MIN_LENGTH,
+      `비밀번호는 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`
+    ),
   })
   .refine(checkPasswordsMatch, {
     message: "비밀번호가 일치하지 않습니다.",

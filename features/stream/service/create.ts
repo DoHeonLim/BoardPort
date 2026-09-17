@@ -82,7 +82,7 @@ export const createBroadcast = async (
     if (!plain) {
       return {
         success: false,
-        error: "비공개 스트리밍은 비밀번호가 필요합니다.",
+        error: "비공개 방송은 비밀번호가 필요합니다.",
       };
     }
     passwordHash = await hash(plain, 12);
@@ -105,31 +105,31 @@ export const createBroadcast = async (
     const broadcast = await db.$transaction(async (tx) => {
       const created = await tx.broadcast.create({
         data: {
-        liveInputId: ensured.liveInputId,
-        title: title.trim(),
-        description: description?.trim() || null,
-        thumbnail: null,
-        thumbnailAnimated,
-        visibility,
-        password: passwordHash,
-        status: "DISCONNECTED",
-        streamCategoryId,
-        tags: nextTags.length
-          ? {
-              connectOrCreate: nextTags.map((name) => ({
-                where: { name },
-                create: { name },
-              })),
-            }
-          : undefined,
-        // 방송-보드게임 선택 연결만 저장, 카탈로그 원천/locale 데이터 불변
-        board_games: linkedBoardGameIds.length
-          ? {
-              create: linkedBoardGameIds.map((boardGameId) => ({
-                boardGame: { connect: { id: boardGameId } },
-              })),
-            }
-          : undefined,
+          liveInputId: ensured.liveInputId,
+          title: title.trim(),
+          description: description?.trim() || null,
+          thumbnail: null,
+          thumbnailAnimated,
+          visibility,
+          password: passwordHash,
+          status: "DISCONNECTED",
+          streamCategoryId,
+          tags: nextTags.length
+            ? {
+                connectOrCreate: nextTags.map((name) => ({
+                  where: { name },
+                  create: { name },
+                })),
+              }
+            : undefined,
+          // 방송-보드게임 선택 연결만 저장, 카탈로그 원천/locale 데이터 불변
+          board_games: linkedBoardGameIds.length
+            ? {
+                create: linkedBoardGameIds.map((boardGameId) => ({
+                  boardGame: { connect: { id: boardGameId } },
+                })),
+              }
+            : undefined,
         },
         select: { id: true },
       });

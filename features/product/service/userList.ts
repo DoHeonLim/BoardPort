@@ -28,6 +28,7 @@
  * 2026.05.08  임도헌   Modified  UserProductsScope를 features/product/types.ts 공용 타입으로 이동
  * 2026.05.16  임도헌   Modified  커서 옵션 타입을 Prisma findMany 인자 기준으로 정리
  * 2026.05.18  임도헌   Modified  예약/판매 완료/구매 내역 목록 정렬을 등록일이 아닌 상태 전환 시각 기준으로 보정
+ * 2026.09.11  임도헌   Modified  상품 찜 삭제 후에도 다음 페이지를 유지하는 복합 커서 적용
  */
 
 import "server-only";
@@ -42,6 +43,7 @@ import type {
   MyPurchasedListItem,
   ProductType,
   LikedProductListItem,
+  LikedProductCursor,
   UserProductsScope,
 } from "@/features/product/types";
 
@@ -116,53 +118,39 @@ function mapProfileProductRow(row: ProfileProductListRow): ProductType {
  * - 단일 통합 쿼리 셀렉터(`PROFILE_SALES_UNIFIED_SELECT`) 적용을 통한 필드 정합성 유지
  * - 기본 제네릭 타입을 `MySalesListItem | MyPurchasedListItem | ProductType`로 확장하여
  *   LIKED 스코프의 타입 안정성 및 호출부 추론 정확도 개선
- * - 삭제 엣지 케이스 방어를 위한 커서 유효성 사전 검사(SELECT id) 수행
+ * - LIKED 범위는 찜 레코드 삭제와 무관한 찜 시각·상품 ID 복합 커서 적용
  *
  * @template T - 반환할 제품 아이템 타입 (기본값: MySalesListItem | MyPurchasedListItem | ProductType)
  * @param {UserProductsScope} scope - 조회할 목록 타입 및 대상 유저 ID
- * @param {number | null} [cursor] - 페이징 커서 (제품 ID)
+ * @param cursor - 제품 ID 또는 상품 관심 목록 복합 커서
  * @returns {Promise<Paginated<T>>} 페이징된 목록 및 커서 반환
  */
 export async function getUserProductsList<
   T =
-    | MySalesListItem
-    | MyPurchasedListItem
-    | LikedProductListItem
-    | ProductType,
->(scope: UserProductsScope, cursor?: number | null): Promise<Paginated<T>> {
+    MySalesListItem | MyPurchasedListItem | LikedProductListItem | ProductType,
+>(
+  scope: UserProductsScope,
+  cursor?: number | LikedProductCursor | null
+): Promise<Paginated<T, number | LikedProductCursor>> {
   // LIKED는 ProductLike.created_at 기준(최근 찜한 순)으로 별도 처리
   if (scope.type === "LIKED") {
-    let cursorLike: { created_at: Date; productId: number } | null = null;
-
-    if (cursor) {
-      cursorLike = await db.productLike.findUnique({
-        where: {
-          id: {
-            userId: scope.userId,
-            productId: cursor,
-          },
-        },
-        select: {
-          created_at: true,
-          productId: true,
-        },
-      });
-      // 커서 대상이 사라졌다면 이전 페이지의 끝임을 의미하므로 빈 결과 반환
-      if (!cursorLike) return { products: [], nextCursor: null };
-    }
+    const likedCursor =
+      cursor && typeof cursor === "object"
+        ? { createdAt: new Date(cursor.likedAt), productId: cursor.id }
+        : null;
 
     const likedRows = await db.productLike.findMany({
       where: {
         userId: scope.userId,
         product: { hidden_at: null },
-        ...(cursorLike
+        ...(likedCursor
           ? {
               OR: [
-                { created_at: { lt: cursorLike.created_at } },
+                { created_at: { lt: likedCursor.createdAt } },
                 {
                   AND: [
-                    { created_at: cursorLike.created_at },
-                    { productId: { lt: cursorLike.productId } },
+                    { created_at: likedCursor.createdAt },
+                    { productId: { lt: likedCursor.productId } },
                   ],
                 },
               ],
@@ -187,9 +175,11 @@ export async function getUserProductsList<
       isLiked: true,
       liked_at: r.created_at,
     })) as unknown as T[];
-    const nextCursor = hasNext
-      ? (pageRows[pageRows.length - 1]?.productId ?? null)
-      : null;
+    const tail = pageRows.at(-1);
+    const nextCursor =
+      hasNext && tail
+        ? { id: tail.productId, likedAt: tail.created_at.toISOString() }
+        : null;
 
     return { products, nextCursor };
   }
@@ -200,7 +190,7 @@ export async function getUserProductsList<
   let cursorOpt: Pick<Prisma.ProductFindManyArgs, "skip" | "cursor"> = {};
 
   // 커서 유효성 검사 (삭제된 제품일 수 있으므로 확인)
-  if (cursor) {
+  if (typeof cursor === "number") {
     const exists = await db.product.findUnique({
       where: { id: cursor },
       select: { id: true },
@@ -213,9 +203,9 @@ export async function getUserProductsList<
       ? // 예약 중 탭은 최근 예약된 상품이 먼저 보이도록 예약 시각을 정렬 기준으로 사용
         [{ reservation_at: "desc" }, { id: "desc" }]
       : scope.type === "SOLD" || scope.type === "PURCHASED"
-      ? // 거래 내역 성격의 탭은 등록 순서가 아니라 실제 거래 완료 시각을 최신순 기준으로 사용
-        [{ purchased_at: "desc" }, { id: "desc" }]
-      : { id: "desc" };
+        ? // 거래 내역 성격의 탭은 등록 순서가 아니라 실제 거래 완료 시각을 최신순 기준으로 사용
+          [{ purchased_at: "desc" }, { id: "desc" }]
+        : { id: "desc" };
 
   const rows = await db.product.findMany({
     where: whereFor(scope),

@@ -29,6 +29,7 @@
  * 2026.06.17  임도헌   Modified  계정 전환 시 이전 사용자의 좋아요 캐시가 재사용되지 않도록 viewer scope 추가
  * 2026.08.13  임도헌   Modified  낙관 업데이트/롤백/무효화를 현재 조회자 캐시로 제한
  * 2026.08.27  임도헌   Modified  재방문 시 새 서버 좋아요 상태를 기존 무기한 cache보다 우선하도록 동기화
+ * 2026.09.11  임도헌   Modified  상세 좋아요 취소와 통합 찜한 게시글 목록 캐시 동기화
  */
 "use client";
 
@@ -44,6 +45,7 @@ import { HeartIcon as OutlineHeartIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PostsPage } from "@/features/post/types";
+import type { LikedPostsPage } from "@/features/user/types";
 import { isPostListKeyForViewer } from "@/features/post/utils/postQueryCache";
 import { useServerSnapshotQuery } from "@/features/common/hooks/useServerSnapshotQuery";
 
@@ -98,14 +100,23 @@ export default function PostLikeButton({
           predicate: (query) =>
             isPostListKeyForViewer(query.queryKey, viewerId),
         }),
+        viewerId
+          ? queryClient.cancelQueries({
+              queryKey: queryKeys.posts.liked(viewerId),
+            })
+          : Promise.resolve(),
       ]);
       // 롤백을 위한 이전 상태 스냅샷 저장
       const previous = queryClient.getQueryData(queryKey);
-      const previousLists =
-        queryClient.getQueriesData<InfiniteData<PostsPage>>({
+      const previousLists = queryClient.getQueriesData<InfiniteData<PostsPage>>(
+        {
           predicate: (query) =>
             isPostListKeyForViewer(query.queryKey, viewerId),
-        });
+        }
+      );
+      const previousLikedPosts = viewerId
+        ? queryClient.getQueryData(queryKeys.posts.liked(viewerId))
+        : undefined;
 
       const nextIsLiked = !data.isLiked;
       const nextLikeCount = data.isLiked
@@ -147,23 +158,51 @@ export default function PostLikeButton({
             : old
       );
 
-      return { previous, previousLists };
+      if (data.isLiked && viewerId) {
+        queryClient.setQueryData(
+          queryKeys.posts.liked(viewerId),
+          (old: InfiniteData<LikedPostsPage> | undefined) =>
+            old
+              ? {
+                  ...old,
+                  pages: old.pages.map((page) => ({
+                    ...page,
+                    posts: page.posts.filter((post) => post.id !== postId),
+                  })),
+                }
+              : old
+        );
+      }
+
+      return { previous, previousLists, previousLikedPosts };
     },
     // 에러 발생 시 이전 상태로 복구
     onError: (err, _variables, context) => {
       console.error("Like mutation failed:", err);
-      toast.error("게시글 좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      toast.error(
+        "게시글 좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요."
+      );
       queryClient.setQueryData(queryKey, context?.previous);
       context?.previousLists.forEach(([listQueryKey, listData]) => {
         queryClient.setQueryData(listQueryKey, listData);
       });
+      if (viewerId) {
+        queryClient.setQueryData(
+          queryKeys.posts.liked(viewerId),
+          context?.previousLikedPosts
+        );
+      }
     },
     // 성공/실패 무관하게 백그라운드 데이터 최신화
     onSettled: () => {
       queryClient.invalidateQueries({
-        predicate: (query) =>
-          isPostListKeyForViewer(query.queryKey, viewerId),
+        predicate: (query) => isPostListKeyForViewer(query.queryKey, viewerId),
       });
+      if (viewerId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.posts.liked(viewerId),
+        });
+      }
     },
   });
   const likeButtonLabel = data.isLiked

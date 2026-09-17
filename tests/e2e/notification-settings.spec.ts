@@ -8,6 +8,7 @@
  * 2026.05.26  임도헌   Created   알림 유형/방해 금지/키워드 관리 설정 화면 렌더링 smoke 테스트 추가
  * 2026.05.26  임도헌   Modified  설정 페이지 서버 렌더 지연을 고려해 로그인 복귀 timeout 보강
  * 2026.05.26  임도헌   Modified  알림 종류/방해 금지 시간 저장 후 재진입 값 유지 E2E 테스트 추가
+ * 2026.09.14  임도헌   Modified  거래 후기 알림 용어 통일 반영
  */
 
 import { expect, test } from "@playwright/test";
@@ -35,13 +36,17 @@ test.describe("seeded notification settings smoke", () => {
       { timeout: 30_000 }
     );
 
-    await expect(page.getByRole("heading", { name: "알림 설정" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "알림 종류" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "알림 설정" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "알림 종류" })
+    ).toBeVisible();
 
     for (const label of [
       "채팅 알림",
       "거래 알림",
-      "리뷰 알림",
+      "거래 후기 알림",
       "뱃지 알림",
       "방송 알림",
       "키워드 알림",

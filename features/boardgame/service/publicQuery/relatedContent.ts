@@ -10,6 +10,7 @@
  * 2026.05.05  임도헌   Modified  상품/게시글/방송 역방향 연결 콘텐츠 조회 분리
  * 2026.06.19  임도헌   Modified  종료 방송 관련 콘텐츠가 ready VOD 상세로 이동하도록 최신 VOD id 포함
  * 2026.08.21  임도헌   Modified  공개 관련 방송의 저장된 Cloudflare 썸네일을 signed token URL로 변환
+ * 2026.09.08  임도헌   Modified  종료 방송 관련 카드에 녹화본 사용자 제목·썸네일 우선 적용
  */
 
 import "server-only";
@@ -18,6 +19,7 @@ import { toProductImagePublicUrl } from "@/features/product/utils/image";
 import type { ServiceResult } from "@/lib/types";
 import type { BoardGameRelatedContent } from "@/features/boardgame/types/public";
 import { resolveStreamThumbnailUrl } from "@/features/stream/service/playback";
+import { selectRecordingTitle } from "@/features/stream/utils/thumbnail";
 
 /** 연관 방송의 공개 범위와 provider ID를 기준으로 안전한 썸네일을 선택한다. */
 function getRelatedBroadcastThumbnail(broadcast: {
@@ -26,14 +28,17 @@ function getRelatedBroadcastThumbnail(broadcast: {
   vodAssets: Array<{
     provider_asset_id: string;
     thumbnail_url: string | null;
+    custom_thumbnail_url: string | null;
   }>;
 }) {
   const vod = broadcast.vodAssets[0];
 
   try {
     return resolveStreamThumbnailUrl(
-      vod?.thumbnail_url ?? broadcast.thumbnail,
-      vod?.provider_asset_id ?? broadcast.liveInput.provider_uid
+      vod?.custom_thumbnail_url ?? vod?.thumbnail_url ?? broadcast.thumbnail,
+      vod?.custom_thumbnail_url
+        ? null
+        : (vod?.provider_asset_id ?? broadcast.liveInput.provider_uid)
     );
   } catch (error) {
     console.warn("[BoardGameRelated] signed thumbnail unavailable:", error);
@@ -114,6 +119,8 @@ export async function getBoardGameRelatedContent(
                   id: true,
                   provider_asset_id: true,
                   thumbnail_url: true,
+                  title: true,
+                  custom_thumbnail_url: true,
                 },
                 orderBy: { ready_at: "desc" },
                 take: 1,
@@ -143,7 +150,10 @@ export async function getBoardGameRelatedContent(
         })),
         broadcasts: broadcastLinks.map(({ broadcast }) => ({
           id: broadcast.id,
-          title: broadcast.title,
+          title: selectRecordingTitle(
+            broadcast.vodAssets[0]?.title,
+            broadcast.title
+          ),
           status: broadcast.status,
           vodIdForRecording: broadcast.vodAssets[0]?.id ?? null,
           thumbnail: getRelatedBroadcastThumbnail(broadcast),

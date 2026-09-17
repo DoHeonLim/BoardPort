@@ -54,7 +54,7 @@ export async function sendLiveStartNotifications({
     where: { id: broadcasterId },
     select: { username: true },
   });
-  const broadcasterName = broadcaster?.username ?? "팔로우한 선원";
+  const broadcasterName = broadcaster?.username ?? "팔로우한 사용자";
 
   // 2. 팔로워 목록 조회 (알림 수신 대상)
   const follows = await db.follow.findMany({
@@ -73,7 +73,7 @@ export async function sendLiveStartNotifications({
   for (const p of prefsList) prefMap.set(p.userId, p);
 
   // 알림 내용 구성
-  const title = "팔로우한 선원이 방송을 시작했어요";
+  const title = "팔로우한 사용자가 방송을 시작했어요";
   const body = `${broadcasterName} 님이 '${broadcastTitle}' 방송을 시작했습니다. 같이 보러 갈까요?`;
   const link = `/streams/${broadcastId}`;
   const imageUrl = broadcastThumbnail

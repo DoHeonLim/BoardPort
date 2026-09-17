@@ -15,7 +15,7 @@ BoardPort의 테스트는 모든 화면 조합을 한 번에 자동화하기보�
 - DTO 변환, 상태 전이, fallback 계산 유틸
 - 공용 폼 필드의 label·도움말·검증 오류 ARIA 연결
 
-CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전체 source를 분모에 포함한 V8 coverage를 측정합니다. 2026-08-28 기준선은 Statements 11.50%, Branches 10.82%, Functions 10.00%, Lines 11.88%이며 CI 하한은 각각 11%, 10%, 9%, 11%입니다. 낮은 전체 수치를 숨기지 않고 시작점으로 기록하며, 단순 percentage를 맞추기 위한 의미 없는 테스트보다 인증·권한·상태 전이·cache·공용 UI처럼 회귀 영향이 큰 경로를 우선 보강합니다. 릴리즈 전에는 coverage 하락 여부와 새 핵심 로직의 회귀 테스트 포함 여부를 함께 리뷰합니다.
+CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts`의 전체 소스 코드를 포함해 V8 커버리지를 측정합니다. 2026-08-28 기준선은 Statements 11.50%, Branches 10.82%, Functions 10.00%, Lines 11.88%이며 CI 하한은 각각 11%, 10%, 9%, 11%입니다. 인증·권한·상태 전이·캐시·공용 UI처럼 회귀 영향이 큰 경로부터 테스트를 보강합니다. 릴리즈 전에는 커버리지 하락 여부와 새 핵심 로직의 회귀 테스트 포함 여부를 확인합니다.
 
 ### Playwright
 
@@ -24,8 +24,8 @@ CI는 `npm run test:coverage`로 `components`, `features`, `lib`, `scripts` 전�
 - 상품/게시글 CRUD와 삭제 후 목록 복귀
 - 삭제된 콘텐츠 알림의 이동 가능/불가 상태
 - 채팅 약속 수락과 상품 상태 전환
-- 로그인/온보딩 기본 smoke flow
-- 관리자 신고 처리 smoke flow
+- 공개 인증 화면, 로그인 복귀 경로와 비로그인 접근 제한의 기본 동작
+- 관리자 신고 처리의 기본 동작
 
 ## 2. 핵심 검증 축
 
@@ -100,6 +100,18 @@ DB 상태가 필요한 E2E는 `npm run seed:e2e`로 `[E2E]` prefix 기반 테스
 seed 기반 테스트가 끝난 뒤에는 `npm run cleanup:e2e`로 `[E2E]` prefix 콘텐츠와 테스트 계정 알림을 정리합니다.
 특정 spec을 먼저 실행한 뒤 전체 suite를 다시 실행하는 것처럼 Playwright 실행을 나눌 때는 각 실행 전에 `npm run seed:e2e`를 다시 실행합니다. 약속 수락, 상품 수정, 팔로우 테스트는 seed 데이터를 실제로 변경하므로 실행 단위마다 기준 상태를 복원합니다.
 
+Bash / WSL:
+
+```bash
+npm run seed:e2e
+E2E_SEEDED=1 npm run test:e2e -- --project=chromium
+npm run cleanup:e2e
+```
+
+환경변수는 해당 명령에만 적용되므로 별도 해제가 필요 없습니다.
+
+PowerShell:
+
 ```powershell
 npm run seed:e2e
 $env:E2E_SEEDED="1"
@@ -107,6 +119,16 @@ npm run test:e2e -- --project=chromium
 Remove-Item Env:E2E_SEEDED
 npm run cleanup:e2e
 ```
+
+### 모바일 UI 회귀
+
+`tests/e2e/mobile-ui.spec.ts`의 4개 테스트는 기존 Chromium CI에 포함됩니다. 목록 테스트 2개 안에서 360·427·559·560·634·640·768px 너비를 반복 검사하고, 시트 테스트 2개는 일반·움직임 줄이기 설정을 각각 검사합니다.
+
+- 상품·게시글 목록 도구의 겹침, 가로 넘침과 560px 경계 배치
+- 리스트·그리드 전환, 새로고침 후 보기 방식 유지, 썸네일 높이와 본문 배치
+- 카테고리 시트의 키보드 포커스 순환, Escape·터치 닫기, 포커스 복귀와 스크롤 잠금 해제
+
+자동 검증 범위는 위 Chromium 시나리오입니다. 전체 시트의 애니메이션 일관성, 실제 iOS Safari 동작, 외부 이미지 다운로드는 별도로 확인해야 합니다. 실행 결과에서는 seed 테스트의 스킵 여부도 확인합니다. 실행 명령과 스킵 조건은 [E2E 실행 기준](../../tests/e2e/README.md)을 따릅니다.
 
 ## 4. 제외 범위
 

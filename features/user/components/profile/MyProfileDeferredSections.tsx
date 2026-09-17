@@ -8,6 +8,10 @@
  * 2026.04.16  임도헌   Created
  * 2026.04.16  임도헌   Modified   MyProfile 하단 섹션을 지연 렌더링 전용 컴포넌트로 분리
  * 2026.05.12  임도헌   Modified   내 방송국 StreamCard에 카테고리/태그/보드게임 메타 전달
+ * 2026.09.08  임도헌   Modified   내 최근 작성 게시글 미리보기 추가
+ * 2026.09.11  임도헌   Modified   방송국 보조 링크의 모바일 터치 영역 보강
+ * 2026.09.12  임도헌   Modified   후기 유무에 따른 전체 보기 동선 정리
+ * 2026.09.12  임도헌   Modified   빈 방송국의 첫 방송 시작 동선 추가
  */
 
 import type { CSSProperties } from "react";
@@ -23,8 +27,11 @@ import {
   ShoppingBagIcon,
   TagIcon,
   UserMinusIcon,
+  VideoCameraIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon } from "@heroicons/react/24/solid";
+import ProfilePostPreview from "@/features/user/components/profile/ProfilePostPreview";
+import type { PostDetail } from "@/features/post/types";
 
 // content-visibility를 통한 첫 화면 밖 섹션의 레이아웃/페인트 비용 후순위 처리
 const DEFERRED_SECTION_STYLE: CSSProperties = {
@@ -34,6 +41,7 @@ const DEFERRED_SECTION_STYLE: CSSProperties = {
 
 type MyProfileDeferredSectionsProps = {
   myStreams?: BroadcastSummary[];
+  recentPosts: PostDetail[];
   previewReviews: ProfileReview[];
   returnTo: string;
   user: UserProfile;
@@ -47,12 +55,13 @@ type MyProfileDeferredSectionsProps = {
  * 내 프로필 하단 섹션 묶음
  *
  * [분리 목적]
- * - 거래 정보, 방송국, 후기/뱃지, 계정 액션처럼 첫 화면 아래에 있는 UI를 별도 청크로 분리
+ * - 거래 정보, 방송국, 작성글, 후기/뱃지, 계정 액션처럼 첫 화면 아래에 있는 UI를 별도 청크로 분리
  * - 상위 `MyProfile`은 초기 맥락이 중요한 영역만 즉시 렌더링하고, 이 컴포넌트는 스크롤 도달 시점까지 비용을 늦춘다
  * - 모달 오픈/returnTo 같은 상호작용은 부모에서 주입받아 상태 소유권을 단순하게 유지
  */
 export default function MyProfileDeferredSections({
   myStreams,
+  recentPosts,
   previewReviews,
   returnTo,
   user,
@@ -78,7 +87,7 @@ export default function MyProfileDeferredSections({
               <span className="text-sm font-medium">판매 내역</span>
             </div>
             <p className="text-xs text-muted transition-colors group-hover:text-primary">
-              판매 중인 물품 관리
+              판매 중인 상품 관리
             </p>
           </Link>
 
@@ -93,7 +102,7 @@ export default function MyProfileDeferredSections({
               <span className="text-sm font-medium">구매 내역</span>
             </div>
             <p className="text-xs text-muted transition-colors group-hover:text-primary">
-              구매한 물품 확인
+              구매한 상품 확인
             </p>
           </Link>
 
@@ -106,10 +115,10 @@ export default function MyProfileDeferredSections({
             <div>
               <div className="mb-1 flex items-center gap-2 text-danger">
                 <HeartIcon className="size-5" />
-                <span className="text-sm font-medium">찜한 내역</span>
+                <span className="text-sm font-medium">관심 목록</span>
               </div>
               <p className="text-xs text-muted transition-colors group-hover:text-primary">
-                내가 찜한 관심 상품
+                저장한 상품·게시글·다시보기
               </p>
             </div>
             <ChevronRightIcon className="size-5 text-muted transition-colors group-hover:text-brand dark:group-hover:text-brand-light" />
@@ -119,22 +128,37 @@ export default function MyProfileDeferredSections({
 
       {/* 4-2. 방송국 레일 */}
       <section style={DEFERRED_SECTION_STYLE}>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex min-h-10 items-center justify-between">
           <h2 className="text-sm font-bold text-primary">내 방송국</h2>
-          <Link
-            href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(returnTo)}`}
-            prefetch={false}
-            aria-label="방송국 전체 보기"
-            className="focus-ring-soft flex items-center rounded-md text-xs text-muted transition-colors hover:text-brand dark:hover:text-brand-light"
-          >
-            방송국 전체 보기
-            <ChevronRightIcon className="ml-0.5 size-3" />
-          </Link>
+          {!!myStreams?.length && (
+            <Link
+              href={`/profile/${user.username}/channel?returnTo=${encodeURIComponent(returnTo)}`}
+              prefetch={false}
+              aria-label="방송국 전체 보기"
+              className="focus-ring-soft -mr-2 inline-flex min-h-10 items-center rounded-lg px-2 text-xs text-muted transition-colors hover:bg-surface-dim hover:text-brand dark:hover:text-brand-light"
+            >
+              방송국 전체 보기
+              <ChevronRightIcon aria-hidden="true" className="ml-0.5 size-3" />
+            </Link>
+          )}
         </div>
 
         {!myStreams || myStreams.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 py-6 text-center">
-            <p className="text-xs text-muted">아직 방송 이력이 없습니다.</p>
+          <div className="rounded-xl border border-dashed border-border-subtle bg-surface-dim/30 px-4 py-8 text-center">
+            <p className="text-sm font-medium text-primary">
+              아직 방송 이력이 없습니다
+            </p>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              첫 방송을 시작하면 내 방송국에 바로 표시됩니다.
+            </p>
+            <Link
+              href={`/streams/add?returnTo=${encodeURIComponent(returnTo)}`}
+              prefetch={false}
+              className="btn-primary mt-4 inline-flex min-h-[40px] items-center justify-center gap-1.5 px-4 text-sm"
+            >
+              <VideoCameraIcon aria-hidden="true" className="size-4" />
+              방송 시작하기
+            </Link>
           </div>
         ) : (
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -171,18 +195,29 @@ export default function MyProfileDeferredSections({
         )}
       </section>
 
-      {/* 4-3. 신뢰 정보 및 획득 내역 */}
+      {/* 4-3. 최근 작성 게시글 */}
+      <ProfilePostPreview
+        posts={recentPosts}
+        username={user.username}
+        isOwner
+        returnTo={returnTo}
+      />
+
+      {/* 4-4. 신뢰 정보 및 획득 내역 */}
       <div className="grid grid-cols-1 gap-6" style={DEFERRED_SECTION_STYLE}>
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-bold text-primary">받은 거래 후기</h2>
-            <button
-              onClick={onOpenReview}
-              aria-label="받은 거래 후기 전체 보기"
-              className="focus-ring-soft rounded-md text-xs text-muted hover:text-brand dark:hover:text-brand-light"
-            >
-              전체 보기
-            </button>
+            {previewReviews.length > 0 && (
+              <button
+                type="button"
+                onClick={onOpenReview}
+                aria-label="받은 거래 후기 전체 보기"
+                className="focus-ring-soft rounded-md text-xs text-muted hover:text-brand dark:hover:text-brand-light"
+              >
+                전체 보기
+              </button>
+            )}
           </div>
           <ProfileReviewPreviewList reviews={previewReviews} />
         </section>
@@ -191,6 +226,7 @@ export default function MyProfileDeferredSections({
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-bold text-primary">획득한 뱃지</h2>
             <button
+              type="button"
               onClick={onOpenBadge}
               aria-label="획득한 뱃지 전체 보기"
               className="focus-ring-soft rounded-md text-xs text-muted hover:text-brand dark:hover:text-brand-light"
@@ -202,7 +238,7 @@ export default function MyProfileDeferredSections({
         </section>
       </div>
 
-      {/* 4-4. 계정 액션 */}
+      {/* 4-5. 계정 액션 */}
       <div
         className="mt-2 border-t border-border-subtle pt-6"
         style={DEFERRED_SECTION_STYLE}

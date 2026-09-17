@@ -50,9 +50,10 @@ export type PostCategoryType = keyof typeof POST_CATEGORY;
 export const POST_CATEGORY_DESCRIPTIONS = {
   FREE: "자유롭게 이야기를 나눌 수 있는 공간입니다",
   CREW: "함께 보드게임을 즐길 사람을 모집하는 공간입니다",
-  LOG: "보드게임 플레이 후기와 리뷰를 공유하는 공간입니다",
+  LOG: "보드게임 플레이 후기를 공유하는 공간입니다",
   MAP: "보드게임 규칙 설명과 공략을 공유하는 공간입니다",
-  RECOMMEND: "상황에 맞는 보드게임 추천을 요청하거나 추천작을 나누는 공간입니다",
+  RECOMMEND:
+    "상황에 맞는 보드게임 추천을 요청하거나 추천작을 나누는 공간입니다",
   COMPASS: "보드게임 질문과 답변을 나누는 공간입니다",
 } as const;
 

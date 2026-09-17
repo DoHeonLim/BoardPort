@@ -42,10 +42,10 @@ export const handleCheckPasswords = ({
  */
 export const createAccountSchema = z
   .object({
-    username: requiredTrimmedString("유저명을 입력해주세요.")
-      .min(3, { message: "유저명은 최소 3자 이상이어야 합니다." })
+    username: requiredTrimmedString("닉네임을 입력해주세요.")
+      .min(3, { message: "닉네임은 최소 3자 이상이어야 합니다." })
       .max(USERNAME_MAX_LENGTH, {
-        message: `유저명은 최대 ${USERNAME_MAX_LENGTH}자까지 입력할 수 있습니다.`,
+        message: `닉네임은 최대 ${USERNAME_MAX_LENGTH}자까지 입력할 수 있습니다.`,
       })
       .toLowerCase(),
 
@@ -61,10 +61,12 @@ export const createAccountSchema = z
         message: PASSWORD_REGEX_ERROR,
       }),
 
-    confirmPassword: requiredTrimmedString("비밀번호 확인을 입력해주세요.")
-      .min(PASSWORD_MIN_LENGTH, {
+    confirmPassword: requiredTrimmedString("비밀번호 확인을 입력해주세요.").min(
+      PASSWORD_MIN_LENGTH,
+      {
         message: `비밀번호 확인은 최소 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`,
-      }),
+      }
+    ),
   })
   .refine(handleCheckPasswords, {
     message: "비밀번호가 일치하지 않습니다.",

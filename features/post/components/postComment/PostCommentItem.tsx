@@ -1,5 +1,5 @@
 /**
- * File Name : features/post/components/postComment/PostCommentItem
+ * File Name : features/post/components/postComment/PostCommentItem.tsx
  * Description : 단일 댓글 항목
  * Author : 임도헌
  *
@@ -20,9 +20,11 @@
  * 2026.04.03  임도헌   Modified  댓글 작성자 차단 확인 문구를 다른 도메인과 같은 전역 차단 정책 톤으로 정리
  * 2026.04.10  임도헌   Modified  post 타이포 정책에 맞춰 댓글 작성자 라벨 weight를 500 기준으로 정리
  * 2026.08.13  임도헌   Modified  댓글 상세 cache와 삭제 mutation을 조회자 범위로 연결
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
+import ModalPresence from "@/components/global/ModalPresence";
 import { useState, useRef, useEffect, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
@@ -197,7 +199,7 @@ export default function PostCommentItem({
       {/* 차단 확인 다이얼로그 */}
       <ConfirmDialog
         open={blockConfirmOpen}
-        title="유저 차단"
+        title="사용자 차단"
         description={`${comment.user.username}님을 차단하시겠습니까? 차단하면 전역 차단 관계가 생성되고, 서로의 글과 채팅을 볼 수 없으며 팔로우가 취소됩니다.`}
         confirmLabel="차단"
         onConfirm={handleBlockUser}
@@ -238,14 +240,14 @@ export default function PostCommentItem({
       </BottomSheet>
 
       {/* 신고 모달 */}
-      {reportOpen && (
+      <ModalPresence open={reportOpen}>
         <ReportModal
           isOpen={reportOpen}
           onClose={() => setReportOpen(false)}
           targetId={comment.id}
           targetType="COMMENT"
         />
-      )}
+      </ModalPresence>
     </div>
   );
 }

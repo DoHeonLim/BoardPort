@@ -49,9 +49,9 @@ export default async function AdminUsersPage(props: {
   if (!result.success || !result.data || !insights.success || !insights.data) {
     return (
       <AdminErrorState
-        title="유저 관리"
-        description="전체 회원을 조회하고 권한 및 상태를 관리하세요."
-        message="유저 관리 데이터를 불러오지 못했습니다."
+        title="사용자 관리"
+        description="전체 사용자를 조회하고 권한 및 상태를 관리하세요."
+        message="사용자 관리 데이터를 불러오지 못했습니다."
       />
     );
   }
@@ -59,12 +59,12 @@ export default async function AdminUsersPage(props: {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-primary">유저 관리</h2>
+        <h2 className="text-2xl font-bold text-primary">사용자 관리</h2>
         <p className="mt-1 text-sm text-muted">
-          전체 회원을 조회하고 권한 및 상태를 관리하세요.
+          전체 사용자를 조회하고 권한 및 상태를 관리하세요.
         </p>
       </div>
-      <AdminScopeNotice description="상단 인사이트는 최근 30일 전체 회원 기준이며, 아래 목록은 현재 검색어와 권한 필터에 맞는 회원만 보여줍니다." />
+      <AdminScopeNotice description="상단 인사이트는 최근 30일 전체 사용자 기준이며, 아래 목록은 현재 검색어와 권한 필터에 맞는 사용자만 보여줍니다." />
 
       <UserInsightHeader
         labels={insights.data.labels}

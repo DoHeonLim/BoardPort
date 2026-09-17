@@ -15,6 +15,7 @@
  * 2026.03.28  임도헌   Modified   내 동네 설정 섹션을 포함해 현재 내 프로필 IA와 동일한 순서로 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/loading.tsx 에서 app/(app)/(tabs)/profile/loading.tsx 로 변경 (라우트 그룹 개편)
  * 2026.05.30  임도헌   Modified   내 프로필 실제 액션바 높이에 맞춰 로딩 헤더 밀도 정리
+ * 2026.09.08  임도헌   Modified   작성 게시글 미리보기 스켈레톤 추가
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -103,7 +104,18 @@ export default function Loading() {
           </div>
         </div>
 
-        {/* 6. 후기 및 뱃지 */}
+        {/* 6. 작성 게시글 */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-28 rounded" />
+            <Skeleton className="h-4 w-14 rounded" />
+          </div>
+          {[1, 2].map((i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          ))}
+        </div>
+
+        {/* 7. 후기 및 뱃지 */}
         <div className="grid grid-cols-1 gap-6">
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -133,6 +145,5 @@ export default function Loading() {
     </div>
   );
 }
-
 
 

@@ -134,7 +134,7 @@ export async function getAdminDashboardData(
         labels: userBuckets.labels,
         activitySeries: [
           {
-            name: "회원 가입",
+            name: "회원가입",
             color: "#2563eb",
             values: userBuckets.values,
           },

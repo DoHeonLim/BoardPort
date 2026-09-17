@@ -16,12 +16,15 @@
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
  * 2026.08.28  임도헌   Modified  아바타 크롭 모달 함수 JSDoc 보강
  * 2026.09.06  임도헌   Modified  좌표 슬라이더를 포인터 드래그·방향키 이동으로 전환하고 반응형 크롭 좌표 동기화
+ * 2026.09.13  임도헌   Modified  이미지 적용 진행 표시 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import NextImage from "next/image";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import BottomSheet from "@/components/global/BottomSheet";
 import Button from "@/components/ui/Button";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
@@ -49,7 +52,7 @@ const DEFAULT_CROP: AvatarCropValues = {
 };
 
 /**
- * 아바타 확대·이동 값을 조절하고 원형 미리보기 기준 크롭 설정을 반환한다.
+ * 아바타 확대·이동 값을 조절하고 원형 미리보기 기준 크롭 설정을 반환
  *
  * @param props - 원본 이미지, 열림 상태와 크롭 완료 콜백
  * @returns 모바일 BottomSheet 또는 데스크톱 크롭 대화상자
@@ -74,7 +77,7 @@ export default function AvatarCropModal({
     setMounted(true);
   }, []);
 
-  // 모달을 다시 열면 이전 크롭 상태를 초기화한다.
+  // 모달을 다시 열면 이전 크롭 상태를 초기화
   useEffect(() => {
     if (!open) return;
     setCrop(DEFAULT_CROP);
@@ -155,7 +158,7 @@ export default function AvatarCropModal({
     [crop, imageSize.height, imageSize.width, viewportSize]
   );
 
-  if (!mounted || !open) return null;
+  if (!mounted || (!open && !isMobile)) return null;
 
   const bodyContent = (
     <>
@@ -271,7 +274,9 @@ export default function AvatarCropModal({
     <div className="flex justify-end">
       <Button
         type="button"
-        text={loading ? "적용 중..." : "이대로 적용"}
+        text="이대로 적용"
+        loading={loading}
+        loadingText="적용 중..."
         disabled={loading}
         className="w-full sm:w-auto sm:min-w-[132px]"
         onClick={() => onConfirm(crop)}
@@ -322,15 +327,11 @@ export default function AvatarCropModal({
               확대와 위치를 조절한 뒤 정사각형 아바타로 저장합니다.
             </p>
           </div>
-          <button
-            type="button"
+          <ModalCloseButton
             onClick={onClose}
             disabled={loading}
-            aria-label="프로필 이미지 조정 모달 닫기"
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary disabled:opacity-50"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+            label="프로필 이미지 조정 모달 닫기"
+          />
         </div>
 
         {bodyContent}

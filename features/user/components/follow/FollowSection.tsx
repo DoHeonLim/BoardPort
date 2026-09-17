@@ -220,45 +220,41 @@ export default function FollowSection({
         </button>
       )}
 
-      {/* 팔로워 리스트 모달 렌더링 (isOpen이 true일 때만 표시됨) */}
-      {followersList.isOpen && (
-        <FollowListModal
-          isOpen={followersList.isOpen}
-          onClose={followersList.close}
-          users={followersList.users}
-          title="팔로워"
-          kind="followers"
-          viewerId={viewerId}
-          isLoading={followersList.isLoading}
-          isFetchingNextPage={followersList.isFetchingNextPage}
-          hasMore={followersList.hasMore}
-          onLoadMore={followersList.loadMore}
-          onToggleItem={toggleItem}
-          isPendingById={isPendingById}
-          error={followersList.error}
-          onRetry={followersList.retry}
-        />
-      )}
+      {/* 팔로워 목록 모달의 퇴장 전환 유지를 위한 상시 마운트 */}
+      <FollowListModal
+        isOpen={followersList.isOpen}
+        onClose={followersList.close}
+        users={followersList.users}
+        title="팔로워"
+        kind="followers"
+        viewerId={viewerId}
+        isLoading={followersList.isLoading}
+        isFetchingNextPage={followersList.isFetchingNextPage}
+        hasMore={followersList.hasMore}
+        onLoadMore={followersList.loadMore}
+        onToggleItem={toggleItem}
+        isPendingById={isPendingById}
+        error={followersList.error}
+        onRetry={followersList.retry}
+      />
 
-      {/* 팔로잉 리스트 모달 렌더링 */}
-      {followingList.isOpen && (
-        <FollowListModal
-          isOpen={followingList.isOpen}
-          onClose={followingList.close}
-          users={followingList.users}
-          title="팔로잉"
-          kind="following"
-          viewerId={viewerId}
-          isLoading={followingList.isLoading}
-          isFetchingNextPage={followingList.isFetchingNextPage}
-          hasMore={followingList.hasMore}
-          onLoadMore={followingList.loadMore}
-          onToggleItem={toggleItem}
-          isPendingById={isPendingById}
-          error={followingList.error}
-          onRetry={followingList.retry}
-        />
-      )}
+      {/* 팔로잉 목록 모달의 퇴장 전환 유지를 위한 상시 마운트 */}
+      <FollowListModal
+        isOpen={followingList.isOpen}
+        onClose={followingList.close}
+        users={followingList.users}
+        title="팔로잉"
+        kind="following"
+        viewerId={viewerId}
+        isLoading={followingList.isLoading}
+        isFetchingNextPage={followingList.isFetchingNextPage}
+        hasMore={followingList.hasMore}
+        onLoadMore={followingList.loadMore}
+        onToggleItem={toggleItem}
+        isPendingById={isPendingById}
+        error={followingList.error}
+        onRetry={followingList.retry}
+      />
     </div>
   );
 }

@@ -20,15 +20,15 @@ const sections = [
   {
     title: "1. 수집하는 개인정보",
     body: [
-      "BoardPort는 회원 가입, 로그인, 프로필 설정, 거래/커뮤니티 기능 제공을 위해 이메일, 휴대폰 번호, 닉네임, 프로필 이미지, 선택한 활동 지역 및 거래 지역 정보를 처리할 수 있습니다.",
-      "상품, 게시글, 댓글, 채팅, 방송/VOD, 이미지, 영상, 신고, 리뷰 등 이용자가 서비스에 등록하거나 주고받은 콘텐츠와 활동 기록이 저장될 수 있습니다.",
+      "BoardPort는 회원가입, 로그인, 프로필 설정, 거래/커뮤니티 기능 제공을 위해 이메일, 휴대폰 번호, 닉네임, 프로필 이미지, 선택한 활동 지역 및 거래 지역 정보를 처리할 수 있습니다.",
+      "상품, 게시글, 댓글, 채팅, 방송/VOD, 이미지, 영상, 신고, 거래 후기 등 이용자가 서비스에 등록하거나 주고받은 콘텐츠와 활동 기록이 저장될 수 있습니다.",
       "서비스 안정성, 보안, 부정 이용 방지를 위해 IP 주소, 접속 로그, 기기/브라우저 정보, 쿠키, 알림 구독 정보, rate limit 기록이 생성될 수 있습니다.",
     ],
   },
   {
     title: "2. 개인정보 이용 목적",
     body: [
-      "계정 생성과 로그인, 본인 확인, SMS/이메일 인증, 프로필 관리 등 회원 관리를 위해 개인정보를 이용합니다.",
+      "계정 생성과 로그인, 본인 확인, SMS/이메일 인증, 프로필 관리 등 계정 관리를 위해 개인정보를 이용합니다.",
       "상품 거래, 채팅 약속, 게시글, 방송/VOD, 알림, 신고 처리, 관리자 운영 등 서비스 기능 제공을 위해 개인정보를 이용합니다.",
       "서비스 보안, 스팸 및 자동화 요청 방지, 장애 대응, 이용 제한 및 운영 정책 집행을 위해 접속 기록과 요청 정보를 이용할 수 있습니다.",
     ],
@@ -92,7 +92,11 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-background px-page-x pt-4 pb-10 text-primary">
       <article className="mx-auto w-full max-w-2xl space-y-8">
         <header className="space-y-3 border-b border-border-subtle pb-6">
-          <BackButton fallbackHref="/" variant="inline" label="이전 화면으로 이동" />
+          <BackButton
+            fallbackHref="/"
+            variant="inline"
+            label="이전 화면으로 이동"
+          />
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">
               개인정보 처리방침

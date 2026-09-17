@@ -123,6 +123,6 @@ export const createBroadcastAction = async (
     return result;
   } catch (err) {
     console.error("[createBroadcastAction] failed:", err);
-    return { success: false, error: "스트리밍 생성에 실패했습니다." };
+    return { success: false, error: "방송 생성에 실패했습니다." };
   }
 };

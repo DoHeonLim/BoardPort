@@ -22,10 +22,11 @@
  * 2026.05.03  임도헌   Modified  보드게임 카탈로그 연결 id 파싱 및 관련 경로 갱신 추가
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.09  임도헌   Modified  사용자 수정 직후 상세 본문을 읽는 경계에 updateTag 적용
  */
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import getSession from "@/lib/session";
 import { updateProduct } from "@/features/product/service/update";
@@ -166,8 +167,8 @@ export async function updateProductAction(
     return { success: false, error: result.error };
   }
 
-  // 상세/목록 캐시 무효화
-  revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 });
+  // 사용자 자신의 수정 결과를 다음 상세 조회에서 즉시 확인하도록 태그 만료
+  updateTag(T.PRODUCT_DETAIL(productId));
   revalidatePath("/products");
   revalidatePath(`/products/view/${productId}`);
   boardGameIds.forEach((boardGameId) => {

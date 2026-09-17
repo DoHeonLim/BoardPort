@@ -38,6 +38,7 @@
  * 2026.04.04  임도헌   Modified  거래 상태 전이/알림/시스템 메시지 단계의 인라인 주석 보강
  * 2026.08.21  임도헌   Modified  거래 알림·상품 채팅 발신을 서버 전용 private topic으로 전환
  * 2026.08.26  임도헌   Modified  관찰한 상대·시각 기반 조건부 갱신과 commit 이후 외부 전달 실패 격리
+ * 2026.09.13  임도헌   Modified  구매 완료 알림의 거래 후기 용어 통일
  */
 
 import "server-only";
@@ -266,7 +267,7 @@ export async function updateProductStatus(
       if (!validChat) {
         return {
           success: false,
-          error: "채팅 내역이 없는 유저는 예약자로 지정할 수 없습니다.",
+          error: "채팅 내역이 없는 사용자는 예약자로 지정할 수 없습니다.",
         };
       }
 
@@ -568,7 +569,7 @@ export async function updateProductStatus(
             data: {
               userId: buyerId,
               title: "상품 구매가 완료되었습니다",
-              body: `'${info.title}' 상품의 구매가 완료되었습니다. 리뷰를 작성해주세요.`,
+              body: `'${info.title}' 상품의 구매가 완료되었습니다. 거래 후기를 작성해주세요.`,
               type: "TRADE",
               link: `/profile/my-purchases`,
               image: imageUrl,

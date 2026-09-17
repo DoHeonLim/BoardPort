@@ -85,7 +85,7 @@ export default function ReportInsightHeader({
             {summary.strikeTargetCount.toLocaleString()}
           </p>
           <p className="mt-1 text-sm text-muted">
-            제재 누적으로 운영 주의가 필요한 유저 수입니다.
+            제재 누적으로 운영 주의가 필요한 사용자 수입니다.
           </p>
         </Link>
         <Link

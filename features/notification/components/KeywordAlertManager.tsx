@@ -80,10 +80,10 @@ export default function KeywordAlertManager({
     dbRange === "DONG" && !userLocation.region3
       ? "GU"
       : dbRange === "GU" && !hasDistinctGu && !userLocation.region2
-      ? "CITY"
-      : dbRange === "CITY" && !userLocation.region1
-      ? "ALL"
-      : dbRange || "GU";
+        ? "CITY"
+        : dbRange === "CITY" && !userLocation.region1
+          ? "ALL"
+          : dbRange || "GU";
 
   const [keyword, setKeyword] = useState("");
   const [selectedRange, setSelectedRange] =
@@ -190,7 +190,7 @@ export default function KeywordAlertManager({
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                placeholder="관심 있는 물품 키워드"
+                placeholder="관심 있는 상품 키워드"
                 className="input-primary h-10 min-w-0 flex-1 border-none bg-surface-dim px-4 text-sm"
                 disabled={isPending}
               />

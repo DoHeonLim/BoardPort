@@ -13,9 +13,11 @@
  * 2026.08.23  임도헌   Modified  DB sessionVersion 불일치 세션을 요청 경계에서 폐기
  * 2026.08.23  임도헌   Modified  Next.js 16 비동기 cookies API 호환 반영
  * 2026.09.07  임도헌   Modified  RSC 무효 세션의 읽기 전용 권한 폐기와 쿠키 삭제 경계 분리
+ * 2026.09.09  임도헌   Modified  읽기 전용 세션 검증을 요청 단위로 재사용해 중복 DB 조회 제거
  */
 
 import "server-only";
+import { cache } from "react";
 import { getIronSession, type IronSession } from "iron-session";
 import { cookies } from "next/headers";
 import db from "@/lib/db";
@@ -54,7 +56,7 @@ export async function getSessionForUpdate() {
  * 무효 세션의 요청 내 권한만 제거하고 쿠키 삭제는 Route Handler에 위임
  * isInvalid는 쿠키에 저장되지 않는 요청 전용 상태
  */
-export default async function getSession(): Promise<
+async function getVerifiedSession(): Promise<
   IronSession<ISessionContent> & { readonly isInvalid?: boolean }
 > {
   const session = await getSessionForUpdate();
@@ -78,3 +80,8 @@ export default async function getSession(): Promise<
 
   return session;
 }
+
+/** 같은 RSC 요청의 레이아웃·페이지·메타데이터에서 세션 검증 결과 공유 */
+const getSession = cache(getVerifiedSession);
+
+export default getSession;

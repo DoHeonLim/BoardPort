@@ -9,12 +9,13 @@
  * 2026.03.31  임도헌   Modified  권한 검증과 service 위임 흐름이 드러나도록 주석 보강
  * 2026.04.02  임도헌   Modified  관리자 액션 파라미터/반환 JSDoc 태그 형식 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.09  임도헌   Modified  관리자 삭제 직후 미존재 상태를 보장하는 updateTag 적용
  */
 "use server";
 
 import { deletePostByAdmin, getPostsAdmin } from "../service/admin";
 import { verifyAdminAccess } from "@/features/auth/service/authSession";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import type { ServiceResult } from "@/lib/types";
 import type { AdminPostListResponse } from "@/features/post/types";
@@ -60,7 +61,7 @@ export async function deletePostAdminAction(postId: number, reason: string) {
   const res = await deletePostByAdmin(auth.adminId, postId, reason);
 
   if (res.success && res.data) {
-    revalidateTag(T.POST_DETAIL(postId), { expire: 0 });
+    updateTag(T.POST_DETAIL(postId));
     revalidatePath("/admin/posts");
     revalidatePath("/posts"); // 사용자 화면도 갱신
     revalidatePath(`/profile/${res.data.username}`);

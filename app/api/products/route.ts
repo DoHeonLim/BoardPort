@@ -6,12 +6,14 @@
  * History
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 제품 목록 조회 API 분리
+ * 2026.09.08  임도헌   Modified  허용된 상품 정렬 query 파싱 추가
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import getSession from "@/lib/session";
 import { getProductsList } from "@/features/product/service/list";
 import type { ProductSearchParams } from "@/features/product/types";
+import { normalizeProductSort } from "@/features/product/utils/productSort";
 
 /**
  * URL query 숫자 파라미터 정규화
@@ -41,6 +43,7 @@ function parseProductSearchParams(
     maxPrice: parseNumberParam(searchParams.get("maxPrice")),
     game_type: searchParams.get("game_type") ?? undefined,
     condition: searchParams.get("condition") ?? undefined,
+    sort: normalizeProductSort(searchParams.get("sort")),
   };
 }
 

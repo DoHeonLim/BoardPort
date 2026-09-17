@@ -12,6 +12,7 @@
  * 2026.03.28  임도헌   Modified  타인 프로필 sticky 액션 헤더와 현재 판매 패널 문법에 맞춰 로딩 정리
  * 2026.04.12  임도헌   Moved     파일 경로를 app/(tabs)/profile/[username]/loading.tsx 에서 app/(app)/(tabs)/profile/[username]/loading.tsx 로 변경 (라우트 그룹 개편)
  * 2026.06.21  임도헌   Modified  판매 목록 뷰 토글 스켈레톤을 실제 모바일 36px 기준과 맞춤
+ * 2026.09.08  임도헌   Modified  작성 게시글 미리보기 스켈레톤 추가
  */
 
 import Skeleton from "@/components/ui/Skeleton";
@@ -75,7 +76,18 @@ export default function Loading() {
           </div>
         </div>
 
-        {/* 3. 후기 및 뱃지 */}
+        {/* 3. 작성 게시글 */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-24 rounded" />
+            <Skeleton className="h-4 w-14 rounded" />
+          </div>
+          {[1, 2].map((i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          ))}
+        </div>
+
+        {/* 4. 후기 및 뱃지 */}
         <div className="flex flex-col gap-8">
           {/* 후기 */}
           <div className="space-y-2">
@@ -99,7 +111,7 @@ export default function Loading() {
           </div>
         </div>
 
-        {/* 4. 판매 목록 탭 */}
+        {/* 5. 판매 목록 탭 */}
         <div className="space-y-4">
           <Skeleton className="h-5 w-20 rounded" />
           <div className="panel bg-surface p-4">

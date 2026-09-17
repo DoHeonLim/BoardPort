@@ -41,7 +41,7 @@ export default function AccountBox() {
           href="/create-account"
           className={`${mainPageStyles.mainPageSecondaryCta} focus-ring-soft`}
         >
-          <span>새로운 선원으로 등록</span>
+          <span>회원가입</span>
         </Link>
       </div>
       <LegalLinks className="mt-4 text-white/75" compact inverse />

@@ -70,6 +70,7 @@
  * 2026.05.29  임도헌   Modified  모바일 채팅 레이아웃, 롱프레스 메뉴, 바텀시트 핸들 닫기 기준 정리
  * 2026.05.29  임도헌   Modified  모바일 호스트 공지/관리 진입점을 압축 채팅 헤더에 유지
  * 2026.08.21  임도헌   Modified  Realtime 재연결·탭 복귀 시 서버 채팅 상태 재조회
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 "use client";
 
@@ -221,9 +222,16 @@ export default function StreamChatRoom({
   const [mutedViewers, setMutedViewers] = useState<MutedStreamViewer[]>([]); // 현재 방송 채팅 금지 대상 목록
   const [reportMessageId, setReportMessageId] = useState<number | null>(null); // 신고 대상 메세지 ID
   const [menuMessageId, setMenuMessageId] = useState<number | null>(null); // 데스크톱 액션 메뉴 대상 메시지 ID
+  // 퇴장 전환 중에도 메시지 메뉴 내용 유지
   const [sheetMessage, setSheetMessage] = useState<StreamChatMessage | null>(
     null
-  ); // 모바일 BottomSheet 대상 메시지
+  );
+  const [lastSheetMessage, setLastSheetMessage] =
+    useState<StreamChatMessage | null>(null);
+  useEffect(() => {
+    if (sheetMessage) setLastSheetMessage(sheetMessage);
+  }, [sheetMessage]);
+  const displayedSheetMessage = sheetMessage ?? lastSheetMessage;
   const [desktopMenuPosition, setDesktopMenuPosition] = useState<{
     top: number;
     left: number;
@@ -801,7 +809,10 @@ export default function StreamChatRoom({
   ) => {
     if (chatHandleStartYRef.current === null) return;
 
-    if (event.clientY - chatHandleStartYRef.current > CHAT_HANDLE_CLOSE_THRESHOLD) {
+    if (
+      event.clientY - chatHandleStartYRef.current >
+      CHAT_HANDLE_CLOSE_THRESHOLD
+    ) {
       chatHandleStartYRef.current = null;
       closeChat();
     }
@@ -1097,13 +1108,13 @@ export default function StreamChatRoom({
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-start px-4 pt-10 text-center sm:justify-center sm:pt-0">
             <div className="rounded-full border border-border-subtle bg-surface-dim/70 px-3 py-1 text-xs font-medium tracking-[0.14em] text-muted">
-              교신 대기
+              채팅 대기
             </div>
             <p className="mt-4 text-sm font-medium text-muted">
-              아직 신호가 없습니다.
+              아직 채팅이 없습니다.
             </p>
             <p className="mt-1 text-xs leading-5 text-muted/80">
-              첫 메시지를 남겨 선원들과 대화를 시작해보세요.
+              첫 메시지를 남겨 대화를 시작해보세요.
             </p>
           </div>
         ) : (
@@ -1252,9 +1263,9 @@ export default function StreamChatRoom({
         targetType="STREAM_MESSAGE"
       />
 
-      {isMobile && !!sheetMessage && !sheetMessage.deleted_at && (
+      {isMobile && !!displayedSheetMessage && (
         <BottomSheet
-          open={!!sheetMessage}
+          open={!!sheetMessage && !sheetMessage.deleted_at}
           title="메시지 옵션"
           description="원하는 작업을 선택해주세요."
           onClose={() => setSheetMessage(null)}
@@ -1262,9 +1273,9 @@ export default function StreamChatRoom({
         >
           <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface">
             <StreamChatActionMenuItems
-              message={sheetMessage}
+              message={displayedSheetMessage}
               isViewerHost={isViewerHost}
-              isMine={isSameUser(sheetMessage.userId, userId)}
+              isMine={isSameUser(displayedSheetMessage.userId, userId)}
               className="focus-ring-soft flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-surface-dim"
               onDelete={handleDeleteMessage}
               onCopy={handleCopyMessage}
@@ -1281,7 +1292,7 @@ export default function StreamChatRoom({
         </BottomSheet>
       )}
 
-      {isMobile && isViewerHost && showMutedViewerPanel && (
+      {isMobile && isViewerHost && (
         <BottomSheet
           open={showMutedViewerPanel}
           title="채팅 금지 관리"

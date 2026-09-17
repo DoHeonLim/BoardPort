@@ -7,6 +7,7 @@
  * Date        Author   Status    Description
  * 2026.08.22  임도헌   Created   업로드 자산의 소유자·용도·연결 대상 검증과 provider ID 기반 삭제 추가
  * 2026.08.26  임도헌   Modified  moderation outbox용 외부 이미지 삭제 실패 전파 옵션 추가
+ * 2026.09.08  임도헌   Modified  녹화본 전용 VOD_THUMBNAIL 자산 용도 추가
  */
 import "server-only";
 
@@ -20,6 +21,7 @@ export const MEDIA_ASSET_PURPOSES = [
   "POST_IMAGE",
   "CHAT_IMAGE",
   "STREAM_THUMBNAIL",
+  "VOD_THUMBNAIL",
 ] as const;
 
 export type MediaAssetPurposeValue = (typeof MEDIA_ASSET_PURPOSES)[number];

@@ -11,14 +11,19 @@
  * 2026.04.26  임도헌   Modified  드래그 닫기를 pointer 이벤트로 통합해 PC 좁은 viewport의 마우스 드래그도 지원
  * 2026.04.28  임도헌   Modified  닫기 버튼 등 상호작용 요소 클릭이 드래그 시작으로 처리되지 않도록 보강
  * 2026.08.27  임도헌   Modified  공용 useModalFocus로 초기·순환·복귀 포커스와 중첩 모달 키보드 처리를 통일
+ * 2026.09.13  임도헌   Modified  시트 닫기 버튼을 공용 컴포넌트로 통일
+ * 2026.09.14  임도헌   Modified  시트와 배경의 공통 진입·퇴장 전환 적용
+ * 2026.09.14  임도헌   Modified  퇴장 중 상호작용 차단 및 동작 줄이기 설정 반영
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import { cn } from "@/lib/utils";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { useModalFocus } from "@/hooks/useModalFocus";
+
+const TRANSITION_DURATION_MS = 200;
 
 interface BottomSheetProps {
   open: boolean;
@@ -51,6 +56,8 @@ export default function BottomSheet({
   panelClassName,
 }: BottomSheetProps) {
   const [mounted, setMounted] = useState(false);
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isVisible, setIsVisible] = useState(false);
   const [translateY, setTranslateY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -66,7 +73,42 @@ export default function BottomSheet({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    let animationFrame: number | undefined;
+    let exitTimer: number | undefined;
+
+    if (open) {
+      setShouldRender(true);
+      setTranslateY(0);
+      setIsDragging(false);
+      dragStartYRef.current = 0;
+      dragCurrentYRef.current = 0;
+      animationFrame = window.requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+    } else {
+      setIsVisible(false);
+      exitTimer = window.setTimeout(
+        () => {
+          setShouldRender(false);
+        },
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : TRANSITION_DURATION_MS
+      );
+    }
+
+    return () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      if (exitTimer !== undefined) {
+        window.clearTimeout(exitTimer);
+      }
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!shouldRender) return;
 
     lockBodyScroll();
 
@@ -77,7 +119,7 @@ export default function BottomSheet({
       dragStartYRef.current = 0;
       dragCurrentYRef.current = 0;
     };
-  }, [open]);
+  }, [shouldRender]);
 
   useModalFocus({
     open,
@@ -113,6 +155,7 @@ export default function BottomSheet({
   };
 
   const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
     setIsDragging(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -127,12 +170,21 @@ export default function BottomSheet({
     setTranslateY(0);
   };
 
-  if (!open || !mounted) return null;
+  if (!shouldRender || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center">
+    <div
+      inert={!open}
+      className={cn(
+        "fixed inset-0 z-[60] flex items-end justify-center",
+        !isVisible && "pointer-events-none"
+      )}
+    >
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className={cn(
+          "absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ease-out",
+          isVisible ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -145,18 +197,26 @@ export default function BottomSheet({
         aria-describedby={descriptionId}
         tabIndex={-1}
         className={cn(
-          "relative flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface shadow-2xl",
+          "relative flex max-h-[80dvh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface shadow-2xl will-change-transform",
           !isDragging && "transition-transform duration-200 ease-out",
           panelClassName
         )}
-        style={{ transform: `translateY(${translateY}px)` }}
+        style={{
+          transform: isVisible
+            ? `translateY(${translateY}px)`
+            : "translateY(100%)",
+        }}
       >
         <div
           className="flex touch-none select-none cursor-grab flex-col items-center px-4 pt-3 active:cursor-grabbing"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
+          onPointerCancel={() => {
+            setIsDragging(false);
+            dragCurrentYRef.current = 0;
+            setTranslateY(0);
+          }}
         >
           <div
             className="mb-3 h-1.5 w-12 rounded-full bg-border"
@@ -176,15 +236,11 @@ export default function BottomSheet({
                 </p>
               )}
             </div>
-            <button
+            <ModalCloseButton
               ref={closeButtonRef}
-              type="button"
               onClick={onClose}
-              aria-label="시트 닫기"
-              className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-            >
-              <XMarkIcon className="size-6" />
-            </button>
+              label="시트 닫기"
+            />
           </div>
         </div>
 

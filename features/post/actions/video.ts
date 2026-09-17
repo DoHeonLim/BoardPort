@@ -10,11 +10,12 @@
  * 2026.03.31  임도헌   Modified  draft 정리와 업로드 실패 상태 반영 액션 추가
  * 2026.04.02  임도헌   Modified  동영상 draft 액션 파라미터/반환 JSDoc 태그 형식 정리
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
+ * 2026.09.09  임도헌   Modified  동영상 실패 반영 직후 상세 본문을 보장하는 updateTag 적용
  */
 "use server";
 
 import getSession from "@/lib/session";
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import {
   createPostVideoUploadSession,
@@ -108,7 +109,7 @@ export async function markPostVideoDraftFailedAction(
   }
 
   if (result.data) {
-    revalidateTag(T.POST_DETAIL(result.data), { expire: 0 });
+    updateTag(T.POST_DETAIL(result.data));
   }
 
   return { success: true };

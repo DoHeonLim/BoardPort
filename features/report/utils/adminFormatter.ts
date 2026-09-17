@@ -75,9 +75,7 @@ export function formatAuditReason(
       displayReason: parts[parts.length - 1].replace("Reason: ", ""),
       metaInfo: parts
         .slice(0, parts.length - 1)
-        .map((part) =>
-          formatOwnerIdPart(part, options?.reasonOwnerUsername)
-        )
+        .map((part) => formatOwnerIdPart(part, options?.reasonOwnerUsername))
         .join(" | "),
     };
   }
@@ -158,12 +156,12 @@ export function getReportTargetType(report: AdminReportItem) {
 }
 
 export function getReportTargetLabel(report: AdminReportItem) {
-  if (report.targetUserId) return "유저";
+  if (report.targetUserId) return "사용자";
   if (report.targetProductId) return "상품";
   if (report.targetPostId) return "게시글";
   if (report.targetCommentId) return "댓글";
   if (report.targetStreamId) return "방송";
-  if (report.targetReviewId) return "리뷰";
+  if (report.targetReviewId) return "거래 후기";
   if (report.targetProductMessageId) return "거래 메시지";
   if (report.targetStreamMessageId) return "방송 메시지";
   return "대상";
@@ -200,7 +198,8 @@ export function getReportTargetParentId(report: AdminReportItem) {
 
 export function getReportTargetParentLabel(report: AdminReportItem) {
   if (report.targetCommentId) return "원본 게시글";
-  if (report.targetReviewId || report.targetProductMessageId) return "원본 상품";
+  if (report.targetReviewId || report.targetProductMessageId)
+    return "원본 상품";
   if (report.targetStreamMessageId) return "원본 방송";
   return null;
 }

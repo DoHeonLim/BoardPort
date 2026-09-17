@@ -18,7 +18,7 @@ import { usePathname } from "next/navigation";
 
 const SECTION_TITLES = [
   { prefix: "/admin/reports", label: "신고 관리" },
-  { prefix: "/admin/users", label: "유저 관리" },
+  { prefix: "/admin/users", label: "사용자 관리" },
   { prefix: "/admin/products", label: "상품 관리" },
   { prefix: "/admin/posts", label: "게시글 관리" },
   { prefix: "/admin/streams", label: "방송 관리" },

@@ -9,12 +9,14 @@
  * 2026.08.27  임도헌   Created   생성 시각과 끌어올리기 노출 시각을 독립적으로 보존하는지 검증
  * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜 입력 회귀 검증
  * 2026.09.05  임도헌   Modified  삭제 기록 정리·최신 이미지 갱신·조회 중 로컬 변경 보존 검증
+ * 2026.09.09  임도헌   Modified  서버 공용 스냅샷 변환 유틸 분리 경로 반영
+ * 2026.09.09  임도헌   Modified  상세 cache와 분리된 최신 좋아요 수 결합 검증
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ProductDetailType } from "@/features/product/types";
+import { createRecentViewedProductSnapshot } from "@/features/product/utils/recentViewedSnapshot";
 import {
-  createRecentViewedProductSnapshot,
   saveRecentViewedProduct,
   getRecentViewedProducts,
   removeRecentViewedProduct,
@@ -54,7 +56,6 @@ function createProductDetailFixture(): ProductDetailType {
       icon: null,
       parent: null,
     },
-    _count: { product_likes: 3 },
     search_tags: [{ name: "전략" }],
     board_games: [],
   };
@@ -63,7 +64,8 @@ function createProductDetailFixture(): ProductDetailType {
 describe("createRecentViewedProductSnapshot", () => {
   it("생성 시각과 실제 끌어올리기 노출 시각을 각각 직렬화한다", () => {
     const snapshot = createRecentViewedProductSnapshot(
-      createProductDetailFixture()
+      createProductDetailFixture(),
+      3
     );
 
     expect(snapshot.created_at).toBe("2026-08-20T01:00:00.000Z");
@@ -73,7 +75,8 @@ describe("createRecentViewedProductSnapshot", () => {
 
   it("상품 카드 렌더링에 필요한 목록 필드를 보존한다", () => {
     const snapshot = createRecentViewedProductSnapshot(
-      createProductDetailFixture()
+      createProductDetailFixture(),
+      3
     );
 
     expect(snapshot).toMatchObject({
@@ -94,7 +97,7 @@ describe("createRecentViewedProductSnapshot", () => {
       refreshed_at: product.refreshed_at.toISOString(),
     } as unknown as ProductDetailType;
 
-    const snapshot = createRecentViewedProductSnapshot(cachedProduct);
+    const snapshot = createRecentViewedProductSnapshot(cachedProduct, 3);
 
     expect(snapshot.created_at).toBe("2026-08-20T01:00:00.000Z");
     expect(snapshot.refreshed_at).toBe("2026-08-27T02:30:00.000Z");
@@ -104,7 +107,7 @@ describe("createRecentViewedProductSnapshot", () => {
 describe("최근 본 상품 서버 동기화", () => {
   beforeEach(() => window.localStorage.clear());
   const product = (id: number) => ({
-    ...createRecentViewedProductSnapshot(createProductDetailFixture()),
+    ...createRecentViewedProductSnapshot(createProductDetailFixture(), 3),
     id,
   });
 

@@ -7,15 +7,13 @@
  * Date        Author   Status    Description
  * 2026.05.19  임도헌   Created   Client queryFn에서 조회용 Server Action을 직접 호출하지 않도록 라이브 방송 목록 조회 API 분리
  * 2026.06.25  임도헌   Modified  URL viewerId fallback 제거 및 세션 기준 조회자 권한 고정
+ * 2026.09.09  임도헌   Modified  공용 service 페이징 응답 조립 적용
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { STREAMS_PAGE_TAKE } from "@/lib/constants";
 import getSession from "@/lib/session";
-import { getStreamsList } from "@/features/stream/service/list";
+import { getStreamsPage } from "@/features/stream/service/list";
 import type { StreamScope } from "@/features/stream/types";
-
-const TAKE = STREAMS_PAGE_TAKE;
 
 /**
  * URL query 숫자 파라미터 정규화
@@ -52,24 +50,19 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const scope: StreamScope =
     searchParams.get("scope") === "following" ? "following" : "all";
-  // /api 경로는 middleware 인증 가드를 타지 않으므로 URL viewerId를 신뢰하지 않고 세션만 조회자 기준으로 사용한다.
+  // middleware 인증 가드를 타지 않는 /api 경로에서 세션만 조회자 기준으로 사용
   const viewerId = session?.id ?? null;
 
   if (!viewerId) {
     return NextResponse.json({ streams: [], nextCursor: null });
   }
 
-  const list = await getStreamsList({
+  const page = await getStreamsPage({
     scope,
     category: normalizeTextParam(searchParams.get("category")),
     keyword: normalizeTextParam(searchParams.get("keyword")),
     viewerId,
     cursor: parseNullableNumberParam(searchParams.get("cursor")),
-    take: TAKE + 1,
   });
-  const hasMore = list.length > TAKE;
-  const streams = hasMore ? list.slice(0, TAKE) : list;
-  const nextCursor = hasMore ? streams[streams.length - 1].id : null;
-
-  return NextResponse.json({ streams, nextCursor });
+  return NextResponse.json(page);
 }

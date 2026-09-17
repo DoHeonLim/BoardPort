@@ -17,6 +17,9 @@
  * 2026.04.08  임도헌   Modified  게시글 카드 대표 썸네일을 첫 미디어 블록(이미지/유튜브 임베드) 우선 규칙으로 정리
  * 2026.04.14  임도헌   Modified  첫 게시글 카드만 priority/fetchPriority를 적용해 목록 LCP를 개선
  * 2026.04.14  임도헌   Modified  유튜브 썸네일도 Next 이미지 최적화를 통과시키고 sizes를 모바일 실폭 기준으로 보정
+ * 2026.09.11  임도헌   Modified  Cloudflare Images public variant 중복 방지
+ * 2026.09.11  임도헌   Modified  대표 썸네일 판별 분리와 무이미지 placeholder 복구
+ * 2026.09.11  임도헌   Modified  Next.js 16 기준 LCP 이미지 eager 로딩 전환
  */
 "use client";
 
@@ -25,29 +28,24 @@ import { PhotoIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import type { PostBlock, PostImage } from "@/features/post/types";
 import { parseYouTubeEmbedInput } from "@/features/post/utils/embed";
+import { toPostImagePublicUrl } from "@/features/post/utils/image";
 
 interface PostCardThumbnailProps {
-  images: PostImage[];
-  blocks?: PostBlock[];
+  thumbnail: PostCardThumbnailData | null;
   viewMode: "list" | "grid";
   isPriority?: boolean;
 }
 
-/**
- * 게시글의 대표 이미지를 렌더링
- * - 첫 미디어 블록이 이미지면 해당 이미지를 대표 썸네일로 사용
- * - 첫 미디어 블록이 유튜브 임베드면 임베드 썸네일을 대표 썸네일로 사용
- * - 블록 정보로 대표 썸네일을 정하지 못할 때만 기존 images[0]을 fallback으로 사용
- * - 썸네일 소스가 없으면 Placeholder 아이콘을 표시
- * - 뷰 모드에 따라 적절한 레이아웃과 sizes 속성을 적용
- */
-export default function PostCardThumbnail({
-  images,
-  blocks = [],
-  viewMode,
-  isPriority = false,
-}: PostCardThumbnailProps) {
-  const isGrid = viewMode === "grid";
+export interface PostCardThumbnailData {
+  src: string;
+  isAnimated: boolean;
+}
+
+/** 게시글 블록과 이미지 목록에서 카드 대표 썸네일 정보 추출 */
+export function getPostCardThumbnail(
+  images: PostImage[],
+  blocks: PostBlock[] = []
+): PostCardThumbnailData | null {
   const firstMediaBlock = blocks.find(
     (block) =>
       (block.type === "IMAGE" && !!block.postImage?.url) ||
@@ -59,24 +57,51 @@ export default function PostCardThumbnail({
   );
   const selectedEmbedThumbnail =
     firstMediaBlock?.type === "EMBED"
-      ? firstMediaBlock.embedThumbnailUrl ??
+      ? (firstMediaBlock.embedThumbnailUrl ??
         parseYouTubeEmbedInput(firstMediaBlock.embedUrl)?.thumbnailUrl ??
-        null
+        null)
       : null;
 
-  const thumbnailSrc =
-    firstMediaBlock?.type === "IMAGE" && firstMediaBlock.postImage?.url
-      ? `${firstMediaBlock.postImage.url}/public`
-      : firstMediaBlock?.type === "EMBED" && selectedEmbedThumbnail
-        ? selectedEmbedThumbnail
-        : images[0]
-          ? `${images[0].url}/public`
-          : null;
+  if (firstMediaBlock?.type === "IMAGE" && firstMediaBlock.postImage?.url) {
+    const src = toPostImagePublicUrl(firstMediaBlock.postImage.url);
+    if (src) {
+      return {
+        src,
+        isAnimated: !!firstMediaBlock.postImage.isAnimated,
+      };
+    }
+  }
 
-  const isAnimatedThumbnail =
-    firstMediaBlock?.type === "IMAGE"
-      ? !!firstMediaBlock.postImage?.isAnimated
-      : !!images[0]?.isAnimated;
+  if (firstMediaBlock?.type === "EMBED" && selectedEmbedThumbnail) {
+    return { src: selectedEmbedThumbnail, isAnimated: false };
+  }
+
+  if (images[0]?.url) {
+    const src = toPostImagePublicUrl(images[0].url);
+    if (src) {
+      return {
+        src,
+        isAnimated: !!images[0].isAnimated,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 게시글의 대표 이미지를 렌더링
+ * - 첫 미디어 블록이 이미지면 해당 이미지를 대표 썸네일로 사용
+ * - 첫 미디어 블록이 유튜브 임베드면 임베드 썸네일을 대표 썸네일로 사용
+ * - 블록 정보로 대표 썸네일을 정하지 못할 때만 기존 images[0]을 fallback으로 사용
+ * - 뷰 모드에 따라 적절한 레이아웃과 sizes 속성을 적용
+ */
+export default function PostCardThumbnail({
+  thumbnail,
+  viewMode,
+  isPriority = false,
+}: PostCardThumbnailProps) {
+  const isGrid = viewMode === "grid";
   return (
     <div
       className={cn(
@@ -86,25 +111,25 @@ export default function PostCardThumbnail({
           : "h-full w-28 sm:w-32"
       )}
     >
-      {thumbnailSrc ? (
+      {thumbnail ? (
         <Image
-          src={thumbnailSrc}
+          src={thumbnail.src}
           alt="게시글 썸네일"
           fill
-          priority={isPriority}
           fetchPriority={isPriority ? "high" : undefined}
-          loading={isPriority ? undefined : "lazy"}
+          loading={isPriority ? "eager" : "lazy"}
           sizes={
             isGrid
               ? "(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 22vw"
               : "(max-width: 640px) 112px, (max-width: 1024px) 128px, 144px"
           }
           className="object-cover transition-transform duration-300 group-hover:scale-105"
-          unoptimized={isAnimatedThumbnail}
+          unoptimized={thumbnail.isAnimated}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-muted/40">
-          <PhotoIcon className="size-6 sm:size-8" />
+        <div className="flex h-full w-full items-center justify-center text-muted/50">
+          <PhotoIcon className="size-7 sm:size-8" aria-hidden="true" />
+          <span className="sr-only">대표 이미지 없음</span>
         </div>
       )}
     </div>

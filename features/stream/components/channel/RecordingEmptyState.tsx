@@ -56,7 +56,7 @@ export default function RecordingEmptyState({
             아직 다시보기가 없어요
           </h3>
           <p className="state-description mt-2">
-            방송이 끝나면 녹화본이 여기에 표시됩니다.
+            방송이 끝나면 다시보기가 여기에 표시됩니다.
           </p>
 
           {role === "OWNER" ? (

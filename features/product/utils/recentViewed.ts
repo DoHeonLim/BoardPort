@@ -11,65 +11,19 @@
  * 2026.08.27  임도헌   Modified  상세 상품의 실제 refreshed_at을 보존하는 최근 본 상품 스냅샷 변환 함수 추가
  * 2026.08.31  임도헌   Modified  서버 cache에서 직렬화된 상세 날짜도 안전하게 스냅샷으로 변환
  * 2026.09.05  임도헌   Modified  서버 조회 결과로 삭제 기록 정리 및 조회 중 변경된 열람 기록 보존
+ * 2026.09.09  임도헌   Modified  스냅샷 타입과 변환 책임을 서버 공용 유틸로 분리
  */
 
 "use client";
 
-import type { ProductDetailType, ProductType } from "@/features/product/types";
+import type { RecentViewedProduct } from "@/features/product/utils/recentViewedSnapshot";
+
+export type { RecentViewedProduct } from "@/features/product/utils/recentViewedSnapshot";
 
 const RECENT_VIEWED_PRODUCTS_KEY = "bp_recent_viewed_products";
 const MAX_RECENT_VIEWED_PRODUCTS = 8;
 export const RECENT_VIEWED_PRODUCTS_UPDATED_EVENT =
   "bp:recent-viewed-products-updated";
-
-/**
- * 최근 본 상품에 저장할 최소 스냅샷 타입
- *
- * - 제품 목록 카드에서 바로 재사용할 수 있도록 `ProductType` 형태 유지
- * - 날짜 직렬화를 위해 `created_at`, `refreshed_at`은 문자열 기반 허용
- */
-export type RecentViewedProduct = ProductType;
-
-/** Date 또는 서버 cache의 ISO 문자열을 브라우저 저장소용 ISO 문자열로 통일한다. */
-function serializeProductDate(value: Date | string) {
-  return value instanceof Date
-    ? value.toISOString()
-    : new Date(value).toISOString();
-}
-
-/**
- * 상세 조회 결과를 브라우저 저장소용 최근 본 상품 스냅샷으로 변환
- *
- * - 생성 시각과 끌어올리기 이후 노출 기준 시각을 각각 직렬화해 의미를 유지
- * - 상품 카드 렌더링에 필요한 필드만 선택해 상세 전용 데이터 저장을 방지
- *
- * @param product - 서버에서 조회한 상품 상세 정보
- * @returns 상품 카드에서 재사용할 최근 본 상품 스냅샷
- */
-export function createRecentViewedProductSnapshot(
-  product: ProductDetailType
-): RecentViewedProduct {
-  return {
-    id: product.id,
-    title: product.title,
-    price: product.price,
-    created_at: serializeProductDate(product.created_at),
-    refreshed_at: serializeProductDate(product.refreshed_at),
-    reservation_userId: product.reservation_userId,
-    purchase_userId: product.purchase_userId,
-    views: product.views,
-    bump_count: product.bump_count,
-    game_type: product.game_type,
-    region1: product.region1 ?? null,
-    region2: product.region2 ?? null,
-    region3: product.region3 ?? null,
-    images: product.images,
-    category: product.category,
-    _count: product._count,
-    search_tags: product.search_tags,
-    board_games: product.board_games,
-  };
-}
 
 /**
  * 최근 본 상품 목록 조회
@@ -121,7 +75,7 @@ export function reconcileRecentViewedProducts(
       window.localStorage.setItem(RECENT_VIEWED_PRODUCTS_KEY, serialized);
     }
   } catch {
-    // 저장소를 사용할 수 없어도 검증된 화면 상태는 반환한다.
+    // 저장소를 사용할 수 없어도 검증된 화면 상태 반환
   }
   return next;
 }

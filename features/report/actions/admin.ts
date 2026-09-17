@@ -11,6 +11,7 @@
  * 2026.04.03  임도헌   Modified  관리자 신고 목록 필터 타입 import를 report/types 공용 정의로 정리
  * 2026.04.27  임도헌   Modified  기각 처리도 관리자 코멘트 payload를 전달할 수 있도록 입력 타입 확장
  * 2026.08.26  임도헌   Modified  신고 경유 콘텐츠 삭제도 도메인 상세·목록 cache 재검증 적용
+ * 2026.09.09  임도헌   Modified  신고 처리 직후 삭제된 상품의 미존재 상태를 보장하는 updateTag 적용
  */
 
 "use server";
@@ -21,8 +22,7 @@ import {
   updateReportStatus,
 } from "@/features/report/service/admin";
 import { verifyAdminAccess } from "@/features/auth/service/authSession";
-import { revalidatePath } from "next/cache";
-import { revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import * as T from "@/lib/cacheTags";
 import type { ServiceResult } from "@/lib/types";
 import type {
@@ -110,9 +110,13 @@ export async function updateReportAction(
     paths.add("/admin/reports");
     paths.forEach((path) => revalidatePath(path));
     if (result.data?.productDetailId) {
-      revalidateTag(T.PRODUCT_DETAIL(result.data.productDetailId), {
-        expire: 0,
-      });
+      updateTag(T.PRODUCT_DETAIL(result.data.productDetailId));
+    }
+    if (result.data?.postDetailId) {
+      updateTag(T.POST_DETAIL(result.data.postDetailId));
+    }
+    if (result.data?.broadcastDetailId) {
+      updateTag(T.BROADCAST_DETAIL(result.data.broadcastDetailId));
     }
   }
   return result;

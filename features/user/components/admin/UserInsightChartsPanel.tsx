@@ -82,25 +82,25 @@ export default function UserInsightChartsPanel({
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_1fr]">
       <AdminChartCard
         title="최근 30일 가입 추이"
-        description="회원 유입 흐름이 언제 올라오는지 읽는 운영용 가입 추이 패널입니다."
+        description="사용자 유입 흐름이 언제 늘어나는지 확인하는 운영용 가입 추이 패널입니다."
         actionSlot={
           <Link
             href="/admin/users"
             prefetch={false}
             className={actionLinkClass}
           >
-            회원 목록 보기
+            사용자 목록 보기
           </Link>
         }
         legendSlot={legendSlot}
-        insight={`최근 30일 동안 총 ${signupTotal.toLocaleString()}명의 회원이 새로 가입했습니다.`}
+        insight={`최근 30일 동안 총 ${signupTotal.toLocaleString()}명의 사용자가 새로 가입했습니다.`}
       >
         <AdminTrendChart labels={labels} series={signupSeries} />
       </AdminChartCard>
 
       <AdminChartCard
-        title="회원 상태 분포"
-        description="일반 회원, 관리자, 제재 계정 비중을 한 번에 보는 상태 분포 패널입니다."
+        title="사용자 상태 분포"
+        description="일반 사용자, 관리자, 제재 계정 비중을 한 번에 보는 상태 분포 패널입니다."
         actionSlot={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
@@ -108,7 +108,7 @@ export default function UserInsightChartsPanel({
               prefetch={false}
               className={actionLinkClass}
             >
-              전체 회원
+              전체 사용자
             </Link>
             <Link
               href="/admin/users?role=ADMIN"
@@ -122,14 +122,14 @@ export default function UserInsightChartsPanel({
               prefetch={false}
               className={actionLinkClass}
             >
-              정지 유저 보기
+              정지 사용자 보기
             </Link>
           </div>
         }
         insight={
           statusSlices[0]
             ? `현재 가장 큰 비중은 '${statusSlices[0].label}' 상태입니다.`
-            : "아직 집계된 회원 상태 데이터가 없습니다."
+            : "아직 집계된 사용자 상태 데이터가 없습니다."
         }
       >
         <AdminDonutChart

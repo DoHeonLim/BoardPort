@@ -1,6 +1,6 @@
 /**
  * File Name : features/auth/components/form/CreateAccountForm.tsx
- * Description : 유저 회원가입 폼 컴포넌트
+ * Description : 회원가입 폼 컴포넌트
  * Author : 임도헌
  *
  * History
@@ -25,6 +25,7 @@
  * 2026.05.12  임도헌   Modified  로그인 이동 링크가 blur 검증으로 한 번 막히지 않도록 포인터 focus 이동 방지
  * 2026.08.30  임도헌   Modified  기본 프로필 복귀 경로를 로그인 링크에서 생략
  * 2026.09.05  임도헌   Modified  제출 전 빈 필드 오류 노출을 막는 검증 시점 조정
+ * 2026.09.13  임도헌   Modified  회원가입 용어와 제출 진행 표시 통일
  */
 "use client";
 
@@ -116,7 +117,7 @@ export default function CreateAccountForm({
         }
 
         // 4. 성공 시 이동
-        toast.success("환영합니다! 선원 등록이 완료되었습니다.");
+        toast.success("회원가입이 완료되었습니다.");
         router.replace(result.redirectTo ?? callbackUrl);
       } catch {
         toast.error("일시적인 오류가 발생했습니다.");
@@ -140,8 +141,8 @@ export default function CreateAccountForm({
         <div className="flex flex-col gap-form-gap">
           <Input
             {...register("username")}
-            label="선원 닉네임"
-            placeholder="선원 닉네임"
+            label="닉네임"
+            placeholder="닉네임"
             autoComplete="username"
             icon={<UserIcon className="size-5" />}
             errors={errors.username?.message ? [errors.username.message] : []}
@@ -192,13 +193,15 @@ export default function CreateAccountForm({
       </div>
 
       <Button
-        text={isPending ? "등록 중..." : "선원 등록하기"}
+        text="회원가입"
+        loading={isPending}
+        loadingText="가입 중..."
         disabled={isPending}
         className="mt-2"
       />
 
       <div className="mt-4 text-center text-sm text-muted">
-        이미 선원이신가요?{" "}
+        이미 가입하셨나요?{" "}
         <Link
           href={loginHref}
           onPointerDown={preventPointerDownFocus}

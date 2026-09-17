@@ -9,6 +9,7 @@
  * 2026.06.18  임도헌   Modified  정규화된 지역 표시 포맷을 사용해 중복 지역명 노출 방지
  * 2026.06.18  임도헌   Modified  상품 거래 기준 지역을 필수 입력 UI로 정리
  * 2026.08.30  임도헌   Modified  위치 선택 버튼의 오류 스타일과 안내 문구를 접근성 설명으로 연결
+ * 2026.09.12  임도헌   Modified  거래 장소 삭제 버튼의 접근성 이름과 클릭 영역 보강
  */
 
 import { useId } from "react";
@@ -74,10 +75,10 @@ export default function ProductLocationSection({
             <button
               type="button"
               onClick={onRemoveLocation}
-              className="focus-ring-soft p-1 text-muted hover:text-danger"
-              title="위치 삭제"
+              className="focus-ring-soft inline-flex size-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+              aria-label="거래 장소 삭제"
             >
-              <XMarkIcon className="size-4" />
+              <XMarkIcon className="size-4" aria-hidden="true" />
             </button>
           </div>
         </div>

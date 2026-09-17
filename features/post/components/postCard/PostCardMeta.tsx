@@ -19,6 +19,8 @@
  * 2026.05.18  임도헌   Modified  좋아요 하트 강조 색상을 총 좋아요 수가 아닌 현재 사용자 좋아요 여부 기준으로 보정
  * 2026.06.18  임도헌   Modified  명시 장소가 있는 게시글만 카드 위치 정보를 표시
  * 2026.06.21  임도헌   Modified  명시 장소가 없으면 feedRegion 기준 작성 동네를 카드 메타에 표시
+ * 2026.09.11  임도헌   Modified  관심 목록의 찜한 시각과 활동 라벨 표시 지원
+ * 2026.09.12  임도헌   Modified  그리드 카드 반응 지표를 좋아요·댓글로 줄여 하단 정보 밀도 완화
  */
 "use client";
 
@@ -39,6 +41,8 @@ interface PostCardMetaProps {
   isLiked?: boolean;
   comments: number;
   createdAt: string;
+  activityAt?: Date | string;
+  activityLabel?: string;
   locationName?: string | null;
   region1?: string | null;
   region2?: string | null;
@@ -54,7 +58,7 @@ interface PostCardMetaProps {
  *
  * [레이아웃 최적화]
  * 1. 좌측 통계와 우측 시간/장소를 양 끝으로 배치 (justify-between)
- * 2. 그리드 모드에서는 공간 확보를 위해 장소 정보 숨김
+ * 2. 그리드 모드에서는 좋아요·댓글과 장소·시간 중심으로 정보 축약
  * 3. 위치 텍스트가 길어질 경우 말줄임(...) 처리 (min-w-0 flex-1)
  * 4. 명시 장소가 없으면 feedRegion을 작성 동네 메타로 사용
  */
@@ -64,6 +68,8 @@ export default function PostCardMeta({
   isLiked = false,
   comments,
   createdAt,
+  activityAt,
+  activityLabel,
   locationName,
   region1,
   region2,
@@ -74,7 +80,14 @@ export default function PostCardMeta({
   viewMode = "list",
 }: PostCardMetaProps) {
   const isGrid = viewMode === "grid";
-  // 명시 장소는 관련 장소로, 없을 때의 feedRegion은 전국 피드에서 출처를 보여주는 작성 동네로 표시한다.
+  const effectiveDate = activityAt ?? createdAt;
+  const time = (
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-muted">
+      {activityLabel && <span>{activityLabel}</span>}
+      <TimeAgo date={effectiveDate} />
+    </span>
+  );
+  // 명시 장소는 관련 장소로, feedRegion은 전국 피드의 작성 동네로 표시
   const explicitLocationText = locationName
     ? formatNormalizedRegion({ region1, region2, region3 })
     : "";
@@ -106,10 +119,12 @@ export default function PostCardMeta({
         <ChatBubbleLeftIcon className="size-3 text-muted/70" />
         <span className="text-xs">{comments}</span>
       </div>
-      <div className="flex items-center gap-1">
-        <EyeIcon className="size-3 text-muted/70" />
-        <span className="text-xs">{views}</span>
-      </div>
+      {!isGrid && (
+        <div className="flex items-center gap-1">
+          <EyeIcon className="size-3 text-muted/70" />
+          <span className="text-xs">{views}</span>
+        </div>
+      )}
     </div>
   );
 
@@ -128,10 +143,7 @@ export default function PostCardMeta({
 
         <div className="flex items-center justify-between gap-2 text-xs">
           {stats}
-          <TimeAgo
-            date={createdAt}
-            className="text-muted whitespace-nowrap shrink-0"
-          />
+          {time}
         </div>
       </div>
     );
@@ -172,10 +184,7 @@ export default function PostCardMeta({
               </span>
             </>
           )}
-          <TimeAgo
-            date={createdAt}
-            className="text-muted whitespace-nowrap shrink-0"
-          />
+          {time}
         </div>
       </div>
     </div>

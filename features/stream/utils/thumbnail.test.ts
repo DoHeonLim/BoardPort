@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { selectRecordingThumbnail } from "./thumbnail";
+import { selectRecordingThumbnail, selectRecordingTitle } from "./thumbnail";
 
 const base = {
   providerThumbnail:
@@ -19,6 +19,21 @@ const base = {
 };
 
 describe("selectRecordingThumbnail", () => {
+  it("사용자 지정 썸네일을 provider와 방송 썸네일보다 우선한다", () => {
+    expect(
+      selectRecordingThumbnail({
+        ...base,
+        visibility: "PUBLIC",
+        isOwner: false,
+        customThumbnail: "https://images.example.com/vod.jpg",
+        customThumbnailAnimated: true,
+      })
+    ).toEqual({
+      thumbnail: "https://images.example.com/vod.jpg",
+      thumbnailAnimated: true,
+    });
+  });
+
   it("PUBLIC 목록은 provider VOD 썸네일을 사용할 수 있다", () => {
     expect(
       selectRecordingThumbnail({
@@ -55,5 +70,15 @@ describe("selectRecordingThumbnail", () => {
       thumbnail: base.providerThumbnail,
       thumbnailAnimated: false,
     });
+  });
+});
+
+describe("selectRecordingTitle", () => {
+  it("사용자 지정 제목을 우선하고 빈 값은 부모 방송 제목으로 대체한다", () => {
+    expect(selectRecordingTitle(" 녹화본 제목 ", "방송 제목")).toBe(
+      "녹화본 제목"
+    );
+    expect(selectRecordingTitle(null, "방송 제목")).toBe("방송 제목");
+    expect(selectRecordingTitle("  ", "방송 제목")).toBe("방송 제목");
   });
 });

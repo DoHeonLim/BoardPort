@@ -14,12 +14,11 @@
  * 2026.03.07  임도헌   Modified  정지 유저 가드 추가 및 실패 문구 오기 정정
  * 2026.08.23  임도헌   Modified  Next.js 16 revalidateTag 만료 프로필 인자 반영
  * 2026.08.24  임도헌   Modified  사용자 노출 거래 명칭을 상품으로 통일
+ * 2026.09.09  임도헌   Modified  캐시 만료 책임을 호출 Server Action으로 이동
  */
 
 import "server-only";
 import db from "@/lib/db";
-import { revalidateTag } from "next/cache";
-import * as T from "@/lib/cacheTags";
 import { validateUserStatus } from "@/features/user/service/admin";
 import {
   BUMP_COOLDOWN_HOURS,
@@ -31,7 +30,7 @@ import type { ServiceResult } from "@/lib/types";
  * 제품을 목록 상단으로 끌어올림
  * - 소유권을 확인하고, 마지막 끌어올리기 시간으로부터 24시간이 지났는지 검사
  * - 조건을 만족하면 `refreshed_at`과 `last_bumped_at`을 현재 시간으로 갱신
- * - 변경 후 관련 캐시(목록, 상세, 유저 판매 목록)를 무효화
+ * - 캐시 갱신은 호출 경계에 위임
  *
  * @param userId - 요청자 ID
  * @param productId - 제품 ID
@@ -123,9 +122,6 @@ export async function bumpProduct(
         error: "이미 끌어올렸거나 조건이 맞지 않습니다.",
       };
     }
-
-    // 5. 캐시 무효화
-    revalidateTag(T.PRODUCT_DETAIL(productId), { expire: 0 }); // 상세 페이지
 
     return { success: true };
   } catch (e) {

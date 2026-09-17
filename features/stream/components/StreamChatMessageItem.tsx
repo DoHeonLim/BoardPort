@@ -67,7 +67,7 @@ export default function StreamChatMessageItem({
   const isHost = safeMessageUserId === hostUserId;
   const isDeleted = !!message.deleted_at;
   const username =
-    message.user?.username ?? (isMine ? currentUsername : "선원");
+    message.user?.username ?? (isMine ? currentUsername : "사용자");
 
   if (isFocusMode) {
     return (
@@ -138,7 +138,10 @@ export default function StreamChatMessageItem({
             >
               {isDeleted ? (
                 <span
-                  className={cn("italic", isMine ? "text-white/85" : "text-muted")}
+                  className={cn(
+                    "italic",
+                    isMine ? "text-white/85" : "text-muted"
+                  )}
                 >
                   호스트에 의해 삭제된 메시지입니다.
                 </span>

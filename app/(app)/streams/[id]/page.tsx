@@ -77,7 +77,7 @@ import {
 import { getBlockedUserIds } from "@/features/user/service/block";
 import { isSocialCrawlerUserAgent } from "@/lib/socialCrawler";
 
-/** 접근 제한 정보는 노출하지 않고 방송 공유·브라우저 메타데이터를 생성한다. */
+/** 접근 제한 정보 제외 후 방송 공유·브라우저 메타데이터 생성 */
 export async function generateMetadata(props: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
@@ -103,7 +103,7 @@ export async function generateMetadata(props: {
     if (access?.allowed) {
       const title = `${stream.title} - ${stream.user.username}`;
       const description =
-        stream.description?.slice(0, 100) || "보드포트 라이브 스트리밍";
+        stream.description?.slice(0, 100) || "보드포트 라이브 방송";
 
       return {
         title,
@@ -130,7 +130,7 @@ export async function generateMetadata(props: {
   }
 
   const title = `${stream.title} - ${stream.user.username}`;
-  const desc = stream.description?.slice(0, 100) || "보드포트 라이브 스트리밍";
+  const desc = stream.description?.slice(0, 100) || "보드포트 라이브 방송";
   const imageUrl = `/streams/${id}/og-image`;
 
   return {
@@ -225,7 +225,7 @@ export default async function StreamDetailPage(props: {
   if (!fetched) notFound();
 
   // 원본 provider UID는 access subject 안에서만 사용하고, 브라우저에는
-  // 짧은 수명의 signed playback token만 직렬화한다.
+  // 짧은 수명의 signed playback token만 직렬화
   const initialBroadcast: StreamDetailDTO = {
     ...fetched,
     playbackId: createStreamPlaybackToken(access.subject.liveInputUid),

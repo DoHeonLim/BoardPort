@@ -33,7 +33,7 @@ Docker 자동화의 전체 동작과 문제 해결 방법은 [`database-deployme
 운영 배포 전후에는 다음 순서로 확인합니다.
 
 1. `npx prisma migrate status`
-2. 미적용 migration이 이 작업 하나인지 확인
+2. 미적용 migration 목록이 이번 릴리즈의 예상 목록과 일치하는지 확인
 3. `npx prisma migrate deploy`
 4. `npx prisma migrate status`에서 `Database schema is up to date!` 확인
 5. 예약 → 판매완료, 예약 취소 → 판매중 복귀 스모크 테스트 수행

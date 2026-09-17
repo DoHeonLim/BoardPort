@@ -8,12 +8,14 @@
  * 2026.03.16  임도헌   Created   NotificationListContainer 상단 키워드 버튼에서 여는 전용 관리 모달 추가
  * 2026.04.10  임도헌   Modified  상위 클라이언트 경계 아래에서만 쓰도록 use client 중복 선언을 제거해 직렬화 경고를 완화
  * 2026.08.27  임도헌   Modified  데스크톱 포커스 트랩·초기/복귀 포커스를 공용 useModalFocus로 통일
+ * 2026.09.13  임도헌   Modified  모달 닫기 버튼의 공용 컴포넌트 적용
+ * 2026.09.14  임도헌   Modified  모바일 시트 퇴장 전환을 위한 닫힘 상태 전달 및 렌더링 유지
  */
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import BottomSheet from "@/components/global/BottomSheet";
+import ModalCloseButton from "@/components/global/ModalCloseButton";
 import KeywordAlertManager from "@/features/notification/components/KeywordAlertManager";
 import { lockBodyScroll, unlockBodyScroll } from "@/lib/bodyScrollLock";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -72,7 +74,7 @@ export default function KeywordAlertModal({
     onClose,
   });
 
-  if (!isOpen) return null;
+  if (!isOpen && !isMobile) return null;
 
   if (isMobile) {
     return (
@@ -120,14 +122,7 @@ export default function KeywordAlertModal({
               관심 있는 키워드를 등록하고 범위를 조정합니다.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="focus-ring-soft inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-dim hover:text-primary"
-            aria-label="키워드 관리 모달 닫기"
-          >
-            <XMarkIcon className="size-6" />
-          </button>
+          <ModalCloseButton onClick={onClose} label="키워드 관리 모달 닫기" />
         </div>
 
         <div className="max-h-[70dvh] overflow-y-auto p-5">

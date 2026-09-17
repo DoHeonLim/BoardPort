@@ -6,6 +6,7 @@
  * History
  * Date        Author   Status    Description
  * 2026.08.30  임도헌   Created   실제 문서 탐색의 offline fallback과 no-response 오류 부재 검증
+ * 2026.09.10  임도헌   Modified  Turbopack 전환 후 워커 주소·Push 보호·precache 경계 검증 추가
  */
 
 import { expect, test } from "@playwright/test";
@@ -44,6 +45,57 @@ test.describe("production service worker", () => {
         Boolean(navigator.serviceWorker.controller)
       );
     }
+
+    const workerState = await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.ready;
+      const guard = await new Promise<unknown>((resolve) => {
+        const channel = new MessageChannel();
+        const timeout = setTimeout(() => {
+          channel.port1.close();
+          resolve(null);
+        }, 5000);
+        channel.port1.onmessage = (event) => {
+          clearTimeout(timeout);
+          channel.port1.close();
+          resolve(event.data);
+        };
+        navigator.serviceWorker.controller!.postMessage(
+          { type: "BOARDPORT_PUSH_DISPLAY_GUARD_VERSION_REQUEST" },
+          [channel.port2]
+        );
+      });
+      const cachedPaths = (
+        await Promise.all(
+          (await caches.keys()).map(async (name) =>
+            (await (await caches.open(name)).keys()).map(
+              (request) => new URL(request.url).pathname
+            )
+          )
+        )
+      ).flat();
+
+      return {
+        script: new URL(registration.active!.scriptURL).pathname,
+        scope: new URL(registration.scope).pathname,
+        guard,
+        cachedPaths,
+        unexpectedPaths: cachedPaths.filter(
+          (path) =>
+            !path.startsWith("/_next/static/") &&
+            !path.startsWith("/images/") &&
+            !["/offline", "/favicon.ico", "/pwa-push.js"].includes(path)
+        ),
+      };
+    });
+
+    expect(workerState.script).toBe("/sw.js");
+    expect(workerState.scope).toBe("/");
+    expect(workerState.guard).toEqual({
+      type: "BOARDPORT_PUSH_DISPLAY_GUARD_VERSION_RESPONSE",
+      version: 1,
+    });
+    expect(workerState.cachedPaths).toContain("/offline");
+    expect(workerState.unexpectedPaths).toEqual([]);
 
     await context.setOffline(true);
     try {

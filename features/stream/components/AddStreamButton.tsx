@@ -50,8 +50,8 @@ export default function AddStreamButton() {
       onMouseEnter={prefetchOnIntent}
       onFocus={prefetchOnIntent}
       onTouchStart={prefetchOnIntent}
-      aria-label="새 스트리밍 생성"
-      title="새 스트리밍 생성"
+      aria-label="새 방송 시작"
+      title="새 방송 시작"
       className={cn(
         "focus-ring-strong fixed z-40 flex items-center justify-center rounded-full transition-[background-color,color,border-color,box-shadow] motion-safe:transition-transform duration-300",
         "bg-brand text-white hover:bg-brand-dark dark:bg-brand dark:text-white dark:hover:bg-brand-dark",

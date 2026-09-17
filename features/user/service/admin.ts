@@ -92,7 +92,7 @@ export async function getUsersAdminInsights(
         ],
         statusSlices: [
           {
-            label: "일반 회원",
+            label: "일반 사용자",
             value: regularUsers,
             color: "#2563eb",
           },
@@ -120,7 +120,7 @@ export async function getUsersAdminInsights(
     console.error("[getUsersAdminInsights Error]:", error);
     return {
       success: false,
-      error: "유저 인사이트를 불러오지 못했습니다.",
+      error: "사용자 인사이트를 불러오지 못했습니다.",
     };
   }
 }
@@ -185,7 +185,7 @@ export async function getUsersAdmin(
     };
   } catch (error) {
     console.error("[getUsersAdmin Error]:", error);
-    return { success: false, error: "유저 목록을 불러오지 못했습니다." };
+    return { success: false, error: "사용자 목록을 불러오지 못했습니다." };
   }
 }
 
@@ -219,7 +219,7 @@ export async function updateUserRole(
     void sendAdminActionNotification({
       targetUserId,
       type: "CHANGE_ROLE",
-      title: newRole === "ADMIN" ? "관리자" : "일반 선원",
+      title: newRole === "ADMIN" ? "관리자" : "일반 사용자",
       reason: reason?.trim() || "관리자 설정에 의한 변경",
       link: "/profile",
     });
@@ -239,7 +239,7 @@ export async function updateUserRole(
     console.error("[updateUserRole Error]:", error);
     return {
       success: false,
-      error: "유저 권한 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "사용자 권한 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
@@ -270,7 +270,7 @@ export async function toggleUserBan(
       select: { bannedAt: true, role: true },
     });
 
-    if (!user) return { success: false, error: "유저를 찾을 수 없습니다." };
+    if (!user) return { success: false, error: "사용자를 찾을 수 없습니다." };
     if (user.role === "ADMIN")
       return { success: false, error: "관리자는 정지할 수 없습니다." };
 
@@ -353,7 +353,7 @@ export async function toggleUserBan(
     console.error("[toggleUserBan Error]:", error);
     return {
       success: false,
-      error: "유저 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "사용자 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }
@@ -379,7 +379,7 @@ export async function banUserByAdmin(
       select: { role: true },
     });
 
-    if (!user) return { success: false, error: "유저를 찾을 수 없습니다." };
+    if (!user) return { success: false, error: "사용자를 찾을 수 없습니다." };
     if (user.role === "ADMIN")
       return { success: false, error: "관리자는 정지할 수 없습니다." };
 
@@ -434,7 +434,7 @@ export async function banUserByAdmin(
     console.error("[banUserByAdmin Error]:", error);
     return {
       success: false,
-      error: "유저 정지 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      error: "사용자 정지 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
     };
   }
 }

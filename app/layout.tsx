@@ -10,10 +10,14 @@
  * 2026.08.23  임도헌   Modified  metadata base URL을 공용 trusted origin 검증으로 통합
  * 2026.08.27  임도헌   Modified  키보드 사용자를 위한 공통 본문 바로가기 링크 추가
  * 2026.08.28  임도헌   Modified  루트 레이아웃 함수 JSDoc 보강
+ * 2026.09.10  임도헌   Modified  기존 Push 워커 주소와 classic 등록을 유지하는 Serwist Provider 추가
+ * 2026.09.11  임도헌   Modified  경로 그룹 전환 시 테마 초기화 스크립트 재실행 방지를 위한 ThemeProvider 공통화
  */
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { SerwistProvider } from "@serwist/next/react";
 import SkipLink from "@/components/global/SkipLink";
+import ThemeProvider from "@/components/global/providers/ThemeProvider";
 import { getTrustedAppBaseUrl } from "@/lib/env";
 import "./globals.css";
 
@@ -89,8 +93,18 @@ export default function RootLayout({
       className={pretendardSubset.variable}
     >
       <body className="font-sans">
-        <SkipLink />
-        {children}
+        {/* importScripts 기반 Push 보호 코드와 기존 루트 scope 유지 */}
+        <SerwistProvider
+          swUrl="/sw.js"
+          options={{ scope: "/", type: "classic" }}
+          cacheOnNavigation={false}
+          disable={process.env.NODE_ENV === "development"}
+        >
+          <ThemeProvider disableTransitionOnChange>
+            <SkipLink />
+            {children}
+          </ThemeProvider>
+        </SerwistProvider>
       </body>
     </html>
   );
